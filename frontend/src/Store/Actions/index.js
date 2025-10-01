@@ -7,7 +7,6 @@ import * as episodes from './episodeActions';
 import * as episodeFiles from './episodeFileActions';
 import * as episodeHistory from './episodeHistoryActions';
 import * as episodeSelection from './episodeSelectionActions';
-import * as history from './historyActions';
 import * as importSeries from './importSeriesActions';
 import * as interactiveImportActions from './interactiveImportActions';
 import * as oAuth from './oAuthActions';
@@ -35,7 +34,6 @@ export default [
   episodeFiles,
   episodeHistory,
   episodeSelection,
-  history,
   importSeries,
   interactiveImportActions,
   oAuth,

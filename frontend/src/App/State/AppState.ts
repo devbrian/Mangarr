@@ -90,7 +90,6 @@ interface AppState {
   episodeHistory: HistoryAppState;
   episodes: EpisodesAppState;
   episodesSelection: EpisodesAppState;
-  history: HistoryAppState;
   importSeries: ImportSeriesAppState;
   interactiveImport: InteractiveImportAppState;
   oAuth: OAuthAppState;

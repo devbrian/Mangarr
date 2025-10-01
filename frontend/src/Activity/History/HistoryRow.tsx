@@ -1,5 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import React, { useCallback, useState } from 'react';
 import IconButton from 'Components/Link/IconButton';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
@@ -13,13 +12,11 @@ import EpisodeQuality from 'Episode/EpisodeQuality';
 import EpisodeTitleLink from 'Episode/EpisodeTitleLink';
 import SeasonEpisodeNumber from 'Episode/SeasonEpisodeNumber';
 import useEpisode from 'Episode/useEpisode';
-import usePrevious from 'Helpers/Hooks/usePrevious';
 import { icons, tooltipPositions } from 'Helpers/Props';
 import Language from 'Language/Language';
 import { QualityModel } from 'Quality/Quality';
 import SeriesTitleLink from 'Series/SeriesTitleLink';
 import useSeries from 'Series/useSeries';
-import { fetchHistory, markAsFailed } from 'Store/Actions/historyActions';
 import CustomFormat from 'typings/CustomFormat';
 import { HistoryData, HistoryEventType } from 'typings/History';
 import formatCustomFormatScore from 'Utilities/Number/formatCustomFormatScore';
@@ -61,13 +58,9 @@ function HistoryRow(props: HistoryRowProps) {
     date,
     data,
     downloadId,
-    isMarkingAsFailed = false,
-    markAsFailedError,
     columns,
   } = props;
 
-  const wasMarkingAsFailed = usePrevious(isMarkingAsFailed);
-  const dispatch = useDispatch();
   const series = useSeries(seriesId);
   const episode = useEpisode(episodeId, 'episodes');
 
@@ -80,23 +73,6 @@ function HistoryRow(props: HistoryRowProps) {
   const handleDetailsModalClose = useCallback(() => {
     setIsDetailsModalOpen(false);
   }, [setIsDetailsModalOpen]);
-
-  const handleMarkAsFailedPress = useCallback(() => {
-    dispatch(markAsFailed({ id }));
-  }, [id, dispatch]);
-
-  useEffect(() => {
-    if (wasMarkingAsFailed && !isMarkingAsFailed && !markAsFailedError) {
-      setIsDetailsModalOpen(false);
-      dispatch(fetchHistory());
-    }
-  }, [
-    wasMarkingAsFailed,
-    isMarkingAsFailed,
-    markAsFailedError,
-    setIsDetailsModalOpen,
-    dispatch,
-  ]);
 
   if (!series || !episode) {
     return null;
@@ -254,13 +230,12 @@ function HistoryRow(props: HistoryRowProps) {
       })}
 
       <HistoryDetailsModal
+        id={id}
         isOpen={isDetailsModalOpen}
         eventType={eventType}
         sourceTitle={sourceTitle}
         data={data}
         downloadId={downloadId}
-        isMarkingAsFailed={isMarkingAsFailed}
-        onMarkAsFailedPress={handleMarkAsFailedPress}
         onModalClose={handleDetailsModalClose}
       />
     </TableRow>

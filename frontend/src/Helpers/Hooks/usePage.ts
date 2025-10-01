@@ -5,12 +5,14 @@ import { create } from 'zustand';
 interface PageStore {
   blocklist: number;
   events: number;
+  history: number;
   queue: number;
 }
 
 const pageStore = create<PageStore>(() => ({
   blocklist: 1,
   events: 1,
+  history: 1,
   queue: 1,
 }));
 

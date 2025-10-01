@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import AppState from 'App/State/AppState';
+import {
+  setQueueOption,
+  setQueueOptions,
+} from 'Activity/Queue/queueOptionsStore';
 import Alert from 'Components/Alert';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import FilterMenu from 'Components/Menu/FilterMenu';
@@ -13,20 +16,11 @@ import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableOptionsModalWrapper from 'Components/Table/TableOptions/TableOptionsModalWrapper';
 import TablePager from 'Components/Table/TablePager';
-import usePaging from 'Components/Table/usePaging';
 import createEpisodesFetchingSelector from 'Episode/createEpisodesFetchingSelector';
 import useCurrentPage from 'Helpers/Hooks/useCurrentPage';
 import { align, icons, kinds } from 'Helpers/Props';
 import { clearEpisodes, fetchEpisodes } from 'Store/Actions/episodeActions';
 import { clearEpisodeFiles } from 'Store/Actions/episodeFileActions';
-import {
-  clearHistory,
-  fetchHistory,
-  gotoHistoryPage,
-  setHistoryFilter,
-  setHistorySort,
-  setHistoryTableOption,
-} from 'Store/Actions/historyActions';
 import { createCustomFiltersSelector } from 'Store/Selectors/createClientSideCollectionSelector';
 import HistoryItem from 'typings/History';
 import { TableOptionsChangePayload } from 'typings/Table';
@@ -37,100 +31,90 @@ import {
 } from 'Utilities/pagePopulator';
 import translate from 'Utilities/String/translate';
 import HistoryFilterModal from './HistoryFilterModal';
+import { useHistoryOptions } from './historyOptionsStore';
 import HistoryRow from './HistoryRow';
+import useHistory, { useFilters } from './useHistory';
 
 function History() {
-  const requestCurrentPage = useCurrentPage();
-
   const {
-    isFetching,
-    isPopulated,
-    error,
-    items,
-    columns,
-    selectedFilterKey,
-    filters,
-    sortKey,
-    sortDirection,
-    page,
-    pageSize,
+    records,
     totalPages,
     totalRecords,
-  } = useSelector((state: AppState) => state.history);
+    error,
+    isFetching,
+    isFetched,
+    isLoading,
+    page,
+    goToPage,
+    refetch,
+  } = useHistory();
+
+  const { columns, pageSize, sortKey, sortDirection, selectedFilterKey } =
+    useHistoryOptions();
+
+  const filters = useFilters();
+
+  const requestCurrentPage = useCurrentPage();
 
   const { isEpisodesFetching, isEpisodesPopulated, episodesError } =
     useSelector(createEpisodesFetchingSelector());
   const customFilters = useSelector(createCustomFiltersSelector('history'));
   const dispatch = useDispatch();
 
-  const isFetchingAny = isFetching || isEpisodesFetching;
-  const isAllPopulated = isPopulated && (isEpisodesPopulated || !items.length);
+  const isFetchingAny = isLoading || isEpisodesFetching;
+  const isAllPopulated = isFetched && (isEpisodesPopulated || !records.length);
   const hasError = error || episodesError;
-
-  const {
-    handleFirstPagePress,
-    handlePreviousPagePress,
-    handleNextPagePress,
-    handleLastPagePress,
-    handlePageSelect,
-  } = usePaging({
-    page,
-    totalPages,
-    gotoPage: gotoHistoryPage,
-  });
 
   const handleFilterSelect = useCallback(
     (selectedFilterKey: string | number) => {
-      dispatch(setHistoryFilter({ selectedFilterKey }));
+      setQueueOption('selectedFilterKey', selectedFilterKey);
     },
-    [dispatch]
+    []
   );
 
-  const handleSortPress = useCallback(
-    (sortKey: string) => {
-      dispatch(setHistorySort({ sortKey }));
-    },
-    [dispatch]
-  );
+  const handleSortPress = useCallback((sortKey: string) => {
+    setQueueOption('sortKey', sortKey);
+  }, []);
 
   const handleTableOptionChange = useCallback(
     (payload: TableOptionsChangePayload) => {
-      dispatch(setHistoryTableOption(payload));
+      setQueueOptions(payload);
 
       if (payload.pageSize) {
-        dispatch(gotoHistoryPage({ page: 1 }));
+        goToPage(1);
       }
     },
-    [dispatch]
+    [goToPage]
   );
 
-  useEffect(() => {
-    if (requestCurrentPage) {
-      dispatch(fetchHistory());
-    } else {
-      dispatch(gotoHistoryPage({ page: 1 }));
-    }
+  const handleRefreshPress = useCallback(() => {
+    goToPage(1);
+    refetch();
+  }, [goToPage, refetch]);
 
+  useEffect(() => {
     return () => {
-      dispatch(clearHistory());
       dispatch(clearEpisodes());
       dispatch(clearEpisodeFiles());
     };
   }, [requestCurrentPage, dispatch]);
 
   useEffect(() => {
-    const episodeIds = selectUniqueIds<HistoryItem, number>(items, 'episodeId');
+    const episodeIds = selectUniqueIds<HistoryItem, number>(
+      records,
+      'episodeId'
+    );
 
     if (episodeIds.length) {
       dispatch(fetchEpisodes({ episodeIds }));
     } else {
       dispatch(clearEpisodes());
     }
-  }, [items, dispatch]);
+  }, [records, dispatch]);
 
   useEffect(() => {
     const repopulate = () => {
-      dispatch(fetchHistory());
+      refetch();
     };
 
     registerPagePopulator(repopulate);
@@ -138,7 +122,7 @@ function History() {
     return () => {
       unregisterPagePopulator(repopulate);
     };
-  }, [dispatch]);
+  }, [refetch]);
 
   return (
     <PageContent title={translate('History')}>
@@ -148,7 +132,7 @@ function History() {
             label={translate('Refresh')}
             iconName={icons.REFRESH}
             isSpinning={isFetching}
-            onPress={handleFirstPagePress}
+            onPress={handleRefreshPress}
           />
         </PageToolbarSection>
 
@@ -186,12 +170,12 @@ function History() {
           // If history isPopulated and it's empty show no history found and don't
           // wait for the episodes to populate because they are never coming.
 
-          isPopulated && !hasError && !items.length ? (
+          isFetched && !hasError && !records.length ? (
             <Alert kind={kinds.INFO}>{translate('NoHistoryFound')}</Alert>
           ) : null
         }
 
-        {isAllPopulated && !hasError && items.length ? (
+        {isAllPopulated && !hasError && records.length ? (
           <div>
             <Table
               columns={columns}
@@ -202,7 +186,7 @@ function History() {
               onSortPress={handleSortPress}
             >
               <TableBody>
-                {items.map((item) => {
+                {records.map((item) => {
                   return (
                     <HistoryRow key={item.id} columns={columns} {...item} />
                   );
@@ -215,11 +199,7 @@ function History() {
               totalPages={totalPages}
               totalRecords={totalRecords}
               isFetching={isFetching}
-              onFirstPagePress={handleFirstPagePress}
-              onPreviousPagePress={handlePreviousPagePress}
-              onNextPagePress={handleNextPagePress}
-              onLastPagePress={handleLastPagePress}
-              onPageSelect={handlePageSelect}
+              onPageSelect={goToPage}
             />
           </div>
         ) : null}
