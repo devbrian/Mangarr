@@ -15,7 +15,6 @@ import { icons, kinds } from 'Helpers/Props';
 import useUpdateSettings from 'Settings/General/useUpdateSettings';
 import { executeCommand } from 'Store/Actions/commandActions';
 import { fetchGeneralSettings } from 'Store/Actions/settingsActions';
-import { fetchUpdates } from 'Store/Actions/systemActions';
 import createCommandExecutingSelector from 'Store/Selectors/createCommandExecutingSelector';
 import createSystemStatusSelector from 'Store/Selectors/createSystemStatusSelector';
 import createUISettingsSelector from 'Store/Selectors/createUISettingsSelector';
@@ -114,7 +113,6 @@ function Updates() {
   }, [setIsMajorUpdateModalOpen]);
 
   useEffect(() => {
-    dispatch(fetchUpdates());
     dispatch(fetchGeneralSettings());
   }, [dispatch]);
 

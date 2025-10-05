@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import Button from 'Components/Link/Button';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import InlineMarkdown from 'Components/Markdown/InlineMarkdown';
@@ -9,7 +9,6 @@ import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import usePrevious from 'Helpers/Hooks/usePrevious';
 import { kinds } from 'Helpers/Props';
-import { fetchUpdates } from 'Store/Actions/systemActions';
 import UpdateChanges from 'System/Updates/UpdateChanges';
 import useUpdates from 'System/Updates/useUpdates';
 import Update from 'typings/Update';
@@ -64,9 +63,8 @@ interface AppUpdatedModalContentProps {
 }
 
 function AppUpdatedModalContent(props: AppUpdatedModalContentProps) {
-  const dispatch = useDispatch();
   const { version, prevVersion } = useSelector((state: AppState) => state.app);
-  const { isFetched, error, data } = useUpdates();
+  const { isFetched, error, data, refetch } = useUpdates();
   const previousVersion = usePrevious(version);
 
   const { onModalClose } = props;
@@ -78,14 +76,10 @@ function AppUpdatedModalContent(props: AppUpdatedModalContentProps) {
   }, []);
 
   useEffect(() => {
-    dispatch(fetchUpdates());
-  }, [dispatch]);
-
-  useEffect(() => {
     if (version !== previousVersion) {
-      dispatch(fetchUpdates());
+      refetch();
     }
-  }, [version, previousVersion, dispatch]);
+  }, [version, previousVersion, refetch]);
 
   return (
     <ModalContent onModalClose={onModalClose}>
