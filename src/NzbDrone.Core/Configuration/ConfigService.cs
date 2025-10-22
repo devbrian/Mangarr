@@ -343,6 +343,13 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("TimeFormat", value); }
         }
 
+        public string TimeZone
+        {
+            get { return GetValue("TimeZone", ""); }
+
+            set { SetValue("TimeZone", value); }
+        }
+
         public bool ShowRelativeDates
         {
             get { return GetValueBoolean("ShowRelativeDates", true); }
