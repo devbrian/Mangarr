@@ -5,15 +5,18 @@ using NLog;
 using NzbDrone.Common.Crypto;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
+using NzbDrone.Core.Configuration.Events;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.DecisionEngine;
 using NzbDrone.Core.Download.Aggregation;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Jobs;
+using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Parser;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Profiles.Delay;
+using NzbDrone.Core.Profiles.Qualities;
 using NzbDrone.Core.Qualities;
 using NzbDrone.Core.Queue;
 using NzbDrone.Core.Tv;
@@ -37,9 +40,14 @@ namespace NzbDrone.Core.Download.Pending
     }
 
     public class PendingReleaseService : IPendingReleaseService,
+                                         IHandle<SeriesEditedEvent>,
+                                         IHandle<SeriesUpdatedEvent>,
                                          IHandle<SeriesDeletedEvent>,
                                          IHandle<EpisodeGrabbedEvent>,
-                                         IHandle<RssSyncCompleteEvent>
+                                         IHandle<RssSyncCompleteEvent>,
+                                         IHandle<QualityProfileUpdatedEvent>,
+                                         IHandle<ConfigSavedEvent>,
+                                         IHandle<ApplicationStartedEvent>
     {
         private readonly IIndexerStatusService _indexerStatusService;
         private readonly IPendingReleaseRepository _repository;
@@ -54,6 +62,8 @@ namespace NzbDrone.Core.Download.Pending
         private readonly IIndexerFactory _indexerFactory;
         private readonly IEventAggregator _eventAggregator;
         private readonly Logger _logger;
+
+        private static List<PendingRelease> _pendingReleases = new();
 
         public PendingReleaseService(IIndexerStatusService indexerStatusService,
                                     IPendingReleaseRepository repository,
@@ -91,11 +101,14 @@ namespace NzbDrone.Core.Download.Pending
 
         public void AddMany(List<Tuple<DownloadDecision, PendingReleaseReason>> decisions)
         {
+            var pending = _pendingReleases;
+
             foreach (var seriesDecisions in decisions.GroupBy(v => v.Item1.RemoteEpisode.Series.Id))
             {
                 var series = seriesDecisions.First().Item1.RemoteEpisode.Series;
-                var alreadyPending = _repository.AllBySeriesId(series.Id);
+                var alreadyPending = _pendingReleases.Where(p => p.SeriesId == series.Id).SelectList(s => s.JsonClone());
 
+                // TODO: Do we need IncludeRemoteEpisodes?
                 alreadyPending = IncludeRemoteEpisodes(alreadyPending, seriesDecisions.ToDictionaryIgnoreDuplicates(v => v.Item1.RemoteEpisode.Release.Title, v => v.Item1.RemoteEpisode));
                 var alreadyPendingByEpisode = CreateEpisodeLookup(alreadyPending);
 
@@ -152,6 +165,8 @@ namespace NzbDrone.Core.Download.Pending
                     Insert(decision, reason);
                 }
             }
+
+            UpdatePendingReleases();
         }
 
         public List<ReleaseInfo> GetPending()
@@ -175,16 +190,14 @@ namespace NzbDrone.Core.Download.Pending
 
         public List<RemoteEpisode> GetPendingRemoteEpisodes(int seriesId)
         {
-            return IncludeRemoteEpisodes(_repository.AllBySeriesId(seriesId)).Select(v => v.RemoteEpisode).ToList();
+            return _pendingReleases.Where(p => p.SeriesId == seriesId).Select(p => p.RemoteEpisode).ToList();
         }
 
         public List<Queue.Queue> GetPendingQueue()
         {
             var queued = new List<Queue.Queue>();
-
             var nextRssSync = new Lazy<DateTime>(() => _taskManager.GetNextExecution(typeof(RssSyncCommand)));
-
-            var pendingReleases = IncludeRemoteEpisodes(_repository.WithoutFallback());
+            var pendingReleases = _pendingReleases.Where(p => p.Reason != PendingReleaseReason.Fallback).ToList();
 
             foreach (var pendingRelease in pendingReleases)
             {
@@ -218,10 +231,8 @@ namespace NzbDrone.Core.Download.Pending
         public List<Queue.Queue> GetPendingQueueObsolete()
         {
             var queued = new List<Queue.Queue>();
-
             var nextRssSync = new Lazy<DateTime>(() => _taskManager.GetNextExecution(typeof(RssSyncCommand)));
-
-            var pendingReleases = IncludeRemoteEpisodes(_repository.WithoutFallback());
+            var pendingReleases = _pendingReleases.Where(p => p.Reason != PendingReleaseReason.Fallback).ToList();
 
             foreach (var pendingRelease in pendingReleases)
             {
@@ -317,12 +328,12 @@ namespace NzbDrone.Core.Download.Pending
 
         private List<PendingRelease> GetPendingReleases()
         {
-            return IncludeRemoteEpisodes(_repository.All().ToList());
+            return _pendingReleases;
         }
 
         private List<PendingRelease> GetPendingReleases(int seriesId)
         {
-            return IncludeRemoteEpisodes(_repository.AllBySeriesId(seriesId).ToList());
+            return _pendingReleases.Where(p => p.SeriesId == seriesId).ToList();
         }
 
         private List<PendingRelease> IncludeRemoteEpisodes(List<PendingRelease> releases, Dictionary<string, RemoteEpisode> knownRemoteEpisodes = null)
@@ -632,19 +643,52 @@ namespace NzbDrone.Core.Download.Pending
             return 1;
         }
 
+        private void UpdatePendingReleases()
+        {
+            _pendingReleases = IncludeRemoteEpisodes(_repository.All().ToList());
+        }
+
+        public void Handle(SeriesEditedEvent message)
+        {
+            UpdatePendingReleases();
+        }
+
+        public void Handle(SeriesUpdatedEvent message)
+        {
+            UpdatePendingReleases();
+        }
+
         public void Handle(SeriesDeletedEvent message)
         {
             _repository.DeleteBySeriesIds(message.Series.Select(m => m.Id).ToList());
+            UpdatePendingReleases();
         }
 
         public void Handle(EpisodeGrabbedEvent message)
         {
             RemoveGrabbed(message.Episode);
+            UpdatePendingReleases();
         }
 
         public void Handle(RssSyncCompleteEvent message)
         {
             RemoveRejected(message.ProcessedDecisions.Rejected);
+            UpdatePendingReleases();
+        }
+
+        public void Handle(QualityProfileUpdatedEvent message)
+        {
+            UpdatePendingReleases();
+        }
+
+        public void Handle(ApplicationStartedEvent message)
+        {
+            UpdatePendingReleases();
+        }
+
+        public void Handle(ConfigSavedEvent message)
+        {
+            UpdatePendingReleases();
         }
 
         private static Func<PendingRelease, bool> MatchingReleasePredicate(ReleaseInfo release)

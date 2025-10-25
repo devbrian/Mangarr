@@ -33,18 +33,21 @@ namespace NzbDrone.Core.Profiles.Qualities
         private readonly IImportListFactory _importListFactory;
         private readonly ICustomFormatService _formatService;
         private readonly ISeriesService _seriesService;
+        private readonly IEventAggregator _eventAggregator;
         private readonly Logger _logger;
 
         public QualityProfileService(IQualityProfileRepository qualityProfileRepository,
                                      IImportListFactory importListFactory,
                                      ICustomFormatService formatService,
                                      ISeriesService seriesService,
+                                     IEventAggregator eventAggregator,
                                      Logger logger)
         {
             _qualityProfileRepository = qualityProfileRepository;
             _importListFactory = importListFactory;
             _formatService = formatService;
             _seriesService = seriesService;
+            _eventAggregator = eventAggregator;
             _logger = logger;
         }
 
@@ -56,6 +59,7 @@ namespace NzbDrone.Core.Profiles.Qualities
         public void Update(QualityProfile profile)
         {
             _qualityProfileRepository.Update(profile);
+            _eventAggregator.PublishEvent(new QualityProfileUpdatedEvent(profile.Id));
         }
 
         public void Delete(int id)

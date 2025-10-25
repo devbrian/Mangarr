@@ -5,6 +5,7 @@ using Moq;
 using NUnit.Framework;
 using NzbDrone.Common.Crypto;
 using NzbDrone.Core.Download.Pending;
+using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Parser;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Test.Framework;
@@ -62,6 +63,11 @@ namespace NzbDrone.Core.Test.Download.Pending.PendingReleaseServiceTests
              });
         }
 
+        private void InitializeReleases()
+        {
+            Subject.Handle(new ApplicationStartedEvent());
+        }
+
         [Test]
         public void should_remove_same_release()
         {
@@ -69,6 +75,7 @@ namespace NzbDrone.Core.Test.Download.Pending.PendingReleaseServiceTests
 
             var queueId = HashConverter.GetHashInt31(string.Format("pending-{0}-ep{1}", 1, _episode.Id));
 
+            InitializeReleases();
             Subject.RemovePendingQueueItemsObsolete(queueId);
 
             AssertRemoved(1);
@@ -84,6 +91,7 @@ namespace NzbDrone.Core.Test.Download.Pending.PendingReleaseServiceTests
 
             var queueId = HashConverter.GetHashInt31(string.Format("pending-{0}-ep{1}", 3, _episode.Id));
 
+            InitializeReleases();
             Subject.RemovePendingQueueItemsObsolete(queueId);
 
             AssertRemoved(3, 4);
@@ -99,6 +107,7 @@ namespace NzbDrone.Core.Test.Download.Pending.PendingReleaseServiceTests
 
             var queueId = HashConverter.GetHashInt31(string.Format("pending-{0}-ep{1}", 1, _episode.Id));
 
+            InitializeReleases();
             Subject.RemovePendingQueueItemsObsolete(queueId);
 
             AssertRemoved(1, 2);
@@ -114,6 +123,7 @@ namespace NzbDrone.Core.Test.Download.Pending.PendingReleaseServiceTests
 
             var queueId = HashConverter.GetHashInt31(string.Format("pending-{0}-ep{1}", 1, _episode.Id));
 
+            InitializeReleases();
             Subject.RemovePendingQueueItemsObsolete(queueId);
 
             AssertRemoved(1, 2);
@@ -127,6 +137,7 @@ namespace NzbDrone.Core.Test.Download.Pending.PendingReleaseServiceTests
 
             var queueId = HashConverter.GetHashInt31(string.Format("pending-{0}-ep{1}", 1, _episode.Id));
 
+            InitializeReleases();
             Subject.RemovePendingQueueItemsObsolete(queueId);
 
             AssertRemoved(1);
@@ -140,6 +151,7 @@ namespace NzbDrone.Core.Test.Download.Pending.PendingReleaseServiceTests
 
             var queueId = HashConverter.GetHashInt31(string.Format("pending-{0}-ep{1}", 2, _episode.Id));
 
+            InitializeReleases();
             Subject.RemovePendingQueueItemsObsolete(queueId);
 
             AssertRemoved(2);
