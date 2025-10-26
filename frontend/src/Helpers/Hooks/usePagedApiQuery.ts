@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { PropertyFilter } from 'App/State/AppState';
 import { SortDirection } from 'Helpers/Props/sortDirections';
@@ -89,6 +89,7 @@ const usePagedApiQuery = <T>(options: PagedQueryOptions<T>) => {
         ),
       };
     },
+    placeholderData: keepPreviousData,
   });
 
   return {

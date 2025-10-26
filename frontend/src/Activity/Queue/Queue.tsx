@@ -63,7 +63,6 @@ function Queue() {
     totalRecords,
     error,
     isFetching,
-    isFetched,
     isLoading,
     page,
     goToPage,
@@ -108,8 +107,10 @@ function Queue() {
 
   const isRefreshing =
     isLoading || isEpisodesFetching || isRefreshMonitoredDownloadsExecuting;
+
+  // Use isLoading over isFetched to avoid losing the table UI when switching pages
   const isAllPopulated =
-    isFetched &&
+    !isLoading &&
     (isEpisodesPopulated ||
       !records.length ||
       records.every((e) => !e.episodeIds?.length));
