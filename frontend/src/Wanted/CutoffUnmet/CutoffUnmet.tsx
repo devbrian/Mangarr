@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  PropsWithChildren,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import QueueDetailsProvider from 'Activity/Queue/Details/QueueDetailsProvider';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
@@ -20,10 +26,10 @@ import TableOptionsModalWrapper from 'Components/Table/TableOptions/TableOptions
 import TablePager from 'Components/Table/TablePager';
 import Episode from 'Episode/Episode';
 import { useToggleEpisodesMonitored } from 'Episode/useEpisode';
+import EpisodeFileProvider from 'EpisodeFile/EpisodeFileProvider';
 import { align, icons, kinds } from 'Helpers/Props';
 import { SortDirection } from 'Helpers/Props/sortDirections';
 import { executeCommand } from 'Store/Actions/commandActions';
-import { fetchEpisodeFiles } from 'Store/Actions/episodeFileActions';
 import createCommandExecutingSelector from 'Store/Selectors/createCommandExecutingSelector';
 import { CheckInputChanged } from 'typings/inputs';
 import { TableOptionsChangePayload } from 'typings/Table';
@@ -195,14 +201,11 @@ function CutoffUnmetContent() {
     };
   }, [refetch]);
 
-  useEffect(() => {
-    if (episodeFileIds.length) {
-      dispatch(fetchEpisodeFiles({ episodeFileIds }));
-    }
-  }, [episodeFileIds, dispatch]);
-
   return (
-    <QueueDetailsProvider episodeIds={episodeIds}>
+    <CutoffUnmetProvider
+      episodeIds={episodeIds}
+      episodeFileIds={episodeFileIds}
+    >
       <PageContent title={translate('CutoffUnmet')}>
         <PageToolbar>
           <PageToolbarSection>
@@ -328,7 +331,7 @@ function CutoffUnmetContent() {
           ) : null}
         </PageContentBody>
       </PageContent>
-    </QueueDetailsProvider>
+    </CutoffUnmetProvider>
   );
 }
 
@@ -339,5 +342,19 @@ export default function CutoffUnmet() {
     <SelectProvider<Episode> items={records}>
       <CutoffUnmetContent />
     </SelectProvider>
+  );
+}
+
+function CutoffUnmetProvider({
+  episodeIds,
+  episodeFileIds,
+  children,
+}: PropsWithChildren<{ episodeIds: number[]; episodeFileIds: number[] }>) {
+  return (
+    <QueueDetailsProvider episodeIds={episodeIds}>
+      <EpisodeFileProvider episodeFileIds={episodeFileIds}>
+        {children}
+      </EpisodeFileProvider>
+    </QueueDetailsProvider>
   );
 }
