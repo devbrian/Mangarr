@@ -1,11 +1,7 @@
-import ModelBase from 'App/ModelBase';
-import { FilterBuilderTypes } from 'Helpers/Props/filterBuilderTypes';
-import { DateFilterValue, FilterType } from 'Helpers/Props/filterTypes';
 import { Error } from './AppSectionState';
 import BlocklistAppState from './BlocklistAppState';
 import CaptchaAppState from './CaptchaAppState';
 import CommandAppState from './CommandAppState';
-import CustomFiltersAppState from './CustomFiltersAppState';
 import EpisodesAppState from './EpisodesAppState';
 import HistoryAppState, { SeriesHistoryAppState } from './HistoryAppState';
 import ImportSeriesAppState from './ImportSeriesAppState';
@@ -16,38 +12,6 @@ import OrganizePreviewAppState from './OrganizePreviewAppState';
 import ProviderOptionsAppState from './ProviderOptionsAppState';
 import SeriesAppState, { SeriesIndexAppState } from './SeriesAppState';
 import SettingsAppState from './SettingsAppState';
-
-export interface FilterBuilderPropOption {
-  id: string;
-  name: string;
-}
-
-export interface FilterBuilderProp<T> {
-  name: string;
-  label: string | (() => string);
-  type: FilterBuilderTypes;
-  valueType?: string;
-  optionsSelector?: (items: T[]) => FilterBuilderPropOption[];
-}
-
-// TODO: Make generic so key can be keyof T
-export interface PropertyFilter {
-  key: string;
-  value: string | string[] | number[] | boolean[] | DateFilterValue;
-  type: FilterType;
-}
-
-export interface Filter {
-  key: string;
-  label: string | (() => string);
-  filters: PropertyFilter[];
-}
-
-export interface CustomFilter extends ModelBase {
-  type: string;
-  label: string;
-  filters: PropertyFilter[];
-}
 
 export interface AppSectionState {
   isUpdated: boolean;
@@ -76,7 +40,6 @@ interface AppState {
   blocklist: BlocklistAppState;
   captcha: CaptchaAppState;
   commands: CommandAppState;
-  customFilters: CustomFiltersAppState;
   episodeHistory: HistoryAppState;
   episodes: EpisodesAppState;
   episodesSelection: EpisodesAppState;
