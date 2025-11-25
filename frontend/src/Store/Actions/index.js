@@ -12,7 +12,6 @@ import * as organizePreview from './organizePreviewActions';
 import * as paths from './pathActions';
 import * as providerOptions from './providerOptionActions';
 import * as releases from './releaseActions';
-import * as rootFolders from './rootFolderActions';
 import * as series from './seriesActions';
 import * as seriesHistory from './seriesHistoryActions';
 import * as seriesIndex from './seriesIndexActions';
@@ -33,7 +32,6 @@ export default [
   paths,
   providerOptions,
   releases,
-  rootFolders,
   series,
   seriesHistory,
   seriesIndex,

@@ -18,7 +18,6 @@ import {
   finishCommand,
   updateCommand,
 } from 'Store/Actions/commandActions';
-import { fetchRootFolders } from 'Store/Actions/rootFolderActions';
 import { fetchSeries } from 'Store/Actions/seriesActions';
 import { fetchQualityDefinitions } from 'Store/Actions/settingsActions';
 import { repopulatePage } from 'Utilities/pagePopulator';
@@ -322,7 +321,11 @@ function SignalRListener() {
     }
 
     if (name === 'rootfolder') {
-      dispatch(fetchRootFolders());
+      if (version < 5) {
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['/rootFolder'] });
 
       return;
     }
