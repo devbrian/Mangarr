@@ -7,7 +7,6 @@ import AppSectionState, {
   PagedAppSectionState,
 } from 'App/State/AppSectionState';
 import Language from 'Language/Language';
-import { QualityProfileModel } from 'Settings/Profiles/Quality/useQualityProfiles';
 import AutoTagging, { AutoTaggingSpecification } from 'typings/AutoTagging';
 import CustomFormat from 'typings/CustomFormat';
 import CustomFormatSpecification from 'typings/CustomFormatSpecification';
@@ -19,7 +18,6 @@ import ImportListOptionsSettings from 'typings/ImportListOptionsSettings';
 import Indexer from 'typings/Indexer';
 import IndexerFlag from 'typings/IndexerFlag';
 import Notification from 'typings/Notification';
-import QualityDefinition from 'typings/QualityDefinition';
 import DownloadClientOptions from 'typings/Settings/DownloadClientOptions';
 import General from 'typings/Settings/General';
 import IndexerOptions from 'typings/Settings/IndexerOptions';
@@ -100,14 +98,6 @@ export interface NotificationAppState
     AppSectionSaveState,
     AppSectionSchemaState<Presets<Notification>> {}
 
-export interface QualityDefinitionsAppState
-  extends AppSectionState<QualityDefinition>,
-    AppSectionSaveState {
-  pendingChanges: {
-    [key: number]: Partial<QualityProfileModel>;
-  };
-}
-
 export interface CustomFormatAppState
   extends AppSectionState<CustomFormat>,
     AppSectionDeleteState,
@@ -155,7 +145,6 @@ interface SettingsAppState {
   naming: NamingAppState;
   namingExamples: NamingExamplesAppState;
   notifications: NotificationAppState;
-  qualityDefinitions: QualityDefinitionsAppState;
 }
 
 export default SettingsAppState;

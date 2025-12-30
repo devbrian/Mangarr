@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { create, useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -23,34 +23,40 @@ export const usePendingChangesStore = <T extends object>(
     });
   });
 
-  const setPendingChange = <K extends keyof T>(key: K, value: T[K]) => {
-    store.setState((state) => ({
-      ...state,
-      pendingChanges: {
-        ...state.pendingChanges,
-        [key]: value,
-      },
-    }));
-  };
-
-  const unsetPendingChange = <K extends keyof T>(key: K) => {
-    store.setState((state) => {
-      const newPendingChanges = { ...state.pendingChanges };
-      delete newPendingChanges[key];
-
-      return {
+  const setPendingChange = useCallback(
+    <K extends keyof T>(key: K, value: T[K]) => {
+      store.setState((state) => ({
         ...state,
-        pendingChanges: newPendingChanges,
-      };
-    });
-  };
+        pendingChanges: {
+          ...state.pendingChanges,
+          [key]: value,
+        },
+      }));
+    },
+    [store]
+  );
 
-  const clearPendingChanges = () => {
+  const unsetPendingChange = useCallback(
+    <K extends keyof T>(key: K) => {
+      store.setState((state) => {
+        const newPendingChanges = { ...state.pendingChanges };
+        delete newPendingChanges[key];
+
+        return {
+          ...state,
+          pendingChanges: newPendingChanges,
+        };
+      });
+    },
+    [store]
+  );
+
+  const clearPendingChanges = useCallback(() => {
     store.setState((state) => ({
       ...state,
       pendingChanges: {},
     }));
-  };
+  }, [store]);
 
   const pendingChanges = useStore(
     store,

@@ -20,7 +20,6 @@ import metadata from './Settings/metadata';
 import naming from './Settings/naming';
 import namingExamples from './Settings/namingExamples';
 import notifications from './Settings/notifications';
-import qualityDefinitions from './Settings/qualityDefinitions';
 
 export * from './Settings/autoTaggingSpecifications';
 export * from './Settings/autoTaggings';
@@ -42,7 +41,6 @@ export * from './Settings/metadata';
 export * from './Settings/naming';
 export * from './Settings/namingExamples';
 export * from './Settings/notifications';
-export * from './Settings/qualityDefinitions';
 
 //
 // Variables
@@ -73,8 +71,7 @@ export const defaultState = {
   metadata: metadata.defaultState,
   naming: naming.defaultState,
   namingExamples: namingExamples.defaultState,
-  notifications: notifications.defaultState,
-  qualityDefinitions: qualityDefinitions.defaultState
+  notifications: notifications.defaultState
 };
 
 export const persistState = [
@@ -104,8 +101,7 @@ export const actionHandlers = handleThunks({
   ...metadata.actionHandlers,
   ...naming.actionHandlers,
   ...namingExamples.actionHandlers,
-  ...notifications.actionHandlers,
-  ...qualityDefinitions.actionHandlers
+  ...notifications.actionHandlers
 });
 
 //
@@ -131,7 +127,6 @@ export const reducers = createHandleActions({
   ...metadata.reducers,
   ...naming.reducers,
   ...namingExamples.reducers,
-  ...notifications.reducers,
-  ...qualityDefinitions.reducers
+  ...notifications.reducers
 
 }, defaultState, section);

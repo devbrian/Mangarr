@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import CommandNames from 'Commands/CommandNames';
-import { useCommandExecuting } from 'Commands/useCommands';
+import { useCommandExecuting, useExecuteCommand } from 'Commands/useCommands';
+import ConfirmModal from 'Components/Modal/ConfirmModal';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import PageToolbarButton from 'Components/Page/Toolbar/PageToolbarButton';
@@ -13,9 +14,9 @@ import {
 } from 'typings/Settings/SettingsState';
 import translate from 'Utilities/String/translate';
 import QualityDefinitions from './Definition/QualityDefinitions';
-import ResetQualityDefinitionsModal from './Reset/ResetQualityDefinitionsModal';
 
 function Quality() {
+  const executeCommand = useExecuteCommand();
   const isResettingQualityDefinitions = useCommandExecuting(
     CommandNames.ResetQualityDefinitions
   );
@@ -51,6 +52,15 @@ function Quality() {
     setIsConfirmQualityDefinitionResetModalOpen(false);
   }, []);
 
+  const handleResetQualityDefinitionsConfirmed = useCallback(() => {
+    executeCommand({
+      name: CommandNames.ResetQualityDefinitions,
+      resetTitles: true,
+    });
+
+    setIsConfirmQualityDefinitionResetModalOpen(false);
+  }, [executeCommand]);
+
   const handleSavePress = useCallback(() => {
     saveDefinitions.current?.();
   }, []);
@@ -68,13 +78,13 @@ function Quality() {
               label={translate('ResetDefinitions')}
               iconName={icons.REFRESH}
               isSpinning={isResettingQualityDefinitions}
+              isDisabled={isResettingQualityDefinitions}
               onPress={handleResetQualityDefinitionsPress}
             />
           </>
         }
         onSavePress={handleSavePress}
       />
-
       <PageContentBody>
         <QualityDefinitions
           isResettingQualityDefinitions={isResettingQualityDefinitions}
@@ -83,9 +93,14 @@ function Quality() {
         />
       </PageContentBody>
 
-      <ResetQualityDefinitionsModal
+      <ConfirmModal
         isOpen={isConfirmQualityDefinitionResetModalOpen}
-        onModalClose={handleCloseResetQualityDefinitionsModal}
+        kind="danger"
+        title={translate('ResetQualityDefinitions')}
+        message={translate('ResetQualityDefinitionsMessageText')}
+        confirmLabel={translate('Reset')}
+        onConfirm={handleResetQualityDefinitionsConfirmed}
+        onCancel={handleCloseResetQualityDefinitionsModal}
       />
     </PageContent>
   );

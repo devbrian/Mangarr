@@ -15,7 +15,6 @@ import { EpisodeFile } from 'EpisodeFile/EpisodeFile';
 import { PagedQueryResponse } from 'Helpers/Hooks/usePagedApiQuery';
 import Series from 'Series/Series';
 import { removeItem, updateItem } from 'Store/Actions/baseActions';
-import { fetchQualityDefinitions } from 'Store/Actions/settingsActions';
 import { repopulatePage } from 'Utilities/pagePopulator';
 import SignalRLogger from 'Utilities/SignalRLogger';
 
@@ -291,7 +290,11 @@ function SignalRListener() {
     }
 
     if (name === 'qualitydefinition') {
-      dispatch(fetchQualityDefinitions());
+      if (version < 5) {
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['/qualitydefinition'] });
       return;
     }
 
