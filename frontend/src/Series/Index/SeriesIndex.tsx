@@ -125,12 +125,9 @@ const SeriesIndex = withScrollPosition((props: SeriesIndexProps) => {
     [scrollerRef]
   );
 
-  const onSortSelect = useCallback(
-    (value: string) => {
-      setSeriesSort({ sortKey: value, sortDirection });
-    },
-    [sortDirection]
-  );
+  const onSortSelect = useCallback((value: string) => {
+    setSeriesSort({ sortKey: value });
+  }, []);
 
   const onFilterSelect = useCallback((value: string | number) => {
     setSeriesOption('selectedFilterKey', value);
