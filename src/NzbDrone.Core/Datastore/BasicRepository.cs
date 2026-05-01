@@ -53,7 +53,12 @@ namespace NzbDrone.Core.Datastore
         private readonly string _updateSql;
         private readonly string _insertSql;
 
-        private static ResiliencePipeline RetryStrategy => new ResiliencePipelineBuilder()
+        // Visibility: `protected` so ProviderRepository<T> (which overrides Query) can wrap
+        // its own connection/reader loop in the same retry policy. Storage form: a `static
+        // readonly` field rather than an expression-bodied property so the pipeline (and its
+        // jitter RNG state) is built ONCE per AppDomain — Polly explicitly documents
+        // ResiliencePipeline as reusable, thread-safe, and designed to be shared (WR-06).
+        protected static readonly ResiliencePipeline RetryStrategy = new ResiliencePipelineBuilder()
             .AddRetry(new RetryStrategyOptions
             {
                 ShouldHandle = new PredicateBuilder().Handle<SQLiteException>(ex => ex.ResultCode == SQLiteErrorCode.Busy),
