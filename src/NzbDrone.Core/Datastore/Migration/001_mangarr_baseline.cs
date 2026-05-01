@@ -1,0 +1,571 @@
+using FluentMigrator;
+using NzbDrone.Core.Datastore.Migration.Framework;
+
+namespace NzbDrone.Core.Datastore.Migration
+{
+    // Phase 1 baseline migration. Replaces Sonarr's 224 inherited TV-shaped migrations
+    // with a single fresh manga-shaped baseline:
+    //   * Recreates the Tv-shaped tables (Series, Seasons, Episodes, EpisodeFiles) so
+    //     the inherited Tv/ C# code compiles (D-02). These tables sit empty at runtime;
+    //     Phase 8 drops them when Tv/ is removed.
+    //   * Recreates ThingiProvider + supporting tables verbatim (D-03). TV-specific
+    //     columns are flagged with `// TODO: Phase 8` comments for the rename-last cutover.
+    //   * Adds new manga tables: Manga and Chapters (D-01 / D-06 / D-08 / D-09).
+    //   * Adds nullable MangaId/ChapterId columns to History/Blocklist (D-07).
+    //   * Creates the five locked composite indexes from Phase 0 D-15.
+    //
+    // No Down() method — NzbDroneMigrationBase.Down() throws NotImplementedException
+    // by convention.
+    //
+    // BusyTimeout × Polly retry interaction: BusyTimeout=5000ms × MaxRetryAttempts=3
+    // = ~15s worst-case wait under heavy contention. Acceptable for v1 single-user
+    // concurrency profile. Phase 4 load testing may revisit.
+    [Migration(1)]
+    public class mangarr_baseline : NzbDroneMigrationBase
+    {
+        protected override void MainDbUpgrade()
+        {
+            // ─────────────────────────────────────────────────────────────────────
+            // Configuration / global tables
+            // ─────────────────────────────────────────────────────────────────────
+            Create.TableForModel("Config")
+                .WithColumn("Key").AsString().Unique()
+                .WithColumn("Value").AsString();
+
+            Create.TableForModel("RootFolders")
+                .WithColumn("Path").AsString().Unique();
+
+            Create.TableForModel("ScheduledTasks")
+                .WithColumn("TypeName").AsString().Unique()
+                .WithColumn("Interval").AsDouble()
+                .WithColumn("LastExecution").AsDateTime()
+                .WithColumn("LastStartTime").AsDateTime().Nullable();
+
+            // ─────────────────────────────────────────────────────────────────────
+            // ThingiProvider tables (D-03 — verbatim recreation; TV-specific
+            // columns flagged for Phase 8 cleanup).
+            // ─────────────────────────────────────────────────────────────────────
+            // TODO: Phase 8 — review TV-specific provider columns when Tv/ is removed.
+            Create.TableForModel("Indexers")
+                .WithColumn("Name").AsString().Unique()
+                .WithColumn("Implementation").AsString()
+                .WithColumn("Settings").AsString().Nullable()
+                .WithColumn("ConfigContract").AsString().Nullable()
+                .WithColumn("EnableRss").AsBoolean().Nullable()
+                .WithColumn("EnableSearch").AsBoolean().Nullable()
+                .WithColumn("EnableAutomaticSearch").AsBoolean().Nullable()
+                .WithColumn("EnableInteractiveSearch").AsBoolean().Nullable()
+                .WithColumn("Priority").AsInt32().NotNullable().WithDefaultValue(25)
+                .WithColumn("DownloadClientId").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("Tags").AsString().Nullable()
+                .WithColumn("SeasonSearchMaximumSingleEpisodeAge").AsInt32().NotNullable().WithDefaultValue(0); // migration 172
+
+            Create.TableForModel("DownloadClients")
+                .WithColumn("Enable").AsBoolean()
+                .WithColumn("Name").AsString().Unique()
+                .WithColumn("Implementation").AsString()
+                .WithColumn("Settings").AsString().Nullable()
+                .WithColumn("ConfigContract").AsString().Nullable()
+                .WithColumn("Priority").AsInt32().NotNullable().WithDefaultValue(1)
+                .WithColumn("RemoveCompletedDownloads").AsBoolean().NotNullable().WithDefaultValue(true)
+                .WithColumn("RemoveFailedDownloads").AsBoolean().NotNullable().WithDefaultValue(true)
+                .WithColumn("Tags").AsString().Nullable();
+
+            // TODO: Phase 8 — strip OnSeries* / OnEpisodeFile* event columns when Tv/ removed.
+            Create.TableForModel("Notifications")
+                .WithColumn("Name").AsString().Unique()
+                .WithColumn("OnGrab").AsBoolean()
+                .WithColumn("OnDownload").AsBoolean()
+                .WithColumn("Settings").AsString()
+                .WithColumn("Implementation").AsString()
+                .WithColumn("ConfigContract").AsString().Nullable()
+                .WithColumn("OnUpgrade").AsBoolean().Nullable()
+                .WithColumn("Tags").AsString().Nullable()
+                .WithColumn("OnRename").AsBoolean()
+                .WithColumn("OnSeriesAdd").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("OnSeriesDelete").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("OnEpisodeFileDelete").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("OnEpisodeFileDeleteForUpgrade").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("OnHealthIssue").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("IncludeHealthWarnings").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("OnApplicationUpdate").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("OnManualInteractionRequired").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("OnHealthRestored").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("OnImportComplete").AsBoolean().NotNullable().WithDefaultValue(false);
+
+            // Sonarr's Metadata table is the ThingiProvider for IMetadataConsumer
+            // (Kodi/Roksbox/Wdtv). CONTEXT.md D-01 'MetadataSources' refers to this
+            // same table — no separate MetadataSources table exists in Sonarr's schema.
+            // Verbatim recreation per D-02/D-03.
+            Create.TableForModel("Metadata")
+                .WithColumn("Enable").AsBoolean().NotNullable()
+                .WithColumn("Name").AsString().NotNullable()
+                .WithColumn("Implementation").AsString().NotNullable()
+                .WithColumn("Settings").AsString().NotNullable()
+                .WithColumn("ConfigContract").AsString().NotNullable();
+
+            // TODO: Phase 8 — drop SeriesType / SeasonFolder columns when Tv/ removed.
+            Create.TableForModel("ImportLists")
+                .WithColumn("Name").AsString().Unique()
+                .WithColumn("Implementation").AsString()
+                .WithColumn("Settings").AsString().Nullable()
+                .WithColumn("ConfigContract").AsString().Nullable()
+                .WithColumn("EnableAutomaticAdd").AsBoolean()
+                .WithColumn("RootFolderPath").AsString()
+                .WithColumn("ShouldMonitor").AsInt32()
+                .WithColumn("QualityProfileId").AsInt32()
+                .WithColumn("SeriesType").AsInt32()
+                .WithColumn("SeasonFolder").AsBoolean()
+                .WithColumn("Tags").AsString().Nullable()
+                .WithColumn("MonitorNewItems").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("SearchForMissingEpisodes").AsBoolean().NotNullable().WithDefaultValue(true); // migration 197
+
+            Create.TableForModel("ImportListItems")
+                .WithColumn("ImplementationName").AsString()
+                .WithColumn("ImportListId").AsInt32()
+                .WithColumn("ServiceProviderId").AsInt32()
+                .WithColumn("Title").AsString()
+                .WithColumn("TvdbId").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("ImdbId").AsString().Nullable()
+                .WithColumn("ReleaseDate").AsDateTime();
+
+            Create.TableForModel("Tags")
+                .WithColumn("Label").AsString().Unique();
+
+            // TODO: Phase 8 — drop TV-specific naming format columns when Tv/ removed.
+            Create.TableForModel("NamingConfig")
+                .WithColumn("MultiEpisodeStyle").AsInt32()
+                .WithColumn("RenameEpisodes").AsBoolean().Nullable()
+                .WithColumn("StandardEpisodeFormat").AsString().Nullable()
+                .WithColumn("DailyEpisodeFormat").AsString().Nullable()
+                .WithColumn("SeriesFolderFormat").AsString().Nullable()
+                .WithColumn("SeasonFolderFormat").AsString().Nullable()
+                .WithColumn("AnimeEpisodeFormat").AsString().Nullable()
+                .WithColumn("ReplaceIllegalCharacters").AsBoolean().NotNullable().WithDefaultValue(true)
+                .WithColumn("SpecialsFolderFormat").AsString().NotNullable().WithDefaultValue("Specials")
+                .WithColumn("ColonReplacementFormat").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("CustomColonReplacementFormat").AsString().NotNullable().WithDefaultValue(string.Empty);
+
+            // ─────────────────────────────────────────────────────────────────────
+            // TV domain tables (D-02 — verbatim recreation; sit empty at runtime;
+            // deleted in Phase 8 when Tv/ namespace is removed).
+            // ─────────────────────────────────────────────────────────────────────
+            // TODO: Phase 8 — drop entire Series/Seasons/Episodes/EpisodeFiles tables.
+            Create.TableForModel("Series")
+                .WithColumn("TvdbId").AsInt32().Unique()
+                .WithColumn("TvRageId").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("ImdbId").AsString().Nullable()
+                .WithColumn("Title").AsString()
+                .WithColumn("TitleSlug").AsString().Nullable()
+                .WithColumn("CleanTitle").AsString()
+                .WithColumn("SortTitle").AsString().Nullable()
+                .WithColumn("Status").AsInt32()
+                .WithColumn("Overview").AsString().Nullable()
+                .WithColumn("AirTime").AsString().Nullable()
+                .WithColumn("Images").AsString()
+                .WithColumn("Path").AsString()
+                .WithColumn("Monitored").AsBoolean()
+                .WithColumn("SeasonFolder").AsBoolean()
+                .WithColumn("LastInfoSync").AsDateTime().Nullable()
+                .WithColumn("LastDiskSync").AsDateTime().Nullable()
+                .WithColumn("Runtime").AsInt32()
+                .WithColumn("SeriesType").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("Network").AsString().Nullable()
+                .WithColumn("FirstAired").AsDateTime().Nullable()
+                .WithColumn("NextAiring").AsDateTime().Nullable()
+                .WithColumn("Year").AsInt32().Nullable()
+                .WithColumn("Seasons").AsString().Nullable()         // migration 020 — JSON list of Season
+                .WithColumn("Genres").AsString().Nullable()
+                .WithColumn("Ratings").AsString().Nullable()
+                .WithColumn("Actors").AsString().Nullable()
+                .WithColumn("Certification").AsString().Nullable()
+                .WithColumn("UseSceneNumbering").AsBoolean()
+                .WithColumn("Added").AsDateTime().Nullable()
+                .WithColumn("AddOptions").AsString().Nullable()
+                .WithColumn("LanguageProfileId").AsInt32().NotNullable().WithDefaultValue(1)
+                .WithColumn("QualityProfileId").AsInt32()
+                .WithColumn("Tags").AsString().Nullable()
+                .WithColumn("TvMazeId").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("TmdbId").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("MonitorNewItems").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("OriginalLanguage").AsInt32().NotNullable().WithDefaultValue(1)
+                .WithColumn("OriginalCountry").AsString().Nullable()
+                .WithColumn("LastAired").AsDateTime().Nullable()
+                .WithColumn("MalIds").AsString().Nullable()      // Sonarr partial migration 217
+                .WithColumn("AniListIds").AsString().Nullable(); // Sonarr partial migration 217
+
+            Create.TableForModel("Seasons")
+                .WithColumn("SeriesId").AsInt32()
+                .WithColumn("SeasonNumber").AsInt32()
+                .WithColumn("Monitored").AsBoolean();
+
+            Create.TableForModel("Episodes")
+                .WithColumn("TvDbEpisodeId").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("SeriesId").AsInt32()
+                .WithColumn("SeasonNumber").AsInt32()
+                .WithColumn("EpisodeNumber").AsInt32()
+                .WithColumn("Title").AsString().Nullable()
+                .WithColumn("Overview").AsString().Nullable()
+                .WithColumn("Ratings").AsString().Nullable()
+                .WithColumn("Images").AsString().Nullable()
+                .WithColumn("AirDate").AsString().Nullable()
+                .WithColumn("AirDateUtc").AsDateTime().Nullable()
+                .WithColumn("Monitored").AsBoolean()
+                .WithColumn("AbsoluteEpisodeNumber").AsInt32().Nullable()
+                .WithColumn("SceneAbsoluteEpisodeNumber").AsInt32().Nullable()
+                .WithColumn("SceneSeasonNumber").AsInt32().Nullable()
+                .WithColumn("SceneEpisodeNumber").AsInt32().Nullable()
+                .WithColumn("UnverifiedSceneNumbering").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("Runtime").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("EpisodeFileId").AsInt32().Nullable()
+                .WithColumn("LastSearchTime").AsDateTime().Nullable()
+                .WithColumn("FinaleType").AsString().Nullable()
+                .WithColumn("TvdbId").AsInt32().Nullable()                    // migration 167
+                .WithColumn("AiredAfterSeasonNumber").AsInt32().Nullable()    // migration 137
+                .WithColumn("AiredBeforeSeasonNumber").AsInt32().Nullable()   // migration 137
+                .WithColumn("AiredBeforeEpisodeNumber").AsInt32().Nullable(); // migration 137
+
+            Create.TableForModel("EpisodeFiles")
+                .WithColumn("SeriesId").AsInt32()
+                .WithColumn("Quality").AsString()
+                .WithColumn("Size").AsInt64()
+                .WithColumn("DateAdded").AsDateTime()
+                .WithColumn("SeasonNumber").AsInt32()
+                .WithColumn("RelativePath").AsString().Nullable()
+                .WithColumn("Language").AsInt32().NotNullable().WithDefaultValue(1)
+                .WithColumn("ReleaseGroup").AsString().Nullable()
+                .WithColumn("SceneName").AsString().Nullable()
+                .WithColumn("MediaInfo").AsString().Nullable()
+                .WithColumn("Languages").AsString().Nullable().WithDefaultValue("[]")
+                .WithColumn("OriginalFilePath").AsString().Nullable()
+                .WithColumn("CustomFormats").AsString().Nullable()
+                .WithColumn("CustomFormatScore").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("ReleaseHash").AsString().Nullable()
+                .WithColumn("ReleaseType").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("IndexerFlags").AsInt32().NotNullable().WithDefaultValue(0); // migration 202
+
+            // History and Blocklist hold both TV and manga events. The TV-shaped
+            // SeriesId/EpisodeIds columns sit empty at Mangarr runtime; the new
+            // MangaId/ChapterId columns (added below) carry manga events.
+            Create.TableForModel("History")
+                .WithColumn("EpisodeId").AsInt32()
+                .WithColumn("SeriesId").AsInt32()
+                .WithColumn("SourceTitle").AsString()
+                .WithColumn("Quality").AsString()
+                .WithColumn("Date").AsDateTime()
+                .WithColumn("Data").AsString()
+                .WithColumn("EventType").AsInt32().Nullable()
+                .WithColumn("DownloadId").AsString().Nullable()
+                .WithColumn("Languages").AsString().Nullable().WithDefaultValue("[]");
+
+            Create.TableForModel("Blocklist")
+                .WithColumn("SeriesId").AsInt32()
+                .WithColumn("EpisodeIds").AsString()
+                .WithColumn("SourceTitle").AsString()
+                .WithColumn("Quality").AsString()
+                .WithColumn("Date").AsDateTime()
+                .WithColumn("PublishedDate").AsDateTime().Nullable()    // migration 047
+                .WithColumn("Size").AsInt64().Nullable()
+                .WithColumn("Protocol").AsInt32().Nullable()
+                .WithColumn("Indexer").AsString().Nullable()
+                .WithColumn("Message").AsString().Nullable()
+                .WithColumn("TorrentInfoHash").AsString().Nullable()
+                .WithColumn("Languages").AsString().Nullable().WithDefaultValue("[]")
+                .WithColumn("IndexerFlags").AsInt32().NotNullable().WithDefaultValue(0)  // migration 202
+                .WithColumn("ReleaseType").AsInt32().NotNullable().WithDefaultValue(0)   // migration 203
+                .WithColumn("Source").AsString().Nullable();                              // migration 223
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Quality / Profile tables (Phase 5 reuses; TV-shaped today).
+            // ─────────────────────────────────────────────────────────────────────
+            Create.TableForModel("QualityDefinitions")
+                .WithColumn("Quality").AsInt32().Unique()
+                .WithColumn("Title").AsString().Unique()
+                .WithColumn("MinSize").AsDouble().Nullable()
+                .WithColumn("MaxSize").AsDouble().Nullable()
+                .WithColumn("PreferredSize").AsDouble().Nullable();
+
+            Create.TableForModel("QualityProfiles")
+                .WithColumn("Name").AsString().Unique()
+                .WithColumn("Cutoff").AsInt32()
+                .WithColumn("Items").AsString().NotNullable()
+                .WithColumn("UpgradeAllowed").AsBoolean().Nullable()
+                .WithColumn("MinFormatScore").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("CutoffFormatScore").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("FormatItems").AsString().NotNullable().WithDefaultValue("[]")
+                .WithColumn("MinUpgradeFormatScore").AsInt32().NotNullable().WithDefaultValue(1);
+
+            Create.TableForModel("CustomFormats")
+                .WithColumn("Name").AsString().Unique()
+                .WithColumn("Specifications").AsString().NotNullable()
+                .WithColumn("IncludeCustomFormatWhenRenaming").AsBoolean().NotNullable().WithDefaultValue(false);
+
+            Create.TableForModel("CustomFilters")
+                .WithColumn("Type").AsString()
+                .WithColumn("Label").AsString()
+                .WithColumn("Filters").AsString();
+
+            Create.TableForModel("DelayProfiles")
+                .WithColumn("EnableUsenet").AsBoolean()
+                .WithColumn("EnableTorrent").AsBoolean()
+                .WithColumn("PreferredProtocol").AsInt32()
+                .WithColumn("UsenetDelay").AsInt32()
+                .WithColumn("TorrentDelay").AsInt32()
+                .WithColumn("Order").AsInt32()
+                .WithColumn("Tags").AsString()
+                .WithColumn("BypassIfHighestQuality").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("BypassIfAboveCustomFormatScore").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("MinimumCustomFormatScore").AsInt32().NotNullable().WithDefaultValue(0);
+
+            Create.TableForModel("ReleaseProfiles")
+                .WithColumn("Required").AsString().Nullable()
+                .WithColumn("Ignored").AsString().Nullable()
+                .WithColumn("Tags").AsString().NotNullable().WithDefaultValue("[]")
+                .WithColumn("IndexerId").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("Enabled").AsBoolean().NotNullable().WithDefaultValue(true)
+                .WithColumn("Name").AsString().Nullable()
+                .WithColumn("ExcludedTags").AsString().NotNullable().WithDefaultValue("[]") // migration 221
+                .WithColumn("IndexerIds").AsString().NotNullable().WithDefaultValue("[]")    // migration 224
+                .WithColumn("AirDateRestriction").AsBoolean().NotNullable().WithDefaultValue(false) // migration 226
+                .WithColumn("AirDateGracePeriod").AsInt32().NotNullable().WithDefaultValue(0);      // migration 226
+
+            Create.TableForModel("AutoTagging")
+                .WithColumn("Name").AsString().NotNullable().Unique()
+                .WithColumn("Specifications").AsString().NotNullable().WithDefaultValue("[]")
+                .WithColumn("Tags").AsString().NotNullable().WithDefaultValue("[]")
+                .WithColumn("RemoveTagsAutomatically").AsBoolean().NotNullable().WithDefaultValue(false);
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Health / Status tables.
+            // ─────────────────────────────────────────────────────────────────────
+            Create.TableForModel("IndexerStatus")
+                .WithColumn("ProviderId").AsInt32().Unique()
+                .WithColumn("InitialFailure").AsDateTime().Nullable()
+                .WithColumn("MostRecentFailure").AsDateTime().Nullable()
+                .WithColumn("EscalationLevel").AsInt32().NotNullable()
+                .WithColumn("DisabledTill").AsDateTime().Nullable()
+                .WithColumn("LastRssSyncReleaseInfo").AsString().Nullable()
+                .WithColumn("CookiesExpirationDate").AsDateTime().Nullable()
+                .WithColumn("Cookies").AsString().Nullable();
+
+            Create.TableForModel("DownloadClientStatus")
+                .WithColumn("ProviderId").AsInt32().Unique()
+                .WithColumn("InitialFailure").AsDateTime().Nullable()
+                .WithColumn("MostRecentFailure").AsDateTime().Nullable()
+                .WithColumn("EscalationLevel").AsInt32().NotNullable()
+                .WithColumn("DisabledTill").AsDateTime().Nullable();
+
+            Create.TableForModel("ImportListStatus")
+                .WithColumn("ProviderId").AsInt32().Unique()
+                .WithColumn("InitialFailure").AsDateTime().Nullable()
+                .WithColumn("MostRecentFailure").AsDateTime().Nullable()
+                .WithColumn("EscalationLevel").AsInt32().NotNullable()
+                .WithColumn("DisabledTill").AsDateTime().Nullable()
+                .WithColumn("LastSyncListInfo").AsString().Nullable()
+                .WithColumn("LastInfoSync").AsDateTime().Nullable()
+                .WithColumn("HasRemovedItemSinceLastClean").AsBoolean().NotNullable().WithDefaultValue(false);
+
+            Create.TableForModel("NotificationStatus")
+                .WithColumn("ProviderId").AsInt32().NotNullable().Unique()
+                .WithColumn("InitialFailure").AsDateTime().Nullable()
+                .WithColumn("MostRecentFailure").AsDateTime().Nullable()
+                .WithColumn("EscalationLevel").AsInt32().NotNullable()
+                .WithColumn("DisabledTill").AsDateTime().Nullable();
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Pipeline / state tables (TV-shaped today; Phase 4-5 manga adapt).
+            // ─────────────────────────────────────────────────────────────────────
+            Create.TableForModel("PendingReleases")
+                .WithColumn("SeriesId").AsInt32().NotNullable()
+                .WithColumn("Title").AsString().NotNullable()
+                .WithColumn("Added").AsDateTime().NotNullable()
+                .WithColumn("ParsedEpisodeInfo").AsString().NotNullable()
+                .WithColumn("Release").AsString().NotNullable()
+                .WithColumn("Reason").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("AdditionalInfo").AsString().Nullable();
+
+            Create.TableForModel("RemotePathMappings")
+                .WithColumn("Host").AsString()
+                .WithColumn("RemotePath").AsString()
+                .WithColumn("LocalPath").AsString();
+
+            Create.TableForModel("Commands")
+                .WithColumn("Name").AsString()
+                .WithColumn("Body").AsString()
+                .WithColumn("Priority").AsInt32()
+                .WithColumn("Status").AsInt32()
+                .WithColumn("QueuedAt").AsDateTime()
+                .WithColumn("StartedAt").AsDateTime().Nullable()
+                .WithColumn("EndedAt").AsDateTime().Nullable()
+                .WithColumn("Duration").AsString().Nullable()
+                .WithColumn("Exception").AsString().Nullable()
+                .WithColumn("Trigger").AsInt32()
+                .WithColumn("Result").AsInt32().NotNullable().WithDefaultValue(1); // migration 186
+
+            Create.TableForModel("DownloadHistory")
+                .WithColumn("EventType").AsInt32().NotNullable()
+                .WithColumn("SeriesId").AsInt32().NotNullable()
+                .WithColumn("DownloadId").AsString().NotNullable()
+                .WithColumn("SourceTitle").AsString().NotNullable()
+                .WithColumn("Date").AsDateTime().NotNullable()
+                .WithColumn("Protocol").AsInt32().Nullable()
+                .WithColumn("IndexerId").AsInt32().Nullable()
+                .WithColumn("DownloadClientId").AsInt32().Nullable()
+                .WithColumn("Release").AsString().Nullable()
+                .WithColumn("Data").AsString().Nullable();
+
+            Create.TableForModel("UpdateHistory")
+                .WithColumn("Date").AsDateTime().NotNullable()
+                .WithColumn("Version").AsString().NotNullable()
+                .WithColumn("EventType").AsInt32().NotNullable();
+
+            Create.TableForModel("ImportListExclusions")
+                .WithColumn("TvdbId").AsInt32().Unique()
+                .WithColumn("Title").AsString().NotNullable();
+
+            // TODO: Phase 8 — Metadata/Subtitle/Extra files are currently TV-keyed.
+            // Phase 4 will add manga equivalents; Phase 8 drops the SeriesId/EpisodeFile
+            // foreign keys when Tv/ is removed.
+            Create.TableForModel("MetadataFiles")
+                .WithColumn("SeriesId").AsInt32().NotNullable()
+                .WithColumn("Consumer").AsString().NotNullable()
+                .WithColumn("Type").AsInt32().NotNullable()
+                .WithColumn("RelativePath").AsString().NotNullable()
+                .WithColumn("LastUpdated").AsDateTime().NotNullable()
+                .WithColumn("SeasonNumber").AsInt32().Nullable()
+                .WithColumn("EpisodeFileId").AsInt32().Nullable()
+                .WithColumn("EpisodeId").AsInt32().Nullable()
+                .WithColumn("Added").AsDateTime().Nullable()
+                .WithColumn("Extension").AsString().NotNullable()
+                .WithColumn("Hash").AsString().Nullable();
+
+            Create.TableForModel("SubtitleFiles")
+                .WithColumn("SeriesId").AsInt32().NotNullable()
+                .WithColumn("SeasonNumber").AsInt32().NotNullable()
+                .WithColumn("EpisodeFileId").AsInt32().NotNullable()
+                .WithColumn("RelativePath").AsString().NotNullable()
+                .WithColumn("Added").AsDateTime()
+                .WithColumn("LastUpdated").AsDateTime().Nullable()
+                .WithColumn("Extension").AsString().Nullable()
+                .WithColumn("Language").AsInt32().NotNullable()
+                .WithColumn("LanguageTags").AsString().Nullable()
+                .WithColumn("Title").AsString().Nullable()
+                .WithColumn("Copy").AsInt32().NotNullable().WithDefaultValue(0); // migration 198
+
+            Create.TableForModel("ExtraFiles")
+                .WithColumn("SeriesId").AsInt32().NotNullable()
+                .WithColumn("SeasonNumber").AsInt32().NotNullable()
+                .WithColumn("EpisodeFileId").AsInt32().NotNullable()
+                .WithColumn("RelativePath").AsString().NotNullable()
+                .WithColumn("Extension").AsString().NotNullable()
+                .WithColumn("Added").AsDateTime().NotNullable()
+                .WithColumn("LastUpdated").AsDateTime().NotNullable();
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Auth. Identifier stored AsString (not AsGuid) to match Sonarr's
+            // original migration 76; the model Identifier property is `Guid` and
+            // Dapper handles the string<->Guid conversion via GuidConverter.
+            // ─────────────────────────────────────────────────────────────────────
+            Create.TableForModel("Users")
+                .WithColumn("Identifier").AsString().NotNullable().Unique()
+                .WithColumn("Username").AsString().NotNullable().Unique()
+                .WithColumn("Password").AsString().NotNullable()
+                .WithColumn("Salt").AsString().Nullable()
+                .WithColumn("Iterations").AsInt32().Nullable();
+
+            // TODO: Phase 8 — remove SceneMappings table when Tv/ is deleted.
+            Create.TableForModel("SceneMappings")
+                .WithColumn("TvdbId").AsInt32().NotNullable()
+                .WithColumn("SeasonNumber").AsInt32().Nullable()
+                .WithColumn("SearchTerm").AsString().NotNullable()
+                .WithColumn("ParseTerm").AsString().NotNullable()
+                .WithColumn("Title").AsString().NotNullable()
+                .WithColumn("Type").AsString().NotNullable()
+                .WithColumn("FilterRegex").AsString().Nullable()
+                .WithColumn("MappingId").AsString().Nullable(); // migration 230
+
+            // ═════════════════════════════════════════════════════════════════════
+            // NEW MANGA TABLES (D-01 / D-06 / D-08 / D-09).
+            // ═════════════════════════════════════════════════════════════════════
+            Create.TableForModel("Manga")
+                .WithColumn("Title").AsString().NotNullable()
+                .WithColumn("CleanTitle").AsString().NotNullable()
+                .WithColumn("MangaDexId").AsString().Nullable()
+                .WithColumn("MalIds").AsString().Nullable()       // JSON list
+                .WithColumn("AniListIds").AsString().Nullable()   // JSON list
+                .WithColumn("Path").AsString().NotNullable()
+                .WithColumn("Monitored").AsBoolean().NotNullable()
+                .WithColumn("Status").AsInt32().NotNullable()
+                .WithColumn("Added").AsDateTime().NotNullable()
+                .WithColumn("LastInfoSync").AsDateTime().Nullable()
+                .WithColumn("Images").AsString().Nullable()       // JSON list
+                .WithColumn("Tags").AsString().Nullable();        // JSON list
+
+            Create.TableForModel("Chapters")
+                .WithColumn("MangaId").AsInt32().NotNullable()
+                .WithColumn("ChapterNumber").AsDecimal(10, 2).NotNullable()  // D-09
+                .WithColumn("TranslatedLanguage").AsString().NotNullable()    // BCP-47
+                .WithColumn("ScanlationGroup").AsString().Nullable()
+                .WithColumn("Title").AsString().Nullable()
+                .WithColumn("ReleaseDate").AsDateTime().Nullable()
+                .WithColumn("Monitored").AsBoolean().NotNullable()
+                .WithColumn("ExternalId").AsString().Nullable();
+
+            // ─────────────────────────────────────────────────────────────────────
+            // History/Blocklist nullable manga columns (D-07).
+            // ─────────────────────────────────────────────────────────────────────
+            Alter.Table("History")
+                .AddColumn("MangaId").AsInt32().Nullable()
+                .AddColumn("ChapterId").AsInt32().Nullable();
+
+            Alter.Table("Blocklist")
+                .AddColumn("MangaId").AsInt32().Nullable();
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Composite indexes — Phase 0 D-15 baseline floor.
+            // ─────────────────────────────────────────────────────────────────────
+            // 1. (History.MangaId, Date DESC) — primary listing query path.
+            Create.Index().OnTable("History")
+                .OnColumn("MangaId").Ascending()
+                .OnColumn("Date").Descending();
+
+            // 2. (History.MangaId, ChapterId, Date DESC) — per-chapter history.
+            Create.Index().OnTable("History")
+                .OnColumn("MangaId").Ascending()
+                .OnColumn("ChapterId").Ascending()
+                .OnColumn("Date").Descending();
+
+            // 3. (Blocklist.MangaId, Date DESC) — Blocklist views.
+            Create.Index().OnTable("Blocklist")
+                .OnColumn("MangaId").Ascending()
+                .OnColumn("Date").Descending();
+
+            // 4. (Chapters.MangaId, ChapterNumber, TranslatedLanguage) —
+            //    Phase 5 selection path.
+            Create.Index().OnTable("Chapters")
+                .OnColumn("MangaId").Ascending()
+                .OnColumn("ChapterNumber").Ascending()
+                .OnColumn("TranslatedLanguage").Ascending();
+
+            // 5. (Chapters.MangaId, TranslatedLanguage) — LANG-01 wanted-list filter.
+            //    NOTE: leftmost-prefix from index #4 cannot cover this (TranslatedLanguage
+            //    is third col, second col ChapterNumber blocks the prefix match). Two
+            //    indexes are required. See Pitfall 3 in 01-RESEARCH.md.
+            Create.Index().OnTable("Chapters")
+                .OnColumn("MangaId").Ascending()
+                .OnColumn("TranslatedLanguage").Ascending();
+        }
+
+        protected override void LogDbUpgrade()
+        {
+            Create.TableForModel("Logs")
+                .WithColumn("Message").AsString()
+                .WithColumn("Time").AsDateTime()
+                .WithColumn("Logger").AsString()
+                .WithColumn("Method").AsString().Nullable()
+                .WithColumn("Exception").AsString().Nullable()
+                .WithColumn("ExceptionType").AsString().Nullable()
+                .WithColumn("Level").AsString();
+        }
+    }
+}
