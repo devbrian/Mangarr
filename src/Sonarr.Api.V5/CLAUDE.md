@@ -2,165 +2,207 @@
 
 ## Purpose
 
-REST API controllers for version 5 of the API. This is the **current primary API** used by the frontend and external integrations.
+REST API controllers for **API version 5** — the **current primary API** consumed by the React frontend and external integrations (e.g., Plex/Kodi/scripts).
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Sonarr.Api.V5\`
 
-## Directory Structure
+**File count**: ~149 .cs files (44 controllers across 30 modules).
 
-### Core Resources
-| Directory | Purpose | Manga Equivalent |
-|-----------|---------|------------------|
-| `Series/` | Series CRUD, search, editor | Manga management |
-| `Episodes/` | Episode operations | Chapter operations |
-| `EpisodeFiles/` | Episode file management | Chapter file management |
-| `Calendar/` | Upcoming episodes | Upcoming chapters |
-| `Wanted/` | Missing/cutoff episodes | Missing chapters |
+## URL Prefix
+
+All endpoints are prefixed with **`/api/v5`** (configured by the `[V5ApiController]` attribute and route conventions in `NzbDrone.Host`).
+
+## Controller Inventory (44 controllers)
+
+### Core Resources (Series / Episodes / Files / Calendar / Wanted)
+
+| Module | Controllers | Notes |
+|--------|------------|-------|
+| `Series/` | `SeriesController`, `SeriesLookupController`, `SeriesImportController`, `SeriesEditorController`, `SeriesFolderController` | CRUD, search/lookup, bulk edit, import-from-folder. **→ Manga** |
+| `Episodes/` | `EpisodeController`, `RenameEpisodeController` | Episode listing per series, rename preview. **→ Chapter** |
+| `EpisodeFiles/` | `EpisodeFileController` | File CRUD + bulk delete. **→ ChapterFile** |
+| `Calendar/` | `CalendarController`, `CalendarFeedController` | Upcoming + iCal feed. **→ Manga release schedule** |
+| `Wanted/` | `MissingController`, `CutoffController` | Missing episodes, episodes below cutoff. **→ Missing/Cutoff Chapters** |
 
 ### Configuration
-| Directory | Purpose |
-|-----------|---------|
-| `Profiles/` | Quality, language, delay profiles |
-| `Qualities/` | Quality definitions |
-| `CustomFormats/` | Custom format rules |
-| `Tags/` | Tag management |
-| `RootFolders/` | Library root folders |
+
+| Module | Controllers |
+|--------|-------------|
+| `Profiles/` | (resources only — provider config controllers under Settings) |
+| `Qualities/` | `QualityDefinitionController` |
+| `CustomFormats/` | (resource files only) |
+| `Tags/` | `TagController`, `TagDetailsController` |
+| `RootFolders/` | `RootFolderController` |
+| `RemotePathMappings/` | `RemotePathMappingController` |
+
+### Settings Subsection
+| File | Purpose |
+|------|---------|
+| `SettingsController.cs` | Cross-cutting settings |
+| `GeneralSettingsController.cs` | General settings |
+| `IndexerSettingsController.cs` | Indexer global options |
+| `MediaManagementSettingsController.cs` | File-management settings |
+| `NamingSettingsController.cs` | File naming patterns |
+| `UiSettingsController.cs` | UI preferences |
+| `UpdateSettingsController.cs` | Update channel / branch |
 
 ### Download Pipeline
-| Directory | Purpose |
-|-----------|---------|
-| `Indexers/` | Indexer configuration |
-| `DownloadClient/` | Download client setup |
-| `Blocklist/` | Blocked releases |
-| `Queue/` | Download queue |
-| `History/` | Download history |
-| `ManualImport/` | Manual file import |
 
-### System
-| Directory | Purpose |
-|-----------|---------|
-| `Commands/` | Command execution |
-| `System/` | System info, health, logs |
-| `Logs/` | Log file access |
-| `Health/` | Health checks |
-| `Update/` | Update management |
-| `Config/` | Configuration endpoints |
+| Module | Controllers | Notes |
+|--------|-------------|-------|
+| `Indexers/` | `IndexerController` | Indexer plugin CRUD |
+| `Connections/` | `ConnectionController` | Download client CRUD (V5 unified name) |
+| `Blocklist/` | `BlocklistController` | Blocked releases |
+| `Queue/` | `QueueController`, `QueueActionController`, `QueueDetailsController`, `QueueStatusController` | Active downloads |
+| `History/` | `HistoryController` | Grab/import history |
+| `Release/` | `ReleaseController`, `ReleasePushController` | Available releases + manual push |
+| `ManualImport/` | `ManualImportController` | Manual import workflow |
 
-### Other
-| Directory | Purpose |
-|-----------|---------|
-| `ImportLists/` | External list imports |
-| `Notifications/` | Notification providers |
-| `Metadata/` | Metadata providers |
-| `Parse/` | Title parsing API |
-| `FileSystem/` | File browser |
-| `Localization/` | Language strings |
+### System & Operations
 
-## Key Controllers
+| Module | Controllers |
+|--------|-------------|
+| `Commands/` | `CommandController` |
+| `System/` | `SystemController` |
+| `Health/` | `HealthController` |
+| `Logs/` | `LogController`, `LogFileController`, `UpdateLogFileController` |
+| `Update/` | `UpdateController` |
+| `DiskSpace/` | `DiskSpaceController` |
+| `FileSystem/` | `FileSystemController` |
+| `Parse/` | `ParseController` (utility for testing parser) |
+| `Localization/` | `LocalizationController`, `LanguageController` |
+| `CustomFilters/` | `CustomFilterController` |
+| `ImportLists/` | `ImportListExclusionController` |
+| `Metadata/` | `MetadataController` |
+| `Provider/` | (provider-base resource — used by indexer/dlclient/etc. lookup) |
+| `SeasonPass/` | `SeasonPassController` (bulk season operations — possibly N/A for manga) |
+
+## Endpoints — Common Examples
 
 ### SeriesController
 ```
-GET    /api/v5/series           - List all series
-GET    /api/v5/series/{id}      - Get single series
-POST   /api/v5/series           - Add series
-PUT    /api/v5/series/{id}      - Update series
-DELETE /api/v5/series/{id}      - Delete series
-GET    /api/v5/series/lookup    - Search for series
-PUT    /api/v5/series/editor    - Bulk edit
-DELETE /api/v5/series/editor    - Bulk delete
+GET    /api/v5/series                 List all
+GET    /api/v5/series/{id}            Get one
+POST   /api/v5/series                 Add new
+PUT    /api/v5/series/{id}            Update
+DELETE /api/v5/series/{id}            Delete (?deleteFiles=, ?addImportListExclusion=)
+GET    /api/v5/series/lookup?term=X   Metadata search
+PUT    /api/v5/series/editor          Bulk edit
+DELETE /api/v5/series/editor          Bulk delete
 ```
 
 ### EpisodeController
 ```
-GET    /api/v5/episode          - List episodes (by seriesId)
-GET    /api/v5/episode/{id}     - Get single episode
-PUT    /api/v5/episode/{id}     - Update episode
-PUT    /api/v5/episode/monitor  - Bulk monitor update
+GET /api/v5/episode?seriesId=123      List episodes for a series
+GET /api/v5/episode/{id}              Single episode
+PUT /api/v5/episode/{id}              Update (mainly toggle monitored)
+PUT /api/v5/episode/monitor           Bulk toggle monitored: { episodeIds:[…], monitored:true }
 ```
 
 ### CommandController
 ```
-GET    /api/v5/command          - List commands
-GET    /api/v5/command/{id}     - Get command status
-POST   /api/v5/command          - Execute command
-DELETE /api/v5/command/{id}     - Cancel command
+GET    /api/v5/command                List commands (running + recent)
+GET    /api/v5/command/{id}           Single command status
+POST   /api/v5/command                Execute new command — body { name:"RefreshSeries", … }
+DELETE /api/v5/command/{id}           Cancel
 ```
 
 ## Resource Pattern
 
-Each controller has a corresponding Resource (DTO):
+Each controller has a corresponding `*Resource` (DTO) class:
 
 ```csharp
-// Controller
-public class SeriesController : RestController<SeriesResource>
-
-// Resource
-public class SeriesResource : RestResource
+public class SeriesResource : RestResource     // RestResource provides Id
 {
     public string Title { get; set; }
+    public string Path { get; set; }
     public List<SeasonResource> Seasons { get; set; }
-    // ...
+    public SeriesStatisticsResource Statistics { get; set; }
+    // …
 }
 ```
 
-## Mapping Convention
-
-Resources map to/from domain models:
+Plus a static mapper:
 
 ```csharp
-// Domain → Resource
-public static SeriesResource ToResource(this Series model)
+// SeriesResource.cs (or SeriesResourceMapper.cs)
+public static class SeriesResourceMapper
 {
-    return new SeriesResource
+    public static SeriesResource ToResource(this Series model) => new()
     {
-        Id = model.Id,
+        Id    = model.Id,
         Title = model.Title,
-        // ...
+        Path  = model.Path,
+        // …
     };
-}
 
-// Resource → Domain
-public static Series ToModel(this SeriesResource resource)
-{
-    return new Series
+    public static Series ToModel(this SeriesResource resource) => new()
     {
-        Id = resource.Id,
+        Id    = resource.Id,
         Title = resource.Title,
-        // ...
+        // …
     };
 }
 ```
 
-## Common Commands
+Resource validation lives in `*ResourceValidator.cs` files and uses `ResourceValidator<T>` (FluentValidation).
 
-Commands triggered via POST `/api/v5/command`:
+## Common Commands (POST /api/v5/command)
 
 | Command | Purpose |
 |---------|---------|
-| `RefreshSeries` | Refresh series metadata |
-| `SeriesSearch` | Search for series releases |
-| `EpisodeSearch` | Search for episode |
-| `SeasonSearch` | Search for season |
-| `RssSync` | Sync RSS feeds |
-| `RenameFiles` | Rename episode files |
-| `RescanSeries` | Rescan disk files |
-| `MissingEpisodeSearch` | Search all missing |
+| `RefreshSeries` | Re-fetch metadata from MetadataSource |
+| `RescanSeries` | Re-scan disk for files |
+| `SeriesSearch` | Search all monitored eps in a series |
+| `EpisodeSearch` | Search a single episode |
+| `SeasonSearch` | Search a whole season |
+| `MissingEpisodeSearch` | Search all monitored missing eps |
+| `CutoffUnmetEpisodeSearch` | Search all eps below cutoff |
+| `RssSync` | Run RSS sync now |
+| `RenameFiles` | Rename files for selected eps |
+| `Backup` | Trigger manual backup |
+| `ApplicationUpdate` | Trigger self-update |
+| `MessagingCleanup`, `Housekeeping`, `CheckHealth` | Maintenance |
 
-## Manga Adaptation
+## Authentication
 
-### Rename Controllers
-- `SeriesController` → `MangaController`
-- `EpisodeController` → `ChapterController`
-- `EpisodeFileController` → `ChapterFileController`
+All endpoints require auth (unless explicitly opted out) via:
+- `X-Api-Key` header
+- `?apikey=…` query
+- Cookie session (for the UI)
 
-### New Endpoints Needed
-- `/api/v5/manga/lookup` - Search manga metadata
-- `/api/v5/chapter` - Chapter management
-- `/api/v5/volume` - Volume management (if implemented)
+API key is in General Settings; resettable.
+
+## Manga Adaptation Plan
+
+### Conceptual Renames (when migration moves to Mangarr)
+| Sonarr Controller | Mangarr Controller |
+|-------------------|--------------------|
+| `SeriesController` | `MangaController` |
+| `SeriesLookupController` | `MangaLookupController` |
+| `SeriesImportController` | `MangaImportController` |
+| `SeriesEditorController` | `MangaEditorController` |
+| `EpisodeController` | `ChapterController` |
+| `EpisodeFileController` | `ChapterFileController` |
+| `RenameEpisodeController` | `RenameChapterController` |
+| `MissingController` | `MissingChaptersController` |
+| `CutoffController` | `CutoffChaptersController` |
+| `SeasonPassController` | `VolumePassController` (or remove if N/A) |
+
+### New Endpoints to Add
+- `/api/v5/manga` — Manga CRUD
+- `/api/v5/manga/lookup` — MangaDex/AniList search
+- `/api/v5/chapter` — Chapter management
+- `/api/v5/volume` — Volume (if implemented)
+
+### Strategy Note
+
+For backward compatibility with any external integrations that consume `/api/v5/series`, consider keeping aliased routes during the transition (e.g. add `[Route("api/v5/manga")]` AND keep `[Route("api/v5/series")]` on the same controller temporarily).
 
 ## Cross-References
 
-- [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) - Overall architecture
-- [Sonarr.Http/CLAUDE.md](../Sonarr.Http/CLAUDE.md) - Base infrastructure
-- [NzbDrone.Core/CLAUDE.md](../NzbDrone.Core/CLAUDE.md) - Business logic
-- [frontend/CLAUDE.md](../../frontend/CLAUDE.md) - Frontend consuming this API
+- [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) — Architecture
+- [Sonarr.Api.V3/CLAUDE.md](../Sonarr.Api.V3/CLAUDE.md) — Legacy V3 API
+- [Sonarr.Http/CLAUDE.md](../Sonarr.Http/CLAUDE.md) — Base infrastructure
+- [NzbDrone.Core/CLAUDE.md](../NzbDrone.Core/CLAUDE.md) — Domain logic
+- [frontend/CLAUDE.md](../../frontend/CLAUDE.md) — Frontend consuming this API

@@ -2,66 +2,98 @@
 
 ## Purpose
 
-Real-time communication layer using SignalR. Pushes updates to the frontend for live UI updates.
+Real-time push channel from backend to frontend using SignalR. Pushes commands, entity changes, queue updates, health, and system messages so the UI stays live without polling.
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.SignalR\`
 
-## What SignalR Does
-
-- Pushes command progress to UI
-- Notifies of download status changes
-- Updates series/episode state in real-time
-- Broadcasts system messages
-
-## Key Components
+## Files (only 3)
 
 | File | Purpose |
 |------|---------|
-| `SonarrHub.cs` | Main SignalR hub |
-| `SignalRBroadcaster.cs` | Event broadcaster |
+| `MessageHub.cs` | The SignalR `Hub` class (named `MessageHub`, **not** `SonarrHub`). Also contains `SignalRMessageBroadcaster` which implements `IBroadcastSignalRMessage`. |
+| `IBroadcastSignalRMessage.cs` | Interface used by `NzbDrone.Core` to broadcast without taking a hard dependency on SignalR. |
+| `SignalRMessage.cs` | Message envelope DTO sent to clients. |
 
-## Message Types
+## Hub Endpoint
+
+The hub is mapped at **`/signalr/messages`** (registered in [NzbDrone.Host/Startup.cs](../NzbDrone.Host/Startup.cs)).
+
+## What MessageHub Does
 
 ```csharp
-// Command progress
-hub.Clients.All.SendAsync("command", commandStatus);
+public class MessageHub : Hub
+{
+    public override Task OnConnectedAsync()
+    {
+        // Track connection in a static HashSet, send initial "version" message
+    }
 
-// Series updated
-hub.Clients.All.SendAsync("series", seriesResource);
+    public override Task OnDisconnectedAsync(Exception exception)
+    {
+        // Remove from connection set
+    }
+}
+```
 
-// Episode file added
-hub.Clients.All.SendAsync("episodefile", episodeFileResource);
+`SignalRMessageBroadcaster`:
+- Holds the IHubContext<MessageHub>
+- `IsConnected` property (true if any client connected)
+- `BroadcastMessage(SignalRMessage message)` → sends to all clients
 
-// Queue updated
-hub.Clients.All.SendAsync("queue", queueResource);
+## Usage from Core
+
+`NzbDrone.Core` does **not** reference `Microsoft.AspNetCore.SignalR`. It depends only on `IBroadcastSignalRMessage`, which is implemented by `SignalRMessageBroadcaster`. Decoupling means Core compiles without ASP.NET dependencies.
+
+`SignalRMessageBroadcaster` listens (via `IHandle<TEvent>`) to relevant events in Core and translates them into SignalR messages.
+
+## Message Types Sent to UI
+
+| Message name | Triggered By |
+|--------------|--------------|
+| `series` | Series added / updated / deleted |
+| `episode` | Episode status change (monitored toggle, file linked) |
+| `episodefile` | EpisodeFile imported / deleted / renamed |
+| `command` | Command queued / started / finished / failed |
+| `queue` | Queue item added / updated / removed |
+| `history` | History entry added |
+| `health` | Health check status change |
+| `system` | System status (e.g. update available, restart pending) |
+| `tag` | Tag created / updated / deleted |
+| `rootfolder` | Root folder added / removed |
+| `version` | Sent on connect with backend version |
+
+## Message Envelope
+
+```csharp
+public class SignalRMessage
+{
+    public string Name { get; set; }       // e.g. "series", "command"
+    public ModelAction Action { get; set; } // Sync | Created | Updated | Deleted
+    public object Body { get; set; }       // resource DTO
+}
 ```
 
 ## Frontend Connection
 
+Frontend wraps SignalR in a Redux middleware (or React component `<SignalRListener />`). Conceptual usage:
+
 ```typescript
-// Frontend connects via SignalR client
 const connection = new HubConnectionBuilder()
-  .withUrl('/signalr/sonarr')
+  .withUrl(`${urlBase}/signalr/messages?access_token=${apiKey}`)
   .build();
 
-connection.on('series', (data) => {
-  // Handle real-time series update
-});
+connection.on('series', (msg) => { /* dispatch update */ });
+connection.start();
 ```
 
-## Events Broadcast
+See [frontend/src/Components/SignalRListener.tsx](../../frontend/src/Components/SignalRListener.tsx) and [frontend/src/Store/Middleware/](../../frontend/src/Store/Middleware/).
 
-| Event | Triggered By |
-|-------|--------------|
-| `series` | Series added/updated/deleted |
-| `episode` | Episode status change |
-| `episodefile` | File imported/deleted |
-| `command` | Command started/completed |
-| `queue` | Download queue change |
-| `health` | Health check change |
-| `system` | System status change |
+## Manga Adaptation Notes
+
+- Message names (`series`, `episode`, `episodefile`, …) map to entities. Once Tv/ entities are renamed in Core, the SignalR message names should change to `manga`, `chapter`, `chapterfile`. Both backend `SignalRMessageBroadcaster.BroadcastMessage` callers and frontend `connection.on(...)` handlers must change in lockstep.
 
 ## Cross-References
 
-- [NzbDrone.Core/CLAUDE.md](../NzbDrone.Core/CLAUDE.md) - Events originate here
-- [frontend/CLAUDE.md](../../frontend/CLAUDE.md) - Frontend receives these
+- [NzbDrone.Core/CLAUDE.md](../NzbDrone.Core/CLAUDE.md) — Events that originate the messages
+- [NzbDrone.Host/CLAUDE.md](../NzbDrone.Host/CLAUDE.md) — Hub endpoint registration
+- [frontend/CLAUDE.md](../../frontend/CLAUDE.md) — Frontend client side

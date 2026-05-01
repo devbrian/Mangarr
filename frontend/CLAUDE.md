@@ -2,7 +2,7 @@
 
 ## Purpose
 
-React-based web UI for the application. Built with TypeScript, using Redux + Zustand for state management and React Query for API data fetching.
+React-based web UI served by the backend at `http://localhost:8989`. Built with TypeScript; uses **three** state stores (Redux + Zustand + TanStack React Query) and SignalR for real-time push.
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\`
 
@@ -10,99 +10,135 @@ React-based web UI for the application. Built with TypeScript, using Redux + Zus
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| React | 18.3.1 | UI framework |
+| React | 18.3.1 | UI framework (concurrent mode) |
 | TypeScript | 5.7.2 | Type safety |
-| Redux | 4.2.1 | Global state |
-| Zustand | 5.0.3 | Feature state |
-| React Query | 5.61.0 | API data fetching |
+| Redux | 4.2.1 | Global state (settings, filters, commands) |
+| React Redux | 7.2.4 | Redux bindings |
+| Connected React Router | 6.9.3 | Sync router with Redux |
+| Zustand | 5.0.3 | Per-feature view state (with localStorage persist) |
+| TanStack React Query | 5.61 | API data fetching + cache |
 | React Router | 5.2.0 | Client-side routing |
+| SignalR | 10.0 | Real-time push from backend |
+| FontAwesome | 7.1 | Icons |
 | Webpack | 5 | Bundling |
-| PostCSS | - | CSS processing |
+| Babel | 7 | Transpilation |
+| Sentry | 7.119 | Error reporting |
+| Lodash 4 / Moment 2.30 / Fuse.js 7 | — | Utilities |
+| react-window | 1.8 | Virtual scrolling |
+| react-dnd | 16.0 | Drag & drop |
 
-## Directory Structure
+## Top-Level Structure
 
 ```
 frontend/
-├── src/
-│   ├── App/                 # App root, routing, providers
-│   ├── Series/              # Series feature (→ Manga)
-│   ├── Episode/             # Episode components (→ Chapter)
-│   ├── Season/              # Season components (→ Volume)
-│   ├── Components/          # Shared UI components
-│   ├── Store/               # Redux store
-│   ├── Helpers/             # Hooks and utilities
-│   ├── typings/             # TypeScript definitions
-│   ├── Settings/            # Settings pages
-│   ├── Activity/            # Activity/monitoring
-│   ├── Calendar/            # Calendar view
-│   ├── Wanted/              # Wanted items
-│   ├── AddSeries/           # Add series flow
-│   └── Content/             # Static assets
+├── src/                                 # 39 top-level dirs (see "Directory Map" below)
+│   ├── App/                             # Root, providers, routing
+│   ├── Series/                          # → Manga
+│   ├── Episode/                         # → Chapter
+│   ├── EpisodeFile/                     # → ChapterFile
+│   ├── Season/                          # → Volume
+│   ├── Components/                      # Shared UI library (313 files)
+│   ├── Store/                           # Redux store
+│   ├── Helpers/                         # Custom hooks, utilities
+│   ├── Settings/                        # Settings pages (273 files)
+│   ├── Activity/                        # Queue / History / Blocklist
+│   ├── Calendar/                        # Calendar view
+│   ├── Wanted/                          # Missing / CutoffUnmet
+│   ├── AddSeries/                       # Add-series flow → AddManga
+│   ├── InteractiveSearch/               # Manual release search
+│   ├── InteractiveImport/               # Manual file import
+│   ├── Organize/                        # File organize preview
+│   ├── Parse/                           # Title-parse utility
+│   ├── System/                          # Status / Tasks / Logs / Backup / Updates / Events
+│   ├── Commands/                        # Command execution
+│   ├── Utilities/                       # Pure utility functions (50+ files)
+│   ├── typings/                         # TypeScript type definitions
+│   ├── Quality/, Language/, Tags/, Filters/, RootFolder/, Path/, DownloadClient/, OAuth/, FirstRun/, Internationalization/, Diag/, Shared/   # Smaller modules
+│   ├── Styles/                          # Global CSS / themes / variables
+│   ├── Content/                         # Static assets (fonts, icons, manifest)
+│   ├── index.ts                         # Webpack entry point
+│   └── bootstrap.tsx                    # React initialization
 ├── build/
-│   └── webpack.config.js    # Webpack configuration
-├── .eslintrc.js             # ESLint rules
-├── .prettierrc.json         # Prettier config
-└── tsconfig.json            # TypeScript config
+│   ├── webpack.config.js                # Webpack config
+│   └── webpack/                         # Custom loaders
+├── .eslintrc.js
+├── .prettierrc.json
+├── .stylelintrc
+└── tsconfig.json
 ```
 
-## Key Files
+## Application Bootstrap
 
-| File | Purpose |
-|------|---------|
-| `src/App/App.tsx` | Root component with providers |
-| `src/App/AppRoutes.tsx` | Route definitions |
-| `src/index.ts` | Application entry point |
-| `src/bootstrap.tsx` | Bootstrap initialization |
-| `build/webpack.config.js` | Build configuration |
+```
+index.ts
+  ├─ Fetch /initialize.json → set window.Sonarr (apiKey, urlBase, version, instanceName, branch)
+  ├─ Set webpack publicPath from urlBase
+  └─ import('./bootstrap')
 
-## State Management
+bootstrap.tsx
+  ├─ Create browser history (with urlBase basename)
+  ├─ Create Redux store: createAppStore(history)
+  ├─ Create React 18 root
+  └─ Render <App store history />
 
-### 1. Redux (Global State)
-```typescript
-// Store/createAppStore.js
-// Used for: settings, custom filters, app-wide state
-import { useSelector } from 'react-redux';
-
-const settings = useSelector(state => state.settings);
+App.tsx (provider chain, top → bottom)
+  <DocumentTitle title={instanceName}>
+    <QueryClientProvider client={queryClient}>            ← React Query
+      <Provider store={store}>                             ← Redux
+        <ConnectedRouter history={history}>               ← Router
+          <ApplyTheme>                                     ← Theme apply
+            <Page>                                         ← Sidebar+content layout
+              <AppRoutes />                                ← Route switch
 ```
 
-### 2. Zustand (Feature State)
-```typescript
-// Series/seriesOptionsStore.ts
-// Used for: view preferences, filters, sorting
-const useSeriesOptions = create(
-  persist(
-    (set) => ({
-      view: 'posters',
-      setView: (view) => set({ view }),
-    }),
-    { name: 'series_options' }
-  )
-);
-```
+## Routing (frontend/src/App/AppRoutes.tsx)
 
-### 3. React Query (API State)
-```typescript
-// Helpers/Hooks/useApiQuery.ts
-// Used for: API data fetching and caching
-const { data, isLoading } = useApiQuery({
-  queryKey: ['/series'],
-});
-```
+| Path | Component | Page |
+|------|-----------|------|
+| `/` | `SeriesIndex` | Series list (home) |
+| `/add/new` | `AddNewSeries` | Add new |
+| `/add/import` | `ImportSeriesPage` | Import existing folder |
+| `/series/:titleSlug` | `SeriesDetailsPage` | Series detail |
+| `/calendar` | `CalendarPage` | Calendar |
+| `/activity/queue` | `Queue` | Active downloads |
+| `/activity/history` | `History` | Grab/import history |
+| `/activity/blocklist` | `Blocklist` | Blocked releases |
+| `/wanted/missing` | `Missing` | Missing episodes |
+| `/wanted/cutoffunmet` | `CutoffUnmet` | Below cutoff |
+| `/settings` | `Settings` | Settings home |
+| `/settings/mediamanagement` | `MediaManagement` | File handling |
+| `/settings/profiles` | `Profiles` | Quality / language / delay / release |
+| `/settings/quality` | `Quality` | Quality definitions |
+| `/settings/customformats` | `CustomFormatSettingsPage` | Custom format rules |
+| `/settings/indexers` | `IndexerSettings` | Indexers + options |
+| `/settings/downloadclients` | `DownloadClientSettings` | Clients + remote path mappings |
+| `/settings/importlists` | `ImportListSettings` | Lists + exclusions |
+| `/settings/connect` | `NotificationSettings` | Notifications |
+| `/settings/metadata` | `MetadataSettings` | Metadata writers |
+| `/settings/metadatasource` | `MetadataSourceSettings` | TVDB → manga sources |
+| `/settings/tags` | `TagSettings` | Tags + auto-tagging |
+| `/settings/general` | `GeneralSettings` | Host / port / proxy / auth / SSL / logging |
+| `/settings/ui` | `UISettings` | Theme / language / time format |
+| `/system/status` | `Status` | System info |
+| `/system/tasks` | `Tasks` | Queued + scheduled |
+| `/system/backup` | `Backups` | Backups |
+| `/system/updates` | `Updates` | Update history |
+| `/system/events` | `LogsTable` | Log events |
+| `/system/logs/files` | `Logs` | Raw log files |
+| `*` | `NotFound` | Catch-all |
 
-## API Integration
+## State Management (Hybrid)
 
-### useApiQuery
+### 1. React Query (Server State — Preferred for new work)
 ```typescript
 import { useApiQuery } from 'Helpers/Hooks/useApiQuery';
 
-const { data, isLoading, isFetched } = useApiQuery<Series[]>({
+const { data, isLoading, isFetched, error } = useApiQuery<Series[]>({
   queryKey: ['/series'],
-  staleTime: 5 * 60 * 1000, // 5 minutes
+  staleTime: 5 * 60 * 1000,
 });
 ```
 
-### useApiMutation
 ```typescript
 import { useApiMutation } from 'Helpers/Hooks/useApiMutation';
 
@@ -110,78 +146,125 @@ const { mutate, isPending } = useApiMutation<Series>({
   method: 'PUT',
   queryKey: ['/series', id],
 });
-
 mutate({ ...series, monitored: true });
 ```
 
+### 2. Zustand (UI Preferences — Persisted)
+```typescript
+const useSeriesOptions = create(persist((set) => ({
+  view: 'posters',
+  setView: (view) => set({ view }),
+}), { name: 'series_options' }));
+```
+
+### 3. Redux (Settings, Filters, Commands — Legacy + global)
+```typescript
+const settings = useSelector((state) => state.settings);
+dispatch(setSettingValue('ui', 'theme', 'dark'));
+```
+
+`Store/Actions/Creators/` provides factories like `createFetchHandler`, `createSaveHandler`, `createBulkEditItemHandler`, `createServerSideCollectionHandlers` for the heavy settings/queue/history flows that retain Redux.
+
+## SignalR Real-Time Updates
+
+A `<SignalRListener />` component (or Redux middleware) opens `/signalr/messages?access_token=<apiKey>` and dispatches incoming messages as Redux actions / React Query cache invalidations.
+
+| Backend Message | Frontend Reaction |
+|-----------------|-------------------|
+| `series` | Invalidate `[/series]` queries; update single series cache |
+| `episode` | Update episode cache for that series |
+| `episodefile` | Update file list |
+| `command` | Update command queue / progress UI |
+| `queue` | Update active queue list |
+| `history` | Append to history list |
+| `health` | Update health badge |
+| `system` | Show notice / restart prompt |
+
 ## Component Conventions
 
-### Feature Module Structure
+### Feature Module Layout
 ```
-Series/
-├── Series.ts                 # Type definitions
-├── useSeries.ts              # API hooks
-├── seriesOptionsStore.ts     # Zustand store
-├── Index/                    # List view
-│   ├── SeriesIndex.tsx
-│   ├── Posters/              # Poster view
-│   ├── Overview/             # Overview view
-│   └── Table/                # Table view
+FeatureName/
+├── FeatureName.ts            # Type definition
+├── useFeatureName.ts         # API hooks (CRUD)
+├── featureNameOptionsStore.ts# Zustand persisted UI state
+├── Index/                    # List view (often w/ multiple display modes)
 ├── Details/                  # Detail view
-│   └── SeriesDetails.tsx
 ├── Edit/                     # Edit modal
-└── Delete/                   # Delete modal
+├── Delete/                   # Delete modal
+└── Search/, History/, …      # Sub-features
 ```
 
 ### CSS Modules
 ```typescript
-// Styles are CSS modules with .module.css extension
 import styles from './SeriesIndex.module.css';
-
-<div className={styles.container}>
+<div className={styles.container}>…</div>
 ```
 
-## Routing
+Global CSS / variables / themes live in `frontend/src/Styles/`.
 
-```typescript
-// Key routes in AppRoutes.tsx
-/                       → SeriesIndex (home)
-/series/:titleSlug      → SeriesDetails
-/add/new                → AddNewSeries
-/add/import             → ImportSeriesPage
-/calendar               → Calendar
-/activity/history       → History
-/activity/queue         → Queue
-/wanted/missing         → Missing
-/settings/*             → Settings pages
-/system/*               → System pages
-```
+### TypeScript Path Aliases
+The `tsconfig.json` and Webpack alias `frontend/src/` as the import root. Imports like `import { useApiQuery } from 'Helpers/Hooks/useApiQuery'` resolve to `frontend/src/Helpers/Hooks/useApiQuery.ts`.
 
 ## Build Commands
 
 ```bash
-# Development build
-yarn build
-
-# Production build
-yarn build --env production
-
-# Clean build output
-yarn clean
-
-# Lint
-yarn lint
-
-# Format
-yarn format
+yarn build                  # Dev build
+yarn build --env production # Prod (minified, source maps)
+yarn watch                  # Webpack watch
+yarn clean                  # Clean _output/UI/
+yarn lint && yarn lint-fix  # ESLint
+yarn stylelint              # CSS lint
 ```
 
-## Output
+## Output Directory
 
-Build output goes to: `../_output/UI/`
+`yarn build` writes to **`../_output/UI/`** (consumed by `Sonarr.Http.Frontend.Mappers` to serve the SPA). Asset paths use `window.Sonarr.urlBase` for reverse-proxy compatibility.
+
+## Manga Adaptation: High-Level Plan
+
+Listed by approximate priority. Detailed migration notes are in each module's `CLAUDE.md`.
+
+| Module | Effort | Action |
+|--------|--------|--------|
+| `Series/` → `Manga/` | HIGH | Rename folder + types; remove tvdbId/seasonFolder/airTime; add mangadexId/anilistId/author/artist |
+| `Episode/` → `Chapter/` | HIGH | Remove airDate/sceneEpisodeNumber; add releaseDate/pageCount/scanlationGroup |
+| `Season/` → `Volume/` | MED | Optional grouping for manga |
+| `EpisodeFile/` → `ChapterFile/` | MED | Rename, update mediaInfo |
+| `AddSeries/` → `AddManga/` | HIGH | Rebrand entire flow |
+| `Calendar/` | MED | Manga release schedules differ from TV airing |
+| `Activity/` | LOW | Update terminology |
+| `Wanted/` | LOW | Logic transfers; rename references |
+| `InteractiveSearch/Import/` | MED | Update match flow |
+| `Settings/Quality, MetadataSource, Indexers` | HIGH | Quality tiers, manga metadata sources, manga indexers |
+| `Components/`, `Helpers/`, `Utilities/`, `System/`, `Diag/`, `Internationalization/`, `Tags/`, `OAuth/`, `FirstRun/` | NONE | Generic utilities — keep |
+| `Styles/`, `Content/` | LOW | App branding (icons, manifest, name) |
+| `typings/` | MED | Series/Episode types renamed |
+| `Store/Actions/Settings/*` | LOW | Some entity slices reference series/episode terminology |
+
+## Documentation Index
+
+| Path | Purpose |
+|------|---------|
+| [src/App/CLAUDE.md](./src/App/CLAUDE.md) | Root + routing + providers |
+| [src/Series/CLAUDE.md](./src/Series/CLAUDE.md) | Series feature → Manga |
+| [src/Episode/CLAUDE.md](./src/Episode/CLAUDE.md) | Episode feature → Chapter |
+| [src/Components/CLAUDE.md](./src/Components/CLAUDE.md) | Shared UI library |
+| [src/Store/CLAUDE.md](./src/Store/CLAUDE.md) | Redux store |
+| [src/Helpers/CLAUDE.md](./src/Helpers/CLAUDE.md) | Custom hooks |
+| [src/Settings/CLAUDE.md](./src/Settings/CLAUDE.md) | Settings pages |
+| [src/AddSeries/CLAUDE.md](./src/AddSeries/CLAUDE.md) | Add-series flow |
+| [src/Activity/CLAUDE.md](./src/Activity/CLAUDE.md) | Queue/History/Blocklist |
+| [src/Calendar/CLAUDE.md](./src/Calendar/CLAUDE.md) | Calendar |
+| [src/Wanted/CLAUDE.md](./src/Wanted/CLAUDE.md) | Missing / CutoffUnmet |
+| [src/InteractiveSearch/CLAUDE.md](./src/InteractiveSearch/CLAUDE.md) | Manual release search |
+| [src/InteractiveImport/CLAUDE.md](./src/InteractiveImport/CLAUDE.md) | Manual file import |
+| [src/System/CLAUDE.md](./src/System/CLAUDE.md) | System admin pages |
+| [src/Utilities/CLAUDE.md](./src/Utilities/CLAUDE.md) | Pure helpers |
+| [src/typings/CLAUDE.md](./src/typings/CLAUDE.md) | API DTO types |
 
 ## Cross-References
 
-- [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) - Overall architecture
-- [Series/CLAUDE.md](./src/Series/CLAUDE.md) - Series feature module
-- [Sonarr.Api.V5/CLAUDE.md](../src/Sonarr.Api.V5/CLAUDE.md) - Backend API
+- [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) — Overall architecture
+- [src/Sonarr.Api.V5/CLAUDE.md](../src/Sonarr.Api.V5/CLAUDE.md) — Backend API consumed
+- [src/NzbDrone.SignalR/CLAUDE.md](../src/NzbDrone.SignalR/CLAUDE.md) — Real-time push

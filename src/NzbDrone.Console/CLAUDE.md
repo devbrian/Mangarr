@@ -10,49 +10,74 @@ Console application entry point. This is the **main executable** that starts the
 
 | File | Purpose |
 |------|---------|
-| `Program.cs` | Application entry point (Main method) |
-| `ConsoleApp.cs` | Console-specific initialization |
+| `ConsoleApp.cs` | Application entry (`Main`), exception handling, exit codes (~135 lines) |
 | `Sonarr.Console.csproj` | Project file |
+| `Sonarr.ico` | App icon |
+
+> **Note**: There is **no `Program.cs`** — `ConsoleApp.cs` contains the static `Main(string[] args)` method directly.
 
 ## Entry Point
 
 ```csharp
-// Program.cs
-public static class Program
+// ConsoleApp.cs (simplified)
+public static class ConsoleApp
 {
     public static void Main(string[] args)
     {
-        // Parse command line args
-        // Initialize logging
-        // Start Bootstrap from NzbDrone.Host
-        Bootstrap.Start(args);
+        // 1. Initialize logging (NzbDroneLogger)
+        // 2. Parse command-line StartupContext
+        // 3. Call Bootstrap.Start(args)  (from NzbDrone.Host)
+        // 4. Catch & log SonarrStartupException, SocketException, IOException, RemoteAccessException
+        // 5. Set process exit code
     }
 }
 ```
 
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Normal shutdown |
+| `1` | Unknown failure |
+| `2` | Recoverable failure (e.g., port already in use) |
+| `3` | Non-recoverable failure (waits for user intervention if interactive) |
+
 ## Running
 
 ```bash
-# From solution root
+# From solution root (development)
 dotnet run --project src/NzbDrone.Console/Sonarr.Console.csproj
 
-# Or run compiled output
-./_output/net10.0/Sonarr.Console.exe
+# Compiled output (after build)
+./_output/net10.0/Sonarr.Console.exe       # Windows
+./_output/net10.0/Sonarr.Console.dll       # via dotnet
 ```
 
-## Command Line Arguments
+## Command-Line Arguments
 
 | Argument | Purpose |
 |----------|---------|
 | `--nobrowser` | Don't open browser on startup |
-| `--data=<path>` | Custom data directory |
+| `--data=<path>` | Custom data directory (default: `%ProgramData%\Sonarr` on Windows) |
 | `--port=<port>` | Custom port (default: 8989) |
+| `--terminate` | Terminate other running instance |
+
+Parsed by `StartupContext` in [NzbDrone.Common/EnvironmentInfo/StartupContext.cs](../NzbDrone.Common/EnvironmentInfo/StartupContext.cs).
 
 ## Build Output
 
-Compiles to: `_output/net10.0/Sonarr.Console.dll`
+Compiles to: `_output/net10.0/Sonarr.Console.{exe,dll}` plus all referenced assemblies and the bundled UI in `_output/UI/`.
+
+## Manga Adaptation Notes
+
+- The csproj is named `Sonarr.Console.csproj` and produces `Sonarr.Console.exe`. As part of rebranding, this should eventually be renamed `Mangarr.Console.csproj` / `Mangarr.Console.exe`. Renaming requires updating:
+  - Solution file (`src/Sonarr.sln`)
+  - Distribution scripts under `distribution/`
+  - Service install scripts under `src/ServiceHelpers/`
+  - GitHub Actions / build pipelines
 
 ## Cross-References
 
-- [NzbDrone.Host/CLAUDE.md](../NzbDrone.Host/CLAUDE.md) - Bootstrap code
-- [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) - Architecture overview
+- [NzbDrone.Host/CLAUDE.md](../NzbDrone.Host/CLAUDE.md) — Bootstrap code
+- [NzbDrone.Common/CLAUDE.md](../NzbDrone.Common/CLAUDE.md) — StartupContext
+- [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) — Architecture overview
