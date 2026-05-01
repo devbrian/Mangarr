@@ -77,11 +77,14 @@ namespace NzbDrone.Core.Indexers.Http
 
         /// <summary>
         /// Override the base dispatch hook to inject our SourceKey-keyed rate limit and honest UA.
+        /// We intentionally do NOT delegate to <c>base.FetchIndexerResponse</c> because that base
+        /// implementation re-assigns <c>RateLimitKey = Definition.Id.ToString()</c> as its final
+        /// step before dispatch, which would clobber our SourceKey value (D-11/D-12). Instead we
+        /// inline the equivalent dispatch logic here so SourceKey survives to <see cref="IHttpClient"/>.
         /// </summary>
         protected override async Task<IndexerResponse> FetchIndexerResponse(IndexerRequest request)
         {
-            // D-11/D-12: single shared budget per SourceKey value (NOT Definition.Id).
-            request.HttpRequest.RateLimitKey = SourceKey;
+            _logger.Debug("Downloading Feed " + request.HttpRequest.ToString(false));
 
             // Floor the request rate at our configured RateLimit (preserves base behavior).
             if (request.HttpRequest.RateLimit < RateLimit)
@@ -89,10 +92,15 @@ namespace NzbDrone.Core.Indexers.Http
                 request.HttpRequest.RateLimit = RateLimit;
             }
 
+            // D-11/D-12: single shared budget per SourceKey value (NOT Definition.Id).
+            request.HttpRequest.RateLimitKey = SourceKey;
+
             // D-13/D-14: honest-by-default UA, opt-out per instance.
             request.HttpRequest.Headers["User-Agent"] = ResolveUserAgent();
 
-            return await base.FetchIndexerResponse(request);
+            var response = await _httpClient.ExecuteAsync(request.HttpRequest);
+
+            return new IndexerResponse(request, response);
         }
     }
 }
