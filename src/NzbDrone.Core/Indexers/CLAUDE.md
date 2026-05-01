@@ -41,6 +41,15 @@ For Mangarr, this is where **manga aggregator scrapers** will live (replacing/au
 | `Torrentleech/` | Torrent | Private tracker |
 | `Fanzub/` | Usenet | Anime-specific |
 | `Exceptions/` | — | Indexer-specific exceptions |
+| `Http/` | Manga aggregator | `HttpAggregatorBase<TSettings>` — Phase 1 base class for manga aggregator source plugins (Phase 3 sources extend) |
+
+### `Http/` — Manga Aggregator Base Classes
+
+`HttpAggregatorBase<TSettings>` extends `HttpIndexerBase<TSettings>` to add manga-aggregator-specific behavior:
+- Per-`SourceKey` shared rate-limit budget across indexer pollers + Phase 4 in-process downloader (D-11/D-12)
+- Honest-by-default `Mangarr/{version}` User-Agent with per-instance opt-out via Settings (D-13/D-14)
+
+See [Indexers/Http/CLAUDE.md](./Http/CLAUDE.md) for details. Phase 3 source plugins (MangaDexIndexer, ComixToIndexer, MangaFireIndexer) extend this base.
 
 ## Indexer Anatomy
 
