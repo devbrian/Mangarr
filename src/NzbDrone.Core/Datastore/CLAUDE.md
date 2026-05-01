@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Database layer — connection management, generic repository, ORM mapping, and **schema migrations** (224 of them).
+Database layer — connection management, generic repository, ORM mapping, and **schema migrations** (**1 of them — fresh manga baseline** (Phase 1 reset; the inherited Sonarr 224 were replaced by `001_mangarr_baseline.cs` per Phase 0 D-14 fresh-schema decision)).
 
 This directory is **media-agnostic** infrastructure and reusable as-is. Migrations specific to manga schema additions/renames will be added on top.
 
@@ -30,7 +30,7 @@ This directory is **media-agnostic** infrastructure and reusable as-is. Migratio
 
 ### `Migration/` — Schema Migrations
 
-**224 migrations** (`000_…` through `223_…`), implemented with **FluentMigrator**.
+**1 baseline migration** (`001_mangarr_baseline.cs`); future Phase migrations stack sequentially on top (`002_*.cs`, `003_*.cs`, …), implemented with **FluentMigrator**.
 
 Naming convention: `NNN_short_description_in_snake_case.cs` where `NNN` is sequential.
 
@@ -192,3 +192,4 @@ This directory is **infrastructure** and reusable. Migration plan:
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview
 - [../Tv/CLAUDE.md](../Tv/CLAUDE.md) — `SeriesRepository` extends `BasicRepository`
 - [../Messaging/CLAUDE.md](../Messaging/CLAUDE.md) — `ModelEvent<T>` published from BasicRepository
+- [Phase 1 Foundation Plans](../../../.planning/phases/01-foundation/)
