@@ -19,10 +19,9 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         {
             var db = WithDapperMigrationTestDb();
 
-            var rows = db.Query<MangaColumnInfo>(
-                "SELECT name, type, \"notnull\" AS NotNull FROM pragma_table_info('Manga')");
+            var rows = db.Query<TableInfoRow>("PRAGMA table_info(\"Manga\");");
 
-            var columnNames = rows.Select(r => r.Name).ToList();
+            var columnNames = rows.Select(r => r.name).ToList();
 
             columnNames.Should().Contain("Id");
             columnNames.Should().Contain("Title");
@@ -66,18 +65,16 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         {
             var db = WithDapperMigrationTestDb();
 
-            var rows = db.Query<MangaColumnInfo>(
-                "SELECT name, type, \"notnull\" AS NotNull FROM pragma_table_info('History')")
-                .ToList();
+            var rows = db.Query<TableInfoRow>("PRAGMA table_info(\"History\");").ToList();
 
-            var mangaIdCol = rows.SingleOrDefault(r => r.Name == "MangaId");
-            var chapterIdCol = rows.SingleOrDefault(r => r.Name == "ChapterId");
+            var mangaIdCol = rows.SingleOrDefault(r => r.name == "MangaId");
+            var chapterIdCol = rows.SingleOrDefault(r => r.name == "ChapterId");
 
             mangaIdCol.Should().NotBeNull("History.MangaId column must exist for D-07");
-            mangaIdCol.NotNull.Should().Be(0, "History.MangaId must be nullable");
+            mangaIdCol.notnull.Should().Be(0, "History.MangaId must be nullable");
 
             chapterIdCol.Should().NotBeNull("History.ChapterId column must exist for D-07");
-            chapterIdCol.NotNull.Should().Be(0, "History.ChapterId must be nullable");
+            chapterIdCol.notnull.Should().Be(0, "History.ChapterId must be nullable");
         }
 
         // ============================================================
@@ -88,14 +85,12 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         {
             var db = WithDapperMigrationTestDb();
 
-            var rows = db.Query<MangaColumnInfo>(
-                "SELECT name, type, \"notnull\" AS NotNull FROM pragma_table_info('Blocklist')")
-                .ToList();
+            var rows = db.Query<TableInfoRow>("PRAGMA table_info(\"Blocklist\");").ToList();
 
-            var mangaIdCol = rows.SingleOrDefault(r => r.Name == "MangaId");
+            var mangaIdCol = rows.SingleOrDefault(r => r.name == "MangaId");
 
             mangaIdCol.Should().NotBeNull("Blocklist.MangaId column must exist for D-07");
-            mangaIdCol.NotNull.Should().Be(0, "Blocklist.MangaId must be nullable");
+            mangaIdCol.notnull.Should().Be(0, "Blocklist.MangaId must be nullable");
         }
 
         // ============================================================
@@ -176,13 +171,23 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         }
 
         // ============================================================
-        // Test 8 — Postgres parity (DB-02). Tagged so it only runs under postgres.runsettings
-        // (See plan task 3 — Postgres parity human-verify checkpoint).
+        // Test 8 — Postgres parity (DB-02). Tagged so the Postgres parity
+        // assertions only run when env vars target a real Postgres instance
+        // (postgres.runsettings or equivalent — see plan task 3 human-verify
+        // checkpoint). On SQLite the test is Ignored so the suite stays green
+        // for default local runs.
         // ============================================================
         [Test]
         [Category("Postgres")]
         public void should_apply_baseline_on_postgres()
         {
+            var postgresHost = System.Environment.GetEnvironmentVariable("Sonarr__Postgres__Host");
+            if (string.IsNullOrWhiteSpace(postgresHost))
+            {
+                Assert.Ignore("Skipped: requires PostgreSQL backend (set Sonarr__Postgres__Host env var or use postgres.runsettings).");
+                return;
+            }
+
             var db = WithDapperMigrationTestDb();
 
             // On Postgres backend, query information_schema instead of sqlite_master.
@@ -229,12 +234,20 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         // ============================================================
         // Helper POCOs
         // ============================================================
-        private class MangaColumnInfo
+        // Mirrors `PRAGMA table_info("X")` column shape exactly. Lowercase
+        // property names match SQLite's column names so Dapper binds without
+        // alias gymnastics.
+#pragma warning disable SA1300 // Element should begin with upper-case letter
+        private class TableInfoRow
         {
-            public string Name { get; set; }
-            public string Type { get; set; }
-            public int NotNull { get; set; }
+            public int cid { get; set; }
+            public string name { get; set; }
+            public string type { get; set; }
+            public int notnull { get; set; }
+            public string dflt_value { get; set; }
+            public int pk { get; set; }
         }
+#pragma warning restore SA1300
 
         private class IndexInfo
         {
