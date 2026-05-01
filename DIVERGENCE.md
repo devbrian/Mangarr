@@ -36,7 +36,9 @@ Type taxonomy: `extend`, `replace`, `delete`, `new`, `preserve`.
 | `src/NzbDrone.Core/Indexers/MangaFire/` (new) | new | Phase 3 | MangaFire reference port #2 per onboarding pipeline. |
 | `src/NzbDrone.Core/Download/Clients/InProcess/` (new) | new | Phase 4 | Novel `InProcessImageDownloadClient` — no peer-fork precedent; bounded `Channel<T>` with resumable state. |
 | `src/NzbDrone.Core/MediaFiles/Archive/` (new) | new | Phase 4 | `IChapterArchiver` strategy: CBZ + folder-of-images + ComicInfo.xml v2.0 / v2.1 dual-write. |
-| `src/NzbDrone.Core/Qualities/Quality.cs` | delete | Phase 5 | TV resolutions enum; manga has no quality concept (replaced entirely by Custom Formats per PROJECT.md Key Decision). |
+| `src/NzbDrone.Core/Qualities/Quality.cs` | delete | Phase 5 | TV resolutions enum; manga has no quality concept (replaced by Custom Formats + TranslationProfile per PROJECT.md Key Decision). |
+| `src/NzbDrone.Core/Profiles/Translation/` (new — `TranslationProfile.cs`, `TranslationProfileService.cs`, `TranslationProfileRepository.cs`) | new | Phase 5 | Ordinal language-preference entity. Phase 5 scope expansion per [cf-only-walkthrough.md](./.planning/decisions/cf-only-walkthrough.md) verdict signoff (2026-05-01: TranslationProfile added). Applied as ordinal gate *before* Custom Format total-score in Decision Engine. |
+| `src/NzbDrone.Core/Datastore/Migration/M002_translation_profile.cs` | new | Phase 5 | FluentMigrator migration for `TranslationProfile` entity + per-Manga FK. Required for TPROFILE-04 persistence. |
 | `src/NzbDrone.Core/DecisionEngine/Specifications/` (TV-specific specs: `MonitoredEpisodeSpecification`, `MultiEpisodeSpecification`, `AnimeVersionUpgradeSpecification`, `RepackSpecification`, etc.) | replace | Phase 5 | TV-shaped specs replaced with manga equivalents; `IDownloadDecisionEngineSpecification` shape preserved. |
 | `src/NzbDrone.Core/CustomFormats/` (architecture, not contents) | preserve | Phase 5 | CF infrastructure preserved; `LanguageSpecification` reusable as-is per the existing Sonarr pattern. |
 | `src/Sonarr.Api.V5/` (Series/Episode controllers) | extend | Phase 7 | Add `/api/v5/manga`, `/chapter`, `/library` controllers alongside legacy Series/Episode controllers; rename in Phase 8. |
@@ -48,3 +50,4 @@ Type taxonomy: `extend`, `replace`, `delete`, `new`, `preserve`.
 
 ---
 *Last updated: 2026-05-01 (Phase 0 — initial authoring)*
+*Last updated: 2026-05-01 (Phase 0 — added TranslationProfile rows under Planned Divergences after cf-only-walkthrough verdict signoff: TranslationProfile added)*
