@@ -341,3 +341,23 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 2. Use `detect_changes` for code review.
 3. Use `get_affected_flows` to understand impact.
 4. Use `query_graph` pattern="tests_for" to check coverage.
+
+---
+
+## Project Planning ([.planning/](./.planning/))
+
+This project uses **GSD** (`/gsd-*` commands) for structured planning. The single source of truth for "what we're building and why" lives in `.planning/`. Read these before answering questions about scope, decisions, or roadmap:
+
+| File | What it is |
+|------|------------|
+| [.planning/PROJECT.md](./.planning/PROJECT.md) | Vision, core value, v1 scope, out-of-scope, key decisions, design philosophy |
+| [.planning/REQUIREMENTS.md](./.planning/REQUIREMENTS.md) | 71 v1 requirements across 19 categories with traceability to phases |
+| [.planning/ROADMAP.md](./.planning/ROADMAP.md) | 9-phase v1 plan (Phase 0 decisions + 8 implementation phases); leaf-first, rename-last |
+| [.planning/STATE.md](./.planning/STATE.md) | Current phase + plan, recent decisions, blockers, session continuity |
+| [.planning/codebase/](./.planning/codebase/) | 7-doc map of inherited Sonarr fork (STACK, ARCHITECTURE, STRUCTURE, CONVENTIONS, TESTING, INTEGRATIONS, CONCERNS) |
+| [.planning/research/](./.planning/research/) | Web-verified domain research: STACK, FEATURES, ARCHITECTURE, PITFALLS, SUMMARY |
+| [.planning/config.json](./.planning/config.json) | GSD workflow preferences (mode, granularity, model profile, agent toggles) |
+
+**Design philosophy** (locked in PROJECT.md): *Preserve Sonarr's shape wherever it works; diverge only where the manga domain forces us.* This drives every gray-area call.
+
+**Per-phase workflow:** `/gsd-discuss-phase N` → `/gsd-plan-phase N` → `/gsd-execute-phase N` → `/gsd-verify-work N`. Or `/gsd-progress` for the unified situational command.
