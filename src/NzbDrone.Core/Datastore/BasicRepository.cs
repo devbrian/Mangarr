@@ -93,18 +93,34 @@ namespace NzbDrone.Core.Datastore
 
         protected virtual SqlBuilder Builder() => new SqlBuilder(_database.DatabaseType);
 
-        protected virtual List<TModel> Query(SqlBuilder builder) => _database.Query<TModel>(builder).ToList();
+        // Read-path wrap (Plan 01-05 Task 2): retry on SQLITE_BUSY. This funnel covers
+        // Find / Get(int) / Get(IEnumerable<int>) / All / GetPaged transitively because
+        // they all flow through Query(SqlBuilder). Postgres callers are unaffected -
+        // the predicate filters SQLiteException only.
+        protected virtual List<TModel> Query(SqlBuilder builder) =>
+            RetryStrategy.Execute(
+                static (state, _) => state.self._database.Query<TModel>(state.builder).ToList(),
+                (self: this, builder));
 
-        protected virtual List<TModel> QueryDistinct(SqlBuilder builder) => _database.QueryDistinct<TModel>(builder).ToList();
+        protected virtual List<TModel> QueryDistinct(SqlBuilder builder) =>
+            RetryStrategy.Execute(
+                static (state, _) => state.self._database.QueryDistinct<TModel>(state.builder).ToList(),
+                (self: this, builder));
 
         protected List<TModel> Query(Expression<Func<TModel, bool>> where) => Query(Builder().Where(where));
 
         public int Count()
         {
-            using (var conn = _database.OpenConnection())
-            {
-                return conn.ExecuteScalar<int>($"SELECT COUNT(*) FROM \"{_table}\"");
-            }
+            // Read-path wrap (Plan 01-05 Task 2): retry on SQLITE_BUSY.
+            return RetryStrategy.Execute(
+                static (state, _) =>
+                {
+                    using (var conn = state.self._database.OpenConnection())
+                    {
+                        return conn.ExecuteScalar<int>($"SELECT COUNT(*) FROM \"{state.table}\"");
+                    }
+                },
+                (self: this, table: _table));
         }
 
         public virtual IEnumerable<TModel> All()
@@ -282,10 +298,17 @@ namespace NzbDrone.Core.Datastore
         {
             var sql = builder.AddDeleteTemplate(typeof(TModel));
 
-            using (var conn = _database.OpenConnection())
-            {
-                conn.Execute(sql.RawSql, sql.Parameters);
-            }
+            // Delete-path wrap (Plan 01-05 Task 2): retry on SQLITE_BUSY. Funnels for
+            // Delete(int), Delete(TModel), DeleteMany(IEnumerable<int>), DeleteMany(List<TModel>).
+            RetryStrategy.Execute(
+                static (state, _) =>
+                {
+                    using (var conn = state.self._database.OpenConnection())
+                    {
+                        return conn.Execute(state.sql.RawSql, state.sql.Parameters);
+                    }
+                },
+                (self: this, sql));
         }
 
         public void Delete(TModel model)
@@ -313,22 +336,38 @@ namespace NzbDrone.Core.Datastore
 
         public TModel Upsert(TModel model)
         {
-            if (model.Id == 0)
-            {
-                Insert(model);
-                return model;
-            }
+            // Upsert defensive wrap (Plan 01-05 Task 2): Insert / Update already retry,
+            // but a top-level wrap is cheap insurance against future refactors that might
+            // inline-SQL the upsert path (RESEARCH Open Question #2).
+            return RetryStrategy.Execute(
+                static (state, _) =>
+                {
+                    if (state.model.Id == 0)
+                    {
+                        state.self.Insert(state.model);
+                        return state.model;
+                    }
 
-            Update(model);
-            return model;
+                    state.self.Update(state.model);
+                    return state.model;
+                },
+                (self: this, model));
         }
 
         public void Purge(bool vacuum = false)
         {
-            using (var conn = _database.OpenConnection())
-            {
-                conn.Execute($"DELETE FROM \"{_table}\"");
-            }
+            // Purge wrap (Plan 01-05 Task 2): retry on SQLITE_BUSY for the bulk DELETE.
+            // Vacuum() is a maintenance op delegated to IDatabase and runs outside the
+            // retry window (separate concurrency profile).
+            RetryStrategy.Execute(
+                static (state, _) =>
+                {
+                    using (var conn = state.self._database.OpenConnection())
+                    {
+                        return conn.Execute($"DELETE FROM \"{state.table}\"");
+                    }
+                },
+                (self: this, table: _table));
 
             if (vacuum)
             {
@@ -478,10 +517,16 @@ namespace NzbDrone.Core.Datastore
                 sql = builder.AddPageCountTemplate(typeof(TModel));
             }
 
-            using (var conn = _database.OpenConnection())
-            {
-                return conn.ExecuteScalar<int>(sql.RawSql, sql.Parameters);
-            }
+            // Read-path wrap (Plan 01-05 Task 2): retry on SQLITE_BUSY for paged-count.
+            return RetryStrategy.Execute(
+                static (state, _) =>
+                {
+                    using (var conn = state.self._database.OpenConnection())
+                    {
+                        return conn.ExecuteScalar<int>(state.sql.RawSql, state.sql.Parameters);
+                    }
+                },
+                (self: this, sql));
         }
 
         protected void ModelCreated(TModel model, bool forcePublish = false)
