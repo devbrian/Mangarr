@@ -26,8 +26,8 @@ namespace NzbDrone.Core.Test.Datastore.Migration
             columnNames.Should().Contain("Title");
             columnNames.Should().Contain("CleanTitle");
             columnNames.Should().Contain("MangaDexId");
-            columnNames.Should().Contain("MalIds");
-            columnNames.Should().Contain("AniListIds");
+            columnNames.Should().Contain("MalId");
+            columnNames.Should().Contain("AniListId");
             columnNames.Should().Contain("Path");
             columnNames.Should().Contain("Monitored");
             columnNames.Should().Contain("Status");
