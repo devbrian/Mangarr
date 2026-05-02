@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using FluentValidation;
 using NzbDrone.Core.Annotations;
 using NzbDrone.Core.Indexers.Http;
-using NzbDrone.Core.ThingiProvider;
 using NzbDrone.Core.Validation;
 
 namespace NzbDrone.Core.MetadataSource.MangaDex

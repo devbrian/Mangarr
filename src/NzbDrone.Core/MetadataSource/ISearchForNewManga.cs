@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using NzbDrone.Core.Manga;
 
 namespace NzbDrone.Core.MetadataSource
 {

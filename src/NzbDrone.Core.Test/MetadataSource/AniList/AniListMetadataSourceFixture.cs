@@ -64,11 +64,11 @@ namespace NzbDrone.Core.Test.MetadataSource.AniList
             }";
             GivenMediaByIdResponse(json);
 
-            var (manga, chapters) = Subject.GetMangaInfo("30013");
+            var result = Subject.GetMangaInfo("30013");
 
-            manga.AniListId.Should().Be(30013);
-            manga.MalId.Should().Be(11);
-            chapters.Should().BeEmpty();
+            result.Item1.AniListId.Should().Be(30013);
+            result.Item1.MalId.Should().Be(11);
+            result.Item2.Should().BeEmpty();
         }
 
         // D-21 multi-axis confirm input — primary author from staff entries with role="Story".
@@ -95,9 +95,9 @@ namespace NzbDrone.Core.Test.MetadataSource.AniList
             }";
             GivenMediaByIdResponse(json);
 
-            var (manga, _) = Subject.GetMangaInfo("30013");
+            var result = Subject.GetMangaInfo("30013");
 
-            manga.PrimaryAuthor.Should().Be("Koyoharu Gotouge");
+            result.Item1.PrimaryAuthor.Should().Be("Koyoharu Gotouge");
         }
 
         [Test]
@@ -117,9 +117,9 @@ namespace NzbDrone.Core.Test.MetadataSource.AniList
             }";
             GivenMediaByIdResponse(json);
 
-            var (manga, _) = Subject.GetMangaInfo("30013");
+            var result = Subject.GetMangaInfo("30013");
 
-            manga.TotalChapterCount.Should().Be(700);
+            result.Item1.TotalChapterCount.Should().Be(700);
         }
 
         [Test]

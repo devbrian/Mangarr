@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
 using NLog;
 using NzbDrone.Common.Instrumentation;
@@ -151,7 +150,7 @@ namespace NzbDrone.Core.Parser.Manga
             }
 
             // 2. Try every chapter-regex; first hit wins.
-            decimal[] chapterNumbers = Array.Empty<decimal>();
+            var chapterNumbers = Array.Empty<decimal>();
             foreach (var rx in ChapterRegexes)
             {
                 var match = rx.Match(title);
