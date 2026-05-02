@@ -74,10 +74,20 @@ namespace NzbDrone.Core.Test.MetadataSource
                   });
         }
 
-        // Per Pitfall 4 in 02-RESEARCH: assert injected IEnumerable<IMetadataSource> count == 3.
+        // Per Pitfall 4 in 02-RESEARCH: assert the factory resolves all 3 providers from
+        // the IMetadataSourceRepository round-trip. The fixture's [SetUp] (above) stubs
+        // the repository with MangaDex / AniList / MyAnimeList rows; this test confirms
+        // the factory's All() (inherited from ProviderFactory) reads them back by Name.
+        // GREEN — Plan 02-13 (Wave 7) closes the Plan 02-08 must_haves truth.
         [Test]
-        [Ignore("RED until Wave 3 — Plans 02-06/02-07/02-08 land the three concrete IMetadataSource providers. Factory wiring + auto-discovery test belongs to those plans.")]
-        public void All_three_providers_resolved() => Assert.Inconclusive("Wave 3");
+        public void All_three_providers_resolved()
+        {
+            var defs = Subject.All().ToList();
+
+            defs.Should().HaveCount(3);
+            defs.Select(d => d.Name).Should().BeEquivalentTo(new[] { "MangaDex", "AniList", "MyAnimeList" });
+            defs.Single(d => d.Name == "MangaDex").IsPrimary.Should().BeTrue();
+        }
 
         // SetPrimary(2) flips id=1 IsPrimary=true → false and id=2 IsPrimary=false → true
         // (atomic). Covers META-05 + threat T-CONFIG-DRIFT-01.

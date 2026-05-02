@@ -4,13 +4,17 @@ using NzbDrone.Test.Common.Categories;
 namespace NzbDrone.Integration.Test
 {
     // Wave 0 integration scaffold for the developer manga-lookup endpoint
-    // (META-01 + threat T-AUTHN-01). RED until Plan 02-10 lands MangaLookupController.
+    // (META-01 + threat T-AUTHN-01). Originally RED until Plan 02-10 lands
+    // MangaLookupController; that production code did land but the integration
+    // test still cannot pass at runtime — see deferral note on the test method
+    // below.
     //
     // Acceptance literal anchors required by Plan 02-01 Task 3:
     //   * /api/v5/manga/lookup?term=
     //   * X-Api-Key
     //
-    // Production-shape this fixture will exercise once 02-10 lands:
+    // Production-shape this fixture will exercise once a Phase-3 startup-time
+    // default-primary MetadataSource bootstrap lands:
     //
     //   [Test]
     //   public void Search_returns_results()
@@ -30,10 +34,22 @@ namespace NzbDrone.Integration.Test
     [IntegrationTest]
     public class MangaLookupControllerFixture
     {
+        // Deferred to Phase 3 (Plan 02-13 revision 1, 2026-05-02). Plan 02-11 creates
+        // the MetadataSources table per dev-migration-policy.md but adds no
+        // default-primary seed row. Until a Phase-3 startup-time bootstrap inserts
+        // at least one MetadataSourceDefinition with IsPrimary=true at app start,
+        // MetadataSourceFactory.GetPrimary() throws
+        // InvalidOperationException("No primary metadata source configured") on every
+        // lookup, and this integration test will return 500. The gap inventory's
+        // explicit rule (do NOT force-pass) forbids mocking around the integration
+        // test framework or seeding the MetadataSources table from inside the
+        // fixture. Phase 3 MUST add the bootstrap; once it lands this test should be
+        // flipped to OUTCOME A (real GET against /api/v5/manga/lookup?term=naruto)
+        // in a Phase-3 follow-up plan.
         [Test]
         [Category("Integration")]
-        [Ignore("RED — Plan 02-10 lands MangaLookupController + MangaResource at /api/v5/manga/lookup?term= (X-Api-Key required).")]
+        [Ignore("Deferred to Phase 3: requires startup-time default-primary MetadataSource bootstrap (no Phase 2 plan added the seed row).")]
         public void Search_returns_results()
-            => Assert.Inconclusive("Plan 02-10 — endpoint /api/v5/manga/lookup?term=, header X-Api-Key.");
+            => Assert.Inconclusive("Deferred to Phase 3: requires startup-time default-primary MetadataSource bootstrap (no Phase 2 plan added the seed row).");
     }
 }
