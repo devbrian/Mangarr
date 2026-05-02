@@ -170,3 +170,5 @@ src/.idea/
 # Claude
 .claude/settings.local.json
 src/.claude/settings.local.json
+# GSD per-plan local verification harness (sandbox dotnet test workaround)
+_corpus_check/
