@@ -70,21 +70,44 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         return TypedResults.Ok(result);
     }
 
+    // WR-09 fix: explicit NotFoundException on missing id so the framework maps to
+    // 404 instead of returning HTTP 200 with a null body. Mirrors SeriesController
+    // precedent.
     protected override MangaResource? GetResourceById(int id)
     {
         var manga = _mangaService.GetManga(id);
+        if (manga == null)
+        {
+            throw new NotFoundException();
+        }
+
         return MapResource(manga);
     }
 
     [RestPostById]
     [Consumes("application/json")]
     [Produces("application/json")]
-    public Results<Created<MangaResource>, NotFound> AddManga([FromBody] MangaResource resource)
+    public Results<Created<MangaResource>, NotFound, Conflict<string>> AddManga([FromBody] MangaResource resource)
     {
-        var manga = resource.ToModel();
-        var added = _addMangaService.AddManga(manga!);
+        try
+        {
+            var manga = resource.ToModel();
+            var added = _addMangaService.AddManga(manga!);
 
-        return TypedCreated(added.Id);
+            // Hand-construct the 201 instead of TypedCreated(int) — the union here
+            // includes Conflict<string>, which the base helper's signature does not.
+            var addedResource = MapResource(added);
+            return TypedResults.Created(
+                Url.Action(nameof(GetResourceByIdWithErrorHandler), new { id = added.Id }),
+                addedResource);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // WR-10 fix: AddMangaService throws InvalidOperationException on dedup
+            // collisions ("Manga with MangaDex ID ... already exists"). Map to 409
+            // Conflict instead of 500.
+            return TypedResults.Conflict(ex.Message);
+        }
     }
 
     [RestPutById]
@@ -92,7 +115,14 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     [Produces("application/json")]
     public Results<Accepted<MangaResource>, NotFound> UpdateManga([FromBody] MangaResource resource)
     {
+        // BL-01 fix: GetManga now returns null on missing (was throwing
+        // ModelNotFoundException upstream). Surface as 404 instead of NRE / 500.
         var existing = _mangaService.GetManga(resource.Id);
+        if (existing == null)
+        {
+            return TypedResults.NotFound();
+        }
+
         existing.ApplyChanges(resource.ToModel()!);
         _mangaService.UpdateManga(existing);
 
