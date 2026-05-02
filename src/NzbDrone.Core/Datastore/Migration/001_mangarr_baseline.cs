@@ -370,6 +370,23 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("CookiesExpirationDate").AsDateTime().Nullable()
                 .WithColumn("Cookies").AsString().Nullable();
 
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 3 D-17 — per-SourceKey indexer status (HttpAggregatorBase descendants
+            // only; e.g. two MangaDex instances share disable state). TV indexers (Newznab/
+            // Nyaa/Torznab) continue to use the IndexerStatus table above keyed on ProviderId.
+            // Q-2 Option A: NEW sibling table for clean Phase 8 DROP when Tv/ deletes.
+            // Per dev-migration-policy.md: edits 001 directly until v1.0.0 freeze.
+            // Cookies columns omitted — manga aggregators do not use Sonarr's cookie-jar
+            // pattern; if a future port needs cookies, add as a per-port settings field.
+            // ─────────────────────────────────────────────────────────────────────
+            Create.TableForModel("IndexerSourceStatus")
+                .WithColumn("SourceKey").AsString().NotNullable().Unique()
+                .WithColumn("InitialFailure").AsDateTime().Nullable()
+                .WithColumn("MostRecentFailure").AsDateTime().Nullable()
+                .WithColumn("EscalationLevel").AsInt32().NotNullable()
+                .WithColumn("DisabledTill").AsDateTime().Nullable()
+                .WithColumn("LastRssSyncReleaseInfo").AsString().Nullable();
+
             Create.TableForModel("DownloadClientStatus")
                 .WithColumn("ProviderId").AsInt32().Unique()
                 .WithColumn("InitialFailure").AsDateTime().Nullable()
