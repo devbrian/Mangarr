@@ -25,11 +25,6 @@ namespace NzbDrone.Core.Test.Datastore
                 return options;
             });
 
-            // Migration 001 seeds a RefreshMangaCommand row into ScheduledTasks (D-18).
-            // ScheduledTask is reused here as a generic model for testing
-            // BasicRepository semantics, so the table must start empty for these tests.
-            Storage.Purge();
-
             _basicList = Builder<ScheduledTask>
                 .CreateListOfSize(5)
                 .All()

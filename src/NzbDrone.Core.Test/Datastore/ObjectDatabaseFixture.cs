@@ -18,11 +18,6 @@ namespace NzbDrone.Core.Test.Datastore
         [SetUp]
         public void SetUp()
         {
-            // Migration 001 seeds a RefreshMangaCommand row into ScheduledTasks (D-18).
-            // ScheduledTask is reused here as a generic model for testing
-            // BasicRepository semantics, so the table must start empty for these tests.
-            Storage.Purge();
-
             _sampleType = Builder<ScheduledTask>
                     .CreateNew()
                     .With(s => s.Id = 0)
@@ -73,13 +68,7 @@ namespace NzbDrone.Core.Test.Datastore
             Subject.Insert(_sampleType);
 
             Db.All<ScheduledTask>().Should().HaveCount(1);
-
-            // The test name is "get_new_id" — the meaningful contract is that the
-            // ID was assigned, not that it equals exactly 1. SQLite AUTOINCREMENT
-            // (FluentMigrator .Identity()) carries the sequence across DELETE, so
-            // after Purge() the next insert may get a value > 1 if Migration 001's
-            // seeded row consumed the first ID slot.
-            _sampleType.Id.Should().NotBe(0);
+            _sampleType.Id.Should().Be(1);
         }
 
         [Test]
