@@ -102,7 +102,11 @@ namespace NzbDrone.Core.Parser.Manga
                 RegexOptions.Compiled),
 
             // Compact "c14" / "c14.5" form (some scanlator filenames).
-            new Regex(@"(?<![a-zA-Z])c(?<chapter>\d+(?:\.\d+)?)\b",
+            // WR-03 fix: previous lookbehind only blocked an immediately-preceding
+            // letter, but `1c1` and similar digit-letter-digit junk passed the
+            // gate. Require the `c` to be preceded by whitespace, dash, or
+            // underscore — a real word-boundary on the punctuation side.
+            new Regex(@"(?<=^|[\s\-_])c(?<chapter>\d+(?:\.\d+)?)\b",
                 RegexOptions.Compiled),
         };
 
