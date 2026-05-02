@@ -94,10 +94,33 @@ namespace NzbDrone.Core.MediaCover
             }
         }
 
+        // WR-15 documented limitation: this implementation is synchronous despite
+        // the IHandleAsync<> contract — _httpClient.DownloadFile and _resizer.Resize
+        // are sync, and EventAggregator dispatches us on the publishing thread.
+        // For a 100-manga library refresh this can stall the event-aggregator
+        // thread for tens of seconds. Acceptable for Phase 2 (refresh cadence is
+        // 12h, blocking time is bounded). DEFERRED to Phase 5+: either move to a
+        // background command (mirror Sonarr's EnsureMediaCovers) or wait for
+        // IHttpClient to grow real async APIs. Tracked alongside the existing
+        // Phase 2 deferred items.
         public void HandleAsync(MangaUpdatedEvent message)
         {
             var manga = message.Manga;
-            EnsureCoversFolder(manga.Id);
+
+            // WR-16 fix: a failed CreateFolder (read-only volume, full disk,
+            // permissions) used to bubble out of HandleAsync, killing all subsequent
+            // cover downloads for this event AND any chained handler subscriptions
+            // EventAggregator was about to dispatch. Bail this manga gracefully
+            // (Warn + return) so other handlers still run.
+            try
+            {
+                EnsureCoversFolder(manga.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "Failed to ensure cover folder for manga {0}; skipping cover sync", manga.Id);
+                return;
+            }
 
             foreach (var cover in manga.Images ?? new List<MediaCover>())
             {
