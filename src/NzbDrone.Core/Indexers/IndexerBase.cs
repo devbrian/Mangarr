@@ -81,6 +81,16 @@ namespace NzbDrone.Core.Indexers
         public abstract Task<IList<ReleaseInfo>> Fetch(AnimeEpisodeSearchCriteria searchCriteria);
         public abstract Task<IList<ReleaseInfo>> Fetch(AnimeSeasonSearchCriteria searchCriteria);
         public abstract Task<IList<ReleaseInfo>> Fetch(SpecialEpisodeSearchCriteria searchCriteria);
+
+        // Phase 3 D-01 — manga overloads. VIRTUAL with empty default so TV indexers
+        // (Newznab/Nyaa/Torznab/etc.) compile without modification. HttpAggregatorBase
+        // descendants override these concretely (D-02).
+        public virtual Task<IList<ReleaseInfo>> Fetch(MangaSearchCriteria searchCriteria)
+            => Task.FromResult<IList<ReleaseInfo>>(System.Array.Empty<ReleaseInfo>());
+
+        public virtual Task<IList<ReleaseInfo>> Fetch(ChapterSearchCriteria searchCriteria)
+            => Task.FromResult<IList<ReleaseInfo>>(System.Array.Empty<ReleaseInfo>());
+
         public abstract HttpRequest GetDownloadRequest(string link);
 
         protected virtual IList<ReleaseInfo> CleanupReleases(IEnumerable<ReleaseInfo> releases)

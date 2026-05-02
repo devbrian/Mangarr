@@ -37,6 +37,25 @@ namespace NzbDrone.Core.Parser.Model
         public string Codec { get; set; }
         public string Resolution { get; set; }
 
+        // ── Phase 3 manga-shaped fields (Q-4 / SOURCE-04) ─────────────────────────────────
+        // Indexer-supplied wins (Phase 2 D-10 contract); parser fallback in MangaParsingService.Map.
+        // Populated by Phase 3 manga indexer parsers (MangaDex, comix.to). Phase 5 Custom Formats
+        // consume both for group-match + language-match rules. Phase 8 may rename / collapse.
+
+        /// <summary>
+        /// Scanlation group attribution (e.g. "Mangastream"). MangaDex returns from
+        /// <c>relationships[scanlation_group].attributes.name</c>; comix.to returns null
+        /// (single-source). Required for SOURCE-07 (MangaDex ToS scanlation-group attribution).
+        /// </summary>
+        public string ScanlationGroup { get; set; }
+
+        /// <summary>
+        /// BCP-47 translated-language code (<c>"en"</c>, <c>"es"</c>, <c>"ja"</c>, <c>"es-la"</c>).
+        /// Distinct from <see cref="Languages"/> because Sonarr's <c>Language</c> enum is
+        /// TV-region-flavored. Phase 5 <c>TranslationProfile</c> ordinal gate consumes this field.
+        /// </summary>
+        public string TranslatedLanguage { get; set; }
+
         public List<Language> Languages { get; set; }
 
         [JsonIgnore]
