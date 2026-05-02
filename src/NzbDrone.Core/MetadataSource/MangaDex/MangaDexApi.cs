@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
+using NLog;
 using NzbDrone.Common.Http;
+using NzbDrone.Common.Instrumentation;
 using NzbDrone.Core.MetadataSource.MangaDex.Resource;
 
 namespace NzbDrone.Core.MetadataSource.MangaDex
@@ -25,6 +27,17 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
     public class MangaDexApi
     {
         private const string DefaultBase = "https://api.mangadex.org";
+
+        // BL-07 cap: max pages we will pull from /manga/{id}/feed before bailing out.
+        // pageSize=500 (MangaDex contract) * MaxPages=50 = 25,000 chapter rows, which
+        // exceeds the longest known manga (One Piece ~1100 chapters × ~25 languages ×
+        // multiple groups ≈ 70k entries — but the rate budget makes pulling that much
+        // in one refresh undesirable anyway; we'd rather bail and surface a Warn so
+        // the operator can investigate). The cap also defends against a server-side
+        // pagination bug that would otherwise make the loop infinite.
+        private const int MaxFeedPages = 50;
+
+        private static readonly Logger Logger = NzbDroneLogger.GetLogger(typeof(MangaDexApi));
 
         private readonly IHttpClient _httpClient;
         private readonly Func<string> _userAgent;
@@ -100,7 +113,12 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             var offset = 0;
             const int pageSize = 500;
 
-            while (true)
+            // BL-07 fix: bounded for-loop instead of `while (true)`. The MaxFeedPages
+            // cap protects against (a) very long manga where pulling everything in one
+            // refresh would exhaust the 40 req/min budget, and (b) any server-side
+            // pagination bug that would otherwise make the loop infinite (e.g., the
+            // server keeps returning a full page forever).
+            for (var page = 0; page < MaxFeedPages; page++)
             {
                 var rb = new HttpRequestBuilder($"{_baseUrl}/manga/{mangaDexId:D}/feed")
                     .AddQueryParam("limit", pageSize.ToString())
@@ -124,12 +142,19 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
 
                 if (batch.Count < pageSize)
                 {
-                    break;
+                    return all;
                 }
 
                 offset += pageSize;
             }
 
+            // Hit the cap — log Warn so operators see it. The partial page set is
+            // still returned (better than throwing and losing the work).
+            Logger.Warn(
+                "MangaDex /manga/{0:D}/feed returned {1} pages without a partial page; bailing at cap (MaxFeedPages={2}) — manga may be unusually long or the upstream may be paginating incorrectly",
+                mangaDexId,
+                MaxFeedPages,
+                MaxFeedPages);
             return all;
         }
 

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using FluentAssertions;
 using Moq;
@@ -8,6 +10,7 @@ using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.MangaDex;
 using NzbDrone.Core.MetadataSource.MangaDex.Resource;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.MetadataSource.MangaDex
 {
@@ -151,6 +154,71 @@ namespace NzbDrone.Core.Test.MetadataSource.MangaDex
             System.Action act = () => Subject.GetMangaInfo("33333333-3333-3333-3333-333333333333");
 
             act.Should().Throw<MangaNotFoundException>();
+        }
+
+        // BL-07 regression: GetFeed must terminate at the MaxFeedPages cap if the
+        // upstream returns a full page (limit=500) forever — a bug in the server, an
+        // unbounded result chain, or simply a manga with > MaxFeedPages * pageSize
+        // chapters. Without the cap the loop is `while (true)` and never exits.
+        [Test]
+        public void GetMangaInfo_GetFeed_terminates_at_MaxFeedPages_cap_and_warns()
+        {
+            // GetById returns minimal valid manga so we get to the GetFeed call.
+            var mangaResource = new MangaResource
+            {
+                Data = new MangaDataItem
+                {
+                    Id = "abcdef01-2345-6789-abcd-ef0123456789",
+                    Type = "manga",
+                    Attributes = new MangaAttributes
+                    {
+                        Title = new Dictionary<string, string> { { "en", "Eternal Manga" } },
+                    },
+                },
+            };
+            SetupGetByIdMock(mangaResource);
+
+            // Mock /feed to ALWAYS return a full page (500 entries) — the cap is the
+            // only thing that can break the loop. Each entry needs distinct id +
+            // chapter so JSON serialization succeeds.
+            var fullPage = new ChapterFeedResource
+            {
+                Data = Enumerable.Range(0, 500).Select(i => new ChapterFeedEntry
+                {
+                    Id = $"feed-entry-{i:D6}",
+                    Type = "chapter",
+                    Attributes = new ChapterFeedAttributes
+                    {
+                        Chapter = i.ToString(),
+                        TranslatedLanguage = "en",
+                    },
+                }).ToList(),
+            };
+
+            var feedCallCount = 0;
+            Mocker.GetMock<IHttpClient>()
+                  .Setup(c => c.Get<ChapterFeedResource>(It.IsAny<HttpRequest>()))
+                  .Returns<HttpRequest>(req =>
+                  {
+                      feedCallCount++;
+                      var headers = new HttpHeader { ContentType = "application/json" };
+                      var body = JsonConvert.SerializeObject(fullPage);
+                      var raw = new HttpResponse(req, headers, body, HttpStatusCode.OK);
+                      return new HttpResponse<ChapterFeedResource>(raw);
+                  });
+
+            var result = Subject.GetMangaInfo("abcdef01-2345-6789-abcd-ef0123456789");
+
+            // Loop must have terminated — exact upper bound is the MaxFeedPages
+            // constant inside MangaDexApi (currently 50). We only require that the
+            // loop bailed out with a finite count well below "infinity".
+            feedCallCount.Should().BeGreaterThan(0);
+            feedCallCount.Should().BeLessThanOrEqualTo(100,
+                "the feed loop must terminate at the MaxFeedPages cap, not run forever");
+            result.Item2.Should().NotBeEmpty();
+
+            // The cap-hit Warn must have been emitted so operators can investigate.
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         // ---- Helpers ----
