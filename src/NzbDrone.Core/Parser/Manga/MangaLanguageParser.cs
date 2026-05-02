@@ -49,17 +49,29 @@ namespace NzbDrone.Core.Parser.Manga
                 return null;
             }
 
+            // WR-02 fix: strip the leading `[Group]` scanlation-group bracket BEFORE
+            // running the spelled-out scan. Otherwise `\b(english|eng)\b` would
+            // match inside `[English Subbed]` / `[Engineer Translations]` and
+            // similar legitimate group names. Same idea for `\braw\b` (real
+            // Japanese-raw release marker but a common English word). The bracket
+            // pair must be the FIRST non-whitespace token; subsequent brackets
+            // (e.g. `[EN]` language tags) are still scanned in step 2 below.
+            var scanTitle = StripLeadingGroupBracket(title);
+
             // 1. Spelled-out language names win.
             foreach (var (pattern, bcp47) in SpelledOut)
             {
-                if (pattern.IsMatch(title))
+                if (pattern.IsMatch(scanTitle))
                 {
                     return bcp47;
                 }
             }
 
             // 2. Scan all bracketed tags; pick the first that looks like a real
-            //    BCP-47 code rather than a scanlation-group name.
+            //    BCP-47 code rather than a scanlation-group name. We use the
+            //    ORIGINAL title here (not scanTitle) so trailing `[EN]` etc. tags
+            //    are still picked up; the leading scanlator bracket fails the
+            //    LooksLikeLanguageCode shape check naturally.
             foreach (Match m in BracketedTagRegex.Matches(title))
             {
                 var tag = m.Groups["tag"].Value.ToLowerInvariant();
@@ -74,6 +86,17 @@ namespace NzbDrone.Core.Parser.Manga
             }
 
             return null;
+        }
+
+        // WR-02 helper: remove the FIRST `[...]` if it appears at the very start of
+        // the title (after optional whitespace). This is the scanlation-group bracket
+        // and must not be considered when scanning for spelled-out language names.
+        private static readonly Regex LeadingGroupBracketRegex =
+            new(@"^\s*\[[^\]]*\]\s*", RegexOptions.Compiled);
+
+        private static string StripLeadingGroupBracket(string title)
+        {
+            return LeadingGroupBracketRegex.Replace(title, string.Empty, 1);
         }
 
         private static bool LooksLikeLanguageCode(string tag)
