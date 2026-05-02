@@ -1,0 +1,5472 @@
+[
+  {
+    "release_title": "[Fooly Cooly] Bloom Into You - Ch.001 [English]",
+    "expected_chapter_numbers": [
+      1
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Fooly Cooly",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Death Toll Scans] A Lovers Discretion - Ch.002 [en]",
+    "expected_chapter_numbers": [
+      2
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Death Toll Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Bastard - Oneshot",
+    "expected_chapter_numbers": [],
+    "expected_volume": 3,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[SimpleScans] H2 Extra 4 (EN)",
+    "expected_chapter_numbers": [
+      4
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "SimpleScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[RawSheep] My Hero Academia Vol.5 - Ch.005 [en]",
+    "expected_chapter_numbers": [
+      5
+    ],
+    "expected_volume": 5,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "RawSheep",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sorcery Scanlations] Black Clover - Ch.006 [EN]",
+    "expected_chapter_numbers": [
+      6
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sorcery Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Inverse Scans] Yumi's Cells Ch. 7 (EN)",
+    "expected_chapter_numbers": [
+      7
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Inverse Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-Word Spaced Group] Distant Sky Vol.8 - Ch.008 [ENG]",
+    "expected_chapter_numbers": [
+      8
+    ],
+    "expected_volume": 8,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-Word Spaced Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Knight Scans] Bleach Ch. 9 (EN)",
+    "expected_chapter_numbers": [
+      9
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Knight Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Re:Zero - Chapter 10",
+    "expected_chapter_numbers": [
+      10
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Fooly Cooly] Wu Dong Qian Kun Ch. 11 (en)",
+    "expected_chapter_numbers": [
+      11
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Fooly Cooly",
+    "expected_title": null
+  },
+  {
+    "release_title": "[WolfPack] Parasyte - Ch.012 [en]",
+    "expected_chapter_numbers": [
+      12
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "WolfPack",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ZeroScans] Monster - Ch.013 [EN]",
+    "expected_chapter_numbers": [
+      13
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ZeroScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hox Network] Death Note - Ch.014 [EN]",
+    "expected_chapter_numbers": [
+      14
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Hox Network",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Realm Scans] Tower of God Ch. 15 (en)",
+    "expected_chapter_numbers": [
+      15
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Realm Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Scanlation] Death Note Extra 16 (English)",
+    "expected_chapter_numbers": [
+      16
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Scanlation",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hot Pepper Scans] Martial Peak Ch. 17 (EN)",
+    "expected_chapter_numbers": [
+      17
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Hot Pepper Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Overlord - Extra 18",
+    "expected_chapter_numbers": [
+      18
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[RawSheep] Erha He Ta De Bai Mao Shizun - Ch.019 [en]",
+    "expected_chapter_numbers": [
+      19
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "RawSheep",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Goldsleeves] Bastard Ch. 20 (en)",
+    "expected_chapter_numbers": [
+      20
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Goldsleeves",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Asura Scans] H2 - Ch.021 [English]",
+    "expected_chapter_numbers": [
+      21
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Asura Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Manhwa Freak] DICE - Ch.22.123 [EN]",
+    "expected_chapter_numbers": [
+      22.123
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Manhwa Freak",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] Refund High School - Ch.023 [ENG]",
+    "expected_chapter_numbers": [
+      23
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[KireiCake] Battle Through the Heavens - Ch.024 [EN]",
+    "expected_chapter_numbers": [
+      24
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "KireiCake",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Inverse Scans] Erha He Ta De Bai Mao Shizun - Ch.025 [EN]",
+    "expected_chapter_numbers": [
+      25
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Inverse Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "BioMega - Chapter 26",
+    "expected_chapter_numbers": [
+      26
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "Bloom Into You - Chapter 27",
+    "expected_chapter_numbers": [
+      27
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[WolfPack] Fruits Basket Ch. 28.5 (English)",
+    "expected_chapter_numbers": [
+      28.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "WolfPack",
+    "expected_title": null
+  },
+  {
+    "release_title": "[KireiCake] Pumpkin Night - Ch.029 [EN]",
+    "expected_chapter_numbers": [
+      29
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "KireiCake",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sorcery Scanlations] Gantz Ch. 30 (EN)",
+    "expected_chapter_numbers": [
+      30
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sorcery Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[KireiCake] Gantz - Ch.031 [en]",
+    "expected_chapter_numbers": [
+      31
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "KireiCake",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Holy Knight Scans] Made in Abyss Vol.2 - Ch.032 [EN]",
+    "expected_chapter_numbers": [
+      32
+    ],
+    "expected_volume": 2,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Holy Knight Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Heavenly Demon Cultivation Simulation - Chapter 33",
+    "expected_chapter_numbers": [
+      33
+    ],
+    "expected_volume": 3,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Asura Scans] Princess Jellyfish Ch. 34.5 (ENG)",
+    "expected_chapter_numbers": [
+      34.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Asura Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Pure Salt Scans] Ahiru no Sora - Ch.35.5 [EN]",
+    "expected_chapter_numbers": [
+      35.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Pure Salt Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sorcery Scanlations] Hardcore Leveling Warrior - Extra 36 [en]",
+    "expected_chapter_numbers": [
+      36
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sorcery Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Rose Squad] Romance 101 - Ch.037 [en]",
+    "expected_chapter_numbers": [
+      37
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Rose Squad",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sense Scans] Versatile Mage Ch. 38 (en)",
+    "expected_chapter_numbers": [
+      38
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sense Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sorcery Scanlations] Bastard - Ch.039 [ENG]",
+    "expected_chapter_numbers": [
+      39
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sorcery Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Scanlation] Hardcore Leveling Warrior - Ch.040 [ENG]",
+    "expected_chapter_numbers": [
+      40
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Scanlation",
+    "expected_title": null
+  },
+  {
+    "release_title": "[WolfPack] Cowboy Bebop - Ch.041 [EN]",
+    "expected_chapter_numbers": [
+      41
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "WolfPack",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Flame Scans] Ghost in the Shell - Ch.042 [English]",
+    "expected_chapter_numbers": [
+      42
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Flame Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Rose Squad] Apotheosis Ch. 43 (ENG)",
+    "expected_chapter_numbers": [
+      43
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Rose Squad",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Galactic Scans] Gantz - Ch.44.25 [EN]",
+    "expected_chapter_numbers": [
+      44.25
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Galactic Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[WolfPack] Spirit Fingers - Ch.45.25 [English]",
+    "expected_chapter_numbers": [
+      45.25
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "WolfPack",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] Sweet Blue Flowers - Ch.46.123 [EN]",
+    "expected_chapter_numbers": [
+      46.123
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-word Group] Mob Psycho 100 Ch. 47 (EN)",
+    "expected_chapter_numbers": [
+      47
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-word Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[MangaPlus] Wu Dong Qian Kun - Extra 48 [en]",
+    "expected_chapter_numbers": [
+      48
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "MangaPlus",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Nutbladder] Tian Guan Ci Fu Ch. 49 (EN)",
+    "expected_chapter_numbers": [
+      49
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Nutbladder",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hot Pepper Scans] Kuragehime - Ch.50.5 [ENG]",
+    "expected_chapter_numbers": [
+      50.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Hot Pepper Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Inverse Scans] Pigpen - Ch.51.123 [English]",
+    "expected_chapter_numbers": [
+      51.123
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Inverse Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Dragon Ball Super - Chapter 52",
+    "expected_chapter_numbers": [
+      52
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Tritinia Scanlations] Trace - Ch.053 [EN]",
+    "expected_chapter_numbers": [
+      53
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Tritinia Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Reaper Scans] Weak Hero - Ch.054 [English]",
+    "expected_chapter_numbers": [
+      54
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Reaper Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[JaiminisBox] Cheese in the Trap - Ch.055 [en]",
+    "expected_chapter_numbers": [
+      55
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "JaiminisBox",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sense Scans] Natsume Yuujinchou - Ch.056 [en]",
+    "expected_chapter_numbers": [
+      56
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sense Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Weak Hero - Chapter 57",
+    "expected_chapter_numbers": [
+      57
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Reaper Scans] Genshiken - Extra 58 [English]",
+    "expected_chapter_numbers": [
+      58
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Reaper Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Star Cross Scans] Quest Supremacy - Extra 59 [English]",
+    "expected_chapter_numbers": [
+      59
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Star Cross Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Death Toll Scans] Knights of Sidonia Ch. 60.875 (EN)",
+    "expected_chapter_numbers": [
+      60.875
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Death Toll Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-word Group] Princess Jellyfish Vol.1 - Ch.061 [ENG]",
+    "expected_chapter_numbers": [
+      61
+    ],
+    "expected_volume": 1,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-word Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Inverse Scans] Eyeshield 21 Ch. 62 (EN)",
+    "expected_chapter_numbers": [
+      62
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Inverse Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[BananaArmy] Soul Land - Extra 63 [ENG]",
+    "expected_chapter_numbers": [
+      63
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "BananaArmy",
+    "expected_title": null
+  },
+  {
+    "release_title": "Ghost in the Shell - Chapter 64",
+    "expected_chapter_numbers": [
+      64
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "Heaven Official's Blessing - Chapter 65",
+    "expected_chapter_numbers": [
+      65
+    ],
+    "expected_volume": 5,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Scanlation] Ghost in the Shell - Ch.066 [ENG]",
+    "expected_chapter_numbers": [
+      66
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Scanlation",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Reaper Scans] The God of High School - Ch.067 [EN]",
+    "expected_chapter_numbers": [
+      67
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Reaper Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Harem Scans] Whispered Words Ch. 68 (ENG)",
+    "expected_chapter_numbers": [
+      68
+    ],
+    "expected_volume": 8,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Harem Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Scanlation] Bastard - Ch.069 [en]",
+    "expected_chapter_numbers": [
+      69
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Scanlation",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Manhwa Freak] Kase-san Vol.10 - Ch.070 [EN]",
+    "expected_chapter_numbers": [
+      70
+    ],
+    "expected_volume": 10,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Manhwa Freak",
+    "expected_title": null
+  },
+  {
+    "release_title": "[WeebFreaks] Solo Leveling - Ch.071 [en]",
+    "expected_chapter_numbers": [
+      71
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "WeebFreaks",
+    "expected_title": null
+  },
+  {
+    "release_title": "[RawSheep] The Husky and His White Cat Shizun Ch. 72 (English)",
+    "expected_chapter_numbers": [
+      72
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "RawSheep",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mangastream] Hero Killer - Ch.073 [EN]",
+    "expected_chapter_numbers": [
+      73
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Mangastream",
+    "expected_title": null
+  },
+  {
+    "release_title": "Dr. Stone - Extra 74",
+    "expected_chapter_numbers": [
+      74
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi Scan] Soul Eater - Extra 75 [English]",
+    "expected_chapter_numbers": [
+      75
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi Scan",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ResetScans] Cross Game - Ch.076 [EN]",
+    "expected_chapter_numbers": [
+      76
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ResetScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Flame Scans] The Beginning After The End - Ch.077 [English]",
+    "expected_chapter_numbers": [
+      77
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Flame Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Word of Honor - Chapter 78",
+    "expected_chapter_numbers": [
+      78
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Manhwa Freak] Slam Dunk Ch. 79 (EN)",
+    "expected_chapter_numbers": [
+      79
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Manhwa Freak",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Reaper Scans] Tian Guan Ci Fu - Ch.080 [en]",
+    "expected_chapter_numbers": [
+      80
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Reaper Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[LeviatanScans] Hikaru no Go - Ch.081 [English]",
+    "expected_chapter_numbers": [
+      81
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "LeviatanScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sorcery Scanlations] Maison Ikkoku - Ch.082 [ENG]",
+    "expected_chapter_numbers": [
+      82
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sorcery Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Galactic Scans] Gantz - Ch.083 [English]",
+    "expected_chapter_numbers": [
+      83
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Galactic Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ZeroScans] One Piece Vol.24 - Ch.84.5 [English]",
+    "expected_chapter_numbers": [
+      84.5
+    ],
+    "expected_volume": 24,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ZeroScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ZeroScans] Tokyo Ghoul Ch. 85 (en)",
+    "expected_chapter_numbers": [
+      85
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ZeroScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Skip Beat - Chapter 86.25",
+    "expected_chapter_numbers": [
+      86.25
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "The King's Avatar - Chapter 87",
+    "expected_chapter_numbers": [
+      87
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "Kuragehime - Chapter 88",
+    "expected_chapter_numbers": [
+      88
+    ],
+    "expected_volume": 28,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Holy Knight Scans] Cowboy Bebop - Ch.089 [English]",
+    "expected_chapter_numbers": [
+      89
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Holy Knight Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[JaiminisBox] I'm the Grim Reaper - Ch.090 [English]",
+    "expected_chapter_numbers": [
+      90
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "JaiminisBox",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Harem Scans] Kaichou wa Maid-sama - Ch.091 [ENG]",
+    "expected_chapter_numbers": [
+      91
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Harem Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Holy Knight Scans] Battle Angel Alita - Ch.092 [ENG]",
+    "expected_chapter_numbers": [
+      92
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Holy Knight Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vyvyan Scans] Chainsaw Man - Ch.093 [ENG]",
+    "expected_chapter_numbers": [
+      93
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Vyvyan Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Easy Going Scans] Yotsubato - Ch.094 [English]",
+    "expected_chapter_numbers": [
+      94
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Easy Going Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[MangaPlus] Mob Psycho 100 Ch. 95.5 (EN)",
+    "expected_chapter_numbers": [
+      95.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "MangaPlus",
+    "expected_title": null
+  },
+  {
+    "release_title": "The Promised Neverland - Chapter 96",
+    "expected_chapter_numbers": [
+      96
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[SimpleScans] March Comes in Like a Lion - Extra 97 [en]",
+    "expected_chapter_numbers": [
+      97
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "SimpleScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hox Network] Bleach Ch. 98.25 (English)",
+    "expected_chapter_numbers": [
+      98.25
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Hox Network",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Yokai Scanlations] Cheese in the Trap Vol.9 - Ch.099 [ENG]",
+    "expected_chapter_numbers": [
+      99
+    ],
+    "expected_volume": 9,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Yokai Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] I Love Yoo Ch. 100.5 (ENG)",
+    "expected_chapter_numbers": [
+      100.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mahou Shoujo Site] Vinland Saga - Ch.101.5 [EN]",
+    "expected_chapter_numbers": [
+      101.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Mahou Shoujo Site",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Flame Scans] Kingdom - Ch.102 [EN]",
+    "expected_chapter_numbers": [
+      102
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Flame Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-Word Spaced Group] Chainsaw Man - Ch.103 [ENG]",
+    "expected_chapter_numbers": [
+      103
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-Word Spaced Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ImperialScans] Re:Zero Vol.14 - Ch.104 [English]",
+    "expected_chapter_numbers": [
+      104
+    ],
+    "expected_volume": 14,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ImperialScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sense Scans] I'm the Grim Reaper Vol.15 - Ch.105 [EN]",
+    "expected_chapter_numbers": [
+      105
+    ],
+    "expected_volume": 15,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sense Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Cat Scanlations] Heavenly Demon Cultivation Simulation - Ch.106 [English]",
+    "expected_chapter_numbers": [
+      106
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Cat Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Fooly Cooly] Nana Ch. 107 (English)",
+    "expected_chapter_numbers": [
+      107
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Fooly Cooly",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Death Toll Scans] Yumi's Cells - Ch.108 [English]",
+    "expected_chapter_numbers": [
+      108
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Death Toll Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-Word Spaced Group] Word of Honor - Ch.109 [EN]",
+    "expected_chapter_numbers": [
+      109
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-Word Spaced Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "Made in Abyss - Chapter 110",
+    "expected_chapter_numbers": [
+      110
+    ],
+    "expected_volume": 20,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi Scan] Soul Land - Ch.111 [en]",
+    "expected_chapter_numbers": [
+      111
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi Scan",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ZeroScans] Demon Slayer Ch. 112.875 (EN)",
+    "expected_chapter_numbers": [
+      112.875
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ZeroScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Ajin - Chapter 113",
+    "expected_chapter_numbers": [
+      113
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Death Toll Scans] Noblesse - Ch.114 [en]",
+    "expected_chapter_numbers": [
+      114
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Death Toll Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sense Scans] Overlord - Ch.115 [ENG]",
+    "expected_chapter_numbers": [
+      115
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sense Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] The Newlyweds Vol.26 - Ch.116 [ENG]",
+    "expected_chapter_numbers": [
+      116
+    ],
+    "expected_volume": 26,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mangastream] Yagate Kimi ni Naru - Ch.117 [EN]",
+    "expected_chapter_numbers": [
+      117
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Mangastream",
+    "expected_title": null
+  },
+  {
+    "release_title": "Heaven Official's Blessing - Chapter 118",
+    "expected_chapter_numbers": [
+      118
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Tritinia Scanlations] One Punch Man - Ch.119 [en]",
+    "expected_chapter_numbers": [
+      119
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Tritinia Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Flame Scans] Asumi-chan is Interested in Lesbian Brothels - Ch.120 [English]",
+    "expected_chapter_numbers": [
+      120
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Flame Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Hidamari Sketch - Chapter 121",
+    "expected_chapter_numbers": [
+      121
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[WolfPack] JoJo's Bizarre Adventure - Ch.122 [en]",
+    "expected_chapter_numbers": [
+      122
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "WolfPack",
+    "expected_title": null
+  },
+  {
+    "release_title": "[LeviatanScans] Chainsaw Man Vol.3 - Ch.123 [English]",
+    "expected_chapter_numbers": [
+      123
+    ],
+    "expected_volume": 3,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "LeviatanScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[LeviatanScans] Pumpkin Night - Ch.124 [EN]",
+    "expected_chapter_numbers": [
+      124
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "LeviatanScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Yokai Scanlations] Cardcaptor Sakura - Ch.125 [ENG]",
+    "expected_chapter_numbers": [
+      125
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Yokai Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[CXC Scans] Tokyo Ghoul Ch. 126 (en)",
+    "expected_chapter_numbers": [
+      126
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "CXC Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Bastard - Chapter 127",
+    "expected_chapter_numbers": [
+      127
+    ],
+    "expected_volume": 7,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[FrostbiteScans] Cowboy Bebop - Extra 128 [en]",
+    "expected_chapter_numbers": [
+      128
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "FrostbiteScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Mushishi - Chapter 129",
+    "expected_chapter_numbers": [
+      129
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "One Piece - Chapter 130.25",
+    "expected_chapter_numbers": [
+      130.25
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[LeviatanScans] Death Note - Ch.131 [ENG]",
+    "expected_chapter_numbers": [
+      131
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "LeviatanScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ZeroScans] The Great Ruler - Ch.132 [EN]",
+    "expected_chapter_numbers": [
+      132
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ZeroScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hox Network] Re:Zero Ch. 133 (EN)",
+    "expected_chapter_numbers": [
+      133
+    ],
+    "expected_volume": 13,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Hox Network",
+    "expected_title": null
+  },
+  {
+    "release_title": "Sword Art Online - Chapter 134",
+    "expected_chapter_numbers": [
+      134
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Scanlation] Survive on a Deserted Island - Ch.135 [English]",
+    "expected_chapter_numbers": [
+      135
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Scanlation",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi Scan] Soul Eater Vol.16 - Ch.136 [ENG]",
+    "expected_chapter_numbers": [
+      136
+    ],
+    "expected_volume": 16,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi Scan",
+    "expected_title": null
+  },
+  {
+    "release_title": "Nausicaa - Chapter 137",
+    "expected_chapter_numbers": [
+      137
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "Cardcaptor Sakura - Chapter 138",
+    "expected_chapter_numbers": [
+      138
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "DICE - Chapter 139",
+    "expected_chapter_numbers": [
+      139
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[BananaArmy] Captain Tsubasa - Ch.140 [English]",
+    "expected_chapter_numbers": [
+      140
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "BananaArmy",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Yokai Scanlations] BioMega Vol.21 - Ch.141.5 [English]",
+    "expected_chapter_numbers": [
+      141.5
+    ],
+    "expected_volume": 21,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Yokai Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "Kase-san - Chapter 142.25",
+    "expected_chapter_numbers": [
+      142.25
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Inverse Scans] Lucky Star Ch. 143 (en)",
+    "expected_chapter_numbers": [
+      143
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Inverse Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hox Network] Natsume Yuujinchou - Extra 144 [ENG]",
+    "expected_chapter_numbers": [
+      144
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Hox Network",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vyvyan Scans] Hunter x Hunter - Ch.145 [EN]",
+    "expected_chapter_numbers": [
+      145
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Vyvyan Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Realm Scans] Nichijou Vol.26 - Ch.146.75 [English]",
+    "expected_chapter_numbers": [
+      146.75
+    ],
+    "expected_volume": 26,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Realm Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Asura Scans] Re:Zero - Ch.147 [English]",
+    "expected_chapter_numbers": [
+      147
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Asura Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] Hikaru no Go Ch. 148 (English)",
+    "expected_chapter_numbers": [
+      148
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sorcery Scanlations] The God of High School Vol.29 - Ch.149 [en]",
+    "expected_chapter_numbers": [
+      149
+    ],
+    "expected_volume": 29,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sorcery Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Realm Scans] Battle Angel Alita Ch. 150 (EN)",
+    "expected_chapter_numbers": [
+      150
+    ],
+    "expected_volume": 30,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Realm Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[BananaArmy] Bakuon - Ch.151.123 [EN]",
+    "expected_chapter_numbers": [
+      151.123
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "BananaArmy",
+    "expected_title": null
+  },
+  {
+    "release_title": "Cardcaptor Sakura - Chapter 152",
+    "expected_chapter_numbers": [
+      152
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "Azumanga Daioh - Chapter 153",
+    "expected_chapter_numbers": [
+      153
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Cat Scanlations] Fire Force - Ch.154 [en]",
+    "expected_chapter_numbers": [
+      154
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Cat Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Scanlation] Yagate Kimi ni Naru Ch. 155 (ENG)",
+    "expected_chapter_numbers": [
+      155
+    ],
+    "expected_volume": 5,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Scanlation",
+    "expected_title": null
+  },
+  {
+    "release_title": "Trigun - Chapter 156.75",
+    "expected_chapter_numbers": [
+      156.75
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Tritinia Scanlations] Yagate Kimi ni Naru - Ch.157 [en]",
+    "expected_chapter_numbers": [
+      157
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Tritinia Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[WolfPack] The Beginning After The End Ch. 158.75 (EN)",
+    "expected_chapter_numbers": [
+      158.75
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "WolfPack",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-Word Spaced Group] Bloom Into You Vol.9 - Ch.159 [EN]",
+    "expected_chapter_numbers": [
+      159
+    ],
+    "expected_volume": 9,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-Word Spaced Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ImperialScans] Hero Killer Vol.10 - Ch.160 [en]",
+    "expected_chapter_numbers": [
+      160
+    ],
+    "expected_volume": 10,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ImperialScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Wind Breaker - Chapter 161",
+    "expected_chapter_numbers": [
+      161
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vyvyan Scans] Vagabond Extra 162 (EN)",
+    "expected_chapter_numbers": [
+      162
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Vyvyan Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Yotsubato - Chapter 163.5",
+    "expected_chapter_numbers": [
+      163.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[JaiminisBox] The Promised Neverland - Ch.164 [en]",
+    "expected_chapter_numbers": [
+      164
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "JaiminisBox",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Pure Salt Scans] 20th Century Boys Ch. 165 (ENG)",
+    "expected_chapter_numbers": [
+      165
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Pure Salt Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ZeroScans] Re:Zero - Ch.166 [ENG]",
+    "expected_chapter_numbers": [
+      166
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ZeroScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] Maison Ikkoku - Ch.167 [en]",
+    "expected_chapter_numbers": [
+      167
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[KireiCake] Quest Supremacy - Ch.168.875 [English]",
+    "expected_chapter_numbers": [
+      168.875
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "KireiCake",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi Scan] Girls of the Wild's - Ch.169 [ENG]",
+    "expected_chapter_numbers": [
+      169
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi Scan",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Holy Knight Scans] Bakuon - Ch.170 [EN]",
+    "expected_chapter_numbers": [
+      170
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Holy Knight Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Asakura Translations] I'm the Grim Reaper Ch. 171 (EN)",
+    "expected_chapter_numbers": [
+      171
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Asakura Translations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vyvyan Scans] Monster - Ch.172 [ENG]",
+    "expected_chapter_numbers": [
+      172
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Vyvyan Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Goblin Slayer Side Story - Chapter 173",
+    "expected_chapter_numbers": [
+      173
+    ],
+    "expected_volume": 23,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[ImperialScans] Black Bullet Ch. 174 (English)",
+    "expected_chapter_numbers": [
+      174
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ImperialScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Nichijou - Chapter 175.25",
+    "expected_chapter_numbers": [
+      175.25
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Inverse Scans] Weak Hero - Ch.176 [English]",
+    "expected_chapter_numbers": [
+      176
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Inverse Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Tritinia Scanlations] Versatile Mage - Ch.177 [EN]",
+    "expected_chapter_numbers": [
+      177
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Tritinia Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[FrostbiteScans] Quanzhi Gaoshou - Ch.178 [EN]",
+    "expected_chapter_numbers": [
+      178
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "FrostbiteScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Vinland Saga - Chapter 179",
+    "expected_chapter_numbers": [
+      179
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-word Group] Horimiya - Ch.180 [English]",
+    "expected_chapter_numbers": [
+      180
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-word Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "BioMega - Chapter 181.5",
+    "expected_chapter_numbers": [
+      181.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi Scan] Princess Jellyfish - Ch.182.5 [en]",
+    "expected_chapter_numbers": [
+      182.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi Scan",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Realm Scans] Tokyo Ghoul Ch. 183 (English)",
+    "expected_chapter_numbers": [
+      183
+    ],
+    "expected_volume": 3,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Realm Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Death Toll Scans] Horimiya Ch. 184 (English)",
+    "expected_chapter_numbers": [
+      184
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Death Toll Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Asakura Translations] Yowamushi Pedal - Extra 185 [English]",
+    "expected_chapter_numbers": [
+      185
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Asakura Translations",
+    "expected_title": null
+  },
+  {
+    "release_title": "My Boss is My Ex - Oneshot",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Asakura Translations] Kingdom - Ch.187 [en]",
+    "expected_chapter_numbers": [
+      187
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Asakura Translations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Yokai Scanlations] Wu Dong Qian Kun Ch. 188 (en)",
+    "expected_chapter_numbers": [
+      188
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Yokai Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-Word Spaced Group] Blame - Ch.189 [English]",
+    "expected_chapter_numbers": [
+      189
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-Word Spaced Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Inverse Scans] Tales of Demons and Gods - Ch.190.5 [ENG]",
+    "expected_chapter_numbers": [
+      190.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Inverse Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Holy Knight Scans] Citrus Ch. 191 (en)",
+    "expected_chapter_numbers": [
+      191
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Holy Knight Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[JaiminisBox] 20th Century Boys - Ch.192 [ENG]",
+    "expected_chapter_numbers": [
+      192
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "JaiminisBox",
+    "expected_title": null
+  },
+  {
+    "release_title": "[MangaPlus] My Hero Academia - Extra 193 [ENG]",
+    "expected_chapter_numbers": [
+      193
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "MangaPlus",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sorcery Scanlations] Gintama - Ch.194 [English]",
+    "expected_chapter_numbers": [
+      194
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sorcery Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "Black Bullet - Chapter 195",
+    "expected_chapter_numbers": [
+      195
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Tritinia Scanlations] Dragon Ball - Ch.196 [ENG]",
+    "expected_chapter_numbers": [
+      196
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Tritinia Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vex Scans] Hi Score Girl Ch. 197 (English)",
+    "expected_chapter_numbers": [
+      197
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Vex Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Flame Scans] My Hero Academia Ch. 198 (English)",
+    "expected_chapter_numbers": [
+      198
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Flame Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Inverse Scans] Battle Through the Heavens Vol.19 - Ch.199 [ENG]",
+    "expected_chapter_numbers": [
+      199
+    ],
+    "expected_volume": 19,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Inverse Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mahou Shoujo Site] Edens Zero Ch. 200 (en)",
+    "expected_chapter_numbers": [
+      200
+    ],
+    "expected_volume": 20,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Mahou Shoujo Site",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Rose Squad] Re:Zero - Ch.201 [ENG]",
+    "expected_chapter_numbers": [
+      201
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Rose Squad",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Fooly Cooly] Girls of the Wild's Extra 202 (English)",
+    "expected_chapter_numbers": [
+      202
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Fooly Cooly",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Galactic Scans] Akira - Ch.203 [EN]",
+    "expected_chapter_numbers": [
+      203
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Galactic Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Manhwa Freak] Bloom Into You - Ch.204 [English]",
+    "expected_chapter_numbers": [
+      204
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Manhwa Freak",
+    "expected_title": null
+  },
+  {
+    "release_title": "Bloom Into You - Chapter 205",
+    "expected_chapter_numbers": [
+      205
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Goldsleeves] Jujutsu Kaisen - Ch.206 [en]",
+    "expected_chapter_numbers": [
+      206
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Goldsleeves",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] Ouran High School Host Club - Ch.207 [English]",
+    "expected_chapter_numbers": [
+      207
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sense Scans] Kaichou wa Maid-sama - Ch.208 [EN]",
+    "expected_chapter_numbers": [
+      208
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sense Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Pure Salt Scans] Girls of the Wild's - Ch.209 [EN]",
+    "expected_chapter_numbers": [
+      209
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Pure Salt Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Star Cross Scans] Trigun - Ch.210 [en]",
+    "expected_chapter_numbers": [
+      210
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Star Cross Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[MangaPlus] My Boss is My Ex - Ch.11.875 [English]",
+    "expected_chapter_numbers": [
+      11.875
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "MangaPlus",
+    "expected_title": null
+  },
+  {
+    "release_title": "Hunter x Hunter - Chapter 212",
+    "expected_chapter_numbers": [
+      212
+    ],
+    "expected_volume": 2,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-word Group] Battle Through the Heavens Vol.3 - Extra 213 [ENG]",
+    "expected_chapter_numbers": [
+      213
+    ],
+    "expected_volume": 3,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-word Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Cat Scanlations] Ranma 1/2 - Ch.214 [EN]",
+    "expected_chapter_numbers": [
+      214
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Cat Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Yokai Scanlations] Wind Breaker Ch. 215 (ENG)",
+    "expected_chapter_numbers": [
+      215
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Yokai Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ImperialScans] The Boxer - Ch.216 [English]",
+    "expected_chapter_numbers": [
+      216
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ImperialScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi Scan] Ranma 1/2 Ch. 217 (English)",
+    "expected_chapter_numbers": [
+      217
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi Scan",
+    "expected_title": null
+  },
+  {
+    "release_title": "[JaiminisBox] Ace of Diamond Vol.8 - Ch.218 [EN]",
+    "expected_chapter_numbers": [
+      218
+    ],
+    "expected_volume": 8,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "JaiminisBox",
+    "expected_title": null
+  },
+  {
+    "release_title": "Apotheosis - Chapter 219",
+    "expected_chapter_numbers": [
+      219
+    ],
+    "expected_volume": 9,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Asakura Translations] Heavenly Demon Cultivation Simulation - Ch.220 [en]",
+    "expected_chapter_numbers": [
+      220
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Asakura Translations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Flame Scans] Knights of Sidonia - Ch.221 [EN]",
+    "expected_chapter_numbers": [
+      221
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Flame Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[MangaPlus] Hi Score Girl - Ch.222 [English]",
+    "expected_chapter_numbers": [
+      222
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "MangaPlus",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vex Scans] Slam Dunk - Ch.223 [ENG]",
+    "expected_chapter_numbers": [
+      223
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Vex Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vex Scans] Battle Angel Alita - Ch.24.5 [en]",
+    "expected_chapter_numbers": [
+      24.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Vex Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hot Pepper Scans] Refund High School - Ch.225 [ENG]",
+    "expected_chapter_numbers": [
+      225
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Hot Pepper Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Cat Scanlations] Fairy Tail - Ch.226 [EN]",
+    "expected_chapter_numbers": [
+      226
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Cat Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Galactic Scans] Sweet Home Ch. 27.123 (English)",
+    "expected_chapter_numbers": [
+      27.123
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Galactic Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] Martial Peak Vol.18 - Ch.228 [en]",
+    "expected_chapter_numbers": [
+      228
+    ],
+    "expected_volume": 18,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Word of Honor - Chapter 229",
+    "expected_chapter_numbers": [
+      229
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[BananaArmy] Fairy Tail - Ch.230 [en]",
+    "expected_chapter_numbers": [
+      230
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "BananaArmy",
+    "expected_title": null
+  },
+  {
+    "release_title": "[JaiminisBox] Ajin - Ch.31.875 [en]",
+    "expected_chapter_numbers": [
+      31.875
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "JaiminisBox",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Asura Scans] Akira Ch. 232 (EN)",
+    "expected_chapter_numbers": [
+      232
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Asura Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sorcery Scanlations] The King's Avatar - Ch.233 [English]",
+    "expected_chapter_numbers": [
+      233
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sorcery Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi Scan] Nichijou Vol.24 - Extra 234 [English]",
+    "expected_chapter_numbers": [
+      234
+    ],
+    "expected_volume": 24,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi Scan",
+    "expected_title": null
+  },
+  {
+    "release_title": "[MangaPlus] Solo Leveling - Extra 235 [English]",
+    "expected_chapter_numbers": [
+      235
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "MangaPlus",
+    "expected_title": null
+  },
+  {
+    "release_title": "Mo Dao Zu Shi - Chapter 236",
+    "expected_chapter_numbers": [
+      236
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "Sweet Home - Chapter 237",
+    "expected_chapter_numbers": [
+      237
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-word Group] Yowamushi Pedal Vol.28 - Oneshot [EN]",
+    "expected_chapter_numbers": [],
+    "expected_volume": 28,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-word Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Holy Knight Scans] Pumpkin Night - Ch.239 [ENG]",
+    "expected_chapter_numbers": [
+      239
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Holy Knight Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Pure Salt Scans] Overlord - Extra 240 [English]",
+    "expected_chapter_numbers": [
+      240
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Pure Salt Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Death Note - Chapter 241",
+    "expected_chapter_numbers": [
+      241
+    ],
+    "expected_volume": 1,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[ImperialScans] Trace - Ch.242 [ENG]",
+    "expected_chapter_numbers": [
+      242
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ImperialScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-Word Spaced Group] I'm the Grim Reaper Ch. 243 (English)",
+    "expected_chapter_numbers": [
+      243
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-Word Spaced Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Manhwa Freak] Black Bullet - Ch.244 [EN]",
+    "expected_chapter_numbers": [
+      244
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Manhwa Freak",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-Word Spaced Group] Akira - Ch.245 [ENG]",
+    "expected_chapter_numbers": [
+      245
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-Word Spaced Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Realm Scans] Jujutsu Kaisen - Ch.46.5 [English]",
+    "expected_chapter_numbers": [
+      46.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Realm Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Rose Squad] Solo Leveling Vol.7 - Ch.247 [en]",
+    "expected_chapter_numbers": [
+      247
+    ],
+    "expected_volume": 7,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Rose Squad",
+    "expected_title": null
+  },
+  {
+    "release_title": "Natsume Yuujinchou - Chapter 248",
+    "expected_chapter_numbers": [
+      248
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[ImperialScans] True Beauty - Ch.249 [English]",
+    "expected_chapter_numbers": [
+      249
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ImperialScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Cat Scanlations] Ajin Ch. 250 (EN)",
+    "expected_chapter_numbers": [
+      250
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Cat Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] Bastard - Ch.251 [EN]",
+    "expected_chapter_numbers": [
+      251
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[WolfPack] Chainsaw Man - Ch.252 [EN]",
+    "expected_chapter_numbers": [
+      252
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "WolfPack",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vyvyan Scans] Hunter x Hunter Ch. 253 (EN)",
+    "expected_chapter_numbers": [
+      253
+    ],
+    "expected_volume": 13,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Vyvyan Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "My Boss is My Ex - Chapter 54.123",
+    "expected_chapter_numbers": [
+      54.123
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Yokai Scanlations] The Newlyweds - Extra 255 [en]",
+    "expected_chapter_numbers": [
+      255
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Yokai Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Flame Scans] Dr. Stone - Ch.256 [ENG]",
+    "expected_chapter_numbers": [
+      256
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Flame Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-Word Spaced Group] Chainsaw Man Oneshot (English)",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-Word Spaced Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sorcery Scanlations] Heavenly Demon Cultivation Simulation - Ch.258 [EN]",
+    "expected_chapter_numbers": [
+      258
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sorcery Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Harem Scans] Soul Eater - Ch.259 [en]",
+    "expected_chapter_numbers": [
+      259
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Harem Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[KireiCake] My Boss is My Ex Ch. 260 (en)",
+    "expected_chapter_numbers": [
+      260
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "KireiCake",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hot Pepper Scans] Touch Ch. 261 (English)",
+    "expected_chapter_numbers": [
+      261
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Hot Pepper Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mangastream] Bastard - Ch.262 [ENG]",
+    "expected_chapter_numbers": [
+      262
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Mangastream",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Cat Scanlations] Yowamushi Pedal Ch. 263 (ENG)",
+    "expected_chapter_numbers": [
+      263
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Cat Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "Tokyo Revengers - Chapter 264",
+    "expected_chapter_numbers": [
+      264
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Knight Scans] Citrus Ch. 265 (English)",
+    "expected_chapter_numbers": [
+      265
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Knight Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mahou Shoujo Site] D.Gray-man Ch. 66.25 (English)",
+    "expected_chapter_numbers": [
+      66.25
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Mahou Shoujo Site",
+    "expected_title": null
+  },
+  {
+    "release_title": "[WeebFreaks] DICE Vol.27 - Ch.267 [en]",
+    "expected_chapter_numbers": [
+      267
+    ],
+    "expected_volume": 27,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "WeebFreaks",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] DICE Ch. 268 (EN)",
+    "expected_chapter_numbers": [
+      268
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hox Network] My Boss is My Ex Vol.29 - Ch.69.123 [ENG]",
+    "expected_chapter_numbers": [
+      69.123
+    ],
+    "expected_volume": 29,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Hox Network",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Harem Scans] Pigpen - Ch.270 [EN]",
+    "expected_chapter_numbers": [
+      270
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Harem Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Goldsleeves] Adachi to Shimamura Oneshot (ENG)",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Goldsleeves",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Manhwa Freak] DICE Vol.2 - Ch.272 [ENG]",
+    "expected_chapter_numbers": [
+      272
+    ],
+    "expected_volume": 2,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Manhwa Freak",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ResetScans] Word of Honor - Ch.73.75 [EN]",
+    "expected_chapter_numbers": [
+      73.75
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ResetScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[JaiminisBox] Pigpen - Ch.274 [EN]",
+    "expected_chapter_numbers": [
+      274
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "JaiminisBox",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi Scan] Cheese in the Trap - Ch.275 [English]",
+    "expected_chapter_numbers": [
+      275
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi Scan",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ZeroScans] Princess Jellyfish Ch. 276 (ENG)",
+    "expected_chapter_numbers": [
+      276
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ZeroScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Vinland Saga - Chapter 77.123",
+    "expected_chapter_numbers": [
+      77.123
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[LeviatanScans] Welcome to the NHK - Ch.278 [ENG]",
+    "expected_chapter_numbers": [
+      278
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "LeviatanScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[WeebFreaks] Mob Psycho 100 Ch. 279 (EN)",
+    "expected_chapter_numbers": [
+      279
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "WeebFreaks",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] I'm in Love with the Villainess - Ch.280 [English]",
+    "expected_chapter_numbers": [
+      280
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Kingdom - Chapter 281",
+    "expected_chapter_numbers": [
+      281
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[SimpleScans] Bakuman - Ch.282 [en]",
+    "expected_chapter_numbers": [
+      282
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "SimpleScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Nutbladder] March Comes in Like a Lion - Ch.83.5 [EN]",
+    "expected_chapter_numbers": [
+      83.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Nutbladder",
+    "expected_title": null
+  },
+  {
+    "release_title": "Azumanga Daioh - Chapter 284",
+    "expected_chapter_numbers": [
+      284
+    ],
+    "expected_volume": 14,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Cat Scanlations] Pigpen - Ch.285 [English]",
+    "expected_chapter_numbers": [
+      285
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Cat Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Yokai Scanlations] H2 Ch. 286 (English)",
+    "expected_chapter_numbers": [
+      286
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Yokai Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Yokai Scanlations] DICE Ch. 287 (EN)",
+    "expected_chapter_numbers": [
+      287
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Yokai Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "The Promised Neverland - Chapter 288",
+    "expected_chapter_numbers": [
+      288
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Inverse Scans] Goblin Slayer Side Story Vol.19 - Ch.289 [ENG]",
+    "expected_chapter_numbers": [
+      289
+    ],
+    "expected_volume": 19,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Inverse Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Wind Breaker - Chapter 290",
+    "expected_chapter_numbers": [
+      290
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[MangaPlus] Refund High School - Ch.91.5 [English]",
+    "expected_chapter_numbers": [
+      91.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "MangaPlus",
+    "expected_title": null
+  },
+  {
+    "release_title": "Black Clover - Chapter 92.123",
+    "expected_chapter_numbers": [
+      92.123
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi Scan] Hunter x Hunter - Ch.293 [EN]",
+    "expected_chapter_numbers": [
+      293
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi Scan",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] Black Clover - Ch.294 [ENG]",
+    "expected_chapter_numbers": [
+      294
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ImperialScans] Kaguya-sama Love is War - Ch.295 [en]",
+    "expected_chapter_numbers": [
+      295
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ImperialScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-word Group] Bastard - Ch.296 [EN]",
+    "expected_chapter_numbers": [
+      296
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-word Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "Dorohedoro - Chapter 297",
+    "expected_chapter_numbers": [
+      297
+    ],
+    "expected_volume": 27,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[CXC Scans] Romance 101 - Ch.298 [en]",
+    "expected_chapter_numbers": [
+      298
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "CXC Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Easy Going Scans] Inuyasha - Ch.99.875 [ENG]",
+    "expected_chapter_numbers": [
+      99.875
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Easy Going Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Tritinia Scanlations] Wind Breaker - Ch.300 [EN]",
+    "expected_chapter_numbers": [
+      300
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Tritinia Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-Word Spaced Group] Princess Jellyfish - Ch.301 [English]",
+    "expected_chapter_numbers": [
+      301
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-Word Spaced Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "Cross Game - Chapter 302",
+    "expected_chapter_numbers": [
+      302
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Tritinia Scanlations] Paradise Kiss - Ch.303 [EN]",
+    "expected_chapter_numbers": [
+      303
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Tritinia Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Star Cross Scans] Hardcore Leveling Warrior Ch. 304 (ENG)",
+    "expected_chapter_numbers": [
+      304
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Star Cross Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[BananaArmy] Naruto Vol.5 - Ch.305 [ENG]",
+    "expected_chapter_numbers": [
+      305
+    ],
+    "expected_volume": 5,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "BananaArmy",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sense Scans] Boruto - Ch.306 [en]",
+    "expected_chapter_numbers": [
+      306
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sense Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Goldsleeves] Hidamari Sketch - Ch.307 [EN]",
+    "expected_chapter_numbers": [
+      307
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Goldsleeves",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Asura Scans] Romance 101 - Ch.108.75 [ENG]",
+    "expected_chapter_numbers": [
+      108.75
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Asura Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Asura Scans] Soul Eater Ch. 309 (English)",
+    "expected_chapter_numbers": [
+      309
+    ],
+    "expected_volume": 9,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Asura Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Harem Scans] Monster - Ch.310 [EN]",
+    "expected_chapter_numbers": [
+      310
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Harem Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Boruto - Chapter 311",
+    "expected_chapter_numbers": [
+      311
+    ],
+    "expected_volume": 11,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mahou Shoujo Site] Edens Zero Vol.12 - Ch.312 [ENG]",
+    "expected_chapter_numbers": [
+      312
+    ],
+    "expected_volume": 12,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Mahou Shoujo Site",
+    "expected_title": null
+  },
+  {
+    "release_title": "[BananaArmy] Tower of God - Ch.313 [ENG]",
+    "expected_chapter_numbers": [
+      313
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "BananaArmy",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Death Toll Scans] Berserk - Ch.314 [ENG]",
+    "expected_chapter_numbers": [
+      314
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Death Toll Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Rose Squad] Mo Dao Zu Shi - Ch.315 [ENG]",
+    "expected_chapter_numbers": [
+      315
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Rose Squad",
+    "expected_title": null
+  },
+  {
+    "release_title": "Asumi-chan is Interested in Lesbian Brothels - Chapter 316",
+    "expected_chapter_numbers": [
+      316
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-Word Spaced Group] Word of Honor - Ch.317 [EN]",
+    "expected_chapter_numbers": [
+      317
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-Word Spaced Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Tritinia Scanlations] Vinland Saga Ch. 118.75 (ENG)",
+    "expected_chapter_numbers": [
+      118.75
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Tritinia Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[MangaPlus] Cowboy Bebop - Ch.319 [English]",
+    "expected_chapter_numbers": [
+      319
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "MangaPlus",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Nutbladder] Tokyo Revengers - Ch.320 [en]",
+    "expected_chapter_numbers": [
+      320
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Nutbladder",
+    "expected_title": null
+  },
+  {
+    "release_title": "Gintama - Chapter 121.5",
+    "expected_chapter_numbers": [
+      121.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Easy Going Scans] Naruto Vol.22 - Ch.322 [ENG]",
+    "expected_chapter_numbers": [
+      322
+    ],
+    "expected_volume": 22,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Easy Going Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[CXC Scans] Dragon Ball - Ch.323 [en]",
+    "expected_chapter_numbers": [
+      323
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "CXC Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-word Group] Dorohedoro - Ch.324 [EN]",
+    "expected_chapter_numbers": [
+      324
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-word Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Goldsleeves] Modao Zushi - Ch.125.5 [EN]",
+    "expected_chapter_numbers": [
+      125.5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Goldsleeves",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Realm Scans] Hikaru no Go - Ch.326 [English]",
+    "expected_chapter_numbers": [
+      326
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Realm Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Harem Scans] Word of Honor Ch. 327 (English)",
+    "expected_chapter_numbers": [
+      327
+    ],
+    "expected_volume": 27,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Harem Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[LeviatanScans] Pumpkin Night Ch. 328 (English)",
+    "expected_chapter_numbers": [
+      328
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "LeviatanScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Realm Scans] Kimi ni Todoke Ch. 329 (ENG)",
+    "expected_chapter_numbers": [
+      329
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Realm Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Galactic Scans] Soul Land - Ch.330 [EN]",
+    "expected_chapter_numbers": [
+      330
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Galactic Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sense Scans] Spy x Family Ch. 331 (EN)",
+    "expected_chapter_numbers": [
+      331
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sense Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hot Pepper Scans] Tales of Demons and Gods - Ch.332 [English]",
+    "expected_chapter_numbers": [
+      332
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Hot Pepper Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Fooly Cooly] Tian Guan Ci Fu - Ch.333 [en]",
+    "expected_chapter_numbers": [
+      333
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Fooly Cooly",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ImperialScans] One Piece - Ch.334 [en]",
+    "expected_chapter_numbers": [
+      334
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ImperialScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Cat Scanlations] Hunter x Hunter Ch. 335 (EN)",
+    "expected_chapter_numbers": [
+      335
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Cat Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "Gintama - Chapter 336",
+    "expected_chapter_numbers": [
+      336
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Flame Scans] Tokyo Revengers - Ch.337 [EN]",
+    "expected_chapter_numbers": [
+      337
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Flame Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Kase-san - Chapter 338",
+    "expected_chapter_numbers": [
+      338
+    ],
+    "expected_volume": 8,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "Death Note - Chapter 339",
+    "expected_chapter_numbers": [
+      339
+    ],
+    "expected_volume": 9,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "Yagate Kimi ni Naru - Chapter 140.123",
+    "expected_chapter_numbers": [
+      140.123
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Knight Scans] Kaichou wa Maid-sama Ch. 341 (ENG)",
+    "expected_chapter_numbers": [
+      341
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Knight Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Reaper Scans] Blame Ch. 342 (ENG)",
+    "expected_chapter_numbers": [
+      342
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Reaper Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Galactic Scans] Bone Collection - Ch.343 [ENG]",
+    "expected_chapter_numbers": [
+      343
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Galactic Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-word Group] Nichijou - Ch.344 [EN]",
+    "expected_chapter_numbers": [
+      344
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-word Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vyvyan Scans] Hunter x Hunter - Ch.345 [English]",
+    "expected_chapter_numbers": [
+      345
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Vyvyan Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[WolfPack] Skip Beat Ch. 346 (ENG)",
+    "expected_chapter_numbers": [
+      346
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "WolfPack",
+    "expected_title": null
+  },
+  {
+    "release_title": "H2 - Chapter 347",
+    "expected_chapter_numbers": [
+      347
+    ],
+    "expected_volume": 17,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Goldsleeves] Sword Art Online Ch. 148.123 (English)",
+    "expected_chapter_numbers": [
+      148.123
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Goldsleeves",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Reaper Scans] The Great Ruler - Ch.349 [English]",
+    "expected_chapter_numbers": [
+      349
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Reaper Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Inverse Scans] Welcome to the NHK - Ch.350 [EN]",
+    "expected_chapter_numbers": [
+      350
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Inverse Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Cat Scanlations] My Hero Academia - Ch.351 [en]",
+    "expected_chapter_numbers": [
+      351
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Black Cat Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Tritinia Scanlations] Tokyo Revengers - Ch.352 [ENG]",
+    "expected_chapter_numbers": [
+      352
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Tritinia Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "Martial Peak - Chapter 353",
+    "expected_chapter_numbers": [
+      353
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "Pumpkin Night - Chapter 354",
+    "expected_chapter_numbers": [
+      354
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[LeviatanScans] Black Clover - Ch.355 [ENG]",
+    "expected_chapter_numbers": [
+      355
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "LeviatanScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vex Scans] Star Martial God Technique - Ch.356 [en]",
+    "expected_chapter_numbers": [
+      356
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Vex Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ZeroScans] Goblin Slayer - Ch.357 [en]",
+    "expected_chapter_numbers": [
+      357
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "ZeroScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Galactic Scans] 20th Century Boys - Ch.358 [en]",
+    "expected_chapter_numbers": [
+      358
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Galactic Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "Solo Leveling - Chapter 359",
+    "expected_chapter_numbers": [
+      359
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": null,
+    "expected_title": null
+  },
+  {
+    "release_title": "[Asura Scans] Death Note - Ch.360 [en]",
+    "expected_chapter_numbers": [
+      360
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Asura Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hokage no Yume] Nichijou Ch. 1 (Español)",
+    "expected_chapter_numbers": [
+      1
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Hokage no Yume",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mangadoor] Fullmetal Alchemist - Ch.002 [Spanish]",
+    "expected_chapter_numbers": [
+      2
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Mangadoor",
+    "expected_title": null
+  },
+  {
+    "release_title": "[NTLLAYO Scans] Citrus - Ch.003 [Español]",
+    "expected_chapter_numbers": [
+      3
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "NTLLAYO Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Nodame no Fansub] Star Martial God Technique Ch. 4 (es)",
+    "expected_chapter_numbers": [
+      4
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Nodame no Fansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuFansub] Erha He Ta De Bai Mao Shizun - Ch.005 [es]",
+    "expected_chapter_numbers": [
+      5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sayonara Fansub] Welcome to the NHK - Ch.006 [es]",
+    "expected_chapter_numbers": [
+      6
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Sayonara Fansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mangadoor] Konosuba - Ch.007 [es]",
+    "expected_chapter_numbers": [
+      7
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Mangadoor",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuMangaOnline] Bakuman Ch. 8 (ES)",
+    "expected_chapter_numbers": [
+      8
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuMangaOnline",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mangadoor] Erha He Ta De Bai Mao Shizun - Ch.009 [es]",
+    "expected_chapter_numbers": [
+      9
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Mangadoor",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuMangaOnline] Lucky Star Ch. 10 (es)",
+    "expected_chapter_numbers": [
+      10
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuMangaOnline",
+    "expected_title": null
+  },
+  {
+    "release_title": "[NTLLAYO Scans] Chainsaw Man - Ch.011 [es]",
+    "expected_chapter_numbers": [
+      11
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "NTLLAYO Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuFansub] Versatile Mage - Ch.012 [Spanish]",
+    "expected_chapter_numbers": [
+      12
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[NTLLAYO Scans] The King's Avatar - Ch.013 [ES]",
+    "expected_chapter_numbers": [
+      13
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "NTLLAYO Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Nodame no Fansub] Wu Dong Qian Kun - Ch.014 [Español]",
+    "expected_chapter_numbers": [
+      14
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Nodame no Fansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Nodame no Fansub] Shotgun Boy Ch. 15 (Spanish)",
+    "expected_chapter_numbers": [
+      15
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Nodame no Fansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuFansub] Vagabond Ch. 16 (Spanish)",
+    "expected_chapter_numbers": [
+      16
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hokage no Yume] Major - Ch.017 [Spanish]",
+    "expected_chapter_numbers": [
+      17
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Hokage no Yume",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuMangaOnline] Bone Collection - Ch.018 [es]",
+    "expected_chapter_numbers": [
+      18
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuMangaOnline",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mangadoor] Ouran High School Host Club - Ch.019 [Español]",
+    "expected_chapter_numbers": [
+      19
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Mangadoor",
+    "expected_title": null
+  },
+  {
+    "release_title": "[HikariNoFansub] Welcome to the NHK - Ch.020 [ES]",
+    "expected_chapter_numbers": [
+      20
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "HikariNoFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuMangaOnline] Nausicaa - Ch.021 [ES]",
+    "expected_chapter_numbers": [
+      21
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuMangaOnline",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Nodame no Fansub] The Beginning After The End Ch. 22 (es)",
+    "expected_chapter_numbers": [
+      22
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Nodame no Fansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[NTLLAYO Scans] Girls of the Wild's - Ch.023 [es]",
+    "expected_chapter_numbers": [
+      23
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "NTLLAYO Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuFansub] Parasyte - Ch.024 [Spanish]",
+    "expected_chapter_numbers": [
+      24
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Manga Translation Battle] Adachi to Shimamura Extra 25 (Español)",
+    "expected_chapter_numbers": [
+      25
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Manga Translation Battle",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mangadoor] Dragon Ball Ch. 26 (ES)",
+    "expected_chapter_numbers": [
+      26
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Mangadoor",
+    "expected_title": null
+  },
+  {
+    "release_title": "[HikariNoFansub] Sailor Moon - Ch.027 [Español]",
+    "expected_chapter_numbers": [
+      27
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "HikariNoFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mangadoor] Dorohedoro - Ch.028 [es]",
+    "expected_chapter_numbers": [
+      28
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Mangadoor",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuFansub] Bone Collection - Ch.029 [Spanish]",
+    "expected_chapter_numbers": [
+      29
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hokage no Yume] Kaichou wa Maid-sama - Ch.030 [Español]",
+    "expected_chapter_numbers": [
+      30
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Hokage no Yume",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuMangaOnline] Natsume Yuujinchou - Ch.031 [es]",
+    "expected_chapter_numbers": [
+      31
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuMangaOnline",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Nodame no Fansub] Eleceed Ch. 32 (ES)",
+    "expected_chapter_numbers": [
+      32
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Nodame no Fansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuMangaOnline] Tokyo Revengers - Ch.033 [Español]",
+    "expected_chapter_numbers": [
+      33
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuMangaOnline",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Manga Translation Battle] The Great Ruler - Ch.034 [ES]",
+    "expected_chapter_numbers": [
+      34
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Manga Translation Battle",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sayonara Fansub] K-On - Ch.035 [Spanish]",
+    "expected_chapter_numbers": [
+      35
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Sayonara Fansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Espadas Cruzadas] Dr. Stone Ch. 36 (ES)",
+    "expected_chapter_numbers": [
+      36
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Espadas Cruzadas",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuMangaOnline] No Game No Life - Ch.037 [Español]",
+    "expected_chapter_numbers": [
+      37
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuMangaOnline",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Nodame no Fansub] Heavenly Demon Cultivation Simulation - Ch.038 [Spanish]",
+    "expected_chapter_numbers": [
+      38
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Nodame no Fansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Nodame no Fansub] My Hero Academia - Ch.039 [Spanish]",
+    "expected_chapter_numbers": [
+      39
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Nodame no Fansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Manga Translation Battle] Sweet Blue Flowers - Ch.040 [Spanish]",
+    "expected_chapter_numbers": [
+      40
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Manga Translation Battle",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mangadoor] Yowamushi Pedal Ch. 41 (ES)",
+    "expected_chapter_numbers": [
+      41
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Mangadoor",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mangadoor] Wind Breaker - Ch.042 [es]",
+    "expected_chapter_numbers": [
+      42
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Mangadoor",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuFansub] Yowamushi Pedal - Ch.043 [ES]",
+    "expected_chapter_numbers": [
+      43
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuFansub] Pigpen Ch. 44 (Spanish)",
+    "expected_chapter_numbers": [
+      44
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuMangaOnline] Viral Hit - Ch.045 [es]",
+    "expected_chapter_numbers": [
+      45
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuMangaOnline",
+    "expected_title": null
+  },
+  {
+    "release_title": "[NTLLAYO Scans] The Husky and His White Cat Shizun - Ch.046 [Español]",
+    "expected_chapter_numbers": [
+      46
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "NTLLAYO Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuFansub] H2 - Ch.047 [ES]",
+    "expected_chapter_numbers": [
+      47
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[HikariNoFansub] Mo Dao Zu Shi - Ch.048 [es]",
+    "expected_chapter_numbers": [
+      48
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "HikariNoFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Mangadoor] Vinland Saga - Ch.049 [Spanish]",
+    "expected_chapter_numbers": [
+      49
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Mangadoor",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hokage no Yume] Made in Abyss - Ch.050 [ES]",
+    "expected_chapter_numbers": [
+      50
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Hokage no Yume",
+    "expected_title": null
+  },
+  {
+    "release_title": "[HikariNoFansub] Blame - Ch.051 [es]",
+    "expected_chapter_numbers": [
+      51
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "HikariNoFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sayonara Fansub] Tower of God - Ch.052 [Spanish]",
+    "expected_chapter_numbers": [
+      52
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Sayonara Fansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Espadas Cruzadas] Ranma 1/2 - Ch.053 [ES]",
+    "expected_chapter_numbers": [
+      53
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Espadas Cruzadas",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Espadas Cruzadas] The King's Avatar - Ch.054 [es]",
+    "expected_chapter_numbers": [
+      54
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Espadas Cruzadas",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hokage no Yume] Kase-san - Ch.055 [Español]",
+    "expected_chapter_numbers": [
+      55
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Hokage no Yume",
+    "expected_title": null
+  },
+  {
+    "release_title": "[NTLLAYO Scans] Dragon Ball Super - Ch.056 [Spanish]",
+    "expected_chapter_numbers": [
+      56
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "NTLLAYO Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hokage no Yume] BioMega - Ch.057 [ES]",
+    "expected_chapter_numbers": [
+      57
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Hokage no Yume",
+    "expected_title": null
+  },
+  {
+    "release_title": "[TuMangaOnline] Touch - Ch.058 [es]",
+    "expected_chapter_numbers": [
+      58
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "TuMangaOnline",
+    "expected_title": null
+  },
+  {
+    "release_title": "[HikariNoFansub] Black Clover Ch. 59 (Spanish)",
+    "expected_chapter_numbers": [
+      59
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "HikariNoFansub",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hokage no Yume] Vagabond - Extra 60 [Español]",
+    "expected_chapter_numbers": [
+      60
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Extra",
+    "expected_translated_language": "es",
+    "expected_scanlation_group": "Hokage no Yume",
+    "expected_title": null
+  },
+  {
+    "release_title": "[集英社] Soul Land - Ch.1 [ja]",
+    "expected_chapter_numbers": [
+      1
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "集英社",
+    "expected_title": null
+  },
+  {
+    "release_title": "[集英社] Hero Killer - Ch.2 [JP]",
+    "expected_chapter_numbers": [
+      2
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "集英社",
+    "expected_title": null
+  },
+  {
+    "release_title": "[集英社] Cardcaptor Sakura - Ch.3 [JP]",
+    "expected_chapter_numbers": [
+      3
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "集英社",
+    "expected_title": null
+  },
+  {
+    "release_title": "[RAW Group] Cardcaptor Sakura - Ch.4 [ja]",
+    "expected_chapter_numbers": [
+      4
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "RAW Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ジャンプ] Refund High School - Ch.5 [ja]",
+    "expected_chapter_numbers": [
+      5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "ジャンプ",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ジャンプ] Refund High School - Ch.6 [ja]",
+    "expected_chapter_numbers": [
+      6
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "ジャンプ",
+    "expected_title": null
+  },
+  {
+    "release_title": "[RAW Group] One Punch Man - Ch.7 [JA]",
+    "expected_chapter_numbers": [
+      7
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "RAW Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ジャンプ] Parasyte - Ch.8 [Japanese]",
+    "expected_chapter_numbers": [
+      8
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "ジャンプ",
+    "expected_title": null
+  },
+  {
+    "release_title": "[集英社] I'm the Grim Reaper - Ch.9 [JA]",
+    "expected_chapter_numbers": [
+      9
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "集英社",
+    "expected_title": null
+  },
+  {
+    "release_title": "[コミックDAYS] True Beauty - Ch.10 [Japanese]",
+    "expected_chapter_numbers": [
+      10
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "コミックDAYS",
+    "expected_title": null
+  },
+  {
+    "release_title": "[FOD] Battle Through the Heavens - Ch.11 [ja]",
+    "expected_chapter_numbers": [
+      11
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "FOD",
+    "expected_title": null
+  },
+  {
+    "release_title": "[FOD] Captain Tsubasa - Ch.12 [JA]",
+    "expected_chapter_numbers": [
+      12
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "FOD",
+    "expected_title": null
+  },
+  {
+    "release_title": "[FOD] Pigpen - Ch.13 [JP]",
+    "expected_chapter_numbers": [
+      13
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "FOD",
+    "expected_title": null
+  },
+  {
+    "release_title": "[集英社] Bastard - Ch.14 [ja]",
+    "expected_chapter_numbers": [
+      14
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "集英社",
+    "expected_title": null
+  },
+  {
+    "release_title": "[FOD] Pigpen - Ch.15 [ja]",
+    "expected_chapter_numbers": [
+      15
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "FOD",
+    "expected_title": null
+  },
+  {
+    "release_title": "[コミックDAYS] Adachi to Shimamura - Ch.16 [JA]",
+    "expected_chapter_numbers": [
+      16
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "コミックDAYS",
+    "expected_title": null
+  },
+  {
+    "release_title": "[少年ジャンプ+] Asumi-chan is Interested in Lesbian Brothels - Ch.17 [Japanese]",
+    "expected_chapter_numbers": [
+      17
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "少年ジャンプ+",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ジャンプ] Noblesse - Ch.18 [JP]",
+    "expected_chapter_numbers": [
+      18
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "ジャンプ",
+    "expected_title": null
+  },
+  {
+    "release_title": "[少年ジャンプ+] Yumi's Cells - Ch.19 [Japanese]",
+    "expected_chapter_numbers": [
+      19
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "少年ジャンプ+",
+    "expected_title": null
+  },
+  {
+    "release_title": "[BookLive] Natsume Yuujinchou - Ch.20 [JA]",
+    "expected_chapter_numbers": [
+      20
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "BookLive",
+    "expected_title": null
+  },
+  {
+    "release_title": "[角川コミックス] Bastard - Ch.21 [JA]",
+    "expected_chapter_numbers": [
+      21
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "角川コミックス",
+    "expected_title": null
+  },
+  {
+    "release_title": "[BookLive] Soul Eater - Ch.22 [Japanese]",
+    "expected_chapter_numbers": [
+      22
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "BookLive",
+    "expected_title": null
+  },
+  {
+    "release_title": "[RAW Group] Horimiya - Ch.23 [JP]",
+    "expected_chapter_numbers": [
+      23
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "RAW Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[少年ジャンプ+] Sword Art Online - Ch.24 [JA]",
+    "expected_chapter_numbers": [
+      24
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "少年ジャンプ+",
+    "expected_title": null
+  },
+  {
+    "release_title": "[コミックDAYS] Skip Beat - Ch.25 [ja]",
+    "expected_chapter_numbers": [
+      25
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "コミックDAYS",
+    "expected_title": null
+  },
+  {
+    "release_title": "[コミックDAYS] Boruto - Ch.26 [Japanese]",
+    "expected_chapter_numbers": [
+      26
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "コミックDAYS",
+    "expected_title": null
+  },
+  {
+    "release_title": "[BookLive] Pigpen - Ch.27 [JA]",
+    "expected_chapter_numbers": [
+      27
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "BookLive",
+    "expected_title": null
+  },
+  {
+    "release_title": "[少年ジャンプ+] The Boxer - Ch.28 [JP]",
+    "expected_chapter_numbers": [
+      28
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "少年ジャンプ+",
+    "expected_title": null
+  },
+  {
+    "release_title": "[角川コミックス] Knights of Sidonia - Ch.29 [Japanese]",
+    "expected_chapter_numbers": [
+      29
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "角川コミックス",
+    "expected_title": null
+  },
+  {
+    "release_title": "[RAW Group] Yagate Kimi ni Naru - Ch.30 [JP]",
+    "expected_chapter_numbers": [
+      30
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "RAW Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[RAW Group] Ace of Diamond - Ch.31 [JA]",
+    "expected_chapter_numbers": [
+      31
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "RAW Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[集英社] Ace of Diamond - Ch.32 [JA]",
+    "expected_chapter_numbers": [
+      32
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "集英社",
+    "expected_title": null
+  },
+  {
+    "release_title": "[BookLive] Mushishi - Ch.33 [JP]",
+    "expected_chapter_numbers": [
+      33
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "BookLive",
+    "expected_title": null
+  },
+  {
+    "release_title": "[BookLive] Goblin Slayer Side Story - Ch.34 [JP]",
+    "expected_chapter_numbers": [
+      34
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "BookLive",
+    "expected_title": null
+  },
+  {
+    "release_title": "[BookLive] Konosuba - Ch.35 [Japanese]",
+    "expected_chapter_numbers": [
+      35
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": "ja",
+    "expected_scanlation_group": "BookLive",
+    "expected_title": null
+  },
+  {
+    "release_title": "[MangaPlus] Noblesse - Ch.1",
+    "expected_chapter_numbers": [
+      1
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "MangaPlus",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Knight Scans] Martial Peak - Ch.2",
+    "expected_chapter_numbers": [
+      2
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Black Knight Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi Scan] Surviving Romance - Ch.3",
+    "expected_chapter_numbers": [
+      3
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Multi Scan",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] Trigun - Ch.4",
+    "expected_chapter_numbers": [
+      4
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sorcery Scanlations] Mo Dao Zu Shi - Ch.5",
+    "expected_chapter_numbers": [
+      5
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Sorcery Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Knight Scans] Nausicaa - Ch.6",
+    "expected_chapter_numbers": [
+      6
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Black Knight Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sense Scans] Sweet Home - Ch.7",
+    "expected_chapter_numbers": [
+      7
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Sense Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Tritinia Scanlations] Goblin Slayer Side Story - Ch.8",
+    "expected_chapter_numbers": [
+      8
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Tritinia Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[LeviatanScans] True Beauty - Ch.9",
+    "expected_chapter_numbers": [
+      9
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "LeviatanScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[MangaPlus] Tokyo Revengers - Ch.10",
+    "expected_chapter_numbers": [
+      10
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "MangaPlus",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ZeroScans] Ouran High School Host Club - Ch.11",
+    "expected_chapter_numbers": [
+      11
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "ZeroScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] Bakuman - Ch.12",
+    "expected_chapter_numbers": [
+      12
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Galactic Scans] Tian Guan Ci Fu - Ch.13",
+    "expected_chapter_numbers": [
+      13
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Galactic Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hot Pepper Scans] Pigpen - Ch.14",
+    "expected_chapter_numbers": [
+      14
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Hot Pepper Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Tritinia Scanlations] Akira - Ch.15",
+    "expected_chapter_numbers": [
+      15
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Tritinia Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] Solo Leveling - Ch.16",
+    "expected_chapter_numbers": [
+      16
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vyvyan Scans] Viral Hit - Ch.17",
+    "expected_chapter_numbers": [
+      17
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Vyvyan Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Genjyo Scans] Viral Hit - Ch.18",
+    "expected_chapter_numbers": [
+      18
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Genjyo Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Manhwa Freak] One Piece - Ch.19",
+    "expected_chapter_numbers": [
+      19
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Manhwa Freak",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Rose Squad] Parasyte - Ch.20",
+    "expected_chapter_numbers": [
+      20
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Rose Squad",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Fooly Cooly] Kuragehime - Ch.21",
+    "expected_chapter_numbers": [
+      21
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Fooly Cooly",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Inverse Scans] Star Martial God Technique - Ch.22",
+    "expected_chapter_numbers": [
+      22
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Inverse Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vex Scans] Viral Hit - Ch.23",
+    "expected_chapter_numbers": [
+      23
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Vex Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[LeviatanScans] Fruits Basket - Ch.24",
+    "expected_chapter_numbers": [
+      24
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "LeviatanScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[JaiminisBox] Jujutsu Kaisen - Ch.25",
+    "expected_chapter_numbers": [
+      25
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "JaiminisBox",
+    "expected_title": null
+  },
+  {
+    "release_title": "[SimpleScans] Eyeshield 21 - Ch.26",
+    "expected_chapter_numbers": [
+      26
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "SimpleScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Vyvyan Scans] D.Gray-man - Ch.27",
+    "expected_chapter_numbers": [
+      27
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Vyvyan Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-Word Spaced Group] Noblesse - Ch.28",
+    "expected_chapter_numbers": [
+      28
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Multi-Word Spaced Group",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Black Scanlation] Tales of Demons and Gods - Ch.29",
+    "expected_chapter_numbers": [
+      29
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Black Scanlation",
+    "expected_title": null
+  },
+  {
+    "release_title": "[ZeroScans] Tokyo Ghoul - Ch.30",
+    "expected_chapter_numbers": [
+      30
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "ZeroScans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Hox Network] Komi Cant Communicate - Ch.31",
+    "expected_chapter_numbers": [
+      31
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Hox Network",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Nutbladder] Yagate Kimi ni Naru - Ch.32",
+    "expected_chapter_numbers": [
+      32
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Nutbladder",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Sorcery Scanlations] Natsume Yuujinchou - Ch.33",
+    "expected_chapter_numbers": [
+      33
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Sorcery Scanlations",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Flame Scans] I'm the Grim Reaper - Ch.34",
+    "expected_chapter_numbers": [
+      34
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Flame Scans",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Rose Squad] The Newlyweds - Ch.35",
+    "expected_chapter_numbers": [
+      35
+    ],
+    "expected_volume": null,
+    "expected_chapter_type": "Regular",
+    "expected_translated_language": null,
+    "expected_scanlation_group": "Rose Squad",
+    "expected_title": null
+  },
+  {
+    "release_title": "[Multi-Word Spaced Group] Hero Killer - Oneshot [EN]",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-Word Spaced Group",
+    "expected_title": "Hero Killer"
+  },
+  {
+    "release_title": "[Tritinia Scanlations] Chainsaw Man - Oneshot [EN]",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Tritinia Scanlations",
+    "expected_title": "Chainsaw Man"
+  },
+  {
+    "release_title": "[Multi-word Group] Tales of Demons and Gods - Oneshot [EN]",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Multi-word Group",
+    "expected_title": "Tales of Demons and Gods"
+  },
+  {
+    "release_title": "[Sorcery Scanlations] Whispered Words - Oneshot [EN]",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sorcery Scanlations",
+    "expected_title": "Whispered Words"
+  },
+  {
+    "release_title": "[Mangastream] A Lovers Discretion - Oneshot [EN]",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Mangastream",
+    "expected_title": "A Lovers Discretion"
+  },
+  {
+    "release_title": "[Galactic Scans] Nausicaa - Oneshot [EN]",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Galactic Scans",
+    "expected_title": "Nausicaa"
+  },
+  {
+    "release_title": "[Death Toll Scans] Bloom Into You - Oneshot [EN]",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Death Toll Scans",
+    "expected_title": "Bloom Into You"
+  },
+  {
+    "release_title": "[Asura Scans] Hikaru no Go - Oneshot [EN]",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Asura Scans",
+    "expected_title": "Hikaru no Go"
+  },
+  {
+    "release_title": "[Sense Scans] Kimi ni Todoke - Oneshot [EN]",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Sense Scans",
+    "expected_title": "Kimi ni Todoke"
+  },
+  {
+    "release_title": "[Vyvyan Scans] Sweet Home - Oneshot [EN]",
+    "expected_chapter_numbers": [],
+    "expected_volume": null,
+    "expected_chapter_type": "Oneshot",
+    "expected_translated_language": "en",
+    "expected_scanlation_group": "Vyvyan Scans",
+    "expected_title": "Sweet Home"
+  }
+]
