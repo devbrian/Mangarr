@@ -48,6 +48,7 @@ namespace NzbDrone.Core.Test.MangaTests
             {
                 Id = 1,
                 Name = "MangaDex",
+                Implementation = nameof(MangaDexMetadataSource),
                 IsPrimary = true,
             };
 
@@ -231,8 +232,8 @@ namespace NzbDrone.Core.Test.MangaTests
                 TotalChapterCount = 100,
             };
 
-            _primaryDef = new MetadataSourceDefinition { Id = 2, Name = "AniList", IsPrimary = true };
-            var mangaDexSecondary = new MetadataSourceDefinition { Id = 1, Name = "MangaDex", IsPrimary = false };
+            _primaryDef = new MetadataSourceDefinition { Id = 2, Name = "AniList", Implementation = nameof(AniListMetadataSource), IsPrimary = true };
+            var mangaDexSecondary = new MetadataSourceDefinition { Id = 1, Name = "MangaDex", Implementation = nameof(MangaDexMetadataSource), IsPrimary = false };
 
             var anilistPrimary = new StubAniListProvider(_primaryResult);
 
@@ -285,8 +286,8 @@ namespace NzbDrone.Core.Test.MangaTests
                 TotalChapterCount = 100,
             };
 
-            _primaryDef = new MetadataSourceDefinition { Id = 3, Name = "MyAnimeList", IsPrimary = true };
-            var mangaDexSecondary = new MetadataSourceDefinition { Id = 1, Name = "MangaDex", IsPrimary = false };
+            _primaryDef = new MetadataSourceDefinition { Id = 3, Name = "MyAnimeList", Implementation = nameof(MyAnimeListMetadataSource), IsPrimary = true };
+            var mangaDexSecondary = new MetadataSourceDefinition { Id = 1, Name = "MangaDex", Implementation = nameof(MangaDexMetadataSource), IsPrimary = false };
 
             var malPrimary = new StubMalProvider(_primaryResult);
 
@@ -322,6 +323,65 @@ namespace NzbDrone.Core.Test.MangaTests
             Subject.AddManga(newManga);
 
             newManga.MangaDexId.Should().Be(foundMangaDexId, "D-20 mirror: MAL primary path must populate MangaDexId");
+        }
+
+        // WR-13 regression: provider matching must use Implementation type-name (the
+        // class name — immutable) rather than the user-editable Name. A user who
+        // renames MangaDex to "Mangadex 1" via the developer endpoint must not lose
+        // the symmetric reverse-MangaDex resolution.
+        [Test]
+        public void Symmetric_AniList_primary_resolves_MangaDexId_when_MangaDex_is_renamed()
+        {
+            _primaryResult = new Manga.Manga
+            {
+                Title = "test manga",
+                AniListId = 42,
+                MangaDexId = null,
+                PublicationYear = 2020,
+                PrimaryAuthor = "Same Author",
+                TotalChapterCount = 100,
+            };
+
+            // User has renamed both providers via the developer endpoint, but the
+            // Implementation field stays pinned to the class name.
+            _primaryDef = new MetadataSourceDefinition { Id = 2, Name = "My Custom AniList", Implementation = nameof(AniListMetadataSource), IsPrimary = true };
+            var renamedMangaDex = new MetadataSourceDefinition { Id = 1, Name = "Mangadex 1", Implementation = nameof(MangaDexMetadataSource), IsPrimary = false };
+
+            var anilistPrimary = new StubAniListProvider(_primaryResult);
+
+            var foundMangaDexId = Guid.NewGuid();
+            var mangaDexHit = new Manga.Manga
+            {
+                Title = "test manga",
+                MangaDexId = foundMangaDexId,
+                PublicationYear = 2020,
+                PrimaryAuthor = "Same Author",
+                TotalChapterCount = 100,
+            };
+            var mangaDexProvider = new StubMangaDexProvider(_primaryResult)
+            {
+                SearchHits = new List<Manga.Manga> { mangaDexHit },
+            };
+
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetPrimary())
+                  .Returns(_primaryDef);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.Is<MetadataSourceDefinition>(d => d.IsPrimary)))
+                  .Returns(anilistPrimary);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.Is<MetadataSourceDefinition>(d => !d.IsPrimary)))
+                  .Returns(mangaDexProvider);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.All())
+                  .Returns(new List<MetadataSourceDefinition> { _primaryDef, renamedMangaDex });
+
+            var newManga = new Manga.Manga { AniListId = 42, Title = "test manga" };
+
+            Subject.AddManga(newManga);
+
+            newManga.MangaDexId.Should().Be(foundMangaDexId,
+                "WR-13: implementation-type matching must survive a user rename of the Name field");
         }
 
         // ---- Stub providers ----

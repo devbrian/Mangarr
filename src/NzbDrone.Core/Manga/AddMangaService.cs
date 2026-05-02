@@ -213,9 +213,15 @@ namespace NzbDrone.Core.Manga
             if (!newManga.MangaDexId.HasValue)
             {
                 var primaryDef = _metaFactory.GetPrimary();
-                if (primaryDef.Name != "MangaDex")
+
+                // WR-13 fix: match providers on Implementation (the class name —
+                // immutable / not user-editable) instead of Name (user-editable via
+                // the developer ProviderControllerBase endpoint). A user who renames
+                // MangaDex to "Mangadex 1" used to silently lose the symmetric
+                // reverse-direction path.
+                if (primaryDef.Implementation != nameof(MangaDexMetadataSource))
                 {
-                    var mdDef = _metaFactory.All().FirstOrDefault(d => d.Name == "MangaDex");
+                    var mdDef = _metaFactory.All().FirstOrDefault(d => d.Implementation == nameof(MangaDexMetadataSource));
                     if (mdDef != null)
                     {
                         var mdSource = (IMetadataSource)_metaFactory.GetInstance(mdDef);
@@ -241,10 +247,25 @@ namespace NzbDrone.Core.Manga
             }
 
             // Generic fallback for the OTHER direction(s) - fill remaining missing IDs by querying each
-            // non-primary secondary.
+            // non-primary secondary. WR-12 fix: skip MangaDex here when the explicit
+            // reverse-MangaDex symmetric branch above already ran (primary != MangaDex).
+            // The reverse branch already issued up to 3 search-variant calls against
+            // MangaDex; re-iterating would burn another 3 against the 40 req/min budget
+            // for no incremental gain. The Implementation type-name (not user-editable
+            // Name — see WR-13) is what we filter on.
+            var primaryDefForFilter = _metaFactory.GetPrimary();
+            var primaryIsMangaDex = primaryDefForFilter.Implementation == nameof(MangaDexMetadataSource);
+            var mangaDexImpl = nameof(MangaDexMetadataSource);
+
             var secondaries = new List<(string Name, IMetadataSource Source)>();
             foreach (var def in _metaFactory.All().Where(d => !d.IsPrimary))
             {
+                if (!primaryIsMangaDex && def.Implementation == mangaDexImpl)
+                {
+                    // Already exercised in the reverse-MangaDex branch above.
+                    continue;
+                }
+
                 secondaries.Add((def.Name, (IMetadataSource)_metaFactory.GetInstance(def)));
             }
 
