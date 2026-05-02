@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Mangarr.Soak</RootNamespace>
+    <AssemblyName>Mangarr.Soak.Runner</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NzbDrone.Core\Sonarr.Core.csproj" />
+  </ItemGroup>
+</Project>
