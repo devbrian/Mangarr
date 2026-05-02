@@ -68,8 +68,15 @@ namespace NzbDrone.Core.Manga
 
                 if (string.IsNullOrEmpty(sourceId))
                 {
-                    _logger.Trace("Skipping manga {0}: no source ID for active primary {1}",
-                        existing.Title, primaryDef.Name);
+                    // WR-08 fix: escalate from Trace to Warn so users notice that a
+                    // manga in their library is silently being skipped because the
+                    // active primary has no cross-source ID for it. The CONTEXT D-23
+                    // manual-relink endpoint is the remediation path; without a
+                    // visible signal users would never know it's needed. (Phase 7+
+                    // can extend this to a MissingPrimarySourceIdHealthCheck per the
+                    // review's secondary recommendation.)
+                    _logger.Warn("Skipping manga {0}: no source ID for active primary {1}; manual relink required (POST /api/v5/manga/{2}/links)",
+                        existing.Title, primaryDef.Name, existing.Id);
                     continue;
                 }
 

@@ -132,6 +132,9 @@ namespace NzbDrone.Core.Test.MangaTests
             Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
 
             stub.GetMangaInfoCalls.Should().BeEmpty();
+
+            // WR-08: the skip is now logged at Warn so users see they need to relink.
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
