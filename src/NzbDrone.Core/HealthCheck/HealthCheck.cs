@@ -82,6 +82,7 @@ namespace NzbDrone.Core.HealthCheck
         IndexerStatusAllUnavailable,
         IndexerStatusUnavailable,
         MinimumApiKeyLength,
+        MissingChapterList,
         MountSeries,
         NotificationStatusAll,
         NotificationStatusSingle,
