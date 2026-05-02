@@ -13,6 +13,7 @@ using NzbDrone.Core.MetadataSource.AniList;
 using NzbDrone.Core.MetadataSource.MangaDex;
 using NzbDrone.Core.MetadataSource.MyAnimeList;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.MangaTests
 {
@@ -204,6 +205,13 @@ namespace NzbDrone.Core.Test.MangaTests
 
             // D-19: link failed validation, AniListId reset to null.
             newManga.AniListId.Should().BeNull("D-19: unvalidated link must be rejected");
+
+            // Production AddMangaService.ValidateLinkedCrossSourceIds emits a Warn at
+            // AddMangaService.cs:164 for the wrong-title case (or :171 for the not-found
+            // case). The warn is INTENTIONAL behavior per D-19; the test framework's
+            // tear-down "no unexpected warns" assertion otherwise fails this test
+            // (per 02-VERIFICATION.md anti-patterns row).
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         // D-20 symmetric (locked acceptance literal): primary=AniList, MangaDexId null →
