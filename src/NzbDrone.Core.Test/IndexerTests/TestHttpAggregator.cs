@@ -1,11 +1,14 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using NLog;
 using NzbDrone.Common.Http;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Http;
+using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.Localization;
 using NzbDrone.Core.Parser;
+using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Test.IndexerTests
 {
@@ -41,6 +44,16 @@ namespace NzbDrone.Core.Test.IndexerTests
         public IParseIndexerResponse _parser;
 
         public override IParseIndexerResponse GetParser() => _parser;
+
+        // Phase 3 D-02 — concrete no-op stubs for the manga abstract surface.
+        // Plan 03-02 fan-out missed this test helper; subclasses of HttpAggregatorBase
+        // must implement Fetch(MangaSearchCriteria) and Fetch(ChapterSearchCriteria).
+        // This test aggregator does not exercise manga search paths.
+        public override Task<IList<ReleaseInfo>> Fetch(MangaSearchCriteria searchCriteria)
+            => Task.FromResult<IList<ReleaseInfo>>(new List<ReleaseInfo>());
+
+        public override Task<IList<ReleaseInfo>> Fetch(ChapterSearchCriteria searchCriteria)
+            => Task.FromResult<IList<ReleaseInfo>>(new List<ReleaseInfo>());
 
         /// <summary>
         /// Public passthrough to the protected <see cref="HttpAggregatorBase{TSettings}.FetchIndexerResponse"/>

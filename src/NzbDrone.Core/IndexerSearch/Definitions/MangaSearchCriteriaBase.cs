@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using NzbDrone.Core.DataAugmentation.Scene;
 
 namespace NzbDrone.Core.IndexerSearch.Definitions
 {
