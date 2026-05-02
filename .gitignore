@@ -172,3 +172,4 @@ src/.idea/
 src/.claude/settings.local.json
 # GSD per-plan local verification harness (sandbox dotnet test workaround)
 _corpus_check/
+_metadata_source_check/

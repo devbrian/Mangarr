@@ -114,6 +114,50 @@ The Sonarr-hosted SkyHook service is TV-only. For Mangarr, either:
 
 (a) is simpler and avoids cloud dependencies. (b) would centralize caching and rate limiting but requires hosting.
 
+## Phase 2 Additions (NEW IMetadataSource ThingiProvider family)
+
+Phase 2 introduces a NEW pluggable provider type per D-14. The existing
+concrete-singleton `IProvideSeriesInfo`/`ISearchForNewSeries` (SkyHookProxy) stays
+UNTOUCHED until Phase 8 cutover.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `IProvideMangaInfo.cs` | Split contract — `GetMangaInfo(string sourceId) -> Tuple<Manga, List<Chapter>>` per D-14 |
+| `ISearchForNewManga.cs` | Split contract — Search by title or by cross-source ID per D-14 |
+| `IMetadataSource.cs` | Composite interface; required for ThingiProvider auto-discovery (Pitfall 4) |
+| `MetadataSourceDefinition.cs` | ProviderDefinition with IsPrimary bool per D-15 |
+| `MetadataSourceBase.cs` | Abstract base implementing the seven IProvider members |
+| `HttpMetadataSourceBase.cs` | Sibling (NOT subclass) of HttpAggregatorBase per RESEARCH §Open Question 1 |
+| `IMetadataSourceFactory.cs` / `MetadataSourceFactory.cs` | ProviderFactory + `SetPrimary` at-most-one invariant per D-15 |
+| `IMetadataSourceRepository.cs` / `MetadataSourceRepository.cs` | ProviderRepository<MetadataSourceDefinition> with `FindByName` + `GetPrimary` |
+| `MangaNotFoundException.cs` | Thrown by providers on upstream 404 |
+| `MangaDex/`, `AniList/`, `MyAnimeList/` | v1 provider implementations (Plans 02-06..02-08) |
+| `CrossSourceIdResolver.cs` | Jaro-Winkler ≥0.85 + 2-of-3 multi-axis confirm per D-19..D-22 (Plan 02-09) |
+
+### IsPrimary Invariant (D-15)
+
+At most ONE row in the `MetadataSources` table may have `IsPrimary=true`. The DB
+allows the invariant to be broken (Migration 002 has no DB-level constraint); the factory
+restores it on every `SetPrimary(id)` call: demote ALL, then promote target, transactional
+via `Update(IEnumerable)` → `IProviderRepository.UpdateMany`. Wave 0
+`MetadataSourceFactoryFixture.SetPrimary_demotes_prior_primary_when_promoting_another`
+verifies (mitigates threat T-CONFIG-DRIFT-01).
+
+### Why HttpMetadataSourceBase Is a Sibling
+
+`HttpAggregatorBase : HttpIndexerBase : IndexerBase` — extending it would register
+metadata sources as `IIndexer` via DryIoc auto-discovery. We want the two ThingiProvider
+families separate. Per RESEARCH §Open Question 1, `HttpMetadataSourceBase` duplicates
+~30 lines of SourceKey + UA injection from HttpAggregatorBase — intentional cost
+to keep the registries clean.
+
+### Phase 8 Cutover
+
+- DELETE `IProvideSeriesInfo`, `ISearchForNewSeries`, `SkyHookProxy` (TV side)
+- KEEP `IProvideMangaInfo`, `ISearchForNewManga` (already manga-named — no rename needed)
+
 ## Cross-References
 
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview
@@ -121,3 +165,6 @@ The Sonarr-hosted SkyHook service is TV-only. For Mangarr, either:
 - [../Tv/RefreshSeriesService.cs](../Tv/RefreshSeriesService.cs) — Caller
 - [../../Sonarr.Api.V5/Series/SeriesLookupController.cs](../../Sonarr.Api.V5/Series/SeriesLookupController.cs) — Search-add UX entrypoint
 - [../../../frontend/src/AddSeries/CLAUDE.md](../../../frontend/src/AddSeries/CLAUDE.md) — Frontend "Add" flow
+- [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Manga / Chapter domain models consumed by `IProvideMangaInfo` / `ISearchForNewManga`
+- [../Indexers/Http/HttpAggregatorBase.cs](../Indexers/Http/HttpAggregatorBase.cs) — Sibling Phase 1 base; intentional duplication source
+- [../ThingiProvider/](../ThingiProvider/) — ProviderBase / ProviderDefinition / ProviderFactory / ProviderRepository
