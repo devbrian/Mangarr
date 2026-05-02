@@ -34,31 +34,68 @@ namespace NzbDrone.Core.Manga
             // STRATEGY 1 (D-17.1): MangaDex linked → real-feed rows are source of truth.
             if (manga.MangaDexId.HasValue && incoming != null && incoming.Any())
             {
-                // Replace synthetic rows whose ChapterNumber matches an incoming real row.
-                var byNumber = incoming
+                // BL-05 FIX: previous code grouped incoming by ChapterNumber alone and
+                // kept only `g.First()` — silently dropping every other translation /
+                // scanlation-group entry at the same number. MangaDex's /manga/{id}/feed
+                // returns one entry per (chapter, language, group) triple, so a single
+                // chapter typically has 5-20 incoming rows. Grouping by
+                // (ChapterNumber, TranslatedLanguage) preserves multilingual entries.
+                //
+                // Synthetic-row upgrade contract: synthetic rows carry "und" and
+                // represent the "chapter N exists" slot. We upgrade each synthetic IN
+                // PLACE using ANY incoming row that matches its ChapterNumber (the first
+                // one wins — typically English when present, else whatever the source
+                // returned first). The remaining incoming rows for the same number get
+                // INSERTED below as new translation rows. Without this fix the synthetic
+                // stayed pinned at "und" forever (since its (N,"und") key never matched
+                // any incoming (N,"en") key).
+                var existingKeys = existing
+                    .Select(e => (e.ChapterNumber, e.TranslatedLanguage))
+                    .ToHashSet();
+                var consumedIncoming = new HashSet<Chapter>();
+
+                var incomingByNumber = incoming
                     .GroupBy(c => c.ChapterNumber)
-                    .ToDictionary(g => g.Key, g => g.First());
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
                 foreach (var ex in existing.Where(e => e.IsSynthetic))
                 {
-                    if (byNumber.TryGetValue(ex.ChapterNumber, out var real))
+                    if (incomingByNumber.TryGetValue(ex.ChapterNumber, out var realList) && realList.Count > 0)
                     {
+                        var real = realList[0];
                         real.Id = ex.Id;
                         real.MangaId = manga.Id;
                         real.IsSynthetic = false;
                         _chapterRepo.Update(real);
+                        consumedIncoming.Add(real);
+
+                        // Refresh existingKeys so the bulk-insert pass below does not
+                        // try to re-insert the row we just upgraded in place.
+                        existingKeys.Add((real.ChapterNumber, real.TranslatedLanguage));
                         // Orphan synthetic rows kept until Phase 5 cleanup logic per D-17 trailing note.
                     }
                 }
 
-                // Insert new chapters not previously present (by (ChapterNumber, TranslatedLanguage)).
-                var existingKeys = existing
-                    .Select(e => (e.ChapterNumber, e.TranslatedLanguage))
-                    .ToHashSet();
-                foreach (var c in incoming.Where(i => !existingKeys.Contains((i.ChapterNumber, i.TranslatedLanguage))))
+                // Insert all remaining incoming chapters that are not already represented
+                // by an (existing OR just-upgraded) row at the same
+                // (ChapterNumber, TranslatedLanguage) key. This preserves every language
+                // / group variant the source returned.
+                foreach (var c in incoming)
                 {
+                    if (consumedIncoming.Contains(c))
+                    {
+                        continue;
+                    }
+
+                    if (existingKeys.Contains((c.ChapterNumber, c.TranslatedLanguage)))
+                    {
+                        continue;
+                    }
+
                     c.MangaId = manga.Id;
                     c.IsSynthetic = false;
                     _chapterRepo.Insert(c);
+                    existingKeys.Add((c.ChapterNumber, c.TranslatedLanguage));
                 }
 
                 _eventAggregator.PublishEvent(new ChapterListUpdatedEvent(manga));

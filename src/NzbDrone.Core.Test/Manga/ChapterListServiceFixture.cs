@@ -88,6 +88,77 @@ namespace NzbDrone.Core.Test.MangaTests
                   .Verify(e => e.PublishEvent(It.IsAny<ChapterListUpdatedEvent>()), Times.Once());
         }
 
+        // BL-05 regression: Strategy 1 must NOT collapse multiple incoming rows that
+        // share a ChapterNumber but differ in TranslatedLanguage. Two incoming rows for
+        // ChapterNumber 1 (en + es) MUST both end up in the repository.
+        [Test]
+        public void Strategy1_keeps_both_rows_when_incoming_share_number_but_differ_in_language()
+        {
+            var manga = new Manga.Manga
+            {
+                Id = 11,
+                Title = "Naruto",
+                MangaDexId = Guid.NewGuid(),
+            };
+
+            var incoming = new List<Chapter>
+            {
+                new() { ChapterNumber = 1m, Title = "EN title", TranslatedLanguage = "en", IsSynthetic = false },
+                new() { ChapterNumber = 1m, Title = "ES title", TranslatedLanguage = "es", IsSynthetic = false },
+            };
+
+            Subject.SyncChapters(manga, incoming);
+
+            // Pre-fix bug: only the first language survived the dictionary collapse.
+            // Post-fix: both rows are inserted (no existing rows present, so each
+            // (1m, lang) pair becomes a fresh insert).
+            _inserted.Should().HaveCount(2);
+            _inserted.Select(c => c.TranslatedLanguage).Should().BeEquivalentTo(new[] { "en", "es" });
+        }
+
+        // BL-05 regression: when a synthetic row exists at ChapterNumber 1 (TranslatedLanguage="und")
+        // and the incoming feed has two rows at ChapterNumber 1 (en + es), the synthetic gets
+        // upgraded in place to ONE language (the first incoming) AND the OTHER language gets
+        // inserted as a new row. Pre-fix the synthetic stayed pinned at "und" forever because
+        // its (1m, "und") key never matched any incoming (1m, "en") / (1m, "es") key.
+        [Test]
+        public void Strategy1_upgrades_synthetic_in_place_and_inserts_remaining_languages()
+        {
+            var manga = new Manga.Manga
+            {
+                Id = 12,
+                Title = "OnePiece",
+                MangaDexId = Guid.NewGuid(),
+            };
+
+            _existing.Add(new Chapter
+            {
+                Id = 500,
+                MangaId = 12,
+                ChapterNumber = 1m,
+                IsSynthetic = true,
+                TranslatedLanguage = "und",
+            });
+
+            var incoming = new List<Chapter>
+            {
+                new() { ChapterNumber = 1m, TranslatedLanguage = "en", IsSynthetic = false },
+                new() { ChapterNumber = 1m, TranslatedLanguage = "es", IsSynthetic = false },
+            };
+
+            Subject.SyncChapters(manga, incoming);
+
+            // Synthetic upgraded in place: Update called once with Id=500, IsSynthetic=false.
+            Mocker.GetMock<IChapterRepository>()
+                  .Verify(r => r.Update(It.Is<Chapter>(c => c.Id == 500 && !c.IsSynthetic && c.MangaId == 12)),
+                          Times.Once());
+
+            // The OTHER language was inserted as a new row (the consumed-incoming guard
+            // prevents the upgraded row from being re-inserted).
+            _inserted.Should().HaveCount(1);
+            _inserted[0].TranslatedLanguage.Should().NotBe("und");
+        }
+
         [Test]
         public void Strategy1_MangaDex_linked_inserts_new_chapters_not_previously_present()
         {
