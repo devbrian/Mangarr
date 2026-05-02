@@ -132,6 +132,13 @@ namespace NzbDrone.Core.Datastore
                   .Ignore(e => e.AbsoluteEpisodeNumberAdded)
                   .HasOne(s => s.EpisodeFile, s => s.EpisodeFileId);
 
+            // Phase 2 manga domain (02-02) — Manga aggregate root + flat Chapter list.
+            // Manga.MangaDexId is Guid?; Dapper round-trips through the global
+            // GuidConverter registered in RegisterMappers (Sonarr precedent reused
+            // verbatim, originally added for Users.Identifier).
+            Mapper.Entity<Core.Manga.Manga>("Manga").RegisterModel();
+            Mapper.Entity<Core.Manga.Chapter>("Chapters").RegisterModel();
+
             Mapper.Entity<QualityDefinition>("QualityDefinitions").RegisterModel()
                   .Ignore(d => d.GroupName)
                   .Ignore(d => d.Weight)
