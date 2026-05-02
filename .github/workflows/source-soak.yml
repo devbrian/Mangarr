@@ -1,0 +1,59 @@
+name: Source Soak (Daily)
+
+on:
+  schedule:
+    - cron: '0 4 * * *'      # 04:00 UTC daily; D-16 / Discretion suggested
+  workflow_dispatch:           # manual re-run for missed days (Pitfall 9)
+  pull_request:
+    paths:
+      - 'src/NzbDrone.Core/Indexers/MangaDex/**'
+      - 'src/NzbDrone.Core/Indexers/Comix/**'
+      - 'scripts/soak/**'
+
+env:
+  FRAMEWORK: net10.0
+  # 2-source slate per Phase 3 D-19 (third-source descope)
+  SOURCES: 'mangadex comix.to'
+  SMOKE_TITLES: 'One Piece;Berserk;Solo Leveling'
+
+jobs:
+  soak:
+    runs-on: ubuntu-latest      # GH Actions runner = datacenter IP per D-16
+    permissions:
+      contents: write           # to commit SOURCE-PROBE-{slug}.md updates
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build Mangarr Core
+        run: dotnet build src/NzbDrone.Core/Sonarr.Core.csproj --configuration Release --nologo
+
+      - name: Run soak harness
+        id: soak
+        run: |
+          dotnet run --project scripts/soak/SoakRunner.csproj --configuration Release -- \
+            --sources "${{ env.SOURCES }}" \
+            --titles  "${{ env.SMOKE_TITLES }}" \
+            --output  ".planning/phases/03-indexer-contract-aggregator-sources/"
+        # No secrets needed for v1 unauthenticated public APIs.
+        # If MangaDex OAuth tier-up is needed for higher rate budget in v1.x, add:
+        #   MANGADEX_CLIENT_ID: ${{ secrets.MANGADEX_CLIENT_ID }}
+
+      - name: Commit SOURCE-PROBE updates
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name 'mangarr-soak-bot'
+          git config user.email 'soak-bot@users.noreply.github.com'
+          git add .planning/phases/03-indexer-contract-aggregator-sources/SOURCE-PROBE-*.md
+          git diff --cached --quiet || git commit -m "chore(soak): append daily soak result $(date -u +%Y-%m-%d) [skip ci]"
+          git push || echo "push skipped (branch protection or no changes)"
+
+      - name: Soak threshold check
+        run: |
+          dotnet run --project scripts/soak/SoakThresholdChecker.csproj --configuration Release -- \
+            --window 7 --threshold 0.05 \
+            --probe-dir .planning/phases/03-indexer-contract-aggregator-sources/
