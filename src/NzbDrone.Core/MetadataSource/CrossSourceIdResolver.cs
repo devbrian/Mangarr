@@ -1,0 +1,142 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using F23.StringSimilarity;
+using NLog;
+using NzbDrone.Core.Parser.Manga;
+
+namespace NzbDrone.Core.MetadataSource
+{
+    /// <summary>
+    /// Lightweight POCO bag of the inputs <see cref="CrossSourceIdResolver.TryResolve"/>
+    /// needs from any provider's response. Lets the resolver stay decoupled from
+    /// <see cref="NzbDrone.Core.Manga.Manga"/> persistence concerns — callers project
+    /// their provider DTOs into this shape before calling <c>TryResolve</c>.
+    /// </summary>
+    public class MangaCandidate
+    {
+        public IList<string> AllTitles { get; init; } = new List<string>();
+        public int? PublicationYear { get; init; }
+        public string PrimaryAuthor { get; init; }
+        public int? TotalChapterCount { get; init; }
+    }
+
+    /// <summary>
+    /// Cross-source ID resolution gate per Phase 2 D-19..D-22.
+    ///
+    /// <para>
+    /// PER PITFALL 5 (RESEARCH §Pitfall 5): F23.StringSimilarity's
+    /// <c>JaroWinkler.Similarity</c> returns HIGHER values for MORE similar strings
+    /// (1.0 = identical, 0.0 = completely different). NEVER call
+    /// <c>JaroWinkler.Distance</c> here — the threshold direction would invert and
+    /// every cross-source link would silently fail (or pass) the gate.
+    /// </para>
+    ///
+    /// <para>
+    /// PER D-21: TryResolve enforces TWO gates:
+    /// (a) Title gate — Jaro-Winkler max-similarity across the cartesian product of
+    ///     normalized primary + secondary titles must be ≥ 0.85.
+    /// (b) Multi-axis confirm — at least 2 of 3 supporting axes must agree:
+    ///     PublicationYear within ±1, PrimaryAuthor case-insensitive equality after
+    ///     normalization, TotalChapterCount within 10%.
+    /// Both gates must pass; otherwise the link is logged "unresolved" and the
+    /// caller leaves the cross-source ID null per D-23.
+    /// </para>
+    ///
+    /// <para>
+    /// PER D-05: Title and author normalization MUST go through
+    /// <see cref="MangaTitleNormalizer.Normalize"/> — the single source of truth for
+    /// title canonicalization shared with <c>AddMangaService</c> dedup. Keeping the
+    /// algorithm in one place prevents drift between the two consumers.
+    /// </para>
+    /// </summary>
+    public class CrossSourceIdResolver
+    {
+        // PER PITFALL 5: ALWAYS use .Similarity (HIGHER = more similar). NEVER .Distance.
+        // Documented threshold direction: ≥0.85 means MORE similar.
+        private static readonly JaroWinkler JaroWinkler = new();
+        public const double SimilarityThreshold = 0.85;     // D-21 first half
+        public const int MinAxisAgreement = 2;              // D-21 second half (≥2 of 3)
+
+        private readonly Logger _logger;
+
+        public CrossSourceIdResolver(Logger logger)
+        {
+            _logger = logger;
+        }
+
+        /// <summary>
+        /// Per D-21: Title gate (≥0.85 Jaro-Winkler max-similarity across normalized titles)
+        /// AND ≥2-of-3 multi-axis confirm (publication-year ±1, primary-author exact,
+        /// total-chapter-count within 10%). Returns false + populates <paramref name="reason"/>
+        /// if either gate fails (logged as "unresolved" per D-21).
+        /// </summary>
+        public bool TryResolve(MangaCandidate primary, MangaCandidate secondary, out string reason)
+        {
+            // Title gate — normalize ALL titles via single source of truth (D-05) before similarity.
+            var primaryTitles = primary.AllTitles?
+                .Select(MangaTitleNormalizer.Normalize)
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToList() ?? new List<string>();
+            var secondaryTitles = secondary.AllTitles?
+                .Select(MangaTitleNormalizer.Normalize)
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToList() ?? new List<string>();
+
+            double maxSim = 0.0;
+            foreach (var p in primaryTitles)
+            {
+                foreach (var s in secondaryTitles)
+                {
+                    var sim = JaroWinkler.Similarity(p, s);   // HIGHER = more similar (Pitfall 5)
+                    if (sim > maxSim)
+                    {
+                        maxSim = sim;
+                    }
+                }
+            }
+
+            if (maxSim < SimilarityThreshold)
+            {
+                reason = $"title-similarity {maxSim:F2} < {SimilarityThreshold:F2}";
+                _logger.Debug("CrossSource unresolved: {0}", reason);
+                return false;
+            }
+
+            // Multi-axis confirm — need ≥2 of 3.
+            int axes = 0;
+            if (primary.PublicationYear.HasValue && secondary.PublicationYear.HasValue
+                && Math.Abs(primary.PublicationYear.Value - secondary.PublicationYear.Value) <= 1)
+            {
+                axes++;
+            }
+
+            if (!string.IsNullOrEmpty(primary.PrimaryAuthor) && !string.IsNullOrEmpty(secondary.PrimaryAuthor)
+                && string.Equals(MangaTitleNormalizer.Normalize(primary.PrimaryAuthor),
+                                 MangaTitleNormalizer.Normalize(secondary.PrimaryAuthor),
+                                 StringComparison.Ordinal))
+            {
+                axes++;
+            }
+
+            if (primary.TotalChapterCount.HasValue && secondary.TotalChapterCount.HasValue
+                && primary.TotalChapterCount.Value > 0
+                && Math.Abs(primary.TotalChapterCount.Value - secondary.TotalChapterCount.Value)
+                   <= primary.TotalChapterCount.Value * 0.10)
+            {
+                axes++;
+            }
+
+            if (axes < MinAxisAgreement)
+            {
+                reason = $"only {axes} of 3 axes confirmed (need >= {MinAxisAgreement})";
+                _logger.Debug("CrossSource unresolved: {0}", reason);
+                return false;
+            }
+
+            reason = $"sim={maxSim:F2} axes={axes}/3";
+            _logger.Trace("CrossSource resolved: {0}", reason);
+            return true;
+        }
+    }
+}
