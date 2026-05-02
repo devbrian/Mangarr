@@ -1,3 +1,4 @@
+using System;
 using NLog;
 using NzbDrone.Core.Manga.Commands;
 using NzbDrone.Core.Manga.Events;
@@ -89,6 +90,16 @@ namespace NzbDrone.Core.Manga
                 {
                     _logger.Warn("Manga {0} not found at primary source — preserving existing data",
                         existing.Title);
+                }
+                catch (Exception ex)
+                {
+                    // WR-07 fix: catch every non-MangaNotFound failure so one bad
+                    // manga (HTTP 503, JSON deser error, MangaDex maintenance, …)
+                    // does NOT abort the entire refresh batch. D-22 mandates
+                    // sequential refreshes specifically to keep one bad manga from
+                    // blowing up the whole loop; without this catch the previous
+                    // implementation did the opposite.
+                    _logger.Warn(ex, "Refresh failed for manga {0}; skipping and continuing", existing.Title);
                 }
             }
         }

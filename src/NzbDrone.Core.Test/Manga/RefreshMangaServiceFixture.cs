@@ -12,6 +12,7 @@ using NzbDrone.Core.MetadataSource.AniList;
 using NzbDrone.Core.MetadataSource.MangaDex;
 using NzbDrone.Core.MetadataSource.MyAnimeList;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.MangaTests
 {
@@ -156,6 +157,32 @@ namespace NzbDrone.Core.Test.MangaTests
                   .Verify(c => c.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<List<Chapter>>()), Times.Once());
         }
 
+        // WR-07 regression: when a refresh of one manga throws a non-MangaNotFound
+        // exception (HTTP 503, JSON deser error, …), the loop must continue with the
+        // next manga rather than abort the entire batch.
+        [Test]
+        public void Execute_continues_after_one_manga_throws_unexpected_exception()
+        {
+            var mangaA = new Manga.Manga { Id = 1, Title = "A", MangaDexId = Guid.NewGuid() };
+            var mangaB = new Manga.Manga { Id = 2, Title = "B", MangaDexId = Guid.NewGuid() };
+
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(mangaA);
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(2)).Returns(mangaB);
+
+            var stub = new ThrowOnFirstStubMangaDexProvider(throwOn: mangaA.MangaDexId.Value.ToString(),
+                                                            successResult: mangaB);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1, 2 }));
+
+            // Both ids were attempted; the failure on id=1 logged a Warn and the
+            // loop moved on to id=2.
+            stub.GetMangaInfoCalls.Should().HaveCount(2);
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
         // ---- Stub providers ----
         // Test stubs: type-derived from MangaDexMetadataSource / AniListMetadataSource /
         // MyAnimeListMetadataSource so the RefreshMangaService.Execute switch routes by
@@ -222,6 +249,35 @@ namespace NzbDrone.Core.Test.MangaTests
             {
                 GetMangaInfoCalls.Add(sourceId);
                 return Tuple.Create(_result, new List<Chapter>());
+            }
+        }
+
+        // WR-07 helper: throws an arbitrary exception for the first sourceId, then
+        // returns success for any other id. Models the "one bad manga" mid-batch
+        // scenario covered by Execute_continues_after_one_manga_throws_unexpected_exception.
+        private class ThrowOnFirstStubMangaDexProvider : MangaDexMetadataSource
+        {
+            private readonly string _throwOn;
+            private readonly Manga.Manga _successResult;
+            public List<string> GetMangaInfoCalls { get; } = new();
+
+            public ThrowOnFirstStubMangaDexProvider(string throwOn, Manga.Manga successResult)
+                : base(new Mock<NzbDrone.Common.Http.IHttpClient>().Object, NLog.LogManager.GetCurrentClassLogger())
+            {
+                _throwOn = throwOn;
+                _successResult = successResult;
+                Definition = new MetadataSourceDefinition { Id = 1, Name = "MangaDex", IsPrimary = true };
+            }
+
+            public override Tuple<Manga.Manga, List<Chapter>> GetMangaInfo(string sourceId)
+            {
+                GetMangaInfoCalls.Add(sourceId);
+                if (sourceId == _throwOn)
+                {
+                    throw new InvalidOperationException("simulated upstream 503");
+                }
+
+                return Tuple.Create(_successResult, new List<Chapter>());
             }
         }
     }
