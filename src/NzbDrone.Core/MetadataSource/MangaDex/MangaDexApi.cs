@@ -53,6 +53,23 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
         }
 
         /// <summary>
+        /// GET /ping — MangaDex's connectivity check endpoint. Returns "pong" plain text.
+        /// WR-17: used by <c>MangaDexMetadataSource.Test</c> as a lightweight Test path
+        /// that does NOT count against the search rate budget the way <see cref="Search"/>
+        /// does (one HTTP call vs. a full search query). Reference:
+        /// https://api.mangadex.org/docs/02-mangadex/connectivity/
+        /// </summary>
+        public bool Ping()
+        {
+            var req = new HttpRequestBuilder($"{_baseUrl}/ping").Build();
+            req.SuppressHttpError = true;
+            ApplyHeaders(req);
+
+            var resp = _httpClient.Get(req);
+            return !resp.HasHttpError;
+        }
+
+        /// <summary>
         /// GET /manga?title=...&amp;limit=10&amp;includes[]=cover_art&amp;includes[]=author
         /// Reference: https://api.mangadex.org/docs/redoc.html#tag/Manga/operation/get-search-manga
         /// </summary>

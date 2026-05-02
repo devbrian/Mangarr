@@ -109,9 +109,20 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
 
         public override ValidationResult Test()
         {
+            // WR-17 fix: use the lightweight /ping endpoint instead of Api.Search("test").
+            // /ping returns "pong" plain text and does not count against the 40 req/min
+            // search budget the way Search does. A user mashing the Settings → Test
+            // button no longer drains the active refresh budget.
             try
             {
-                Api.Search("test");
+                if (!Api.Ping())
+                {
+                    return new ValidationResult(new[]
+                    {
+                        new ValidationFailure("BaseUrl", "MangaDex /ping returned non-success"),
+                    });
+                }
+
                 return new ValidationResult();
             }
             catch (Exception ex)

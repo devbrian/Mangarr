@@ -91,9 +91,14 @@ namespace NzbDrone.Core.MetadataSource.AniList
 
         public override ValidationResult Test()
         {
+            // WR-17 fix: use the cheapest GraphQL probe possible — fetch a single
+            // media id by a known-stable AniList ID (1, "Cowboy Bebop") which is the
+            // canonical AniList connectivity-check pattern. Pre-fix the Test issued a
+            // full Page(perPage=10) media search which ate from the 30 req/min budget
+            // every time the user clicked Test in the Settings UI.
             try
             {
-                QueryMediaSearch("test");
+                QueryMediaById(1);
                 return new ValidationResult();
             }
             catch (Exception ex)

@@ -90,7 +90,11 @@ namespace NzbDrone.Core.MetadataSource.MyAnimeList
 
             try
             {
-                Api.Search("test");
+                // WR-17 fix: fetch a single known-stable manga (id=1 = "Monster", a
+                // canonical long-running MAL entry) instead of issuing a full Search
+                // query that hits the search rate budget. The result is discarded;
+                // we only need to confirm the X-MAL-CLIENT-ID auth round-trip works.
+                Api.GetById(1);
                 return new ValidationResult();
             }
             catch (Exception ex)
