@@ -27,6 +27,7 @@ using NzbDrone.Core.Jobs;
 using NzbDrone.Core.Languages;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.Messaging.Commands;
+using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.Notifications;
 using NzbDrone.Core.Organizer;
 using NzbDrone.Core.Parser.Model;
@@ -105,6 +106,15 @@ namespace NzbDrone.Core.Datastore
             Mapper.Entity<MetadataDefinition>("Metadata").RegisterModel()
                   .Ignore(x => x.ImplementationName)
                   .Ignore(d => d.Tags);
+
+            // Phase 2 (Plan 02-11) — IMetadataSource ProviderDefinition. Distinct from
+            // the Sonarr-inherited Metadata IMetadataConsumer table above (Pitfall 2).
+            // IsPrimary IS a real DB column (consolidated Migration 001) and MUST round-trip;
+            // the at-most-one invariant is enforced in MetadataSourceFactory.SetPrimary,
+            // not the DB. Tags rides the existing global EmbeddedDocumentConverter<HashSet<int>>
+            // registered in RegisterMappers (line 210) — same pattern as IndexerDefinition.Tags.
+            Mapper.Entity<MetadataSourceDefinition>("MetadataSources").RegisterModel()
+                  .Ignore(x => x.ImplementationName);
 
             Mapper.Entity<DownloadClientDefinition>("DownloadClients").RegisterModel()
                   .Ignore(x => x.ImplementationName)
