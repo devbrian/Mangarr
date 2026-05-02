@@ -119,12 +119,24 @@ namespace NzbDrone.Core.MetadataSource
                 axes++;
             }
 
+            // WR-05 fix: percentage-of-max instead of percentage-of-primary, which
+            // is symmetric and correctly handles the (much more common) case where
+            // the secondary reports 0 because the manga is just-launched. Pre-fix
+            // gate was `<= primary * 0.10` which always failed when secondary == 0.
+            // D-21 says "within 10%" without specifying direction, so symmetric is
+            // the right reading. We also explicitly require BOTH counts to be > 0
+            // before crediting the axis — a 0 on either side is "no signal" not
+            // "perfect mismatch."
             if (primary.TotalChapterCount.HasValue && secondary.TotalChapterCount.HasValue
                 && primary.TotalChapterCount.Value > 0
-                && Math.Abs(primary.TotalChapterCount.Value - secondary.TotalChapterCount.Value)
-                   <= primary.TotalChapterCount.Value * 0.10)
+                && secondary.TotalChapterCount.Value > 0)
             {
-                axes++;
+                var maxCount = Math.Max(primary.TotalChapterCount.Value, secondary.TotalChapterCount.Value);
+                var delta = Math.Abs(primary.TotalChapterCount.Value - secondary.TotalChapterCount.Value);
+                if (delta <= maxCount * 0.10)
+                {
+                    axes++;
+                }
             }
 
             if (axes < MinAxisAgreement)
