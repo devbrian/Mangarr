@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using FizzWare.NBuilder;
 using FluentAssertions;
-using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Parser.Manga;
