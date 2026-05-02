@@ -3,7 +3,6 @@ using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Core.Indexers.Comix;
 using NzbDrone.Core.IndexerSearch.Definitions;
-using NzbDrone.Core.Manga;
 using NzbDrone.Core.Test.Framework;
 
 namespace NzbDrone.Core.Test.Indexers.Comix

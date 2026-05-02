@@ -143,6 +143,7 @@ namespace NzbDrone.Core.Test.IndexerTests
             // Plan 03-02 adds a virtual GetDownloadHeaders(ReleaseInfo) on HttpAggregatorBase
             // returning an empty IDictionary<string, string> by default.
             var release = new ReleaseInfo();
+
             // Subject.GetDownloadHeaders(release).Should().BeEmpty();
             Assert.Pass("Wave 0 stub — flips green when 03-02 lands the virtual.");
         }
@@ -155,6 +156,7 @@ namespace NzbDrone.Core.Test.IndexerTests
             // This is a contract test — production lands with Plan 03-05's ComixIndexer.
             var release = new ReleaseInfo();
             var subject = new RefererHeadersTestAggregator();
+
             // subject.GetDownloadHeaders(release).Should().ContainKey("Referer");
             Assert.Pass("Wave 0 stub — flips green when 03-05 lands ComixIndexer.GetDownloadHeaders.");
         }

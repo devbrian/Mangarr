@@ -62,18 +62,15 @@ namespace NzbDrone.Core.Indexers.Comix
         [FieldDefinition(0, Label = "URL", HelpText = "comix.to base URL — leave default unless mirroring.")]
         public string BaseUrl { get; set; }
 
-        [FieldDefinition(1, Label = "Rate-limit Source Key", Advanced = true,
-                         HelpText = "Override the per-SourceKey rate budget grouping. Leave 'comix.to' unless splitting budgets.")]
+        [FieldDefinition(1, Label = "Rate-limit Source Key", Advanced = true, HelpText = "Override the per-SourceKey rate budget grouping. Leave 'comix.to' unless splitting budgets.")]
         public string SourceKey { get; set; }
 
         // UNLIKE MangaDex — UserAgentOverride IS exposed via [FieldDefinition] for the comix.to
         // Cloudflare workaround per RESEARCH.md anti-bot section. Honest UA still applied by default.
-        [FieldDefinition(2, Label = "User-Agent Override", Advanced = true,
-                         HelpText = "Spoof a browser User-Agent to dodge low-grade UA blocks (comix.to is Cloudflare-protected). Leave blank for honest 'Mangarr/{version}' default.")]
+        [FieldDefinition(2, Label = "User-Agent Override", Advanced = true, HelpText = "Spoof a browser User-Agent to dodge low-grade UA blocks (comix.to is Cloudflare-protected). Leave blank for honest 'Mangarr/{version}' default.")]
         public string UserAgentOverride { get; set; }
 
-        [FieldDefinition(3, Label = "Rate (seconds)", Type = FieldType.Number, Advanced = true,
-                         HelpText = "Override the default 200ms gap (5 req/s — keiyoushi rateLimit(5)).")]
+        [FieldDefinition(3, Label = "Rate (seconds)", Type = FieldType.Number, Advanced = true, HelpText = "Override the default 200ms gap (5 req/s — keiyoushi rateLimit(5)).")]
         public double? RateSeconds { get; set; }
 
         public IEnumerable<int> MultiLanguages { get; set; }
