@@ -37,37 +37,50 @@ namespace NzbDrone.Core.ThingiProvider
 
         protected override List<TProviderDefinition> Query(SqlBuilder builder)
         {
-            var type = typeof(TProviderDefinition);
-            var sql = builder.Select(type).AddSelectTemplate(type);
-
-            var results = new List<TProviderDefinition>();
-
-            using (var conn = _database.OpenConnection())
-            using (var reader = conn.ExecuteReader(sql.RawSql, sql.Parameters))
-            {
-                var parser = reader.GetRowParser<TProviderDefinition>(typeof(TProviderDefinition));
-                var settingsIndex = reader.GetOrdinal(nameof(ProviderDefinition.Settings));
-
-                while (reader.Read())
+            // CR-02: this override does not delegate to base.Query, so without an explicit
+            // wrap the SQLITE_BUSY retry coverage that BasicRepository<T> applies on the
+            // read path is bypassed for every ThingiProvider repository (Indexers,
+            // DownloadClients, Notifications, Metadata, ImportLists, MetadataSources).
+            // Wrap the existing reader loop in the inherited RetryStrategy so Find / Get /
+            // All / GetPaged / FindByName etc. all benefit from the retry funnel.
+            return RetryStrategy.Execute(
+                static (state, _) =>
                 {
-                    var body = reader.IsDBNull(settingsIndex) ? null : reader.GetString(settingsIndex);
-                    var item = parser(reader);
-                    var impType = typeof(IProviderConfig).Assembly.FindTypeByName(item.ConfigContract);
+                    var (self, builder) = state;
 
-                    if (body.IsNullOrWhiteSpace() || impType == null)
+                    var type = typeof(TProviderDefinition);
+                    var sql = builder.Select(type).AddSelectTemplate(type);
+
+                    var results = new List<TProviderDefinition>();
+
+                    using (var conn = self._database.OpenConnection())
+                    using (var reader = conn.ExecuteReader(sql.RawSql, sql.Parameters))
                     {
-                        item.Settings = NullConfig.Instance;
-                    }
-                    else
-                    {
-                        item.Settings = (IProviderConfig)JsonSerializer.Deserialize(body, impType, _serializerSettings);
+                        var parser = reader.GetRowParser<TProviderDefinition>(typeof(TProviderDefinition));
+                        var settingsIndex = reader.GetOrdinal(nameof(ProviderDefinition.Settings));
+
+                        while (reader.Read())
+                        {
+                            var body = reader.IsDBNull(settingsIndex) ? null : reader.GetString(settingsIndex);
+                            var item = parser(reader);
+                            var impType = typeof(IProviderConfig).Assembly.FindTypeByName(item.ConfigContract);
+
+                            if (body.IsNullOrWhiteSpace() || impType == null)
+                            {
+                                item.Settings = NullConfig.Instance;
+                            }
+                            else
+                            {
+                                item.Settings = (IProviderConfig)JsonSerializer.Deserialize(body, impType, self._serializerSettings);
+                            }
+
+                            results.Add(item);
+                        }
                     }
 
-                    results.Add(item);
-                }
-            }
-
-            return results;
+                    return results;
+                },
+                (self: this, builder));
         }
     }
 }

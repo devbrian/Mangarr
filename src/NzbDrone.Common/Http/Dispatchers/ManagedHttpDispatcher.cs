@@ -217,6 +217,11 @@ namespace NzbDrone.Common.Http.Dispatchers
                         webRequest.Headers.TransferEncoding.ParseAdd(header.Value);
                         break;
                     case "User-Agent":
+                        // D-13 honest UA contract: an explicit User-Agent on the HttpRequest
+                        // must REPLACE any previously-set UA (e.g. the Sonarr default added in
+                        // GetResponseAsync), not append to it. UserAgent.ParseAdd is additive,
+                        // so clear the collection first to guarantee replacement semantics.
+                        webRequest.Headers.UserAgent.Clear();
                         webRequest.Headers.UserAgent.ParseAdd(header.Value);
                         break;
                     case "Proxy-Connection":

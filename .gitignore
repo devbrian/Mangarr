@@ -165,3 +165,11 @@ src/.idea/
 
 # Ignore Jetbrains IntelliJ Workspace Directories
 .idea/
+# Added by code-review-graph
+.code-review-graph/
+# Claude
+.claude/settings.local.json
+src/.claude/settings.local.json
+# GSD per-plan local verification harness (sandbox dotnet test workaround)
+_corpus_check/
+_metadata_source_check/

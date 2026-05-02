@@ -64,7 +64,12 @@ namespace NzbDrone.Core.Datastore
                 JournalMode = OsInfo.IsOsx ? SQLiteJournalModeEnum.Truncate : SQLiteJournalModeEnum.Wal,
                 Pooling = true,
                 Version = 3,
-                BusyTimeout = 1000
+
+                // D-15 baseline floor: SQLite docs recommend >=5000ms for concurrent-write workloads.
+                // Combined with Polly MaxRetryAttempts=3 + jitter in BasicRepository.RetryStrategy,
+                // worst-case wait approx 15s (Pitfall 4 - acceptable for v1 single-user concurrency;
+                // Phase 4 may revisit during 200-chapter parallel-download load testing).
+                BusyTimeout = 5000
             };
 
             if (OsInfo.IsOsx)
