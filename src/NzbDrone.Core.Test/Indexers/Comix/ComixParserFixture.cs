@@ -69,9 +69,14 @@ namespace NzbDrone.Core.Test.Indexers.Comix
 
         private IndexerResponse MakeResponse(string content)
         {
+            // Note: IndexerRequest has (string, HttpAccept) and (HttpRequest) ctors but no
+            // (HttpRequest, HttpAccept) overload — Plan 03-01 scaffold typed this incorrectly.
+            // Pre-existing bug surfaced when Plan 03-05 wired production types; repaired inline
+            // (Rule 1 — bug) so Comix Wave 0 fixtures can compile and exercise the parser.
+            // Mirrors the identical repair Plan 03-04 made to MangaDexParserFixture.cs.
             var req = new HttpRequest("https://comix.to/api/v2/manga/x/chapters");
             var resp = new HttpResponse(req, new HttpHeader(), content);
-            return new IndexerResponse(new IndexerRequest(req, HttpAccept.Json), resp);
+            return new IndexerResponse(new IndexerRequest(req), resp);
         }
     }
 }
