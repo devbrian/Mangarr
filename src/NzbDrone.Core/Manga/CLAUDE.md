@@ -58,7 +58,7 @@ This directory is the **manga-side parallel** of `src/NzbDrone.Core/Tv/`. Both c
 
 ## Cross-References
 
-- **Schema**: `src/NzbDrone.Core/Datastore/Migration/001_mangarr_baseline.cs` (Phase 1) + `002_chapter_extensions_and_precision.cs` (Phase 2).
+- **Schema**: `src/NzbDrone.Core/Datastore/Migration/001_mangarr_baseline.cs` (Phase 1 + Phase 2 deltas folded in 2026-05-02 per `.planning/decisions/dev-migration-policy.md`; Migration 002 was authored under the old append-only rule and has since been folded back into 001 + deleted).
 - **Table mapping**: `src/NzbDrone.Core/Datastore/TableMapping.cs:139-140` registers `Manga` + `Chapter` entities. Dapper handles `Guid?` round-trips through the global `GuidConverter` registered for `Users.Identifier` (Phase 1 baseline).
 - **Parser tree**: `src/NzbDrone.Core/Parser/Manga/CLAUDE.md` (parser side) — `MangaParsingService.Map` consumes `IChapterService.FindByMangaAndNumber` per D-03.
 - **Metadata sources**: `src/NzbDrone.Core/MetadataSource/CLAUDE.md` (Plan 02-05+) — providers read/write Manga via `IMangaService`.

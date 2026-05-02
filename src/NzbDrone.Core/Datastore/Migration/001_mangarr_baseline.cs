@@ -20,6 +20,14 @@ namespace NzbDrone.Core.Datastore.Migration
     // BusyTimeout × Polly retry interaction: BusyTimeout=5000ms × MaxRetryAttempts=3
     // = ~15s worst-case wait under heavy contention. Acceptable for v1 single-user
     // concurrency profile. Phase 4 load testing may revisit.
+    //
+    // Phase 2 deltas folded in 2026-05-02 per dev-migration-policy.md — Migration 002
+    // (chapter_extensions_and_precision) was authored under the old append-only rule,
+    // then folded back into this baseline and deleted. Manga.Status retyped from
+    // AsInt32().NotNullable() to AsString().Nullable() in the same pass to match the
+    // C# string Status property (Manga.cs:39). Five missing Manga columns (SortTitle,
+    // Overview, RootFolderPath, ContentRating, Genres) added per
+    // 02-VERIFICATION.md gap #1.
     [Migration(1)]
     public class mangarr_baseline : NzbDroneMigrationBase
     {
@@ -103,6 +111,20 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("Implementation").AsString().NotNullable()
                 .WithColumn("Settings").AsString().NotNullable()
                 .WithColumn("ConfigContract").AsString().NotNullable();
+
+            // Phase 2 (folded from Migration 002 per dev-migration-policy.md, 2026-05-02).
+            // MetadataSources is the NEW ThingiProvider table for IMetadataSource (D-14, D-15) —
+            // distinct from the existing 'Metadata' IMetadataConsumer table (Pitfall 2). Ships
+            // with IsPrimary defaulted false; at-most-one invariant enforced in
+            // MetadataSourceFactory.SetPrimary (Plan 02-05), not the DB.
+            Create.TableForModel("MetadataSources")
+                .WithColumn("Name").AsString().NotNullable().Unique()
+                .WithColumn("Implementation").AsString().NotNullable()
+                .WithColumn("Settings").AsString().Nullable()
+                .WithColumn("ConfigContract").AsString().Nullable()
+                .WithColumn("Enable").AsBoolean().NotNullable().WithDefaultValue(true)
+                .WithColumn("IsPrimary").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("Tags").AsString().Nullable();
 
             // TODO: Phase 8 — drop SeriesType / SeasonFolder columns when Tv/ removed.
             Create.TableForModel("ImportLists")
@@ -490,26 +512,38 @@ namespace NzbDrone.Core.Datastore.Migration
             Create.TableForModel("Manga")
                 .WithColumn("Title").AsString().NotNullable()
                 .WithColumn("CleanTitle").AsString().NotNullable()
+                .WithColumn("SortTitle").AsString().Nullable()              // gap #1 fix (Manga.cs:35)
+                .WithColumn("Overview").AsString().Nullable()               // gap #1 fix (Manga.cs:38)
                 .WithColumn("MangaDexId").AsString().Nullable()
-                .WithColumn("MalIds").AsString().Nullable()       // JSON list
-                .WithColumn("AniListIds").AsString().Nullable()   // JSON list
+                .WithColumn("MalId").AsInt32().Nullable()                   // folded from 002 (singular per CONTEXT specifics)
+                .WithColumn("AniListId").AsInt32().Nullable()               // folded from 002 (singular per CONTEXT specifics)
                 .WithColumn("Path").AsString().NotNullable()
+                .WithColumn("RootFolderPath").AsString().Nullable()         // gap #1 fix (Manga.cs:47)
+                .WithColumn("ContentRating").AsString().Nullable()          // gap #1 fix (Manga.cs:40)
                 .WithColumn("Monitored").AsBoolean().NotNullable()
-                .WithColumn("Status").AsInt32().NotNullable()
+                .WithColumn("Status").AsString().Nullable()                 // BLOCKER 1 fix: was AsInt32().NotNullable(); Manga.cs:39 declares string Status accepting metadata sentinels (ongoing/completed/hiatus/cancelled)
                 .WithColumn("Added").AsDateTime().NotNullable()
                 .WithColumn("LastInfoSync").AsDateTime().Nullable()
-                .WithColumn("Images").AsString().Nullable()       // JSON list
-                .WithColumn("Tags").AsString().Nullable();        // JSON list
+                .WithColumn("Images").AsString().Nullable()                 // JSON list
+                .WithColumn("Genres").AsString().Nullable()                 // gap #1 fix (Manga.cs:43 — JSON list via existing StringListConverter<List<string>>() at TableMapping.cs:206)
+                .WithColumn("Tags").AsString().Nullable()                   // JSON list
+                .WithColumn("TotalChapterCount").AsInt32().Nullable()       // folded from 002 (D-17 synthesis fallback)
+                .WithColumn("PublicationYear").AsInt32().Nullable()         // folded from 002 (D-21 multi-axis confirm)
+                .WithColumn("PrimaryAuthor").AsString().Nullable();         // folded from 002 (D-21 multi-axis confirm)
 
             Create.TableForModel("Chapters")
                 .WithColumn("MangaId").AsInt32().NotNullable()
-                .WithColumn("ChapterNumber").AsDecimal(10, 2).NotNullable()  // D-09
-                .WithColumn("TranslatedLanguage").AsString().NotNullable()    // BCP-47
+                .WithColumn("ChapterNumber").AsDecimal(10, 3).NotNullable()         // D-12 applied at baseline (was DECIMAL(10,2))
+                .WithColumn("TranslatedLanguage").AsString().NotNullable()           // BCP-47
                 .WithColumn("ScanlationGroup").AsString().Nullable()
                 .WithColumn("Title").AsString().Nullable()
                 .WithColumn("ReleaseDate").AsDateTime().Nullable()
                 .WithColumn("Monitored").AsBoolean().NotNullable()
-                .WithColumn("ExternalId").AsString().Nullable();
+                .WithColumn("ExternalId").AsString().Nullable()
+                .WithColumn("ChapterType").AsString().NotNullable().WithDefaultValue("Regular")  // folded from 002 (D-11)
+                .WithColumn("VolumeNumber").AsInt32().Nullable()                                  // folded from 002 (D-11)
+                .WithColumn("AbsoluteChapterNumber").AsDecimal(10, 3).Nullable()                  // folded from 002 (D-11)
+                .WithColumn("IsSynthetic").AsBoolean().NotNullable().WithDefaultValue(false);     // folded from 002 (D-17 marker)
 
             // ─────────────────────────────────────────────────────────────────────
             // History/Blocklist nullable manga columns (D-07).
@@ -554,6 +588,20 @@ namespace NzbDrone.Core.Datastore.Migration
             Create.Index().OnTable("Chapters")
                 .OnColumn("MangaId").Ascending()
                 .OnColumn("TranslatedLanguage").Ascending();
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Seed data
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 2 (folded from Migration 002 per dev-migration-policy.md, 2026-05-02).
+            // 12h scheduled-task row for RefreshMangaCommand (D-18). Mirrors Sonarr's
+            // series-refresh cadence; manual trigger lands in Plan 02-09 (developer endpoint)
+            // and Phase 7 (UI button).
+            Insert.IntoTable("ScheduledTasks").Row(new
+            {
+                TypeName = "NzbDrone.Core.Manga.Commands.RefreshMangaCommand",
+                Interval = 720.0,
+                LastExecution = "2000-01-01 00:00:00",
+            });
         }
 
         protected override void LogDbUpgrade()
