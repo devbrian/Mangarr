@@ -71,7 +71,17 @@ namespace NzbDrone.Core.Parser.Manga
 
             // If parsing failed entirely, search the raw title — preserves
             // ability to look up titles that the parser doesn't recognize as a
-            // chapter release (e.g., user-pasted strings).
+            // chapter release (e.g., user-pasted strings). WR-14 fix: log a
+            // debug-level breadcrumb so Phase 3 indexer troubleshooting can
+            // see when a title fell through the parser short-path; the raw
+            // title is usually filename junk that won't match any
+            // Manga.CleanTitle, but the debug entry surfaces the case rather
+            // than silently returning null.
+            if (parsed == null)
+            {
+                _logger.Debug("MangaParsingService.GetManga: parser returned null for {0}; falling back to raw title search", title);
+            }
+
             var searchTitle = parsed?.MangaTitle ?? title;
             if (string.IsNullOrWhiteSpace(searchTitle))
             {
@@ -86,7 +96,13 @@ namespace NzbDrone.Core.Parser.Manga
                 return null;
             }
 
-            return _mangaService.FindByTitle(clean);
+            var hit = _mangaService.FindByTitle(clean);
+            if (hit == null)
+            {
+                _logger.Debug("MangaParsingService.GetManga: no match for normalized title '{0}' (raw='{1}')", clean, title);
+            }
+
+            return hit;
         }
 
         public RemoteChapter Map(ParsedChapterInfo parsedChapterInfo, NzbDrone.Core.Manga.Manga manga, IList<Chapter> existingChapters)
