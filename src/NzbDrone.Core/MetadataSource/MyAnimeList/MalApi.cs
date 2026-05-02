@@ -90,9 +90,21 @@ namespace NzbDrone.Core.MetadataSource.MyAnimeList
 
         private void ApplyHeaders(HttpRequest req)
         {
+            // BL-08 fix: explicit guard so a null/empty ClientId surfaces as a clean
+            // InvalidOperationException rather than NRE-ing inside the HttpRequest
+            // header dictionary setter. Reachable from RefreshMangaService /
+            // AddMangaService / MangaLookupController paths (NOT just Test) — a user
+            // who promotes MAL to primary then clears ClientId in settings would
+            // otherwise crash every refresh and lookup with an opaque NRE.
+            var clientId = _clientId();
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                throw new InvalidOperationException("MAL ClientId is not configured");
+            }
+
             req.RateLimitKey = _sourceKey;
             req.Headers["User-Agent"] = _userAgent();
-            req.Headers["X-MAL-CLIENT-ID"] = _clientId();   // D-24 client-ID-only auth
+            req.Headers["X-MAL-CLIENT-ID"] = clientId;   // D-24 client-ID-only auth
             req.Headers["Accept"] = "application/json";
         }
     }
