@@ -1,0 +1,131 @@
+{
+  "status": 200,
+  "result": {
+    "items": [
+      {
+        "chapter_id": 1099501,
+        "scanlation_group_id": 0,
+        "number": 1099.5,
+        "name": "Egghead Aftermath",
+        "votes": 12,
+        "updated_at": 1745692800,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 1099001,
+        "scanlation_group_id": 23,
+        "number": 1099.0,
+        "name": "The Wonder of Egghead",
+        "votes": 24,
+        "updated_at": 1745606400,
+        "scanlation_group": { "name": "TCB Scans" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 1098001,
+        "scanlation_group_id": 23,
+        "number": 1098.0,
+        "name": "Departure",
+        "votes": 18,
+        "updated_at": 1745001600,
+        "scanlation_group": { "name": "TCB Scans" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 1097001,
+        "scanlation_group_id": 0,
+        "number": 1097.0,
+        "name": "Lunarian",
+        "votes": 31,
+        "updated_at": 1744396800,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 1096501,
+        "scanlation_group_id": 23,
+        "number": 1096.5,
+        "name": "Side Story",
+        "votes": 9,
+        "updated_at": 1743792000,
+        "scanlation_group": { "name": "TCB Scans" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 1096001,
+        "scanlation_group_id": 0,
+        "number": 1096.0,
+        "name": "The Will of Ohara",
+        "votes": 28,
+        "updated_at": 1743187200,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 1095001,
+        "scanlation_group_id": 23,
+        "number": 1095.0,
+        "name": "Bonney's Tantrum",
+        "votes": 22,
+        "updated_at": 1742582400,
+        "scanlation_group": { "name": "TCB Scans" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 1094001,
+        "scanlation_group_id": 0,
+        "number": 1094.0,
+        "name": "Power",
+        "votes": 33,
+        "updated_at": 1741977600,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 1093001,
+        "scanlation_group_id": 23,
+        "number": 1093.0,
+        "name": "Iron Giant",
+        "votes": 17,
+        "updated_at": 1741372800,
+        "scanlation_group": { "name": "TCB Scans" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 1092001,
+        "scanlation_group_id": 0,
+        "number": 1092.0,
+        "name": "Sword Saint",
+        "votes": 41,
+        "updated_at": 1740768000,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 1091001,
+        "scanlation_group_id": 23,
+        "number": 1091.0,
+        "name": "Worse Than Death",
+        "votes": 14,
+        "updated_at": 1740163200,
+        "scanlation_group": { "name": "TCB Scans" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 1090001,
+        "scanlation_group_id": 0,
+        "number": 1090.0,
+        "name": "Hero",
+        "votes": 38,
+        "updated_at": 1739558400,
+        "scanlation_group": null,
+        "is_official": 1
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "last_page": 92
+    }
+  }
+}

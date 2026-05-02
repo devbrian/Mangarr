@@ -1,0 +1,111 @@
+{
+  "status": 200,
+  "result": {
+    "items": [
+      {
+        "chapter_id": 374001,
+        "scanlation_group_id": 47,
+        "number": 374.0,
+        "name": "Sleeping Tale",
+        "votes": 22,
+        "updated_at": 1735862400,
+        "scanlation_group": { "name": "Evil Genius" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 373001,
+        "scanlation_group_id": 47,
+        "number": 373.0,
+        "name": "Ghosts of the Past",
+        "votes": 19,
+        "updated_at": 1733270400,
+        "scanlation_group": { "name": "Evil Genius" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 372501,
+        "scanlation_group_id": 0,
+        "number": 372.5,
+        "name": "Color Spread",
+        "votes": 4,
+        "updated_at": 1730678400,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 372001,
+        "scanlation_group_id": 47,
+        "number": 372.0,
+        "name": "Casca's Visions",
+        "votes": 27,
+        "updated_at": 1728086400,
+        "scanlation_group": { "name": "Evil Genius" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 371001,
+        "scanlation_group_id": 47,
+        "number": 371.0,
+        "name": "Falconia's Eve",
+        "votes": 31,
+        "updated_at": 1725494400,
+        "scanlation_group": { "name": "Evil Genius" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 370001,
+        "scanlation_group_id": 47,
+        "number": 370.0,
+        "name": "Wandering Witch",
+        "votes": 18,
+        "updated_at": 1722902400,
+        "scanlation_group": { "name": "Evil Genius" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 369001,
+        "scanlation_group_id": 47,
+        "number": 369.0,
+        "name": "Causeway",
+        "votes": 24,
+        "updated_at": 1720310400,
+        "scanlation_group": { "name": "Evil Genius" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 368501,
+        "scanlation_group_id": 47,
+        "number": 368.5,
+        "name": "Side Story: A Dark Resolve",
+        "votes": 11,
+        "updated_at": 1717718400,
+        "scanlation_group": { "name": "Evil Genius" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 368001,
+        "scanlation_group_id": 47,
+        "number": 368.0,
+        "name": "Soaring Beasts",
+        "votes": 26,
+        "updated_at": 1715126400,
+        "scanlation_group": { "name": "Evil Genius" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 367001,
+        "scanlation_group_id": 47,
+        "number": 367.0,
+        "name": "Reflection",
+        "votes": 22,
+        "updated_at": 1712534400,
+        "scanlation_group": { "name": "Evil Genius" },
+        "is_official": 0
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "last_page": 38
+    }
+  }
+}

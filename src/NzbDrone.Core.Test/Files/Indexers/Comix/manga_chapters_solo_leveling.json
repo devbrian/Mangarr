@@ -1,0 +1,111 @@
+{
+  "status": 200,
+  "result": {
+    "items": [
+      {
+        "chapter_id": 200001,
+        "scanlation_group_id": 0,
+        "number": 200.0,
+        "name": "Epilogue",
+        "votes": 88,
+        "updated_at": 1707350400,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 199001,
+        "scanlation_group_id": 0,
+        "number": 199.0,
+        "name": "I Am Going to Find You No Matter What",
+        "votes": 54,
+        "updated_at": 1706745600,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 198001,
+        "scanlation_group_id": 0,
+        "number": 198.0,
+        "name": "Erase Their Memories",
+        "votes": 41,
+        "updated_at": 1706140800,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 197001,
+        "scanlation_group_id": 0,
+        "number": 197.0,
+        "name": "Resurrection",
+        "votes": 49,
+        "updated_at": 1705536000,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 196001,
+        "scanlation_group_id": 0,
+        "number": 196.0,
+        "name": "Beginning",
+        "votes": 36,
+        "updated_at": 1704931200,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 195501,
+        "scanlation_group_id": 11,
+        "number": 195.5,
+        "name": "Side Story",
+        "votes": 18,
+        "updated_at": 1704326400,
+        "scanlation_group": { "name": "Asura Scans" },
+        "is_official": 0
+      },
+      {
+        "chapter_id": 195001,
+        "scanlation_group_id": 0,
+        "number": 195.0,
+        "name": "Final Battle End",
+        "votes": 62,
+        "updated_at": 1703721600,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 194001,
+        "scanlation_group_id": 0,
+        "number": 194.0,
+        "name": "Ahead of Despair",
+        "votes": 51,
+        "updated_at": 1703116800,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 193001,
+        "scanlation_group_id": 0,
+        "number": 193.0,
+        "name": "Awakened",
+        "votes": 47,
+        "updated_at": 1702512000,
+        "scanlation_group": null,
+        "is_official": 1
+      },
+      {
+        "chapter_id": 192001,
+        "scanlation_group_id": 0,
+        "number": 192.0,
+        "name": "The Ant King",
+        "votes": 38,
+        "updated_at": 1701907200,
+        "scanlation_group": null,
+        "is_official": 1
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "last_page": 20
+    }
+  }
+}
