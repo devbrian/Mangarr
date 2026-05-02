@@ -121,6 +121,29 @@ namespace NzbDrone.Core.Indexers
             return FetchReleases(g => g.GetSearchRequests(searchCriteria));
         }
 
+        // Phase 3 D-01 — manga overloads. Override IndexerBase virtual defaults with the
+        // standard FetchReleases body so HttpAggregatorBase descendants get the same
+        // SupportsSearch + paging behavior as their TV peers.
+        public override Task<IList<ReleaseInfo>> Fetch(MangaSearchCriteria searchCriteria)
+        {
+            if (!SupportsSearch)
+            {
+                return Task.FromResult<IList<ReleaseInfo>>(Array.Empty<ReleaseInfo>());
+            }
+
+            return FetchReleases(g => g.GetSearchRequests(searchCriteria));
+        }
+
+        public override Task<IList<ReleaseInfo>> Fetch(ChapterSearchCriteria searchCriteria)
+        {
+            if (!SupportsSearch)
+            {
+                return Task.FromResult<IList<ReleaseInfo>>(Array.Empty<ReleaseInfo>());
+            }
+
+            return FetchReleases(g => g.GetSearchRequests(searchCriteria));
+        }
+
         public override HttpRequest GetDownloadRequest(string link)
         {
             return new HttpRequest(link);

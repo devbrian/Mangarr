@@ -1,11 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using NLog;
 using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Http;
 using NzbDrone.Core.Configuration;
+using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.Localization;
 using NzbDrone.Core.Parser;
+using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Indexers.Http
 {
@@ -102,5 +105,24 @@ namespace NzbDrone.Core.Indexers.Http
 
             return new IndexerResponse(request, response);
         }
+
+        // ── Phase 3 D-02 — manga overloads ABSTRACT here ─────────────────────────────
+        // HttpIndexerBase exposes these as VIRTUAL with the standard SupportsSearch + FetchReleases
+        // body. HttpAggregatorBase narrows them to ABSTRACT so concrete manga plugins
+        // (MangaDex, Comix) MUST implement them — even though the standard body would suffice,
+        // the abstract enforcement makes "manga plugin author forgot to implement Fetch" a
+        // compile error rather than a silent no-op.
+        public abstract override Task<IList<ReleaseInfo>> Fetch(MangaSearchCriteria searchCriteria);
+        public abstract override Task<IList<ReleaseInfo>> Fetch(ChapterSearchCriteria searchCriteria);
+
+        // ── Phase 3 D-14 — per-source HTTP headers for Phase 4 in-process downloader ──
+        // Phase 4's <c>InProcessImageDownloadClient</c> consults this hook BEFORE each image
+        // GET to apply per-source <c>Referer</c> / <c>Origin</c> headers required by some
+        // aggregators (e.g. comix.to / MangaFire). MangaDex returns empty (its
+        // <c>at-home/server</c> URLs don't need a Referer); comix.to overrides to return
+        // <c>{ "Referer": "https://comix.to/" }</c>. Default empty so plugins only override
+        // when needed.
+        public virtual Dictionary<string, string> GetDownloadHeaders(ReleaseInfo release)
+            => new Dictionary<string, string>();
     }
 }
