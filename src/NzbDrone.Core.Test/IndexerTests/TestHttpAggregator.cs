@@ -29,11 +29,12 @@ namespace NzbDrone.Core.Test.IndexerTests
         public TestHttpAggregator(
             IHttpClient httpClient,
             IIndexerStatusService indexerStatusService,
+            IIndexerSourceStatusService sourceStatusService,
             IConfigService configService,
             IParsingService parsingService,
             Logger logger,
             ILocalizationService localizationService)
-            : base(httpClient, indexerStatusService, configService, parsingService, logger, localizationService)
+            : base(httpClient, indexerStatusService, sourceStatusService, configService, parsingService, logger, localizationService)
         {
         }
 
@@ -44,6 +45,15 @@ namespace NzbDrone.Core.Test.IndexerTests
         public IParseIndexerResponse _parser;
 
         public override IParseIndexerResponse GetParser() => _parser;
+
+        // Phase 3 F-01 fix — expose the protected RecordX hooks for unit-test verification.
+        public void InvokeRecordSuccess() => RecordSuccess();
+
+        public void InvokeRecordFailure() => RecordFailure();
+
+        public void InvokeRecordFailure(System.TimeSpan retryAfter) => RecordFailure(retryAfter);
+
+        public void InvokeRecordConnectionFailure() => RecordConnectionFailure();
 
         // Phase 3 D-02 — concrete no-op stubs for the manga abstract surface.
         // Plan 03-02 fan-out missed this test helper; subclasses of HttpAggregatorBase

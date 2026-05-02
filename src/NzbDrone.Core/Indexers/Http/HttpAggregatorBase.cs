@@ -27,6 +27,11 @@ namespace NzbDrone.Core.Indexers.Http
     public abstract class HttpAggregatorBase<TSettings> : HttpIndexerBase<TSettings>
         where TSettings : IHttpAggregatorSettings, new()
     {
+        // Phase 3 D-17 / F-01 fix — per-SourceKey escalation sibling. Owned by the base
+        // class (not each subclass) so every HttpAggregatorBase descendant tees failure
+        // recording to the per-SourceKey path automatically. Phase 8 collapses with Tv/.
+        protected readonly IIndexerSourceStatusService _sourceStatusService;
+
         /// <summary>
         /// Logical source name used as the rate-limit bucket. e.g. "mangadex", "comix.to", "mangafire".
         /// Concrete subclasses MUST override.
@@ -52,12 +57,42 @@ namespace NzbDrone.Core.Indexers.Http
         protected HttpAggregatorBase(
             IHttpClient httpClient,
             IIndexerStatusService indexerStatusService,
+            IIndexerSourceStatusService sourceStatusService,
             IConfigService configService,
             IParsingService parsingService,
             Logger logger,
             ILocalizationService localizationService)
             : base(httpClient, indexerStatusService, configService, parsingService, logger, localizationService)
         {
+            _sourceStatusService = sourceStatusService;
+        }
+
+        // Phase 3 D-17 / F-01 fix — tee canonical per-ProviderId recording (the base impl)
+        // to the per-SourceKey path. Two indexer instances with the same SourceKey value
+        // share disable state because they target the same string key. TV indexers stay
+        // on the per-ProviderId path verbatim (they don't extend HttpAggregatorBase).
+        protected override void RecordSuccess()
+        {
+            base.RecordSuccess();
+            _sourceStatusService.RecordSuccess(SourceKey);
+        }
+
+        protected override void RecordFailure()
+        {
+            base.RecordFailure();
+            _sourceStatusService.RecordFailure(SourceKey);
+        }
+
+        protected override void RecordFailure(TimeSpan retryAfter)
+        {
+            base.RecordFailure(retryAfter);
+            _sourceStatusService.RecordFailure(SourceKey, retryAfter);
+        }
+
+        protected override void RecordConnectionFailure()
+        {
+            base.RecordConnectionFailure();
+            _sourceStatusService.RecordConnectionFailure(SourceKey);
         }
 
         /// <summary>

@@ -47,8 +47,6 @@ namespace NzbDrone.Core.Indexers.Comix
     /// </summary>
     public class ComixIndexer : HttpAggregatorBase<ComixIndexerSettings>
     {
-        private readonly IIndexerSourceStatusService _sourceStatusService;
-
         public override string Name => "Comix";
         public override DownloadProtocol Protocol => DownloadProtocol.Http;
         public override string DefaultSourceKey => "comix.to";
@@ -56,14 +54,13 @@ namespace NzbDrone.Core.Indexers.Comix
         public ComixIndexer(
             IHttpClient httpClient,
             IIndexerStatusService indexerStatusService,
-            IIndexerSourceStatusService sourceStatusService,    // Plan 03-03 D-17 sibling
+            IIndexerSourceStatusService sourceStatusService,
             IConfigService configService,
             IParsingService parsingService,
             Logger logger,
             ILocalizationService localizationService)
-            : base(httpClient, indexerStatusService, configService, parsingService, logger, localizationService)
+            : base(httpClient, indexerStatusService, sourceStatusService, configService, parsingService, logger, localizationService)
         {
-            _sourceStatusService = sourceStatusService;
         }
 
         public override IIndexerRequestGenerator GetRequestGenerator()

@@ -160,6 +160,65 @@ namespace NzbDrone.Core.Test.IndexerTests
             // subject.GetDownloadHeaders(release).Should().ContainKey("Referer");
             Assert.Pass("Wave 0 stub — flips green when 03-05 lands ComixIndexer.GetDownloadHeaders.");
         }
+
+        // ── Phase 3 F-01 fix — D-17 wiring tests ──────────────────────────────────────
+        // Verifies that HttpAggregatorBase's RecordX overrides tee to BOTH the canonical
+        // per-ProviderId IIndexerStatusService AND the per-SourceKey IIndexerSourceStatusService.
+        // Two indexer instances pointing at the same SourceKey will share disable state because
+        // the per-SourceKey path keys on the string SourceKey, not the int Definition.Id.
+
+        [Test]
+        public void RecordSuccess_tees_to_both_per_ProviderId_and_per_SourceKey()
+        {
+            Subject.Definition.Settings = new TestHttpAggregatorSettings { SourceKey = "test-source" };
+
+            Subject.InvokeRecordSuccess();
+
+            Mocker.GetMock<IIndexerStatusService>()
+                  .Verify(s => s.RecordSuccess(1), Times.Once());
+            Mocker.GetMock<IIndexerSourceStatusService>()
+                  .Verify(s => s.RecordSuccess("test-source"), Times.Once());
+        }
+
+        [Test]
+        public void RecordFailure_tees_to_both_per_ProviderId_and_per_SourceKey()
+        {
+            Subject.Definition.Settings = new TestHttpAggregatorSettings { SourceKey = "test-source" };
+
+            Subject.InvokeRecordFailure();
+
+            Mocker.GetMock<IIndexerStatusService>()
+                  .Verify(s => s.RecordFailure(1, default), Times.Once());
+            Mocker.GetMock<IIndexerSourceStatusService>()
+                  .Verify(s => s.RecordFailure("test-source", default), Times.Once());
+        }
+
+        [Test]
+        public void RecordFailure_with_retryAfter_tees_to_both_with_same_backoff()
+        {
+            Subject.Definition.Settings = new TestHttpAggregatorSettings { SourceKey = "test-source" };
+            var retryAfter = System.TimeSpan.FromMinutes(5);
+
+            Subject.InvokeRecordFailure(retryAfter);
+
+            Mocker.GetMock<IIndexerStatusService>()
+                  .Verify(s => s.RecordFailure(1, retryAfter), Times.Once());
+            Mocker.GetMock<IIndexerSourceStatusService>()
+                  .Verify(s => s.RecordFailure("test-source", retryAfter), Times.Once());
+        }
+
+        [Test]
+        public void RecordConnectionFailure_tees_to_both_per_ProviderId_and_per_SourceKey()
+        {
+            Subject.Definition.Settings = new TestHttpAggregatorSettings { SourceKey = "test-source" };
+
+            Subject.InvokeRecordConnectionFailure();
+
+            Mocker.GetMock<IIndexerStatusService>()
+                  .Verify(s => s.RecordConnectionFailure(1), Times.Once());
+            Mocker.GetMock<IIndexerSourceStatusService>()
+                  .Verify(s => s.RecordConnectionFailure("test-source"), Times.Once());
+        }
     }
 
     /// <summary>

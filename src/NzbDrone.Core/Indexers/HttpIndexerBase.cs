@@ -41,6 +41,22 @@ namespace NzbDrone.Core.Indexers
             _httpClient = httpClient;
         }
 
+        // Phase 3 F-01 fix — virtual hooks so HttpAggregatorBase descendants can tee
+        // failure/success recording into the per-SourceKey IIndexerSourceStatusService (D-17)
+        // without each subclass having to wire it manually. Default impls preserve Sonarr's
+        // canonical per-ProviderId behavior verbatim. Phase 8 collapses with Tv/.
+        protected virtual void RecordSuccess()
+            => _indexerStatusService.RecordSuccess(Definition.Id);
+
+        protected virtual void RecordFailure()
+            => _indexerStatusService.RecordFailure(Definition.Id);
+
+        protected virtual void RecordFailure(TimeSpan retryAfter)
+            => _indexerStatusService.RecordFailure(Definition.Id, retryAfter);
+
+        protected virtual void RecordConnectionFailure()
+            => _indexerStatusService.RecordConnectionFailure(Definition.Id);
+
         public override Task<IList<ReleaseInfo>> FetchRecent()
         {
             if (!SupportsRss)
@@ -242,17 +258,17 @@ namespace NzbDrone.Core.Indexers
                     _indexerStatusService.UpdateRssSyncStatus(Definition.Id, lastReleaseInfo);
                 }
 
-                _indexerStatusService.RecordSuccess(Definition.Id);
+                RecordSuccess();
             }
             catch (WebException webException)
             {
                 if (webException.Status is WebExceptionStatus.NameResolutionFailure or WebExceptionStatus.ConnectFailure)
                 {
-                    _indexerStatusService.RecordConnectionFailure(Definition.Id);
+                    RecordConnectionFailure();
                 }
                 else
                 {
-                    _indexerStatusService.RecordFailure(Definition.Id);
+                    RecordFailure();
                 }
 
                 if (webException.Message.Contains("502") || webException.Message.Contains("503") ||
@@ -268,13 +284,13 @@ namespace NzbDrone.Core.Indexers
             catch (TooManyRequestsException ex)
             {
                 var retryTime = ex.RetryAfter != TimeSpan.Zero ? ex.RetryAfter : minimumBackoff;
-                _indexerStatusService.RecordFailure(Definition.Id, retryTime);
+                RecordFailure(retryTime);
 
                 _logger.Warn("API Request Limit reached for {0}. Disabled for {1}", this, retryTime);
             }
             catch (HttpException ex)
             {
-                _indexerStatusService.RecordFailure(Definition.Id);
+                RecordFailure();
                 if (ex.Response.HasHttpServerError)
                 {
                     _logger.Warn("Unable to connect to {0} at [{1}]. Indexer's server is unavailable. Try again later. {2}", this, url, ex.Message);
@@ -287,18 +303,18 @@ namespace NzbDrone.Core.Indexers
             catch (RequestLimitReachedException ex)
             {
                 var retryTime = ex.RetryAfter != TimeSpan.Zero ? ex.RetryAfter : minimumBackoff;
-                _indexerStatusService.RecordFailure(Definition.Id, retryTime);
+                RecordFailure(retryTime);
 
                 _logger.Warn("API Request Limit reached for {0}. Disabled for {1}", this, retryTime);
             }
             catch (ApiKeyException)
             {
-                _indexerStatusService.RecordFailure(Definition.Id);
+                RecordFailure();
                 _logger.Warn("Invalid API Key for {0} {1}", this, url);
             }
             catch (CloudFlareCaptchaException ex)
             {
-                _indexerStatusService.RecordFailure(Definition.Id);
+                RecordFailure();
                 ex.WithData("FeedUrl", url);
                 if (ex.IsExpired)
                 {
@@ -311,17 +327,17 @@ namespace NzbDrone.Core.Indexers
             }
             catch (TaskCanceledException ex)
             {
-                _indexerStatusService.RecordFailure(Definition.Id);
+                RecordFailure();
                 _logger.Warn(ex, "Unable to connect to indexer, possibly due to a timeout. {0}", url);
             }
             catch (IndexerException ex)
             {
-                _indexerStatusService.RecordFailure(Definition.Id);
+                RecordFailure();
                 _logger.Warn(ex, "{0}", url);
             }
             catch (Exception ex)
             {
-                _indexerStatusService.RecordFailure(Definition.Id);
+                RecordFailure();
                 ex.WithData("FeedUrl", url);
                 _logger.Error(ex, "An error occurred while processing feed. {0}", url);
             }

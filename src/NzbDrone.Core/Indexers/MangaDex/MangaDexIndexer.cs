@@ -48,8 +48,6 @@ namespace NzbDrone.Core.Indexers.MangaDex
     /// </summary>
     public class MangaDexIndexer : HttpAggregatorBase<MangaDexIndexerSettings>
     {
-        private readonly IIndexerSourceStatusService _sourceStatusService;
-
         public override string Name => "MangaDex";
         public override DownloadProtocol Protocol => DownloadProtocol.Http;
         public override string DefaultSourceKey => "mangadex";
@@ -57,14 +55,13 @@ namespace NzbDrone.Core.Indexers.MangaDex
         public MangaDexIndexer(
             IHttpClient httpClient,
             IIndexerStatusService indexerStatusService,
-            IIndexerSourceStatusService sourceStatusService,    // Plan 03-03 D-17 sibling
+            IIndexerSourceStatusService sourceStatusService,
             IConfigService configService,
             IParsingService parsingService,
             Logger logger,
             ILocalizationService localizationService)
-            : base(httpClient, indexerStatusService, configService, parsingService, logger, localizationService)
+            : base(httpClient, indexerStatusService, sourceStatusService, configService, parsingService, logger, localizationService)
         {
-            _sourceStatusService = sourceStatusService;
         }
 
         public override IIndexerRequestGenerator GetRequestGenerator()
