@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -122,6 +123,63 @@ namespace NzbDrone.Core.Test.MetadataSource
 
             act.Should().Throw<InvalidOperationException>()
                .WithMessage("*9999*not found*");
+        }
+
+        // BL-06 regression: two concurrent SetPrimary callers must serialize on the
+        // factory's lock so the read-modify-write does not interleave. Without the
+        // lock both callers can observe pre-state, both call UpdateMany, and the
+        // second writer can leave two rows with IsPrimary=true. After the fix exactly
+        // one row carries IsPrimary=true regardless of how the threads interleave.
+        [Test]
+        public void SetPrimary_under_concurrency_keeps_at_most_one_primary()
+        {
+            // Re-set the All-mock + UpdateMany-mock with thread-safe variants. The
+            // production lock now serializes the SetPrimary read-modify-write, but
+            // the test's mock callbacks read/write _stored directly and would race
+            // if invoked concurrently.
+            var sync = new object();
+            Mocker.GetMock<IMetadataSourceRepository>()
+                  .Setup(r => r.All())
+                  .Returns(() =>
+                  {
+                      lock (sync)
+                      {
+                          // Return a snapshot so per-thread mutations don't affect
+                          // each other's working copy mid-iteration.
+                          return _stored.Select(d => new MetadataSourceDefinition
+                          {
+                              Id = d.Id,
+                              Name = d.Name,
+                              Implementation = d.Implementation,
+                              ConfigContract = d.ConfigContract,
+                              IsPrimary = d.IsPrimary,
+                          }).ToList();
+                      }
+                  });
+            Mocker.GetMock<IMetadataSourceRepository>()
+                  .Setup(r => r.UpdateMany(It.IsAny<IList<MetadataSourceDefinition>>()))
+                  .Callback<IList<MetadataSourceDefinition>>(list =>
+                  {
+                      lock (sync)
+                      {
+                          foreach (var d in list)
+                          {
+                              var existing = _stored.FirstOrDefault(s => s.Id == d.Id);
+                              if (existing != null)
+                              {
+                                  existing.IsPrimary = d.IsPrimary;
+                              }
+                          }
+                      }
+                  });
+
+            var ids = new[] { 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3 };
+
+            Parallel.ForEach(ids, id => Subject.SetPrimary(id));
+
+            // Invariant: at-most-one IsPrimary=true after every concurrent flurry.
+            _stored.Count(d => d.IsPrimary).Should().Be(1,
+                "the SetPrimary lock must keep the at-most-one invariant under concurrent callers");
         }
     }
 }
