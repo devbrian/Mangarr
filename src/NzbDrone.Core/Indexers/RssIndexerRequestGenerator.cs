@@ -55,5 +55,15 @@ namespace NzbDrone.Core.Indexers
         {
             return new IndexerPageableRequestChain();
         }
+
+        // Phase 3 D-01 — manga no-op overloads. TV indexers do not handle manga search;
+        // ThingiProvider resolves indexer-by-protocol so these are never called via the
+        // canonical pipeline. Returning an empty IndexerPageableRequestChain keeps the
+        // contract satisfied (compile-error-driven fan-out documented in DIVERGENCE.md).
+        public virtual IndexerPageableRequestChain GetSearchRequests(MangaSearchCriteria searchCriteria)
+            => new IndexerPageableRequestChain();
+
+        public virtual IndexerPageableRequestChain GetSearchRequests(ChapterSearchCriteria searchCriteria)
+            => new IndexerPageableRequestChain();
     }
 }
