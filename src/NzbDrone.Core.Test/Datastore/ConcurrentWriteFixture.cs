@@ -25,6 +25,16 @@ namespace NzbDrone.Core.Test.Datastore
     [Category("IntegrationTest")]
     public class ConcurrentWriteFixture : DbTest<BasicRepository<ScheduledTask>, ScheduledTask>
     {
+        [SetUp]
+        public void Setup()
+        {
+            // Migration 001 seeds a RefreshMangaCommand row into ScheduledTasks (D-18).
+            // ScheduledTask is reused here as a generic model for concurrency testing,
+            // so the table must start empty so the post-run row count matches the
+            // exact number of writes performed by the test.
+            Storage.Purge();
+        }
+
         [Test]
         public void parallel_inserts_do_not_surface_sqlite_busy()
         {
