@@ -19,5 +19,16 @@ namespace NzbDrone.Core.Test.MangaParserTests
         {
             MangaScanlationGroupParser.ParseScanlationGroup(input).Should().Be(expected);
         }
+
+        // WR-04 regression: rare single-character scanlator brackets used to be
+        // silently dropped because the `.+?` required two characters between the
+        // (?!\s) and (?<!\s) lookarounds. Switching to [^\]]+? lets the lookaround
+        // pair re-test the same single character.
+        [TestCase("[X] Title - Ch.10", "X")]
+        [TestCase("[!] Title - Ch.10", "!")]
+        public void ParseScanlationGroup_extracts_single_char_groups(string input, string expected)
+        {
+            MangaScanlationGroupParser.ParseScanlationGroup(input).Should().Be(expected);
+        }
     }
 }

@@ -15,9 +15,16 @@ namespace NzbDrone.Core.Parser.Manga
     public static class MangaScanlationGroupParser
     {
         // Anchored at start of title; group name must not start or end with
-        // whitespace (mirrors Sonarr's `(?!\s).+?(?<!\s)` precedent).
+        // whitespace. WR-04 fix: previous pattern used `.+?` between
+        // `(?!\s)` and `(?<!\s)`, which silently rejected single-character
+        // groups like `[X]` (because `.+?` requires at least one char between
+        // the two zero-width anchors, but those anchors themselves consume the
+        // FIRST and LAST positions, so a one-char group like `[A]` had no
+        // matchable middle). Switching to `[^\]]+?` keeps the no-whitespace
+        // anchors (the lookarounds re-test the same character) and now matches
+        // single-char group names too.
         private static readonly Regex GroupRegex =
-            new(@"^\s*\[(?<subgroup>(?!\s).+?(?<!\s))\]",
+            new(@"^\s*\[(?<subgroup>(?!\s)[^\]]+?(?<!\s))\]",
                 RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         public static string ParseScanlationGroup(string title)
