@@ -84,8 +84,8 @@ namespace NzbDrone.Core.Test.MetadataSource
 
             // Now construct axis values: include exactly `axes` matching-with-primary fields.
             // Order: PublicationYear axis, PrimaryAuthor axis, TotalChapterCount axis.
-            int? year = axes >= 1 ? 1999 : (int?)1900;
-            string author = axes >= 2 ? "Masashi Kishimoto" : "Different Author";
+            var year = axes >= 1 ? 1999 : (int?)1900;
+            var author = axes >= 2 ? "Masashi Kishimoto" : "Different Author";
             int? totalChapters = axes >= 3 ? 700 : 1;
 
             return new MangaCandidate

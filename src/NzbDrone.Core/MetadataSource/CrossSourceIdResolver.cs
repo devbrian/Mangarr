@@ -83,7 +83,7 @@ namespace NzbDrone.Core.MetadataSource
                 .Where(s => !string.IsNullOrEmpty(s))
                 .ToList() ?? new List<string>();
 
-            double maxSim = 0.0;
+            var maxSim = 0.0;
             foreach (var p in primaryTitles)
             {
                 foreach (var s in secondaryTitles)
@@ -104,7 +104,7 @@ namespace NzbDrone.Core.MetadataSource
             }
 
             // Multi-axis confirm — need ≥2 of 3.
-            int axes = 0;
+            var axes = 0;
             if (primary.PublicationYear.HasValue && secondary.PublicationYear.HasValue
                 && Math.Abs(primary.PublicationYear.Value - secondary.PublicationYear.Value) <= 1)
             {

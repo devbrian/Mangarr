@@ -75,7 +75,7 @@ namespace NzbDrone.Core.Manga
                     return;
                 }
 
-                for (int n = 1; n <= manga.TotalChapterCount.Value; n++)
+                for (var n = 1; n <= manga.TotalChapterCount.Value; n++)
                 {
                     _chapterRepo.Insert(new Chapter
                     {

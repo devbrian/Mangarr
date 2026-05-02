@@ -57,7 +57,7 @@ namespace NzbDrone.Core.Manga
                 }
 
                 // Use the cross-resolved ID matching this primary.
-                string sourceId = primary switch
+                var sourceId = primary switch
                 {
                     MangaDexMetadataSource _ => existing.MangaDexId?.ToString(),
                     AniListMetadataSource _ => existing.AniListId?.ToString(),
