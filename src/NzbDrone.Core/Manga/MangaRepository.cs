@@ -23,6 +23,14 @@ namespace NzbDrone.Core.Manga
 
         public Manga FindByTitle(string cleanTitle)
         {
+            // BL-02 fix: short-circuit null/empty input to prevent NRE on
+            // ToLowerInvariant. Public IBasicRepository<Manga> consumers and future
+            // indexer plumbing may pass a null title from a malformed parser short-path.
+            if (string.IsNullOrWhiteSpace(cleanTitle))
+            {
+                return null;
+            }
+
             cleanTitle = cleanTitle.ToLowerInvariant();
 
             return Query(m => m.CleanTitle == cleanTitle).SingleOrDefault();
