@@ -29,7 +29,7 @@ namespace NzbDrone.Core.Manga
     ///    D-21-passing hit per D-20. Generic fallback fills remaining missing IDs from any
     ///    other secondary that exposes a search-by-title surface.
     /// 4. Compute clean/sort titles via <see cref="MangaTitleNormalizer.Normalize"/> (D-05)
-    /// 5. Persist via <see cref="IMangaService.AddManga"/> (which publishes
+    /// 5. Persist via <see cref="IMangaService.AddManga(Manga)"/> (which publishes
     ///    <see cref="Events.MangaAddedEvent"/>)
     /// 6. Synthesize / sync chapters via <see cref="IChapterListService"/> (D-17)
     /// 7. Schedule initial <see cref="RefreshMangaCommand"/> with IsNewManga=true.

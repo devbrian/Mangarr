@@ -26,7 +26,7 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
     /// Settings POCO for <see cref="MangaDexMetadataSource"/>. Implements
     /// <see cref="IHttpAggregatorSettings"/> — required by <see cref="HttpMetadataSourceBase{TSettings}"/>
     /// generic constraint (carries SourceKey + Rate + UserAgentOverride + the
-    /// <see cref="IIndexerSettings"/> floor of BaseUrl + MultiLanguages + FailDownloads).
+    /// <c>IIndexerSettings</c> floor of BaseUrl + MultiLanguages + FailDownloads).
     ///
     /// PER CONTEXT MangaDex constraints + Phase 1 D-13/D-14 — UA override is required by
     /// the interface contract but DELIBERATELY NOT exposed via [FieldDefinition]. This
