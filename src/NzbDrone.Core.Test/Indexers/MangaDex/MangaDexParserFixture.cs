@@ -82,9 +82,13 @@ namespace NzbDrone.Core.Test.Indexers.MangaDex
 
         private IndexerResponse MakeResponse(string content)
         {
+            // Note: IndexerRequest has (string, HttpAccept) and (HttpRequest) ctors but no
+            // (HttpRequest, HttpAccept) overload — Plan 03-01 scaffold typed this incorrectly.
+            // Pre-existing bug surfaced when Plan 03-04 wired production types; repaired inline
+            // (Rule 1 — bug) so MangaDex Wave 0 fixtures can compile and exercise the parser.
             var req = new HttpRequest("https://api.mangadex.org/manga/x/feed");
             var resp = new HttpResponse(req, new HttpHeader(), content);
-            return new IndexerResponse(new IndexerRequest(req, HttpAccept.Json), resp);
+            return new IndexerResponse(new IndexerRequest(req), resp);
         }
     }
 }
