@@ -179,6 +179,8 @@ namespace NzbDrone.Core.Datastore
                 .Ignore(c => c.Message);
 
             Mapper.Entity<IndexerStatus>("IndexerStatus").RegisterModel();
+            // Phase 3 D-17 — per-SourceKey indexer status (sibling to IndexerStatus above).
+            Mapper.Entity<IndexerSourceStatus>("IndexerSourceStatus").RegisterModel();
             Mapper.Entity<DownloadClientStatus>("DownloadClientStatus").RegisterModel();
             Mapper.Entity<ImportListStatus>("ImportListStatus").RegisterModel();
             Mapper.Entity<NotificationStatus>("NotificationStatus").RegisterModel();
