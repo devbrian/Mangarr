@@ -589,19 +589,14 @@ namespace NzbDrone.Core.Datastore.Migration
                 .OnColumn("MangaId").Ascending()
                 .OnColumn("TranslatedLanguage").Ascending();
 
-            // ─────────────────────────────────────────────────────────────────────
-            // Seed data
-            // ─────────────────────────────────────────────────────────────────────
-            // Phase 2 (folded from Migration 002 per dev-migration-policy.md, 2026-05-02).
-            // 12h scheduled-task row for RefreshMangaCommand (D-18). Mirrors Sonarr's
-            // series-refresh cadence; manual trigger lands in Plan 02-09 (developer endpoint)
-            // and Phase 7 (UI button).
-            Insert.IntoTable("ScheduledTasks").Row(new
-            {
-                TypeName = "NzbDrone.Core.Manga.Commands.RefreshMangaCommand",
-                Interval = 720.0,
-                LastExecution = "2000-01-01 00:00:00",
-            });
+            // No seed data. The RefreshMangaCommand ScheduledTasks row is registered by
+            // TaskManager.Handle(ApplicationStartedEvent) at runtime (Sonarr's canonical
+            // pattern — see TaskManager.cs:65-166). Migrations create schema only.
+            //
+            // Phase 2 (folded 2026-05-02) originally inserted the row here per a misread
+            // of D-18; the seed was deleted by TaskManager on every startup because
+            // RefreshMangaCommand wasn't in TaskManager.defaultTasks. Quick task
+            // 260502-3ip surfaced the divergence; corrected here + in TaskManager.
         }
 
         protected override void LogDbUpgrade()

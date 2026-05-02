@@ -13,6 +13,7 @@ using NzbDrone.Core.Housekeeping;
 using NzbDrone.Core.ImportLists;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Lifecycle;
+using NzbDrone.Core.Manga.Commands;
 using NzbDrone.Core.MediaFiles.Commands;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
@@ -101,6 +102,14 @@ namespace NzbDrone.Core.Jobs
                     {
                         Interval = 12 * 60,
                         TypeName = typeof(RefreshSeriesCommand).FullName
+                    },
+
+                    // 12h refresh cadence per Phase 2 D-18. Mirrors RefreshSeriesCommand;
+                    // manual trigger lands via Plan 02-09 dev endpoint and Phase 7 UI.
+                    new ScheduledTask
+                    {
+                        Interval = 12 * 60,
+                        TypeName = typeof(RefreshMangaCommand).FullName
                     },
 
                     new ScheduledTask
