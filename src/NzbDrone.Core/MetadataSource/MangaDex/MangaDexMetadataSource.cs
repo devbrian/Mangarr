@@ -133,9 +133,10 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             {
                 MangaDexId = Guid.TryParse(item.Id, out var g) ? g : (Guid?)null,
                 Title = PreferredTitle(attrs.Title),
-                Overview = (attrs.Description != null && attrs.Description.TryGetValue("en", out var en))
-                    ? en
-                    : attrs.Description?.Values.FirstOrDefault(),
+                // WR-06 fix: prefer "en" only when it's non-empty; otherwise fall
+                // through to the first non-empty value in the dictionary. MangaDex
+                // routinely seeds an empty `en` description for new entries.
+                Overview = PreferredString(attrs.Description, "en"),
                 Status = attrs.Status,
                 ContentRating = attrs.ContentRating,
                 PublicationYear = attrs.Year,
@@ -210,12 +211,25 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
 
         private static string PreferredTitle(Dictionary<string, string> titles)
         {
-            if (titles == null || titles.Count == 0)
+            // WR-06 mirror: prefer "en" only when non-empty; otherwise fall through
+            // to the first non-empty value. Same MangaDex empty-en gotcha as on
+            // Description.
+            return PreferredString(titles, "en");
+        }
+
+        private static string PreferredString(Dictionary<string, string> bag, string preferredKey)
+        {
+            if (bag == null || bag.Count == 0)
             {
                 return null;
             }
 
-            return titles.TryGetValue("en", out var en) ? en : titles.Values.First();
+            if (bag.TryGetValue(preferredKey, out var preferred) && !string.IsNullOrWhiteSpace(preferred))
+            {
+                return preferred;
+            }
+
+            return bag.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
         }
     }
 }
