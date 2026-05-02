@@ -360,4 +360,6 @@ This project uses **GSD** (`/gsd-*` commands) for structured planning. The singl
 
 **Design philosophy** (locked in PROJECT.md): *Preserve Sonarr's shape wherever it works; diverge only where the manga domain forces us.* This drives every gray-area call.
 
-**Per-phase workflow:** `/gsd-discuss-phase N` → `/gsd-plan-phase N` → `/gsd-execute-phase N` → `/gsd-verify-work N`. Or `/gsd-progress` for the unified situational command.
+**Per-phase workflow:** `/gsd-discuss-phase N` → `/gsd-plan-phase N` → `/gsd-execute-phase N` → `/gsd-verify-work N` → **sonarr-consistency-audit** → `/gsd-extract-learnings`. Or `/gsd-progress` for the unified situational command.
+
+The **sonarr-consistency-audit** step is mandatory before declaring a phase complete (see [.claude/skills/sonarr-consistency-audit/SKILL.md](./.claude/skills/sonarr-consistency-audit/SKILL.md)). It catches the class of bug where phase code diverges from Sonarr's canonical pattern AND its accompanying tests verify the divergent code — so "tests green" silently masks the divergence. Phase 2's `RefreshMangaCommand` migration-seed-vs-`TaskManager.defaultTasks` issue was the prompt for this skill. Run it on any phase that touches inherited Sonarr code (most do).
