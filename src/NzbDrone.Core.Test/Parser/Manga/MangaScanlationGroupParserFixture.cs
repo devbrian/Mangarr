@@ -3,7 +3,7 @@ using NUnit.Framework;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Test.Framework;
 
-namespace NzbDrone.Core.Test.Parser.Manga
+namespace NzbDrone.Core.Test.MangaParserTests
 {
     /// <summary>
     /// Scanlation-group extraction from manga release titles (D-04). Mirrors

@@ -3,7 +3,7 @@ using NUnit.Framework;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Test.Framework;
 
-namespace NzbDrone.Core.Test.Parser.Manga
+namespace NzbDrone.Core.Test.MangaParserTests
 {
     /// <summary>
     /// BCP-47 translated-language extraction from manga release titles (D-04, LANG-01).

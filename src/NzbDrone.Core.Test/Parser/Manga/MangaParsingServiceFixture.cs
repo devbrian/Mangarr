@@ -8,7 +8,7 @@ using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Test.Framework;
 
-namespace NzbDrone.Core.Test.Parser.Manga
+namespace NzbDrone.Core.Test.MangaParserTests
 {
     /// <summary>
     /// Wave 0 contract fixture for <c>MangaParsingService.Map(ParsedChapterInfo, Manga, IList&lt;Chapter&gt;)</c>.

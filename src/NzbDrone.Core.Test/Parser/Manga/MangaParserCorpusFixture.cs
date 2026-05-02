@@ -7,7 +7,7 @@ using NUnit.Framework;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Test.Framework;
 
-namespace NzbDrone.Core.Test.Parser.Manga
+namespace NzbDrone.Core.Test.MangaParserTests
 {
     /// <summary>
     /// Phase 2 corpus runner. Loads the 500-title MangaDex /chapter feed corpus from disk
