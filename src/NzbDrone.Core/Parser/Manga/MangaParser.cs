@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Text.RegularExpressions;
 using NLog;
 using NzbDrone.Common.Instrumentation;
@@ -124,13 +123,19 @@ namespace NzbDrone.Core.Parser.Manga
             var raw = title;
 
             // Strip filename extension if present, but ONLY for the small set of
-            // archive / image extensions we expect in manga release titles.
-            // Path.GetExtension is unsafe here because it would treat a trailing
-            // chapter decimal like `Ch.1` as the extension `.1` and strip it.
-            var ext = Path.GetExtension(title);
-            if (!string.IsNullOrEmpty(ext) && IsKnownFileExtension(ext))
+            // archive / image extensions we expect in manga release titles. WR-01
+            // fix: use string-based extraction instead of Path.GetExtension —
+            // Path.GetExtension can throw ArgumentException on certain Unicode
+            // inputs on some platforms, and is generally heavier than necessary
+            // for the simple "trailing dot-suffix" check we want here.
+            var lastDot = title.LastIndexOf('.');
+            if (lastDot > 0 && lastDot >= title.Length - 6)
             {
-                title = title[..^ext.Length];
+                var ext = title[lastDot..];
+                if (IsKnownFileExtension(ext))
+                {
+                    title = title[..^ext.Length];
+                }
             }
 
             // D-13: aggressive decimal normalization. Lookbehind/lookahead in
