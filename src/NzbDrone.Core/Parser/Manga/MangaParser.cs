@@ -32,17 +32,20 @@ namespace NzbDrone.Core.Parser.Manga
     {
         private static readonly Logger Logger = NzbDroneLogger.GetLogger(typeof(MangaParser));
 
-        // Aggressive decimal-format normalization per D-13: comma / underscore /
-        // dash all become `.` in digit-direct-digit context. The lookbehind /
-        // lookahead restrict the substitution to digit-direct-digit only, so
-        // commas/dashes that separate words rather than digits are preserved
-        // (`Re:Zero - Chapter 10` is safe because the dash has spaces on both
-        // sides, not digits). Multi-chapter ranges like `Ch.10-12` collapse to
-        // `Ch.10.12` after this pass; the corpus contains no such ranges. If
-        // ranges are needed in a future plan, scan with the multi-chapter-range
-        // regex BEFORE applying this normalization.
+        // Aggressive decimal-format normalization per D-13: comma / underscore become
+        // `.` in digit-direct-digit context. The lookbehind / lookahead restrict the
+        // substitution to digit-direct-digit only, so commas that separate words
+        // rather than digits are preserved.
+        //
+        // BL-04 FIX: DASH is intentionally EXCLUDED from this character class. A
+        // digit-direct-dash-direct-digit form (`10-12`) is the chapter-range syntax
+        // captured by `ChapterRegexes[0]` (multi-chapter range), not a decimal
+        // separator. Including `-` here previously collapsed `Ch.10-12` into
+        // `Ch.10.12` BEFORE the chapter-range regex could match — making
+        // ChapterRegexes[0] effectively dead code. The dash stays raw; the range
+        // regex sees it; comma + underscore continue to normalize as decimals.
         private static readonly Regex DecimalSeparatorRegex =
-            new(@"(?<=\d)[,_\-](?=\d)", RegexOptions.Compiled);
+            new(@"(?<=\d)[,_](?=\d)", RegexOptions.Compiled);
 
         // Volume marker (display only — no Volume table per CONTEXT D-09).
         private static readonly Regex VolumeRegex =
@@ -163,7 +166,16 @@ namespace NzbDrone.Core.Parser.Manga
                 {
                     var start = ParseDecimal(match.Groups["start"].Value);
                     var end = ParseDecimal(match.Groups["end"].Value);
-                    if (start.HasValue && end.HasValue && end >= start)
+
+                    // BL-03 FIX: only enumerate integer ranges (e.g. Ch.10-12 → 10,11,12).
+                    // The previous `n += 1m` loop silently truncated fractional bounds
+                    // (Ch.10-12.5 → [10,11,12]) and skipped fractional steps. Real-world
+                    // multi-chapter ranges are integer chapter sets; if the bounds carry
+                    // a decimal fraction we fall through to the per-chapter regexes below
+                    // (the bare-number / decimal regexes will pick up at least one).
+                    if (start.HasValue && end.HasValue && end >= start
+                        && start.Value == Math.Floor(start.Value)
+                        && end.Value == Math.Floor(end.Value))
                     {
                         var range = new List<decimal>();
                         for (var n = start.Value; n <= end.Value; n += 1m)
