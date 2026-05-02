@@ -76,7 +76,9 @@ namespace NzbDrone.Core.Manga
                     // can extend this to a MissingPrimarySourceIdHealthCheck per the
                     // review's secondary recommendation.)
                     _logger.Warn("Skipping manga {0}: no source ID for active primary {1}; manual relink required (POST /api/v5/manga/{2}/links)",
-                        existing.Title, primaryDef.Name, existing.Id);
+                        existing.Title,
+                        primaryDef.Name,
+                        existing.Id);
                     continue;
                 }
 

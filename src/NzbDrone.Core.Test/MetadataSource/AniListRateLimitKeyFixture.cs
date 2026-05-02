@@ -37,7 +37,9 @@ namespace NzbDrone.Core.Test.MetadataSource
                 .Setup(c => c.Post<AniListGraphQlResponse<PageResponseShape>>(It.IsAny<HttpRequest>()))
                 .Callback<HttpRequest>(req => captured = req)
                 .Returns<HttpRequest>(req => new HttpResponse<AniListGraphQlResponse<PageResponseShape>>(
-                    new HttpResponse(req, new HttpHeader { ContentType = "application/json" },
+                    new HttpResponse(
+                        req,
+                        new HttpHeader { ContentType = "application/json" },
                         @"{ ""data"": { ""Page"": { ""media"": [] } } }")));
 
             Subject.SearchForNewManga("anything");

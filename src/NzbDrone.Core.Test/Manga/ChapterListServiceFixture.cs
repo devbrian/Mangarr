@@ -246,9 +246,11 @@ namespace NzbDrone.Core.Test.MangaTests
             Subject.SyncChapters(manga, new List<Chapter>());
 
             _inserted.Should().BeEmpty();
+
             // No event published when there is nothing to sync.
             Mocker.GetMock<IEventAggregator>()
                   .Verify(e => e.PublishEvent(It.IsAny<ChapterListUpdatedEvent>()), Times.Never());
+
             // Warning log assertion: the test framework's TestLogger is consumed silently;
             // we rely on the empty inserted list + no event as the observable contract.
 

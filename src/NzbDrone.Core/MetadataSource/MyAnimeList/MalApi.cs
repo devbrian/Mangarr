@@ -30,8 +30,12 @@ namespace NzbDrone.Core.MetadataSource.MyAnimeList
         private readonly Func<string> _clientId;        // user-pasted MAL API client ID per D-24
         private readonly string _sourceKey;
 
-        public MalApi(IHttpClient httpClient, string baseUrl,
-                      Func<string> userAgent, Func<string> clientId, string sourceKey)
+        public MalApi(
+            IHttpClient httpClient,
+            string baseUrl,
+            Func<string> userAgent,
+            Func<string> clientId,
+            string sourceKey)
         {
             _httpClient = httpClient;
             _baseUrl = string.IsNullOrWhiteSpace(baseUrl) ? DefaultBase : baseUrl.TrimEnd('/');

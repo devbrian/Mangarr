@@ -144,6 +144,7 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             {
                 MangaDexId = Guid.TryParse(item.Id, out var g) ? g : (Guid?)null,
                 Title = PreferredTitle(attrs.Title),
+
                 // WR-06 fix: prefer "en" only when it's non-empty; otherwise fall
                 // through to the first non-empty value in the dictionary. MangaDex
                 // routinely seeds an empty `en` description for new entries.

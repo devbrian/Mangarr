@@ -129,16 +129,20 @@ namespace NzbDrone.Core.Manga
         }
 
         private static string ResolveSourceIdForPrimary(Manga manga, IProvideMangaInfo primary)
-            => primary switch
+        {
+            var sourceId = primary switch
             {
                 MangaDexMetadataSource _ => manga.MangaDexId?.ToString(),
                 AniListMetadataSource _ => manga.AniListId?.ToString(),
                 MyAnimeListMetadataSource _ => manga.MalId?.ToString(),
                 _ => throw new InvalidOperationException(
                     $"Unknown primary metadata source type {primary?.GetType().Name}")
-            }
-            ?? throw new ArgumentException(
-                $"newManga has no source ID for active primary {primary.GetType().Name}");
+            };
+
+            return sourceId
+                ?? throw new ArgumentException(
+                    $"newManga has no source ID for active primary {primary.GetType().Name}");
+        }
 
         // PER D-19: For every cross-source ID that came from the primary's links field
         // (e.g. MangaDex attributes.links.al/mal), fetch the linked entity from the secondary
@@ -162,14 +166,17 @@ namespace NzbDrone.Core.Manga
                         if (!_resolver.TryResolve(primaryCandidate, ToCandidate(linked), out var reason))
                         {
                             _logger.Warn("D-19 validation failed for AniListId={0} on manga {1}: {2}",
-                                newManga.AniListId, newManga.Title, reason);
+                                newManga.AniListId,
+                                newManga.Title,
+                                reason);
                             newManga.AniListId = null;
                         }
                     }
                     catch (MangaNotFoundException)
                     {
                         _logger.Warn("D-19 validation failed for AniListId={0} on manga {1}: not-found at secondary",
-                            newManga.AniListId, newManga.Title);
+                            newManga.AniListId,
+                            newManga.Title);
                         newManga.AniListId = null;
                     }
                 }
@@ -184,14 +191,17 @@ namespace NzbDrone.Core.Manga
                         if (!_resolver.TryResolve(primaryCandidate, ToCandidate(linked), out var reason))
                         {
                             _logger.Warn("D-19 validation failed for MalId={0} on manga {1}: {2}",
-                                newManga.MalId, newManga.Title, reason);
+                                newManga.MalId,
+                                newManga.Title,
+                                reason);
                             newManga.MalId = null;
                         }
                     }
                     catch (MangaNotFoundException)
                     {
                         _logger.Warn("D-19 validation failed for MalId={0} on manga {1}: not-found at secondary",
-                            newManga.MalId, newManga.Title);
+                            newManga.MalId,
+                            newManga.Title);
                         newManga.MalId = null;
                     }
                 }
@@ -229,6 +239,7 @@ namespace NzbDrone.Core.Manga
                         foreach (var title in titles)
                         {
                             var hits = mdSource.SearchForNewManga(title);
+
                             // Pick the highest-similarity hit that clears the D-21 gate.
                             var ranked = hits.Select(h => (Hit: h, Cand: ToCandidate(h)))
                                              .Where(t => _resolver.TryResolve(primaryCandidate, t.Cand, out _))
@@ -238,7 +249,8 @@ namespace NzbDrone.Core.Manga
                                 // First passing hit per D-20 (SearchForNewManga returns ordered by relevance).
                                 newManga.MangaDexId = ranked[0].Hit.MangaDexId;
                                 _logger.Trace("D-20 reverse-MangaDex resolved MangaDexId={0} for primary={1}",
-                                    newManga.MangaDexId, primaryDef.Name);
+                                    newManga.MangaDexId,
+                                    primaryDef.Name);
                                 break;
                             }
                         }

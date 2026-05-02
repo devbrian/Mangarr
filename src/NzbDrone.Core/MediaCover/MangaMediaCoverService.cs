@@ -72,8 +72,10 @@ namespace NzbDrone.Core.MediaCover
         public string GetMangaCoverPath(int mangaId, MediaCoverTypes coverType, int? height = null)
         {
             var heightSuffix = height.HasValue ? "-" + height.Value : string.Empty;
-            return Path.Combine(_coverRootFolder, mangaId.ToString(),
-                                $"{coverType.ToString().ToLowerInvariant()}{heightSuffix}{GetExtension(coverType)}");
+            return Path.Combine(
+                _coverRootFolder,
+                mangaId.ToString(),
+                $"{coverType.ToString().ToLowerInvariant()}{heightSuffix}{GetExtension(coverType)}");
         }
 
         public void ConvertToLocalUrls(int mangaId, IEnumerable<MediaCover> covers)

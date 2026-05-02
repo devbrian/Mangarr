@@ -191,7 +191,8 @@ namespace NzbDrone.Core.Test.MangaTests
         // MyAnimeListMetadataSource so the RefreshMangaService.Execute switch routes by
         // concrete type. Each captures the sourceId passed to GetMangaInfo.
 
-        private static IMetadataSource BuildMockProvider<T>() where T : IMetadataSource
+        private static IMetadataSource BuildMockProvider<T>()
+            where T : IMetadataSource
         {
             // Default — returns null until tests override per scenario.
             var m = new Mock<IMetadataSource>();

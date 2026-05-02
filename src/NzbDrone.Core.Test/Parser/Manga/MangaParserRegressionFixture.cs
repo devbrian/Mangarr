@@ -49,6 +49,7 @@ namespace NzbDrone.Core.Test.MangaParserTests
             var parsed = MangaParser.ParseChapterTitle("Title Ch.10.5-12.5");
 
             parsed.Should().NotBeNull();
+
             // The integer-range branch is rejected (BL-03); the next regex
             // (decimal-prefix `Ch.14.5` form) catches the start as a single
             // chapter — silently dropping the upper bound is acceptable per the

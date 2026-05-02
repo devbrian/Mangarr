@@ -72,6 +72,7 @@ namespace NzbDrone.Core.Manga
                         // Refresh existingKeys so the bulk-insert pass below does not
                         // try to re-insert the row we just upgraded in place.
                         existingKeys.Add((real.ChapterNumber, real.TranslatedLanguage));
+
                         // Orphan synthetic rows kept until Phase 5 cleanup logic per D-17 trailing note.
                     }
                 }
@@ -108,7 +109,8 @@ namespace NzbDrone.Core.Manga
                 if (existing.Any())
                 {
                     _logger.Trace("ChapterList: {0} already synthesized ({1} rows); skipping resynthesis",
-                        manga.Title, existing.Count);
+                        manga.Title,
+                        existing.Count);
                     return;
                 }
 
@@ -121,6 +123,7 @@ namespace NzbDrone.Core.Manga
                         Title = null,
                         ChapterType = ChapterType.Regular,
                         IsSynthetic = true,
+
                         // PER RESEARCH §Open Question 3: BCP-47 "und" sentinel — preserves NotNullable column.
                         TranslatedLanguage = "und",
                         ScanlationGroup = null,

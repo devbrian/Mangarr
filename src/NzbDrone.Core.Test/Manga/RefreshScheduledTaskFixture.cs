@@ -31,7 +31,12 @@ namespace NzbDrone.Core.Test.MangaTests
             // Migration 002 per Plan 02-11 + dev-migration-policy.md).
             var migrationPath = Path.GetFullPath(Path.Combine(
                 TestContext.CurrentContext.TestDirectory,
-                "..", "..", "src", "NzbDrone.Core", "Datastore", "Migration",
+                "..",
+                "..",
+                "src",
+                "NzbDrone.Core",
+                "Datastore",
+                "Migration",
                 "001_mangarr_baseline.cs"));
 
             if (File.Exists(migrationPath))

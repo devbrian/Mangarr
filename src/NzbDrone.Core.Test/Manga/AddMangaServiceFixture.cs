@@ -157,6 +157,7 @@ namespace NzbDrone.Core.Test.MangaTests
             result.PublicationYear.Should().Be(_primaryResult.PublicationYear);
             result.PrimaryAuthor.Should().Be(_primaryResult.PrimaryAuthor);
             result.TotalChapterCount.Should().Be(_primaryResult.TotalChapterCount);
+
             // Chapter list synthesis is delegated to ChapterListService — verified in
             // Add_calls_ChapterListService_SyncChapters above.
         }

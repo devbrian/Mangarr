@@ -36,9 +36,11 @@ namespace NzbDrone.Core.MetadataSource.MyAnimeList
         [FieldDefinition(0, Label = "URL", HelpText = "MAL API v2 base URL — leave default.")]
         public string BaseUrl { get; set; }
 
-        [FieldDefinition(1, Label = "MAL API Client ID",
-                         HelpText = "Get a free client ID at https://myanimelist.net/apiconfig — create an app, copy the Client ID here. Read-only access; no OAuth required.",
-                         Privacy = PrivacyLevel.ApiKey)]
+        [FieldDefinition(
+            1,
+            Label = "MAL API Client ID",
+            HelpText = "Get a free client ID at https://myanimelist.net/apiconfig — create an app, copy the Client ID here. Read-only access; no OAuth required.",
+            Privacy = PrivacyLevel.ApiKey)]
         public string ClientId { get; set; }
 
         [FieldDefinition(2, Label = "Rate-limit Source Key", Advanced = true, HelpText = "Override the per-SourceKey rate budget grouping.")]
