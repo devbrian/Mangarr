@@ -9,6 +9,7 @@ using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.MangaTests
 {
@@ -179,6 +180,12 @@ namespace NzbDrone.Core.Test.MangaTests
                   .Verify(e => e.PublishEvent(It.IsAny<ChapterListUpdatedEvent>()), Times.Never());
             // Warning log assertion: the test framework's TestLogger is consumed silently;
             // we rely on the empty inserted list + no event as the observable contract.
+
+            // Production ChapterListService.cs:99 emits exactly ONE _logger.Warn for the
+            // Strategy 3 path by design (per D-17.3). The framework's tear-down "no
+            // unexpected warns" assertion otherwise fails this test (per 02-VERIFICATION.md
+            // anti-patterns row).
+            ExceptionVerification.ExpectedWarns(1);
         }
     }
 }
