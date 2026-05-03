@@ -70,6 +70,8 @@ namespace NzbDrone.Core.HealthCheck
         ImportMechanismEnableCompletedDownloadHandlingIfPossible,
         ImportMechanismEnableCompletedDownloadHandlingIfPossibleMultiComputer,
         ImportMechanismHandlingDisabled,
+        InProcessDownloaderScratchPathMissing,
+        InProcessDownloaderScratchLowSpace,
         IndexerDownloadClient,
         IndexerJackettAll,
         IndexerLongTermStatusAllUnavailable,
