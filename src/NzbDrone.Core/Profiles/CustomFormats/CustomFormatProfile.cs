@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using NzbDrone.Core.Datastore;
 
 namespace NzbDrone.Core.Profiles.CustomFormats
@@ -28,5 +29,17 @@ namespace NzbDrone.Core.Profiles.CustomFormats
         public int MinFormatScore { get; set; }                // D-07 default 0
         public int? MaxFormatScore { get; set; }               // D-07 default null = no cap (NULLABLE divergence per Adaptation Hotspot 4)
         public List<ProfileFormatItem> FormatItems { get; set; }   // per-profile per-CF score override (Open Question 2)
+
+        // Mirrors QualityProfile.CalculateCustomFormatScore (Profiles/Qualities/QualityProfile.cs:91-94)
+        // verbatim. Sums per-CF score overrides for matched formats. Phase 5 D-07.
+        public int CalculateCustomFormatScore(List<NzbDrone.Core.CustomFormats.CustomFormat> formats)
+        {
+            if (formats == null || FormatItems == null)
+            {
+                return 0;
+            }
+
+            return FormatItems.Where(x => formats.Contains(x.Format)).Sum(x => x.Score);
+        }
     }
 }
