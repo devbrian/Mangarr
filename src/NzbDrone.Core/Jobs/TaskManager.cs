@@ -8,6 +8,7 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Configuration.Events;
 using NzbDrone.Core.DataAugmentation.Scene;
 using NzbDrone.Core.Download;
+using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.HealthCheck;
 using NzbDrone.Core.Housekeeping;
 using NzbDrone.Core.ImportLists;
@@ -122,6 +123,15 @@ namespace NzbDrone.Core.Jobs
                     {
                         Interval = 24 * 60,
                         TypeName = typeof(CleanUpRecycleBinCommand).FullName
+                    },
+
+                    // Phase 4 — daily in-process downloader housekeeping (D-08 retention sweep
+                    // + orphan scratch cleanup). Registered via TaskManager.defaultTasks per
+                    // sonarr-consistency-audit anti-pattern C (NOT seeded via migration 001).
+                    new ScheduledTask
+                    {
+                        Interval = 24 * 60,
+                        TypeName = typeof(HousekeepInProcessDownloadsCommand).FullName
                     },
 
                     new ScheduledTask
