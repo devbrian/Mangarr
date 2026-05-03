@@ -571,6 +571,27 @@ namespace NzbDrone.Core.Configuration
             }
         }
 
+        // ─────────────────────────────────────────────────────────────────────
+        // Phase 6 — global RSS sync + auto-retry Config keys.
+        // Lazy default-on-getter via GetValueInt — matches Sonarr's RssSyncInterval pattern (line 117-122).
+        // ─────────────────────────────────────────────────────────────────────
+
+        public int MangaRssSyncInterval
+        {
+            // D-07 default 15 min (parity with Sonarr's RssSyncInterval default).
+            // Per-IndexerDefinition.SyncInterval overrides this on a per-source basis.
+            get { return GetValueInt("MangaRssSyncInterval", 15); }
+            set { SetValue("MangaRssSyncInterval", value); }
+        }
+
+        public int MaxAutoRetriesPerChapter
+        {
+            // D-13 default 3. Bounded auto-retry: after N alternates exhausted, chapter sits in
+            // History as DownloadFailed; user manually retries from History row (HISTORY-03).
+            get { return GetValueInt("MaxAutoRetriesPerChapter", 3); }
+            set { SetValue("MaxAutoRetriesPerChapter", value); }
+        }
+
         private string GetValue(string key)
         {
             return GetValue(key, string.Empty);
