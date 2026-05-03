@@ -5,11 +5,16 @@ using Sonarr.Http.REST;
 
 namespace Sonarr.Api.V5.CustomFormats
 {
+    // Phase 5 Wave 2 (plan 05-05): `required` modifier removed from Name so this resource
+    // satisfies the `where TResource : RestResource, new()` constraint on RestController<T>
+    // — V5 RestController refuses types with required members. Mirrors V5
+    // CustomFormatProfileResource sibling shape (Name as nullable). FluentValidation in
+    // CustomFormatController enforces NotEmpty at the request boundary.
     public class CustomFormatResource : RestResource
     {
         [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
         public override int Id { get; set; }
-        public required string Name { get; set; }
+        public string? Name { get; set; }
         public bool? IncludeCustomFormatWhenRenaming { get; set; }
         public List<CustomFormatSpecificationSchema>? Specifications { get; set; }
     }
