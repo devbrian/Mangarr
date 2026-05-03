@@ -12,10 +12,14 @@ namespace NzbDrone.Core.IndexerSearch.Definitions
     public abstract class MangaSearchCriteriaBase
     {
         /// <summary>The manga being searched.</summary>
-        public Manga.Manga Manga { get; set; }
+        // Fully-qualified: the new IndexerSearch.Manga namespace (Plan 06-06) shadows
+        // the bare `Manga.` prefix because C#'s nearest-enclosing-namespace lookup
+        // finds `IndexerSearch.Manga` first when this file (in IndexerSearch.Definitions)
+        // is compiled. Fully-qualifying via the global root keeps the type unambiguous.
+        public NzbDrone.Core.Manga.Manga Manga { get; set; }
 
         /// <summary>The chapters under search (whole-manga = list of monitored; single-chapter = [target]).</summary>
-        public List<Manga.Chapter> Chapters { get; set; }
+        public List<NzbDrone.Core.Manga.Chapter> Chapters { get; set; }
 
         /// <summary>
         /// D-07: ADVISORY only. Optional list of BCP-47 codes (e.g. <c>["en", "es"]</c>).
