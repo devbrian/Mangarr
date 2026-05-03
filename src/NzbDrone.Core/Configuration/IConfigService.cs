@@ -107,5 +107,13 @@ namespace NzbDrone.Core.Configuration
         string OutputFormat { get; set; }
         List<string> MetadataFormats { get; set; }
         int RetentionDays { get; set; }
+
+        // Phase 5 — global default profile FKs (D-01 / D-07).
+        // First-run UX dependency per D-11: empty default CF bundle means the seeded
+        // TranslationProfile is the ONLY filter on first-run. Without these keys set,
+        // per-Manga FK fallback fails. TranslationProfileService + CustomFormatProfileService
+        // IHandle<ApplicationStartedEvent> seeders set them to the seeded default profile IDs.
+        int? DefaultTranslationProfileId { get; set; }
+        int? DefaultCustomFormatProfileId { get; set; }
     }
 }

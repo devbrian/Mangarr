@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.Manga;
 
 namespace NzbDrone.Core.Parser.Manga.Model
@@ -15,11 +16,18 @@ namespace NzbDrone.Core.Parser.Manga.Model
         public RemoteChapter()
         {
             Chapters = new List<Chapter>();
+            CustomFormats = new List<CustomFormat>();
         }
 
         public string Release { get; set; }
         public ParsedChapterInfo ParsedChapterInfo { get; set; }
         public NzbDrone.Core.Manga.Manga Manga { get; set; }
         public List<Chapter> Chapters { get; set; }
+
+        // Phase 5 — CF augmentation per Phase 5 RESEARCH §"RemoteChapter extensions".
+        // Mirrors RemoteEpisode.CustomFormats / .CustomFormatScore (Sonarr precedent).
+        // Populated by MangaDownloadDecisionMaker.GetDecisionForReport (Wave 2 plan 05-04).
+        public List<CustomFormat> CustomFormats { get; set; }
+        public int CustomFormatScore { get; set; }
     }
 }
