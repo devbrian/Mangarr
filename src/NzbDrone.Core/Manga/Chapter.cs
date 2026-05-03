@@ -34,6 +34,11 @@ namespace NzbDrone.Core.Manga
         public bool Monitored { get; set; }
         public string ExternalId { get; set; }
 
+        // Phase 6 PIPELINE-04 — FK to ChapterFile row (null = no file imported yet).
+        // Sonarr divergence: NEW manga sibling of Episode.EpisodeFileId — see DIVERGENCE.md.
+        // Consumed by Plan 06-07 UpgradeSpec + Plan 06-09 Wanted query.
+        public int? ChapterFileId { get; set; }
+
         public int CompareTo(object obj)
         {
             if (obj is not Chapter other)

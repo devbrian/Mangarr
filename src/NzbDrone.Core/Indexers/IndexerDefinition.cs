@@ -31,6 +31,15 @@ namespace NzbDrone.Core.Indexers
         public int Priority { get; set; }
         public int SeasonSearchMaximumSingleEpisodeAge { get; set; }
 
+        // Phase 6 D-07: per-source RSS sync override. 0 = use global IConfigService.MangaRssSyncInterval.
+        // Schema delta in 001_mangarr_baseline.cs (Alter.Table Indexers AddColumn SyncInterval default 0).
+        public int SyncInterval { get; set; }
+
+        // Phase 6 D-07: timestamp of last successful RSS sync; null = never synced.
+        // Mutated by MangaRssSyncService run; equality-ignored to prevent comparison churn.
+        [MemberwiseEqualityIgnore]
+        public DateTime? LastRssSync { get; set; }
+
         [MemberwiseEqualityIgnore]
         public override bool Enable => EnableRss || EnableAutomaticSearch || EnableInteractiveSearch;
 

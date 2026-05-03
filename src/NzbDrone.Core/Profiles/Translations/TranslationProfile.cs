@@ -21,5 +21,9 @@ namespace NzbDrone.Core.Profiles.Translations
         public string Name { get; set; }
         public List<string> Languages { get; set; }            // ordered BCP-47 codes; index = preference rank (D-03)
         public bool AllowLanguagesNotInProfile { get; set; }   // D-02; default false (strict mode)
+
+        // Phase 6 D-10: per-Profile upgrade flag. Default TRUE (language rank ordered, *arr promise).
+        // Schema delta in 001_mangarr_baseline.cs (Alter.Table TranslationProfiles AddColumn UpgradeAllowed default true).
+        public bool UpgradeAllowed { get; set; } = true;
     }
 }

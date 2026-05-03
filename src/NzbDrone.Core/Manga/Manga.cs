@@ -37,6 +37,13 @@ namespace NzbDrone.Core.Manga
         public int? TranslationProfileId { get; set; }
         public int? CustomFormatProfileId { get; set; }
 
+        // Sonarr divergence: NEW manga column per Phase 6 D-10 — see DIVERGENCE.md.
+        // Three-state semantics: NULL (default) = fall back to per-Profile UpgradeAllowed flag;
+        // TRUE = force-allow upgrades on this Manga; FALSE = force-disallow. Mirrors the
+        // per-Manga FK + global default pattern Phase 5 D-01 + D-07 established for both
+        // profiles. Schema delta in 001_mangarr_baseline.cs.
+        public bool? UpgradeAllowedOverride { get; set; }
+
         // Title fields — mirror Sonarr's Series shape for parser/normalizer reuse.
         public string Title { get; set; }
         public string CleanTitle { get; set; }

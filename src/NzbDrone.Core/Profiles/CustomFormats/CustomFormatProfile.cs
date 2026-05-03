@@ -30,6 +30,11 @@ namespace NzbDrone.Core.Profiles.CustomFormats
         public int? MaxFormatScore { get; set; }               // D-07 default null = no cap (NULLABLE divergence per Adaptation Hotspot 4)
         public List<ProfileFormatItem> FormatItems { get; set; }   // per-profile per-CF score override (Open Question 2)
 
+        // Phase 6 D-10: per-Profile upgrade flag. Default FALSE (manga CF scores subjective; auto-churn risky).
+        // Schema delta in 001_mangarr_baseline.cs (Alter.Table CustomFormatProfiles AddColumn UpgradeAllowed default false).
+        // C# bool default is already false; intentional NO explicit initializer (CA1805).
+        public bool UpgradeAllowed { get; set; }
+
         // Mirrors QualityProfile.CalculateCustomFormatScore (Profiles/Qualities/QualityProfile.cs:91-94)
         // verbatim. Sums per-CF score overrides for matched formats. Phase 5 D-07.
         public int CalculateCustomFormatScore(List<NzbDrone.Core.CustomFormats.CustomFormat> formats)
