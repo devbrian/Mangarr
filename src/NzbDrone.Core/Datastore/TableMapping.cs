@@ -33,9 +33,11 @@ using NzbDrone.Core.Notifications;
 using NzbDrone.Core.Organizer;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Profiles;
+using NzbDrone.Core.Profiles.CustomFormats;
 using NzbDrone.Core.Profiles.Delay;
 using NzbDrone.Core.Profiles.Qualities;
 using NzbDrone.Core.Profiles.Releases;
+using NzbDrone.Core.Profiles.Translations;
 using NzbDrone.Core.Qualities;
 using NzbDrone.Core.RemotePathMappings;
 using NzbDrone.Core.RootFolders;
@@ -160,6 +162,13 @@ namespace NzbDrone.Core.Datastore
             Mapper.Entity<CustomFormat>("CustomFormats").RegisterModel();
 
             Mapper.Entity<QualityProfile>("QualityProfiles").RegisterModel();
+
+            // Phase 5 D-01 — TranslationProfile entity registration. Sibling to QualityProfiles.
+            Mapper.Entity<TranslationProfile>("TranslationProfiles").RegisterModel();
+
+            // Phase 5 D-07 — CustomFormatProfile entity registration. Sibling to TranslationProfiles.
+            Mapper.Entity<CustomFormatProfile>("CustomFormatProfiles").RegisterModel();
+
             Mapper.Entity<Log>("Logs").RegisterModel();
             Mapper.Entity<NamingConfig>("NamingConfig").RegisterModel();
             Mapper.Entity<Blocklist>("Blocklist").RegisterModel();

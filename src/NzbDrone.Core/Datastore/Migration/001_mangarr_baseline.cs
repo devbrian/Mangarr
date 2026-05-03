@@ -155,6 +155,12 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("Label").AsString().Unique();
 
             // TODO: Phase 8 — drop TV-specific naming format columns when Tv/ removed.
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 5 — NamingConfig manga columns.
+            // Per dev-migration-policy.md edit-001 + Phase 5 D-13 (extend existing NamingConfig
+            // singleton; DO NOT ship a sibling MangaNamingConfig table — D-04 invariant: ONE
+            // singleton, no Library entity). Phase 8 cleanup: drop TV-shaped columns when Tv/ deletes.
+            // ─────────────────────────────────────────────────────────────────────
             Create.TableForModel("NamingConfig")
                 .WithColumn("MultiEpisodeStyle").AsInt32()
                 .WithColumn("RenameEpisodes").AsBoolean().Nullable()
@@ -166,7 +172,10 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("ReplaceIllegalCharacters").AsBoolean().NotNullable().WithDefaultValue(true)
                 .WithColumn("SpecialsFolderFormat").AsString().NotNullable().WithDefaultValue("Specials")
                 .WithColumn("ColonReplacementFormat").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("CustomColonReplacementFormat").AsString().NotNullable().WithDefaultValue(string.Empty);
+                .WithColumn("CustomColonReplacementFormat").AsString().NotNullable().WithDefaultValue(string.Empty)
+                .WithColumn("StandardChapterFormat").AsString().Nullable()
+                .WithColumn("MangaFolderFormat").AsString().Nullable()
+                .WithColumn("RenameChapters").AsBoolean().NotNullable().WithDefaultValue(false);
 
             // ─────────────────────────────────────────────────────────────────────
             // TV domain tables (D-02 — verbatim recreation; sit empty at runtime;
@@ -316,6 +325,34 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("CutoffFormatScore").AsInt32().NotNullable().WithDefaultValue(0)
                 .WithColumn("FormatItems").AsString().NotNullable().WithDefaultValue("[]")
                 .WithColumn("MinUpgradeFormatScore").AsInt32().NotNullable().WithDefaultValue(1);
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 5 — TranslationProfiles table.
+            // Per dev-migration-policy.md edit-001 + Phase 5 D-01 + D-03 (cf-only-walkthrough.md verdict).
+            // Sibling to QualityProfiles (above). Languages persists as JSON column via the
+            // EmbeddedDocumentConverter<List<string>> (StringListConverter<List<string>>) already
+            // registered at TableMapping.cs:224 — no new converter needed (PATTERNS-MAP Adaptation Hotspot 8).
+            // Phase 8 cleanup: collapse Profiles/Translations into canonical Profiles/ namespace.
+            // ─────────────────────────────────────────────────────────────────────
+            Create.TableForModel("TranslationProfiles")
+                .WithColumn("Name").AsString().Unique()
+                .WithColumn("Languages").AsString().NotNullable().WithDefaultValue("[]")
+                .WithColumn("AllowLanguagesNotInProfile").AsBoolean().NotNullable().WithDefaultValue(false);
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 5 — CustomFormatProfiles table.
+            // Per dev-migration-policy.md edit-001 + Phase 5 D-07 (CF score thresholds live on a
+            // SEPARATE entity from TranslationProfile — language preference + CF scoring are
+            // orthogonal user concerns). MaxFormatScore is NULLABLE (divergence from QualityProfile
+            // which has no max-score concept). FormatItems uses EmbeddedDocumentConverter
+            // <List<ProfileFormatItem>> already registered at TableMapping.cs:213.
+            // Phase 8 cleanup: collapse Profiles/CustomFormats into canonical Profiles/ namespace.
+            // ─────────────────────────────────────────────────────────────────────
+            Create.TableForModel("CustomFormatProfiles")
+                .WithColumn("Name").AsString().Unique()
+                .WithColumn("MinFormatScore").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("MaxFormatScore").AsInt32().Nullable()
+                .WithColumn("FormatItems").AsString().NotNullable().WithDefaultValue("[]");
 
             Create.TableForModel("CustomFormats")
                 .WithColumn("Name").AsString().Unique()
@@ -563,6 +600,13 @@ namespace NzbDrone.Core.Datastore.Migration
             // ═════════════════════════════════════════════════════════════════════
             // NEW MANGA TABLES (D-01 / D-06 / D-08 / D-09).
             // ═════════════════════════════════════════════════════════════════════
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 5 — Manga FK columns (TranslationProfileId + CustomFormatProfileId).
+            // Per dev-migration-policy.md edit-001 + Phase 5 D-01 + D-07.
+            // Both nullable int FK; null = fall back to Config.DefaultTranslationProfileId
+            // or Config.DefaultCustomFormatProfileId. Mirrors Sonarr's Series.QualityProfileId
+            // per-Series-FK pattern verbatim.
+            // ─────────────────────────────────────────────────────────────────────
             Create.TableForModel("Manga")
                 .WithColumn("Title").AsString().NotNullable()
                 .WithColumn("CleanTitle").AsString().NotNullable()
@@ -583,7 +627,9 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("Tags").AsString().Nullable()                   // JSON list
                 .WithColumn("TotalChapterCount").AsInt32().Nullable()       // folded from 002 (D-17 synthesis fallback)
                 .WithColumn("PublicationYear").AsInt32().Nullable()         // folded from 002 (D-21 multi-axis confirm)
-                .WithColumn("PrimaryAuthor").AsString().Nullable();         // folded from 002 (D-21 multi-axis confirm)
+                .WithColumn("PrimaryAuthor").AsString().Nullable()          // folded from 002 (D-21 multi-axis confirm)
+                .WithColumn("TranslationProfileId").AsInt32().Nullable()    // Phase 5 D-01 — null = fall back to Config.DefaultTranslationProfileId
+                .WithColumn("CustomFormatProfileId").AsInt32().Nullable();  // Phase 5 D-07 — null = fall back to Config.DefaultCustomFormatProfileId
 
             Create.TableForModel("Chapters")
                 .WithColumn("MangaId").AsInt32().NotNullable()
