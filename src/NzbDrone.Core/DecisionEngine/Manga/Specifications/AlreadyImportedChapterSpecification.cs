@@ -1,36 +1,42 @@
-using System.Linq;
 using NLog;
-using NzbDrone.Core.Configuration;
-using NzbDrone.Core.History;
 using NzbDrone.Core.Parser.Manga.Model;
 
 namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
 {
     // Sonarr divergence: NEW manga sibling per Phase 5 D-06 — see DIVERGENCE.md.
-    // Mirrors AlreadyImportedSpecification at
+    // Role-match analog: TV AlreadyImportedSpecification at
     // src/NzbDrone.Core/DecisionEngine/Specifications/AlreadyImportedSpecification.cs (99 lines).
-    // ADAPTATION HOTSPOT 6: DROPS the Quality.Equals comparison (TV-analog lines 68-71) — manga has
-    // no quality model. Conservative semantics per Assumption A6: reject re-grab when monitored=true
-    // AND chapter has a Grabbed+Imported history pair. Phase 6 owns "is this release better than
-    // the already-imported one" upgrade decision.
     //
-    // History coupling note: Phase 5 reuses IHistoryService.FindByEpisodeId(int) with chapter.Id
-    // because Episode.Id and Chapter.Id share the int ModelBase.Id space. Phase 6 will introduce
-    // FindByChapterId once it builds the manga history pipeline; this spec swaps to that method
-    // with a one-line change at the call site.
+    // Phase 5 STUB per code-review BL-01 — TODO Phase 6 wire IHistoryService.FindByChapterId(int).
+    // Originally this spec called _historyService.FindByEpisodeId(chapter.Id) to short-circuit
+    // re-grabs once a Grabbed+Imported history pair existed. That method filters on the TV
+    // History.EpisodeId column; Episode.Id and Chapter.Id come from independent SQLite
+    // autoincrement sequences, so any value where both happen to exist (e.g. Chapter.Id=100
+    // AND Episode.Id=100) silently returned TV history for an unrelated TV episode and
+    // rejected the manga release as "already imported" (cross-pollination).
+    //
+    // The fix lives in Phase 6: add a manga-aware overload (IHistoryService.FindByChapterId,
+    // or a manga-side IMangaHistoryService) gated on the manga history pipeline. Until that
+    // substrate lands, this spec ships as Accept-always so the auto-discovery 11-spec count
+    // + DI-resolution test in plan 05-07 pass without blocking on Phase 6 deliverables and
+    // without driving the false-rejection bug.
+    //
+    // Implements IMangaDecisionEngineSpecification ONLY (Pitfall 6 guard preserved); priority =
+    // Database (short-circuits before Default-priority specs once wired); type = Permanent.
+    // Mirrors the BlocklistSpecification + QueueDuplicateSpecification stub pattern.
+    //
+    // ADAPTATION HOTSPOT 6 (preserved for Phase 6): DROPS the Quality.Equals comparison
+    // (TV-analog lines 68-71) — manga has no quality model. Conservative semantics per
+    // Assumption A6: reject re-grab when monitored=true AND chapter has a Grabbed+Imported
+    // history pair. Phase 6 owns "is this release better than the already-imported one"
+    // upgrade decision.
     // Phase 8 cleanup: collapse with TV analog when Tv/ deletes.
     public class AlreadyImportedChapterSpecification : IMangaDecisionEngineSpecification
     {
-        private readonly IHistoryService _historyService;
-        private readonly IConfigService _configService;
         private readonly Logger _logger;
 
-        public AlreadyImportedChapterSpecification(IHistoryService historyService,
-                                                   IConfigService configService,
-                                                   Logger logger)
+        public AlreadyImportedChapterSpecification(Logger logger)
         {
-            _historyService = historyService;
-            _configService = configService;
             _logger = logger;
         }
 
@@ -39,43 +45,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
 
         public DownloadSpecDecision IsSatisfiedBy(RemoteChapter subject, ReleaseDecisionInformation information)
         {
-            var cdhEnabled = _configService.EnableCompletedDownloadHandling;
-            if (!cdhEnabled)
-            {
-                _logger.Debug("Skipping already-imported check because CDH is disabled");
-                return DownloadSpecDecision.Accept();
-            }
-
-            if (subject.Chapters == null || !subject.Chapters.Any())
-            {
-                return DownloadSpecDecision.Accept();
-            }
-
-            foreach (var chapter in subject.Chapters)
-            {
-                if (!chapter.Monitored)
-                {
-                    continue;
-                }
-
-                // Phase 5 reuses TV's FindByEpisodeId — chapter.Id and episode.Id share int Id space.
-                // Phase 6 swaps to FindByChapterId when manga history pipeline lands.
-                var history = _historyService.FindByEpisodeId(chapter.Id);
-                if (history == null || !history.Any())
-                {
-                    continue;
-                }
-
-                var grabbed = history.FirstOrDefault(h => h.EventType == EpisodeHistoryEventType.Grabbed);
-                var imported = history.FirstOrDefault(h => h.EventType == EpisodeHistoryEventType.DownloadFolderImported);
-
-                if (grabbed != null && imported != null)
-                {
-                    _logger.Debug("Chapter {0} already imported; rejecting re-grab (Phase 6 owns upgrade decision)", chapter.Id);
-                    return DownloadSpecDecision.Reject(DownloadRejectionReason.ChapterAlreadyImported, "Chapter already imported");
-                }
-            }
-
+            // Phase 5 STUB per code-review BL-01 — TODO Phase 6 wire IHistoryService.FindByChapterId.
             return DownloadSpecDecision.Accept();
         }
     }
