@@ -1,3 +1,4 @@
+using System;
 using System.Text.RegularExpressions;
 using FluentValidation;
 using NzbDrone.Common.Extensions;
@@ -18,6 +19,13 @@ namespace NzbDrone.Core.CustomFormats
     {
         private static readonly RegexSpecificationBaseValidator Validator = new RegexSpecificationBaseValidator();
 
+        // WR-09: catastrophic-backtracking / ReDoS DoS surface mitigation. A user-provided
+        // pattern like ^(a+)+$ against a long input can burn CPU indefinitely; without a
+        // timeout, every release evaluation against that CF blocks the decision pipeline.
+        // 250ms is generous for normal patterns and aborts catastrophic ones cleanly via
+        // RegexMatchTimeoutException (caught in MatchString and treated as no-match).
+        private static readonly TimeSpan _regexTimeout = TimeSpan.FromMilliseconds(250);
+
         protected Regex _regex;
         protected string _raw;
 
@@ -31,7 +39,7 @@ namespace NzbDrone.Core.CustomFormats
 
                 if (value.IsNotNullOrWhiteSpace())
                 {
-                    _regex = new Regex(value, RegexOptions.Compiled | RegexOptions.IgnoreCase);
+                    _regex = new Regex(value, RegexOptions.Compiled | RegexOptions.IgnoreCase, _regexTimeout);
                 }
             }
         }
@@ -43,7 +51,16 @@ namespace NzbDrone.Core.CustomFormats
                 return false;
             }
 
-            return _regex.IsMatch(compared);
+            try
+            {
+                return _regex.IsMatch(compared);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                // WR-09: pattern hit the catastrophic-backtracking timeout. Treat as no-match
+                // so a single sloppy CF cannot freeze the entire decision pipeline.
+                return false;
+            }
         }
 
         public override NzbDroneValidationResult Validate()
