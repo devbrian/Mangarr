@@ -80,6 +80,9 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("Tags").AsString().Nullable();
 
             // TODO: Phase 8 — strip OnSeries* / OnEpisodeFile* event columns when Tv/ removed.
+            // Phase 6 D-18 — OnChapterImport added at end (default TRUE so newly-added
+            // Komga/Kavita providers fire OnChapterImport without an extra checkbox click;
+            // user can still disable per-provider). See DIVERGENCE.md + dev-migration-policy.md.
             Create.TableForModel("Notifications")
                 .WithColumn("Name").AsString().Unique()
                 .WithColumn("OnGrab").AsBoolean()
@@ -99,7 +102,8 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("OnApplicationUpdate").AsBoolean().NotNullable().WithDefaultValue(false)
                 .WithColumn("OnManualInteractionRequired").AsBoolean().NotNullable().WithDefaultValue(false)
                 .WithColumn("OnHealthRestored").AsBoolean().NotNullable().WithDefaultValue(false)
-                .WithColumn("OnImportComplete").AsBoolean().NotNullable().WithDefaultValue(false);
+                .WithColumn("OnImportComplete").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("OnChapterImport").AsBoolean().NotNullable().WithDefaultValue(true);
 
             // Sonarr's Metadata table is the ThingiProvider for IMetadataConsumer
             // (Kodi/Roksbox/Wdtv). CONTEXT.md D-01 'MetadataSources' refers to this
