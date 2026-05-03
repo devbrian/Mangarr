@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using Newtonsoft.Json;
 using NLog;
 using NzbDrone.Common.EnsureThat;
+using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Http.Proxy;
 using NzbDrone.Core.Configuration.Events;
 using NzbDrone.Core.ImportLists;
@@ -25,13 +28,15 @@ namespace NzbDrone.Core.Configuration
     {
         private readonly IConfigRepository _repository;
         private readonly IEventAggregator _eventAggregator;
+        private readonly IAppFolderInfo _appFolderInfo;
         private readonly Logger _logger;
         private static Dictionary<string, string> _cache;
 
-        public ConfigService(IConfigRepository repository, IEventAggregator eventAggregator, Logger logger)
+        public ConfigService(IConfigRepository repository, IEventAggregator eventAggregator, IAppFolderInfo appFolderInfo, Logger logger)
         {
             _repository = repository;
             _eventAggregator = eventAggregator;
+            _appFolderInfo = appFolderInfo;
             _logger = logger;
             _cache = new Dictionary<string, string>();
         }
@@ -424,6 +429,95 @@ namespace NzbDrone.Core.Configuration
         {
             get { return GetValueBoolean("TrustCgnatIpAddresses", false); }
             set { SetValue("TrustCgnatIpAddresses", value); }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Phase 4 — global Config keys (D-04: global, NO Library entity).
+        // Surfaced in Phase 7 React Settings → Media Management form.
+        // ─────────────────────────────────────────────────────────────────────
+
+        public string DownloadScratchPath
+        {
+            get
+            {
+                var raw = GetValue("DownloadScratchPath", string.Empty);
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    // D-06 default — <DataDir>/scratch/downloads/. Cross-volume deployment supported.
+                    var dataFolder = _appFolderInfo?.AppDataFolder ?? string.Empty;
+                    return Path.Combine(dataFolder, "scratch", "downloads");
+                }
+
+                return raw;
+            }
+            set
+            {
+                SetValue("DownloadScratchPath", value);
+            }
+        }
+
+        public string StagingPath
+        {
+            get
+            {
+                var raw = GetValue("StagingPath", string.Empty);
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    // Phase 4 D-09 — staging dir for finished CBZ artifacts (Phase 6 reads from here).
+                    // Default <DataDir>/completed — sibling to scratch, NOT under it. Resolves T-04-22
+                    // (mitigates the cross-volume / relative-".." path-construction risk that the
+                    // initial plan introduced). Same volume as DataDir → atomic rename works.
+                    var dataFolder = _appFolderInfo?.AppDataFolder ?? string.Empty;
+                    return Path.Combine(dataFolder, "completed");
+                }
+
+                return raw;
+            }
+            set
+            {
+                SetValue("StagingPath", value);
+            }
+        }
+
+        public string OutputFormat
+        {
+            get { return GetValue("OutputFormat", "cbz"); }   // ARCHIVE-01 default
+            set { SetValue("OutputFormat", value); }
+        }
+
+        public List<string> MetadataFormats
+        {
+            get
+            {
+                // Default seeded only when key absent; once explicitly set we honor the stored
+                // value (including null/empty list) so the round-trip in ConfigService
+                // reflection tests is preserved.
+                var raw = GetValue("MetadataFormats", "[\"comicinfo\"]");
+                if (string.IsNullOrEmpty(raw))
+                {
+                    return null;
+                }
+
+                try
+                {
+                    return JsonConvert.DeserializeObject<List<string>>(raw);
+                }
+                catch (JsonException)
+                {
+                    return new List<string> { "comicinfo" };
+                }
+            }
+            set
+            {
+                // Round-trip null through JSON so `set null` → `get null` (D-04 reflection test contract).
+                SetValue("MetadataFormats", JsonConvert.SerializeObject(value));
+            }
+        }
+
+        public int RetentionDays
+        {
+            get { return GetValueInt("RetentionDays", 7); }   // D-08 default
+            set { SetValue("RetentionDays", value); }
         }
 
         private string GetValue(string key)
