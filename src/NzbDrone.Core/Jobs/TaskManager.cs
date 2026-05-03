@@ -9,6 +9,7 @@ using NzbDrone.Core.Configuration.Events;
 using NzbDrone.Core.DataAugmentation.Scene;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
+using NzbDrone.Core.Download.Manga;
 using NzbDrone.Core.HealthCheck;
 using NzbDrone.Core.Housekeeping;
 using NzbDrone.Core.ImportLists;
@@ -172,6 +173,19 @@ namespace NzbDrone.Core.Jobs
                     {
                         Interval = 24 * 60,
                         TypeName = typeof(MissingChapterSearchCommand).FullName
+                    },
+
+                    // Phase 6 RESEARCH Pattern 1 — 1-minute resilience poll path for
+                    // ProcessMangaCompletedDownloads. The reactive IHandle<ChapterArchivedEvent>
+                    // path covers the happy case; this scheduled poll covers (a) process
+                    // restart between archive completion and import (event lost), (b) handler
+                    // exception missed by event bus, (c) Phase 6 import-spec rejection where
+                    // the row is held for retry. Registered at runtime via TaskManager.defaultTasks
+                    // per sonarr-consistency-audit anti-pattern C (NOT seeded via 001 Insert.IntoTable).
+                    new ScheduledTask
+                    {
+                        Interval = 1,
+                        TypeName = typeof(ProcessMangaCompletedCommand).FullName
                     }
                 };
 

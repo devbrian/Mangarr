@@ -50,6 +50,16 @@ namespace NzbDrone.Core.Test.JobTests
         }
 
         [Test]
+        public void TaskManager_defaultTasks_registers_ProcessMangaCompletedCommand()
+        {
+            // Plan 06-08 Task 1 — RESEARCH Pattern 1 hybrid event-handler + 1-min poller.
+            // The poller path runs ProcessMangaCompletedDownloads.Execute periodically as a
+            // resilience cover for missed ChapterArchivedEvent dispatches.
+            _taskManagerSource.Should().Contain("typeof(ProcessMangaCompletedCommand).FullName",
+                "Plan 06-08 Task 1 must register ProcessMangaCompletedCommand in TaskManager.defaultTasks (Anti-pattern C: NOT via migration seed)");
+        }
+
+        [Test]
         public void Migration_001_contains_zero_Insert_IntoTable_calls()
         {
             // Strip comments before counting — a `// ... Insert.IntoTable ...` documentation
