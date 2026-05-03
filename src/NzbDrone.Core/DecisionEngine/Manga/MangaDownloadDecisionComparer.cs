@@ -93,23 +93,29 @@ namespace NzbDrone.Core.DecisionEngine.Manga
 
         // Higher score wins. Mirrors DownloadDecisionComparer.CompareCustomFormatScore (lines 83-86)
         // — CompareBy + OrderByDescending = higher score sorts first.
+        // WR-01: defensive null-safety mirroring CompareLanguageRank pattern — comparer is a
+        // public IComparer<T> and may be invoked with RemoteChapter instances whose Release is
+        // null (legal per the MangaDownloadDecision constructor surface).
         private int CompareCustomFormatScore(MangaDownloadDecision x, MangaDownloadDecision y)
-            => CompareBy(x.RemoteChapter, y.RemoteChapter, rc => rc.CustomFormatScore);
+            => CompareBy(x.RemoteChapter, y.RemoteChapter, rc => rc?.CustomFormatScore ?? 0);
 
         // Mirror DownloadDecisionComparer.cs:66-69 — lower IndexerPriority value = better.
         // CompareByReverse + OrderByDescending = lower IndexerPriority sorts first.
+        // WR-01: null-safe — null Release sorts LAST (int.MaxValue worst-priority sentinel).
         private int CompareIndexerPriority(MangaDownloadDecision x, MangaDownloadDecision y)
-            => CompareByReverse(x.RemoteChapter.Release, y.RemoteChapter.Release, r => r.IndexerPriority);
+            => CompareByReverse(x.RemoteChapter?.Release, y.RemoteChapter?.Release, r => r?.IndexerPriority ?? int.MaxValue);
 
         // Newer wins — lower AgeHours = better. Mirrors TV CompareAgeIfUsenet shape with manga
         // simplification: no protocol gate (Phase 4 D-10 — manga is HTTP-only). CompareByReverse +
         // OrderByDescending = lower AgeHours sorts first.
+        // WR-01: null-safe — null Release sorts LAST (double.MaxValue worst-age sentinel).
         private int CompareAge(MangaDownloadDecision x, MangaDownloadDecision y)
-            => CompareByReverse(x.RemoteChapter.Release, y.RemoteChapter.Release, r => r.AgeHours);
+            => CompareByReverse(x.RemoteChapter?.Release, y.RemoteChapter?.Release, r => r?.AgeHours ?? double.MaxValue);
 
         // Larger size wins. Mirrors TV CompareSize fallback shape — CompareBy + OrderByDescending =
         // larger size sorts first.
+        // WR-01: null-safe — null Release sorts LAST (size 0 worst-size sentinel).
         private int CompareSize(MangaDownloadDecision x, MangaDownloadDecision y)
-            => CompareBy(x.RemoteChapter.Release, y.RemoteChapter.Release, r => r.Size);
+            => CompareBy(x.RemoteChapter?.Release, y.RemoteChapter?.Release, r => r?.Size ?? 0L);
     }
 }
