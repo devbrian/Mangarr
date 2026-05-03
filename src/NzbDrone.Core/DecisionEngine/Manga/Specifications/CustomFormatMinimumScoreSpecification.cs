@@ -41,6 +41,18 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
             }
 
             var profile = _profileService.Get(profileId.Value);
+
+            // WR-02: orphaned FK guard. The service's in-use protection blocks normal deletes,
+            // but cannot protect against direct DB edits, restore-from-backup that drops the
+            // referenced profile, or a stale Manga.CustomFormatProfileId after a deletion race.
+            // Treat null profile as "no profile assigned" (mirrors the profileId == null branch
+            // above) — falls through to Accept rather than NRE'ing on profile.MinFormatScore.
+            if (profile == null)
+            {
+                _logger.Warn("CustomFormatProfile {0} not found (orphaned FK); accepting", profileId.Value);
+                return DownloadSpecDecision.Accept();
+            }
+
             var score = subject.CustomFormatScore;
             var formats = subject.CustomFormats?.ConcatToString() ?? "(none)";
 
