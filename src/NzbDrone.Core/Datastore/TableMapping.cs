@@ -6,6 +6,7 @@ using NzbDrone.Common.Reflection;
 using NzbDrone.Core.Authentication;
 using NzbDrone.Core.AutoTagging.Specifications;
 using NzbDrone.Core.Blocklisting;
+using NzbDrone.Core.Blocklisting.Manga;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.CustomFilters;
 using NzbDrone.Core.CustomFormats;
@@ -208,6 +209,13 @@ namespace NzbDrone.Core.Datastore
             // EpisodeHistory above at line 129). BL-01 fix: ChapterId column is independent of
             // EpisodeHistory.EpisodeId — see History/Manga/ChapterHistory.cs header.
             Mapper.Entity<ChapterHistory>("ChapterHistory").RegisterModel();
+
+            // Phase 6 D-11 + D-19 (Plan 06-04) — MangaBlocklist registration (parallel sibling
+            // to Blocklist registered at line 176). Release-identity = (SourceKey, ReleaseGuid,
+            // SourceTitle) triple. The separate registration is the BL-01-style mechanical
+            // guarantee — Dapper Query<MangaBlocklist> cannot leak rows from the TV Blocklist
+            // table even when MangaId / SeriesId int values collide.
+            Mapper.Entity<MangaBlocklist>("MangaBlocklist").RegisterModel();
 
             Mapper.Entity<DownloadClientStatus>("DownloadClientStatus").RegisterModel();
             Mapper.Entity<ImportListStatus>("ImportListStatus").RegisterModel();
