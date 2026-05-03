@@ -56,6 +56,17 @@ namespace NzbDrone.Core.Parser.Model
         /// </summary>
         public string TranslatedLanguage { get; set; }
 
+        /// <summary>
+        /// Phase 6 PIPELINE-04 — manga sibling of <c>GrabbedReleaseInfo.EpisodeIds</c>. Stamped
+        /// at search-time after MangaParsingService.Map resolves a release to one or more
+        /// Chapter rows; consumed by Plan 06-07 <c>MatchesGrabSpecification</c> to reject
+        /// downloads whose actual <c>LocalChapter.Chapters</c> do not match the chapters this
+        /// release was grabbed for (downloaded the wrong thing). Initialized to empty list.
+        /// Phase 8 cleanup: collapse with <c>EpisodeIds</c> when <c>Tv/</c> deletes.
+        /// Sonarr divergence: NEW manga-side field — see DIVERGENCE.md.
+        /// </summary>
+        public List<int> ChapterIds { get; set; } = new List<int>();
+
         public List<Language> Languages { get; set; }
 
         [JsonIgnore]
