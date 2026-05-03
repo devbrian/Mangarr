@@ -76,5 +76,25 @@ public enum DownloadRejectionReason
     DiskCustomFormatScoreIncrement,
     DiskUpgradesNotAllowed,
     DiskNotUpgrade,
-    BeforeAirDate
+    BeforeAirDate,
+
+    // Phase 5 D-06 — TPROFILE outer enforcer reject reason (LanguageInTranslationProfileSpecification).
+    LanguageNotInProfile,
+
+    // Phase 5 D-07 — CF inner enforcer upper-bound reject reason (CustomFormatMinimumScoreSpecification).
+    // CustomFormatMinimumScore (lower-bound) already exists on this enum (Sonarr precedent).
+    CustomFormatMaximumScore,
+
+    // Phase 5 D-06 — manga core gate reject reasons (manga-side siblings to TV SeriesNotMonitored / EpisodeNotMonitored).
+    MangaNotMonitored,
+    ChapterMissingFromRelease,
+    ChapterNotMonitored,
+    ChapterNotRequested,
+    ChapterAlreadyImported,
+    ChapterAlreadyQueued,
+
+    // Phase 5 D-06 — manga operational size gate reject reasons (siblings to TV BelowMinimumSize / MaximumSizeExceeded
+    // but distinct names so the operational-vs-quality distinction stays clear in logs).
+    SizeTooSmall,
+    SizeTooLarge
 }

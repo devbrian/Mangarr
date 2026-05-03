@@ -1,0 +1,41 @@
+# DecisionEngine/Manga
+
+## Purpose
+Parallel manga decision-engine pipeline per Phase 5 D-05 — sibling to the TV `DecisionEngine/` orchestrator. Contains `IMangaDecisionEngineSpecification`, `MangaDownloadDecisionMaker`, `MangaDownloadDecisionComparer`, `MangaDownloadDecision` DTO, plus the 11-spec auto-discovered set under `Specifications/`.
+
+**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\DecisionEngine\Manga`
+
+## Key Files
+| File | Purpose |
+|------|---------|
+| `IMangaDecisionEngineSpecification.cs` | Manga-side spec interface taking `RemoteChapter` (compile-error-driven additive contract) |
+| `IMakeMangaDownloadDecision.cs` | Orchestrator interface (Phase 6 dispatchers consume) |
+| `MangaDownloadDecision.cs` | DTO with `RemoteChapter` + `Rejections` |
+| `MangaDownloadDecisionMaker.cs` | IMakeMangaDownloadDecision impl — priority-grouped spec exec + CF augmentation |
+| `MangaDownloadDecisionComparer.cs` | IComparer<MangaDownloadDecision> with D-08 ordering |
+| `Specifications/` | 11 auto-discovered specs (5 core + 1 language + 1 CF + 4 operational) |
+
+## Patterns / Conventions
+- **Compile-error-driven additive contract** (Phase 3 LEARNINGS pattern): `IMangaDecisionEngineSpecification(RemoteChapter)` is a NEW interface, not a method on `IDownloadDecisionEngineSpecification`. TV specs cannot accidentally fire on manga.
+- **DryIoc IEnumerable<TPlugin> auto-discovery** (Phase 4 LEARNINGS pattern S1): `MangaDownloadDecisionMaker(IEnumerable<IMangaDecisionEngineSpecification>)` constructor auto-resolves all impls — no manual DI registration.
+- **Priority-grouped spec execution** (mirrors `DownloadDecisionMaker.cs:180-197` verbatim): `_specifications.GroupBy(v => v.Priority).OrderBy(v => v.Key)` — Database-priority specs short-circuit before Default-priority specs.
+- **Pitfall 6 mitigation**: manga specs implement `IMangaDecisionEngineSpecification` ONLY. Plan acceptance grep checks for accidental dual-interface impls.
+- **D-08 comparer ordering**: Language rank → CF score → Indexer priority → Age → Size. Indexer priority promoted above age/size per user direction (source-stability matters more than freshness at human-library scale).
+
+## Manga Adaptation Notes
+This is a NEW manga-side directory mirroring `DecisionEngine/` (TV). Sonarr's TV spec set takes `RemoteEpisode`; manga specs take `RemoteChapter`. The 11-spec set per D-06 covers all release-evaluation concerns:
+- 5 core gates: Monitored Manga / Chapter, ChapterRequested, AlreadyImportedChapter, Blocklist
+- 1 language gate (NEW — no TV analog): LanguageInTranslationProfile (TPROFILE outer enforcer per cf-only-walkthrough.md verdict)
+- 1 CF gate: CustomFormatMinimumScore (CF inner enforcer — reads MinFormatScore + MaxFormatScore from CustomFormatProfile)
+- 4 operational gates: MinimumAge, AcceptableSize, MaximumSize, QueueDuplicate
+
+## Phase 8 Collapse
+When `Tv/` deletes in Phase 8, this directory collapses into the canonical `DecisionEngine/` namespace. The dual-pipeline structure exists ONLY to keep TV decision logic isolated from manga during the transition.
+
+## Cross-References
+- [Phase 5 CONTEXT](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md) — D-05, D-06, D-08
+- [Phase 5 RESEARCH](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-RESEARCH.md) — Pitfall 5 (F-01-class regression mitigation), Pitfall 6 (cross-injection guard)
+- [Phase 5 PATTERNS-MAP](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-PATTERNS.md) — Adaptation Hotspots 1, 3, 6
+- [cf-only-walkthrough.md](../../../../.planning/decisions/cf-only-walkthrough.md) — verdict signoff 2026-05-01
+- [Sonarr DownloadDecisionMaker](../DownloadDecisionMaker.cs)
+- [DIVERGENCE.md](../../../../../DIVERGENCE.md) — Phase 5 D-05 entry (added in Wave 4 plan 05-07)
