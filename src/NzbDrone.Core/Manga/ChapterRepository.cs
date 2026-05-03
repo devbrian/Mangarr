@@ -47,6 +47,18 @@ namespace NzbDrone.Core.Manga
             return Query(c => c.Monitored && c.ChapterFileId == null).ToList();
         }
 
+        public PagingSpec<Chapter> ChaptersWithoutFiles(PagingSpec<Chapter> pagingSpec)
+        {
+            // Plan 06-09 — paged variant for the V5 Wanted/Missing controller. Pre-pends a
+            // "Chapter.ChapterFileId IS NULL" filter onto the spec; any caller-supplied
+            // FilterExpressions (mangaIds, monitored, languages) compose on top via the
+            // existing BasicRepository.AddFilters pipeline. V1 simplification: no JOIN to
+            // Manga table — controller hydrates Manga via service-layer Get when needed
+            // (mirrors Plan 06-03 ChapterHistoryRepository.GetPaged convention).
+            pagingSpec.FilterExpressions.Add(c => c.ChapterFileId == null);
+            return GetPaged(pagingSpec);
+        }
+
         public void SetMonitored(IEnumerable<int> ids, bool monitored)
         {
             var chapters = Get(ids).ToList();

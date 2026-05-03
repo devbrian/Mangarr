@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using NLog;
+using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Messaging.Events;
 
 namespace NzbDrone.Core.Manga
@@ -57,6 +58,14 @@ namespace NzbDrone.Core.Manga
             // Phase 6 D-09 — pass-through to repository. Consumed by Plan 06-06
             // MissingChapterSearchService which then filters by Manga.Monitored.
             return _chapterRepository.AllMissingMonitoredChapters();
+        }
+
+        public PagingSpec<Chapter> ChaptersWithoutFiles(PagingSpec<Chapter> pagingSpec)
+        {
+            // Plan 06-09 — pass-through. The repository pre-pends a `ChapterFileId IS NULL`
+            // filter onto the spec; the controller composes monitored / mangaIds / languages
+            // filters on top via PagingSpec.FilterExpressions.
+            return _chapterRepository.ChaptersWithoutFiles(pagingSpec);
         }
 
         public void UpdateChapter(Chapter chapter)

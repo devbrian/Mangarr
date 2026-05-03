@@ -20,6 +20,12 @@ namespace NzbDrone.Core.Manga
         // Phase 6 D-09 — monitored chapter rows with no ChapterFile imported (Wanted/Missing feed).
         List<Chapter> AllMissingMonitoredChapters();
 
+        // Plan 06-09 — paged variant for the V5 Wanted/Missing controller. Sibling of TV's
+        // `IEpisodeRepository.EpisodesWithoutFiles(PagingSpec, bool includeSpecials)`. The monitored
+        // filter is applied at the controller layer via PagingSpec.FilterExpressions; this method
+        // narrows to rows with `ChapterFileId IS NULL` and lets the spec layer apply the rest.
+        PagingSpec<Chapter> ChaptersWithoutFiles(PagingSpec<Chapter> pagingSpec);
+
         void SetMonitored(IEnumerable<int> ids, bool monitored);
     }
 }

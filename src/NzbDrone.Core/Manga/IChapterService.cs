@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using NzbDrone.Core.Datastore;
 
 namespace NzbDrone.Core.Manga
 {
@@ -22,6 +23,13 @@ namespace NzbDrone.Core.Manga
         // MissingChapterSearchService) — this method returns all monitored chapter rows with
         // ChapterFileId IS NULL regardless of parent manga state.
         List<Chapter> AllMissingMonitoredChapters();
+
+        // Plan 06-09 (Rule 3) — paged variant for the V5 Wanted/Missing controller. Sibling of
+        // TV's `IEpisodeService.EpisodesWithoutFiles(PagingSpec, bool includeSpecials)`. The
+        // monitored filter is APPLIED INSIDE the paging spec by the controller (so callers can
+        // opt out via `monitored=false` query). The repository walks `Chapter.ChapterFileId IS NULL`
+        // and applies the spec's FilterExpressions on top.
+        PagingSpec<Chapter> ChaptersWithoutFiles(PagingSpec<Chapter> pagingSpec);
 
         void UpdateChapter(Chapter chapter);
         void SetChapterMonitored(int chapterId, bool monitored);
