@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Phase 4 ARCHIVE-04 — golden ComicInfo.xml expected output for the canonical Wave 0
+  fixture input (Vagabond Chapter 132 with TestGroup scanlator, 5 pages, EN language,
+  Manga rating "safe", AirDateUtc=2026-05-01). The matching XDocument is produced by
+  ComicInfoXmlBuilder.Build(MakeRequest()) in ComicInfoXmlBuilderFixture.
+
+  Compared against actual builder output via XNode.DeepEquals — whitespace + comments
+  ignored, structure + values asserted. v2.0 + v2.1 dual-write contract guarded
+  (Pitfall 3): both <ScanInformation> AND <Translator> populated identically.
+  <Web> element omitted in v1 (Series.cs has no MangaDex ID field; deferred to Phase 5).
+-->
+<ComicInfo>
+  <Title>Chapter 132</Title>
+  <Series>Vagabond</Series>
+  <Number>132</Number>
+  <Summary>A samurai's journey</Summary>
+  <Year>2026</Year>
+  <Month>5</Month>
+  <Day>1</Day>
+  <Genre>Action,Drama</Genre>
+  <PageCount>5</PageCount>
+  <LanguageISO>en</LanguageISO>
+  <AgeRating>Everyone</AgeRating>
+  <Manga>YesAndRightToLeft</Manga>
+  <ScanInformation>TestGroup</ScanInformation>
+  <Translator>TestGroup</Translator>
+  <Tags>Action,Drama</Tags>
+</ComicInfo>
