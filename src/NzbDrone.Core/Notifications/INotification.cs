@@ -20,6 +20,11 @@ namespace NzbDrone.Core.Notifications
         void OnHealthRestored(HealthCheck.HealthCheck previousCheck);
         void OnApplicationUpdate(ApplicationUpdateMessage updateMessage);
         void OnManualInteractionRequired(ManualInteractionRequiredMessage message);
+
+        // Sonarr divergence: NEW manga hook per Phase 6 D-18 + Pitfall 7 — see DIVERGENCE.md.
+        // Phase 8 cleanup: collapse with OnImportComplete when domain rename runs.
+        void OnChapterImport(ChapterImportMessage message);
+
         void ProcessQueue();
         bool SupportsOnGrab { get; }
         bool SupportsOnDownload { get; }
@@ -34,5 +39,6 @@ namespace NzbDrone.Core.Notifications
         bool SupportsOnHealthRestored { get; }
         bool SupportsOnApplicationUpdate { get; }
         bool SupportsOnManualInteractionRequired { get; }
+        bool SupportsOnChapterImport { get; }
     }
 }

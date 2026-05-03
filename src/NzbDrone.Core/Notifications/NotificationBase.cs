@@ -89,6 +89,11 @@ namespace NzbDrone.Core.Notifications
         {
         }
 
+        // Phase 6 D-18 manga-shaped hook. Default no-op; providers (Komga/Kavita) override.
+        public virtual void OnChapterImport(ChapterImportMessage message)
+        {
+        }
+
         public virtual void ProcessQueue()
         {
         }
@@ -106,6 +111,7 @@ namespace NzbDrone.Core.Notifications
         public bool SupportsOnHealthRestored => HasConcreteImplementation("OnHealthRestored");
         public bool SupportsOnApplicationUpdate => HasConcreteImplementation("OnApplicationUpdate");
         public bool SupportsOnManualInteractionRequired => HasConcreteImplementation("OnManualInteractionRequired");
+        public bool SupportsOnChapterImport => HasConcreteImplementation("OnChapterImport");
 
         protected TSettings Settings => (TSettings)Definition.Settings;
 
