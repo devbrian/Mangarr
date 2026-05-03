@@ -697,6 +697,99 @@ namespace NzbDrone.Core.Datastore.Migration
             // of D-18; the seed was deleted by TaskManager on every startup because
             // RefreshMangaCommand wasn't in TaskManager.defaultTasks. Quick task
             // 260502-3ip surfaced the divergence; corrected here + in TaskManager.
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 6 — ChapterHistory table (HISTORY-01..03; D-21 BL-01 fix).
+            // Per dev-migration-policy.md edit-001 + Phase 6 D-21.
+            // Parallel sibling to EpisodeHistory: ChapterId column is INDEPENDENT
+            // of EpisodeHistory.EpisodeId (closes Phase 5 BL-01 cross-domain ID
+            // collision). Phase 8 cleanup: collapse with EpisodeHistory when Tv/ deletes.
+            // ─────────────────────────────────────────────────────────────────────
+            Create.TableForModel("ChapterHistory")
+                .WithColumn("MangaId").AsInt32().NotNullable()
+                .WithColumn("ChapterId").AsInt32().NotNullable()
+                .WithColumn("EventType").AsInt32().NotNullable()
+                .WithColumn("Date").AsDateTime().NotNullable()
+                .WithColumn("SourceTitle").AsString().Nullable()
+                .WithColumn("DownloadId").AsString().Nullable()
+                .WithColumn("TranslatedLanguage").AsString().Nullable()
+                .WithColumn("ScanlationGroup").AsString().Nullable()
+                .WithColumn("SourceKey").AsString().Nullable()
+                .WithColumn("ReleaseGuid").AsString().Nullable()
+                .WithColumn("Data").AsString().Nullable()
+                .WithColumn("Successful").AsBoolean().NotNullable().WithDefaultValue(false);
+
+            Create.Index("IX_ChapterHistory_ChapterId").OnTable("ChapterHistory").OnColumn("ChapterId");
+            Create.Index("IX_ChapterHistory_MangaId_Date").OnTable("ChapterHistory")
+                .OnColumn("MangaId").Ascending().OnColumn("Date").Descending();
+            Create.Index("IX_ChapterHistory_DownloadId").OnTable("ChapterHistory").OnColumn("DownloadId");
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 6 — MangaBlocklist table (BLOCK-01..02; D-11 release identity).
+            // Per dev-migration-policy.md edit-001 + Phase 6 D-11.
+            // Release-level identity = (SourceKey, ReleaseGuid, Title) triple.
+            // Phase 8 cleanup: collapse with Blocklist when Tv/ deletes.
+            // ─────────────────────────────────────────────────────────────────────
+            Create.TableForModel("MangaBlocklist")
+                .WithColumn("MangaId").AsInt32().NotNullable()
+                .WithColumn("ChapterIds").AsString().Nullable()
+                .WithColumn("SourceTitle").AsString().NotNullable()
+                .WithColumn("SourceKey").AsString().Nullable()
+                .WithColumn("ReleaseGuid").AsString().Nullable()
+                .WithColumn("ReleaseInfoJson").AsString().Nullable()
+                .WithColumn("Date").AsDateTime().NotNullable()
+                .WithColumn("Reason").AsString().Nullable()
+                .WithColumn("Source").AsString().Nullable();
+
+            Create.Index("IX_MangaBlocklist_MangaId").OnTable("MangaBlocklist").OnColumn("MangaId");
+            Create.Index("IX_MangaBlocklist_ReleaseGuid").OnTable("MangaBlocklist").OnColumn("ReleaseGuid");
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 6 — ChapterFile table (PIPELINE-04 import artifact).
+            // Per dev-migration-policy.md edit-001 + Phase 6 PIPELINE-04.
+            // Parallel sibling to EpisodeFile. Phase 8 cleanup: collapse with EpisodeFile.
+            // ─────────────────────────────────────────────────────────────────────
+            Create.TableForModel("ChapterFiles")
+                .WithColumn("MangaId").AsInt32().NotNullable()
+                .WithColumn("ChapterId").AsInt32().NotNullable()
+                .WithColumn("RelativePath").AsString().NotNullable()
+                .WithColumn("Path").AsString().NotNullable()
+                .WithColumn("Size").AsInt64().NotNullable()
+                .WithColumn("DateAdded").AsDateTime().NotNullable()
+                .WithColumn("OriginalFilePath").AsString().Nullable()
+                .WithColumn("TranslatedLanguage").AsString().Nullable()
+                .WithColumn("ScanlationGroup").AsString().Nullable()
+                .WithColumn("ReleaseGroup").AsString().Nullable();
+
+            Create.Index("IX_ChapterFile_MangaId").OnTable("ChapterFiles").OnColumn("MangaId");
+            Create.Index("IX_ChapterFile_ChapterId").OnTable("ChapterFiles").OnColumn("ChapterId");
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 6 D-10 — UpgradeAllowed flags + per-Manga override.
+            // Per dev-migration-policy.md edit-001 + Phase 6 D-10.
+            // Three-state semantics: Manga.UpgradeAllowedOverride NULL → fall back to
+            // per-Profile UpgradeAllowed (TranslationProfile default TRUE — language rank
+            // ordered, *arr promise; CustomFormatProfile default FALSE — manga CF scores
+            // subjective, auto-churn risky).
+            // ─────────────────────────────────────────────────────────────────────
+            Alter.Table("Manga").AddColumn("UpgradeAllowedOverride").AsBoolean().Nullable();
+            Alter.Table("TranslationProfiles").AddColumn("UpgradeAllowed").AsBoolean().NotNullable().WithDefaultValue(true);
+            Alter.Table("CustomFormatProfiles").AddColumn("UpgradeAllowed").AsBoolean().NotNullable().WithDefaultValue(false);
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 6 PIPELINE-04 — Chapter ↔ ChapterFile FK (nullable; null = no file imported yet).
+            // Sibling to Episodes.EpisodeFileId. Plan 06-07 UpgradeSpec + Plan 06-09 Wanted query consume.
+            // ─────────────────────────────────────────────────────────────────────
+            Alter.Table("Chapters").AddColumn("ChapterFileId").AsInt32().Nullable();
+            Create.Index("IX_Chapter_ChapterFileId").OnTable("Chapters").OnColumn("ChapterFileId");
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 6 D-07 — per-IndexerDefinition SyncInterval override + LastRssSync timestamp.
+            // SyncInterval default 0 means "use global Config.MangaRssSyncInterval".
+            // Honored by Plan 06-06 MangaRssSyncService.
+            // ─────────────────────────────────────────────────────────────────────
+            Alter.Table("Indexers").AddColumn("SyncInterval").AsInt32().NotNullable().WithDefaultValue(0);
+            Alter.Table("Indexers").AddColumn("LastRssSync").AsDateTime().Nullable();
         }
 
         protected override void LogDbUpgrade()

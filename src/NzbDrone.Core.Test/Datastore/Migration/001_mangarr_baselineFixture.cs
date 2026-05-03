@@ -231,6 +231,180 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         }
 
         // ============================================================
+        // Phase 6 — ChapterHistory table created (HISTORY-01..03; D-21 BL-01 fix)
+        // ============================================================
+        [Test]
+        public void should_create_chapter_history_table_with_independent_chapter_id()
+        {
+            var db = WithDapperMigrationTestDb();
+
+            var rows = db.Query<TableInfoRow>("PRAGMA table_info(\"ChapterHistory\");").ToList();
+            var columnNames = rows.Select(r => r.name).ToList();
+
+            columnNames.Should().Contain("MangaId");
+            columnNames.Should().Contain("ChapterId");
+            columnNames.Should().Contain("EventType");
+            columnNames.Should().Contain("Date");
+            columnNames.Should().Contain("SourceTitle");
+            columnNames.Should().Contain("DownloadId");
+            columnNames.Should().Contain("TranslatedLanguage");
+            columnNames.Should().Contain("ScanlationGroup");
+            columnNames.Should().Contain("SourceKey");
+            columnNames.Should().Contain("ReleaseGuid");
+            columnNames.Should().Contain("Data");
+            columnNames.Should().Contain("Successful");
+
+            // Round-trip: insert and select.
+            db.Execute(
+                "INSERT INTO \"ChapterHistory\" (\"MangaId\", \"ChapterId\", \"EventType\", \"Date\", \"Successful\") "
+                + "VALUES (@MangaId, @ChapterId, @EventType, @Date, @Successful)",
+                new { MangaId = 1, ChapterId = 42, EventType = 1, Date = System.DateTime.UtcNow, Successful = true });
+
+            var roundtripped = db.Query<int>(
+                "SELECT \"ChapterId\" FROM \"ChapterHistory\" WHERE \"MangaId\" = 1").Single();
+
+            roundtripped.Should().Be(42, "ChapterHistory.ChapterId is independent of EpisodeHistory.EpisodeId");
+        }
+
+        // ============================================================
+        // Phase 6 — MangaBlocklist table (BLOCK-01..02; D-11 release identity)
+        // ============================================================
+        [Test]
+        public void should_create_manga_blocklist_table_with_release_identity_columns()
+        {
+            var db = WithDapperMigrationTestDb();
+
+            var rows = db.Query<TableInfoRow>("PRAGMA table_info(\"MangaBlocklist\");").ToList();
+            var columnNames = rows.Select(r => r.name).ToList();
+
+            columnNames.Should().Contain("MangaId");
+            columnNames.Should().Contain("ChapterIds");
+            columnNames.Should().Contain("SourceTitle");
+            columnNames.Should().Contain("SourceKey");
+            columnNames.Should().Contain("ReleaseGuid");
+            columnNames.Should().Contain("ReleaseInfoJson");
+            columnNames.Should().Contain("Date");
+            columnNames.Should().Contain("Reason");
+            columnNames.Should().Contain("Source");
+
+            // Round-trip the (SourceKey, ReleaseGuid, Title) identity triple.
+            db.Execute(
+                "INSERT INTO \"MangaBlocklist\" (\"MangaId\", \"SourceTitle\", \"SourceKey\", \"ReleaseGuid\", \"Date\") "
+                + "VALUES (@MangaId, @SourceTitle, @SourceKey, @ReleaseGuid, @Date)",
+                new { MangaId = 1, SourceTitle = "Test [grp].cbz", SourceKey = "mangadex", ReleaseGuid = "abc-123", Date = System.DateTime.UtcNow });
+
+            var got = db.Query<(string SourceKey, string ReleaseGuid, string Title)>(
+                "SELECT \"SourceKey\", \"ReleaseGuid\", \"SourceTitle\" AS Title FROM \"MangaBlocklist\" WHERE \"MangaId\" = 1").Single();
+
+            got.SourceKey.Should().Be("mangadex");
+            got.ReleaseGuid.Should().Be("abc-123");
+            got.Title.Should().Be("Test [grp].cbz");
+        }
+
+        // ============================================================
+        // Phase 6 — ChapterFiles table (PIPELINE-04 import artifact)
+        // ============================================================
+        [Test]
+        public void should_create_chapter_files_table_round_trip()
+        {
+            var db = WithDapperMigrationTestDb();
+
+            var rows = db.Query<TableInfoRow>("PRAGMA table_info(\"ChapterFiles\");").ToList();
+            var columnNames = rows.Select(r => r.name).ToList();
+
+            columnNames.Should().Contain("MangaId");
+            columnNames.Should().Contain("ChapterId");
+            columnNames.Should().Contain("RelativePath");
+            columnNames.Should().Contain("Path");
+            columnNames.Should().Contain("Size");
+            columnNames.Should().Contain("DateAdded");
+
+            db.Execute(
+                "INSERT INTO \"ChapterFiles\" (\"MangaId\", \"ChapterId\", \"RelativePath\", \"Path\", \"Size\", \"DateAdded\") "
+                + "VALUES (@MangaId, @ChapterId, @RelativePath, @Path, @Size, @DateAdded)",
+                new { MangaId = 1, ChapterId = 7, RelativePath = "ch7.cbz", Path = "/lib/ch7.cbz", Size = 1234L, DateAdded = System.DateTime.UtcNow });
+
+            var got = db.Query<long>("SELECT \"Size\" FROM \"ChapterFiles\" WHERE \"MangaId\" = 1").Single();
+            got.Should().Be(1234L);
+        }
+
+        // ============================================================
+        // Phase 6 D-10 — UpgradeAllowed columns + Manga.UpgradeAllowedOverride
+        // ============================================================
+        [Test]
+        public void should_have_upgrade_allowed_columns_with_correct_defaults()
+        {
+            var db = WithDapperMigrationTestDb();
+
+            var translationProfileCols = db.Query<TableInfoRow>("PRAGMA table_info(\"TranslationProfiles\");").ToList();
+            var customFormatProfileCols = db.Query<TableInfoRow>("PRAGMA table_info(\"CustomFormatProfiles\");").ToList();
+            var mangaCols = db.Query<TableInfoRow>("PRAGMA table_info(\"Manga\");").ToList();
+            var chapterCols = db.Query<TableInfoRow>("PRAGMA table_info(\"Chapters\");").ToList();
+
+            var tpUpgradeAllowed = translationProfileCols.Single(c => c.name == "UpgradeAllowed");
+            var cfpUpgradeAllowed = customFormatProfileCols.Single(c => c.name == "UpgradeAllowed");
+            var mangaOverride = mangaCols.Single(c => c.name == "UpgradeAllowedOverride");
+            var chapterFileId = chapterCols.Single(c => c.name == "ChapterFileId");
+
+            // TranslationProfile.UpgradeAllowed default true (D-10 — language rank ordered).
+            tpUpgradeAllowed.notnull.Should().Be(1, "TranslationProfile.UpgradeAllowed is non-nullable");
+            tpUpgradeAllowed.dflt_value.Should().Be("1", "TranslationProfile.UpgradeAllowed default true (D-10)");
+
+            // CustomFormatProfile.UpgradeAllowed default false (D-10 — manga CF scores subjective).
+            cfpUpgradeAllowed.notnull.Should().Be(1, "CustomFormatProfile.UpgradeAllowed is non-nullable");
+            cfpUpgradeAllowed.dflt_value.Should().Be("0", "CustomFormatProfile.UpgradeAllowed default false (D-10)");
+
+            // Manga.UpgradeAllowedOverride is nullable; null = fall back to per-Profile flag.
+            mangaOverride.notnull.Should().Be(0, "Manga.UpgradeAllowedOverride must be nullable for three-state semantics");
+
+            // Chapter.ChapterFileId is nullable; null = no ChapterFile imported yet.
+            chapterFileId.notnull.Should().Be(0, "Chapter.ChapterFileId must be nullable (null = no file imported)");
+        }
+
+        // ============================================================
+        // Phase 6 D-07 — IndexerDefinition SyncInterval + LastRssSync columns
+        // ============================================================
+        [Test]
+        public void should_add_indexer_sync_interval_columns()
+        {
+            var db = WithDapperMigrationTestDb();
+
+            var cols = db.Query<TableInfoRow>("PRAGMA table_info(\"Indexers\");").ToList();
+
+            var syncInterval = cols.Single(c => c.name == "SyncInterval");
+            var lastRssSync = cols.Single(c => c.name == "LastRssSync");
+
+            // SyncInterval default 0 = use global Config.MangaRssSyncInterval.
+            syncInterval.notnull.Should().Be(1, "Indexer.SyncInterval is non-nullable");
+            syncInterval.dflt_value.Should().Be("0", "Indexer.SyncInterval default 0 = use global Config.MangaRssSyncInterval");
+
+            // LastRssSync nullable; null = never synced.
+            lastRssSync.notnull.Should().Be(0, "Indexer.LastRssSync must be nullable (null = never synced)");
+        }
+
+        // ============================================================
+        // Phase 6 — required indexes exist (ChapterHistory + MangaBlocklist + ChapterFile)
+        // ============================================================
+        [Test]
+        public void should_create_phase_six_indexes()
+        {
+            var db = WithDapperMigrationTestDb();
+
+            var indexes = db.Query<IndexInfo>(
+                "SELECT name, tbl_name AS TableName, sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL")
+                .ToList();
+
+            indexes.Should().Contain(i => i.Name == "IX_ChapterHistory_ChapterId", "IX_ChapterHistory_ChapterId must exist");
+            indexes.Should().Contain(i => i.Name == "IX_ChapterHistory_MangaId_Date", "IX_ChapterHistory_MangaId_Date must exist");
+            indexes.Should().Contain(i => i.Name == "IX_ChapterHistory_DownloadId", "IX_ChapterHistory_DownloadId must exist");
+            indexes.Should().Contain(i => i.Name == "IX_MangaBlocklist_MangaId", "IX_MangaBlocklist_MangaId must exist");
+            indexes.Should().Contain(i => i.Name == "IX_MangaBlocklist_ReleaseGuid", "IX_MangaBlocklist_ReleaseGuid must exist");
+            indexes.Should().Contain(i => i.Name == "IX_ChapterFile_MangaId", "IX_ChapterFile_MangaId must exist");
+            indexes.Should().Contain(i => i.Name == "IX_ChapterFile_ChapterId", "IX_ChapterFile_ChapterId must exist");
+            indexes.Should().Contain(i => i.Name == "IX_Chapter_ChapterFileId", "IX_Chapter_ChapterFileId must exist");
+        }
+
+        // ============================================================
         // Helper POCOs
         // ============================================================
         // Mirrors `PRAGMA table_info("X")` column shape exactly. Lowercase
