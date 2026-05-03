@@ -100,5 +100,12 @@ namespace NzbDrone.Core.Configuration
 
         CertificateValidationType CertificateValidation { get; }
         string ApplicationUrl { get; }
+
+        // Phase 4 — global Config keys (D-04: NO Library entity, ever)
+        string DownloadScratchPath { get; set; }
+        string StagingPath { get; set; }
+        string OutputFormat { get; set; }
+        List<string> MetadataFormats { get; set; }
+        int RetentionDays { get; set; }
     }
 }
