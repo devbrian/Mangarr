@@ -23,6 +23,7 @@ namespace NzbDrone.Core.Notifications
         List<INotification> OnHealthRestoredEnabled(bool filterBlockedNotifications = true);
         List<INotification> OnApplicationUpdateEnabled(bool filterBlockedNotifications = true);
         List<INotification> OnManualInteractionEnabled(bool filterBlockedNotifications = true);
+        List<INotification> OnChapterImportEnabled(bool filterBlockedNotifications = true);
     }
 
     public class NotificationFactory : ProviderFactory<INotification, NotificationDefinition>, INotificationFactory
@@ -172,6 +173,21 @@ namespace NzbDrone.Core.Notifications
             return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnManualInteractionRequired).ToList();
         }
 
+        // Phase 6 D-18 — Definition-enabled + Supports-flag dual filter (Pitfall 7 mitigation).
+        // Mirrors OnImportCompleteEnabled shape but adds the `n.SupportsOnChapterImport` guard
+        // so non-manga TV providers (which inherit the virtual no-op) are skipped without
+        // wasted invocation, even if a user accidentally toggles OnChapterImport on a TV
+        // notification through some future bulk-edit UI.
+        public List<INotification> OnChapterImportEnabled(bool filterBlockedNotifications = true)
+        {
+            if (filterBlockedNotifications)
+            {
+                return FilterBlockedNotifications(GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnChapterImport && n.SupportsOnChapterImport)).ToList();
+            }
+
+            return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnChapterImport && n.SupportsOnChapterImport).ToList();
+        }
+
         private IEnumerable<INotification> FilterBlockedNotifications(IEnumerable<INotification> notifications)
         {
             var blockedNotifications = _notificationStatusService.GetBlockedProviders().ToDictionary(v => v.ProviderId, v => v);
@@ -205,6 +221,7 @@ namespace NzbDrone.Core.Notifications
             definition.SupportsOnHealthRestored = provider.SupportsOnHealthRestored;
             definition.SupportsOnApplicationUpdate = provider.SupportsOnApplicationUpdate;
             definition.SupportsOnManualInteractionRequired = provider.SupportsOnManualInteractionRequired;
+            definition.SupportsOnChapterImport = provider.SupportsOnChapterImport;
         }
 
         public override ValidationResult Test(NotificationDefinition definition)

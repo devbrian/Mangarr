@@ -23,6 +23,11 @@ namespace NzbDrone.Core.Notifications
         public bool OnApplicationUpdate { get; set; }
         public bool OnManualInteractionRequired { get; set; }
 
+        // Phase 6 D-18 — user toggle for OnChapterImport fan-out (Settings → Notifications).
+        // Defaults to TRUE so newly added Komga/Kavita providers fire OnChapterImport without
+        // an extra checkbox click; user can still disable per-provider.
+        public bool OnChapterImport { get; set; } = true;
+
         [MemberwiseEqualityIgnore]
         public bool SupportsOnGrab { get; set; }
 
@@ -63,7 +68,10 @@ namespace NzbDrone.Core.Notifications
         public bool SupportsOnManualInteractionRequired { get; set; }
 
         [MemberwiseEqualityIgnore]
-        public override bool Enable => OnGrab || OnDownload || (OnDownload && OnUpgrade) || OnImportComplete || OnRename || OnSeriesAdd || OnSeriesDelete || OnEpisodeFileDelete || (OnEpisodeFileDelete && OnEpisodeFileDeleteForUpgrade) || OnHealthIssue || OnHealthRestored || OnApplicationUpdate || OnManualInteractionRequired;
+        public bool SupportsOnChapterImport { get; set; }
+
+        [MemberwiseEqualityIgnore]
+        public override bool Enable => OnGrab || OnDownload || (OnDownload && OnUpgrade) || OnImportComplete || OnRename || OnSeriesAdd || OnSeriesDelete || OnEpisodeFileDelete || (OnEpisodeFileDelete && OnEpisodeFileDeleteForUpgrade) || OnHealthIssue || OnHealthRestored || OnApplicationUpdate || OnManualInteractionRequired || OnChapterImport;
 
         public bool Equals(NotificationDefinition other)
         {

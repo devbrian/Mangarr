@@ -7,6 +7,7 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.HealthCheck;
 using NzbDrone.Core.MediaFiles.Events;
+using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Qualities;
 using NzbDrone.Core.ThingiProvider;
@@ -29,6 +30,7 @@ namespace NzbDrone.Core.Notifications
           IHandle<HealthCheckRestoredEvent>,
           IHandle<UpdateInstalledEvent>,
           IHandle<ManualInteractionRequiredEvent>,
+          IHandle<ChapterImportedEvent>,
           IHandleAsync<DeleteCompletedEvent>,
           IHandleAsync<DownloadsProcessedEvent>,
           IHandleAsync<RenameCompletedEvent>,
@@ -413,6 +415,54 @@ namespace NzbDrone.Core.Notifications
                 {
                     _notificationStatusService.RecordFailure(notification.Definition.Id);
                     _logger.Warn(ex, "Unable to send OnEpisodeFileDelete notification to: " + notification.Definition.Name);
+                }
+            }
+        }
+
+        // Phase 6 D-18 — manga sibling of Handle(EpisodeImportedEvent). Pitfall 4 GUARD:
+        // ChapterImportedEvent is published by Plan 06-07 ImportApprovedChapters AFTER the
+        // ChapterFile DB row is committed AND the filesystem move has completed. Do NOT call
+        // this handler synchronously from inside the import method — go through
+        // _eventAggregator.PublishEvent(new ChapterImportedEvent ...) so the rescan target
+        // (Komga/Kavita) sees the file when it scans.
+        public void Handle(ChapterImportedEvent message)
+        {
+            if (!message.NewDownload)
+            {
+                return;
+            }
+
+            var msg = new ChapterImportMessage
+            {
+                Message = $"{message.Manga?.Title} - {message.Chapter?.Title}",
+                Manga = message.Manga,
+                Chapter = message.Chapter,
+                ChapterFile = message.ChapterFile,
+                SourceTitle = message.DownloadClientItem?.Title,
+                SourcePath = message.SourcePath,
+                DownloadClient = message.DownloadClientItem?.DownloadClientInfo?.Name,
+                DownloadId = message.DownloadClientItem?.DownloadId,
+                OldFiles = !message.NewDownload
+            };
+
+            foreach (var notification in _notificationFactory.OnChapterImportEnabled())
+            {
+                try
+                {
+                    // OnChapterImportEnabled() already filters by Definition.OnChapterImport && SupportsOnChapterImport;
+                    // defensive re-check guards against any future bypass refactor.
+                    if (!notification.SupportsOnChapterImport)
+                    {
+                        continue;
+                    }
+
+                    notification.OnChapterImport(msg);
+                    _notificationStatusService.RecordSuccess(notification.Definition.Id);
+                }
+                catch (Exception ex)
+                {
+                    _notificationStatusService.RecordFailure(notification.Definition.Id);
+                    _logger.Warn(ex, "Unable to send OnChapterImport notification to: " + notification.Definition.Name);
                 }
             }
         }
