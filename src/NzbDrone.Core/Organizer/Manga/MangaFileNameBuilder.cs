@@ -191,8 +191,13 @@ namespace NzbDrone.Core.Organizer.Manga
                         : chapters?.FirstOrDefault()?.TranslatedLanguage;
 
                 case "source":
-                    // Indexer attribution — D-17 SourceKey lives in ReleaseInfo.Indexer (the
-                    // SourceKey is plumbed through by Phase 3 indexer parsers).
+                    // Indexer attribution — D-17 SourceKey. ReleaseInfo.Indexer carries the
+                    // user-named instance (e.g. "My MangaDex Mirror"). Per BL-02 the canonical
+                    // key (e.g. "mangadex" / "comix.to") is resolved via IIndexerFactory at
+                    // decision time on the CF input; the file-naming token here uses the user-
+                    // visible instance name on purpose so a renamed indexer surfaces the rename
+                    // in filenames. Substrate work to stamp the canonical key on ReleaseInfo
+                    // belongs in Phase 6 if we want the {Source} token to use the canonical key.
                     return release?.Indexer;
 
                 default:

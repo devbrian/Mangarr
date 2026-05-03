@@ -7,6 +7,8 @@ using NzbDrone.Common.Instrumentation.Extensions;
 using NzbDrone.Common.Serializer;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.CustomFormats;
+using NzbDrone.Core.Indexers;
+using NzbDrone.Core.Indexers.Http;
 using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Manga.Model;
@@ -35,6 +37,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga
         private readonly IMangaParsingService _parsingService;
         private readonly ICustomFormatCalculationService _formatCalculator;
         private readonly ICustomFormatProfileService _customFormatProfileService;
+        private readonly IIndexerFactory _indexerFactory;
         private readonly IConfigService _configService;
         private readonly Logger _logger;
 
@@ -43,6 +46,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga
             IMangaParsingService parsingService,
             ICustomFormatCalculationService formatCalculator,
             ICustomFormatProfileService customFormatProfileService,
+            IIndexerFactory indexerFactory,
             IConfigService configService,
             Logger logger)
         {
@@ -50,8 +54,47 @@ namespace NzbDrone.Core.DecisionEngine.Manga
             _parsingService = parsingService;
             _formatCalculator = formatCalculator;
             _customFormatProfileService = customFormatProfileService;
+            _indexerFactory = indexerFactory;
             _configService = configService;
             _logger = logger;
+        }
+
+        // BL-02 — resolve the canonical Phase 3 D-17 source key (e.g. "mangadex" / "comix.to")
+        // from the indexer instance. ReleaseInfo.Indexer carries the user-named instance
+        // (e.g. "My MangaDex Mirror"); the SourceKeySpecification CF spec needs the canonical
+        // key the indexer SettingsBase exposes. Falls back to ReleaseInfo.Indexer (the user-
+        // named instance) when the indexer can't be resolved (e.g. in tests, or if the indexer
+        // has been deleted between report fetch and decision time) so naming-token consumers
+        // still get a non-null value.
+        private string ResolveSourceKey(ReleaseInfo report)
+        {
+            if (report == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                if (report.IndexerId > 0)
+                {
+                    var def = _indexerFactory?.Get(report.IndexerId);
+                    if (def?.Settings is IHttpAggregatorSettings aggregator
+                        && !string.IsNullOrWhiteSpace(aggregator.SourceKey))
+                    {
+                        return aggregator.SourceKey;
+                    }
+                }
+            }
+            catch (System.Collections.Generic.KeyNotFoundException)
+            {
+                // Indexer was deleted between report fetch and decision time. Fall through.
+            }
+            catch (Exception ex)
+            {
+                _logger.Trace(ex, "Failed to resolve canonical SourceKey for indexer id {0}; falling back to instance name", report.IndexerId);
+            }
+
+            return report.Indexer;
         }
 
         public List<MangaDownloadDecision> GetRssDecision(List<ReleaseInfo> reports, bool pushedRelease = false)
@@ -118,7 +161,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga
                                 ChapterInfo = remoteChapter.ParsedChapterInfo,
                                 Manga = remoteChapter.Manga,
                                 Release = report,
-                                SourceKey = report.Indexer,
+                                SourceKey = ResolveSourceKey(report),    // BL-02 — canonical D-17 key (mangadex / comix.to)
                                 Size = report.Size,
                                 IndexerFlags = report.IndexerFlags,
                                 Filename = report.Title

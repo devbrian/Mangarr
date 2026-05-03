@@ -10,6 +10,7 @@ using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.DecisionEngine;
 using NzbDrone.Core.DecisionEngine.Manga;
 using NzbDrone.Core.DecisionEngine.Manga.Specifications;
+using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Manga.Model;
@@ -50,6 +51,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
         private Mock<IConfigService> _configService;
         private Mock<IMangaParsingService> _parsingService;
         private Mock<ICustomFormatCalculationService> _formatCalculator;
+        private Mock<IIndexerFactory> _indexerFactory;
 
         [SetUp]
         public void Setup()
@@ -59,6 +61,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             _configService = new Mock<IConfigService>();
             _parsingService = new Mock<IMangaParsingService>();
             _formatCalculator = new Mock<ICustomFormatCalculationService>();
+            _indexerFactory = new Mock<IIndexerFactory>();    // BL-02 — canonical SourceKey resolver
 
             // REAL spec instances (no Mocker — exercise the actual code paths). These are the two
             // gates the F-01 fixture proves fire end-to-end. Other operational specs (MonitoredManga,
@@ -75,6 +78,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
                 _parsingService.Object,
                 _formatCalculator.Object,
                 _customFormatProfileService.Object,
+                _indexerFactory.Object,
                 _configService.Object,
                 LogManager.GetLogger("test"));
 
