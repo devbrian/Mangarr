@@ -8,6 +8,7 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Common.Instrumentation.Extensions;
 using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.History;
+using NzbDrone.Core.Indexers;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.EpisodeImport;
 using NzbDrone.Core.Messaging.Events;
@@ -65,6 +66,16 @@ namespace NzbDrone.Core.Download
 
         public void Check(TrackedDownload trackedDownload)
         {
+            // ── Phase 4 D-10 — Manga in-process downloader produces Status=Completed staging
+            // artifacts; Phase 6 ProcessMangaCompletedDownloads handles the manga import path.
+            // Prevent Sonarr's TV-shaped ImportApprovedEpisodes from auto-firing against a
+            // manga CBZ. Phase 8 retires this gate when ImportApprovedEpisodes deletes (only
+            // ImportApprovedChapters will remain).
+            if (trackedDownload.DownloadItem.DownloadClientInfo?.Protocol == DownloadProtocol.Http)
+            {
+                return;
+            }
+
             if (trackedDownload.DownloadItem.Status != DownloadItemStatus.Completed)
             {
                 return;

@@ -1,4 +1,4 @@
-using NzbDrone.Core.Indexers;
+using NzbDrone.Core.Indexers.Http;
 
 namespace NzbDrone.Core.Download.Clients.InProcess
 {
@@ -11,18 +11,17 @@ namespace NzbDrone.Core.Download.Clients.InProcess
     /// <c>InProcessImageDownloadClient.Definition.Settings</c> at enqueue time, so the
     /// orchestrator's per-page <c>Channel</c> capacity honors per-instance Settings.
     ///
-    /// Aggregator type: typed as <see cref="IIndexer"/> for plan-04-01 compile independence.
-    /// Plan 04-02 introduces a non-generic <c>IHttpAggregator</c> marker interface that
-    /// <c>HttpAggregatorBase&lt;TSettings&gt;</c> implements; plan 04-03 may narrow the type
-    /// once 04-02 lands.
+    /// Aggregator type narrowed (plan 04-03): typed as <see cref="IHttpAggregator"/> now that
+    /// plan 04-02 has landed the non-generic marker interface. The orchestrator uses
+    /// <see cref="IHttpAggregator.GetChapterPages"/> for the D-03 reactive re-fetch.
     /// </summary>
     public sealed class ChapterDownloadJob
     {
         public ChapterDownloadState Row { get; }
-        public IIndexer Aggregator { get; }       // resolved via _indexerFactory.Get(release.IndexerId) in plan 04-03
-        public int PagesPerChapter { get; }       // BLOCKER #4 — per-instance Settings honored
+        public IHttpAggregator Aggregator { get; }       // resolved via _indexerFactory.Get(release.IndexerId) in plan 04-03
+        public int PagesPerChapter { get; }              // BLOCKER #4 — per-instance Settings honored
 
-        public ChapterDownloadJob(ChapterDownloadState row, IIndexer aggregator, int pagesPerChapter)
+        public ChapterDownloadJob(ChapterDownloadState row, IHttpAggregator aggregator, int pagesPerChapter)
         {
             Row = row;
             Aggregator = aggregator;
