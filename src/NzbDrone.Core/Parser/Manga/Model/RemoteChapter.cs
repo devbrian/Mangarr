@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Parser.Manga.Model
 {
@@ -9,8 +10,12 @@ namespace NzbDrone.Core.Parser.Manga.Model
     // aggregate + the existing Chapter rows that the indexer pipeline will
     // dedup/grab against (Phase 3 hook point per 02-CONTEXT.md D-03).
     //
-    // Release carries the source URL once Phase 3 indexers populate it; null in the
-    // pure-parse path the unit tests exercise.
+    // Phase 5 deviation (Rule 2 — Wave 0 substrate gap): Release was previously
+    // typed as string. The decision pipeline (specs / comparer / maker) needs the
+    // full ReleaseInfo (TranslatedLanguage + IndexerPriority + Size + AgeMinutes
+    // + IndexerFlags + Title) so we widened the type to mirror RemoteEpisode.Release
+    // (Parser/Model/RemoteEpisode.cs:14). No prior production code reads
+    // RemoteChapter.Release as a string (verified across src/ at plan-execute time).
     public class RemoteChapter
     {
         public RemoteChapter()
@@ -19,7 +24,7 @@ namespace NzbDrone.Core.Parser.Manga.Model
             CustomFormats = new List<CustomFormat>();
         }
 
-        public string Release { get; set; }
+        public ReleaseInfo Release { get; set; }
         public ParsedChapterInfo ParsedChapterInfo { get; set; }
         public NzbDrone.Core.Manga.Manga Manga { get; set; }
         public List<Chapter> Chapters { get; set; }
@@ -29,5 +34,10 @@ namespace NzbDrone.Core.Parser.Manga.Model
         // Populated by MangaDownloadDecisionMaker.GetDecisionForReport (Wave 2 plan 05-04).
         public List<CustomFormat> CustomFormats { get; set; }
         public int CustomFormatScore { get; set; }
+
+        public override string ToString()
+        {
+            return Release == null ? "(no release)" : Release.Title;
+        }
     }
 }

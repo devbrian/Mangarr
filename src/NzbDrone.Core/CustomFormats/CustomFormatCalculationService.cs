@@ -20,6 +20,12 @@ namespace NzbDrone.Core.CustomFormats
         List<CustomFormat> ParseCustomFormat(Blocklist blocklist, Series series);
         List<CustomFormat> ParseCustomFormat(EpisodeHistory history, Series series);
         List<CustomFormat> ParseCustomFormat(LocalEpisode localEpisode, string fileName);
+
+        // Phase 5 D-09 — manga-side overload. MangaCustomFormatInput inherits from
+        // CustomFormatInput so the existing private ParseCustomFormat(CustomFormatInput)
+        // path runs the same Specifications.IsSatisfiedBy(input) loop. Manga CF specs
+        // (Plan 05-05 deliverable) downcast `input is MangaCustomFormatInput` per Pitfall 4.
+        List<CustomFormat> ParseCustomFormat(MangaCustomFormatInput input);
     }
 
     public class CustomFormatCalculationService : ICustomFormatCalculationService
@@ -142,6 +148,14 @@ namespace NzbDrone.Core.CustomFormats
         private List<CustomFormat> ParseCustomFormat(CustomFormatInput input)
         {
             return ParseCustomFormat(input, _formatService.All());
+        }
+
+        // Phase 5 D-09 — manga-side overload. Delegates to the private CustomFormatInput
+        // path; manga CF specs receive the input as MangaCustomFormatInput (subclass) and
+        // downcast per Pitfall 4 mitigation.
+        public List<CustomFormat> ParseCustomFormat(MangaCustomFormatInput input)
+        {
+            return ParseCustomFormat((CustomFormatInput)input, _formatService.All());
         }
 
         private static List<CustomFormat> ParseCustomFormat(CustomFormatInput input, List<CustomFormat> allCustomFormats)
