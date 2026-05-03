@@ -24,7 +24,7 @@ namespace NzbDrone.Core.Indexers.Http
     /// </list>
     /// Phase 3 source plugins (MangaDex / comix.to / MangaFire) derive from this base.
     /// </summary>
-    public abstract class HttpAggregatorBase<TSettings> : HttpIndexerBase<TSettings>
+    public abstract class HttpAggregatorBase<TSettings> : HttpIndexerBase<TSettings>, IHttpAggregator
         where TSettings : IHttpAggregatorSettings, new()
     {
         // Phase 3 D-17 / F-01 fix — per-SourceKey escalation sibling. Owned by the base
@@ -43,7 +43,10 @@ namespace NzbDrone.Core.Indexers.Http
         /// (D-12). Two indexer instances with the same SourceKey value share one rate budget; divergent
         /// values produce separate budgets per user choice.
         /// </summary>
-        protected string SourceKey => string.IsNullOrWhiteSpace(Settings.SourceKey)
+        // Phase 4 D-01 — promoted to public for IHttpAggregator interface contract.
+        // ChapterPageFetcher (plan 04-03) reads aggregator.SourceKey via the interface to set
+        // request.RateLimitKey on every image GET (Pitfall 1 / F-01 class regression guard).
+        public string SourceKey => string.IsNullOrWhiteSpace(Settings.SourceKey)
             ? DefaultSourceKey
             : Settings.SourceKey;
 
@@ -108,7 +111,8 @@ namespace NzbDrone.Core.Indexers.Http
         /// default per-instance via <see cref="IHttpAggregatorSettings.UserAgentOverride"/>; source
         /// plugins remain responsible for hiding/exposing this field per their ToS posture.
         /// </summary>
-        protected string ResolveUserAgent()
+        // Phase 4 D-01 — promoted to public for IHttpAggregator interface contract.
+        public string ResolveUserAgent()
             => string.IsNullOrWhiteSpace(Settings.UserAgentOverride)
                 ? BuildUserAgent()
                 : Settings.UserAgentOverride;
@@ -159,5 +163,16 @@ namespace NzbDrone.Core.Indexers.Http
         // when needed.
         public virtual Dictionary<string, string> GetDownloadHeaders(ReleaseInfo release)
             => new Dictionary<string, string>();
+
+        // ── Phase 4 D-01/D-04 — chapter manifest dereference per source ──────────────
+        // Each manga indexer plugin MUST implement; Phase 4 InProcessImageDownloadClient
+        // resolves the indexer instance via _indexerFactory.Get(release.IndexerId) and
+        // calls this hook. Per-source quirks (MangaDex /at-home/server token rotation;
+        // comix.to flat URL array) stay encapsulated in the plugin. Downloader stays dumb.
+        //
+        // ABSTRACT (not virtual) per Phase 3 LEARNINGS pattern "Compile-error-driven
+        // additive contract": missing implementation = compile error. Subclasses MAY NOT
+        // delegate via base.GetChapterPages(release) (CS0205 — abstract has no body).
+        public abstract Task<ChapterManifest> GetChapterPages(ReleaseInfo release);
     }
 }

@@ -153,4 +153,22 @@ namespace NzbDrone.Core.Indexers.Comix
     public class ComixChapterListResponse : ComixResponse<ComixChapter>
     {
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Phase 4 plan 04-02 — chapter PAGES response shape for /api/v2/chapters/{id}.
+    // Synthesized from keiyoushi/extensions-source/src/en/comix/Comix.kt + Dto.kt
+    // (Cloudflare blocks live capture; Phase 3 LEARNINGS — synthesized fixtures
+    // contract per SOURCE-PROBE-fixtures.md). Plain flat URL array; no rotation
+    // tokens (durable URLs — ExpiresAt = null in the resulting ChapterManifest).
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Per-chapter pages response. comix.to returns a flat array of image URLs
+    /// at <c>/api/v2/chapters/{chapterId}</c>.
+    /// </summary>
+    public class ComixChapterPagesResponse
+    {
+        [JsonProperty("pages")]
+        public List<string> Pages { get; set; } = new();
+    }
 }

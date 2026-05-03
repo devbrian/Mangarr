@@ -1,0 +1,27 @@
+{
+  "result": "ok",
+  "baseUrl": "https://uploads.mangadex.org",
+  "chapter": {
+    "hash": "1c2c1cd0aaaabbbbccccddddeeeeffff",
+    "data": [
+      "1-c1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6.png",
+      "2-x7y8z9a0b1c2d3e4f5g6h7i8j9k0l1m2.png",
+      "3-1234567890abcdef1234567890abcdef.png",
+      "4-fedcba0987654321fedcba0987654321.png",
+      "5-abcdef0123456789abcdef0123456789.png",
+      "6-9876543210abcdef9876543210abcdef.png",
+      "7-deadbeefcafe1234deadbeefcafe1234.png",
+      "8-feedface5678feedface56785678feed.png"
+    ],
+    "dataSaver": [
+      "1-saver-c1a2b3c4d5e6.jpg",
+      "2-saver-x7y8z9a0b1c2.jpg",
+      "3-saver-1234567890ab.jpg",
+      "4-saver-fedcba098765.jpg",
+      "5-saver-abcdef012345.jpg",
+      "6-saver-9876543210ab.jpg",
+      "7-saver-deadbeefcafe.jpg",
+      "8-saver-feedface5678.jpg"
+    ]
+  }
+}
