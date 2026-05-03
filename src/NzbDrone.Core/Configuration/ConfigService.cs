@@ -529,27 +529,45 @@ namespace NzbDrone.Core.Configuration
 
         public int? DefaultTranslationProfileId
         {
+            // WR-06: TryParse + InvariantCulture per Pitfall 7 — a corrupted Config row
+            // (manual DB edit, encoding issue, leftover non-numeric junk like "null" or "0   ")
+            // returned null instead of throwing FormatException up to every caller.
             get
             {
                 var raw = GetValue("DefaultTranslationProfileId", string.Empty);
-                return string.IsNullOrEmpty(raw) ? (int?)null : int.Parse(raw);
+                if (string.IsNullOrEmpty(raw))
+                {
+                    return null;
+                }
+
+                return int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)
+                    ? id
+                    : (int?)null;
             }
             set
             {
-                SetValue("DefaultTranslationProfileId", value?.ToString() ?? string.Empty);
+                SetValue("DefaultTranslationProfileId", value?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
             }
         }
 
         public int? DefaultCustomFormatProfileId
         {
+            // WR-06: TryParse + InvariantCulture per Pitfall 7 — see DefaultTranslationProfileId.
             get
             {
                 var raw = GetValue("DefaultCustomFormatProfileId", string.Empty);
-                return string.IsNullOrEmpty(raw) ? (int?)null : int.Parse(raw);
+                if (string.IsNullOrEmpty(raw))
+                {
+                    return null;
+                }
+
+                return int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)
+                    ? id
+                    : (int?)null;
             }
             set
             {
-                SetValue("DefaultCustomFormatProfileId", value?.ToString() ?? string.Empty);
+                SetValue("DefaultCustomFormatProfileId", value?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
             }
         }
 
