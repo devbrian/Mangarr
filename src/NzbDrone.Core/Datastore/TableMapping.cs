@@ -20,6 +20,7 @@ using NzbDrone.Core.Extras.Metadata.Files;
 using NzbDrone.Core.Extras.Others;
 using NzbDrone.Core.Extras.Subtitles;
 using NzbDrone.Core.History;
+using NzbDrone.Core.History.Manga;
 using NzbDrone.Core.ImportLists;
 using NzbDrone.Core.ImportLists.Exclusions;
 using NzbDrone.Core.Indexers;
@@ -202,6 +203,11 @@ namespace NzbDrone.Core.Datastore
             // (each plan registers its own type in the same commit that introduces the type — keeps
             // every plan boundary green per Anti-Pattern C compliance).
             Mapper.Entity<ChapterFile>("ChapterFiles").RegisterModel();
+
+            // Phase 6 D-21 (Plan 06-03) — ChapterHistory registration (parallel sibling to
+            // EpisodeHistory above at line 129). BL-01 fix: ChapterId column is independent of
+            // EpisodeHistory.EpisodeId — see History/Manga/ChapterHistory.cs header.
+            Mapper.Entity<ChapterHistory>("ChapterHistory").RegisterModel();
 
             Mapper.Entity<DownloadClientStatus>("DownloadClientStatus").RegisterModel();
             Mapper.Entity<ImportListStatus>("ImportListStatus").RegisterModel();
