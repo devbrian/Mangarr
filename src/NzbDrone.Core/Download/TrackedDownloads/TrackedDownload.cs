@@ -12,6 +12,14 @@ namespace NzbDrone.Core.Download.TrackedDownloads
         public TrackedDownloadState State { get; set; }
         public TrackedDownloadStatus Status { get; private set; }
         public RemoteEpisode RemoteEpisode { get; set; }
+
+        // Sonarr divergence: NEW manga-side optional projection slot per Phase 6 D-20.
+        // Set by Phase 4 InProcessImageDownloadClient on the manga-protocol path so
+        // Plan 06-05 MangaQueueService can read RemoteChapter without round-tripping
+        // through ChapterDownloadState. Phase 8 cleanup: collapse with RemoteEpisode
+        // when Tv/ deletes (the slot that survives carries the unified DTO).
+        public NzbDrone.Core.Parser.Manga.Model.RemoteChapter RemoteChapter { get; set; }
+
         public TrackedDownloadStatusMessage[] StatusMessages { get; private set; }
         public DownloadProtocol Protocol { get; set; }
         public string Indexer { get; set; }
