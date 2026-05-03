@@ -35,6 +35,14 @@ namespace NzbDrone.Core.Parser.Manga.Model
         public List<CustomFormat> CustomFormats { get; set; }
         public int CustomFormatScore { get; set; }
 
+        // WR-08: stamp the resolved CustomFormatProfileId once at the maker (per-Manga FK
+        // ?? global default Config.DefaultCustomFormatProfileId) so the downstream
+        // CustomFormatMinimumScoreSpecification reads the SAME id the maker used to compute
+        // the score. Avoids the consistency hazard where an admin changes the global default
+        // between the maker's score-derivation read and the spec's gate read, leaving the
+        // score and the gate keyed off different profiles.
+        public int? ResolvedCustomFormatProfileId { get; set; }
+
         public override string ToString()
         {
             return Release == null ? "(no release)" : Release.Title;

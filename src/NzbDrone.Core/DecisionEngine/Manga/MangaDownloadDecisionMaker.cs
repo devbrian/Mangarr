@@ -171,7 +171,13 @@ namespace NzbDrone.Core.DecisionEngine.Manga
                             // Score via the manga's CustomFormatProfile (per-Manga FK ?? global default).
                             // Mirrors DownloadDecisionMaker.cs:119 — TV reads remoteEpisode.Series.QualityProfile;
                             // manga reads Manga.CustomFormatProfileId ?? Config.DefaultCustomFormatProfileId.
+                            // WR-08: resolve the id ONCE here and stamp it on RemoteChapter so the spec
+                            // reads the SAME id the maker used to compute the score. Avoids the hazard
+                            // where an admin flips Config.DefaultCustomFormatProfileId between the
+                            // maker's read and the spec's read, leaving score/gate keyed off different
+                            // profiles.
                             var cfProfileId = remoteChapter.Manga?.CustomFormatProfileId ?? _configService.DefaultCustomFormatProfileId;
+                            remoteChapter.ResolvedCustomFormatProfileId = cfProfileId;
                             if (cfProfileId.HasValue)
                             {
                                 var cfProfile = _customFormatProfileService.Get(cfProfileId.Value);

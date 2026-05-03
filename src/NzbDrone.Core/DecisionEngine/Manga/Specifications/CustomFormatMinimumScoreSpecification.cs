@@ -34,7 +34,13 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
 
         public DownloadSpecDecision IsSatisfiedBy(RemoteChapter subject, ReleaseDecisionInformation information)
         {
-            var profileId = subject.Manga?.CustomFormatProfileId ?? _configService.DefaultCustomFormatProfileId;
+            // WR-08: prefer the maker-stamped resolved id so score and gate are keyed off
+            // the SAME profile. Fall back to the per-Manga FK ?? global default chain only
+            // when the spec is invoked outside the maker (Phase 6 / future call sites that
+            // don't hydrate ResolvedCustomFormatProfileId).
+            var profileId = subject.ResolvedCustomFormatProfileId
+                            ?? subject.Manga?.CustomFormatProfileId
+                            ?? _configService.DefaultCustomFormatProfileId;
             if (profileId == null)
             {
                 return DownloadSpecDecision.Accept();
