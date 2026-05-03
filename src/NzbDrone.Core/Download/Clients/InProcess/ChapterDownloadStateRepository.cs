@@ -21,13 +21,16 @@ namespace NzbDrone.Core.Download.Clients.InProcess
 
         public IEnumerable<ChapterDownloadState> AllInFlight()
         {
+            // Phase 1 D-15 — capture UtcNow into a local so the LINQ expression visitor
+            // emits a SQL parameter rather than re-evaluating a property access per row.
+            var now = DateTime.UtcNow;
             return Query(c =>
                    c.Status == ChapterDownloadStatus.Queued
                 || c.Status == ChapterDownloadStatus.Downloading
                 || c.Status == ChapterDownloadStatus.Completing
                 || c.Status == ChapterDownloadStatus.Completed
                 || (c.Status == ChapterDownloadStatus.Failed
-                    && (c.RetentionUntil == null || c.RetentionUntil > DateTime.UtcNow)));
+                    && (c.RetentionUntil == null || c.RetentionUntil > now)));
         }
 
         public IEnumerable<ChapterDownloadState> ByStatus(ChapterDownloadStatus status)

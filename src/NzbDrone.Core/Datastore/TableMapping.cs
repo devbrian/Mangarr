@@ -12,6 +12,7 @@ using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.DataAugmentation.Scene;
 using NzbDrone.Core.Datastore.Converters;
 using NzbDrone.Core.Download;
+using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Download.History;
 using NzbDrone.Core.Download.Pending;
 using NzbDrone.Core.Extras.Metadata;
@@ -182,6 +183,10 @@ namespace NzbDrone.Core.Datastore
 
             // Phase 3 D-17 — per-SourceKey indexer status (sibling to IndexerStatus above).
             Mapper.Entity<IndexerSourceStatus>("IndexerSourceStatus").RegisterModel();
+
+            // Phase 4 D-05 — in-flight chapter download state (own ModelBase; per dev-migration-policy.md).
+            Mapper.Entity<ChapterDownloadState>("ChapterDownloadState").RegisterModel();
+
             Mapper.Entity<DownloadClientStatus>("DownloadClientStatus").RegisterModel();
             Mapper.Entity<ImportListStatus>("ImportListStatus").RegisterModel();
             Mapper.Entity<NotificationStatus>("NotificationStatus").RegisterModel();

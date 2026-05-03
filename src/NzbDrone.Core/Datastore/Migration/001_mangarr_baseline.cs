@@ -387,6 +387,43 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("DisabledTill").AsDateTime().Nullable()
                 .WithColumn("LastRssSyncReleaseInfo").AsString().Nullable();
 
+            // ─────────────────────────────────────────────────────────────────────
+            // Phase 4 D-05 — ChapterDownloadState (in-flight chapter download lifecycle).
+            // Hybrid resumable-state model: this row is the single source of truth for
+            // "is this chapter in flight"; per-page bytes live in
+            // <Config.DownloadScratchPath>/<Id>/<NNNN>.<ext>.
+            // Phase 6 reads Status=Completed rows for ImportApprovedChapters dispatch.
+            // Phase 8 cleanup: stays as-is (manga-shaped from Day 1).
+            //
+            // Per dev-migration-policy.md: edits 001 directly until v1.0.0 freeze.
+            // No unique index on (MangaId, ChapterId) per RESEARCH.md Q-1 Option (b) —
+            // app-level dedup via FindByMangaAndChapter so retention-window retries
+            // (Failed row + new in-flight row) coexist without partial-index portability.
+            // ─────────────────────────────────────────────────────────────────────
+            Create.TableForModel("ChapterDownloadState")
+                .WithColumn("MangaId").AsInt32().NotNullable()
+                .WithColumn("ChapterId").AsInt32().NotNullable()
+                .WithColumn("Title").AsString().NotNullable()
+                .WithColumn("RemoteChapterJson").AsString().NotNullable()
+                .WithColumn("ManifestJson").AsString().Nullable()
+                .WithColumn("ManifestExpiresAt").AsDateTime().Nullable()
+                .WithColumn("TotalPages").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("CompletedPages").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("EstimatedSizeBytes").AsInt64().NotNullable().WithDefaultValue(0)
+                .WithColumn("ScratchDir").AsString().NotNullable()
+                .WithColumn("StagingPath").AsString().Nullable()
+                .WithColumn("Status").AsInt32().NotNullable()
+                .WithColumn("FailureReason").AsString().Nullable()
+                .WithColumn("RetentionUntil").AsDateTime().Nullable()
+                .WithColumn("CreatedAt").AsDateTime().NotNullable()
+                .WithColumn("UpdatedAt").AsDateTime().NotNullable();
+
+            // Covering index on (Status, UpdatedAt) for the GetItems() poll path
+            // (plan 04-03 — InProcessImageDownloadClient.GetItems projects from this).
+            Create.Index().OnTable("ChapterDownloadState")
+                .OnColumn("Status").Ascending()
+                .OnColumn("UpdatedAt").Ascending();
+
             Create.TableForModel("DownloadClientStatus")
                 .WithColumn("ProviderId").AsInt32().Unique()
                 .WithColumn("InitialFailure").AsDateTime().Nullable()

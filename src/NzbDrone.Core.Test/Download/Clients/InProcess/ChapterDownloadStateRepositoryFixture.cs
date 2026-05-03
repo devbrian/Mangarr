@@ -27,6 +27,7 @@ namespace NzbDrone.Core.Test.Download.Clients.InProcess
                 MangaId = 1,
                 ChapterId = System.Threading.Interlocked.Increment(ref _chapterIdSeed),
                 Title = "T",
+                RemoteChapterJson = "{}",   // NotNullable in schema; test stub
                 ScratchDir = "/tmp/scratch/0",
                 Status = status,
                 RetentionUntil = retentionUntil,
@@ -43,6 +44,7 @@ namespace NzbDrone.Core.Test.Download.Clients.InProcess
                 MangaId = 1,
                 ChapterId = 100,
                 Title = "Chapter 132",
+                RemoteChapterJson = "{}",
                 ScratchDir = "/tmp/scratch/1",
                 Status = ChapterDownloadStatus.Queued,
                 CreatedAt = DateTime.UtcNow,
