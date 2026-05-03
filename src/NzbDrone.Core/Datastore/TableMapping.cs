@@ -196,6 +196,12 @@ namespace NzbDrone.Core.Datastore
             // Phase 4 D-05 — in-flight chapter download state (own ModelBase; per dev-migration-policy.md).
             Mapper.Entity<ChapterDownloadState>("ChapterDownloadState").RegisterModel();
 
+            // Phase 6 PIPELINE-04 — ChapterFile registration (parallel sibling to EpisodeFile).
+            // ChapterHistory + MangaBlocklist registrations live in Plans 06-03 + 06-04 respectively
+            // (each plan registers its own type in the same commit that introduces the type — keeps
+            // every plan boundary green per Anti-Pattern C compliance).
+            Mapper.Entity<ChapterFile>("ChapterFiles").RegisterModel();
+
             Mapper.Entity<DownloadClientStatus>("DownloadClientStatus").RegisterModel();
             Mapper.Entity<ImportListStatus>("ImportListStatus").RegisterModel();
             Mapper.Entity<NotificationStatus>("NotificationStatus").RegisterModel();
