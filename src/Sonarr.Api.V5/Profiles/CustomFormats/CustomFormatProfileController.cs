@@ -24,7 +24,14 @@ public class CustomFormatProfileController : RestController<CustomFormatProfileR
     {
         _profileService = profileService;
 
-        SharedValidator.RuleFor(c => c.Name).NotEmpty();
+        // WR-04: cap Name length + cap FormatItems count (DoS surface). NotEmpty alone would
+        // let a client submit a 10MB Name and pollute the SQLite CustomFormatProfiles.Name
+        // column; the Default profile pre-populates one FormatItems entry per existing CF, so
+        // a client could push thousands of orphan entries without an upper bound.
+        SharedValidator.RuleFor(c => c.Name).NotEmpty().MaximumLength(200);
+        SharedValidator.RuleFor(c => c.FormatItems)
+            .Must(items => items == null || items.Count <= 1000)
+            .WithMessage("FormatItems list must contain at most 1000 entries (security cap per Phase 5 RESEARCH §Security Domain).");
         SharedValidator.RuleFor(c => c.MaxFormatScore)
             .GreaterThanOrEqualTo(c => c.MinFormatScore)
             .When(c => c.MaxFormatScore.HasValue)

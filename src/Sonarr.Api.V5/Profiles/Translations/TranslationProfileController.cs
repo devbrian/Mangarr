@@ -28,10 +28,13 @@ public class TranslationProfileController : RestController<TranslationProfileRes
     {
         _profileService = profileService;
 
-        SharedValidator.RuleFor(c => c.Name).NotEmpty();
+        // WR-04: cap Name length (mirrors MangaNamingConfigController precedent) — NotEmpty alone
+        // would let a client submit a 10MB Name and pollute the SQLite TranslationProfiles.Name
+        // column.
+        SharedValidator.RuleFor(c => c.Name).NotEmpty().MaximumLength(200);
         SharedValidator.RuleFor(c => c.Languages).NotEmpty()
-            .Must(l => l != null && l.Count <= 50)
-            .WithMessage("Languages list must contain at most 50 entries (security cap per Phase 5 RESEARCH §Security Domain).");
+            .Must(l => l != null && l.Count <= 50 && l.All(code => code != null && code.Length <= 32))
+            .WithMessage("Languages list must contain at most 50 entries and each code at most 32 chars (security cap per Phase 5 RESEARCH §Security Domain).");
         SharedValidator.RuleFor(c => c.Languages)
             .Must(langs => langs == null || langs.All(code => !string.IsNullOrWhiteSpace(code) && IsoLanguages.Find(code) != null))
             .WithMessage("All language entries must be valid BCP-47 codes (e.g., en, es, ja, pt-br).");
