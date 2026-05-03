@@ -16,6 +16,13 @@ namespace NzbDrone.Core.Manga
         Chapter FindByMangaAndNumber(int mangaId, decimal chapterNumber, string translatedLanguage);
         List<Chapter> GetChaptersByManga(int mangaId);
         List<Chapter> GetSyntheticChaptersByManga(int mangaId);
+
+        // Phase 6 D-09 — Missing/Wanted feed: monitored Chapters that have no ChapterFile imported.
+        // Manga.Monitored filtering is applied at the consumer layer (Plan 06-06
+        // MissingChapterSearchService) — this method returns all monitored chapter rows with
+        // ChapterFileId IS NULL regardless of parent manga state.
+        List<Chapter> AllMissingMonitoredChapters();
+
         void UpdateChapter(Chapter chapter);
         void SetChapterMonitored(int chapterId, bool monitored);
         void InsertMany(List<Chapter> chapters);

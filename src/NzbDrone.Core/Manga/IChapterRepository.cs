@@ -16,6 +16,10 @@ namespace NzbDrone.Core.Manga
         Chapter Find(int mangaId, decimal chapterNumber, string translatedLanguage);
         List<Chapter> GetByMangaId(int mangaId);
         List<Chapter> GetSyntheticByMangaId(int mangaId);
+
+        // Phase 6 D-09 — monitored chapter rows with no ChapterFile imported (Wanted/Missing feed).
+        List<Chapter> AllMissingMonitoredChapters();
+
         void SetMonitored(IEnumerable<int> ids, bool monitored);
     }
 }

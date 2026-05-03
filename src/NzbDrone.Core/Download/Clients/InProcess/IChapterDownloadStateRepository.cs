@@ -20,5 +20,9 @@ namespace NzbDrone.Core.Download.Clients.InProcess
 
         // Housekeeper retention sweep (D-08; plan 04-08 invokes).
         void DeleteOrphans(DateTime olderThanRetentionUntil);
+
+        // Phase 6 PIPELINE-04 — delete state row after import success (Plans 06-07/08 lifecycle hook).
+        // Silent no-op when no row matches (idempotent).
+        void DeleteByChapterId(int chapterId);
     }
 }

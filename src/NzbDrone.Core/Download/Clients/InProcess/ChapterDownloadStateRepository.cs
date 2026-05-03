@@ -47,5 +47,12 @@ namespace NzbDrone.Core.Download.Clients.InProcess
         {
             Delete(c => c.RetentionUntil != null && c.RetentionUntil < olderThanRetentionUntil);
         }
+
+        public void DeleteByChapterId(int chapterId)
+        {
+            // Phase 6 PIPELINE-04 — Idempotent delete: BasicRepository.Delete(predicate) is a
+            // SQL DELETE WHERE pass; zero-row matches return without throwing.
+            Delete(c => c.ChapterId == chapterId);
+        }
     }
 }

@@ -38,6 +38,15 @@ namespace NzbDrone.Core.Manga
             return Query(c => c.MangaId == mangaId && c.IsSynthetic).ToList();
         }
 
+        public List<Chapter> AllMissingMonitoredChapters()
+        {
+            // Monitored chapter rows with no ChapterFile imported yet.
+            // Manga.Monitored filter applied at the consumer layer (Plan 06-06
+            // MissingChapterSearchService) — this method intentionally returns chapters
+            // for unmonitored manga so consumers can choose their own filter logic.
+            return Query(c => c.Monitored && c.ChapterFileId == null).ToList();
+        }
+
         public void SetMonitored(IEnumerable<int> ids, bool monitored)
         {
             var chapters = Get(ids).ToList();

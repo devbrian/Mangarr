@@ -52,6 +52,13 @@ namespace NzbDrone.Core.Manga
             return _chapterRepository.GetSyntheticByMangaId(mangaId);
         }
 
+        public List<Chapter> AllMissingMonitoredChapters()
+        {
+            // Phase 6 D-09 — pass-through to repository. Consumed by Plan 06-06
+            // MissingChapterSearchService which then filters by Manga.Monitored.
+            return _chapterRepository.AllMissingMonitoredChapters();
+        }
+
         public void UpdateChapter(Chapter chapter)
         {
             _chapterRepository.Update(chapter);
