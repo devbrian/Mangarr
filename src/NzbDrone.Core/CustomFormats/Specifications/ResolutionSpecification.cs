@@ -19,6 +19,7 @@ namespace NzbDrone.Core.CustomFormats
 
         public override int Order => 6;
         public override string ImplementationName => "Resolution";
+        public override MediaType AppliesTo => MediaType.Series;   // Phase 5 D-10 — TV-only spec; hidden from manga CF UI per CustomFormatController?mediaType=manga filter
 
         [FieldDefinition(1, Label = "CustomFormatsSpecificationResolution", Type = FieldType.Select, SelectOptions = typeof(Resolution))]
         public int Value { get; set; }

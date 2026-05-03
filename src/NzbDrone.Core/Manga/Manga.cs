@@ -29,6 +29,14 @@ namespace NzbDrone.Core.Manga
         public int? MalId { get; set; }
         public int? AniListId { get; set; }
 
+        // Phase 5 — per-Manga profile FK columns.
+        // Per Phase 5 D-01 (TranslationProfile) + D-07 (CustomFormatProfile). Both nullable int —
+        // fall back to Config.DefaultTranslationProfileId / Config.DefaultCustomFormatProfileId
+        // when null. Mirrors Sonarr's Series.QualityProfileId per-Series-FK pattern verbatim.
+        // Schema delta in 001_mangarr_baseline.cs.
+        public int? TranslationProfileId { get; set; }
+        public int? CustomFormatProfileId { get; set; }
+
         // Title fields — mirror Sonarr's Series shape for parser/normalizer reuse.
         public string Title { get; set; }
         public string CleanTitle { get; set; }

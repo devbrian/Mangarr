@@ -520,6 +520,39 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("RetentionDays", value); }
         }
 
+        // ─────────────────────────────────────────────────────────────────────
+        // Phase 5 — global default profile FKs (D-01 / D-07).
+        // Null-round-trip pattern mirrors Phase 4 MetadataFormats (Pitfall 9 mitigation):
+        //   set null => stored as empty string => get returns null. Reflection-based
+        //   ConfigService round-trip tests rely on this contract.
+        // ─────────────────────────────────────────────────────────────────────
+
+        public int? DefaultTranslationProfileId
+        {
+            get
+            {
+                var raw = GetValue("DefaultTranslationProfileId", string.Empty);
+                return string.IsNullOrEmpty(raw) ? (int?)null : int.Parse(raw);
+            }
+            set
+            {
+                SetValue("DefaultTranslationProfileId", value?.ToString() ?? string.Empty);
+            }
+        }
+
+        public int? DefaultCustomFormatProfileId
+        {
+            get
+            {
+                var raw = GetValue("DefaultCustomFormatProfileId", string.Empty);
+                return string.IsNullOrEmpty(raw) ? (int?)null : int.Parse(raw);
+            }
+            set
+            {
+                SetValue("DefaultCustomFormatProfileId", value?.ToString() ?? string.Empty);
+            }
+        }
+
         private string GetValue(string key)
         {
             return GetValue(key, string.Empty);
