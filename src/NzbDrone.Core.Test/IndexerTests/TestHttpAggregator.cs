@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using NLog;
@@ -64,6 +65,16 @@ namespace NzbDrone.Core.Test.IndexerTests
 
         public override Task<IList<ReleaseInfo>> Fetch(ChapterSearchCriteria searchCriteria)
             => Task.FromResult<IList<ReleaseInfo>>(new List<ReleaseInfo>());
+
+        // Phase 4 D-01 — concrete no-op stub for the Phase 4 abstract surface. Plan 03-02
+        // missed this test helper for the manga-Fetch fan-out; Phase 4 Plan 04-02's contract
+        // test catches that miss again here. Tests that need to exercise the manifest path
+        // assign GetChapterPagesImpl; default returns an empty manifest.
+        public Func<ReleaseInfo, Task<ChapterManifest>> GetChapterPagesImpl { get; set; }
+
+        public override Task<ChapterManifest> GetChapterPages(ReleaseInfo release)
+            => GetChapterPagesImpl?.Invoke(release)
+               ?? Task.FromResult(new ChapterManifest { Pages = Array.Empty<ChapterPage>(), TotalCount = 0 });
 
         /// <summary>
         /// Public passthrough to the protected <see cref="HttpAggregatorBase{TSettings}.FetchIndexerResponse"/>

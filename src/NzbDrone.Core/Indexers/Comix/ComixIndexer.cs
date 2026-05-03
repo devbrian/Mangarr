@@ -131,6 +131,15 @@ namespace NzbDrone.Core.Indexers.Comix
                 ["Referer"] = $"{Settings.BaseUrl.TrimEnd('/')}/"
             };
 
+        // ── Phase 4 D-01 — Wave 1 Task 1 stub (real implementation lands in Task 2) ──────
+        // This stub satisfies the Phase 4 abstract on HttpAggregatorBase so the production
+        // Sonarr.Core build remains green between Task 1 (contract land) and Task 2 (per-source
+        // override land). The contract test in Task 1 only exercises the IHttpAggregator
+        // interface contract; per-source dereference logic + URL assembly assertions live in
+        // ComixGetChapterPagesFixture (Task 2).
+        public override Task<ChapterManifest> GetChapterPages(ReleaseInfo release)
+            => throw new NotImplementedException("Phase 4 plan 04-02 Task 2 — implements comix.to /api/v2/chapters/{id} dereference.");
+
         protected override Task Test(List<ValidationFailure> failures)
         {
             // Lightweight Test() implementation — honors the abstract contract.
