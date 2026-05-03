@@ -24,5 +24,10 @@
     <None Update="Parser\Manga\test_corpus_v1.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- Phase 4 plan 04-04 — golden CBZ fixture for CbzChapterArchiverFixture. -->
+    <None Include="..\..\_tests\Fixtures\Phase04\golden-cbz\Chapter132.cbz">
+      <Link>Files\Phase04\golden-cbz\Chapter132.cbz</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>
