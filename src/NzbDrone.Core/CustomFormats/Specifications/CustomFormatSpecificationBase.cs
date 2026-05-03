@@ -8,6 +8,7 @@ namespace NzbDrone.Core.CustomFormats
         public abstract string ImplementationName { get; }
 
         public virtual string InfoLink => "https://wiki.servarr.com/sonarr/settings#custom-formats-2";
+        public virtual MediaType AppliesTo => MediaType.All;       // Phase 5 D-10 — default reusable; TV/manga specs override
 
         public string Name { get; set; }
         public bool Negate { get; set; }

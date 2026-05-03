@@ -10,6 +10,7 @@ namespace NzbDrone.Core.CustomFormats
         string Name { get; set; }
         bool Negate { get; set; }
         bool Required { get; set; }
+        MediaType AppliesTo { get; }              // Phase 5 D-10 — Phase 8 cleanup: drop when TV specs delete
 
         NzbDroneValidationResult Validate();
 

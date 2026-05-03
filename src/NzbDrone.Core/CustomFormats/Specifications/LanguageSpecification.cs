@@ -26,6 +26,7 @@ namespace NzbDrone.Core.CustomFormats
 
         public override int Order => 3;
         public override string ImplementationName => "Language";
+        public override MediaType AppliesTo => MediaType.Series;   // Phase 5 D-10 — TV-only spec; hidden from manga CF UI per CustomFormatController?mediaType=manga filter
 
         [FieldDefinition(1, Label = "CustomFormatsSpecificationLanguage", Type = FieldType.Select, SelectOptions = typeof(LanguageFieldConverter))]
         public int Value { get; set; }
