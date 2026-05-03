@@ -29,5 +29,10 @@
       <Link>Files\Phase04\golden-cbz\Chapter132.cbz</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- Phase 4 plan 04-05 — golden folder-format reference fixture (Komga/Kavita compat). -->
+    <None Include="..\..\_tests\Fixtures\Phase04\golden-folder\Chapter132\0001.jpg">
+      <Link>Files\Phase04\golden-folder\Chapter132\0001.jpg</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>
