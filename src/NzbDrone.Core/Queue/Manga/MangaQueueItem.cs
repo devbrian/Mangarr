@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Parser.Manga.Model;
@@ -18,9 +19,15 @@ namespace NzbDrone.Core.Queue.Manga
     // Id is computed via HashConverter.GetHashInt31 over a deterministic key —
     // same TrackedDownload + chapter combination yields the same Id across refreshes
     // so SignalR clients can diff on it (Plan 09 V5 controller fan-out consumer).
-    public class MangaQueueItem
+    //
+    // Plan 06-09 (Rule 2): inherits ModelBase so MangaQueueController can extend
+    // RestControllerWithSignalR<MangaQueueResource, MangaQueueItem>. The base type
+    // requires `where TModel : ModelBase, new()`. Mirrors the TV Queue (which also
+    // inherits ModelBase but is not a DB-mapped entity — pure projection POCO).
+    // Inherits Id from ModelBase; the existing HashConverter.GetHashInt31 setter
+    // assigns to that inherited property.
+    public class MangaQueueItem : ModelBase
     {
-        public int Id { get; set; }
         public int? MangaId { get; set; }
         public int? ChapterId { get; set; }
         public NzbDrone.Core.Manga.Manga Manga { get; set; }
