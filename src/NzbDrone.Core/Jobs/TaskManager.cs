@@ -13,6 +13,7 @@ using NzbDrone.Core.HealthCheck;
 using NzbDrone.Core.Housekeeping;
 using NzbDrone.Core.ImportLists;
 using NzbDrone.Core.Indexers;
+using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Manga.Commands;
 using NzbDrone.Core.MediaFiles.Commands;
@@ -150,6 +151,27 @@ namespace NzbDrone.Core.Jobs
                     {
                         Interval = GetRssSyncInterval(),
                         TypeName = typeof(RssSyncCommand).FullName
+                    },
+
+                    // Phase 6 D-07 — manga RSS poll. Global default Config.MangaRssSyncInterval
+                    // (15min); per-IndexerDefinition.SyncInterval override applied inside
+                    // MangaRssSyncService.DueForRefresh. Registered at runtime via
+                    // TaskManager.defaultTasks per sonarr-consistency-audit anti-pattern C
+                    // (NOT seeded via 001 Insert.IntoTable).
+                    new ScheduledTask
+                    {
+                        Interval = GetMangaRssSyncInterval(),
+                        TypeName = typeof(MangaRssSyncCommand).FullName
+                    },
+
+                    // Phase 6 D-09 — daily Wanted/Missing sweep. Walks monitored Mangas
+                    // with monitored unmet chapters; groups by MangaId; pushes one
+                    // MangaSearchCommand per Manga. Registered at runtime via
+                    // TaskManager.defaultTasks per sonarr-consistency-audit anti-pattern C.
+                    new ScheduledTask
+                    {
+                        Interval = 24 * 60,
+                        TypeName = typeof(MissingChapterSearchCommand).FullName
                     }
                 };
 
@@ -204,6 +226,26 @@ namespace NzbDrone.Core.Jobs
         private int GetRssSyncInterval()
         {
             var interval = _configService.RssSyncInterval;
+
+            if (interval > 0 && interval < 10)
+            {
+                return 10;
+            }
+
+            if (interval < 0)
+            {
+                return 0;
+            }
+
+            return interval;
+        }
+
+        // Phase 6 D-07 — global manga RSS sync default (Config.MangaRssSyncInterval, default 15min).
+        // Mirrors GetRssSyncInterval clamp: 0 = disable, sub-10 floored to 10, anything else honored.
+        // Per-IndexerDefinition.SyncInterval override applied at fetch time inside MangaRssSyncService.
+        private int GetMangaRssSyncInterval()
+        {
+            var interval = _configService.MangaRssSyncInterval;
 
             if (interval > 0 && interval < 10)
             {
