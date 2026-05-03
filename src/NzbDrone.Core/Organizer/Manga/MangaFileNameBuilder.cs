@@ -100,7 +100,27 @@ namespace NzbDrone.Core.Organizer.Manga
                 : namingConfig.MangaFolderFormat;
 
             var result = ResolveTokens(pattern, manga, chapters: null, release: null);
-            return SanitizeFileName(result, namingConfig);
+            var sanitized = SanitizeFileName(result, namingConfig);
+
+            // WR-07: empty-folder collision guard. If MangaFolderFormat resolved to an empty
+            // string (e.g. Manga.Title is "" / whitespace, or every token in the pattern was
+            // null), Path.Combine(root, "") collapses to root and the chapter file ends up
+            // in the root folder, mixing with other manga and tripping up the reader-app
+            // one-level-deep scan convention. Multiple manga with empty resolved titles all
+            // collide on identical chapter filenames. Fall back to "Manga {Id}" so each
+            // manga gets a unique folder even when title resolution fails.
+            if (string.IsNullOrWhiteSpace(sanitized))
+            {
+                var fallbackId = manga?.Id > 0 ? manga.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) : "unknown";
+                sanitized = $"Manga {fallbackId}";
+                _logger.Warn(
+                    "MangaFolderFormat resolved to empty for manga Id={0}, Title='{1}'; using fallback folder name '{2}' to avoid root-folder collisions",
+                    manga?.Id,
+                    manga?.Title,
+                    sanitized);
+            }
+
+            return sanitized;
         }
 
         // ── Token resolution ────────────────────────────────────────────────────────────────
