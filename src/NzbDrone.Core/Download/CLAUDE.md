@@ -77,6 +77,15 @@ Releases awaiting delay-profile timeout / preferred-protocol cooldown:
 ### `Extensions/`
 Shared utilities (`MagnetLink.cs`, `TorrentBitfield.cs`, etc.).
 
+### `Manga/` (Phase 6 sibling)
+Manga-side staging-handoff orchestration + auto-retry orchestrator. See [Manga/CLAUDE.md](./Manga/CLAUDE.md).
+
+| File | Purpose |
+|------|---------|
+| `ProcessMangaCompletedCommand.cs` | Payload-less `Command` POCO; 1-min poll trigger registered in `TaskManager.defaultTasks` per Anti-pattern C compliance. |
+| `ProcessMangaCompletedDownloads.cs` | Hybrid `IHandle<ChapterArchivedEvent>` + `IExecute<ProcessMangaCompletedCommand>` orchestrator (RESEARCH Pattern 1). Bridges Phase 4 archived-CBZ output to Phase 6 `ImportApprovedChapters` (Plan 06-07). Idempotent — both paths converge on a single `ProcessOne` method that short-circuits when `ChapterFile` is already present. |
+| `AutoRetryOrchestrator.cs` | Bounded auto-retry orchestrator (D-12 + D-13 + Pitfall 5). Subscribes to `MangaBlocklistAddedEvent` (NOT `ChapterDownloadFailedEvent` — anti-race contract with Plan 06-04 `MangaBlocklistService`); pushes `ChapterSearchCommand` while `ChapterHistory{DownloadFailed}` count < `IConfigService.MaxAutoRetriesPerChapter`. |
+
 ## Lifecycle
 
 ```
