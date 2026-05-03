@@ -130,14 +130,52 @@ namespace NzbDrone.Core.Indexers.MangaDex
         public override Dictionary<string, string> GetDownloadHeaders(ReleaseInfo release)
             => new Dictionary<string, string>();
 
-        // ── Phase 4 D-01 — Wave 1 Task 1 stub (real implementation lands in Task 2) ──────
-        // This stub satisfies the Phase 4 abstract on HttpAggregatorBase so the production
-        // Sonarr.Core build remains green between Task 1 (contract land) and Task 2 (per-source
-        // override land). The contract test in Task 1 only exercises the IHttpAggregator
-        // interface contract; per-source dereference logic + URL assembly assertions live in
-        // MangaDexGetChapterPagesFixture (Task 2).
-        public override Task<ChapterManifest> GetChapterPages(ReleaseInfo release)
-            => throw new NotImplementedException("Phase 4 plan 04-02 Task 2 — implements MangaDex /at-home/server dereference.");
+        // ── Phase 4 D-01 — MangaDex /at-home/server/{chapterId} dereference ──────────
+        // Returns: { result, baseUrl, chapter: { hash, data: [filenames], dataSaver: [...] } }
+        // Tokens valid ~15min per VERIFIED api.mangadex.org/docs/04-chapter; D-03's reactive
+        // 403/410 → re-fetch (orchestrated by ChapterDownloadService in plan 04-03) handles
+        // expiry without a proactive scheduler.
+        //
+        // CRITICAL (Pitfall 1 — F-01 class regression guard): RateLimitKey is set EXPLICITLY at
+        // the call site to SourceKey so the /at-home/server GET shares the per-SourceKey budget
+        // with indexer poll path (Phase 1 D-11/D-12). The Phase 4 ChapterPageFetcher applies
+        // the same discipline on per-image GETs.
+        //
+        // CRITICAL (token leakage): /at-home/server URLs do NOT take auth headers — sending
+        // Authorization on a GET against uploads.mangadex.org would leak credentials to the
+        // community CDN. MangaDex's GetDownloadHeaders override returns empty so plan 04-03's
+        // ChapterPageFetcher applies no auth on the resolved image URLs either.
+        //
+        // ReleaseInfo.DownloadUrl is the chapter manifest URL (Phase 3 D-08) — for MangaDex it's
+        // already the canonical /at-home/server/{chapterId} URL emitted by MangaDexParser
+        // (verified in MangaDexParser.cs:97). We GET it directly without re-deriving.
+        public override async Task<ChapterManifest> GetChapterPages(ReleaseInfo release)
+        {
+            var req = new HttpRequest(release.DownloadUrl);
+            req.RateLimitKey = SourceKey;                            // Phase 1 D-11 — shared budget
+            req.Headers["User-Agent"] = ResolveUserAgent();          // Phase 1 D-13 — honest UA
+
+            var resp = await _httpClient.GetAsync<MangaDexAtHomeResource>(req);
+            var chapter = resp.Resource.Chapter;
+            var pages = new List<ChapterPage>(chapter.Data.Count);
+            for (var i = 0; i < chapter.Data.Count; i++)
+            {
+                pages.Add(new ChapterPage
+                {
+                    Url = $"{resp.Resource.BaseUrl.TrimEnd('/')}/data/{chapter.Hash}/{chapter.Data[i]}",
+                    PageIndex = i + 1,
+                    ContentTypeHint = null   // URL-embedded extension preserved
+                });
+            }
+
+            return new ChapterManifest
+            {
+                Pages = pages,
+                ScanlationGroup = release.ScanlationGroup,            // Phase 3 D-Q4 — populated by parser
+                TotalCount = chapter.Data.Count,
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(15)      // documented MangaDex TTL
+            };
+        }
 
         protected override Task Test(List<ValidationFailure> failures)
         {

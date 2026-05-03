@@ -131,14 +131,48 @@ namespace NzbDrone.Core.Indexers.Comix
                 ["Referer"] = $"{Settings.BaseUrl.TrimEnd('/')}/"
             };
 
-        // ── Phase 4 D-01 — Wave 1 Task 1 stub (real implementation lands in Task 2) ──────
-        // This stub satisfies the Phase 4 abstract on HttpAggregatorBase so the production
-        // Sonarr.Core build remains green between Task 1 (contract land) and Task 2 (per-source
-        // override land). The contract test in Task 1 only exercises the IHttpAggregator
-        // interface contract; per-source dereference logic + URL assembly assertions live in
-        // ComixGetChapterPagesFixture (Task 2).
-        public override Task<ChapterManifest> GetChapterPages(ReleaseInfo release)
-            => throw new NotImplementedException("Phase 4 plan 04-02 Task 2 — implements comix.to /api/v2/chapters/{id} dereference.");
+        // ── Phase 4 D-01 — Comix /api/v2/chapters/{id} dereference ─────────────────
+        // Returns: { pages: [imageUrl1, imageUrl2, ...] } — durable URLs (no token rotation).
+        // ExpiresAt = null because comix.to URLs do not expire; the auto-re-fetch on 403/410
+        // (D-03) is a never-fired safety net for this source.
+        //
+        // Referer header: handled by GetDownloadHeaders override (returns
+        // "Referer: https://comix.to/"). Plan 04-03's ChapterPageFetcher applies that header
+        // before each image GET via the GetDownloadHeaders hook.
+        //
+        // CRITICAL (Pitfall 1): RateLimitKey set EXPLICITLY at the call site to SourceKey so
+        // the /api/v2/chapters/{id} GET shares the per-SourceKey budget with indexer poll path.
+        //
+        // Synthesized fixture shape (Cloudflare blocks live capture per Phase 3 LEARNINGS):
+        // ComixChapterPagesResponse { pages: List<string> } maps the keiyoushi Dto.kt shape.
+        public override async Task<ChapterManifest> GetChapterPages(ReleaseInfo release)
+        {
+            var req = new HttpRequest(release.DownloadUrl);   // already https://comix.to/api/v2/chapters/{id}
+            req.RateLimitKey = SourceKey;                                          // Phase 1 D-11 — shared budget
+            req.Headers["User-Agent"] = ResolveUserAgent();                        // Phase 1 D-13 — honest UA
+            req.Headers["Referer"] = $"{Settings.BaseUrl.TrimEnd('/')}/";          // Phase 3 D-Comix Cloudflare Pitfall
+
+            var resp = await _httpClient.GetAsync<ComixChapterPagesResponse>(req);
+            var pageUrls = resp.Resource.Pages;
+            var pages = new List<ChapterPage>(pageUrls.Count);
+            for (var i = 0; i < pageUrls.Count; i++)
+            {
+                pages.Add(new ChapterPage
+                {
+                    Url = pageUrls[i],
+                    PageIndex = i + 1,
+                    ContentTypeHint = null
+                });
+            }
+
+            return new ChapterManifest
+            {
+                Pages = pages,
+                ScanlationGroup = release.ScanlationGroup,    // typically null for Comix; non-null for community translations
+                TotalCount = pageUrls.Count,
+                ExpiresAt = null                               // durable URLs
+            };
+        }
 
         protected override Task Test(List<ValidationFailure> failures)
         {

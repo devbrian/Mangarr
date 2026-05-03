@@ -1,0 +1,11 @@
+{
+  "result": "error",
+  "errors": [
+    {
+      "id": "x",
+      "status": 403,
+      "title": "Forbidden",
+      "detail": "Token expired"
+    }
+  ]
+}
