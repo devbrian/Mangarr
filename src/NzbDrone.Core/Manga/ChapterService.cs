@@ -76,6 +76,19 @@ namespace NzbDrone.Core.Manga
         public void SetChapterMonitored(int chapterId, bool monitored)
         {
             var chapter = _chapterRepository.Get(chapterId);
+
+            // Phase 6 Plan 14 — BL-03 mitigation. ChapterRepository.Get returns null when
+            // the chapter row has been cascade-deleted (MangaDeletedEvent window) or when a
+            // stale UI request arrives after the row was removed. Without this guard the
+            // dereference below throws NullReferenceException → 500 to the user + log
+            // pollution. Warn-level so missing-row events surface in System Logs without
+            // pretending they are errors.
+            if (chapter == null)
+            {
+                _logger.Warn("SetChapterMonitored: Chapter:{0} not found (cascade-delete window or stale request); skipping monitor update.", chapterId);
+                return;
+            }
+
             chapter.Monitored = monitored;
             _chapterRepository.Update(chapter);
 
