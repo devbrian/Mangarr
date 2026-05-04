@@ -302,10 +302,17 @@ namespace NzbDrone.Core.Jobs
             var backup = _scheduledTaskRepository.GetDefinition(typeof(BackupCommand));
             backup.Interval = GetBackupInterval();
 
-            _scheduledTaskRepository.UpdateMany(new List<ScheduledTask> { rss, backup });
+            // Phase 6 Plan 14 — WR-02 mitigation. Mirror the TV RssSyncCommand rebroadcast for
+            // the manga sibling so Settings → MangaRssSyncInterval changes apply without restart.
+            // PIPELINE-02 success criterion requires the interval to be configurable at runtime.
+            var mangaRss = _scheduledTaskRepository.GetDefinition(typeof(MangaRssSyncCommand));
+            mangaRss.Interval = GetMangaRssSyncInterval();
+
+            _scheduledTaskRepository.UpdateMany(new List<ScheduledTask> { rss, backup, mangaRss });
 
             _cache.Find(rss.TypeName).Interval = rss.Interval;
             _cache.Find(backup.TypeName).Interval = backup.Interval;
+            _cache.Find(mangaRss.TypeName).Interval = mangaRss.Interval;
         }
     }
 }
