@@ -96,10 +96,23 @@ public class ChapterController : RestControllerWithSignalR<ChapterResource, NzbD
     [RestPutById]
     [Consumes("application/json")]
     [Produces("application/json")]
-    public Ok<ChapterResource> SetChapterMonitored([FromRoute] int id, [FromBody] ChapterResource resource)
+    public Results<Ok<ChapterResource>, NotFound> SetChapterMonitored([FromRoute] int id, [FromBody] ChapterResource resource)
     {
+        // WR-09 fix: ChapterService.SetChapterMonitored has the BL-03 cascade-delete
+        // null-guard and silently returns when the row was just removed. Without a
+        // matching null-check here, the subsequent GetChapter(id) returns null and
+        // the .ToResource() extension throws NRE → 500 to the client. Mirrors the
+        // GetResourceById precedent above which uses NotFoundException for the same
+        // case; the typed-results NotFound shape preserves the controller signature
+        // for OpenAPI v5 doc generation (Pitfall 4).
         _chapterService.SetChapterMonitored(id, resource.Monitored);
-        return TypedResults.Ok(_chapterService.GetChapter(id).ToResource());
+        var updated = _chapterService.GetChapter(id);
+        if (updated == null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        return TypedResults.Ok(updated.ToResource());
     }
 
     [HttpPut("monitor")]
