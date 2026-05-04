@@ -222,6 +222,20 @@ namespace NzbDrone.Core.Notifications
             definition.SupportsOnApplicationUpdate = provider.SupportsOnApplicationUpdate;
             definition.SupportsOnManualInteractionRequired = provider.SupportsOnManualInteractionRequired;
             definition.SupportsOnChapterImport = provider.SupportsOnChapterImport;
+
+            // Phase 6 Plan 14 — BL-01 mitigation. NotificationDefinition.OnChapterImport
+            // defaults to true at the property level for ergonomic first-save UX (newly
+            // added Komga/Kavita work without an extra checkbox), but on FRESH provider
+            // creation (Id == 0) we scope the bit to the actual capability so TV
+            // providers (Plex/Discord/Slack/Pushover etc.) are NOT silently Enable=true
+            // via the OnChapterImport leg of NotificationDefinition.Enable. Existing user
+            // configs (Id > 0) are untouched — this only affects first save.
+            // Defense-in-depth: NotificationFactory.OnChapterImportEnabled (above) still
+            // dual-filters on `Definition.OnChapterImport && n.SupportsOnChapterImport`.
+            if (definition.Id == 0)
+            {
+                definition.OnChapterImport = provider.SupportsOnChapterImport;
+            }
         }
 
         public override ValidationResult Test(NotificationDefinition definition)
