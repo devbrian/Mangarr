@@ -61,6 +61,14 @@ fi
 # Phase 6 (queue / history / blocklist / wanted/missing / release), and
 # Phase 7 Plan 01 (chapter).
 echo "Checking endpoint coverage ..."
+# WR-02 fix: jq is required here so the check looks inside the paths block
+# specifically. Substring grep would false-positive on path names that appear
+# inside description/summary text without being routed.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "ERROR: jq is required for endpoint coverage check"
+  echo "       Install jq (https://stedolan.github.io/jq/) and re-run."
+  exit 3
+fi
 PATHS_REQUIRED=(
   "/api/v5/manga"
   "/api/v5/manga/lookup"
@@ -76,7 +84,7 @@ PATHS_REQUIRED=(
 )
 MISSING=0
 for path in "${PATHS_REQUIRED[@]}"; do
-  if ! grep -q "\"${path}\"" "${OUTPUT_FILE}"; then
+  if ! jq -e ".paths | has(\"${path}\")" "${OUTPUT_FILE}" >/dev/null 2>&1; then
     echo "MISSING: ${path}"
     MISSING=$((MISSING + 1))
   fi
