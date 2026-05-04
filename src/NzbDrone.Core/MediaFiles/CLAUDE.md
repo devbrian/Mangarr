@@ -167,6 +167,19 @@ The pipeline architecture transfers cleanly. Replace specs:
 - Keep `FreeSpaceSpecification`, `NotInUseSpecification`, `AlreadyImportedSpecification`, `UpgradeSpecification`
 - Add `MinimumPageCountSpecification` (reject extras / sample chapters with too few pages)
 
+## Phase 6 Manga Siblings
+
+Phase 6 ships the manga import pipeline + supporting events as parallel siblings to the TV pipeline. **Phase 8 cleanup** will collapse the sibling pairs when `Tv/` deletes.
+
+| Sibling | Phase 6 Plan | Notes |
+|---------|--------------|-------|
+| [`MediaFiles/MangaImport/`](./MangaImport/CLAUDE.md) | Plan 06-07 | Manga import pipeline. `MangaImportDecisionMaker` (auto-discovery via `IEnumerable<IMangaImportDecisionEngineSpecification>`) + 6 specs (`ChapterFileExists`, `NotEmptyArchive`, `MatchesGrab`, `FreeSpace`, `Upgrade` with D-10 three-state, `AlreadyImported` with BL-01 fix) + `ImportApprovedChapters` orchestrator. **PITFALL 4 ORDERING INVARIANT**: `ChapterImportedEvent` published as the LAST line of the success path — Komga/Kavita rescan handlers race-fire on this event so DB commit + filesystem move must complete first. POCOs: `LocalChapter`, `MangaImportSpecDecision`, `MangaImportResult`, `MangaImportDecision`. Phase 8 cleanup: collapse with `EpisodeImport/`. |
+| `MediaFiles/MangaImport/ChapterImportedEvent.cs` | Plan 06-02 | Manga sibling of `MediaFiles/Events/EpisodeImportedEvent.cs`. Carries `Manga + Chapter + ChapterFile + DownloadClientItem + NewDownload + SourcePath`. Pitfall 4 GUARD: published AFTER ChapterFile DB commit + filesystem move complete (Plan 06-07 `ImportApprovedChapters` enforces). Phase 8 cleanup: collapse with `EpisodeImportedEvent`. |
+| `MediaFiles/MangaImport/ChapterImportFailedEvent.cs` | Plan 06-02 | Carries `Manga + Chapter + SourcePath + FailureReason + DownloadClientItem`. Covers IMPORT-stage failures (post-archive, pre-DB-commit) — distinct from Phase 4 `ChapterDownloadFailedEvent` (download-stage). Phase 8 cleanup: collapse with hypothetical `EpisodeImportFailedEvent` if/when `Tv/` deletes. |
+| `MediaFiles/ChapterArchiving/ChapterGrabbedEvent.cs` | Plan 06-01 | Carries `RemoteChapter + DownloadId + DownloadClient`. Role-match analog: `Download/EpisodeGrabbedEvent.cs`. Emitted by Phase 4 `InProcessImageDownloadClient` after grab; consumed by Plan 06-03 `ChapterHistoryService.Handle`. Phase 8 cleanup: collapse with `EpisodeGrabbedEvent`. |
+| `MediaFiles/ChapterArchiving/ChapterDownloadFailedEvent.cs` un-sealed + extended | Plan 06-01 | Un-sealed; gained optional `SourceTitle / Source / DownloadClient / Release : ReleaseInfo` init-only properties + `Reason / Message` aliases. Existing 4-arg ctor preserved. Plans 06-03/04/08 require. |
+| `ChapterFile.cs` + `ChapterFileService` + `ChapterFileRepository` + `ChapterFileAddedEvent` + `ChapterFileDeletedEvent` | Plan 06-01 | Parallel sibling to `EpisodeFile` + `MediaFileService` + `MediaFileRepository` + `EpisodeFileAddedEvent` + `EpisodeFileDeletedEvent`. `ChapterFileService` `IHandleAsync<MangaDeletedEvent>` cascade-deletes mirror `MediaFileService` `IHandleAsync<SeriesDeletedEvent>`. Phase 8 cleanup: collapse with `EpisodeFile`. |
+
 ## Cross-References
 
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview

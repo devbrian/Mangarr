@@ -110,6 +110,18 @@ Each provider overrides only the hooks it cares about (and the `Supports*` flags
 
 The bulk of provider code (HTTP plumbing, settings, validation) stays the same.
 
+## Phase 6 Manga Siblings
+
+These manga-side artifacts ship under this directory and the `INotification` cross-cut. Each is a parallel sibling to a TV analog; **Phase 8 cleanup** will collapse the sibling pairs when `Tv/` deletes.
+
+| Sibling | Phase 6 Plan | Notes |
+|---------|--------------|-------|
+| [`Notifications/Komga/`](./Komga/CLAUDE.md) | Plan 06-10 | Komga manga-reader rescan. `INotification` provider implementing ONLY `OnChapterImport` per D-18; `MediaServerUpdateQueue<KomgaNotification, int>` 5-second debounce per `LibraryId` (Pattern 7); `X-API-Key` auth (Komga 1.20.0+); LibraryId REQUIRED per Pitfall 2 (Komga has NO scan-all endpoint). Phase 8 cleanup: collapse the `// Sonarr divergence:` header comment when `Tv/` deletes. |
+| [`Notifications/Kavita/`](./Kavita/CLAUDE.md) | Plan 06-11 | Kavita manga-reader rescan. `INotification` provider implementing ONLY `OnChapterImport` per D-18; two-step Bearer JWT auth with 30-min `ICacheManager` cache + 401-reauth-and-retry-once (Pattern 6 + Example 4); LibraryId OPTIONAL per D-16 (null → `scan-all`); per-`Settings.Url` cache identifier. Phase 8 cleanup: collapse with TV equivalent when `Tv/` deletes. |
+| `Notifications/ChapterImportMessage.cs` | Plan 06-02 | Manga-shaped POCO (sibling of `DownloadMessage`); carries `Manga + Chapter + ChapterFile + SourceTitle + SourcePath + DownloadClient + DownloadId + OldFiles`. Phase 8 cleanup: collapse with `DownloadMessage`. |
+| `INotification.OnChapterImport` extension + `NotificationBase` virtual no-op + `NotificationService` `IHandle<ChapterImportedEvent>` fan-out + `INotificationFactory.OnChapterImportEnabled()` factory dual-filter | Plan 06-02 | RESEARCH §Pitfall 7 three-layer mitigation (interface + base virtual + service fan-out). Reflection-backed `SupportsOnChapterImport` reuses the existing `HasConcreteImplementation` helper at `NotificationBase.cs:122` so providers that DO override return true and providers that DON'T (every TV notification) return false — safe by default. `NotificationDefinition.OnChapterImport` defaults to `TRUE`. Phase 8 cleanup: collapse with `OnImportComplete` when domain rename runs. |
+| `MediaServerUpdateQueue<T,U>` info-only overloads | Plan 06-10 | Existing Series-coupled `Add(string, Series, TItemInfo)` API doesn't fit manga readers — added `Add(string, TItemInfo) + ProcessQueue(string, Action<TItemInfo>)` overloads alongside (Rule 3). Backed by a separate rolling-cache key (`"pendingInfo"` vs `"pendingSeries"`) so the two paths never alias. Existing TV callers (Plex, Emby/Jellyfin, Xbmc) compile + behave unchanged. Phase 8 cleanup: when the Series-coupled overload retires alongside `Tv/`, the info-only overload becomes the canonical surface. |
+
 ## Cross-References
 
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview

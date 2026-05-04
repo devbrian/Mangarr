@@ -199,6 +199,23 @@ API key is in General Settings; resettable.
 
 For backward compatibility with any external integrations that consume `/api/v5/series`, consider keeping aliased routes during the transition (e.g. add `[Route("api/v5/manga")]` AND keep `[Route("api/v5/series")]` on the same controller temporarily).
 
+## Phase 6 Manga V5 Sibling Controllers
+
+Phase 6 Plan 06-09 ships 5 manga-side V5 controllers under `/api/v5/manga/` that close the v1 PIPELINE/HISTORY/BLOCK/WANTED requirements. Each is a parallel sibling to a TV V5 controller; **Phase 8 cleanup** will collapse the sibling pairs when `Tv/` deletes (and `Sonarr.Api.V3/` is dropped).
+
+| Sibling | TV Analog | Phase 6 Requirements |
+|---------|-----------|----------------------|
+| `Manga/History/ChapterHistoryController.cs` at `/api/v5/manga/history` | `History/HistoryController.cs` | HISTORY-01..03 — paged GET with `eventType / chapterId / downloadId / mangaIds[] / languages[] / includeSubresources[]` filters; POST `/failed/{id}/retry` pushes `ChapterSearchCommand` (HISTORY-03 manual retry escape hatch after auto-retry budget exhausts) |
+| `Manga/Blocklist/MangaBlocklistController.cs` at `/api/v5/manga/blocklist` | `Blocklist/BlocklistController.cs` | BLOCK-01..02 — paged GET with `mangaIds[] / includeManga` filters; `[RestDeleteById]` single-row delete; `[HttpDelete("bulk")]` bulk delete via `MangaBlocklistBulkResource { Ids: List<int> }`; carries D-11 release-identity triple `(SourceKey, ReleaseGuid, SourceTitle)` |
+| `Manga/Queue/MangaQueueController.cs` at `/api/v5/manga/queue` | `Queue/QueueController.cs` | PIPELINE-03 — `RestControllerWithSignalR<MangaQueueResource, MangaQueueItem>` + `IHandle<MangaQueueUpdatedEvent>`; GET returns full projection (no DB paging — static-list from `TrackedDownloadRefreshedEvent`); SignalR resource name = `mangaqueue` |
+| `Manga/Release/MangaReleaseController.cs` at `/api/v5/manga/release` | `Release/ReleaseController.cs` | PIPELINE-01 — Interactive Search modal; GET `?chapterId=` runs `IMangaSearchForReleases.ChapterSearch`; POST grabs the cached RemoteChapter via a thin `RemoteEpisode` shim (`Series = { Id = manga.Id }`, `Episodes = [{ Id = chapter.Id }]`); Phase 4 D-10 `Protocol == DownloadProtocol.Http` early-return routes into `InProcessImageDownloadClient`. ICached<RemoteChapter> 30-min TTL mirrors TV's `_remoteEpisodeCache` |
+| `Manga/Wanted/MissingChaptersController.cs` at `/api/v5/manga/wanted/missing` | `Wanted/MissingController.cs` | WANTED-01..03 — paged GET with `monitored=true & mangaIds[] & languages[] & ageRating & includeManga` filters; backed by new `IChapterService.ChaptersWithoutFiles(PagingSpec)` paged overload; D-04 GUARD: NO `IsSynthetic` filter (synthetic rows surface alongside real rows by default) |
+| `Manga/Subresources/MangaSubresource.cs + ChapterSubresource.cs` | (none — new pattern) | Shared minimal-shape POCOs reused across all Phase 6 controller payloads (avoids leaking full `MangaResource` shape on every nested hydration). Phase 8 cleanup: collapse with the `Series` subresource pattern. |
+
+**Required upstream substrate added by Plan 06-09 (Rule 2 + Rule 3 deviations):**
+- `MangaQueueItem` now inherits `ModelBase` (Rule 2 — needed for `RestControllerWithSignalR<TResource, TModel>` generic constraint; mirrors TV `Queue` precedent)
+- `IChapterService.ChaptersWithoutFiles(PagingSpec)` paged overload added (Rule 3 — Plan 06-01 only shipped the non-paged `AllMissingMonitoredChapters()` variant; the paged variant pre-pends `c => c.ChapterFileId == null` onto `FilterExpressions`)
+
 ## Cross-References
 
 - [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) — Architecture
