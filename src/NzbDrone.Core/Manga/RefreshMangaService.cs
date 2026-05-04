@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using NLog;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Manga.Commands;
@@ -24,6 +25,7 @@ namespace NzbDrone.Core.Manga
     {
         private readonly IMetadataSourceFactory _metaFactory;
         private readonly IMangaService _mangaService;
+        private readonly IChapterService _chapterService;
         private readonly IChapterListService _chapterListService;
         private readonly IEventAggregator _eventAggregator;
         private readonly ICommandResultReporter _commandResultReporter;
@@ -31,6 +33,7 @@ namespace NzbDrone.Core.Manga
 
         public RefreshMangaService(IMetadataSourceFactory metaFactory,
                                    IMangaService mangaService,
+                                   IChapterService chapterService,
                                    IChapterListService chapterListService,
                                    IEventAggregator eventAggregator,
                                    ICommandResultReporter commandResultReporter,
@@ -38,6 +41,7 @@ namespace NzbDrone.Core.Manga
         {
             _metaFactory = metaFactory;
             _mangaService = mangaService;
+            _chapterService = chapterService;
             _chapterListService = chapterListService;
             _eventAggregator = eventAggregator;
             _commandResultReporter = commandResultReporter;
@@ -124,8 +128,30 @@ namespace NzbDrone.Core.Manga
                     // (Pitfall 4 invariant: DB write FIRST, event LAST).
                     _mangaService.UpdateManga(existing, publishUpdatedEvent: false);
 
+                    // Phase 8 backfill (audit gap: no-sibling/EpisodeRefreshedService.md +
+                    // RefreshSeriesService-vs-RefreshMangaService.md gap-10 reclassified):
+                    // snapshot the chapter set BEFORE SyncChapters so we can compute the
+                    // (added/updated/removed) delta for ChapterInfoRefreshedEvent. Mirrors
+                    // RefreshEpisodeService.RefreshEpisodeInfo (Tv/RefreshEpisodeService.cs:131)
+                    // which publishes EpisodeInfoRefreshedEvent with the equivalent delta.
+                    //
+                    // SyncChapters does not return a delta (its public surface predates this
+                    // requirement), so we snapshot+diff here. The diff key is ChapterId — rows
+                    // whose ID exists in both snapshots count as "updated" (SyncChapters may
+                    // have flipped IsSynthetic and other fields in place); IDs only present
+                    // post-sync are "added"; IDs only present pre-sync are "removed".
+                    var beforeIds = _chapterService.GetChaptersByManga(existing.Id)
+                        .ToDictionary(c => c.Id);
+
                     // D-17: chapter-list synthesis fallback when MangaDex not linked.
                     _chapterListService.SyncChapters(existing, chapters);
+
+                    var afterChapters = _chapterService.GetChaptersByManga(existing.Id);
+                    var added = afterChapters.Where(c => !beforeIds.ContainsKey(c.Id)).ToList();
+                    var updated = afterChapters.Where(c => beforeIds.ContainsKey(c.Id)).ToList();
+                    var removed = beforeIds.Values.Where(c => afterChapters.All(a => a.Id != c.Id)).ToList();
+
+                    _eventAggregator.PublishEvent(new ChapterInfoRefreshedEvent(existing, added, updated, removed));
 
                     _eventAggregator.PublishEvent(new MangaUpdatedEvent(existing));
                 }
