@@ -136,7 +136,16 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                         ChapterId = lc.Chapter.Id,
                         Path = actualPath,
                         RelativePath = ToRelativePath(lc.Manga.Path, actualPath),
-                        Size = SafeGetFileSize(actualPath),
+
+                        // Phase 6 Plan 14 — BL-04 mitigation. lc.Size is the authoritative
+                        // file size from Phase 4 staging (already consumed by
+                        // FreeSpaceSpecification + NotEmptyArchiveSpecification, so it is
+                        // reliable when > 0). Falling back to SafeGetFileSize only when
+                        // upstream did not populate it avoids silent ChapterFile.Size = 0
+                        // corruption on transient post-move I/O failures (Windows + AV +
+                        // network shares). Downstream ChapterHistory + ChapterImportMessage
+                        // carry this value forward — Size = 0 propagates forever.
+                        Size = lc.Size > 0 ? lc.Size : SafeGetFileSize(actualPath, _logger),
                         DateAdded = DateTime.UtcNow,
                         OriginalFilePath = lc.Path,
                         TranslatedLanguage = lc.TranslatedLanguage ?? lc.Release?.TranslatedLanguage,
@@ -218,14 +227,19 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             return importResults;
         }
 
-        private static long SafeGetFileSize(string path)
+        // Phase 6 Plan 14 — BL-04 mitigation. Returns 0 on failure (return contract
+        // unchanged so existing callers are unaffected), but logs the swallowed exception
+        // at Warn level so transient I/O failures surface in diagnostics rather than
+        // disappearing silently into the void.
+        private static long SafeGetFileSize(string path, Logger logger)
         {
             try
             {
                 return new FileInfo(path).Length;
             }
-            catch
+            catch (Exception ex)
             {
+                logger.Warn(ex, "SafeGetFileSize failed for path '{0}'; falling back to 0. ChapterFile may carry incorrect Size.", path);
                 return 0;
             }
         }
