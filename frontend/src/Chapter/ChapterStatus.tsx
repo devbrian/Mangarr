@@ -47,9 +47,26 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
     queryOptions: { staleTime: 30 * 1000 },
   });
 
+  // WR-05 fix: explicitly request descending-by-date so `history?.[0]` is
+  // guaranteed to be the most recent event. The /manga/history endpoint is
+  // paged and does not contractually default to descending sort order — the
+  // previous code would surface stale "download failed" indicators forever
+  // if the backend returned ascending order.
+  //
+  // WR-04 (per-row fan-out) is intentionally NOT fixed here: the backend
+  // history endpoint is PAGED and supports `chapterId` as a server-side
+  // filter. Fetching whole-manga history client-side and filtering by
+  // chapterId would only inspect the first page (typically 20-50 rows) and
+  // could miss the most recent event for older chapters. Lifting the fetch
+  // to a parent component (per the reviewer's suggestion) is a structural
+  // refactor deferred to a follow-up plan.
   const { data: history } = useApiQuery<ChapterHistory[]>({
     path: '/manga/history',
-    queryParams: { chapterId: chapter.id },
+    queryParams: {
+      chapterId: chapter.id,
+      sortKey: 'date',
+      sortDirection: 'descending',
+    },
     queryOptions: { staleTime: 30 * 1000 },
   });
 
