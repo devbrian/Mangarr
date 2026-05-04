@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NLog;
-using NzbDrone.Core.Manga.Commands;
-using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
 using NzbDrone.Core.MetadataSource.MangaDex;
@@ -32,7 +30,9 @@ namespace NzbDrone.Core.Manga
     /// 5. Persist via <see cref="IMangaService.AddManga(Manga)"/> (which publishes
     ///    <see cref="Events.MangaAddedEvent"/>)
     /// 6. Synthesize / sync chapters via <see cref="IChapterListService"/> (D-17)
-    /// 7. Schedule initial <see cref="RefreshMangaCommand"/> with IsNewManga=true.
+    /// 7. Initial <c>RefreshMangaCommand</c> (IsNewManga=true) is dispatched by
+    ///    <see cref="MangaAddedHandler"/> via the published <see cref="Events.MangaAddedEvent"/>
+    ///    (Phase 8 audit gap-01 — restored Sonarr's IHandle pattern; no longer inlined here).
     /// </para>
     /// </summary>
     public class AddMangaService : IAddMangaService
@@ -41,21 +41,18 @@ namespace NzbDrone.Core.Manga
         private readonly IMetadataSourceFactory _metaFactory;
         private readonly IChapterListService _chapterListService;
         private readonly CrossSourceIdResolver _resolver;
-        private readonly IManageCommandQueue _commandQueue;
         private readonly Logger _logger;
 
         public AddMangaService(IMangaService mangaService,
                                IMetadataSourceFactory metaFactory,
                                IChapterListService chapterListService,
                                CrossSourceIdResolver resolver,
-                               IManageCommandQueue commandQueue,
                                Logger logger)
         {
             _mangaService = mangaService;
             _metaFactory = metaFactory;
             _chapterListService = chapterListService;
             _resolver = resolver;
-            _commandQueue = commandQueue;
             _logger = logger;
         }
 
@@ -122,8 +119,9 @@ namespace NzbDrone.Core.Manga
             // 6. Synthesize / sync chapters per D-17.
             _chapterListService.SyncChapters(added, primaryChapters);
 
-            // 7. Schedule initial refresh (IsNewManga=true).
-            _commandQueue.Push(new RefreshMangaCommand(new List<int> { added.Id }, isNewManga: true));
+            // 7. Initial RefreshMangaCommand (IsNewManga=true) is dispatched by
+            //    MangaAddedHandler via the published MangaAddedEvent (Phase 8 audit
+            //    gap-01 — Sonarr's SeriesAddedHandler pattern restored; no inline push).
 
             return added;
         }

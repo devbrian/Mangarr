@@ -132,18 +132,23 @@ namespace NzbDrone.Core.Test.MangaTests
         }
 
         [Test]
-        public void Add_queues_RefreshMangaCommand()
+        public void Add_does_not_push_RefreshMangaCommand_directly()
         {
+            // Phase 8 audit gap-01: refresh-trigger moved to MangaAddedHandler
+            // (subscriber on MangaAddedEvent). AddMangaService no longer pushes
+            // RefreshMangaCommand inline — coverage of the push lives in
+            // MangaAddedHandlerFixture. This test asserts the responsibility
+            // migration: AddMangaService MUST NOT push the command directly.
             var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test" };
 
             Subject.AddManga(newManga);
 
             Mocker.GetMock<IManageCommandQueue>()
                   .Verify(q => q.Push(
-                      It.Is<RefreshMangaCommand>(c => c.IsNewManga && c.MangaIds.Count == 1 && c.MangaIds[0] == 7),
+                      It.IsAny<RefreshMangaCommand>(),
                       It.IsAny<CommandPriority>(),
                       It.IsAny<CommandTrigger>()),
-                          Times.Once());
+                          Times.Never());
         }
 
         [Test]
