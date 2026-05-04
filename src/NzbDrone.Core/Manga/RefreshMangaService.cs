@@ -118,6 +118,13 @@ namespace NzbDrone.Core.Manga
                     _logger.Warn(ex, "Refresh failed for manga {0}; skipping and continuing", existing.Title);
                 }
             }
+
+            // gap-02: publish the "refresh complete" pulse AFTER the iteration finishes.
+            // Mirrors TV RefreshSeriesService.Execute's trailing
+            // PublishEvent(new SeriesRefreshCompleteEvent()) — UI / SignalR subscribers
+            // need this to clear the "refreshing" indicator. Pairs with the (gap-01)
+            // MangaRefreshStartingEvent emitted at the top of Execute.
+            _eventAggregator.PublishEvent(new MangaRefreshCompleteEvent());
         }
     }
 }
