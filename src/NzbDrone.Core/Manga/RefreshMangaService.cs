@@ -160,6 +160,29 @@ namespace NzbDrone.Core.Manga
                     _logger.Warn("Manga {0} not found at primary source — preserving existing data",
                         existing.Title);
 
+                    // gap-07: mirror RefreshSeriesService.RefreshSeriesInfo
+                    // (Tv/RefreshSeriesService.cs:70-81) — when the primary source no longer
+                    // returns this manga, flip Status to the "deleted" string-sentinel so the
+                    // UI can surface "removed at source". String sentinel (not a schema
+                    // column) is the audit's stated alternative to a new RemovedAtSource
+                    // bool — joins the documented set on Manga.cs:54
+                    // (ongoing | completed | hiatus | cancelled | deleted). Persists via
+                    // UpdateManga(publishUpdatedEvent:false) so the trailing
+                    // PublishEvent(MangaUpdatedEvent) is the SOLE update event for this
+                    // iteration (Pitfall 4 invariant: DB write FIRST, event LAST).
+                    //
+                    // Divergence from TV: do NOT rethrow. Manga refresh is batch-tolerant
+                    // per WR-07 — one removed-at-source manga must not abort the whole loop.
+                    // TV rethrows because its outer Execute treats single-series refreshes
+                    // as fatal; manga's outer Execute is sequential-tolerant by design.
+                    if (existing.Status != "deleted")
+                    {
+                        existing.Status = "deleted";
+                        _mangaService.UpdateManga(existing, publishUpdatedEvent: false);
+                        _logger.Debug("Manga marked as deleted at source for {0}", existing.Title);
+                        _eventAggregator.PublishEvent(new MangaUpdatedEvent(existing));
+                    }
+
                     // gap-09: mirror RefreshSeriesService.Execute (Tv/RefreshSeriesService.cs:235)
                     // — flag the command result Indeterminate so a partial-success batch is
                     // not falsely marked Completed by the command queue / health check.

@@ -51,7 +51,7 @@ namespace NzbDrone.Core.Manga
 
         // Editorial metadata.
         public string Overview { get; set; }
-        public string Status { get; set; }            // ongoing | completed | hiatus | cancelled
+        public string Status { get; set; }            // ongoing | completed | hiatus | cancelled | deleted
         public string ContentRating { get; set; }
         public List<MediaCover.MediaCover> Images { get; set; }
         public HashSet<int> Tags { get; set; }
