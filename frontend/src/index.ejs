@@ -18,18 +18,6 @@
     <meta name="description" content="Mangarr" />
     <meta name="application-name" content="Mangarr" />
 
-    <!--
-      Sonarr divergence: per Phase 7 Plan 07-11 + UI-01 + UI-SPEC §Rebrand Chrome Contract — see DIVERGENCE.md.
-      SVG favicon (manga pink) takes precedence in modern browsers. Legacy PNG / ICO
-      links below stay pointed at the inherited Sonarr assets pending a Phase 8
-      multi-resolution ICO bake — they only render in older browsers / pinned-tab
-      surfaces and are fallbacks only.
-    -->
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="/Content/Images/Icons/mangarr-favicon.svg"
-    />
     <link
       rel="apple-touch-icon"
       sizes="180x180"
@@ -48,10 +36,17 @@
       href="/Content/Images/Icons/favicon-16x16.png"
     />
     <link rel="manifest" href="/Content/manifest.json" crossorigin="use-credentials" />
+    <!--
+      Sonarr divergence (minimal): mask-icon SVG kept verbatim (Safari pinned-tab
+      convention is a black silhouette mask); only the link's `color` attribute
+      is retinted from Sonarr cyan (#00ccff) to manga pink (#f06292). PNG /
+      apple-touch / .ico assets carry forward unchanged from Sonarr; Phase 8 may
+      re-bake the multi-resolution PNG set if needed.
+    -->
     <link
       rel="mask-icon"
       href="/Content/Images/Icons/safari-pinned-tab.svg"
-      color="#00ccff"
+      color="#f06292"
     />
     <link
       rel="shortcut icon"
