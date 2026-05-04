@@ -8,6 +8,7 @@ import ImportSeriesPage from 'AddSeries/ImportSeries/ImportSeriesPage';
 import CalendarPage from 'Calendar/CalendarPage';
 import NotFound from 'Components/NotFound';
 import Switch from 'Components/Router/Switch';
+import MangaIndex from 'Manga/Index/MangaIndex';
 import SeriesDetailsPage from 'Series/Details/SeriesDetailsPage';
 import SeriesIndex from 'Series/Index/SeriesIndex';
 import CustomFormatSettingsPage from 'Settings/CustomFormats/CustomFormatSettingsPage';
@@ -67,6 +68,14 @@ function AppRoutes() {
       <Route path="/seasonpass" exact={true} render={RedirectWithUrlBase} />
 
       <Route path="/series/:titleSlug" component={SeriesDetailsPage} />
+
+      {/*
+        Manga (Phase 7 Plan 07-04 — additive per D-09; / stays on TV until
+        Phase 8 cutover. See .planning/phases/07-api-v5-frontend-manga-shell/
+        07-04-PLAN.md.)
+      */}
+
+      <Route exact={true} path="/manga" component={MangaIndex} />
 
       {/*
         Calendar
