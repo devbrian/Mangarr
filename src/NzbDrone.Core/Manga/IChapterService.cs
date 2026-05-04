@@ -33,6 +33,14 @@ namespace NzbDrone.Core.Manga
 
         void UpdateChapter(Chapter chapter);
         void SetChapterMonitored(int chapterId, bool monitored);
+
+        // Sonarr divergence: bulk overload added in Phase 7 Plan 07-01 per D-07 — see DIVERGENCE.md.
+        // Role-match analog: IEpisodeService.SetMonitored(IEnumerable<int>, bool). Consumed by
+        // PUT /api/v5/chapter/monitor (ChapterController.SetChaptersMonitored). Per RESEARCH
+        // Pitfall 4 ordering invariant, the implementation persists the DB write FIRST and then
+        // publishes one ChapterUpdatedEvent per affected id (drives the SignalR `chapter` push).
+        void SetChaptersMonitored(IEnumerable<int> chapterIds, bool monitored);
+
         void InsertMany(List<Chapter> chapters);
         void UpdateMany(List<Chapter> chapters);
         void DeleteMany(List<Chapter> chapters);

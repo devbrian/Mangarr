@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NLog;
 using NzbDrone.Core.Datastore;
+using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.Messaging.Events;
 
 namespace NzbDrone.Core.Manga
@@ -92,7 +93,51 @@ namespace NzbDrone.Core.Manga
             chapter.Monitored = monitored;
             _chapterRepository.Update(chapter);
 
+            // Phase 7 Plan 07-01 — Pitfall 4 ordering invariant: DB write FIRST, event LAST.
+            // ChapterUpdatedEvent drives the SignalR `chapter` push wired by ChapterController
+            // (Sonarr divergence: NEW manga event sibling — see DIVERGENCE.md).
+            _eventAggregator.PublishEvent(new ChapterUpdatedEvent(chapter));
+
             _logger.Debug("Monitored flag for Chapter:{0} was set to {1}", chapterId, monitored);
+        }
+
+        // Sonarr divergence: bulk overload added in Phase 7 Plan 07-01 per D-07 — see DIVERGENCE.md.
+        // Role-match analog: EpisodeService.SetMonitored(IEnumerable<int>, bool) which delegates
+        // to EpisodeRepository.SetMonitored. The manga sibling adds an explicit per-id
+        // ChapterUpdatedEvent fan-out so the SignalR `chapter` resource broadcasts every
+        // affected row (TV emits its updates via the EpisodeFile pipeline; manga has no
+        // equivalent intermediary in v1, so the event has to be raised here).
+        //
+        // RESEARCH Pitfall 4 ordering invariant: the bulk DB write commits FIRST; the event
+        // fan-out runs LAST so subscribers always read post-write state.
+        public void SetChaptersMonitored(IEnumerable<int> chapterIds, bool monitored)
+        {
+            var ids = chapterIds.ToList();
+            if (ids.Count == 0)
+            {
+                return;
+            }
+
+            // DB write FIRST — ChapterRepository.SetMonitored loads the rows, flips the flag,
+            // and UpdateMany's via the BasicRepository pipeline.
+            _chapterRepository.SetMonitored(ids, monitored);
+
+            // Event fan-out LAST. Re-fetch every affected row so subscribers see the persisted
+            // post-write state (mirrors the single-row path's _chapterRepository.Get; defensive
+            // against a row that was cascade-deleted between the write and the publish).
+            foreach (var id in ids)
+            {
+                var chapter = _chapterRepository.Get(id);
+                if (chapter == null)
+                {
+                    _logger.Warn("SetChaptersMonitored: Chapter:{0} not found post-write (cascade-delete window); skipping event publish.", id);
+                    continue;
+                }
+
+                _eventAggregator.PublishEvent(new ChapterUpdatedEvent(chapter));
+            }
+
+            _logger.Debug("Monitored flag for {0} chapter(s) was set to {1}", ids.Count, monitored);
         }
 
         public void InsertMany(List<Chapter> chapters)
