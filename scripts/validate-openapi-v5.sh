@@ -18,7 +18,15 @@
 #     (override via MANGARR_URL env var)
 #     `dotnet run --project src/NzbDrone.Console/Sonarr.Console.csproj --configuration Debug`
 #   * Node.js available for `npx`
-#   * `jq` is OPTIONAL — schema spot-check is skipped when absent
+#   * `jq` is REQUIRED for endpoint-coverage check (path lookup uses
+#     `jq -e '.paths | has(...)'` for accuracy — see WR-02 fix)
+#   * Bash shell — on Windows this means Git Bash, WSL, or a similar POSIX
+#     environment. PowerShell is the default Windows shell per CLAUDE.md but
+#     this script is bash-only (uses `set -euo pipefail`, parameter expansion,
+#     `[[ ]]` test syntax, and `command -v`). Run as:
+#       Git Bash:  bash scripts/validate-openapi-v5.sh
+#       WSL:       bash scripts/validate-openapi-v5.sh
+#     A PowerShell port (validate-openapi-v5.ps1) is a Phase 8 follow-up.
 #
 # Usage:
 #   bash scripts/validate-openapi-v5.sh
