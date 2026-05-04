@@ -23,6 +23,7 @@ import React from 'react';
 import Icon from 'Components/Icon';
 import useApiQuery from 'Helpers/Hooks/useApiQuery';
 import { icons, kinds } from 'Helpers/Props';
+import translate from 'Utilities/String/translate';
 import Chapter from './Chapter';
 import ChapterHistory from 'typings/ChapterHistory';
 import MangaBlocklist from 'typings/MangaBlocklist';
@@ -92,12 +93,16 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
   const hasFile = chapter.chapterFileId != null;
 
   // Precedence: failed > blocklisted > have-file > queued > wanted > unmonitored
+  // WR-06 fix: every status title flows through translate() so the badges
+  // localize. Keys not yet present in en.json render as the key string
+  // (translate() falls back to key) — Plan 07 follow-up adds them to the
+  // en.json catalog. Reuses existing 'Imported' and 'Wanted' keys.
   if (isFailed) {
     return (
       <Icon
         name={icons.DANGER}
         kind={kinds.DANGER}
-        title="Last download attempt failed"
+        title={translate('LastDownloadAttemptFailed')}
       />
     );
   }
@@ -107,14 +112,18 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
       <Icon
         name={icons.BLOCKLIST}
         kind={kinds.DANGER}
-        title="Best release for this chapter is blocklisted"
+        title={translate('BestReleaseForChapterBlocklisted')}
       />
     );
   }
 
   if (hasFile) {
     return (
-      <Icon name={icons.FILE} kind={kinds.SUCCESS} title="Imported" />
+      <Icon
+        name={icons.FILE}
+        kind={kinds.SUCCESS}
+        title={translate('Imported')}
+      />
     );
   }
 
@@ -124,14 +133,18 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
         name={icons.SPINNER}
         kind={kinds.INFO}
         isSpinning={true}
-        title="In queue / downloading"
+        title={translate('ChapterInQueueDownloading')}
       />
     );
   }
 
   if (chapter.monitored) {
     return (
-      <Icon name={icons.MONITORED} kind={kinds.WARNING} title="Wanted" />
+      <Icon
+        name={icons.MONITORED}
+        kind={kinds.WARNING}
+        title={translate('Wanted')}
+      />
     );
   }
 
@@ -139,7 +152,7 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
     <Icon
       name={icons.UNMONITORED}
       kind={kinds.DISABLED}
-      title="Not monitored"
+      title={translate('ChapterIsNotMonitored')}
     />
   );
 }
