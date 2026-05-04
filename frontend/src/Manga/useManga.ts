@@ -566,7 +566,9 @@ export const useToggleMangaMonitored = (mangaId: number) => {
     Manga,
     ToggleMangaMonitoredPayload
   >({
-    path: '/manga',
+    // CR-01 fix: route by id so backend MangaController.RestPutById matches
+    // PUT /api/v5/manga/{id:int}. The bare /manga PUT 404s for the toggle path.
+    path: `/manga/${mangaId}`,
     method: 'PUT',
     mutationOptions: {
       onSuccess: (updatedManga) => {
