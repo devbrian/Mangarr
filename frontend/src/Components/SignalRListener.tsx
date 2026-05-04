@@ -383,6 +383,18 @@ function SignalRListener() {
     // `id` in any case.
     //
     // Phase 8 cleanup: when Tv/ deletes, these become the canonical handlers.
+    //
+    // WR-10: All 6 manga handlers below gate on `if (version < 5) { return; }`
+    // BEFORE acting on the action. This is structurally inconsistent with the
+    // older 'command' handler above (which does not version-gate because the
+    // command resource has been v5-shaped since v1), and creates a quiet
+    // desync window on `version<5` pushes during a rolling deploy: the
+    // matching React Query cache is NOT invalidated and stale data persists
+    // until the next manual refresh. Acceptable for v1 (single-version
+    // deploy) but worth re-evaluating in Phase 8 cutover when `version`
+    // becomes a manga-specific dimension. The version floor is correct — the
+    // backing resources never existed in v1-v4, so there is nothing to
+    // invalidate from a `version<5` push at the data-shape level.
 
     if (name === 'manga') {
       if (version < 5) {
