@@ -27,6 +27,7 @@ namespace NzbDrone.Core.Manga
         private readonly IMangaService _mangaService;
         private readonly IChapterService _chapterService;
         private readonly IChapterListService _chapterListService;
+        private readonly IShouldRefreshManga _shouldRefreshManga;
         private readonly IEventAggregator _eventAggregator;
         private readonly ICommandResultReporter _commandResultReporter;
         private readonly Logger _logger;
@@ -35,6 +36,7 @@ namespace NzbDrone.Core.Manga
                                    IMangaService mangaService,
                                    IChapterService chapterService,
                                    IChapterListService chapterListService,
+                                   IShouldRefreshManga shouldRefreshManga,
                                    IEventAggregator eventAggregator,
                                    ICommandResultReporter commandResultReporter,
                                    Logger logger)
@@ -43,6 +45,7 @@ namespace NzbDrone.Core.Manga
             _mangaService = mangaService;
             _chapterService = chapterService;
             _chapterListService = chapterListService;
+            _shouldRefreshManga = shouldRefreshManga;
             _eventAggregator = eventAggregator;
             _commandResultReporter = commandResultReporter;
             _logger = logger;
@@ -57,7 +60,14 @@ namespace NzbDrone.Core.Manga
             // MangaRefreshCompleteEvent (gap-02) emitted after the iteration finishes.
             _eventAggregator.PublishEvent(new MangaRefreshStartingEvent(message.Trigger == CommandTrigger.Manual));
 
-            var ids = (message.MangaIds == null || message.MangaIds.Count == 0)
+            // gap-03 (audit/RefreshSeriesService-vs-RefreshMangaService.md) +
+            // no-sibling/ShouldRefreshSeries.md: distinguish the two TV branches that
+            // RefreshMangaService consolidated into a single loop. TV gates only the
+            // scheduled refresh-all branch (Tv/RefreshSeriesService.cs:251-281); the
+            // explicit-IDs branch refreshes unconditionally because the user already
+            // narrowed the request.
+            var isRefreshAll = message.MangaIds == null || message.MangaIds.Count == 0;
+            var ids = isRefreshAll
                 ? _mangaService.AllMangaIds()
                 : message.MangaIds;
 
@@ -70,6 +80,22 @@ namespace NzbDrone.Core.Manga
                 var existing = _mangaService.GetManga(id);
                 if (existing == null)
                 {
+                    continue;
+                }
+
+                // gap-03: rate-limit-budget gate. TV mirror: Tv/RefreshSeriesService.cs:256
+                // (`if (trigger == CommandTrigger.Manual || _checkIfSeriesShouldBeRefreshed.ShouldRefresh(series))`).
+                // The OTHER half of D-22's rate-limit-budget protection — D-22 makes the
+                // loop sequential, but without this gate every scheduled tick still hammers
+                // MangaDex/AniList/MAL for every manga unconditionally. Manual-trigger
+                // bypass mirrors TV: explicit user request overrides the cooldown.
+                // Only applies on the scheduled refresh-all branch — explicit-IDs requests
+                // are user-narrowed and refresh unconditionally.
+                if (isRefreshAll
+                    && message.Trigger != CommandTrigger.Manual
+                    && !_shouldRefreshManga.ShouldRefresh(existing))
+                {
+                    _logger.Info("Skipping refresh of manga: {0}", existing.Title);
                     continue;
                 }
 
