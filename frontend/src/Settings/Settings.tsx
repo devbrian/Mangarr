@@ -20,21 +20,37 @@ function Settings() {
           {translate('MediaManagementSettingsSummary')}
         </div>
 
+        {/* Sonarr divergence: per Phase 7 D-05 — Profiles tab renamed to "Translation Profiles" — see DIVERGENCE.md. */}
         <Link className={styles.link} to="/settings/profiles">
-          {translate('Profiles')}
+          {translate('TranslationProfiles')}
         </Link>
 
         <div className={styles.summary}>
-          {translate('ProfilesSettingsSummary')}
+          {translate('TranslationProfilesSettingsSummary')}
         </div>
 
-        <Link className={styles.link} to="/settings/quality">
-          {translate('Quality')}
+        {/* Sonarr divergence: NEW per Phase 7 D-05 — see DIVERGENCE.md. */}
+        <Link className={styles.link} to="/settings/customformatprofiles">
+          {translate('CustomFormatProfiles')}
         </Link>
 
         <div className={styles.summary}>
-          {translate('QualitySettingsSummary')}
+          {translate('CustomFormatProfilesSettingsSummary')}
         </div>
+
+        {/* Phase 7 D-05: Quality nav hidden — manga has no resolution concept.
+            Route + component preserved per D-05 additive nuance; Phase 8 deletes Quality/ sub-tree. */}
+        {false && (
+          <>
+            <Link className={styles.link} to="/settings/quality">
+              {translate('Quality')}
+            </Link>
+
+            <div className={styles.summary}>
+              {translate('QualitySettingsSummary')}
+            </div>
+          </>
+        )}
 
         <Link className={styles.link} to="/settings/customformats">
           {translate('CustomFormats')}

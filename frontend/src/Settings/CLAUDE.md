@@ -25,8 +25,10 @@ All user-configurable settings UI. Each subdirectory is one settings page (or se
 |--------|------|-------|
 | `General/` | General host/port/proxy/auth/SSL/log/backup config | `/settings/general` |
 | `MediaManagement/` | File handling, naming, root folders | `/settings/mediamanagement` |
-| `Profiles/` | Quality + language + delay + release profiles | `/settings/profiles` |
-| `Quality/` | Quality definitions (size limits) | `/settings/quality` |
+| `Profiles/` | **Phase 7 D-05** — page repurposed to render `TranslationProfiles` editor; nav label renamed to "Translation Profiles". `Profiles/Quality/`, `Profiles/Delay/`, `Profiles/Release/` sub-trees retained on disk per Pitfall 8 (Phase 8 deletes Quality only). | `/settings/profiles` |
+| `Profiles/Translations/` | **NEW (Phase 7 D-05)** — TranslationProfile editor wiring `/api/v5/translationprofile` (Phase 5 Plan 05-02). | (rendered inside `/settings/profiles`) |
+| `Profiles/CustomFormatProfile/` | **NEW (Phase 7 D-05)** — CustomFormatProfile editor wiring `/api/v5/customformatprofile` (Phase 5 Plan 05-03). | `/settings/customformatprofiles` |
+| `Quality/` | Quality definitions (size limits) — **HIDDEN from left-nav (Phase 7 D-05)**; route + component preserved (Phase 8 deletes). | `/settings/quality` |
 | `CustomFormats/` | Custom format CRUD + specifications | `/settings/customformats` |
 | `Indexers/` | Indexers + global options | `/settings/indexers` |
 | `DownloadClients/` | Download clients + remote path mappings | `/settings/downloadclients` |
@@ -36,6 +38,17 @@ All user-configurable settings UI. Each subdirectory is one settings page (or se
 | `MetadataSource/` | Metadata source config (TVDB → manga sources) | `/settings/metadatasource` |
 | `Tags/` | Tags + auto-tagging | `/settings/tags` |
 | `UI/` | Theme, language, time format | `/settings/ui` |
+
+## Phase 7 D-05 Topology Rework
+
+Per `.planning/phases/07-api-v5-frontend-manga-shell/07-CONTEXT.md` Decision D-05 (executed in Plan 07-07):
+
+- `Settings.tsx` left-nav row labeled `Profiles` is **renamed** to `Translation Profiles` (i18n key swap; route `/settings/profiles` preserved).
+- A **new** left-nav row `Custom Format Profiles` is inserted immediately after the renamed row, routing to `/settings/customformatprofiles`.
+- The `Quality` left-nav row is **hidden** via `{false && (...)}` — the route and `Settings/Profiles/Quality/` sub-tree code remain on disk (Pitfall 8 negative gate). Phase 8 cleanup deletes the Quality sub-tree.
+- `Settings/Profiles/Profiles.tsx` page content swapped from `<QualityProfiles /> + <DelayProfiles /> + <ReleaseProfiles />` to render `<TranslationProfiles />` only. Quality/Delay/Release imports retained as commented-out lines for grep-fidelity per Pitfall 8.
+
+**Pitfall 8 negative gate:** `Settings/Profiles/{Quality,Delay,Release}/` sub-trees remain on disk; only the Quality nav-row is hidden. Phase 8 deletes Quality only.
 
 ## Provider Settings Pattern
 
