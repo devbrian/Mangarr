@@ -44,6 +44,13 @@ namespace NzbDrone.Core.Manga
 
         public void Execute(RefreshMangaCommand message)
         {
+            // gap-01: publish the "refresh starting" pulse BEFORE any iteration.
+            // Mirrors TV RefreshSeriesService.Execute (Tv/RefreshSeriesService.cs:215)
+            // — UI / SignalR subscribers need this to surface a "refreshing" indicator
+            // at parity with TV's UX feedback model. Pairs with the trailing
+            // MangaRefreshCompleteEvent (gap-02) emitted after the iteration finishes.
+            _eventAggregator.PublishEvent(new MangaRefreshStartingEvent(message.Trigger == CommandTrigger.Manual));
+
             var ids = (message.MangaIds == null || message.MangaIds.Count == 0)
                 ? _mangaService.AllMangaIds()
                 : message.MangaIds;
