@@ -48,8 +48,8 @@ function MangaIndexRow(props: MangaIndexRowProps) {
     manga,
     qualityProfile,
     latestSeason,
-    isRefreshingSeries,
-    isSearchingSeries,
+    isRefreshingManga,
+    isSearchingManga,
   } = useMangaIndexItem(mangaId);
 
   const { showBanners, showSearchAction } = useMangaTableOptions();
@@ -63,15 +63,15 @@ function MangaIndexRow(props: MangaIndexRowProps) {
 
   const onRefreshPress = useCallback(() => {
     executeCommand({
-      name: CommandNames.RefreshSeries,
-      seriesIds: [mangaId],
+      name: CommandNames.RefreshManga,
+      mangaIds: [mangaId],
     });
   }, [mangaId, executeCommand]);
 
   const onSearchPress = useCallback(() => {
     executeCommand({
-      name: CommandNames.SeriesSearch,
-      seriesId: mangaId,
+      name: CommandNames.MangaSearch,
+      mangaId,
     });
   }, [mangaId, executeCommand]);
 
@@ -526,16 +526,16 @@ function MangaIndexRow(props: MangaIndexRowProps) {
             <VirtualTableRowCell key={name} className={styles[name]}>
               <SpinnerIconButton
                 name={icons.REFRESH}
-                title={translate('RefreshSeries')}
-                isSpinning={isRefreshingSeries}
+                title={translate('RefreshManga')}
+                isSpinning={isRefreshingManga}
                 onPress={onRefreshPress}
               />
 
               {showSearchAction ? (
                 <SpinnerIconButton
                   name={icons.SEARCH}
-                  title={translate('SearchForMonitoredEpisodes')}
-                  isSpinning={isSearchingSeries}
+                  title={translate('SearchForMonitoredChapters')}
+                  isSpinning={isSearchingManga}
                   onPress={onSearchPress}
                 />
               ) : null}

@@ -18,12 +18,12 @@ export function useMangaIndexItem(mangaId: number) {
   const manga = useSingleManga(mangaId);
   const qualityProfile = useMangaQualityProfile(manga);
 
-  const isRefreshingSeries = useCommandExecuting(CommandNames.RefreshSeries, {
-    seriesIds: [mangaId],
+  const isRefreshingManga = useCommandExecuting(CommandNames.RefreshManga, {
+    mangaIds: [mangaId],
   });
 
-  const isSearchingSeries = useCommandExecuting(CommandNames.SeriesSearch, {
-    seriesId: mangaId,
+  const isSearchingManga = useCommandExecuting(CommandNames.MangaSearch, {
+    mangaId,
   });
 
   // Manga has no seasons (Plan 07-04 Lock #10). `latestSeason` always undefined
@@ -37,8 +37,8 @@ export function useMangaIndexItem(mangaId: number) {
     manga,
     qualityProfile,
     latestSeason,
-    isRefreshingSeries,
-    isSearchingSeries,
+    isRefreshingManga,
+    isSearchingManga,
   };
 }
 

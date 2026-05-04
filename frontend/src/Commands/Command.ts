@@ -37,6 +37,14 @@ export interface MultipleSeriesCommandBody extends BaseCommandBody {
   seriesIds: number[];
 }
 
+export interface MangaCommandBody extends BaseCommandBody {
+  mangaId: number;
+}
+
+export interface MultipleMangaCommandBody extends BaseCommandBody {
+  mangaIds: number[];
+}
+
 export interface SeasonCommandBody extends BaseCommandBody {
   seriesId: number;
   seasonNumber: number;
@@ -75,6 +83,8 @@ export interface ManualImportCommandBody extends BaseCommandBody {
 export type CommandBody =
   | SeriesCommandBody
   | MultipleSeriesCommandBody
+  | MangaCommandBody
+  | MultipleMangaCommandBody
   | SeasonCommandBody
   | EpisodeCommandBody
   | SeriesEpisodeCommandBody
@@ -89,6 +99,8 @@ export interface NewCommandBody {
   priority?: CommandPriority;
   seriesId?: number;
   seriesIds?: number[];
+  mangaId?: number;
+  mangaIds?: number[];
   seasonNumber?: number;
   episodeIds?: number[];
   files?: number[] | InteractiveImportCommandOptions[];
@@ -99,6 +111,8 @@ export interface NewCommandBody {
 export interface CommandBodyMap {
   RefreshSeries: SeriesCommandBody | MultipleSeriesCommandBody;
   SeriesSearch: SeriesCommandBody;
+  RefreshManga: MangaCommandBody | MultipleMangaCommandBody;
+  MangaSearch: MangaCommandBody | MultipleMangaCommandBody;
   SeasonSearch: SeasonCommandBody;
   EpisodeSearch: EpisodeCommandBody | SeriesEpisodeCommandBody;
   MissingEpisodeSearch: BaseCommandBody;

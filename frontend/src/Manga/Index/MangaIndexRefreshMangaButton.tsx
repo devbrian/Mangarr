@@ -16,7 +16,7 @@ interface MangaIndexRefreshMangaButtonProps {
 function MangaIndexRefreshMangaButton(
   props: MangaIndexRefreshMangaButtonProps
 ) {
-  const isRefreshing = useCommandExecuting(CommandNames.RefreshSeries);
+  const isRefreshing = useCommandExecuting(CommandNames.RefreshManga);
   const { data, totalItems } = useMangaIndex();
 
   const executeCommand = useExecuteCommand();
@@ -36,8 +36,8 @@ function MangaIndexRefreshMangaButton(
       isSelectMode && anySelected ? getSelectedIds() : data.map((m) => m.id);
 
     executeCommand({
-      name: CommandNames.RefreshSeries,
-      seriesIds: mangaToRefresh,
+      name: CommandNames.RefreshManga,
+      mangaIds: mangaToRefresh,
     });
   }, [executeCommand, anySelected, isSelectMode, data, getSelectedIds]);
 

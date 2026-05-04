@@ -34,7 +34,7 @@ interface MangaIndexPosterProps {
 function MangaIndexPoster(props: MangaIndexPosterProps) {
   const { mangaId, sortKey, isSelectMode, posterWidth, posterHeight } = props;
 
-  const { manga, qualityProfile, isRefreshingSeries, isSearchingSeries } =
+  const { manga, qualityProfile, isRefreshingManga, isSearchingManga } =
     useMangaIndexItem(mangaId);
 
   const {
@@ -56,15 +56,15 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
 
   const onRefreshPress = useCallback(() => {
     executeCommand({
-      name: CommandNames.RefreshSeries,
-      seriesIds: [mangaId],
+      name: CommandNames.RefreshManga,
+      mangaIds: [mangaId],
     });
   }, [mangaId, executeCommand]);
 
   const onSearchPress = useCallback(() => {
     executeCommand({
-      name: CommandNames.SeriesSearch,
-      seriesId: mangaId,
+      name: CommandNames.MangaSearch,
+      mangaId,
     });
   }, [mangaId, executeCommand]);
 
@@ -141,8 +141,8 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
           <SpinnerIconButton
             className={styles.action}
             name={icons.REFRESH}
-            title={translate('RefreshSeries')}
-            isSpinning={isRefreshingSeries}
+            title={translate('RefreshManga')}
+            isSpinning={isRefreshingManga}
             tabIndex={-1}
             onPress={onRefreshPress}
           />
@@ -151,8 +151,8 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
             <SpinnerIconButton
               className={styles.action}
               name={icons.SEARCH}
-              title={translate('SearchForMonitoredEpisodes')}
-              isSpinning={isSearchingSeries}
+              title={translate('SearchForMonitoredChapters')}
+              isSpinning={isSearchingManga}
               tabIndex={-1}
               onPress={onSearchPress}
             />
