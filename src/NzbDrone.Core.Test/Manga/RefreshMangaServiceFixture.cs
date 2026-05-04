@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -42,12 +43,26 @@ namespace NzbDrone.Core.Test.MangaTests
             Mocker.GetMock<IMetadataSourceFactory>()
                   .Setup(f => f.GetPrimary())
                   .Returns(_primaryDef);
+
+            // Phase 8 cluster-01 cascade: production now snapshots chapters via
+            // IChapterService.GetChaptersByManga before/after SyncChapters to compute
+            // ChapterInfoRefreshedEvent deltas (gap-08-01-08). Default to empty so
+            // existing fixtures don't NRE on .ToDictionary() — tests that assert on
+            // the delta override this per-test.
+            Mocker.GetMock<IChapterService>()
+                  .Setup(c => c.GetChaptersByManga(It.IsAny<int>()))
+                  .Returns(new List<Chapter>());
         }
+
+        // Phase 8 cluster-01 cascade: production now normalizes Manga.Path on every
+        // refresh (gap-08-01-06). Use the OS temp dir as a guaranteed-existing path so
+        // DirectoryInfo(...).FullName.GetActualCasing() succeeds without disk side effects.
+        private static readonly string TestMangaPath = Path.GetTempPath();
 
         [Test]
         public void Execute_calls_primary_GetMangaInfo_for_each_id()
         {
-            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid() };
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
             Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
 
             // Set up provider so the cast succeeds AND GetMangaInfo returns a tuple.
@@ -66,7 +81,7 @@ namespace NzbDrone.Core.Test.MangaTests
         public void Execute_uses_MangaDexId_when_primary_is_MangaDex()
         {
             var mdx = Guid.NewGuid();
-            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = mdx };
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = mdx, Path = TestMangaPath };
             Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
 
             var stub = new StubMangaDexProvider(manga);
@@ -82,7 +97,7 @@ namespace NzbDrone.Core.Test.MangaTests
         [Test]
         public void Execute_uses_AniListId_when_primary_is_AniList()
         {
-            var manga = new Manga.Manga { Id = 1, Title = "M", AniListId = 42, MangaDexId = null };
+            var manga = new Manga.Manga { Id = 1, Title = "M", AniListId = 42, MangaDexId = null, Path = TestMangaPath };
             Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
 
             _primaryDef = new MetadataSourceDefinition { Id = 2, Name = "AniList", IsPrimary = true };
@@ -101,7 +116,7 @@ namespace NzbDrone.Core.Test.MangaTests
         [Test]
         public void Execute_uses_MalId_when_primary_is_MAL()
         {
-            var manga = new Manga.Manga { Id = 1, Title = "M", MalId = 99, MangaDexId = null };
+            var manga = new Manga.Manga { Id = 1, Title = "M", MalId = 99, MangaDexId = null, Path = TestMangaPath };
             Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
 
             _primaryDef = new MetadataSourceDefinition { Id = 3, Name = "MyAnimeList", IsPrimary = true };
@@ -121,7 +136,7 @@ namespace NzbDrone.Core.Test.MangaTests
         public void Execute_skips_manga_with_no_source_id_for_active_primary()
         {
             // Primary = MangaDex but manga has no MangaDexId
-            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = null, AniListId = 1 };
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = null, AniListId = 1, Path = TestMangaPath };
             Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
 
             var stub = new StubMangaDexProvider(manga);
@@ -140,7 +155,7 @@ namespace NzbDrone.Core.Test.MangaTests
         [Test]
         public void Execute_publishes_MangaUpdatedEvent_and_ChapterListUpdatedEvent()
         {
-            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid() };
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
             Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
             Mocker.GetMock<IMangaService>().Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>())).Returns(manga);
 
@@ -166,8 +181,8 @@ namespace NzbDrone.Core.Test.MangaTests
         [Test]
         public void Execute_continues_after_one_manga_throws_unexpected_exception()
         {
-            var mangaA = new Manga.Manga { Id = 1, Title = "A", MangaDexId = Guid.NewGuid() };
-            var mangaB = new Manga.Manga { Id = 2, Title = "B", MangaDexId = Guid.NewGuid() };
+            var mangaA = new Manga.Manga { Id = 1, Title = "A", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            var mangaB = new Manga.Manga { Id = 2, Title = "B", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
 
             Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(mangaA);
             Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(2)).Returns(mangaB);
