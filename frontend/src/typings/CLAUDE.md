@@ -15,9 +15,12 @@ TypeScript interface definitions mirroring the backend REST API resources (DTOs)
 | `DiskSpace.ts` | `DiskSpaceResource` |
 | `Health.ts` | `HealthResource` |
 | `LogEvent.ts` / `LogFile.ts` | log resources |
-| `Queue.ts` | `QueueResource` |
-| `History.ts` | `HistoryResource` |
-| `Blocklist.ts` | `BlocklistResource` |
+| `Queue.ts` | `QueueResource` (TV) |
+| `MangaQueueItem.ts` | `MangaQueueResource` (Phase 6 Plan 06-09) |
+| `History.ts` | `HistoryResource` (TV) |
+| `ChapterHistory.ts` | `ChapterHistoryResource` (Phase 6 Plan 06-09) |
+| `Blocklist.ts` | `BlocklistResource` (TV) |
+| `MangaBlocklist.ts` | `MangaBlocklistResource` (Phase 6 Plan 06-09) |
 | `Calendar.ts` | `CalendarResource` |
 | `MediaInfo.ts` | `MediaInfoResource` |
 
@@ -62,6 +65,9 @@ TypeScript interface definitions mirroring the backend REST API resources (DTOs)
 | `Quality` | `frontend/src/Quality/Quality.ts` |
 | `Language` | `frontend/src/Language/Language.ts` |
 | `Tag` | `frontend/src/Tags/...` |
+| `Manga` | `frontend/src/Manga/Manga.ts` (Phase 7 Plan 07-03) |
+| `Chapter` | `frontend/src/Chapter/Chapter.ts` (Phase 7 Plan 07-03) |
+| `AddMangaResult` / `AddMangaPayload` | `frontend/src/AddManga/AddManga.ts` (Phase 7 Plan 07-03) |
 
 ## Manga Adaptation Notes
 
@@ -77,4 +83,7 @@ TypeScript interface definitions mirroring the backend REST API resources (DTOs)
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview
 - [../Series/CLAUDE.md](../Series/CLAUDE.md) — Series type
 - [../Episode/CLAUDE.md](../Episode/CLAUDE.md) — Episode type
+- [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Manga type (Phase 7 Plan 07-03)
+- [../Chapter/CLAUDE.md](../Chapter/CLAUDE.md) — Chapter type (Phase 7 Plan 07-03)
+- [../AddManga/CLAUDE.md](../AddManga/CLAUDE.md) — AddManga flow types (Phase 7 Plan 07-03)
 - [../../../src/Sonarr.Api.V5/CLAUDE.md](../../../src/Sonarr.Api.V5/CLAUDE.md) — Backend resources these types mirror
