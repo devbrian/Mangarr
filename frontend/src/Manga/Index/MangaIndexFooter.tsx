@@ -11,8 +11,12 @@ import styles from './MangaIndexFooter.css';
 export default function MangaIndexFooter() {
   const { data: manga } = useManga();
   const count = manga.length;
-  let episodes = 0;
-  let episodeFiles = 0;
+  // CR-02 fix: read manga-shape statistics fields (chapterCount /
+  // chapterFileCount) instead of the never-populated TV-shape carry-overs
+  // (episodeCount / episodeFileCount). See Manga.ts Statistics interface
+  // — episode* fields are explicitly typed as never-populated for manga.
+  let chapters = 0;
+  let chapterFiles = 0;
   let ended = 0;
   let continuing = 0;
   let monitored = 0;
@@ -20,17 +24,17 @@ export default function MangaIndexFooter() {
 
   manga.forEach((s) => {
     const {
-      statistics = { episodeCount: 0, episodeFileCount: 0, sizeOnDisk: 0 },
+      statistics = { chapterCount: 0, chapterFileCount: 0, sizeOnDisk: 0 },
     } = s;
 
     const {
-      episodeCount = 0,
-      episodeFileCount = 0,
+      chapterCount = 0,
+      chapterFileCount = 0,
       sizeOnDisk = 0,
     } = statistics;
 
-    episodes += episodeCount;
-    episodeFiles += episodeFileCount;
+    chapters += chapterCount;
+    chapterFiles += chapterFileCount;
 
     // Manga divergence: 'ended' bucket maps to the manga 'completed' /
     // 'cancelled' terminal statuses; 'continuing' bucket is everything else.
@@ -131,13 +135,13 @@ export default function MangaIndexFooter() {
 
               <DescriptionList>
                 <DescriptionListItem
-                  title={translate('Episodes')}
-                  data={episodes}
+                  title={translate('Chapters')}
+                  data={chapters}
                 />
 
                 <DescriptionListItem
                   title={translate('Files')}
-                  data={episodeFiles}
+                  data={chapterFiles}
                 />
               </DescriptionList>
 
