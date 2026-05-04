@@ -82,12 +82,24 @@ export const useToggleChapterMonitored = (chapter: Chapter | undefined) => {
     method: 'PUT',
     mutationOptions: {
       onSuccess: (updated) => {
-        // Optimistically update both the per-manga list cache and any
-        // single-chapter detail cache currently in-flight.
+        // WR-03 fix: target ONLY list caches by restricting the query filter
+        // to keys whose first element is EXACTLY '/chapter' (the list path).
+        // The previous filter `{ queryKey: ['/chapter'] }` is correct in
+        // current TanStack Query semantics (element-wise prefix match — does
+        // not hit `['/chapter/123']` single-chapter caches), but the setter
+        // also defensively guards against any future query whose value is
+        // not an array, so `.map` is never called on a non-Chapter[] cache.
+        // Single-chapter caches are kept consistent via the SignalR
+        // `chapter` invalidation handler (Plan 07-02).
         queryClient.setQueriesData<Chapter[]>(
-          { queryKey: ['/chapter'] },
+          {
+            queryKey: ['/chapter'],
+            exact: false,
+            predicate: (q) =>
+              Array.isArray(q.queryKey) && q.queryKey[0] === '/chapter',
+          },
           (prev) => {
-            if (!prev) {
+            if (!Array.isArray(prev)) {
               return prev;
             }
 
