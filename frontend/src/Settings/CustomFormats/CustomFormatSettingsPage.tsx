@@ -73,11 +73,18 @@ function CustomFormatSettingsPage() {
                 type="button"
                 onClick={() => handleMediaTypeFilterChange(key)}
                 style={{
+                  // WR-08 fix: var fallbacks must reflect the manga pink
+                  // accent (Phase 7 D-06), not the original Sonarr cyan
+                  // (#5d9cec). The full inline-style-to-CSS-module
+                  // refactor is a follow-up cleanup; the immediate
+                  // correctness concern is that if --themeBlue ever
+                  // fails to resolve, the buttons render with the
+                  // current accent rather than legacy Sonarr blue.
                   padding: '4px 12px',
                   cursor: 'pointer',
-                  border: '1px solid var(--themeBlue, #5d9cec)',
+                  border: '1px solid var(--themeBlue, #f06292)',
                   background: isActive
-                    ? 'var(--themeBlue, #5d9cec)'
+                    ? 'var(--themeBlue, #f06292)'
                     : 'transparent',
                   color: isActive ? '#fff' : 'inherit',
                   borderRadius: '3px',
