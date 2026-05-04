@@ -76,14 +76,13 @@ namespace NzbDrone.Core.Manga
 
         public void SetChapterMonitored(int chapterId, bool monitored)
         {
-            var chapter = _chapterRepository.Get(chapterId);
+            // BL-03 mitigation. Use Find (returns null on miss) instead of Get
+            // (BasicRepository.Get throws ModelNotFoundException), so the null-guard
+            // below actually fires when the chapter row was cascade-deleted in the
+            // MangaDeletedEvent window or when a stale UI request arrives after the
+            // row was removed. (See SONARR-AUDIT.md F-02.)
+            var chapter = _chapterRepository.Find(chapterId);
 
-            // Phase 6 Plan 14 — BL-03 mitigation. ChapterRepository.Get returns null when
-            // the chapter row has been cascade-deleted (MangaDeletedEvent window) or when a
-            // stale UI request arrives after the row was removed. Without this guard the
-            // dereference below throws NullReferenceException → 500 to the user + log
-            // pollution. Warn-level so missing-row events surface in System Logs without
-            // pretending they are errors.
             if (chapter == null)
             {
                 _logger.Warn("SetChapterMonitored: Chapter:{0} not found (cascade-delete window or stale request); skipping monitor update.", chapterId);
@@ -123,11 +122,12 @@ namespace NzbDrone.Core.Manga
             _chapterRepository.SetMonitored(ids, monitored);
 
             // Event fan-out LAST. Re-fetch every affected row so subscribers see the persisted
-            // post-write state (mirrors the single-row path's _chapterRepository.Get; defensive
-            // against a row that was cascade-deleted between the write and the publish).
+            // post-write state. Find (not Get) so a row cascade-deleted between the write
+            // and the publish returns null instead of throwing ModelNotFoundException.
+            // (See SONARR-AUDIT.md F-02.)
             foreach (var id in ids)
             {
-                var chapter = _chapterRepository.Get(id);
+                var chapter = _chapterRepository.Find(id);
                 if (chapter == null)
                 {
                     _logger.Warn("SetChaptersMonitored: Chapter:{0} not found post-write (cascade-delete window); skipping event publish.", id);
