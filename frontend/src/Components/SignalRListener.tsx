@@ -370,6 +370,98 @@ function SignalRListener() {
       return;
     }
 
+    // Phase 7 D-07 / F-01 close-out — 6 manga resource handlers.
+    // Sonarr divergence: NEW manga sibling per Phase 7 D-07 — see DIVERGENCE.md.
+    // Role-match analog: existing 'series' / 'episode' / 'queue/status' handlers above.
+    //
+    // Backend resource names verified against [V5ApiController(...)] attributes
+    // (Phase 7 Plan 07-02 Task 1 grep — see SUMMARY.md).
+    //
+    // Type cast Option B: `{ id: number }` — Plan 03 has not shipped Manga/Chapter
+    // typings yet, so we use a minimal-shape cast here. Refine to typed casts
+    // (`Manga` / `Chapter`) when Plan 03 lands; the dispatch logic only reads
+    // `id` in any case.
+    //
+    // Phase 8 cleanup: when Tv/ deletes, these become the canonical handlers.
+
+    if (name === 'manga') {
+      if (version < 5) {
+        return;
+      }
+
+      if (body.action === 'updated') {
+        const updatedItem = body.resource as ModelBase;
+
+        updateQueryClientItem(
+          queryClient,
+          ['/manga'],
+          updatedItem,
+          false // Don't add the manga to the list if it doesn't exist. Manga should already be in the list since they are included in the manga details.
+        );
+
+        repopulatePage('mangaUpdated');
+      } else if (body.action === 'deleted') {
+        removeQueryClientItem(queryClient, ['/manga'], body.resource.id);
+      }
+
+      return;
+    }
+
+    if (name === 'chapter') {
+      if (version < 5) {
+        return;
+      }
+
+      if (body.action === 'updated') {
+        const updatedItem = body.resource as ModelBase;
+
+        updateQueryClientItem(
+          queryClient,
+          ['/chapter'],
+          updatedItem,
+          false // Don't add the chapter to the list if it doesn't exist. Chapters should already be in the list since they are included in the manga details.
+        );
+      }
+
+      return;
+    }
+
+    if (name === 'manga/queue') {
+      if (version < 5) {
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['/manga/queue'] });
+      return;
+    }
+
+    if (name === 'manga/blocklist') {
+      if (version < 5) {
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['/manga/blocklist'] });
+      return;
+    }
+
+    if (name === 'manga/history') {
+      if (version < 5) {
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['/manga/history'] });
+      return;
+    }
+
+    if (name === 'manga/wanted/missing') {
+      if (version < 5) {
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['/manga/wanted/missing'] });
+      return;
+    }
+
     console.error(`signalR: Unable to find handler for ${name}`);
   });
 

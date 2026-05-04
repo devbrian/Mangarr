@@ -152,7 +152,27 @@ These components are **domain-agnostic** and require no changes for Mangarr:
 - Progress indicators
 - Icons and labels
 
+## SignalRListener (`SignalRListener.tsx`)
+
+Hub-message dispatch table that opens `/signalr/messages?access_token=<apiKey>` on mount and routes per-resource pushes to React Query cache invalidations / Redux store updates / `repopulatePage` calls. Phase 7 Plan 07-02 extends the dispatch table with **6 manga resource handlers** (closes Phase 6 deferred-items.md F-01):
+
+| Resource | Backend `[V5ApiController(...)]` route | Handler shape |
+|----------|----------------------------------------|---------------|
+| `manga` | `[V5ApiController]` (bare) on MangaController | `updateQueryClientItem` / `removeQueryClientItem` against `['/manga']` (mirrors `series` handler) |
+| `chapter` | `[V5ApiController]` (bare) on ChapterController (Plan 07-01) | `updateQueryClientItem` against `['/chapter']` (mirrors `episode` handler) |
+| `manga/queue` | `[V5ApiController("manga/queue")]` on MangaQueueController | `queryClient.invalidateQueries({ queryKey: ['/manga/queue'] })` |
+| `manga/blocklist` | `[V5ApiController("manga/blocklist")]` on MangaBlocklistController | `queryClient.invalidateQueries({ queryKey: ['/manga/blocklist'] })` |
+| `manga/history` | `[V5ApiController("manga/history")]` on ChapterHistoryController | `queryClient.invalidateQueries({ queryKey: ['/manga/history'] })` |
+| `manga/wanted/missing` | `[V5ApiController("manga/wanted/missing")]` on MissingChaptersController | `queryClient.invalidateQueries({ queryKey: ['/manga/wanted/missing'] })` |
+
+**Insertion invariant** (Pitfall 1): Every new handler MUST land BEFORE the fall-through `console.error('signalR: Unable to find handler for ${name}')` line — otherwise it's unreachable.
+
+**React Query key namespacing** (Pattern F): Plans 07-04 / 07-05 / 07-06 / 07-09 / 07-10 React Query consumers MUST use the URL-shaped keys (`['/manga']`, `['/manga/queue']`, etc.) verified against the resource names in this dispatch table.
+
+**Cross-reference:** Phase 6 deferred-items.md F-01 (carry-forward) — closed by Phase 7 Plan 07-02 (this dispatch addition).
+
 ## Cross-References
 
 - [frontend/CLAUDE.md](../../CLAUDE.md) - Frontend overview
 - [Series/CLAUDE.md](../Series/CLAUDE.md) - Feature using these components
+- [.planning/phases/07-api-v5-frontend-manga-shell/07-02-PLAN.md](../../../.planning/phases/07-api-v5-frontend-manga-shell/07-02-PLAN.md) - SignalR manga handler extension (closes F-01)
