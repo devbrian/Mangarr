@@ -31,9 +31,18 @@ namespace NzbDrone.Core.Queue.Manga
         private readonly IEventAggregator _eventAggregator;
         private readonly Logger _logger;
 
+        // Phase 6 Plan 14 — BL-02 mitigation. Both Handle (single-writer reassignment) and
+        // Remove (in-place List.Remove) close over the same monitor. The lock is static so it
+        // matches the lifetime of the static _queue field — DI-transient instances of the
+        // service still serialize through one monitor.
+        private static readonly object _queueLock = new object();
+
         // Static-list pattern verbatim from TV QueueService.cs:24 — the queue is a
         // process-wide projection, refreshed atomically per TrackedDownloadRefreshedEvent.
-        // T-06-10 mitigation: single-writer (Handle) — Sonarr precedent.
+        // T-06-10 + Phase 6 Plan 14 BL-02 mitigation: all _queue access serialized
+        // through _queueLock so concurrent Handle (single-writer reassignment) and
+        // Remove (in-place List.Remove via DELETE /api/v5/manga/queue/{id}) cannot
+        // tear iteration or lose mutations.
         private static List<MangaQueueItem> _queue = new();
 
         public MangaQueueService(IEventAggregator eventAggregator, Logger logger)
@@ -46,30 +55,55 @@ namespace NzbDrone.Core.Queue.Manga
         {
             // Defensive copy — callers (QueueDuplicateSpecification, V5 controller) may
             // iterate while a fresh Handle(...) refresh is in flight.
-            return _queue.ToList();
+            lock (_queueLock)
+            {
+                return _queue.ToList();
+            }
         }
 
         public MangaQueueItem Find(int id)
         {
-            return _queue.SingleOrDefault(q => q.Id == id);
+            lock (_queueLock)
+            {
+                return _queue.SingleOrDefault(q => q.Id == id);
+            }
         }
 
         public void Remove(int id)
         {
-            var item = Find(id);
-            if (item != null)
+            var removed = false;
+            lock (_queueLock)
             {
-                _queue.Remove(item);
+                var item = _queue.SingleOrDefault(q => q.Id == id);
+                if (item != null)
+                {
+                    _queue.Remove(item);
+                    removed = true;
+                }
+            }
+
+            if (removed)
+            {
+                // Phase 6 Plan 14 — BL-02/WR-04 mitigation. SignalR fan-out so connected
+                // clients see the deletion without waiting for the next TrackedDownloadRefreshedEvent.
+                _eventAggregator.PublishEvent(new MangaQueueUpdatedEvent());
             }
         }
 
         public void Handle(TrackedDownloadRefreshedEvent message)
         {
-            _queue = message.TrackedDownloads
+            // Build the projection OUTSIDE the lock — cheap mutation-free LINQ over the
+            // input collection. Only the assignment is inside the critical section.
+            var projected = message.TrackedDownloads
                 .Where(t => t.IsTrackable && t.Protocol == DownloadProtocol.Http)
                 .OrderBy(c => c.DownloadItem?.RemainingTime ?? TimeSpan.MaxValue)
                 .SelectMany(MapQueueItems)
                 .ToList();
+
+            lock (_queueLock)
+            {
+                _queue = projected;
+            }
 
             _eventAggregator.PublishEvent(new MangaQueueUpdatedEvent());
         }
