@@ -1,4 +1,10 @@
-const sonarrBlue = '#35c5f4';
+// WR-07 fix: source-of-truth tokens for the manga pink swap (Phase 7 D-06).
+// Use these consts instead of inlining the hex values so any future tweak to
+// the manga accent only touches the const declaration. Phase 8 cleanup may
+// rename `themeBlue` → `themeAccent`; the const names already speak manga.
+const sonarrBlue = '#35c5f4'; // retained for legacy theme-key references; do NOT use for new code
+const mangarrPink = '#f06292';
+const mangarrPinkDark = '#c2185b';
 const darkGray = '#888';
 const mediumGray = '#999';
 const gray = '#adadad';
@@ -35,8 +41,8 @@ module.exports = {
   // Theme Colors
   // Sonarr divergence: per Phase 7 D-06 + UI-02 + UI-SPEC §Color — manga pink accent — see DIVERGENCE.md.
   // Phase 8 cleanup: tokens may be renamed to mangarrPink / mangarrPinkDark; values stay.
-  themeBlue: '#f06292', // manga pink (was sonarrBlue #35c5f4)
-  themeAlternateBlue: '#c2185b', // manga pink dark (was #2193b5)
+  themeBlue: mangarrPink, // manga pink (was sonarrBlue #35c5f4)
+  themeAlternateBlue: mangarrPinkDark, // manga pink dark (was #2193b5)
   themeRed: '#c4273c',
   themeDarkColor: '#494949',
   themeLightColor: '#595959',
@@ -134,15 +140,15 @@ module.exports = {
   // Menu
   menuItemColor: '#e1e2e3',
   // Sonarr divergence: per Phase 7 UI-02 — accent role uses manga pink (was sonarrBlue) — see DIVERGENCE.md.
-  menuItemHoverColor: '#f06292',
+  menuItemHoverColor: mangarrPink,
   menuItemHoverBackgroundColor: '#606060',
 
   //
   // Toolbar
 
   // Sonarr divergence: per Phase 7 UI-02 — accent role uses manga pink (was sonarrBlue) — see DIVERGENCE.md.
-  toobarButtonHoverColor: '#f06292',
-  toobarButtonSelectedColor: '#f06292',
+  toobarButtonHoverColor: mangarrPink,
+  toobarButtonSelectedColor: mangarrPink,
 
   //
   // Scroller

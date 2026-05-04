@@ -1,5 +1,10 @@
-const sonarrBlue = '#35c5f4';
-const sonarrAlternateBlue = '#2193b5';
+// WR-07 fix: source-of-truth tokens for the manga pink swap (Phase 7 D-06).
+// Use these consts instead of inlining the hex values so any future tweak to
+// the manga accent only touches the const declaration.
+const sonarrBlue = '#35c5f4'; // retained for legacy infoColor / sonarrBlue export keys
+const sonarrAlternateBlue = '#2193b5'; // retained for legacy export key only
+const mangarrPink = '#f06292';
+const mangarrPinkDark = '#c2185b';
 const darkGray = '#888';
 const mediumGray = '#999';
 const gray = '#adadad';
@@ -37,8 +42,8 @@ module.exports = {
   // Theme Colors
   // Sonarr divergence: per Phase 7 D-06 + UI-02 + UI-SPEC §Color — manga pink accent — see DIVERGENCE.md.
   // Phase 8 cleanup: tokens may be renamed to mangarrPink / mangarrPinkDark; values stay.
-  themeBlue: '#f06292', // manga pink (was sonarrBlue #35c5f4)
-  themeAlternateBlue: '#c2185b', // manga pink dark (was sonarrAlternateBlue #2193b5)
+  themeBlue: mangarrPink, // manga pink (was sonarrBlue #35c5f4)
+  themeAlternateBlue: mangarrPinkDark, // manga pink dark (was sonarrAlternateBlue #2193b5)
   themeRed: '#c4273c',
   themeDarkColor: '#3a3f51',
   themeLightColor: '#4f566f',
@@ -61,7 +66,7 @@ module.exports = {
 
   // Header
   // Sonarr divergence: per Phase 7 UI-02 — page header bg uses manga pink dark (was sonarrAlternateBlue) — see DIVERGENCE.md.
-  pageHeaderBackgroundColor: '#c2185b',
+  pageHeaderBackgroundColor: mangarrPinkDark,
 
   // Sidebar
 
@@ -91,7 +96,7 @@ module.exports = {
   colorImpairedDangerGradient: '#d84848',
   colorImpairedWarningGradient: '#e59400',
   colorImpairedPrimaryGradient: '#538cd4',
-  colorImpairedGrayGradient: '#9b9b9b  ',
+  colorImpairedGrayGradient: '#9b9b9b',
 
   //
   // Buttons
@@ -143,8 +148,8 @@ module.exports = {
   // Toolbar
 
   // Sonarr divergence: per Phase 7 UI-02 — accent role uses manga pink (was Sonarr cyan #35c5f4) — see DIVERGENCE.md.
-  toobarButtonHoverColor: '#f06292',
-  toobarButtonSelectedColor: '#f06292',
+  toobarButtonHoverColor: mangarrPink,
+  toobarButtonSelectedColor: mangarrPink,
 
   //
   // Scroller
