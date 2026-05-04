@@ -88,7 +88,14 @@ namespace NzbDrone.Core.Manga
                     var mangaInfo = tuple.Item1;
                     var chapters = tuple.Item2;
                     existing.ApplyChanges(mangaInfo);
-                    _mangaService.UpdateManga(existing);
+
+                    // gap-11: suppress UpdateManga's event publish so the trailing
+                    // PublishEvent below is the SOLE MangaUpdatedEvent per refresh,
+                    // emitted AFTER SyncChapters runs. Mirrors TV
+                    // RefreshSeriesService.RefreshSeriesInfo's UpdateSeries(publishUpdatedEvent:false)
+                    // → RefreshEpisodeInfo → PublishEvent(SeriesUpdatedEvent) ordering
+                    // (Pitfall 4 invariant: DB write FIRST, event LAST).
+                    _mangaService.UpdateManga(existing, publishUpdatedEvent: false);
 
                     // D-17: chapter-list synthesis fallback when MangaDex not linked.
                     _chapterListService.SyncChapters(existing, chapters);
