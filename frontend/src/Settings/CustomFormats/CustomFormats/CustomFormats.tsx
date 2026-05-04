@@ -18,7 +18,16 @@ import CustomFormat from './CustomFormat';
 import EditCustomFormatModal from './EditCustomFormatModal';
 import styles from './CustomFormats.css';
 
-function CustomFormats() {
+// Sonarr divergence: per Phase 7 D-05 — mediaType filter prop added — see DIVERGENCE.md.
+// Phase 5 D-10 backend `?mediaType=` query parameter wired through createFetchHandler payload.
+// 'both' omits the parameter entirely (returns the union — backend default behavior).
+export type CustomFormatMediaTypeFilter = 'manga' | 'series' | 'both';
+
+interface CustomFormatsProps {
+  mediaType?: CustomFormatMediaTypeFilter;
+}
+
+function CustomFormats({ mediaType = 'both' }: CustomFormatsProps = {}) {
   const dispatch = useDispatch();
 
   const { error, isFetching, isPopulated, isDeleting, items } = useSelector(
@@ -51,8 +60,11 @@ function CustomFormats() {
   }, []);
 
   useEffect(() => {
-    dispatch(fetchCustomFormats());
-  }, [dispatch]);
+    // Sonarr divergence: per Phase 7 D-05 — mediaType filter dispatched as fetch payload.
+    // createFetchHandler forwards otherPayload as `data` (jQuery `traditional:true`) → ?mediaType=manga.
+    const payload = mediaType === 'both' ? {} : { mediaType };
+    dispatch(fetchCustomFormats(payload));
+  }, [dispatch, mediaType]);
 
   return (
     <FieldSet legend={translate('CustomFormats')}>
