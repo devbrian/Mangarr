@@ -1,5 +1,7 @@
 using System;
+using System.IO;
 using NLog;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Manga.Commands;
 using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.Messaging.Commands;
@@ -98,6 +100,21 @@ namespace NzbDrone.Core.Manga
                     var mangaInfo = tuple.Item1;
                     var chapters = tuple.Item2;
                     existing.ApplyChanges(mangaInfo);
+
+                    // gap-06: mirror RefreshSeriesService.RefreshSeriesInfo
+                    // (Tv/RefreshSeriesService.cs:116-124) — normalize Manga.Path to
+                    // its full absolute form with actual disk casing on every refresh.
+                    // Defends against OS-level renames (Windows casing drift) so the
+                    // file-import pipeline can still match canonical paths.
+                    try
+                    {
+                        existing.Path = new DirectoryInfo(existing.Path).FullName;
+                        existing.Path = existing.Path.GetActualCasing();
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.Warn(e, "Couldn't update manga path for " + existing.Path);
+                    }
 
                     // gap-11: suppress UpdateManga's event publish so the trailing
                     // PublishEvent below is the SOLE MangaUpdatedEvent per refresh,
