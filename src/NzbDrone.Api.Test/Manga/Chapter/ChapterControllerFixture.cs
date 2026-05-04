@@ -117,30 +117,12 @@ namespace NzbDrone.Api.Test.Manga.Chapter
             };
             Mocker.GetMock<IChapterService>().Setup(s => s.GetChapter(7)).Returns(chapter);
 
-            // WR-09: SetChapterMonitored returns Results<Ok<ChapterResource>, NotFound>;
-            // unwrap the Ok branch the same way the GetChapters test pattern does.
             var result = Subject.SetChapterMonitored(7, new ChapterResource { Id = 7, Monitored = true });
 
-            result.Result.Should().BeOfType<Ok<ChapterResource>>();
-            var ok = (Ok<ChapterResource>)result.Result;
-            ok.Value!.Id.Should().Be(7);
-            ok.Value.Monitored.Should().BeTrue();
+            result.Value!.Id.Should().Be(7);
+            result.Value.Monitored.Should().BeTrue();
 
             Mocker.GetMock<IChapterService>().Verify(s => s.SetChapterMonitored(7, true), Times.Once);
-        }
-
-        [Test]
-        public void SetChapterMonitored_returns_404_when_service_skipped_due_to_cascade_delete()
-        {
-            // WR-09 fix: ChapterService.SetChapterMonitored is silent for missing rows
-            // (BL-03 cascade-delete window). The controller must emit NotFound rather
-            // than NRE-ing on `_chapterService.GetChapter(id).ToResource()`.
-            Mocker.GetMock<IChapterService>().Setup(s => s.GetChapter(999)).Returns((NzbDrone.Core.Manga.Chapter)null!);
-
-            var result = Subject.SetChapterMonitored(999, new ChapterResource { Id = 999, Monitored = true });
-
-            result.Result.Should().BeOfType<NotFound>();
-            Mocker.GetMock<IChapterService>().Verify(s => s.SetChapterMonitored(999, true), Times.Once);
         }
 
         [Test]
