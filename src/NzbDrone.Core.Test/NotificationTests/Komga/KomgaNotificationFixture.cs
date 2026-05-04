@@ -1,14 +1,13 @@
 using System;
-using System.Collections.Generic;
 using FluentAssertions;
 using FluentValidation.Results;
 using Moq;
 using NUnit.Framework;
-using NzbDrone.Common.Cache;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.Notifications;
 using NzbDrone.Core.Notifications.Komga;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.NotificationTests.Komga
 {
@@ -20,9 +19,7 @@ namespace NzbDrone.Core.Test.NotificationTests.Komga
         [SetUp]
         public void Setup()
         {
-            // CacheManager is a singleton-style real instance — needed for MediaServerUpdateQueue.
-            Mocker.SetConstant<ICacheManager>(new CacheManager());
-
+            // TestBase.Mocker pre-registers a real CacheManager — needed for MediaServerUpdateQueue.
             Subject.Definition = new NotificationDefinition
             {
                 Settings = new KomgaNotificationSettings
@@ -104,6 +101,8 @@ namespace NzbDrone.Core.Test.NotificationTests.Komga
 
             Action act = () => Subject.ProcessQueue();
             act.Should().NotThrow();
+
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
@@ -136,7 +135,12 @@ namespace NzbDrone.Core.Test.NotificationTests.Komga
         public void on_chapter_import_should_be_noop_when_libraryid_missing()
         {
             // Defensive — in normal operation, validator blocks save before this can happen.
-            ((KomgaNotificationSettings)Subject.Definition.Settings).LibraryId = null;
+            // We just want to assert no scan dispatched and no exception thrown when the
+            // shape is wrong. The provider also logs a Warn (verified by reading the source);
+            // we don't assert on the log here because assertion plumbing on this specific
+            // negative path is brittle.
+            var settings = (KomgaNotificationSettings)Subject.Definition.Settings;
+            settings.LibraryId = null;
 
             Action act = () => Subject.OnChapterImport(_message);
             act.Should().NotThrow();

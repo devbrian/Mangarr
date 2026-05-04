@@ -16,11 +16,22 @@ namespace NzbDrone.Core.Notifications
             public bool Refreshing { get; set; }
         }
 
+        // Mangarr Phase 6 D-15 / Pattern 7 — info-only debounce queue used by manga reader
+        // notifications (Komga, Kavita) that have no Series object to coalesce on. Coalesce
+        // happens by TItemInfo (e.g., LibraryId : int) per cache identifier.
+        private class InfoOnlyQueue
+        {
+            public HashSet<TItemInfo> Pending { get; } = new HashSet<TItemInfo>();
+            public bool Refreshing { get; set; }
+        }
+
         private readonly ICached<UpdateQueue> _pendingSeriesCache;
+        private readonly ICached<InfoOnlyQueue> _pendingInfoCache;
 
         public MediaServerUpdateQueue(ICacheManager cacheManager)
         {
             _pendingSeriesCache = cacheManager.GetRollingCache<UpdateQueue>(typeof(TQueueHost), "pendingSeries", TimeSpan.FromDays(1));
+            _pendingInfoCache = cacheManager.GetRollingCache<InfoOnlyQueue>(typeof(TQueueHost), "pendingInfo", TimeSpan.FromDays(1));
         }
 
         public void Add(string identifier, Series series, TItemInfo info)
@@ -36,6 +47,18 @@ namespace NzbDrone.Core.Notifications
                 item.Info.Add(info);
 
                 queue.Pending[series.Id] = item;
+            }
+        }
+
+        // Mangarr Phase 6 — info-only overload. No Series object required; coalesces by TItemInfo
+        // (Pattern 7 — e.g., 50 chapter imports for one Komga LibraryId collapse to one scan).
+        public void Add(string identifier, TItemInfo info)
+        {
+            var queue = _pendingInfoCache.Get(identifier, () => new InfoOnlyQueue());
+
+            lock (queue)
+            {
+                queue.Pending.Add(info);
             }
         }
 
@@ -77,6 +100,62 @@ namespace NzbDrone.Core.Notifications
                     }
 
                     update(items);
+                }
+            }
+            catch
+            {
+                lock (queue)
+                {
+                    queue.Refreshing = false;
+                }
+
+                throw;
+            }
+        }
+
+        // Mangarr Phase 6 — info-only ProcessQueue overload paired with Add(string, TItemInfo).
+        // Drains the deduplicated TItemInfo set; invoked once per unique key.
+        public void ProcessQueue(string identifier, Action<TItemInfo> update)
+        {
+            var queue = _pendingInfoCache.Find(identifier);
+
+            if (queue == null)
+            {
+                return;
+            }
+
+            lock (queue)
+            {
+                if (queue.Refreshing)
+                {
+                    return;
+                }
+
+                queue.Refreshing = true;
+            }
+
+            try
+            {
+                while (true)
+                {
+                    List<TItemInfo> items;
+
+                    lock (queue)
+                    {
+                        if (queue.Pending.Count == 0)
+                        {
+                            queue.Refreshing = false;
+                            return;
+                        }
+
+                        items = queue.Pending.ToList();
+                        queue.Pending.Clear();
+                    }
+
+                    foreach (var item in items)
+                    {
+                        update(item);
+                    }
                 }
             }
             catch

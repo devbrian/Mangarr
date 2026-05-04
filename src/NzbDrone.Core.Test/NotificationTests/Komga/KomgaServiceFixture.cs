@@ -5,6 +5,7 @@ using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Notifications.Komga;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.NotificationTests.Komga
 {
@@ -48,6 +49,8 @@ namespace NzbDrone.Core.Test.NotificationTests.Komga
             result.Should().NotBeNull();
             result.PropertyName.Should().Be("Url");
             result.ErrorMessage.Should().Contain("connection refused");
+
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
