@@ -1,7 +1,10 @@
 import React from 'react';
 import { Redirect, Route } from 'react-router-dom';
 import Blocklist from 'Activity/Blocklist/Blocklist';
+import MangaBlocklist from 'Activity/Blocklist/MangaBlocklist';
 import History from 'Activity/History/History';
+import MangaHistory from 'Activity/History/MangaHistory';
+import MangaQueue from 'Activity/Queue/MangaQueue';
 import Queue from 'Activity/Queue/Queue';
 import AddNewManga from 'AddManga/AddNewManga/AddNewManga';
 import AddNewSeries from 'AddSeries/AddNewSeries/AddNewSeries';
@@ -99,6 +102,23 @@ function AppRoutes() {
       <Route path="/activity/queue" component={Queue} />
 
       <Route path="/activity/blocklist" component={Blocklist} />
+
+      {/*
+        Manga Activity (Phase 7 Plan 07-09 — additive per D-09 + D-10 + Lock #1;
+        existing /activity/{queue,history,blocklist} TV routes UNTOUCHED. Each
+        route renders the existing Activity page with mediaType='manga' via thin
+        wrapper. React Query keys namespace via path prop in the hooks
+        (['/manga/queue'], ['/manga/history'], ['/manga/blocklist']) so SignalR
+        invalidations from Plan 07-02 hit the correct cache without TV cross-
+        contamination. See .planning/phases/07-api-v5-frontend-manga-shell/
+        07-09-PLAN.md.)
+      */}
+
+      <Route path="/manga/activity/queue" component={MangaQueue} />
+
+      <Route path="/manga/activity/history" component={MangaHistory} />
+
+      <Route path="/manga/activity/blocklist" component={MangaBlocklist} />
 
       {/*
         Wanted
