@@ -36,7 +36,11 @@ interface SavePayload {
 
 function MangaIndexSelectFooter() {
   const { saveMangaEditor, isSavingMangaEditor } = useSaveMangaEditor();
-  const { updateMangaMonitor, isUpdatingMangaMonitor } =
+  // WR-11: updateMangaMonitor is destructured but unused at v1 — the bulk
+  // monitor button is gated DISABLED (see SpinnerButton below). The hook
+  // is still invoked so Phase 8 cutover can re-enable the button without
+  // re-introducing the hook call. Underscore-prefix marks intentional disuse.
+  const { updateMangaMonitor: _updateMangaMonitor, isUpdatingMangaMonitor } =
     useUpdateMangaMonitor();
   const { isBulkDeleting, bulkDeleteError } = useBulkDeleteManga();
   const isDeleteFilesCommandExecuting = useCommandExecuting(
@@ -52,16 +56,17 @@ function MangaIndexSelectFooter() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isOrganizeModalOpen, setIsOrganizeModalOpen] = useState(false);
   const [isTagsModalOpen, setIsTagsModalOpen] = useState(false);
-  // ChangeMonitoringModal omitted per Plan 07-04 Lock #10 — see comment block
-  // at top of imports. The setter is used by onMonitoringPress (kept) but the
-  // modal-open boolean and close/save handlers are dead until the bulk-monitor
-  // flow is wired in a future plan.
-  const [, setIsMonitoringModalOpen] = useState(false);
+  // WR-11: bulk-monitor flow is not wired in v1 (Plan 07-04 Lock #10 dropped
+  // ChangeMonitoringModal — manga has no seasons). The "Update Monitoring"
+  // button is gated DISABLED below until a future plan lands the manga
+  // bulk-monitor surface. The dead modal-open state, close handler, and
+  // save handler that previously held the line via `void` casts have been
+  // removed; the per-manga monitor toggle on each row remains functional.
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleteFilesModalOpen, setIsDeleteFilesModalOpen] = useState(false);
   const [isSavingSeries, setIsSavingSeries] = useState(false);
   const [isSavingTags, setIsSavingTags] = useState(false);
-  const [isSavingMonitoring, setIsSavingMonitoring] = useState(false);
+  const [isSavingMonitoring] = useState(false);
   const previousIsDeleting = usePrevious(isDeleting);
   const { selectedCount, unselectAll, useSelectedIds } = useSelect<Manga>();
   const mangaIds = useSelectedIds();
@@ -116,30 +121,10 @@ function MangaIndexSelectFooter() {
     [mangaIds, saveMangaEditor]
   );
 
-  const onMonitoringPress = useCallback(() => {
-    setIsMonitoringModalOpen(true);
-  }, [setIsMonitoringModalOpen]);
-
-  // ChangeMonitoringModal close handler retained for diff-friendliness; ref
-  // it through a void cast so noUnusedLocals doesn't trigger.
-  const onMonitoringClose = useCallback(() => {
-    setIsMonitoringModalOpen(false);
-  }, [setIsMonitoringModalOpen]);
-  void onMonitoringClose;
-
-  const onMonitoringSavePress = useCallback(
-    (monitor: string) => {
-      setIsSavingMonitoring(true);
-      setIsMonitoringModalOpen(false);
-
-      updateMangaMonitor({
-        manga: mangaIds.map((id) => ({ id })),
-        monitoringOptions: { monitor },
-      });
-    },
-    [mangaIds, updateMangaMonitor]
-  );
-  void onMonitoringSavePress;
+  // WR-11: onMonitoringPress / onMonitoringClose / onMonitoringSavePress
+  // removed alongside the dead modal-open state above. The "Update
+  // Monitoring" button now no-ops via an undefined onPress + isDisabled
+  // gate; future bulk-monitor plan will re-introduce a real handler.
 
   const onDeletePress = useCallback(() => {
     setIsDeleteModalOpen(true);
@@ -161,7 +146,9 @@ function MangaIndexSelectFooter() {
     if (!isSaving) {
       setIsSavingSeries(false);
       setIsSavingTags(false);
-      setIsSavingMonitoring(false);
+      // WR-11: setIsSavingMonitoring removed — no setter exists now that
+      // the bulk-monitor flow is gated off. The state is permanently false
+      // and the spinner never spins on the disabled button.
     }
   }, [isSaving]);
 
@@ -202,10 +189,18 @@ function MangaIndexSelectFooter() {
             {translate('SetTags')}
           </SpinnerButton>
 
+          {/*
+            WR-11: bulk Update Monitoring is gated DISABLED in v1 — the
+            ChangeMonitoringModal subtree was dropped per Plan 07-04 Lock
+            #10 and the manga bulk-monitor flow has not been wired yet.
+            The button stays in place for layout parity with the Series
+            sibling so the Phase 8 cutover can re-enable it without
+            re-introducing a button. onPress is intentionally undefined.
+           */}
           <SpinnerButton
             isSpinning={isSaving && isSavingMonitoring}
-            isDisabled={!anySelected || isOrganizingSeries}
-            onPress={onMonitoringPress}
+            isDisabled={true}
+            onPress={undefined}
           >
             {translate('UpdateMonitoring')}
           </SpinnerButton>
@@ -233,7 +228,9 @@ function MangaIndexSelectFooter() {
       </div>
 
       <div className={styles.selected}>
-        {translate('CountSeriesSelected', { count: selectedCount })}
+        {/* WR-11: was translate('CountSeriesSelected') — TV-specific key
+            on the manga footer. Swapped to manga-specific key. */}
+        {translate('CountMangaSelected', { count: selectedCount })}
       </div>
 
       <EditMangaModal

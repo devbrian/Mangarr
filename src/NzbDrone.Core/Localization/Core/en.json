@@ -308,6 +308,7 @@
   "CountDownloadClientsSelected": "{count} download client(s) selected",
   "CountImportListsSelected": "{count} import list(s) selected",
   "CountIndexersSelected": "{count} indexer(s) selected",
+  "CountMangaSelected": "{count} manga selected",
   "CountSeasons": "{count} Seasons",
   "CountSelectedFile": "{selectedCount} selected file",
   "CountSelectedFiles": "{selectedCount} selected files",
