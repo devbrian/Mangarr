@@ -14,8 +14,21 @@
 // emit are marked optional so consumers can read them defensively until the
 // MangaResource is extended. See 07-03-SUMMARY.md "Forward-looking shape" note.
 //
+// Plan 07-04 augmentation: the inherited Series/Index components (verbatim-ported
+// to Manga/Index per Lock #10) reference Sonarr-shape Series fields like
+// `originalLanguage`, `network`, `seasons`, `statistics`, `nextAiring`, etc. —
+// these are typed here as OPTIONAL so the components compile while reading
+// undefined defensively at runtime. Phase 8 cutover may trim or rename these
+// once the Sonarr code path retires; until then, manga-domain irrelevance is
+// expressed via "field never populated by the backend" rather than "field absent
+// from the type" so we preserve the verbatim Sonarr inheritance per design
+// philosophy ("Preserve Sonarr's shape wherever it works").
+//
 // Phase 8 cleanup: collapse with Series when Tv/ deletes.
 import ModelBase from 'App/ModelBase';
+import Language from 'Language/Language';
+import Quality from 'Quality/Quality';
+import ReleaseType from 'InteractiveImport/ReleaseType';
 
 export type MangaMonitor =
   | 'all'
@@ -31,10 +44,71 @@ export type MangaStatus =
   | 'cancelled'
   | 'unknown';
 
+export type MangaType = 'manga' | 'manhwa' | 'manhua' | 'oneshot';
+
+export type MonitorNewItems = 'all' | 'none';
+
+export type CoverType = 'poster' | 'banner' | 'fanart' | 'cover' | 'screenshot';
+
 export interface MangaImage {
-  coverType: 'poster' | 'banner' | 'fanart' | 'cover' | 'screenshot';
+  coverType: CoverType;
   url: string;
   remoteUrl?: string;
+}
+
+// Backwards-compat alias so inherited Sonarr components that import { Image,
+// CoverType } from the manga module type-check without a code rewrite.
+export type Image = MangaImage;
+
+// Statistics carries chapter-shape progress numbers (parallel to Sonarr's
+// per-series Statistics with episode counts). Fields are optional because the
+// Phase 2 MangaResource baseline does not emit them yet; Phase 8 cutover lands
+// the canonical shape.
+export interface Statistics {
+  chapterCount?: number;
+  chapterFileCount?: number;
+  totalChapterCount?: number;
+  monitoredChapterCount?: number;
+  percentOfChapters?: number;
+  previousAiring?: Date;
+  releaseGroups?: string[];
+  releaseTypes?: ReleaseType[];
+  // Sonarr-shape carry-over so verbatim-inherited components still compile;
+  // never populated for manga (chapter file qualities supersede episode file
+  // qualities once Phase 8 renames).
+  episodeCount?: number;
+  episodeFileCount?: number;
+  totalEpisodeCount?: number;
+  monitoredEpisodeCount?: number;
+  seasonCount?: number;
+  episodeFileQualities?: Quality[];
+  sizeOnDisk?: number;
+}
+
+export interface Season {
+  monitored: boolean;
+  seasonNumber: number;
+  statistics?: Statistics;
+}
+
+export interface Ratings {
+  votes: number;
+  value: number;
+}
+
+export interface AlternateTitle {
+  title: string;
+  // Sonarr-shape carry-over (manga has no scene-numbering per
+  // PROJECT.md "Scene numbering" Out-of-Scope).
+  seasonNumber?: number;
+  sceneSeasonNumber?: number;
+  sceneOrigin?: 'unknown' | 'unknown:tvdb' | 'mixed' | 'tvdb';
+  comment?: string;
+}
+
+export interface MangaAddOptions {
+  monitor: MangaMonitor;
+  searchForMissingChapters: boolean;
 }
 
 interface Manga extends ModelBase {
@@ -44,6 +118,7 @@ interface Manga extends ModelBase {
   titleSlug?: string;
   status: MangaStatus;
   contentRating?: string;
+  certification?: string;
   overview?: string;
   added?: string;
   lastInfoSync?: string;
@@ -55,8 +130,10 @@ interface Manga extends ModelBase {
   rootFolderPath?: string;
   translationProfileId?: number;
   customFormatProfileId?: number;
+  qualityProfileId?: number;
   monitored: boolean;
   monitor?: MangaMonitor;
+  monitorNewItems?: MonitorNewItems;
   tags: number[];
   images: MangaImage[];
   // Singular per Phase 2 02-CONTEXT (manga is 1:1 across sources, unlike anime).
@@ -68,7 +145,31 @@ interface Manga extends ModelBase {
   aniListIds?: number[];
   malIds?: number[];
   genres?: string[];
+  ratings?: Ratings;
+  alternateTitles?: AlternateTitle[];
   upgradeAllowedOverride?: boolean;
+  // Sonarr-shape carry-overs so verbatim-inherited components compile (Plan 07-04
+  // Lock #10). All optional and runtime-undefined for manga; Phase 8 trims.
+  network?: string;
+  originalCountry?: string;
+  originalLanguage?: Language;
+  firstAired?: string;
+  lastAired?: string;
+  previousAiring?: string;
+  nextAiring?: string;
+  seriesType?: MangaType;
+  seasonFolder?: boolean;
+  seasons?: Season[];
+  statistics?: Statistics;
+  ended?: boolean;
+  runtime?: number;
+  imdbId?: string;
+  tvdbId?: number;
+  tvMazeId?: number;
+  tvRageId?: number;
+  tmdbId?: number;
+  useSceneNumbering?: boolean;
+  addOptions?: MangaAddOptions;
 }
 
 export default Manga;

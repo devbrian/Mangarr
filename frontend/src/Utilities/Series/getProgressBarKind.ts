@@ -1,8 +1,12 @@
+// Phase 7 Plan 07-04: status type widened to `string` so the manga sibling can
+// pass MangaStatus values ('completed' / 'cancelled' / 'ongoing' / 'hiatus' /
+// 'unknown') in addition to the original SeriesStatus values
+// ('ended' / 'continuing' / 'upcoming' / 'deleted'). Behaviour preserved for
+// TV — only the 'ended' literal influenced the colour pick anyway.
 import { kinds } from 'Helpers/Props';
-import { SeriesStatus } from 'Series/Series';
 
 function getProgressBarKind(
-  status: SeriesStatus,
+  status: string,
   monitored: boolean,
   progress: number,
   isDownloading: boolean
@@ -12,7 +16,9 @@ function getProgressBarKind(
   }
 
   if (progress === 100) {
-    return status === 'ended' ? kinds.SUCCESS : kinds.PRIMARY;
+    return status === 'ended' || status === 'completed' || status === 'cancelled'
+      ? kinds.SUCCESS
+      : kinds.PRIMARY;
   }
 
   if (monitored) {
