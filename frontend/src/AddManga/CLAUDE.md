@@ -15,19 +15,20 @@ shape verbatim per Phase 7 D-04; only the form-field set diverges (5-value
 |------|---------|
 | `AddManga.ts` | `AddMangaResult` (lookup-result shape) + `AddMangaPayload` (POST body shape). Mirrors `AddSeries.ts` but with the manga-domain fields per Phase 7 D-04 (no seriesType / seasonFolder; adds `searchForMissingChapters`, `translationProfileId`, `customFormatProfileId`, MangaDex/AniList/MAL identifiers). |
 | `addMangaOptionsStore.ts` | Zustand store backed by `localStorage` key **`'add_manga_options'`**. Persists the user's last-used Root Folder, Monitor, TranslationProfile, CustomFormatProfile, SearchOnAdd toggle, Tags across `Add Manga` sessions. Default `monitor: 'all'` per Phase 6 D-03. |
+| `MangaMonitoringOptionsPopoverContent.tsx` | 5-entry help-popover content for the Monitor dropdown (Phase 6 D-03 5-value `MangaMonitor`). Mirrors `AddSeries/SeriesMonitoringOptionsPopoverContent.tsx` (which has 11 entries). |
 
-## Phase 7 Plan 04+ Sibling Components (NOT YET CREATED)
+## Subdirectories
 
-When Plan 07-04 ships AddNewManga the side-panel page, this directory will gain
-(mirroring `AddSeries/`):
+### `AddNewManga/` — Search + Add (Plan 07-06)
 
-| File (future) | Purpose |
-|---------------|---------|
-| `AddNewManga/AddNewManga.tsx` | Search input → results grid → side-panel form (mirror `AddNewSeries.tsx`). |
-| `AddNewManga/AddNewMangaSearchResult.tsx` | Lookup row card (cover thumb + title + status). |
-| `AddNewManga/AddNewMangaModal.tsx` | Side-panel form: Root Folder + Monitor + TranslationProfile + CustomFormatProfile + Tags + Search-on-add. |
-
-These are **deferred to Plan 07-04+**.
+| File | Purpose |
+|------|---------|
+| `AddNewManga.tsx` | Page; search input + debounced (500ms) results grid + empty / error states. Routes registered at `/add/manga`. |
+| `AddNewMangaSearchResult.tsx` | One result card (cover thumb, title, status pill, author, chapter count, external MangaDex/AniList/MAL link). |
+| `AddNewMangaModal.tsx` / `AddNewMangaModalContent.tsx` | Side-panel form: Root Folder, Monitor (5-value), TranslationProfile, CustomFormatProfile, Tags, Search-on-add toggle. |
+| `useAddManga.ts` | `useLookupManga(query)` (GET /api/v5/manga/lookup) + `useAddManga()` (POST /api/v5/manga). |
+| `*.css` / `*.css.d.ts` | CSS Modules (verbatim copies of AddSeries CSS files; class names auto-scoped). |
+| `CLAUDE.md` | Per-directory documentation. |
 
 ## Patterns / Conventions
 

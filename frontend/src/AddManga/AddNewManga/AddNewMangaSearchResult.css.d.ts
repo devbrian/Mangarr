@@ -8,9 +8,9 @@ interface CssExports {
   'externalLinkIcon': string;
   'genres': string;
   'icons': string;
+  'originalLanguageName': string;
   'overlay': string;
   'overview': string;
-  'originalLanguageName': string;
   'poster': string;
   'scanlationGroup': string;
   'searchResult': string;
