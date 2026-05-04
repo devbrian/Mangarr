@@ -22,6 +22,7 @@ import MediaManagement from 'Settings/MediaManagement/MediaManagement';
 import MetadataSettings from 'Settings/Metadata/MetadataSettings';
 import MetadataSourceSettings from 'Settings/MetadataSource/MetadataSourceSettings';
 import NotificationSettings from 'Settings/Notifications/NotificationSettings';
+import CustomFormatProfileSettings from 'Settings/Profiles/CustomFormatProfile/CustomFormatProfileSettings';
 import Profiles from 'Settings/Profiles/Profiles';
 import Quality from 'Settings/Quality/Quality';
 import Settings from 'Settings/Settings';
@@ -116,6 +117,13 @@ function AppRoutes() {
       <Route path="/settings/mediamanagement" component={MediaManagement} />
 
       <Route path="/settings/profiles" component={Profiles} />
+
+      {/* Phase 7 D-05 — additive route for the new Custom Format Profiles page (Phase 5 Plan 05-03 entity).
+          See Settings/Profiles/CustomFormatProfile/CLAUDE.md and 07-07-PLAN.md. */}
+      <Route
+        path="/settings/customformatprofiles"
+        component={CustomFormatProfileSettings}
+      />
 
       <Route path="/settings/quality" component={Quality} />
 
