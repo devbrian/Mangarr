@@ -1,0 +1,24 @@
+.badge {
+  composes: label from '~Components/Label.css';
+
+  margin: 0;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background-color: var(--sidebarColor);
+  color: var(--defaultColor);
+  font-size: $extraSmallFontSize;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.accent {
+  composes: badge;
+
+  /* Phase 7 D-06: themeBlue is rebranded to manga pink (#f06292) — see
+     UI-SPEC §Color. Plan 11 ships the theme-token swap; until then this
+     class inherits Sonarr cyan (#35c5f4). The accent text is white either
+     way. */
+  background-color: var(--themeBlue);
+  color: var(--white);
+}
