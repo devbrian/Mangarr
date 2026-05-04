@@ -84,7 +84,20 @@ function AppRoutes() {
 
       <Route exact={true} path="/manga" component={MangaIndex} />
 
-      <Route path="/manga/:titleSlug" component={MangaDetailsPage} />
+      {/*
+        Phase 7 Plan 07-10 Rule 1 fix — `exact={true}` is REQUIRED to prevent
+        prefix-matching `/manga/wanted/missing`, `/manga/activity/queue` etc.
+        from rendering MangaDetailsPage with `titleSlug='wanted'` or
+        `titleSlug='activity'`. React Router v5's <Switch> uses first-match-
+        wins in declaration order, and a non-exact `:titleSlug` route compiles
+        to a prefix-match regex that DOES match multi-segment URLs. Without
+        `exact={true}`, the manga sub-routes registered later in this Switch
+        (Plan 07-09 manga Activity routes; Plan 07-10 manga Wanted routes)
+        would be unreachable. MangaDetailsPage has no nested routing so
+        `exact={true}` is safe. See .planning/phases/07-api-v5-frontend-
+        manga-shell/07-10-SUMMARY.md "Auto-fixed Issues" for the trace.
+      */}
+      <Route exact={true} path="/manga/:titleSlug" component={MangaDetailsPage} />
 
       <Route path="/add/manga" component={AddNewManga} />
 
