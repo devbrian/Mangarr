@@ -1,0 +1,23 @@
+/*
+ * Sonarr divergence: NEW manga sibling per Phase 7 D-05 — see DIVERGENCE.md.
+ * Role-match analog: frontend/src/Settings/MediaManagement/Naming/Naming.css.
+ *
+ * Phase 8 cleanup: this stays — manga-canonical.
+ */
+
+.namingInput {
+  composes: input from '~Components/Form/TextInput.css';
+
+  font-family: $monoSpaceFontFamily;
+}
+
+.preview {
+  padding: 8px 12px;
+  border: 1px solid var(--inputBorderColor);
+  border-radius: 4px;
+  background-color: var(--inputBackgroundColor);
+  color: var(--textColor);
+  font-family: $monoSpaceFontFamily;
+  font-size: 13px;
+  word-break: break-all;
+}

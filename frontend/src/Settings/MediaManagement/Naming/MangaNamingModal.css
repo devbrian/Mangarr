@@ -1,0 +1,36 @@
+/*
+ * Sonarr divergence: NEW manga sibling per Phase 7 D-05 — see DIVERGENCE.md.
+ * Role-match analog: frontend/src/Settings/MediaManagement/Naming/NamingModal.css.
+ *
+ * Phase 8 cleanup: this stays — manga-canonical.
+ */
+
+.groups {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.namingSelectContainer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.namingSelect {
+  composes: select from '~Components/Form/SelectInput.css';
+
+  margin-left: 10px;
+  width: 200px;
+}
+
+.footNote {
+  display: flex;
+  color: var(--helpTextColor);
+
+  .identifier {
+    margin-top: 8px;
+    margin-right: 5px;
+    padding: 2px;
+  }
+}

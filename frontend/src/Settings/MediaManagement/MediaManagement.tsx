@@ -17,6 +17,9 @@ import { useIsWindows } from 'System/Status/useSystemStatus';
 import { InputChanged } from 'typings/inputs';
 import { SettingsStateChange } from 'typings/Settings/SettingsState';
 import translate from 'Utilities/String/translate';
+// Sonarr divergence: NEW manga sibling import per Phase 7 D-05 — see DIVERGENCE.md.
+// MangaNaming wires Phase 5 Plan 05-06 /api/v5/config/manganaming endpoints.
+import MangaNaming from './Naming/MangaNaming';
 import Naming from './Naming/Naming';
 import AddRootFolder from './RootFolder/AddRootFolder';
 import {
@@ -152,19 +155,36 @@ function MediaManagement() {
     hasPendingChanges: false,
   });
 
+  // Sonarr divergence: NEW manga-naming child-state slot per Phase 7 D-05 — see DIVERGENCE.md.
+  // The page-level Save button dispatches both the TV naming save AND the manga naming save.
+  const [mangaNaming, setMangaNaming] = useState<SettingsStateChange>({
+    isSaving: false,
+    hasPendingChanges: false,
+  });
+
   const saveSettings = useRef<{
     naming: () => void;
+    mangaNaming: () => void;
   }>({
     naming: () => {},
+    mangaNaming: () => {},
   });
 
   const handleSetNamingSave = useCallback((saveCallback: () => void) => {
     saveSettings.current.naming = saveCallback;
   }, []);
 
+  const handleSetMangaNamingSave = useCallback(
+    (saveCallback: () => void) => {
+      saveSettings.current.mangaNaming = saveCallback;
+    },
+    []
+  );
+
   const handleSavePress = useCallback(() => {
     saveMediaManagementSettings();
     saveSettings.current.naming();
+    saveSettings.current.mangaNaming();
   }, [saveMediaManagementSettings]);
 
   const handleInputChange = useCallback(
@@ -180,8 +200,12 @@ function MediaManagement() {
   return (
     <PageContent title={translate('MediaManagementSettings')}>
       <SettingsToolbar
-        isSaving={isSaving || naming.isSaving}
-        hasPendingChanges={naming.hasPendingChanges || hasPendingChanges}
+        isSaving={isSaving || naming.isSaving || mangaNaming.isSaving}
+        hasPendingChanges={
+          naming.hasPendingChanges ||
+          mangaNaming.hasPendingChanges ||
+          hasPendingChanges
+        }
         onSavePress={handleSavePress}
       />
 
@@ -189,6 +213,13 @@ function MediaManagement() {
         <Naming
           setChildSave={handleSetNamingSave}
           onChildStateChange={setNaming}
+        />
+
+        {/* Sonarr divergence: NEW manga sibling section per Phase 7 D-05 — see DIVERGENCE.md.
+            Wires Phase 5 Plan 05-06 `/api/v5/config/manganaming` + presets endpoints. */}
+        <MangaNaming
+          setChildSave={handleSetMangaNamingSave}
+          onChildStateChange={setMangaNaming}
         />
 
         {isFetching ? (
