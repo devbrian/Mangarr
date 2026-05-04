@@ -255,5 +255,38 @@ namespace NzbDrone.Core.Test.QueueTests.Manga
             item.ScanlationGroup.Should().Be("TestGroup");
             item.Indexer.Should().Be("MangaDex");
         }
+
+        [Test]
+        public void Remove_publishes_MangaQueueUpdatedEvent_when_item_removed()
+        {
+            // Phase 6 Plan 14 — BL-02 / WR-04 mitigation. Remove must fan out via SignalR
+            // like Handle does so connected clients see the deletion immediately without
+            // waiting for the next TrackedDownloadRefreshedEvent.
+            var rc = MakeRemoteChapter(7, 42);
+            var manga = MakeTrackedDownload("m-1", DownloadProtocol.Http, rc);
+            Subject.Handle(new TrackedDownloadRefreshedEvent(new List<TrackedDownload> { manga }));
+            var seeded = Subject.GetMangaQueue().Single();
+
+            // Reset the verification counter — Handle already published once.
+            Mocker.GetMock<IEventAggregator>().Invocations.Clear();
+
+            Subject.Remove(seeded.Id);
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(
+                    e => e.PublishEvent(It.IsAny<MangaQueueUpdatedEvent>()),
+                    Times.Once,
+                    "BL-02/WR-04: Remove must publish MangaQueueUpdatedEvent so SignalR clients see the deletion immediately.");
+        }
+
+        [Test]
+        public void Remove_does_not_publish_event_when_id_unknown()
+        {
+            // Phase 6 Plan 14 — BL-02 negative case. Guards against double-publish on
+            // no-op Remove call (e.g., concurrent client deletes racing the same id).
+            Subject.Remove(int.MaxValue);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<MangaQueueUpdatedEvent>()), Times.Never);
+        }
     }
 }

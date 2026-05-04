@@ -60,6 +60,29 @@ namespace NzbDrone.Core.Test.JobTests
         }
 
         [Test]
+        public void TaskManager_HandleAsync_ConfigSavedEvent_rebroadcasts_MangaRssSyncCommand()
+        {
+            // Phase 6 Plan 14 — WR-02. The handler at TaskManager.cs HandleAsync(ConfigSavedEvent)
+            // must rebroadcast MangaRssSyncCommand interval changes so users do not need to
+            // restart for Settings → MangaRssSyncInterval changes to apply. Pure-textual
+            // assertion — the runtime path is exercised by TaskManagerFixture in upstream tests;
+            // this fixture guards the registration shape.
+            var handlerStart = _taskManagerSource.IndexOf("public void HandleAsync(ConfigSavedEvent");
+            handlerStart.Should().BeGreaterThan(0, "HandleAsync(ConfigSavedEvent) must exist in TaskManager");
+
+            // Slice the file from the handler signature to the next top-level closing brace
+            // (heuristic: search forward for "\n        }" — 8-space indented closer).
+            var handlerEnd = _taskManagerSource.IndexOf("\n        }", handlerStart);
+            handlerEnd.Should().BeGreaterThan(handlerStart, "HandleAsync(ConfigSavedEvent) closing brace not found");
+
+            var handlerBody = _taskManagerSource.Substring(handlerStart, handlerEnd - handlerStart);
+            handlerBody.Should().Contain("typeof(MangaRssSyncCommand)",
+                "Plan 14 WR-02 must add MangaRssSyncCommand to the rebroadcast set in HandleAsync(ConfigSavedEvent).");
+            handlerBody.Should().Contain("GetMangaRssSyncInterval()",
+                "Plan 14 WR-02 must call GetMangaRssSyncInterval() to refresh the manga RSS interval.");
+        }
+
+        [Test]
         public void Migration_001_contains_zero_Insert_IntoTable_calls()
         {
             // Strip comments before counting — a `// ... Insert.IntoTable ...` documentation

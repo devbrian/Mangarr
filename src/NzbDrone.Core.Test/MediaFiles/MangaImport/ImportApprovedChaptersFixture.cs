@@ -211,5 +211,42 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
 
             ExceptionVerification.ExpectedErrors(1);
         }
+
+        [Test]
+        public void should_use_lc_Size_for_ChapterFile_Size_when_authoritative()
+        {
+            // Phase 6 Plan 14 — BL-04. lc.Size is the authoritative size from Phase 4
+            // staging; ChapterFile.Size must be sourced from it (not from a post-move
+            // FileInfo lookup that can return 0 on transient I/O failure and silently
+            // corrupt downstream ChapterHistory + ChapterImportMessage).
+            const long authoritativeSize = 4096L * 1024L;   // 4 MiB
+
+            var lc = new LocalChapter
+            {
+                Path = _stagingPath,
+                Size = authoritativeSize,
+                Manga = _manga,
+                Chapter = _chapter,
+                Chapters = new List<Chapter> { _chapter },
+                Release = new ReleaseInfo { Title = "TestManga c012" },
+                ExistingFile = false
+            };
+
+            ChapterFile captured = null;
+            Mocker.GetMock<IChapterFileService>()
+                .Setup(c => c.Add(It.IsAny<ChapterFile>()))
+                .Returns<ChapterFile>(cf =>
+                {
+                    cf.Id = 100;
+                    captured = cf;
+                    return cf;
+                });
+
+            Subject.Import(new List<MangaImportDecision> { new MangaImportDecision(lc) }, true, _downloadClientItem);
+
+            captured.Should().NotBeNull("ChapterFileService.Add must have been called");
+            captured.Size.Should().Be(authoritativeSize,
+                "BL-04: ChapterFile.Size must come from lc.Size when > 0, not from post-move SafeGetFileSize.");
+        }
     }
 }
