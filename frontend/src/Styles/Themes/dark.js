@@ -33,9 +33,10 @@ module.exports = {
   mediumGray,
 
   // Theme Colors
-
-  themeBlue: sonarrBlue,
-  themeAlternateBlue: '#2193b5',
+  // Sonarr divergence: per Phase 7 D-06 + UI-02 + UI-SPEC §Color — manga pink accent — see DIVERGENCE.md.
+  // Phase 8 cleanup: tokens may be renamed to mangarrPink / mangarrPinkDark; values stay.
+  themeBlue: '#f06292', // manga pink (was sonarrBlue #35c5f4)
+  themeAlternateBlue: '#c2185b', // manga pink dark (was #2193b5)
   themeRed: '#c4273c',
   themeDarkColor: '#494949',
   themeLightColor: '#595959',
@@ -132,14 +133,16 @@ module.exports = {
   //
   // Menu
   menuItemColor: '#e1e2e3',
-  menuItemHoverColor: sonarrBlue,
+  // Sonarr divergence: per Phase 7 UI-02 — accent role uses manga pink (was sonarrBlue) — see DIVERGENCE.md.
+  menuItemHoverColor: '#f06292',
   menuItemHoverBackgroundColor: '#606060',
 
   //
   // Toolbar
 
-  toobarButtonHoverColor: sonarrBlue,
-  toobarButtonSelectedColor: sonarrBlue,
+  // Sonarr divergence: per Phase 7 UI-02 — accent role uses manga pink (was sonarrBlue) — see DIVERGENCE.md.
+  toobarButtonHoverColor: '#f06292',
+  toobarButtonSelectedColor: '#f06292',
 
   //
   // Scroller
