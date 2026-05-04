@@ -39,6 +39,7 @@ import Tasks from 'System/Tasks/Tasks';
 import Updates from 'System/Updates/Updates';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import CutoffUnmet from 'Wanted/CutoffUnmet/CutoffUnmet';
+import MangaMissing from 'Wanted/Missing/MangaMissing';
 import Missing from 'Wanted/Missing/Missing';
 
 function RedirectWithUrlBase() {
@@ -127,6 +128,18 @@ function AppRoutes() {
       <Route path="/wanted/missing" component={Missing} />
 
       <Route path="/wanted/cutoffunmet" component={CutoffUnmet} />
+
+      {/*
+        Manga Wanted (Phase 7 Plan 07-10 — additive per D-09 + D-10 + Lock #1;
+        existing /wanted/missing TV route UNTOUCHED. Renders the existing Missing
+        page with mediaType='manga' via thin wrapper. React Query key namespaces
+        via path prop in useMissing (['/manga/wanted/missing']) so SignalR
+        invalidations from Plan 07-02 hit the correct cache without TV cross-
+        contamination. See .planning/phases/07-api-v5-frontend-manga-shell/
+        07-10-PLAN.md.)
+      */}
+
+      <Route path="/manga/wanted/missing" component={MangaMissing} />
 
       {/*
         Settings

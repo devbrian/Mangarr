@@ -1,3 +1,9 @@
+// Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType discriminator added — see DIVERGENCE.md.
+// Default 'series' preserves all existing TV call-sites unchanged. Manga callers pass 'manga'
+// (currently the MangaMissing thin wrapper at /manga/wanted/missing) which switches the URL to
+// /manga/wanted/missing and the React Query key (auto-derived from path arg in usePagedApiQuery)
+// to ['/manga/wanted/missing'] so SignalR invalidations namespace cleanly per Plan 07-02
+// (Pitfall 5 — TV/manga cache MUST NOT collide). Phase 8 collapses.
 import { keepPreviousData } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import Episode from 'Episode/Episode';
@@ -10,6 +16,8 @@ import { filterBuilderValueTypes } from 'Helpers/Props';
 import findSelectedFilters from 'Utilities/Filter/findSelectedFilters';
 import translate from 'Utilities/String/translate';
 import { useMissingOptions } from './missingOptionsStore';
+
+export type MissingMediaType = 'series' | 'manga';
 
 export const FILTERS: Filter[] = [
   {
@@ -62,7 +70,7 @@ export const FILTER_BUILDER: FilterBuilderProp<Episode>[] = [
   },
 ];
 
-const useMissing = () => {
+const useMissing = (mediaType: MissingMediaType = 'series') => {
   const { page, goToPage } = usePage('missing');
   const { pageSize, selectedFilterKey, sortKey, sortDirection } =
     useMissingOptions();
@@ -72,8 +80,11 @@ const useMissing = () => {
     return findSelectedFilters(selectedFilterKey, FILTERS, customFilters);
   }, [selectedFilterKey, customFilters]);
 
+  const path =
+    mediaType === 'manga' ? '/manga/wanted/missing' : '/wanted/missing';
+
   const { isPlaceholderData, queryKey, ...query } = usePagedApiQuery<Episode>({
-    path: '/wanted/missing',
+    path,
     page,
     pageSize,
     filters,
