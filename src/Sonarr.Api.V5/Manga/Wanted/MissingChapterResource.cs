@@ -1,4 +1,3 @@
-using NzbDrone.Core.Manga;
 using Sonarr.Api.V5.Manga.Subresources;
 using Sonarr.Http.REST;
 
@@ -39,7 +38,7 @@ namespace Sonarr.Api.V5.Manga.Wanted
 
     public static class MissingChapterResourceMapper
     {
-        public static MissingChapterResource? ToMissingResource(this Chapter? model)
+        public static MissingChapterResource? ToMissingResource(this NzbDrone.Core.Manga.Chapter? model)
         {
             if (model == null)
             {

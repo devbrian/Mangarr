@@ -54,7 +54,7 @@ namespace Sonarr.Api.V5.Manga.Wanted
                                                                             [FromQuery] bool includeManga = false)
         {
             var pagingResource = new PagingResource<MissingChapterResource>(paging);
-            var pagingSpec = pagingResource.MapToPagingSpec<MissingChapterResource, Chapter>(
+            var pagingSpec = pagingResource.MapToPagingSpec<MissingChapterResource, NzbDrone.Core.Manga.Chapter>(
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
                     "releaseDate",
@@ -106,7 +106,7 @@ namespace Sonarr.Api.V5.Manga.Wanted
             return TypedResults.Ok(page);
         }
 
-        private MissingChapterResource MapToResource(Chapter chapter, bool includeManga)
+        private MissingChapterResource MapToResource(NzbDrone.Core.Manga.Chapter chapter, bool includeManga)
         {
             var resource = chapter.ToMissingResource()!;
 
