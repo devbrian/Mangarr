@@ -13,12 +13,12 @@
 | `InteractiveSearch.tsx` | Main modal with sortable/filterable release list |
 | `InteractiveSearchRow.tsx` | One release row (title, indexer, size, peers, quality, language, custom format score, rejections) |
 | `InteractiveSearchFilterModal.tsx` | Filter popup |
-| `InteractiveSearchPayload.ts` | Type for what to search (series, season, episode, etc.) |
-| `InteractiveSearchType.ts` | enum: `series` / `season` / `episode` |
+| `InteractiveSearchPayload.ts` | Discriminated union for what to search. **Phase 7 Plan 07-05** extended with `ChapterSearchPayload` (`{ chapterId }`) + `MangaSearchPayload` (`{ mangaId }`) variants per RESEARCH Lock #14. |
+| `InteractiveSearchType.ts` | enum: `'episode' \| 'season' \| 'chapter' \| 'manga'` (Phase 7 Plan 07-05 added the `chapter` + `manga` literals). |
 | `Peers.tsx` | Seeders/peers display |
 | `ReleaseSceneIndicator.tsx` | Scene release indicator |
 | `releaseOptionsStore.ts` | Zustand: search options |
-| `useReleases.ts` | API hook (`useReleases({ seriesId, seasonNumber?, episodeId? })`) |
+| `useReleases.ts` | API hook (`useReleases({ seriesId, seasonNumber?, episodeId? })`). **Phase 7 Plan 07-05** added `getReleasePath()` discriminator: chapter / manga payloads route to `/api/v5/manga/release` (Phase 6 endpoint), TV variants stay on `/release`. |
 
 ## Subdirectory: OverrideMatch/
 
@@ -56,11 +56,23 @@ If the parser mismatched the release (e.g., picked the wrong series), the user c
 
 ## Manga Adaptation Notes
 
-The architecture transfers cleanly. Updates needed:
-- `InteractiveSearchType` enum: add `chapter` and `volume` (replace `episode` and `season`)
-- `useReleases` payload changes: `chapterId`, `volumeNumber` instead of `episodeId`/`seasonNumber`
-- Result row columns: add Page Count, Scanlation Group, Color, etc.; drop Resolution
-- Override match needs `chapter` mapping instead of `episode`
+Phase 7 Plan 07-05 extends this directory in place rather than parallel-forking
+(D-01 — InteractiveSearch is shared+extended infra, not a media-type-shaped page
+dir). Volumes are NOT adapted (PROJECT.md Volumes/Seasons Out-of-Scope).
+
+Adapted in Plan 07-05:
+- `InteractiveSearchPayload.ts` — added `ChapterSearchPayload` (`{ chapterId }`)
+  + `MangaSearchPayload` (`{ mangaId }`) variants. TV `EpisodeSearchPayload` /
+  `SeasonSearchPayload` preserved verbatim.
+- `InteractiveSearchType.ts` — added `'chapter'` + `'manga'` literals.
+- `useReleases.ts` — added `getReleasePath(payload)` discriminator routing
+  chapter/manga payloads to `/api/v5/manga/release` (Phase 6 endpoint).
+- `<InteractiveSearch type="chapter" searchPayload={{ chapterId }} />` is the
+  caller pattern from `Manga/Details/MangaDetails.tsx` Search tab.
+
+Still pending Phase 8 cleanup:
+- Result row column extension (Page Count, Scanlation Group, etc.) — deferred.
+- Override Match `chapter` mapping — deferred.
 
 ## Cross-References
 

@@ -377,6 +377,18 @@ const releaseStore = create<ReleaseStore>(() => ({
 const DEFAULT_RELEASES: Release[] = [];
 const THIRTY_MINUTES = 30 * 60 * 1000;
 
+// Phase 7 Plan 07-05 — Manga sibling per RESEARCH Lock #14:
+// ChapterSearchPayload + MangaSearchPayload route to /api/v5/manga/release
+// (Phase 6 MangaReleaseController) instead of the inherited Sonarr /release
+// endpoint. TV variants preserved verbatim.
+function getReleasePath(payload: InteractiveSearchPayload): string {
+  if ('chapterId' in payload || 'mangaId' in payload) {
+    return '/manga/release';
+  }
+
+  return '/release';
+}
+
 const useReleases = (payload: InteractiveSearchPayload) => {
   const customFilters = useCustomFiltersList('releases');
   const { episodeSelectedFilterKey, seasonSelectedFilterKey } =
@@ -384,11 +396,16 @@ const useReleases = (payload: InteractiveSearchPayload) => {
 
   const { sortKey, sortDirection } = releaseStore();
 
+  // Filter key uses the same season/episode store slots: chapter rows behave
+  // like episode rows (single-row release filter), manga rows behave like
+  // season packs (whole-manga release filter). Phase 8 may split these.
   const selectedFilterKey =
-    'seriesId' in payload ? seasonSelectedFilterKey : episodeSelectedFilterKey;
+    'seriesId' in payload || 'mangaId' in payload
+      ? seasonSelectedFilterKey
+      : episodeSelectedFilterKey;
 
   const { data, queryKey, ...result } = useApiQuery<Release[]>({
-    path: '/release',
+    path: getReleasePath(payload),
     queryParams: {
       ...payload,
     },
