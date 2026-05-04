@@ -1,3 +1,8 @@
+// Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType discriminator added — see DIVERGENCE.md.
+// Default 'series' preserves all existing TV call-sites unchanged. Manga callers pass 'manga'
+// (currently the MangaQueue thin wrapper at /manga/activity/queue) which switches the URL to
+// /manga/queue and the React Query key to ['/manga/queue'] so SignalR invalidations namespace
+// cleanly per Plan 07-02 (Pitfall 5 — TV/manga cache MUST NOT collide). Phase 8 collapses.
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Filter, FilterBuilderProp } from 'Filters/Filter';
@@ -11,6 +16,8 @@ import getQueryString from 'Utilities/Fetch/getQueryString';
 import findSelectedFilters from 'Utilities/Filter/findSelectedFilters';
 import translate from 'Utilities/String/translate';
 import { useQueueOptions } from './queueOptionsStore';
+
+export type QueueMediaType = 'series' | 'manga';
 
 interface BulkQueueData {
   ids: number[];
@@ -74,7 +81,7 @@ export const FILTER_BUILDER: FilterBuilderProp<Queue>[] = [
   },
 ];
 
-const useQueue = () => {
+const useQueue = (mediaType: QueueMediaType = 'series') => {
   const { page, goToPage } = usePage('queue');
   const { pageSize, selectedFilterKey, sortKey, sortDirection } =
     useQueueOptions();
@@ -84,8 +91,10 @@ const useQueue = () => {
     return findSelectedFilters(selectedFilterKey, FILTERS, customFilters);
   }, [selectedFilterKey, customFilters]);
 
+  const path = mediaType === 'manga' ? '/manga/queue' : '/queue';
+
   const { refetch, ...query } = usePagedApiQuery<Queue>({
-    path: '/queue',
+    path,
     page,
     pageSize,
     filters,

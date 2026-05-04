@@ -1,3 +1,8 @@
+// Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType prop added — see DIVERGENCE.md.
+// Existing TV call-site (`/activity/blocklist` route → <Blocklist />`) preserved verbatim via the
+// default mediaType='series'. Manga call-site is the thin wrapper MangaBlocklist.tsx (Plan 07-09
+// task 2) invoking <Blocklist mediaType="manga" /> for the /manga/activity/blocklist route. Phase
+// 8 collapses.
 import React, { useCallback, useEffect, useState } from 'react';
 import { setQueueOptions } from 'Activity/Queue/queueOptionsStore';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
@@ -39,7 +44,11 @@ import useBlocklist, {
   useRemoveBlocklistItems,
 } from './useBlocklist';
 
-function BlocklistContent() {
+interface BlocklistProps {
+  mediaType?: 'series' | 'manga';
+}
+
+function BlocklistContent({ mediaType = 'series' }: BlocklistProps) {
   const {
     records,
     totalPages,
@@ -51,7 +60,7 @@ function BlocklistContent() {
     page,
     goToPage,
     refetch,
-  } = useBlocklist();
+  } = useBlocklist(mediaType);
 
   const { columns, pageSize, sortKey, sortDirection, selectedFilterKey } =
     useBlocklistOptions();
@@ -212,7 +221,9 @@ function BlocklistContent() {
         {isFetched && !error && !records.length ? (
           <Alert kind={kinds.INFO}>
             {selectedFilterKey === 'all'
-              ? translate('NoBlocklistItems')
+              ? mediaType === 'manga'
+                ? translate('NoBlocklistItemsManga')
+                : translate('NoBlocklistItems')
               : translate('BlocklistFilterHasNoItems')}
           </Alert>
         ) : null}
@@ -273,12 +284,12 @@ function BlocklistContent() {
   );
 }
 
-function Blocklist() {
-  const { records } = useBlocklist();
+function Blocklist({ mediaType = 'series' }: BlocklistProps) {
+  const { records } = useBlocklist(mediaType);
 
   return (
     <SelectProvider<BlockListModel> items={records}>
-      <BlocklistContent />
+      <BlocklistContent mediaType={mediaType} />
     </SelectProvider>
   );
 }

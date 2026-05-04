@@ -1,3 +1,8 @@
+// Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType prop added — see DIVERGENCE.md.
+// Existing TV call-site (`/activity/history` route → <History />`) preserved verbatim via the
+// default mediaType='series'. Manga call-site is the thin wrapper MangaHistory.tsx (Plan 07-09
+// task 2) invoking <History mediaType="manga" /> for the /manga/activity/history route. Phase 8
+// collapses.
 import React, { useCallback, useEffect, useMemo } from 'react';
 import Alert from 'Components/Alert';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
@@ -33,7 +38,11 @@ import {
 import HistoryRow from './HistoryRow';
 import useHistory, { useFilters } from './useHistory';
 
-function History() {
+interface HistoryProps {
+  mediaType?: 'series' | 'manga';
+}
+
+function History({ mediaType = 'series' }: HistoryProps) {
   const {
     records,
     totalPages,
@@ -45,7 +54,7 @@ function History() {
     page,
     goToPage,
     refetch,
-  } = useHistory();
+  } = useHistory(mediaType);
 
   const { columns, pageSize, sortKey, sortDirection, selectedFilterKey } =
     useHistoryOptions();
@@ -160,7 +169,11 @@ function History() {
           // wait for the episodes to populate because they are never coming.
 
           isFetched && !hasError && !records.length ? (
-            <Alert kind={kinds.INFO}>{translate('NoHistoryFound')}</Alert>
+            <Alert kind={kinds.INFO}>
+              {mediaType === 'manga'
+                ? translate('NoHistoryFoundManga')
+                : translate('NoHistoryFound')}
+            </Alert>
           ) : null
         }
 

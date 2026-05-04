@@ -1,3 +1,7 @@
+// Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType prop added — see DIVERGENCE.md.
+// Existing TV call-site (`/activity/queue` route → <Queue />`) preserved verbatim via the default
+// mediaType='series'. Manga call-site is the thin wrapper MangaQueue.tsx (Plan 07-09 task 2)
+// invoking <Queue mediaType="manga" /> for the /manga/activity/queue route. Phase 8 collapses.
 import React, {
   ReactElement,
   useCallback,
@@ -52,7 +56,11 @@ import useQueue, {
   useRemoveQueueItems,
 } from './useQueue';
 
-function QueueContent() {
+interface QueueProps {
+  mediaType?: 'series' | 'manga';
+}
+
+function QueueContent({ mediaType = 'series' }: QueueProps) {
   const executeCommand = useExecuteCommand();
 
   const {
@@ -65,7 +73,7 @@ function QueueContent() {
     page,
     goToPage,
     refetch,
-  } = useQueue();
+  } = useQueue(mediaType);
 
   const { columns, pageSize, sortKey, sortDirection, selectedFilterKey } =
     useQueueOptions();
@@ -237,7 +245,9 @@ function QueueContent() {
           <Alert kind={kinds.INFO}>
             {selectedFilterKey !== 'all' && count > 0
               ? translate('QueueFilterHasNoItems')
-              : translate('QueueIsEmpty')}
+              : mediaType === 'manga'
+                ? translate('QueueIsEmptyManga')
+                : translate('QueueIsEmpty')}
           </Alert>
         ) : null}
 
@@ -397,12 +407,12 @@ function QueueContent() {
   );
 }
 
-function Queue() {
-  const { records } = useQueue();
+function Queue({ mediaType = 'series' }: QueueProps) {
+  const { records } = useQueue(mediaType);
 
   return (
     <SelectProvider<QueueModel> items={records}>
-      <QueueContent />
+      <QueueContent mediaType={mediaType} />
     </SelectProvider>
   );
 }

@@ -1,3 +1,8 @@
+// Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType discriminator added — see DIVERGENCE.md.
+// Default 'series' preserves all existing TV call-sites unchanged. Manga callers pass 'manga'
+// (currently the MangaHistory thin wrapper at /manga/activity/history) which switches the URL to
+// /manga/history and the React Query key to ['/manga/history'] so SignalR invalidations namespace
+// cleanly per Plan 07-02 (Pitfall 5 — TV/manga cache MUST NOT collide). Phase 8 collapses.
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { Filter, FilterBuilderProp } from 'Filters/Filter';
@@ -10,6 +15,8 @@ import History from 'typings/History';
 import findSelectedFilters from 'Utilities/Filter/findSelectedFilters';
 import translate from 'Utilities/String/translate';
 import { useHistoryOptions } from './historyOptionsStore';
+
+export type HistoryMediaType = 'series' | 'manga';
 
 export const FILTERS: Filter[] = [
   {
@@ -119,7 +126,7 @@ const MARK_AS_FAILED_QUERY_KEYS: Record<HistoryType, string> = {
   series: '/history/series',
 } as const;
 
-const useHistory = () => {
+const useHistory = (mediaType: HistoryMediaType = 'series') => {
   const { page, goToPage } = usePage('history');
   const { pageSize, selectedFilterKey, sortKey, sortDirection } =
     useHistoryOptions();
@@ -129,8 +136,10 @@ const useHistory = () => {
     return findSelectedFilters(selectedFilterKey, FILTERS, customFilters);
   }, [selectedFilterKey, customFilters]);
 
+  const path = mediaType === 'manga' ? '/manga/history' : '/history';
+
   const { refetch, ...query } = usePagedApiQuery<History>({
-    path: '/history',
+    path,
     page,
     pageSize,
     filters,
