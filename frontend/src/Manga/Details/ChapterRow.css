@@ -1,0 +1,35 @@
+.title {
+  composes: cell from '~Components/Table/Cells/TableRowCell.css';
+
+  white-space: nowrap;
+}
+
+.monitored {
+  composes: cell from '~Components/Table/Cells/TableRowCell.css';
+
+  width: 42px;
+}
+
+.chapterNumber {
+  composes: cell from '~Components/Table/Cells/TableRowCell.css';
+
+  width: 80px;
+}
+
+.language {
+  composes: cell from '~Components/Table/Cells/TableRowCell.css';
+
+  width: 70px;
+}
+
+.scanlationGroup {
+  composes: cell from '~Components/Table/Cells/TableRowCell.css';
+
+  white-space: nowrap;
+}
+
+.status {
+  composes: cell from '~Components/Table/Cells/TableRowCell.css';
+
+  width: 60px;
+}

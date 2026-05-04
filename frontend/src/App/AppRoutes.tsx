@@ -9,6 +9,7 @@ import ImportSeriesPage from 'AddSeries/ImportSeries/ImportSeriesPage';
 import CalendarPage from 'Calendar/CalendarPage';
 import NotFound from 'Components/NotFound';
 import Switch from 'Components/Router/Switch';
+import MangaDetailsPage from 'Manga/Details/MangaDetailsPage';
 import MangaIndex from 'Manga/Index/MangaIndex';
 import SeriesDetailsPage from 'Series/Details/SeriesDetailsPage';
 import SeriesIndex from 'Series/Index/SeriesIndex';
@@ -71,12 +72,14 @@ function AppRoutes() {
       <Route path="/series/:titleSlug" component={SeriesDetailsPage} />
 
       {/*
-        Manga (Phase 7 Plans 07-04 + 07-06 — additive per D-09; / stays on
-        TV until Phase 8 cutover. See .planning/phases/07-api-v5-frontend-
-        manga-shell/07-04-PLAN.md and 07-06-PLAN.md.)
+        Manga (Phase 7 Plans 07-04 + 07-05 + 07-06 — additive per D-09; /
+        stays on TV until Phase 8 cutover. See .planning/phases/07-api-v5-
+        frontend-manga-shell/07-04-PLAN.md, 07-05-PLAN.md, 07-06-PLAN.md.)
       */}
 
       <Route exact={true} path="/manga" component={MangaIndex} />
+
+      <Route path="/manga/:titleSlug" component={MangaDetailsPage} />
 
       <Route path="/add/manga" component={AddNewManga} />
 
