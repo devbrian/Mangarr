@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Phase 7 Plan 07-11 — Mangarr dark-variant wordmark.
+  Used on light page header backgrounds (light theme nav bg manga pink dark #c2185b).
+  White fill for high contrast against the manga-pink-dark page header.
+  Open-book glyph (left) + Mangarr wordmark (right) — Roboto bold, viewBox 0 0 200 32.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 32" width="200" height="32" role="img" aria-label="Mangarr">
+  <!-- Open book glyph: white silhouette for contrast against manga-pink-dark header -->
+  <g fill="#ffffff" stroke="none">
+    <!-- Left page -->
+    <path d="M2 6 L2 26 L14 28 L14 8 Z" />
+    <!-- Right page -->
+    <path d="M16 8 L16 28 L28 26 L28 6 Z" opacity="0.85" />
+    <!-- Spine accent -->
+    <rect x="14" y="6" width="2" height="22" />
+  </g>
+  <!-- Wordmark -->
+  <text x="36" y="24" font-family="Roboto, 'open sans', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#ffffff">Mangarr</text>
+</svg>

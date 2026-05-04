@@ -14,9 +14,15 @@ interface AppProps {
   history: ConnectedRouterProps['history'];
 }
 
+// Sonarr divergence: per Phase 7 Plan 07-11 + UI-01 — browser tab title default — see DIVERGENCE.md.
+// `window.Sonarr.instanceName` is a runtime config value (General Settings → Instance Name);
+// falls back to "Mangarr" when unset so a fresh install displays "Mangarr" not blank.
+// Phase 8 cleanup: rename `window.Sonarr` -> `window.Mangarr` alongside the system rename.
+const APP_DEFAULT_TITLE = 'Mangarr';
+
 function App({ store, history }: AppProps) {
   return (
-    <DocumentTitle title={window.Sonarr.instanceName}>
+    <DocumentTitle title={window.Sonarr.instanceName || APP_DEFAULT_TITLE}>
       <QueryClientProvider client={queryClient}>
         <Provider store={store}>
           <ConnectedRouter history={history}>

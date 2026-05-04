@@ -10,20 +10,21 @@ interface PageContentProps {
   children: React.ReactNode;
 }
 
+// Sonarr divergence: per Phase 7 Plan 07-11 + UI-01 — browser tab title default — see DIVERGENCE.md.
+// Falls back to "Mangarr" when `window.Sonarr.instanceName` is empty/undefined so per-page
+// titles still read "<Page> - Mangarr" not "<Page> - " on a fresh install.
+const PAGE_DEFAULT_TITLE = 'Mangarr';
+
 function PageContent({
   className = styles.content,
   title,
   children,
 }: PageContentProps) {
+  const instance = window.Sonarr.instanceName || PAGE_DEFAULT_TITLE;
+
   return (
     <ErrorBoundary errorComponent={PageContentError}>
-      <DocumentTitle
-        title={
-          title
-            ? `${title} - ${window.Sonarr.instanceName}`
-            : window.Sonarr.instanceName
-        }
-      >
+      <DocumentTitle title={title ? `${title} - ${instance}` : instance}>
         <div className={className}>{children}</div>
       </DocumentTitle>
     </ErrorBoundary>

@@ -14,8 +14,22 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="format-detection" content="telephone=no">
 
-    <meta name="description" content="Sonarr" />
+    <!-- Sonarr divergence: per Phase 7 Plan 07-11 + UI-01 + UI-SPEC §Rebrand Chrome Contract — see DIVERGENCE.md. -->
+    <meta name="description" content="Mangarr" />
+    <meta name="application-name" content="Mangarr" />
 
+    <!--
+      Sonarr divergence: per Phase 7 Plan 07-11 + UI-01 + UI-SPEC §Rebrand Chrome Contract — see DIVERGENCE.md.
+      SVG favicon (manga pink) takes precedence in modern browsers. Legacy PNG / ICO
+      links below stay pointed at the inherited Sonarr assets pending a Phase 8
+      multi-resolution ICO bake — they only render in older browsers / pinned-tab
+      surfaces and are fallbacks only.
+    -->
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="/Content/Images/Icons/mangarr-favicon.svg"
+    />
     <link
       rel="apple-touch-icon"
       sizes="180x180"
@@ -70,7 +84,8 @@
     <% for (key in htmlWebpackPlugin.files.js) { %><script type="text/javascript" src="<%= htmlWebpackPlugin.files.js[key] %>" data-no-hash></script><% } %>
     <% for (key in htmlWebpackPlugin.files.css) { %><link href="<%= htmlWebpackPlugin.files.css[key] %>" rel="stylesheet"></link><% } %>
 
-    <title>Sonarr</title>
+    <!-- Sonarr divergence: per Phase 7 Plan 07-11 + UI-01 — browser tab title — see DIVERGENCE.md. -->
+    <title>Mangarr</title>
 
     <!--
       The super basic styling for .root  will live here,

@@ -35,6 +35,17 @@ function About() {
   return (
     <FieldSet legend={translate('About')}>
       <DescriptionList className={styles.descriptionList}>
+        {/*
+          Sonarr divergence: per Phase 7 Plan 07-11 + UI-01 + UI-SPEC §Rebrand Chrome Contract
+          ("Sidebar About text Sonarr v... -> Mangarr v...") — see DIVERGENCE.md.
+          The product-name row reads "Mangarr" (i18n key landed in Plan 07-11 en.json).
+          Sibling MoreInfo.tsx still links to sonarr.tv/wiki/forums per D-06 — those are
+          attribution links to the upstream fork's resources, not user-visible product copy.
+        */}
+        <DescriptionListItem
+          title={translate('Application')}
+          data={translate('Mangarr')}
+        />
         <DescriptionListItem title={translate('Version')} data={version} />
 
         {packageVersion && (

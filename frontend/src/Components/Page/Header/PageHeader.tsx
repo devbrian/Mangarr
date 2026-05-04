@@ -42,11 +42,19 @@ function PageHeader() {
   return (
     <div className={styles.header}>
       <div className={styles.logoContainer}>
+        {/*
+          Sonarr divergence: per Phase 7 Plan 07-11 + UI-01 + UI-SPEC §Rebrand Chrome Contract — see DIVERGENCE.md.
+          Logo asset: Content/Images/logo.svg -> Content/Images/Logos/mangarr-light.svg
+          alt text: "Sonarr Logo" -> "Mangarr". The wordmark is part of the SVG asset itself
+          (see frontend/src/Content/Images/Logos/mangarr-light.svg) so a separate <span>
+          wordmark element is not required here. Existing TV pages keep their Sonarr-rendered
+          bits per D-06; this is the global chrome only.
+        */}
         <Link className={styles.logoLink} to="/">
           <img
             className={styles.logo}
-            src={`${window.Sonarr.urlBase}/Content/Images/logo.svg`}
-            alt="Sonarr Logo"
+            src={`${window.Sonarr.urlBase}/Content/Images/Logos/mangarr-light.svg`}
+            alt="Mangarr"
           />
         </Link>
       </div>
