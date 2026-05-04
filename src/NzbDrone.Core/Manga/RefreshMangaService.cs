@@ -24,18 +24,21 @@ namespace NzbDrone.Core.Manga
         private readonly IMangaService _mangaService;
         private readonly IChapterListService _chapterListService;
         private readonly IEventAggregator _eventAggregator;
+        private readonly ICommandResultReporter _commandResultReporter;
         private readonly Logger _logger;
 
         public RefreshMangaService(IMetadataSourceFactory metaFactory,
                                    IMangaService mangaService,
                                    IChapterListService chapterListService,
                                    IEventAggregator eventAggregator,
+                                   ICommandResultReporter commandResultReporter,
                                    Logger logger)
         {
             _metaFactory = metaFactory;
             _mangaService = mangaService;
             _chapterListService = chapterListService;
             _eventAggregator = eventAggregator;
+            _commandResultReporter = commandResultReporter;
             _logger = logger;
         }
 
@@ -106,6 +109,11 @@ namespace NzbDrone.Core.Manga
                 {
                     _logger.Warn("Manga {0} not found at primary source — preserving existing data",
                         existing.Title);
+
+                    // gap-09: mirror RefreshSeriesService.Execute (Tv/RefreshSeriesService.cs:235)
+                    // — flag the command result Indeterminate so a partial-success batch is
+                    // not falsely marked Completed by the command queue / health check.
+                    _commandResultReporter.Report(CommandResult.Indeterminate);
                 }
                 catch (Exception ex)
                 {
@@ -116,6 +124,11 @@ namespace NzbDrone.Core.Manga
                     // blowing up the whole loop; without this catch the previous
                     // implementation did the opposite.
                     _logger.Warn(ex, "Refresh failed for manga {0}; skipping and continuing", existing.Title);
+
+                    // gap-09: mirror RefreshSeriesService.Execute (Tv/RefreshSeriesService.cs:245)
+                    // — flag the command result Indeterminate so a partial-success batch is
+                    // not falsely marked Completed by the command queue / health check.
+                    _commandResultReporter.Report(CommandResult.Indeterminate);
                 }
             }
 
