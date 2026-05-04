@@ -82,7 +82,7 @@ function AddNewManga() {
             className={styles.searchInput}
             name="mangaLookup"
             value={term}
-            placeholder="Search MangaDex..."
+            placeholder={translate('SearchMangaDex')}
             autoFocus={true}
             onChange={handleSearchInputChange}
           />
