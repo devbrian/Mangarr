@@ -1,3 +1,11 @@
+// Sonarr divergence: per Phase 7 D-discretion + Lock #15 — Calendar v2 placeholder banner — see DIVERGENCE.md.
+// PROJECT.md Out-of-Scope: Calendar implementation deferred to v2. Manga release schedules are
+// not deterministic in v1 (no aggregator timetables wired), so a banner above the calendar grid
+// signals "feature shipping in v2" universally — TV calendar grid still renders below for users
+// with TV series. UI-SPEC \xa7Empty states locks the copy: heading 'Calendar is coming in v2',
+// body 'For now, monitor your manga and check Wanted to see what's missing.' i18n keys
+// CalendarComingInV2 / CalendarComingInV2Hint land in Plan 07-11 en.json; until then translate()
+// falls back to the key string at runtime — no crash.
 import React, {
   PropsWithChildren,
   useCallback,
@@ -8,6 +16,7 @@ import React, {
 import QueueDetailsProvider from 'Activity/Queue/Details/QueueDetailsProvider';
 import CommandNames from 'Commands/CommandNames';
 import { useCommandExecuting, useExecuteCommand } from 'Commands/useCommands';
+import Alert from 'Components/Alert';
 import FilterMenu from 'Components/Menu/FilterMenu';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
@@ -19,7 +28,7 @@ import Episode from 'Episode/Episode';
 import EpisodeFileProvider from 'EpisodeFile/EpisodeFileProvider';
 import { useCustomFiltersList } from 'Filters/useCustomFilters';
 import useMeasure from 'Helpers/Hooks/useMeasure';
-import { align, icons } from 'Helpers/Props';
+import { align, icons, kinds } from 'Helpers/Props';
 import NoSeries from 'Series/NoSeries';
 import { useHasSeries } from 'Series/useSeries';
 import selectUniqueIds from 'Utilities/Object/selectUniqueIds';
@@ -156,6 +165,19 @@ function CalendarPage() {
           className={styles.calendarPageBody}
           innerClassName={styles.calendarInnerPageBody}
         >
+          {/*
+            Phase 7 Plan 07-10 — v2 placeholder banner per UI-06 + Lock #15 +
+            UI-SPEC \xa7Calendar / \xa7Empty states. Calendar implementation is
+            deferred to v2 (PROJECT.md Out-of-Scope). Banner renders universally
+            so users on the TV-side still get a heads-up that the manga half of
+            this page is intentionally not yet wired. TV calendar grid below
+            continues to render normally.
+          */}
+          <Alert kind={kinds.INFO}>
+            <strong>{translate('CalendarComingInV2')}</strong>
+            <div>{translate('CalendarComingInV2Hint')}</div>
+          </Alert>
+
           {isMeasured ? <PageComponent totalItems={0} /> : <div />}
           {hasSeries && <Legend />}
         </PageContentBody>
