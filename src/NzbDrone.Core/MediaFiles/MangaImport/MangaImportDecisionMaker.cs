@@ -31,16 +31,28 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
     public class MangaImportDecisionMaker : IMakeMangaImportDecision
     {
         private readonly IEnumerable<IMangaImportDecisionEngineSpecification> _specifications;
+        private readonly ILocalChapterCustomFormatCalculationService _formatCalculator;
         private readonly Logger _logger;
 
-        public MangaImportDecisionMaker(IEnumerable<IMangaImportDecisionEngineSpecification> specifications, Logger logger)
+        public MangaImportDecisionMaker(
+            IEnumerable<IMangaImportDecisionEngineSpecification> specifications,
+            ILocalChapterCustomFormatCalculationService formatCalculator,
+            Logger logger)
         {
             _specifications = specifications;
+            _formatCalculator = formatCalculator;
             _logger = logger;
         }
 
         public MangaImportDecision GetDecision(LocalChapter localChapter, DownloadClientItem downloadClientItem)
         {
+            // Phase 8 audit gap (no-sibling/LocalEpisodeCustomFormatCalculationService) —
+            // populate LocalChapter.CustomFormats + CustomFormatScore BEFORE specs evaluate.
+            // Mirrors TV ImportDecisionMaker.cs:153 (`_formatCalculator.UpdateEpisodeCustomFormats`).
+            // Without this, UpgradeSpecification.cs:122 reads the default 0 and the
+            // `incomingScore <= existingScore` gate silently rejects all CF-driven upgrades.
+            _formatCalculator.UpdateChapterCustomFormats(localChapter);
+
             var rejections = _specifications
                 .Select(spec => Evaluate(spec, localChapter, downloadClientItem))
                 .Where(r => r != null)

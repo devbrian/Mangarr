@@ -39,7 +39,11 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
 
         private MangaImportDecisionMaker Make(params IMangaImportDecisionEngineSpecification[] specs)
         {
-            return new MangaImportDecisionMaker(specs, TestLogger);
+            // Phase 8 audit gap: MangaImportDecisionMaker now invokes
+            // ILocalChapterCustomFormatCalculationService.UpdateChapterCustomFormats
+            // before specs evaluate. Provide a no-op mock for the dependency.
+            var formatCalculator = new Mock<ILocalChapterCustomFormatCalculationService>();
+            return new MangaImportDecisionMaker(specs, formatCalculator.Object, TestLogger);
         }
 
         [Test]
