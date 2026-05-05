@@ -33,6 +33,14 @@ namespace NzbDrone.Core.Manga
             return Query(c => c.MangaId == mangaId).ToList();
         }
 
+        public List<Chapter> GetChaptersByMangaIds(List<int> mangaIds)
+        {
+            // Phase 8 audit (EpisodeRepository-vs-ChapterRepository.md gap-01). Mirrors TV's
+            // EpisodeRepository.GetEpisodesBySeriesIds (line 80-83). Bulk get-by-multiple-parent-IDs
+            // for batch operations across multiple mangas.
+            return Query(c => mangaIds.Contains(c.MangaId)).ToList();
+        }
+
         public List<Chapter> GetSyntheticByMangaId(int mangaId)
         {
             return Query(c => c.MangaId == mangaId && c.IsSynthetic).ToList();

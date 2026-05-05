@@ -15,6 +15,12 @@ namespace NzbDrone.Core.Manga
     {
         Chapter Find(int mangaId, decimal chapterNumber, string translatedLanguage);
         List<Chapter> GetByMangaId(int mangaId);
+
+        // Phase 8 audit (EpisodeRepository-vs-ChapterRepository.md gap-01) — sibling of TV's
+        // `IEpisodeRepository.GetEpisodesBySeriesIds(List<int> seriesIds)`. Bulk get-by-multiple-parent-IDs
+        // for batch operations (e.g. multi-manga wanted-search, multi-manga rescan).
+        List<Chapter> GetChaptersByMangaIds(List<int> mangaIds);
+
         List<Chapter> GetSyntheticByMangaId(int mangaId);
 
         // Phase 8 audit (EpisodeRepository-vs-ChapterRepository.md gap-02) — sibling of TV's
