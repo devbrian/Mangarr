@@ -98,13 +98,22 @@ namespace NzbDrone.Core.MediaFiles
             // Move/copy the new file to its destination via the existing IMoveChapterFiles
             // (Phase 8 cluster-02 ChapterFileMovingService). copyOnly switches between
             // MoveChapterFile (TransferMode.Move) and CopyChapterFile (Copy / HardLinkOrCopy).
-            if (copyOnly)
+            //
+            // chapterFile == null is a recycle-only mode used by Phase 6 ImportApprovedChapters
+            // step 0.5 (D-09-05): the caller already owns the new-file move via _diskProvider.MoveFile
+            // and only needs the recycle+delete-row side effect documented above. Pitfall 4 ordering
+            // is preserved either way — recycle + DB delete-row run BEFORE the caller's move + Add +
+            // ChapterImportedEvent publish chain.
+            if (chapterFile != null)
             {
-                moveFileResult.ChapterFile = _chapterFileMover.CopyChapterFile(chapterFile, localChapter);
-            }
-            else
-            {
-                moveFileResult.ChapterFile = _chapterFileMover.MoveChapterFile(chapterFile, localChapter);
+                if (copyOnly)
+                {
+                    moveFileResult.ChapterFile = _chapterFileMover.CopyChapterFile(chapterFile, localChapter);
+                }
+                else
+                {
+                    moveFileResult.ChapterFile = _chapterFileMover.MoveChapterFile(chapterFile, localChapter);
+                }
             }
 
             return moveFileResult;

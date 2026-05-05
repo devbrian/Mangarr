@@ -10,6 +10,7 @@ using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles;
+using NzbDrone.Core.MediaFiles.EpisodeImport;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Organizer.Manga;
@@ -208,6 +209,110 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
                 .Verify(e => e.PublishEvent(It.IsAny<ChapterImportFailedEvent>()), Times.Once);
             Mocker.GetMock<IEventAggregator>()
                 .Verify(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()), Times.Never);
+
+            ExceptionVerification.ExpectedErrors(1);
+        }
+
+        // ---------------------------------------------------------------------
+        // Phase 9 D-09-05 — UpgradeChapterFileService insertion-site coverage.
+        // ---------------------------------------------------------------------
+
+        [Test]
+        public void should_call_UpgradeChapterFile_when_existing_ChapterFileId_present()
+        {
+            _chapter.ChapterFileId = 17;
+
+            Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
+
+            // Recycle-only mode: first arg is null (caller owns the move via _diskProvider.MoveFile);
+            // service performs only the recycle + delete-row side effect.
+            Mocker.GetMock<IUpgradeChapterFiles>()
+                .Verify(u => u.UpgradeChapterFile(null, It.IsAny<LocalChapter>(), false), Times.Once);
+        }
+
+        [Test]
+        public void should_skip_UpgradeChapterFile_when_ChapterFileId_is_null()
+        {
+            _chapter.ChapterFileId = null;
+
+            Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
+
+            Mocker.GetMock<IUpgradeChapterFiles>()
+                .Verify(u => u.UpgradeChapterFile(It.IsAny<ChapterFile>(), It.IsAny<LocalChapter>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [Test]
+        public void should_skip_UpgradeChapterFile_when_ChapterFileId_is_zero()
+        {
+            _chapter.ChapterFileId = 0;
+
+            Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
+
+            Mocker.GetMock<IUpgradeChapterFiles>()
+                .Verify(u => u.UpgradeChapterFile(It.IsAny<ChapterFile>(), It.IsAny<LocalChapter>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [Test]
+        public void should_call_UpgradeChapterFile_BEFORE_destination_path_build()
+        {
+            // Pitfall 4 ordering verification: recycle + delete-row of OLD file MUST happen before
+            // destination-path build (and therefore before MoveFile + Add + PublishEvent of NEW file).
+            _chapter.ChapterFileId = 17;
+
+            var sequence = new MockSequence();
+
+            Mocker.GetMock<IUpgradeChapterFiles>().InSequence(sequence)
+                .Setup(u => u.UpgradeChapterFile(null, It.IsAny<LocalChapter>(), false));
+
+            Mocker.GetMock<IBuildMangaPaths>().InSequence(sequence)
+                .Setup(p => p.BuildChapterPath(It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>(), It.IsAny<string>()))
+                .Returns(_destPath);
+
+            Mocker.GetMock<IDiskProvider>().InSequence(sequence)
+                .Setup(d => d.MoveFile(_stagingPath, _destPath, false));
+
+            Mocker.GetMock<IChapterFileService>().InSequence(sequence)
+                .Setup(c => c.Add(It.IsAny<ChapterFile>()))
+                .Returns<ChapterFile>(cf =>
+                {
+                    cf.Id = 99;
+                    return cf;
+                });
+
+            Mocker.GetMock<IEventAggregator>().InSequence(sequence)
+                .Setup(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()));
+
+            Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
+
+            Mocker.GetMock<IUpgradeChapterFiles>()
+                .Verify(u => u.UpgradeChapterFile(null, It.IsAny<LocalChapter>(), false), Times.Once);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()), Times.Once);
+        }
+
+        [Test]
+        public void should_continue_import_when_upgrade_throws()
+        {
+            // Recycle failure is non-fatal in TV — same shape here: log Error + continue;
+            // the new ChapterFile + ChapterImportedEvent still land. Old file leaks to disk
+            // (rescan can reconcile). Surfacing as failure would block auto-retry orchestrator.
+            _chapter.ChapterFileId = 17;
+
+            Mocker.GetMock<IUpgradeChapterFiles>()
+                .Setup(u => u.UpgradeChapterFile(It.IsAny<ChapterFile>(), It.IsAny<LocalChapter>(), It.IsAny<bool>()))
+                .Throws(new RecycleBinException("simulated recycle failure"));
+
+            var result = Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
+
+            // Import succeeded despite the recycle throw.
+            result.Should().HaveCount(1);
+            result[0].Result.Should().Be(MangaImportResultType.Imported);
+
+            // ChapterImportedEvent fired (success); ChapterImportFailedEvent did NOT fire.
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()), Times.Once);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterImportFailedEvent>()), Times.Never);
 
             ExceptionVerification.ExpectedErrors(1);
         }

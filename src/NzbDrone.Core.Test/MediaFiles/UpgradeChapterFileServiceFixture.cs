@@ -208,5 +208,24 @@ namespace NzbDrone.Core.Test.MediaFiles
             Mocker.GetMock<IMoveChapterFiles>()
                 .Verify(m => m.MoveChapterFile(It.IsAny<ChapterFile>(), It.IsAny<LocalChapter>()), Times.Never);
         }
+
+        [Test]
+        public void should_skip_move_when_chapterFile_is_null_but_still_recycle_existing()
+        {
+            // D-09-05 — Phase 6 ImportApprovedChapters step 0.5 invokes UpgradeChapterFile
+            // with a null new-file argument because the caller already owns the move via
+            // _diskProvider.MoveFile. The recycle+delete-row side effect must still run; the
+            // mover must NOT be called.
+            Subject.UpgradeChapterFile(null, _localChapter);
+
+            Mocker.GetMock<IRecycleBinProvider>()
+                .Verify(r => r.DeleteFile(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+            Mocker.GetMock<IChapterFileService>()
+                .Verify(c => c.Delete(_existingChapterFile, DeleteMediaFileReason.Upgrade), Times.Once);
+            Mocker.GetMock<IMoveChapterFiles>()
+                .Verify(m => m.MoveChapterFile(It.IsAny<ChapterFile>(), It.IsAny<LocalChapter>()), Times.Never);
+            Mocker.GetMock<IMoveChapterFiles>()
+                .Verify(m => m.CopyChapterFile(It.IsAny<ChapterFile>(), It.IsAny<LocalChapter>()), Times.Never);
+        }
     }
 }
