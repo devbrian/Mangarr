@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NLog;
+using NzbDrone.Common.Crypto;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Configuration.Events;
 using NzbDrone.Core.DecisionEngine.Manga;
@@ -29,6 +31,8 @@ namespace NzbDrone.Core.Download.Pending.Manga
     // type for body code (decision.RemoteChapter.Manga.Id, message.Manga, etc.).
     // Pattern matches IChapterFileService.cs:5 (Phase 6 precedent — commit 6597c94c7).
     using Manga = NzbDrone.Core.Manga.Manga;
+    using Chapter = NzbDrone.Core.Manga.Chapter;
+    using IMangaService = NzbDrone.Core.Manga.IMangaService;
 
     // Sonarr divergence: NEW manga sibling per Phase 9 D-09-06..08 — see DIVERGENCE.md.
     // Role-match analog: src/NzbDrone.Core/Download/Pending/PendingReleaseService.cs (701 lines).
@@ -60,7 +64,8 @@ namespace NzbDrone.Core.Download.Pending.Manga
     //
     // GetPendingQueue simplification vs TV: TV dedupes by (episode-id-set + QualityModelComparer)
     // ordering and protocol-priority. Manga drops the QualityModel axis (D-04). Dedup by
-    // chapter-id-set is preserved; protocol-priority is preserved (only Http/Torrent matter).
+    // chapter-id-set is preserved; protocol-priority via _delayProfileService.BestForTags
+    // is preserved (only Http/Torrent matter on the manga side).
     //
     // Phase 14 cleanup: collapse with PendingReleaseService when Tv/ deletes.
     public class MangaPendingReleaseService : IMangaPendingReleaseService,
@@ -76,6 +81,7 @@ namespace NzbDrone.Core.Download.Pending.Manga
     {
         private readonly IIndexerStatusService _indexerStatusService;
         private readonly IMangaPendingReleaseRepository _repository;
+        private readonly IMangaService _mangaService;
         private readonly IMangaParsingService _parsingService;
         private readonly IDelayProfileService _delayProfileService;
         private readonly ITaskManager _taskManager;
@@ -93,6 +99,7 @@ namespace NzbDrone.Core.Download.Pending.Manga
 
         public MangaPendingReleaseService(IIndexerStatusService indexerStatusService,
                                           IMangaPendingReleaseRepository repository,
+                                          IMangaService mangaService,
                                           IMangaParsingService parsingService,
                                           IDelayProfileService delayProfileService,
                                           ITaskManager taskManager,
@@ -105,6 +112,7 @@ namespace NzbDrone.Core.Download.Pending.Manga
         {
             _indexerStatusService = indexerStatusService;
             _repository = repository;
+            _mangaService = mangaService;
             _parsingService = parsingService;
             _delayProfileService = delayProfileService;
             _taskManager = taskManager;
@@ -117,53 +125,245 @@ namespace NzbDrone.Core.Download.Pending.Manga
         }
 
         // ============================================================================
-        // 9 public methods — bodies filled in Task 2b.
+        // 9 public methods.
         // ============================================================================
 
         public void Add(MangaDownloadDecision decision, PendingReleaseReason reason)
         {
-            throw new NotImplementedException();
+            // Mirror TV PendingReleaseService.Add (lines 97-100) — single-decision
+            // delegation to AddMany.
+            AddMany(new List<Tuple<MangaDownloadDecision, PendingReleaseReason>>
+            {
+                Tuple.Create(decision, reason)
+            });
         }
 
         public void AddMany(List<Tuple<MangaDownloadDecision, PendingReleaseReason>> decisions)
         {
-            throw new NotImplementedException();
+            // Mirror TV PendingReleaseService.AddMany (lines 102-170) — group by manga,
+            // dedup vs already-pending (matching by release title + publish-date + indexer
+            // triple), Insert any new entries via the Pitfall-4 wrapper, then refresh the
+            // static projection at the end.
+            foreach (var mangaDecisions in decisions.GroupBy(v => v.Item1.RemoteChapter.Manga.Id))
+            {
+                var manga = mangaDecisions.First().Item1.RemoteChapter.Manga;
+                var alreadyPending = _pendingReleases
+                    .Where(p => p.MangaId == manga.Id)
+                    .SelectList(s => s.JsonClone());
+
+                alreadyPending = IncludeRemoteChapters(
+                    alreadyPending,
+                    mangaDecisions.ToDictionaryIgnoreDuplicates(
+                        v => v.Item1.RemoteChapter.Release.Title,
+                        v => v.Item1.RemoteChapter));
+
+                var alreadyPendingByChapter = CreateChapterLookup(alreadyPending);
+
+                foreach (var pair in mangaDecisions)
+                {
+                    var decision = pair.Item1;
+                    var reason = pair.Item2;
+
+                    var chapterIds = decision.RemoteChapter.Chapters.Select(c => c.Id);
+
+                    var existingReports = chapterIds.SelectMany(v => alreadyPendingByChapter[v])
+                                                    .Distinct()
+                                                    .ToList();
+
+                    var matchingReports = existingReports
+                        .Where(MatchingReleasePredicate(decision.RemoteChapter.Release))
+                        .ToList();
+
+                    if (matchingReports.Any())
+                    {
+                        var matchingReport = matchingReports.First();
+
+                        if (matchingReport.Reason != reason)
+                        {
+                            if (matchingReport.Reason == PendingReleaseReason.DownloadClientUnavailable)
+                            {
+                                _logger.Debug(
+                                    "The release {0} is already pending with reason {1}, not changing reason",
+                                    decision.RemoteChapter,
+                                    matchingReport.Reason);
+                            }
+                            else
+                            {
+                                _logger.Debug(
+                                    "The release {0} is already pending with reason {1}, changing to {2}",
+                                    decision.RemoteChapter,
+                                    matchingReport.Reason,
+                                    reason);
+                                matchingReport.Reason = reason;
+                                _repository.Update(matchingReport);
+                            }
+                        }
+                        else
+                        {
+                            _logger.Debug(
+                                "The release {0} is already pending with reason {1}, not adding again",
+                                decision.RemoteChapter,
+                                reason);
+                        }
+
+                        if (matchingReports.Count > 1)
+                        {
+                            _logger.Debug(
+                                "The release {0} had {1} duplicate pending, removing duplicates.",
+                                decision.RemoteChapter,
+                                matchingReports.Count - 1);
+
+                            foreach (var duplicate in matchingReports.Skip(1))
+                            {
+                                _repository.Delete(duplicate.Id);
+                                alreadyPending.Remove(duplicate);
+                                alreadyPendingByChapter = CreateChapterLookup(alreadyPending);
+                            }
+                        }
+
+                        continue;
+                    }
+
+                    _logger.Debug(
+                        "Adding release {0} to pending releases with reason {1}",
+                        decision.RemoteChapter,
+                        reason);
+
+                    Insert(decision, reason);
+                }
+            }
+
+            UpdatePendingReleases();
         }
 
         public List<ReleaseInfo> GetPending()
         {
-            throw new NotImplementedException();
+            // Mirror TV GetPending (lines 172-189) — read straight from repo (NOT the
+            // static cache) so callers picking up new entries inside the same dispatch
+            // cycle see them, then filter blocked indexers.
+            var releases = _repository.All().Select(p =>
+            {
+                var release = p.Release;
+                release.PendingReleaseReason = p.Reason;
+                return release;
+            }).ToList();
+
+            if (releases.Any())
+            {
+                releases = FilterBlockedIndexers(releases);
+            }
+
+            return releases;
         }
 
         public List<RemoteChapter> GetPendingRemoteChapters(int mangaId)
         {
-            throw new NotImplementedException();
+            // Mirror TV GetPendingRemoteEpisodes (lines 191-194) — straight projection
+            // of the cached static list.
+            return _pendingReleases
+                .Where(p => p.MangaId == mangaId)
+                .Select(p => p.RemoteChapter)
+                .ToList();
         }
 
         public List<MangaQueueItem> GetPendingQueue()
         {
-            throw new NotImplementedException();
+            // Mirror TV GetPendingQueue (lines 196-229) but drop the QualityModelComparer
+            // dedup axis (Phase 5 D-04 — manga has NO QualityProfile). Dedup by chapter-id
+            // set + protocol priority is preserved.
+            var queued = new List<MangaQueueItem>();
+            var nextRssSync = new Lazy<DateTime>(() => _taskManager.GetNextExecution(typeof(MangaRssSyncCommand)));
+
+            // Skip Fallback rows — they live in the table for housekeeping bookkeeping but
+            // don't surface in the user-visible queue (TV verbatim).
+            var pendingReleases = _pendingReleases
+                .Where(p => p.Reason != PendingReleaseReason.Fallback)
+                .ToList();
+
+            foreach (var pendingRelease in pendingReleases)
+            {
+                if (pendingRelease.RemoteChapter == null || pendingRelease.RemoteChapter.Chapters.Empty())
+                {
+                    var noChapterItem = MapToQueueItem(pendingRelease, nextRssSync, new List<Chapter>());
+                    if (noChapterItem != null)
+                    {
+                        noChapterItem.ErrorMessage = "Unable to find matching chapter(s)";
+                        queued.Add(noChapterItem);
+                    }
+
+                    continue;
+                }
+
+                var item = MapToQueueItem(pendingRelease, nextRssSync, pendingRelease.RemoteChapter.Chapters);
+                if (item != null)
+                {
+                    queued.Add(item);
+                }
+            }
+
+            // Dedup: for each chapter-id set, keep the lowest-protocol-priority release
+            // (TV runs OrderByDescending on QualityModelComparer first; manga drops that
+            // and just picks the best protocol). Manga grouping key is the sorted chapter
+            // ids — releases that span the same chapters compete with each other.
+            var deduped = queued
+                .Where(q => q.Chapters != null && q.Chapters.Any())
+                .GroupBy(q => string.Join(",", q.Chapters.Select(c => c.Id).OrderBy(id => id)))
+                .Select(g => g.OrderBy(q => PrioritizeDownloadProtocol(q.RemoteChapter, q.Protocol)).First());
+
+            return deduped.ToList();
         }
 
         public MangaQueueItem FindPendingQueueItem(int queueId)
         {
-            throw new NotImplementedException();
+            // Mirror TV FindPendingQueueItem (lines 272-275).
+            return GetPendingQueue().SingleOrDefault(p => p.Id == queueId);
         }
 
         public void RemovePendingQueueItems(int queueId)
         {
-            throw new NotImplementedException();
+            // Mirror TV RemovePendingQueueItems (lines 282-292) but key off chapter-number
+            // set instead of (season + episode-number) tuple. Use the Pitfall-4 Delete
+            // wrapper so each removal publishes MangaPendingReleasesUpdatedEvent.
+            var targetItem = FindPendingRelease(queueId);
+            if (targetItem == null)
+            {
+                return;
+            }
+
+            var mangaReleases = _repository.AllByMangaId(targetItem.MangaId);
+
+            var releasesToRemove = mangaReleases.Where(c =>
+                c.ParsedChapterInfo != null
+                && targetItem.ParsedChapterInfo != null
+                && c.ParsedChapterInfo.ChapterNumbers != null
+                && targetItem.ParsedChapterInfo.ChapterNumbers != null
+                && c.ParsedChapterInfo.ChapterNumbers.SequenceEqual(targetItem.ParsedChapterInfo.ChapterNumbers)
+                && c.ParsedChapterInfo.TranslatedLanguage == targetItem.ParsedChapterInfo.TranslatedLanguage)
+                .ToList();
+
+            foreach (var release in releasesToRemove)
+            {
+                Delete(release);
+            }
         }
 
         public RemoteChapter OldestPendingRelease(int mangaId, int[] chapterIds)
         {
-            throw new NotImplementedException();
+            // Mirror TV OldestPendingRelease (lines 306-313) — pick the release with the
+            // greatest AgeHours (longest in the queue) whose chapters intersect the
+            // requested ids. AgeHours is a positive number (older = larger), so MaxBy is
+            // semantically "oldest".
+            var mangaReleases = GetPendingReleases(mangaId);
+
+            return mangaReleases
+                .Select(r => r.RemoteChapter)
+                .Where(r => r != null && r.Chapters.Select(c => c.Id).Intersect(chapterIds).Any())
+                .MaxBy(p => p.Release.AgeHours);
         }
 
         // ============================================================================
-        // Pitfall 4 wrappers — Insert (PATTERNS section A; mirrors TV
+        // Pitfall 4 wrappers — Insert / Delete (PATTERNS section A; mirrors TV
         // PendingReleaseService.cs:530-548 VERBATIM ordering: DB write FIRST, event LAST).
-        // Implemented in Task 2a because every IHandle body in Task 2b calls them.
         // ============================================================================
         private void Insert(MangaDownloadDecision decision, PendingReleaseReason reason)
         {
@@ -191,9 +391,6 @@ namespace NzbDrone.Core.Download.Pending.Manga
         // 9 IHandle implementations.
         // For state-mutating handlers, the wrappers above already enforce Pitfall 4
         // ordering. Pure-rebuild handlers just call UpdatePendingReleases().
-        // Body refinement (e.g., RemoveRejected payload extraction) lives here in 2a
-        // because the IHandle wiring is the public contract that DI auto-discovery
-        // and the smoke test exercise on startup.
         // ============================================================================
 
         public void Handle(MangaEditedEvent message)
@@ -262,8 +459,7 @@ namespace NzbDrone.Core.Download.Pending.Manga
         }
 
         // ============================================================================
-        // Helpers — UpdatePendingReleases skeleton implemented; the 6 body-helpers below
-        // are stubbed for Task 2a and filled in Task 2b.
+        // Helpers.
         // ============================================================================
 
         private void UpdatePendingReleases()
@@ -273,37 +469,218 @@ namespace NzbDrone.Core.Download.Pending.Manga
             _pendingReleases = IncludeRemoteChapters(_repository.All().ToList());
         }
 
-        private List<MangaPendingRelease> IncludeRemoteChapters(List<MangaPendingRelease> rows, Dictionary<string, RemoteChapter> knownRemoteChapters = null)
+        private List<MangaPendingRelease> IncludeRemoteChapters(List<MangaPendingRelease> releases, Dictionary<string, RemoteChapter> knownRemoteChapters = null)
         {
-            // Body filled in Task 2b — populates the not-persisted .RemoteChapter from
-            // ParsedChapterInfo via _parsingService + _aggregationService.
-            return rows;
+            // Mirror TV IncludeRemoteEpisodes (lines 339-418) — populate the not-persisted
+            // .RemoteChapter from the persisted ParsedChapterInfo via _parsingService +
+            // _aggregationService. Pre-loaded knownRemoteChapters short-circuits the
+            // per-row parser+repo round-trip when callers (AddMany) already have them.
+            var result = new List<MangaPendingRelease>();
+            var mangaMap = new Dictionary<int, Manga>();
+
+            if (knownRemoteChapters != null)
+            {
+                foreach (var manga in knownRemoteChapters.Values.Where(v => v != null && v.Manga != null).Select(v => v.Manga))
+                {
+                    mangaMap.TryAdd(manga.Id, manga);
+                }
+            }
+
+            var mangaIdsToFetch = releases
+                .Select(v => v.MangaId)
+                .Distinct()
+                .Where(id => !mangaMap.ContainsKey(id))
+                .ToList();
+
+            if (mangaIdsToFetch.Any())
+            {
+                foreach (var manga in _mangaService.GetManga(mangaIdsToFetch))
+                {
+                    mangaMap[manga.Id] = manga;
+                }
+            }
+
+            foreach (var release in releases)
+            {
+                var manga = mangaMap.GetValueOrDefault(release.MangaId);
+
+                // Just in case the manga was removed but wasn't cleaned up yet (housekeeper
+                // catches this); skip the row so the projection does not carry a dangling ref.
+                if (manga == null)
+                {
+                    continue;
+                }
+
+                release.RemoteChapter = new RemoteChapter
+                {
+                    Manga = manga,
+                    ParsedChapterInfo = release.ParsedChapterInfo,
+                    Release = release.Release,
+                };
+
+                if (knownRemoteChapters != null
+                    && knownRemoteChapters.TryGetValue(release.Release.Title, out var knownRemoteChapter)
+                    && knownRemoteChapter != null)
+                {
+                    release.RemoteChapter.Chapters = knownRemoteChapter.Chapters;
+                }
+                else
+                {
+                    try
+                    {
+                        var mapped = _parsingService.Map(release.ParsedChapterInfo, manga, existingChapters: null);
+                        release.RemoteChapter.Chapters = mapped?.Chapters ?? new List<Chapter>();
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        _logger.Debug(ex, ex.Message);
+                        release.RemoteChapter.Chapters = new List<Chapter>();
+                    }
+                }
+
+                _aggregationService.Augment(release.RemoteChapter);
+
+                result.Add(release);
+            }
+
+            return result;
         }
 
         private void RemoveGrabbed(RemoteChapter remoteChapter)
         {
-            // Body filled in Task 2b — find pending releases whose chapter ids intersect
-            // the grabbed RemoteChapter.Chapters and Delete each.
+            // Mirror TV RemoveGrabbed (lines 565-595) — find pending releases for the same
+            // manga whose chapter ids intersect the grabbed chapter ids and Delete each.
+            //
+            // Manga simplification: TV uses QualityModelComparer to keep higher-quality
+            // pending releases. Manga has no QualityProfile (Phase 5 D-04), so we delete
+            // every intersecting pending release without comparison. The CustomFormat score
+            // axis is re-evaluated on the next RSS sync if a still-pending release ages
+            // out of cooldown — keeping pending releases here would only add noise to
+            // GetPendingQueue without changing grab outcome.
+            if (remoteChapter == null || remoteChapter.Manga == null)
+            {
+                return;
+            }
+
+            var pendingReleases = GetPendingReleases(remoteChapter.Manga.Id);
+            var chapterIds = remoteChapter.Chapters.Select(c => c.Id).ToList();
+
+            var existingReports = pendingReleases
+                .Where(r => r.RemoteChapter != null
+                            && r.RemoteChapter.Chapters.Select(c => c.Id).Intersect(chapterIds).Any())
+                .ToList();
+
+            if (existingReports.Empty())
+            {
+                return;
+            }
+
+            foreach (var existingReport in existingReports)
+            {
+                _logger.Debug("Removing previously pending release, as it was grabbed.");
+                Delete(existingReport);
+            }
         }
 
         private void RemoveRejected(List<MangaDownloadDecision> rejected)
         {
-            // Body filled in Task 2b — find pending releases whose release matches a
-            // rejected decision (release-title + publish-date + indexer triple) and Delete each.
+            // Mirror TV RemoveRejected (lines 597-612) — for each newly-rejected release,
+            // find pending entries that match by (title + publish-date + indexer) triple
+            // and Delete each via the Pitfall-4 wrapper.
+            _logger.Debug("Removing failed releases from pending");
+            var pending = GetPendingReleases();
+
+            foreach (var rejectedRelease in rejected)
+            {
+                if (rejectedRelease.RemoteChapter == null || rejectedRelease.RemoteChapter.Release == null)
+                {
+                    continue;
+                }
+
+                var matching = pending
+                    .Where(MatchingReleasePredicate(rejectedRelease.RemoteChapter.Release))
+                    .ToList();
+
+                foreach (var pendingRelease in matching)
+                {
+                    _logger.Debug("Removing previously pending release, as it has now been rejected.");
+                    Delete(pendingRelease);
+                }
+            }
         }
 
-        private MangaQueueItem MapToQueueItem(MangaPendingRelease pendingRelease, Lazy<DateTime> nextRssSync, List<NzbDrone.Core.Manga.Chapter> chapters)
+        private MangaQueueItem MapToQueueItem(MangaPendingRelease pendingRelease, Lazy<DateTime> nextRssSync, List<Chapter> chapters)
         {
-            // Body filled in Task 2b — projects a MangaPendingRelease row into a MangaQueueItem
-            // for the GetPendingQueue path. Mirrors TV GetQueueItem(PendingRelease, Lazy, List<Episode>).
-            return null;
+            // Mirror TV GetQueueItem(PendingRelease, Lazy<DateTime>, List<Episode>) at lines 420-471
+            // adapted for manga: drop QualityModel + Languages (D-04), add TranslatedLanguage +
+            // ScanlationGroup as first-class fields (Phase 3 D-Q4 — already present on MangaQueueItem).
+            if (pendingRelease.RemoteChapter == null)
+            {
+                return null;
+            }
+
+            var ect = pendingRelease.Release.PublishDate.AddMinutes(GetDelay(pendingRelease.RemoteChapter));
+
+            if (ect < nextRssSync.Value)
+            {
+                ect = nextRssSync.Value;
+            }
+            else
+            {
+                // Manga uses MangaRssSyncInterval (per IConfigService.cs:122) — TV equivalent
+                // is RssSyncInterval; both default 15.
+                ect = ect.AddMinutes(_configService.MangaRssSyncInterval);
+            }
+
+            var timeLeft = ect.Subtract(DateTime.UtcNow);
+
+            if (timeLeft.TotalSeconds < 0)
+            {
+                timeLeft = TimeSpan.Zero;
+            }
+
+            string downloadClientName = null;
+            var indexer = _indexerFactory.Find(pendingRelease.Release.IndexerId);
+
+            if (indexer is { DownloadClientId: > 0 })
+            {
+                var downloadClient = _downloadClientFactory.Find(indexer.DownloadClientId);
+                downloadClientName = downloadClient?.Name;
+            }
+
+            var firstChapter = chapters?.FirstOrDefault();
+
+            var queueItem = new MangaQueueItem
+            {
+                Id = GetQueueId(pendingRelease),
+                MangaId = pendingRelease.RemoteChapter.Manga?.Id,
+                ChapterId = firstChapter?.Id,
+                Manga = pendingRelease.RemoteChapter.Manga,
+                Chapter = firstChapter,
+                Chapters = chapters?.ToList() ?? new List<Chapter>(),
+                RemoteChapter = pendingRelease.RemoteChapter,
+                TranslatedLanguage = pendingRelease.RemoteChapter.Release?.TranslatedLanguage,
+                ScanlationGroup = pendingRelease.RemoteChapter.Release?.ScanlationGroup,
+                Title = pendingRelease.Title,
+                Size = pendingRelease.RemoteChapter.Release.Size,
+                SizeLeft = pendingRelease.RemoteChapter.Release.Size,
+                TimeLeft = timeLeft,
+                EstimatedCompletionTime = ect,
+                Added = pendingRelease.Added,
+                Status = pendingRelease.Reason.ToString(),
+                Protocol = pendingRelease.RemoteChapter.Release.DownloadProtocol,
+                Indexer = pendingRelease.RemoteChapter.Release.Indexer,
+                DownloadClient = downloadClientName,
+            };
+
+            return queueItem;
         }
 
         private int GetQueueId(MangaPendingRelease pendingRelease)
         {
-            // Body filled in Task 2b — HashConverter.GetHashInt31("pending-{id}") so SignalR
-            // diff keys are stable across refreshes.
-            return 0;
+            // Deterministic Id per the SignalR-diff-key contract — same pending release
+            // keeps the same Id across UpdatePendingReleases() rebuilds.
+            return HashConverter.GetHashInt31(string.Format("manga-pending-{0}", pendingRelease.Id));
         }
 
         // ============================================================================
@@ -324,6 +701,70 @@ namespace NzbDrone.Core.Download.Pending.Manga
 
             var minimumAge = _configService.MinimumAge;
             return new[] { delay, minimumAge }.Max();
+        }
+
+        // ============================================================================
+        // Internal helpers (no public exposure).
+        // ============================================================================
+
+        private static Func<MangaPendingRelease, bool> MatchingReleasePredicate(ReleaseInfo release)
+        {
+            // Mirror TV MatchingReleasePredicate (lines 694-699). Title + PublishDate +
+            // Indexer triple uniquely identifies a release across feed rebuilds and is
+            // the same shape Phase 6 history/blocklist already uses.
+            return p => p.Title == release.Title
+                        && p.Release != null
+                        && p.Release.PublishDate == release.PublishDate
+                        && p.Release.Indexer == release.Indexer;
+        }
+
+        private ILookup<int, MangaPendingRelease> CreateChapterLookup(IEnumerable<MangaPendingRelease> alreadyPending)
+        {
+            // Mirror TV CreateEpisodeLookup (lines 315-320). Flatten into a chapter-id ->
+            // pending-release lookup so AddMany can find existing reports per chapter.
+            return alreadyPending
+                .Where(v => v.RemoteChapter != null)
+                .SelectMany(v => v.RemoteChapter.Chapters.Select(d => new { Chapter = d, PendingRelease = v }))
+                .ToLookup(v => v.Chapter.Id, v => v.PendingRelease);
+        }
+
+        private List<ReleaseInfo> FilterBlockedIndexers(List<ReleaseInfo> releases)
+        {
+            // Mirror TV FilterBlockedIndexers (lines 322-327). Drop releases whose source
+            // indexer is currently blocked (back-off / bad-credentials state).
+            var blockedIndexers = new HashSet<int>(_indexerStatusService.GetBlockedProviders().Select(v => v.ProviderId));
+            return releases.Where(release => !blockedIndexers.Contains(release.IndexerId)).ToList();
+        }
+
+        private List<MangaPendingRelease> GetPendingReleases()
+        {
+            return _pendingReleases;
+        }
+
+        private List<MangaPendingRelease> GetPendingReleases(int mangaId)
+        {
+            return _pendingReleases.Where(p => p.MangaId == mangaId).ToList();
+        }
+
+        private MangaPendingRelease FindPendingRelease(int queueId)
+        {
+            // Mirror TV FindPendingRelease (lines 614-617). Match the deterministic queue
+            // id back to its source row so RemovePendingQueueItems can find the chapter
+            // tuple to delete by.
+            return GetPendingReleases().FirstOrDefault(p => GetQueueId(p) == queueId);
+        }
+
+        private int PrioritizeDownloadProtocol(RemoteChapter remoteChapter, DownloadProtocol downloadProtocol)
+        {
+            // Mirror TV PrioritizeDownloadProtocol (lines 634-643). User-preferred protocol
+            // returns 0 (sort first); others return 1.
+            if (remoteChapter == null || remoteChapter.Manga == null)
+            {
+                return 1;
+            }
+
+            var delayProfile = _delayProfileService.BestForTags(remoteChapter.Manga.Tags);
+            return downloadProtocol == delayProfile.PreferredProtocol ? 0 : 1;
         }
     }
 }
