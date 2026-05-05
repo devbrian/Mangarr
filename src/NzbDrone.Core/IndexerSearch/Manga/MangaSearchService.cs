@@ -73,6 +73,18 @@ namespace NzbDrone.Core.IndexerSearch.Manga
 
                 var decisions = _releaseSearchService.MangaSearch(criteria).GetAwaiter().GetResult();
 
+                // TODO(phase-08 audit gap-01): manga has no IProcessMangaDownloadDecisions analog of
+                // TV's IProcessDownloadDecisions (SeriesSearchService.cs:54-55 + 68-70). Approved
+                // decisions are counted and dropped — no grab is dispatched. MissingChapterSearchService
+                // (IndexerSearch/Manga/MissingChapterSearchService.cs:95) and the Add-Manga search-on-add
+                // flow both push MangaSearchCommand expecting the search to FIND AND GRAB; today they
+                // find-only. Backfill shape: new IProcessMangaDownloadDecisions service consuming
+                // List<MangaDownloadDecision>, hand top-ranked approved to IDownloadService.DownloadReport
+                // via a RemoteEpisode shim (mirror MangaReleaseController.BuildRemoteEpisodeShim at
+                // Sonarr.Api.V5/Manga/Release/MangaReleaseController.cs:175-201). Pair with
+                // ChapterSearchService and SeriesSearchService gap-01 (gap-01 family). Tracked in
+                // Phase 8 deferred-items.md ("IProcessMangaDownloadDecisions — search→grab pipeline").
+                //
                 // Sonarr parity (Phase 8 audit gap-04): mirror SeriesSearchService.cs:74 log shape —
                 // report grabbed-count semantics. The manga grab path (Plan 06-07/08) does not run
                 // here, so the closest available semantic is approved-decision count (highest-fidelity
