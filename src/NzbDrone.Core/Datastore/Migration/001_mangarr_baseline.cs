@@ -501,6 +501,22 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("Reason").AsInt32().NotNullable().WithDefaultValue(0)
                 .WithColumn("AdditionalInfo").AsString().Nullable();
 
+            // Phase 9 D-09-06..08 INSERT
+            // Manga sibling per Phase 9 D-09-06..08 (RESEARCH §A1 sibling-table preference).
+            // Mirror MangaBlocklist / ChapterHistory sibling-table precedent already in this file.
+            // Per Open Q §5: MangaId NOT NULL day one (mirror Phase 14 D-23 intent).
+            // Pre-v1 dev-migration-policy: edit-001-in-place; fresh DB required to pick up.
+            Create.TableForModel("MangaPendingReleases")
+                .WithColumn("MangaId").AsInt32().NotNullable()
+                .WithColumn("Title").AsString().NotNullable()
+                .WithColumn("Added").AsDateTime().NotNullable()
+                .WithColumn("ParsedChapterInfo").AsString().NotNullable()
+                .WithColumn("Release").AsString().NotNullable()
+                .WithColumn("Reason").AsInt32().NotNullable().WithDefaultValue(0);
+                // No AdditionalInfo column — TV's PendingReleaseAdditionalInfo holds SeriesMatchType +
+                // ReleaseSource; manga has no analog (per D-09-06 manga-shape). See PATTERNS §7 POCO note.
+            // END Phase 9 INSERT
+
             Create.TableForModel("RemotePathMappings")
                 .WithColumn("Host").AsString()
                 .WithColumn("RemotePath").AsString()
