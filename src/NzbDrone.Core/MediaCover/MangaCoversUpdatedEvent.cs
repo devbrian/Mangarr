@@ -1,5 +1,4 @@
 using NzbDrone.Common.Messaging;
-using NzbDrone.Core.Manga;
 
 namespace NzbDrone.Core.MediaCover
 {
@@ -24,10 +23,10 @@ namespace NzbDrone.Core.MediaCover
     // Manga-prefix; the manga payload shape becomes canonical because Series is renamed to Manga).
     public class MangaCoversUpdatedEvent : IEvent
     {
-        public Manga Manga { get; set; }
+        public NzbDrone.Core.Manga.Manga Manga { get; set; }
         public bool Updated { get; set; }
 
-        public MangaCoversUpdatedEvent(Manga manga, bool updated)
+        public MangaCoversUpdatedEvent(NzbDrone.Core.Manga.Manga manga, bool updated)
         {
             Manga = manga;
             Updated = updated;
