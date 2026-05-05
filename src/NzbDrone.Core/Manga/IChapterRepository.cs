@@ -26,6 +26,15 @@ namespace NzbDrone.Core.Manga
         // narrows to rows with `ChapterFileId IS NULL` and lets the spec layer apply the rest.
         PagingSpec<Chapter> ChaptersWithoutFiles(PagingSpec<Chapter> pagingSpec);
 
+        // Phase 8 audit (no-sibling/EpisodeCutoffService.md + gap-13) — paged Cutoff-Unmet feed.
+        // Sibling of TV's `IEpisodeRepository.EpisodesWhereCutoffUnmet(PagingSpec, qualitiesBelowCutoff, bool)`.
+        // Manga-shape divergence: cutoff axes are TranslationProfile language preference + CustomFormatProfile
+        // score thresholds (Phase 5 D-01 + D-07) instead of TV's QualityProfile cutoff. Caller (ChapterCutoffService)
+        // pre-computes the "below cutoff" id lists from the profile services and passes them in.
+        PagingSpec<Chapter> ChaptersWhereCutoffUnmet(PagingSpec<Chapter> pagingSpec,
+                                                    List<int> belowCutoffTranslationProfileIds,
+                                                    List<int> belowCutoffCustomFormatProfileIds);
+
         void SetMonitored(IEnumerable<int> ids, bool monitored);
     }
 }

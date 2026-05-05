@@ -59,6 +59,59 @@ namespace NzbDrone.Core.Manga
             return GetPaged(pagingSpec);
         }
 
+        public PagingSpec<Chapter> ChaptersWhereCutoffUnmet(PagingSpec<Chapter> pagingSpec,
+                                                           List<int> belowCutoffTranslationProfileIds,
+                                                           List<int> belowCutoffCustomFormatProfileIds)
+        {
+            // Phase 8 audit (no-sibling/EpisodeCutoffService.md + gap-13). Mirrors TV's
+            // EpisodeRepository.EpisodesWhereCutoffUnmet shape (line 126-141) with manga-axis swap:
+            // language rank + CF score live on different entities than TV's single QualityProfile,
+            // so the SQL filter narrows to chapters whose Manga is assigned to ANY profile id present
+            // in the "below cutoff" lists. The DecisionEngine layer will re-evaluate per-release once
+            // the consumer (Wanted/Cutoff feed) acts on the result. The audit accepts medium
+            // complexity here — ChapterFile carries no stored CustomFormatScore column, so a perfect
+            // SQL-level CF cutoff is impractical at this layer.
+            var hasAnyTranslation = belowCutoffTranslationProfileIds != null && belowCutoffTranslationProfileIds.Any();
+            var hasAnyCustomFormat = belowCutoffCustomFormatProfileIds != null && belowCutoffCustomFormatProfileIds.Any();
+
+            if (!hasAnyTranslation && !hasAnyCustomFormat)
+            {
+                pagingSpec.Records = new List<Chapter>();
+                pagingSpec.TotalRecords = 0;
+                return pagingSpec;
+            }
+
+            pagingSpec.FilterExpressions.Add(c => c.ChapterFileId != null);
+            pagingSpec.FilterExpressions.Add(c => c.Monitored);
+
+            // Project to Manga.Id list of "candidate" mangas — the union of mangas whose
+            // TranslationProfileId or CustomFormatProfileId appears in the below-cutoff sets.
+            // We compute this in C# via a small Manga lookup (the candidate set is bounded by
+            // library size and amortizes well — same approach as Tv/EpisodeRepository's per-call
+            // qualitiesBelowCutoff projection at line 232-241).
+            var translationProfileIds = belowCutoffTranslationProfileIds ?? new List<int>();
+            var customFormatProfileIds = belowCutoffCustomFormatProfileIds ?? new List<int>();
+
+            var candidateMangaIds = _database.Query<Manga>(
+                    new SqlBuilder(_database.DatabaseType)
+                        .Where<Manga>(m =>
+                            (m.TranslationProfileId != null && translationProfileIds.Contains(m.TranslationProfileId.Value)) ||
+                            (m.CustomFormatProfileId != null && customFormatProfileIds.Contains(m.CustomFormatProfileId.Value))))
+                .Select(m => m.Id)
+                .ToList();
+
+            if (!candidateMangaIds.Any())
+            {
+                pagingSpec.Records = new List<Chapter>();
+                pagingSpec.TotalRecords = 0;
+                return pagingSpec;
+            }
+
+            pagingSpec.FilterExpressions.Add(c => candidateMangaIds.Contains(c.MangaId));
+
+            return GetPaged(pagingSpec);
+        }
+
         public void SetMonitored(IEnumerable<int> ids, bool monitored)
         {
             var chapters = Get(ids).ToList();
