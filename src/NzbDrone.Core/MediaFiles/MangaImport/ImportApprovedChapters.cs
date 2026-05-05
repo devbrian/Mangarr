@@ -8,7 +8,9 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.MediaFiles.Commands;
 using NzbDrone.Core.MediaFiles.EpisodeImport;
+using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Organizer.Manga;
 
@@ -57,6 +59,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
         private readonly IBuildMangaPaths _pathBuilder;
         private readonly IChapterDownloadStateRepository _stateRepo;
         private readonly IEventAggregator _eventAggregator;
+        private readonly IManageCommandQueue _commandQueueManager;
         private readonly Logger _logger;
 
         public ImportApprovedChapters(
@@ -66,6 +69,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             IBuildMangaPaths pathBuilder,
             IChapterDownloadStateRepository stateRepo,
             IEventAggregator eventAggregator,
+            IManageCommandQueue commandQueueManager,
             Logger logger)
         {
             _chapterFileService = chapterFileService;
@@ -74,6 +78,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             _pathBuilder = pathBuilder;
             _stateRepo = stateRepo;
             _eventAggregator = eventAggregator;
+            _commandQueueManager = commandQueueManager;
             _logger = logger;
         }
 
@@ -189,6 +194,26 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                         DownloadClientItem = downloadClientItem
                     });
                     importResults.Add(new MangaImportResult(decision, $"Root folder missing: {ex.Message}"));
+                }
+                catch (DestinationAlreadyExistsException ex)
+                {
+                    // Phase 8 audit gap-01 — mirrors ImportApprovedEpisodes lines 181-187.
+                    // Two-source race: a chapter file already lives at the destination
+                    // (e.g., user manually dropped the CBZ while auto-import was running).
+                    // Log Warn, surface a Rejected import result, and queue a
+                    // RescanMangaCommand so a future disk-scan reconciles the orphan
+                    // file into the DB instead of the manga showing as "missing chapter"
+                    // forever. NB: no IExecute<RescanMangaCommand> handler exists yet
+                    // (deferred to follow-up plan); the command is queued and silently
+                    // dropped until the handler ships. The reject result + Warn log
+                    // remain valuable diagnostics in the meantime.
+                    _logger.Warn(ex, "Couldn't import chapter {0}", lc.Chapter?.ChapterNumber);
+                    importResults.Add(new MangaImportResult(decision, $"Failed to import chapter, Destination already exists: {ex.Message}"));
+
+                    if (lc.Manga != null)
+                    {
+                        _commandQueueManager.Push(new RescanMangaCommand(lc.Manga.Id));
+                    }
                 }
                 catch (RecycleBinException ex)
                 {
