@@ -4,13 +4,14 @@ using System.Linq;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
-using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.MediaFiles
 {
+    using Manga = NzbDrone.Core.Manga.Manga;
+
     // Sonarr divergence: NEW manga sibling fixture per Phase 9 D-09-03 #3 + 09-01 audit
     // (covers gap-01 GetFilesByMangaIds, gap-02 FilterExistingFiles instance + static,
     // gap-05 GetFilesWithRelativePath). Role-match analog: MediaFileServiceTests/FilterFixture.cs
