@@ -14,7 +14,7 @@ namespace NzbDrone.Core.Manga
     //   * No IConfigService dependency (no AutoUnmonitor*Episodes config in Phase 2)
     //   * No ICached<HashSet<int>> — that supports the SeriesScanned tombstone cache
     //     which we don't need until Phase 4
-    public class ChapterService : IChapterService
+    public class ChapterService : IChapterService, IHandleAsync<MangaDeletedEvent>
     {
         private readonly IChapterRepository _chapterRepository;
         private readonly IEventAggregator _eventAggregator;
@@ -177,6 +177,21 @@ namespace NzbDrone.Core.Manga
 
         public void DeleteMany(List<Chapter> chapters)
         {
+            _chapterRepository.DeleteMany(chapters);
+        }
+
+        // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-05) — sibling of TV's
+        // `EpisodeService.HandleAsync(SeriesDeletedEvent)` (Tv/EpisodeService.cs:308-312).
+        // Bulk-deletes all chapters linked to the deleted manga. Required because
+        // `001_mangarr_baseline.cs` Chapters.MangaId is declared as a plain
+        // `.AsInt32().NotNullable()` column with no `.ForeignKey(...).OnDelete(Rule.Cascade)`,
+        // so SQLite does NOT cascade row removal on parent delete — the service must do it.
+        // Shape divergence: MangaDeletedEvent carries a single `Manga` (not `List<Series>`
+        // like TV's SeriesDeletedEvent), so we wrap the id in a single-element list to
+        // reuse the existing `IChapterRepository.GetChaptersByMangaIds` bulk path.
+        public void HandleAsync(MangaDeletedEvent message)
+        {
+            var chapters = _chapterRepository.GetChaptersByMangaIds(new List<int> { message.Manga.Id });
             _chapterRepository.DeleteMany(chapters);
         }
     }
