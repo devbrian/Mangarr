@@ -68,6 +68,15 @@ namespace NzbDrone.Core.Manga
             return _chapterRepository.ChaptersWithFiles(mangaId);
         }
 
+        public List<Chapter> GetChaptersByFileId(int fileId)
+        {
+            // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-02) — pass-through.
+            // Mirrors TV's EpisodeService.GetEpisodesByFileId (Tv/EpisodeService.cs:166-169)
+            // wrapping IEpisodeRepository.GetEpisodeByFileId. Manga sibling wraps the
+            // existing IChapterRepository.GetChapterByFileId.
+            return _chapterRepository.GetChapterByFileId(fileId);
+        }
+
         public PagingSpec<Chapter> ChaptersWithoutFiles(PagingSpec<Chapter> pagingSpec)
         {
             // Plan 06-09 — pass-through. The repository pre-pends a `ChapterFileId IS NULL`

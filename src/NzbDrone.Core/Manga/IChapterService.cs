@@ -30,6 +30,13 @@ namespace NzbDrone.Core.Manga
         // pipeline, housekeeping, and bulk operations.
         List<Chapter> ChaptersWithFiles(int mangaId);
 
+        // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-02) — sibling of TV's
+        // `IEpisodeService.GetEpisodesByFileId(int episodeFileId)` (Tv/EpisodeService.cs:166-169).
+        // Returns all chapters that reference a specific ChapterFile.Id. Pass-through to
+        // `IChapterRepository.GetChapterByFileId`. Required by the EpisodeFileDeletedEvent
+        // handler analog and the file-rename / import paths.
+        List<Chapter> GetChaptersByFileId(int fileId);
+
         // Plan 06-09 (Rule 3) — paged variant for the V5 Wanted/Missing controller. Sibling of
         // TV's `IEpisodeService.EpisodesWithoutFiles(PagingSpec, bool includeSpecials)`. The
         // monitored filter is APPLIED INSIDE the paging spec by the controller (so callers can
