@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using FluentValidation;
 using NLog;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
 using NzbDrone.Core.MetadataSource.MangaDex;
@@ -280,6 +281,14 @@ namespace NzbDrone.Core.Manga
             // 4. Compute clean/sort titles via the single normalizer (D-05).
             newManga.CleanTitle = MangaTitleNormalizer.Normalize(newManga.Title);
             newManga.SortTitle = newManga.CleanTitle;
+
+            // Phase 8 audit gap-04 (Series-vs-Manga.md): TitleSlug parity. TV's
+            // Series.TitleSlug arrives pre-computed from SkyHook (RefreshSeriesService:91);
+            // manga's primary metadata sources don't expose a slug field, so we derive
+            // it locally via StringExtensions.ToUrlSlug() — the same extension Sonarr ships.
+            // Frontend /manga/:titleSlug route at MangaDetailsPage.tsx:28-31 + the
+            // MangaIndexOverview link at line 114 require this end-to-end.
+            newManga.TitleSlug = newManga.Title.ToUrlSlug();
             newManga.Added = DateTime.UtcNow;
 
             // Phase 8 audit gap-05 (AddSeriesService-vs-AddMangaService.md): mirror

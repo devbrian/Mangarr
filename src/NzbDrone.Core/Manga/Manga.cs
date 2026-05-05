@@ -49,6 +49,13 @@ namespace NzbDrone.Core.Manga
         public string CleanTitle { get; set; }
         public string SortTitle { get; set; }
 
+        // URL-safe identifier — mirrors Tv/Series.cs:47 TitleSlug. Computed from
+        // Title via StringExtensions.ToUrlSlug() in AddMangaService.PrepareForAdd
+        // (TV gets it from SkyHook; manga primaries don't expose a slug field, so
+        // we derive it locally). Phase 8 audit gap-04 (Series-vs-Manga.md) — frontend
+        // /manga/:titleSlug route at MangaDetailsPage.tsx:28-31 requires this end-to-end.
+        public string TitleSlug { get; set; }
+
         // Editorial metadata.
         public string Overview { get; set; }
         public string Status { get; set; }            // ongoing | completed | hiatus | cancelled | deleted

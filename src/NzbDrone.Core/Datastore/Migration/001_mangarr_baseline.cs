@@ -615,6 +615,7 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("Title").AsString().NotNullable()
                 .WithColumn("CleanTitle").AsString().NotNullable()
                 .WithColumn("SortTitle").AsString().Nullable()              // gap #1 fix (Manga.cs:35)
+                .WithColumn("TitleSlug").AsString().Nullable()              // Phase 8 audit gap-04 — mirrors Series.TitleSlug at line 194; populated via StringExtensions.ToUrlSlug() in AddMangaService.PrepareForAdd; frontend /manga/:titleSlug route consumer.
                 .WithColumn("Overview").AsString().Nullable()               // gap #1 fix (Manga.cs:38)
                 .WithColumn("MangaDexId").AsString().Nullable()
                 .WithColumn("MalId").AsInt32().Nullable()                   // folded from 002 (singular per CONTEXT specifics)
