@@ -72,6 +72,13 @@ namespace NzbDrone.Core.Manga
         public int? PublicationYear { get; set; }     // D-21 multi-axis confirm
         public string PrimaryAuthor { get; set; }     // D-21 multi-axis confirm
 
+        // Phase 8 audit gap-03 (Series-vs-Manga.md): mirrors Tv/Series.cs:63 AddOptions.
+        // Carries the user's post-add monitor + initial-search choices through the
+        // AddManga -> MangaScannedHandler -> ChapterMonitoredService chain (sibling
+        // wiring lands in cluster 04). Persisted as a JSON column via the
+        // IEmbeddedDocument converter auto-registration in TableMapping.RegisterEmbeddedConverter.
+        public AddMangaOptions AddOptions { get; set; }
+
         // Apply user-mutable fields from a refresh / edit. Mirrors AddSeriesService's
         // ApplyChanges pattern (Tv/Series.cs:70-86): canonical IDs (MangaDexId/MalId/
         // AniListId) are immutable post-add and intentionally NOT copied here — manual
@@ -84,9 +91,6 @@ namespace NzbDrone.Core.Manga
         // here in addition to the metadata fields. Centralizes the contract so the
         // upcoming MangaEditedService bulk-edit fan-out (Phase 8 cluster 04) and the
         // V5 MangaController PUT handler stay in sync as new fields land.
-        // TODO(Plan 03-10): once Manga.AddOptions property exists, add
-        //     AddOptions = other.AddOptions;
-        // to mirror Series.ApplyChanges line 85.
         public void ApplyChanges(Manga other)
         {
             Title = other.Title;
@@ -104,6 +108,9 @@ namespace NzbDrone.Core.Manga
             Tags = other.Tags;
             Monitored = other.Monitored;
             RootFolderPath = other.RootFolderPath;
+
+            // Phase 8 audit gap-03 backfill — mirrors Series.ApplyChanges line 85.
+            AddOptions = other.AddOptions;
         }
 
         public override string ToString()

@@ -633,7 +633,8 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("PublicationYear").AsInt32().Nullable()         // folded from 002 (D-21 multi-axis confirm)
                 .WithColumn("PrimaryAuthor").AsString().Nullable()          // folded from 002 (D-21 multi-axis confirm)
                 .WithColumn("TranslationProfileId").AsInt32().Nullable()    // Phase 5 D-01 — null = fall back to Config.DefaultTranslationProfileId
-                .WithColumn("CustomFormatProfileId").AsInt32().Nullable();  // Phase 5 D-07 — null = fall back to Config.DefaultCustomFormatProfileId
+                .WithColumn("CustomFormatProfileId").AsInt32().Nullable()   // Phase 5 D-07 — null = fall back to Config.DefaultCustomFormatProfileId
+                .WithColumn("AddOptions").AsString().Nullable();            // Phase 8 audit gap-03 — JSON column (AddMangaOptions IEmbeddedDocument); mirrors Series.AddOptions shape at line 219.
 
             Create.TableForModel("Chapters")
                 .WithColumn("MangaId").AsInt32().NotNullable()
