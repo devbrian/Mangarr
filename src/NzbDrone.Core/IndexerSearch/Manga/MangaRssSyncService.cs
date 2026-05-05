@@ -7,6 +7,7 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.DecisionEngine.Manga;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Messaging.Commands;
+using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.IndexerSearch.Manga
@@ -21,21 +22,31 @@ namespace NzbDrone.Core.IndexerSearch.Manga
     // Phase 5 IMakeMangaDownloadDecision.GetRssDecision; Plan 06-07/08 own the grab path.
     //
     // Phase 8 cleanup: collapse with FetchAndParseRssService + RssSyncService when Tv/ deletes.
+    //
+    // Phase 9 Plan 09-12 (sub-wave A 09-02 audit gap-01 + gap-02 close-out): publishes
+    // MangaRssSyncCompleteEvent at end of Execute (Plan 09-10 IHandle wiring); persists
+    // LastRssSync = DateTime.UtcNow per indexer on successful FetchRecent (D-07 per-source
+    // rate budget feature lights up). Pitfall 4 ordering preserved: per-decision DB write
+    // FIRST (LastRssSync inside FetchIndexerSafe), batch event LAST (single PublishEvent
+    // at the tail of Execute).
     public class MangaRssSyncService : IExecute<MangaRssSyncCommand>
     {
         private readonly IIndexerFactory _indexerFactory;
         private readonly IMakeMangaDownloadDecision _decisionMaker;
         private readonly IConfigService _configService;
+        private readonly IEventAggregator _eventAggregator;
         private readonly Logger _logger;
 
         public MangaRssSyncService(IIndexerFactory indexerFactory,
                                    IMakeMangaDownloadDecision decisionMaker,
                                    IConfigService configService,
+                                   IEventAggregator eventAggregator,
                                    Logger logger)
         {
             _indexerFactory = indexerFactory;
             _decisionMaker = decisionMaker;
             _configService = configService;
+            _eventAggregator = eventAggregator;
             _logger = logger;
         }
 
@@ -65,14 +76,36 @@ namespace NzbDrone.Core.IndexerSearch.Manga
             // Decisions surface for the Plan 06-07/08 grab/import consumers.
             // No process-decisions wiring here — Phase 5 produces MangaDownloadDecision
             // (manga-shape) which the TV IProcessDownloadDecisions cannot consume.
-            _decisionMaker.GetRssDecision(reports);
+            //
+            // Plan 09-12 — capture decisions for the manga-shape MangaRssSyncCompleteEvent payload.
+            // Pitfall 4 ordering: this is the BATCH event publish — LastRssSync per-indexer DB writes
+            // have already completed (inside FetchIndexerSafe per success path). Plan 09-10
+            // MangaPendingReleaseService.Handle(MangaRssSyncCompleteEvent) prunes rejected pending releases.
+            var decisions = _decisionMaker.GetRssDecision(reports);
+            _eventAggregator.PublishEvent(new MangaRssSyncCompleteEvent(decisions));
         }
 
         private async Task<IList<ReleaseInfo>> FetchIndexerSafe(IIndexer indexer)
         {
             try
             {
-                return await indexer.FetchRecent();
+                var reports = await indexer.FetchRecent();
+
+                // Plan 09-12 (audit gap-02) — persist LastRssSync on successful fetch ONLY.
+                // The per-indexer SyncInterval override (Phase 6 D-07) reads this in
+                // DueForRefresh below; without this write, def.LastRssSync == null is permanently
+                // true and the override is unreachable in practice. Pitfall 4 ordering: DB write
+                // FIRST, batch event publish LAST (the batch event is published in Execute after
+                // all FetchIndexerSafe calls complete via Task.WhenAll).
+                // MUST happen INSIDE try AFTER await — a thrown FetchRecent must not leave a
+                // stale timestamp on disk.
+                if (indexer.Definition is IndexerDefinition def)
+                {
+                    def.LastRssSync = DateTime.UtcNow;
+                    _indexerFactory.Update(def);
+                }
+
+                return reports;
             }
             catch (Exception ex)
             {
