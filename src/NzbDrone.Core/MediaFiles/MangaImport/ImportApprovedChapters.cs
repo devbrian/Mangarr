@@ -5,6 +5,7 @@ using System.Linq;
 using NLog;
 using NzbDrone.Common.Disk;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Manga;
@@ -13,6 +14,7 @@ using NzbDrone.Core.MediaFiles.EpisodeImport;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Organizer.Manga;
+using NzbDrone.Core.Profiles.Translations;
 
 namespace NzbDrone.Core.MediaFiles.MangaImport
 {
@@ -60,6 +62,8 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
         private readonly IChapterDownloadStateRepository _stateRepo;
         private readonly IEventAggregator _eventAggregator;
         private readonly IManageCommandQueue _commandQueueManager;
+        private readonly ITranslationProfileService _translationProfileService;
+        private readonly IConfigService _configService;
         private readonly Logger _logger;
 
         public ImportApprovedChapters(
@@ -70,6 +74,8 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             IChapterDownloadStateRepository stateRepo,
             IEventAggregator eventAggregator,
             IManageCommandQueue commandQueueManager,
+            ITranslationProfileService translationProfileService,
+            IConfigService configService,
             Logger logger)
         {
             _chapterFileService = chapterFileService;
@@ -79,6 +85,8 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             _stateRepo = stateRepo;
             _eventAggregator = eventAggregator;
             _commandQueueManager = commandQueueManager;
+            _translationProfileService = translationProfileService;
+            _configService = configService;
             _logger = logger;
         }
 
@@ -88,9 +96,26 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             DownloadClientItem downloadClientItem = null)
         {
             var importResults = new List<MangaImportResult>();
+
+            // Phase 8 audit gap-02 — mirrors ImportApprovedEpisodes lines 59-65 + 69-70.
+            // TV groups qualified imports by SeriesId, then within each group orders by
+            // QualityModelComparer desc + Size desc — so the BEST candidate per (series,
+            // episode) is processed first; the dedup check naturally keeps the best one.
+            //
+            // Manga port: group by MangaId, then within each group order by ChapterNumber asc
+            // (chronological library order) + upgrade-rank desc (TranslationProfile language
+            // rank → CustomFormat score → Size — mirrors MangaDownloadDecisionComparer D-08
+            // ordering, restricted to the LocalChapter-shaped fields available pre-RemoteChapter).
+            // The seenChapterIds dedup below then naturally keeps the BEST candidate per
+            // chapter ID instead of insertion-order — closes the two-CBZ-same-chapter
+            // regression where the worse-ranked file won 50% of the time.
+            var upgradeRankComparer = new LocalChapterUpgradeRankComparer(_translationProfileService, _configService);
             var qualified = decisions
                 .Where(d => d.Approved)
-                .OrderBy(d => d.LocalChapter.Chapter?.ChapterNumber ?? decimal.MaxValue)
+                .GroupBy(d => d.LocalChapter.Manga?.Id ?? 0)
+                .SelectMany(group => group
+                    .OrderBy(d => d.LocalChapter.Chapter?.ChapterNumber ?? decimal.MaxValue)
+                    .ThenByDescending(d => d, upgradeRankComparer))
                 .ToList();
             var seenChapterIds = new HashSet<int>();
 
@@ -282,6 +307,80 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             }
 
             return Path.GetFileName(filePath);
+        }
+
+        // Phase 8 audit gap-02 — bridges the public MangaDownloadDecisionComparer (which
+        // operates on MangaDownloadDecision / RemoteChapter) into the LocalChapter shape
+        // ImportApprovedChapters sees. Mirrors the upgrade-relevant slice of D-08 ordering:
+        // language rank (lower index in TranslationProfile.Languages = better) → CF score
+        // (higher = better) → Size (larger = better, sane manga fallback). Indexer priority
+        // and Age are intentionally OMITTED here — they apply to release-pick selection at
+        // search time (where MangaDownloadDecisionComparer already runs); by the time files
+        // hit the import pipeline, both candidate CBZs are already on disk and the
+        // observable "better candidate wins dedup" decision is fully covered by language +
+        // CF + Size. Compare returns a value such that ThenByDescending puts BEST first.
+        private sealed class LocalChapterUpgradeRankComparer : IComparer<MangaImportDecision>
+        {
+            private readonly ITranslationProfileService _translationProfileService;
+            private readonly IConfigService _configService;
+
+            public LocalChapterUpgradeRankComparer(
+                ITranslationProfileService translationProfileService,
+                IConfigService configService)
+            {
+                _translationProfileService = translationProfileService;
+                _configService = configService;
+            }
+
+            public int Compare(MangaImportDecision x, MangaImportDecision y)
+            {
+                // Lower language rank = better → reversed so that ThenByDescending puts it first.
+                var langCmp = -GetLanguageRank(x?.LocalChapter).CompareTo(GetLanguageRank(y?.LocalChapter));
+                if (langCmp != 0)
+                {
+                    return langCmp;
+                }
+
+                // Higher CF score = better → natural compare so ThenByDescending puts it first.
+                var cfCmp = (x?.LocalChapter?.CustomFormatScore ?? 0).CompareTo(y?.LocalChapter?.CustomFormatScore ?? 0);
+                if (cfCmp != 0)
+                {
+                    return cfCmp;
+                }
+
+                // Larger size = better → natural compare so ThenByDescending puts it first.
+                return (x?.LocalChapter?.Size ?? 0L).CompareTo(y?.LocalChapter?.Size ?? 0L);
+            }
+
+            private int GetLanguageRank(LocalChapter lc)
+            {
+                if (lc == null)
+                {
+                    return int.MaxValue;
+                }
+
+                var profileId = lc.Manga?.TranslationProfileId ?? _configService.DefaultTranslationProfileId;
+                if (profileId == null)
+                {
+                    return int.MaxValue;
+                }
+
+                var profile = _translationProfileService.Get(profileId.Value);
+                if (profile?.Languages == null)
+                {
+                    return int.MaxValue;
+                }
+
+                var releaseLang = lc.TranslatedLanguage ?? lc.Release?.TranslatedLanguage;
+                if (string.IsNullOrEmpty(releaseLang))
+                {
+                    return int.MaxValue;
+                }
+
+                var rank = profile.Languages.FindIndex(l =>
+                    string.Equals(l, releaseLang, StringComparison.OrdinalIgnoreCase));
+                return rank < 0 ? int.MaxValue : rank;
+            }
         }
     }
 }
