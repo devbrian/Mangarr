@@ -119,10 +119,21 @@ namespace NzbDrone.Core.Manga
             return _mangaRepository.AllMangaPaths();
         }
 
-        // BL-09 fix: refuse to publish MangaUpdatedEvent for a no-op update (manga
+        // BL-09 fix: refuse to publish update events for a no-op update (manga
         // does not exist). Dapper's UPDATE ... WHERE Id silently no-ops on missing
-        // rows, then SignalR would broadcast a phantom Updated event the UI then
-        // refetches and 404s on. Find-first prevents the phantom.
+        // rows, then SignalR would broadcast a phantom event the UI then refetches
+        // and 404s on. Find-first prevents the phantom.
+        //
+        // Phase 8 audit gap-09: this method is the USER-EDIT path (mirrors TV's
+        // SeriesService.UpdateSeries at Tv/SeriesService.cs:230). It now publishes
+        // MangaEditedEvent(new, old) carrying the pre-update snapshot so handlers
+        // can diff (path change → move, etc.). The pre-update snapshot is the row
+        // currently in the DB; we capture it via the same Find call that gates the
+        // existence check (single read, no extra query).
+        //
+        // RefreshMangaService still publishes MangaUpdatedEvent directly for the
+        // post-sync pulse — its UpdateManga(publishUpdatedEvent:false) call here
+        // suppresses ALL events from this path so there is no double-publish.
         public Manga UpdateManga(Manga manga, bool publishUpdatedEvent = true)
         {
             if (manga == null)
@@ -130,7 +141,9 @@ namespace NzbDrone.Core.Manga
                 throw new ArgumentNullException(nameof(manga));
             }
 
-            if (_mangaRepository.Find(manga.Id) == null)
+            var stored = _mangaRepository.Find(manga.Id);
+
+            if (stored == null)
             {
                 throw new ModelNotFoundException(typeof(Manga), manga.Id);
             }
@@ -139,7 +152,7 @@ namespace NzbDrone.Core.Manga
 
             if (publishUpdatedEvent)
             {
-                _eventAggregator.PublishEvent(new MangaUpdatedEvent(updated));
+                _eventAggregator.PublishEvent(new MangaEditedEvent(updated, stored));
             }
 
             return updated;

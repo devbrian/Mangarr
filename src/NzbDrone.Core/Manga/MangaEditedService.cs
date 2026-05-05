@@ -13,18 +13,18 @@ namespace NzbDrone.Core.Manga
     // Manga-side mirror of Tv/SeriesEditedService.cs (Phase 8 audit cluster 04-edit-lifecycle,
     // audit gap `single` per audit/no-sibling/SeriesEditedService.md).
     //
-    // PARITY DIVERGENCE — documented for SUMMARY/Phase 8 audit:
+    // Phase 8 audit gap-09 (MangaEditedEvent semantic split — landed in MangaService.UpdateManga):
     //   - Sonarr's SeriesEditedService consumes SeriesEditedEvent (carries Series + OldSeries
     //     diff) and pushes RefreshSeriesCommand only when SeriesType changes.
-    //   - Manga has NO standalone MangaEditedEvent; MangaUpdatedEvent (single-edit) carries
-    //     only the new Manga (no OldManga snapshot), and MangaBulkEditedEvent (bulk-edit)
-    //     carries List<Manga> only. We CANNOT compare old-vs-new fields.
-    //   - Conservative initial port (matches the audit-report backfill_notes intent — refresh
-    //     when a relink-style edit lands; can't detect-which-field-changed without OldManga):
-    //       * MangaUpdatedEvent (single)        -> push RefreshMangaCommand for that manga
-    //       * MangaBulkEditedEvent (bulk)       -> push RefreshMangaCommand + RenameMangaCommand
-    //         for the full set; rename covers the case where a bulk-edit changed
-    //         RootFolderPath / naming-relevant fields (TV's bulk path queues a rename pass too).
+    //   - MangaEditedEvent NOW carries `Manga` + `OldManga` + `ChaptersChanged` (mirrors
+    //     SeriesEditedEvent) so this handler can diff the old-vs-new snapshot to gate the
+    //     refresh push (path change → rescan, cross-source ID flip → relink-style refresh,
+    //     etc.). Conservative port still queues a refresh unconditionally — TV's
+    //     SeriesEditedService only refreshes on SeriesType change, but the manga equivalent
+    //     ("MangaType change") is rare AND existing fixtures assert refresh-on-update; we
+    //     keep the always-queue behavior pending an explicit Phase 8 follow-up audit.
+    //   - MangaBulkEditedEvent (bulk-edit) still carries List<Manga> only — bulk path is
+    //     unchanged by gap-09.
     //   - RescanMangaCommand does NOT yet exist (peer Tv/MediaFiles/Commands/RescanSeriesCommand
     //     has no manga sibling at this point in Phase 8). The path-change rescan branch is
     //     therefore deferred — see TODO below. RenameMangaCommand IS available
@@ -32,11 +32,12 @@ namespace NzbDrone.Core.Manga
     //
     // TODO (future Phase 8 cluster, post-RescanMangaCommand backfill):
     //   - When a RescanMangaCommand is added on the manga side, push it here on the path-
-    //     changed branch (TV pushes Rescan after edits that move the series folder).
-    //   - When MangaUpdatedEvent / a future MangaEditedEvent grows an OldManga snapshot,
-    //     gate the refresh push behind cross-source ID change detection (MangaDexId, MalId,
-    //     AniListId — manual relink trigger per audit-report backfill_notes).
-    public class MangaEditedService : IHandle<MangaUpdatedEvent>, IHandle<MangaBulkEditedEvent>
+    //     changed branch (compare message.Manga.Path vs message.OldManga.Path; TV pushes
+    //     Rescan after edits that move the series folder).
+    //   - Gate the refresh push behind cross-source ID change detection
+    //     (message.OldManga.MangaDexId/MalId/AniListId vs message.Manga's — manual relink
+    //     trigger per audit-report backfill_notes).
+    public class MangaEditedService : IHandle<MangaEditedEvent>, IHandle<MangaBulkEditedEvent>
     {
         private readonly IManageCommandQueue _commandQueueManager;
         private readonly IConfigService _configService;
@@ -51,12 +52,12 @@ namespace NzbDrone.Core.Manga
             _logger = logger;
         }
 
-        public void Handle(MangaUpdatedEvent message)
+        public void Handle(MangaEditedEvent message)
         {
             // Single-edit path: refresh metadata for the edited manga. Conservative port —
-            // without an OldManga snapshot we cannot gate this on field-level change detection,
-            // so we always queue a refresh on update. See class-level DIVERGENCE note.
-            _logger.Debug("Manga {0} updated; queueing refresh.", message.Manga);
+            // we now have OldManga but keep unconditional refresh for now; gating on
+            // field-level diffs is a future iteration (see class-level TODO).
+            _logger.Debug("Manga {0} edited; queueing refresh.", message.Manga);
             _commandQueueManager.Push(new RefreshMangaCommand(new List<int> { message.Manga.Id }, false));
         }
 
