@@ -10,7 +10,9 @@ namespace NzbDrone.Core.Manga
     //   * GetByMangaId mirrors GetEpisodes(int seriesId).
     //   * GetSyntheticByMangaId surfaces Chapter.IsSynthetic rows for the Phase 3
     //     indexer fill-in pipeline (D-17).
-    //   * Drop SetFileId/ClearFileId — Phase 4 archive-layer territory.
+    //   * SetFileId/ClearFileId added in Phase 8 audit (gap-03) — mirrors TV's
+    //     EpisodeRepository (Tv/EpisodeRepository.cs:195-212) for the Phase 4/6
+    //     import + archive pipelines (PIPELINE-04).
     public interface IChapterRepository : IBasicRepository<Chapter>
     {
         Chapter Find(int mangaId, decimal chapterNumber, string translatedLanguage);
@@ -57,5 +59,14 @@ namespace NzbDrone.Core.Manga
                                                     List<int> belowCutoffCustomFormatProfileIds);
 
         void SetMonitored(IEnumerable<int> ids, bool monitored);
+
+        // Phase 8 audit (EpisodeRepository-vs-ChapterRepository.md gap-03) — siblings of TV's
+        // `IEpisodeRepository.SetFileId(Episode, int)` and `ClearFileId(Episode, bool unmonitor)`.
+        // Encapsulates the "mutate ChapterFileId + SetFields + publish ModelUpdated" trio so the
+        // Phase 4 archive + Phase 6 import pipelines (PIPELINE-04) cannot drift on the event publish.
+        // Manga's ChapterFileId is nullable (vs. TV's int sentinel `0`); ClearFileId nulls the field
+        // and optionally flips Monitored to mirror TV's "delete-and-unmonitor" flow.
+        void SetFileId(Chapter chapter, int fileId);
+        void ClearFileId(Chapter chapter, bool unmonitor);
     }
 }

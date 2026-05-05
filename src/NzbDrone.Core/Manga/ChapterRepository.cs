@@ -8,8 +8,8 @@ namespace NzbDrone.Core.Manga
 {
     // Dapper repository for Chapter. Mirrors Sonarr's EpisodeRepository
     // (Tv/EpisodeRepository.cs:36-285) shape, slimmed to Phase 2 deliverables —
-    // PagedQuery joins / EpisodesWithFiles / EpisodesWhereCutoffUnmet /
-    // SetFileId / ClearFileId all stay in TV land (Phase 4 archiver territory).
+    // PagedQuery joins / EpisodesWithFiles / EpisodesWhereCutoffUnmet stay in TV land
+    // (Phase 4 archiver territory). SetFileId/ClearFileId added in Phase 8 audit (gap-03).
     public class ChapterRepository : BasicRepository<Chapter>, IChapterRepository
     {
         private readonly Logger _logger;
@@ -147,6 +147,33 @@ namespace NzbDrone.Core.Manga
             }
 
             UpdateMany(chapters);
+        }
+
+        public void SetFileId(Chapter chapter, int fileId)
+        {
+            // Phase 8 audit (EpisodeRepository-vs-ChapterRepository.md gap-03). Mirrors TV's
+            // EpisodeRepository.SetFileId (line 195-202). Encapsulates the field mutation +
+            // SetFields + ModelUpdated publish so the Phase 4 archive + Phase 6 import sites
+            // (PIPELINE-04) cannot drift on the event.
+            chapter.ChapterFileId = fileId;
+
+            SetFields(chapter, c => c.ChapterFileId);
+
+            ModelUpdated(chapter, true);
+        }
+
+        public void ClearFileId(Chapter chapter, bool unmonitor)
+        {
+            // Phase 8 audit (EpisodeRepository-vs-ChapterRepository.md gap-03). Mirrors TV's
+            // EpisodeRepository.ClearFileId (line 204-212). Manga's ChapterFileId is nullable
+            // (vs. TV's int sentinel `0`), so we null it instead of zeroing. The unmonitor flag
+            // mirrors TV's "delete-and-unmonitor" import-failure flow.
+            chapter.ChapterFileId = null;
+            chapter.Monitored &= !unmonitor;
+
+            SetFields(chapter, c => c.ChapterFileId, c => c.Monitored);
+
+            ModelUpdated(chapter, true);
         }
     }
 }
