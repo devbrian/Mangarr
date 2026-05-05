@@ -76,6 +76,17 @@ namespace NzbDrone.Core.Manga
         // ApplyChanges pattern (Tv/Series.cs:70-86): canonical IDs (MangaDexId/MalId/
         // AniListId) are immutable post-add and intentionally NOT copied here — manual
         // relink uses the dedicated /api/v5/manga/{id}/links endpoint (Plan 02-09).
+        //
+        // Phase 8 audit gap-02 (Series-vs-Manga.md): TV's Series.ApplyChanges is
+        // dual-purpose — covers BOTH the refresh-merge cycle AND the user-edit cycle
+        // (PUT /api/v5/series). Audit chose option (b) — single-method merge — so
+        // user-mutable persistence fields (Tags, Monitored, RootFolderPath) are copied
+        // here in addition to the metadata fields. Centralizes the contract so the
+        // upcoming MangaEditedService bulk-edit fan-out (Phase 8 cluster 04) and the
+        // V5 MangaController PUT handler stay in sync as new fields land.
+        // TODO(Plan 03-10): once Manga.AddOptions property exists, add
+        //     AddOptions = other.AddOptions;
+        // to mirror Series.ApplyChanges line 85.
         public void ApplyChanges(Manga other)
         {
             Title = other.Title;
@@ -88,6 +99,11 @@ namespace NzbDrone.Core.Manga
             PublicationYear = other.PublicationYear;
             PrimaryAuthor = other.PrimaryAuthor;
             LastInfoSync = DateTime.UtcNow;
+
+            // User-mutable persistence fields — gap-02 backfill.
+            Tags = other.Tags;
+            Monitored = other.Monitored;
+            RootFolderPath = other.RootFolderPath;
         }
 
         public override string ToString()
