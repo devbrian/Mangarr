@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using NLog;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
 using NzbDrone.Core.MetadataSource.MangaDex;
 using NzbDrone.Core.MetadataSource.MyAnimeList;
+using NzbDrone.Core.Organizer.Manga;
 using NzbDrone.Core.Parser.Manga;
 
 namespace NzbDrone.Core.Manga
@@ -40,18 +42,21 @@ namespace NzbDrone.Core.Manga
         private readonly IMangaService _mangaService;
         private readonly IMetadataSourceFactory _metaFactory;
         private readonly IChapterListService _chapterListService;
+        private readonly IBuildMangaFileNames _fileNameBuilder;
         private readonly CrossSourceIdResolver _resolver;
         private readonly Logger _logger;
 
         public AddMangaService(IMangaService mangaService,
                                IMetadataSourceFactory metaFactory,
                                IChapterListService chapterListService,
+                               IBuildMangaFileNames fileNameBuilder,
                                CrossSourceIdResolver resolver,
                                Logger logger)
         {
             _mangaService = mangaService;
             _metaFactory = metaFactory;
             _chapterListService = chapterListService;
+            _fileNameBuilder = fileNameBuilder;
             _resolver = resolver;
             _logger = logger;
         }
@@ -107,6 +112,17 @@ namespace NzbDrone.Core.Manga
             //    fuzzy title match against MangaDex /manga?title=... and pick the highest-similarity
             //    result clearing the D-21 gate (handled inside ResolveCrossSourceIds).
             ResolveCrossSourceIds(newManga, primaryManga);
+
+            // Phase 8 audit gap-03 (AddSeriesService-vs-AddMangaService.md): mirror
+            // Tv/AddSeriesService.cs:144-148 — when the Add Manga UI submits without a
+            // pre-computed Path (user picked just RootFolder + title), default it to
+            // <RootFolderPath>/<GetMangaFolder>. Placed BEFORE clean/sort title compute
+            // so any future Path/TitleSlug validators (gap-04) see the resolved value.
+            if (string.IsNullOrWhiteSpace(newManga.Path))
+            {
+                var folderName = _fileNameBuilder.GetMangaFolder(newManga);
+                newManga.Path = Path.Combine(newManga.RootFolderPath, folderName);
+            }
 
             // 4. Compute clean/sort titles via the single normalizer (D-05).
             newManga.CleanTitle = MangaTitleNormalizer.Normalize(newManga.Title);

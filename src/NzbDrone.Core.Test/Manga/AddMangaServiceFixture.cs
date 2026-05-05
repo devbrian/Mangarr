@@ -12,6 +12,8 @@ using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
 using NzbDrone.Core.MetadataSource.MangaDex;
 using NzbDrone.Core.MetadataSource.MyAnimeList;
+using NzbDrone.Core.Organizer;
+using NzbDrone.Core.Organizer.Manga;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common;
 
@@ -79,12 +81,19 @@ namespace NzbDrone.Core.Test.MangaTests
 
             // CrossSourceIdResolver is a concrete class - inject directly.
             Mocker.SetConstant(new CrossSourceIdResolver(LogManager.GetCurrentClassLogger()));
+
+            // Phase 8 audit gap-03: AddMangaService now defaults Path from RootFolderPath +
+            // GetMangaFolder when Path is empty. Configure the filename builder mock so the
+            // Path.Combine in production code receives a non-null folder name.
+            Mocker.GetMock<IBuildMangaFileNames>()
+                  .Setup(b => b.GetMangaFolder(It.IsAny<Manga.Manga>(), It.IsAny<NamingConfig>()))
+                  .Returns("Test Manga");
         }
 
         [Test]
         public void Add_persists_manga_via_service()
         {
-            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test" };
+            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test", RootFolderPath = "C:\\Test" };
 
             var result = Subject.AddManga(newManga);
 
@@ -98,7 +107,7 @@ namespace NzbDrone.Core.Test.MangaTests
             // No secondaries in factory.All() so cross-source resolution is a no-op for this test.
             // The literal _resolver.TryResolve invocation is verified via the production-code
             // search in AddMangaService.cs; this test just exercises the orchestration path.
-            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test" };
+            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test", RootFolderPath = "C:\\Test" };
 
             Subject.AddManga(newManga);
 
@@ -110,7 +119,7 @@ namespace NzbDrone.Core.Test.MangaTests
         [Test]
         public void Add_calls_ChapterListService_SyncChapters()
         {
-            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test" };
+            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test", RootFolderPath = "C:\\Test" };
 
             Subject.AddManga(newManga);
 
@@ -124,7 +133,7 @@ namespace NzbDrone.Core.Test.MangaTests
             // MangaService.AddManga publishes MangaAddedEvent — but MangaService is mocked here,
             // so we verify that AddMangaService delegates to it (the published event happens in
             // production via the real MangaService).
-            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test" };
+            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test", RootFolderPath = "C:\\Test" };
 
             Subject.AddManga(newManga);
 
@@ -139,7 +148,7 @@ namespace NzbDrone.Core.Test.MangaTests
             // RefreshMangaCommand inline — coverage of the push lives in
             // MangaAddedHandlerFixture. This test asserts the responsibility
             // migration: AddMangaService MUST NOT push the command directly.
-            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test" };
+            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test", RootFolderPath = "C:\\Test" };
 
             Subject.AddManga(newManga);
 
@@ -154,7 +163,7 @@ namespace NzbDrone.Core.Test.MangaTests
         [Test]
         public void After_Add_GetManga_returns_populated_with_chapter_rows_or_synthetic()
         {
-            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test" };
+            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test", RootFolderPath = "C:\\Test" };
 
             var result = Subject.AddManga(newManga);
 
@@ -206,7 +215,7 @@ namespace NzbDrone.Core.Test.MangaTests
                   .Setup(f => f.All())
                   .Returns(new List<MetadataSourceDefinition> { _primaryDef, aniListSecondary });
 
-            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test Manga" };
+            var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test Manga", RootFolderPath = "C:\\Test" };
 
             Subject.AddManga(newManga);
 
@@ -271,7 +280,7 @@ namespace NzbDrone.Core.Test.MangaTests
                   .Setup(f => f.All())
                   .Returns(new List<MetadataSourceDefinition> { _primaryDef, mangaDexSecondary });
 
-            var newManga = new Manga.Manga { AniListId = 42, Title = "test manga" };
+            var newManga = new Manga.Manga { AniListId = 42, Title = "test manga", RootFolderPath = "C:\\Test" };
 
             Subject.AddManga(newManga);
 
@@ -324,7 +333,7 @@ namespace NzbDrone.Core.Test.MangaTests
                   .Setup(f => f.All())
                   .Returns(new List<MetadataSourceDefinition> { _primaryDef, mangaDexSecondary });
 
-            var newManga = new Manga.Manga { MalId = 99, Title = "test manga" };
+            var newManga = new Manga.Manga { MalId = 99, Title = "test manga", RootFolderPath = "C:\\Test" };
 
             Subject.AddManga(newManga);
 
@@ -382,7 +391,7 @@ namespace NzbDrone.Core.Test.MangaTests
                   .Setup(f => f.All())
                   .Returns(new List<MetadataSourceDefinition> { _primaryDef, renamedMangaDex });
 
-            var newManga = new Manga.Manga { AniListId = 42, Title = "test manga" };
+            var newManga = new Manga.Manga { AniListId = 42, Title = "test manga", RootFolderPath = "C:\\Test" };
 
             Subject.AddManga(newManga);
 
