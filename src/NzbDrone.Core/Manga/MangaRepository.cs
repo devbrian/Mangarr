@@ -54,6 +54,29 @@ namespace NzbDrone.Core.Manga
             return Query(m => m.CleanTitle == cleanTitle && m.PublicationYear == year).SingleOrDefault();
         }
 
+        public List<Manga> FindByTitleInexact(string cleanTitle)
+        {
+            // Phase 8 audit gap-02 (SeriesRepository-vs-MangaRepository.md): mirrors
+            // Tv/SeriesRepository.FindByTitleInexact at line 56-66 verbatim. Used by the
+            // parser's substring fallback path (`INSTR` on SQLite, `STRPOS` on PostgreSQL)
+            // to match any manga whose CleanTitle is a substring of the release title.
+            // Inherits the BL-02 null-input guard pattern from FindByTitle for parser
+            // short-paths that may pass a malformed/empty title.
+            if (string.IsNullOrWhiteSpace(cleanTitle))
+            {
+                return new List<Manga>();
+            }
+
+            var builder = Builder().Where($"instr(@cleanTitle, \"Manga\".\"CleanTitle\")", new { cleanTitle = cleanTitle });
+
+            if (_database.DatabaseType == DatabaseType.PostgreSQL)
+            {
+                builder = Builder().Where($"(strpos(@cleanTitle, \"Manga\".\"CleanTitle\") > 0)", new { cleanTitle = cleanTitle });
+            }
+
+            return Query(builder).ToList();
+        }
+
         public Manga FindByMangaDexId(Guid mangaDexId)
         {
             return Query(m => m.MangaDexId == mangaDexId).SingleOrDefault();

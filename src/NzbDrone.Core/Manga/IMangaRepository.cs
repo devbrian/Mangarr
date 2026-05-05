@@ -18,6 +18,7 @@ namespace NzbDrone.Core.Manga
         bool MangaPathExists(string path);
         Manga FindByTitle(string cleanTitle);
         Manga FindByTitle(string cleanTitle, int year);
+        List<Manga> FindByTitleInexact(string cleanTitle);
         Manga FindByMangaDexId(Guid mangaDexId);
         Manga FindByMalId(int malId);
         Manga FindByAniListId(int aniListId);
