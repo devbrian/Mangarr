@@ -72,13 +72,15 @@ namespace NzbDrone.Core.IndexerSearch.Manga
                 };
 
                 var decisions = _releaseSearchService.MangaSearch(criteria).GetAwaiter().GetResult();
-                var approved = decisions.Count(d => d.Approved);
 
-                _logger.ProgressInfo(
-                    "Manga search completed for {0}. {1}/{2} releases approved",
-                    manga.Title,
-                    approved,
-                    decisions.Count);
+                // Sonarr parity (Phase 8 audit gap-04): mirror SeriesSearchService.cs:74 log shape —
+                // report grabbed-count semantics. The manga grab path (Plan 06-07/08) does not run
+                // here, so the closest available semantic is approved-decision count (highest-fidelity
+                // proxy until gap-01 lands a true grab counter); the trailing total/breakdown is
+                // dropped to match TV's terse "{N} reports downloaded." shape.
+                var downloadedCount = decisions.Count(d => d.Approved);
+
+                _logger.ProgressInfo("Manga search completed. {0} reports downloaded.", downloadedCount);
             }
         }
     }
