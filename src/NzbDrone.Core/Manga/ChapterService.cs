@@ -3,18 +3,20 @@ using System.Linq;
 using NLog;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Manga.Events;
+using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.Messaging.Events;
 
 namespace NzbDrone.Core.Manga
 {
     // Service implementation for Chapter row. Mirrors Sonarr's EpisodeService
     // (Tv/EpisodeService.cs:44-329) shape, slimmed for Phase 2 deliverables:
-    //   * No IHandle<EpisodeFileDeletedEvent>/EpisodeFileAddedEvent — Phase 4 territory
+    //   * No IHandle<EpisodeFileDeletedEvent> — Phase 4 territory
     //   * No IHandleAsync<SeriesScannedEvent> — no scan in Phase 2
     //   * No IConfigService dependency (no AutoUnmonitor*Episodes config in Phase 2)
-    //   * No ICached<HashSet<int>> — that supports the SeriesScanned tombstone cache
-    //     which we don't need until Phase 4
-    public class ChapterService : IChapterService, IHandleAsync<MangaDeletedEvent>
+    //   * No ICached<HashSet<int>> — manga has no SeriesScanned tombstone cache; the
+    //     IHandle<ChapterFileAddedEvent> sibling therefore omits TV's cache-clear branch
+    //     (Tv/EpisodeService.cs:294-302) and only performs the SetFileId link.
+    public class ChapterService : IChapterService, IHandle<ChapterFileAddedEvent>, IHandleAsync<MangaDeletedEvent>
     {
         private readonly IChapterRepository _chapterRepository;
         private readonly IEventAggregator _eventAggregator;
@@ -178,6 +180,33 @@ namespace NzbDrone.Core.Manga
         public void DeleteMany(List<Chapter> chapters)
         {
             _chapterRepository.DeleteMany(chapters);
+        }
+
+        // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-03) — sibling of TV's
+        // `EpisodeService.Handle(EpisodeFileAddedEvent)` (Tv/EpisodeService.cs:288-306).
+        // When a ChapterFile is imported, link its Id onto the linked Chapter row so
+        // ChapterFileId stops being NULL — otherwise the UI shows "missing file" forever,
+        // the downloader retriggers, and upgrade decisions reject because cutoff is "unmet".
+        //
+        // Shape divergence vs. TV: TV's EpisodeFile carries `LazyLoaded<List<Episode>>`
+        // (one-file-to-many-episodes — multi-ep releases) and the handler iterates. Manga's
+        // ChapterFile carries a single `ChapterId : int` (one-file-to-one-chapter per Phase 6
+        // PIPELINE-04 — multi-chapter archives are split at import), so we resolve the single
+        // chapter and call SetFileId once. Tombstone-cache clear from TV is omitted — manga
+        // has no SeriesScanned cache (see class comment).
+        public void Handle(ChapterFileAddedEvent message)
+        {
+            var chapter = _chapterRepository.Find(message.ChapterFile.ChapterId);
+
+            if (chapter == null)
+            {
+                _logger.Warn("Handle(ChapterFileAddedEvent): Chapter:{0} not found for ChapterFile:{1}; skipping link.", message.ChapterFile.ChapterId, message.ChapterFile.Id);
+                return;
+            }
+
+            _chapterRepository.SetFileId(chapter, message.ChapterFile.Id);
+
+            _logger.Debug("Linking [{0}] > [{1}]", message.ChapterFile.RelativePath, chapter);
         }
 
         // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-05) — sibling of TV's
