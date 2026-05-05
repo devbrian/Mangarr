@@ -51,6 +51,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
         NotCustomFormatUpgrade = 7,
         ChapterAlreadyImported = 8,
         RootFolderMissing = 9,
-        DecisionError = 10
+        DecisionError = 10,
+        ChapterUnexpected = 11
     }
 }
