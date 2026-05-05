@@ -1,32 +1,44 @@
 using System.Collections.Generic;
 using System.Linq;
 using NLog;
+using NzbDrone.Common.Cache;
+using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Manga.Events;
+using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.Messaging.Events;
 
 namespace NzbDrone.Core.Manga
 {
     // Service implementation for Chapter row. Mirrors Sonarr's EpisodeService
-    // (Tv/EpisodeService.cs:44-329) shape, slimmed for Phase 2 deliverables:
-    //   * No IHandle<EpisodeFileDeletedEvent> — Phase 4 territory
-    //   * No IHandleAsync<SeriesScannedEvent> — no scan in Phase 2
-    //   * No IConfigService dependency (no AutoUnmonitor*Episodes config in Phase 2)
-    //   * No ICached<HashSet<int>> — manga has no SeriesScanned tombstone cache; the
-    //     IHandle<ChapterFileAddedEvent> sibling therefore omits TV's cache-clear branch
-    //     (Tv/EpisodeService.cs:294-302) and only performs the SetFileId link.
-    public class ChapterService : IChapterService, IHandle<ChapterFileAddedEvent>, IHandleAsync<MangaDeletedEvent>
+    // (Tv/EpisodeService.cs:44-329) shape. Phase 8 audit gap-01 backfill added
+    // IHandle<ChapterFileDeletedEvent> + IConfigService + ICached<HashSet<int>>
+    // dependencies to mirror TV's detach-on-delete flow.
+    //   * IHandleAsync<SeriesScannedEvent> sibling still pending — no manga rescan
+    //     event published in v1 yet, so the tombstone-cache replay path is dormant
+    //     (cache is populated on MissingFromDisk deletes but never drained until a
+    //     MangaScannedEvent equivalent ships).
+    public class ChapterService : IChapterService,
+                                   IHandle<ChapterFileAddedEvent>,
+                                   IHandle<ChapterFileDeletedEvent>,
+                                   IHandleAsync<MangaDeletedEvent>
     {
         private readonly IChapterRepository _chapterRepository;
+        private readonly IConfigService _configService;
+        private readonly ICached<HashSet<int>> _cache;
         private readonly IEventAggregator _eventAggregator;
         private readonly Logger _logger;
 
         public ChapterService(IChapterRepository chapterRepository,
+                              IConfigService configService,
+                              ICacheManager cacheManager,
                               IEventAggregator eventAggregator,
                               Logger logger)
         {
             _chapterRepository = chapterRepository;
+            _configService = configService;
+            _cache = cacheManager.GetCache<HashSet<int>>(GetType());
             _eventAggregator = eventAggregator;
             _logger = logger;
         }
@@ -207,6 +219,56 @@ namespace NzbDrone.Core.Manga
             _chapterRepository.SetFileId(chapter, message.ChapterFile.Id);
 
             _logger.Debug("Linking [{0}] > [{1}]", message.ChapterFile.RelativePath, chapter);
+        }
+
+        // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-01) — sibling of TV's
+        // `EpisodeService.Handle(EpisodeFileDeletedEvent)` (Tv/EpisodeService.cs:261-286).
+        // When a ChapterFile is deleted, detach it from every linked Chapter so the row
+        // stops pointing at a now-missing file ID — otherwise the UI shows "has file"
+        // forever, the downloader thinks the chapter is satisfied, and cutoff/wanted
+        // logic breaks (audit report rationale).
+        //
+        // Shape divergence vs. TV: TV's EpisodeFile carries `LazyLoaded<List<Episode>>`
+        // (multi-ep releases). Manga's ChapterFile carries a single `ChapterId : int`
+        // per Phase 6 PIPELINE-04, but the audit gap-02 repository contract still
+        // exposes `GetChapterByFileId(int)` returning a list — so we iterate it the same
+        // way TV does, future-proofing the (rare) case where multiple chapter rows
+        // transiently reference one file during a move/upgrade window.
+        //
+        // Auto-unmonitor: v1 reuses the existing AutoUnmonitorPreviouslyDownloadedEpisodes
+        // config flag (no manga-specific key shipped yet — Phase 6/9 may split). Same
+        // reason filter as TV: Upgrade / ManualOverride / MissingFromDisk are exempt
+        // from the auto-unmonitor flip so a clean re-import keeps the chapter monitored.
+        //
+        // MissingFromDisk tombstone cache: when the disk is the source-of-truth deletion,
+        // we stash the chapter id keyed by manga id. A future MangaScannedEvent handler
+        // (not yet shipped) will replay the cache and bulk-unmonitor only the rows the
+        // user did NOT manually re-add. The cache is dormant until that handler lands.
+        public void Handle(ChapterFileDeletedEvent message)
+        {
+            foreach (var chapter in _chapterRepository.GetChapterByFileId(message.ChapterFile.Id))
+            {
+                _logger.Debug("Detaching chapter {0} from file.", chapter.Id);
+
+                var unmonitorChapters = _configService.AutoUnmonitorPreviouslyDownloadedEpisodes;
+
+                var unmonitorForReason = message.Reason != DeleteMediaFileReason.Upgrade &&
+                                         message.Reason != DeleteMediaFileReason.ManualOverride &&
+                                         message.Reason != DeleteMediaFileReason.MissingFromDisk;
+
+                // Stash MissingFromDisk-deleted ids for the (future) MangaScannedEvent re-mark cycle.
+                if (message.Reason == DeleteMediaFileReason.MissingFromDisk && unmonitorChapters)
+                {
+                    lock (_cache)
+                    {
+                        var ids = _cache.Get(chapter.MangaId.ToString(), () => new HashSet<int>());
+
+                        ids.Add(chapter.Id);
+                    }
+                }
+
+                _chapterRepository.ClearFileId(chapter, unmonitorForReason && unmonitorChapters);
+            }
         }
 
         // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-05) — sibling of TV's
