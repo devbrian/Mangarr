@@ -16,6 +16,7 @@ using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Download.History;
 using NzbDrone.Core.Download.Pending;
+using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.Extras.Metadata;
 using NzbDrone.Core.Extras.Metadata.Files;
 using NzbDrone.Core.Extras.Others;
@@ -33,6 +34,7 @@ using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.Notifications;
 using NzbDrone.Core.Organizer;
+using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Profiles;
 using NzbDrone.Core.Profiles.CustomFormats;
@@ -182,6 +184,16 @@ namespace NzbDrone.Core.Datastore
             Mapper.Entity<PendingRelease>("PendingReleases").RegisterModel()
                   .Ignore(e => e.RemoteEpisode);
 
+            // Phase 9 D-09-06..08 — MangaPendingRelease registration (parallel sibling to
+            // PendingRelease registered above). BL-01 mechanical guard: a separate Mapper.Entity
+            // binding to "MangaPendingReleases" makes it physically impossible to leak rows from
+            // the TV-side PendingReleases table even when MangaId / SeriesId int values collide.
+            // Mirrors MangaBlocklist precedent (line 220 below) and ChapterHistory precedent
+            // (line 211 below). RemoteChapter is not persisted — populated by service projection
+            // (Plan 09-10), mirroring the TV PendingRelease.RemoteEpisode .Ignore above.
+            Mapper.Entity<MangaPendingRelease>("MangaPendingReleases").RegisterModel()
+                  .Ignore(e => e.RemoteChapter);
+
             Mapper.Entity<RemotePathMapping>("RemotePathMappings").RegisterModel();
             Mapper.Entity<Tag>("Tags").RegisterModel();
             Mapper.Entity<ReleaseProfile>("ReleaseProfiles").RegisterModel();
@@ -253,6 +265,14 @@ namespace NzbDrone.Core.Datastore
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<Language>>(new LanguageIntConverter()));
             SqlMapper.AddTypeHandler(new StringListConverter<List<string>>());
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<ParsedEpisodeInfo>(new QualityIntConverter(), new LanguageIntConverter()));
+
+            // Phase 9 D-09-06..08 — ParsedChapterInfo Dapper round-trip handler for
+            // MangaPendingReleases.ParsedChapterInfo column. ParsedChapterInfo carries only
+            // primitive types (string, decimal[], int?, ChapterType enum) so no extra
+            // type-handler args are needed — unlike TV's ParsedEpisodeInfo which embeds
+            // QualityModel + Languages. Mirrors the precedent above for the TV analog.
+            SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<ParsedChapterInfo>());
+
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<ReleaseInfo>());
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<PendingReleaseAdditionalInfo>());
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<HashSet<int>>());
