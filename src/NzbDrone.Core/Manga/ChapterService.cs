@@ -49,6 +49,15 @@ namespace NzbDrone.Core.Manga
             return _chapterRepository.GetByMangaId(mangaId);
         }
 
+        public List<Chapter> GetChaptersByManga(List<int> mangaIds)
+        {
+            // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-10) — pass-through.
+            // Mirrors TV's EpisodeService.GetEpisodesBySeries(List<int>) (Tv/EpisodeService.cs:103-106)
+            // wrapping IEpisodeRepository.GetEpisodesBySeriesIds. Manga sibling wraps the
+            // existing IChapterRepository.GetChaptersByMangaIds.
+            return _chapterRepository.GetChaptersByMangaIds(mangaIds);
+        }
+
         public List<Chapter> GetSyntheticChaptersByManga(int mangaId)
         {
             return _chapterRepository.GetSyntheticByMangaId(mangaId);

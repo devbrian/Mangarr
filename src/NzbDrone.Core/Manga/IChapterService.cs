@@ -16,6 +16,13 @@ namespace NzbDrone.Core.Manga
         List<Chapter> GetChapters(IEnumerable<int> ids);
         Chapter FindByMangaAndNumber(int mangaId, decimal chapterNumber, string translatedLanguage);
         List<Chapter> GetChaptersByManga(int mangaId);
+
+        // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-10) — bulk overload, sibling of TV's
+        // `IEpisodeService.GetEpisodesBySeries(List<int> seriesIds)` (Tv/EpisodeService.cs:103-106).
+        // Pass-through to `IChapterRepository.GetChaptersByMangaIds`. Used by ImportLists, bulk
+        // operations, and multi-manga health-check / wanted-search flows.
+        List<Chapter> GetChaptersByManga(List<int> mangaIds);
+
         List<Chapter> GetSyntheticChaptersByManga(int mangaId);
 
         // Phase 6 D-09 — Missing/Wanted feed: monitored Chapters that have no ChapterFile imported.
