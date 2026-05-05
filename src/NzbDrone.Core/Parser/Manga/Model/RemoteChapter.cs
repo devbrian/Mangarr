@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Parser.Model;
@@ -42,6 +44,15 @@ namespace NzbDrone.Core.Parser.Manga.Model
         // between the maker's score-derivation read and the spec's gate read, leaving the
         // score and the gate keyed off different profiles.
         public int? ResolvedCustomFormatProfileId { get; set; }
+
+        // Phase 8 backfill (audit gap-01) — parity with TV RemoteEpisode.IsRecentEpisode
+        // (Parser/Model/RemoteEpisode.cs:36-39). Manga uses Chapter.ReleaseDate as the
+        // canonical release timestamp (manga analog of Episode.AirDateUtc per CLAUDE.md
+        // mapping). Returns true if any chapter was released within the last 14 days.
+        public bool IsRecentChapter()
+        {
+            return Chapters.Any(c => c.ReleaseDate >= DateTime.UtcNow.Date.AddDays(-14));
+        }
 
         public override string ToString()
         {
