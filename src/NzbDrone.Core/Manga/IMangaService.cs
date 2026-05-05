@@ -26,6 +26,9 @@ namespace NzbDrone.Core.Manga
         List<Manga> GetAllManga();
         List<Manga> AllForTag(int tagId);
         List<int> AllMangaIds();
+        List<Guid> AllMangaDexIds();
+        List<int> AllMalIds();
+        List<int> AllAniListIds();
         Dictionary<int, string> GetAllMangaPaths();
         Manga UpdateManga(Manga manga, bool publishUpdatedEvent = true);
         bool MangaPathExists(string folder);

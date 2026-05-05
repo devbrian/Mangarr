@@ -122,6 +122,28 @@ namespace NzbDrone.Core.Manga
             return _mangaRepository.All().Select(m => m.Id).ToList();
         }
 
+        // Phase 8 audit gap-11 (SeriesService-vs-MangaService.md): manga peers of TV's
+        // SeriesService.AllSeriesTvdbIds() (Tv/SeriesService.cs:175). Exposes the
+        // cross-source ID lists for ImportList "skip-already-added" filters and
+        // ImportListExclusion bookkeeping (D-16). Manga diverges from TV's single
+        // TvdbId column by carrying three optional cross-source IDs (MangaDexId/MalId/
+        // AniListId), so we expose three peer methods. Repository layer (MangaRepository
+        // .AllMangaDexIds/AllMalIds/AllAniListIds) already filters out null values.
+        public List<Guid> AllMangaDexIds()
+        {
+            return _mangaRepository.AllMangaDexIds();
+        }
+
+        public List<int> AllMalIds()
+        {
+            return _mangaRepository.AllMalIds();
+        }
+
+        public List<int> AllAniListIds()
+        {
+            return _mangaRepository.AllAniListIds();
+        }
+
         public Dictionary<int, string> GetAllMangaPaths()
         {
             return _mangaRepository.AllMangaPaths();
