@@ -23,6 +23,7 @@ namespace NzbDrone.Core.Manga
         Manga FindByMalId(int malId);
         Manga FindByAniListId(int aniListId);
         Manga FindByPath(string path);
+        Manga ReturnSingleMangaOrThrow(List<Manga> manga);
         List<Guid> AllMangaDexIds();
         List<int> AllMalIds();
         List<int> AllAniListIds();

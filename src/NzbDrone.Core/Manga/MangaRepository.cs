@@ -97,6 +97,27 @@ namespace NzbDrone.Core.Manga
             return Query(m => m.Path == path).FirstOrDefault();
         }
 
+        public Manga ReturnSingleMangaOrThrow(List<Manga> manga)
+        {
+            // Phase 8 audit gap-04 (SeriesRepository-vs-MangaRepository.md): mirrors
+            // Tv/SeriesRepository.ReturnSingleSeriesOrThrow at line 124-137 verbatim.
+            // Returns null on empty, the single match on count==1, otherwise throws
+            // MultipleMangaFoundException carrying the matched-list so callers can
+            // disambiguate (e.g., year-overload re-query) instead of swallowing the
+            // InvalidOperationException .SingleOrDefault() would raise on multi-match.
+            if (manga.Count == 0)
+            {
+                return null;
+            }
+
+            if (manga.Count == 1)
+            {
+                return manga.First();
+            }
+
+            throw new MultipleMangaFoundException(manga, "Expected one manga, but found {0}. Matching manga: {1}", manga.Count, string.Join(", ", manga));
+        }
+
         public List<Guid> AllMangaDexIds()
         {
             return All()
