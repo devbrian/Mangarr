@@ -1,0 +1,116 @@
+using System.Collections.Generic;
+using NLog;
+using NzbDrone.Core.IndexerSearch.Manga;
+using NzbDrone.Core.Manga.Events;
+using NzbDrone.Core.Messaging.Commands;
+using NzbDrone.Core.Messaging.Events;
+
+namespace NzbDrone.Core.Manga
+{
+    // Sonarr divergence: NEW manga sibling per Phase 8 audit (no-sibling/SeriesScannedHandler.md)
+    // — see DIVERGENCE.md.
+    //
+    // Mirrors Tv/SeriesScannedHandler.cs verbatim shape and behavior:
+    //   * IHandle<MangaScannedEvent> — runs the post-add lifecycle once disk-scan is done.
+    //   * Reads Manga.AddOptions (Phase 8 audit gap-03 — added in Plan 03-10).
+    //   * No AddOptions => trigger ChapterRefreshedService.Search (cluster 01) backfill auto-search; return.
+    //   * AddOptions present =>
+    //       1. Apply per-Chapter Monitored flags via IChapterMonitoredService.SetChapterMonitoredStatus
+    //          (Phase 8 audit no-sibling/EpisodeMonitoredService.md sibling).
+    //       2. Trigger ChapterRefreshedService.Search backfill auto-search.
+    //       3. Push search commands per the Search* flags. Mirrors TV's combined-flags shortcut: if BOTH
+    //          SearchForMissingChapters && SearchForCutoffUnmetChapters are set, push ONE bulk
+    //          MangaSearchCommand (whole-manga search, monitored-chapter-only filter) — TV equivalent
+    //          of SeriesSearchCommand. Otherwise push MissingChapterSearchCommand for the missing-only
+    //          flag, and fall back to MangaSearchCommand for the cutoff-unmet-only flag (no
+    //          CutoffUnmetChapterSearchCommand sibling exists in v1; closest semantic is the bulk
+    //          whole-manga MangaSearchCommand which Phase 5 quality specs will narrow at decision time).
+    //       4. Clear AddOptions and persist via UpdateManga(publishUpdatedEvent: false). TODO: Plan
+    //          03-12 introduces IMangaService.RemoveAddOptions sibling — swap to that when it lands.
+    //       5. Publish MangaAddCompletedEvent.
+    //
+    // Sonarr divergence: TV also handles SeriesScanSkippedEvent. The manga-side scan-skipped event
+    // does not yet exist (Plan 12-01 / disk-scan territory) — when it lands, add a second
+    // IHandle<MangaScanSkippedEvent> with the same HandleScanEvents body.
+    //
+    // DryIoc auto-discovers IHandle<> subscribers; no manual DI registration required.
+    public class MangaScannedHandler : IHandle<MangaScannedEvent>
+    {
+        private readonly IChapterMonitoredService _chapterMonitoredService;
+        private readonly IMangaService _mangaService;
+        private readonly IManageCommandQueue _commandQueueManager;
+        private readonly IChapterRefreshedService _chapterRefreshedService;
+        private readonly IEventAggregator _eventAggregator;
+
+        private readonly Logger _logger;
+
+        public MangaScannedHandler(IChapterMonitoredService chapterMonitoredService,
+                                   IMangaService mangaService,
+                                   IManageCommandQueue commandQueueManager,
+                                   IChapterRefreshedService chapterRefreshedService,
+                                   IEventAggregator eventAggregator,
+                                   Logger logger)
+        {
+            _chapterMonitoredService = chapterMonitoredService;
+            _mangaService = mangaService;
+            _commandQueueManager = commandQueueManager;
+            _chapterRefreshedService = chapterRefreshedService;
+            _eventAggregator = eventAggregator;
+            _logger = logger;
+        }
+
+        private void HandleScanEvents(Manga manga)
+        {
+            var addOptions = manga.AddOptions;
+
+            if (addOptions == null)
+            {
+                _chapterRefreshedService.Search(manga.Id);
+                return;
+            }
+
+            _logger.Info("[{0}] was recently added, performing post-add actions", manga.Title);
+            _chapterMonitoredService.SetChapterMonitoredStatus(manga, addOptions);
+
+            _chapterRefreshedService.Search(manga.Id);
+
+            // Mirrors TV SeriesScannedHandler combined-flags shortcut: when BOTH search flags are
+            // set, push ONE whole-manga MangaSearchCommand (which Phase 5 specs filter to monitored
+            // chapters only). Avoids duplicate-search overlap on the same chapter set.
+            if (addOptions.SearchForMissingChapters && addOptions.SearchForCutoffUnmetChapters)
+            {
+                _commandQueueManager.Push(new MangaSearchCommand(new List<int> { manga.Id }));
+            }
+            else
+            {
+                if (addOptions.SearchForMissingChapters)
+                {
+                    _commandQueueManager.Push(new MissingChapterSearchCommand(manga.Id));
+                }
+
+                if (addOptions.SearchForCutoffUnmetChapters)
+                {
+                    // No CutoffUnmetChapterSearchCommand sibling exists in v1 — closest semantic
+                    // is the bulk whole-manga MangaSearchCommand. Phase 5 cutoff specs narrow at
+                    // decision time. TODO: introduce CutoffUnmetChapterSearchCommand if Phase 6
+                    // wants finer-grained cutoff-only sweeps.
+                    _commandQueueManager.Push(new MangaSearchCommand(new List<int> { manga.Id }));
+                }
+            }
+
+            // TODO: Plan 03-12 introduces IMangaService.RemoveAddOptions sibling (mirrors
+            // Tv/ISeriesService.RemoveAddOptions). Until then, clear AddOptions inline and
+            // persist with publishUpdatedEvent: false to avoid an extra MangaUpdatedEvent
+            // round-trip during the post-add lifecycle.
+            manga.AddOptions = null;
+            _mangaService.UpdateManga(manga, publishUpdatedEvent: false);
+
+            _eventAggregator.PublishEvent(new MangaAddCompletedEvent(manga));
+        }
+
+        public void Handle(MangaScannedEvent message)
+        {
+            HandleScanEvents(message.Manga);
+        }
+    }
+}
