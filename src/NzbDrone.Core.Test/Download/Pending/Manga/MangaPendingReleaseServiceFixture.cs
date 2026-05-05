@@ -18,6 +18,7 @@ using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Profiles.CustomFormats;
@@ -108,6 +109,29 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
             Mocker.GetMock<IRemoteChapterAggregationService>()
                 .Setup(s => s.Augment(It.IsAny<RemoteChapter>()))
                 .Returns<RemoteChapter>(rc => rc);
+
+            // RC-B fix (debug session phase-09-10-pending-fixtures): without this default,
+            // IMangaParsingService.Map returns null for every row, leaving
+            // RemoteChapter.Chapters as an empty list. Every downstream method that filters
+            // by chapter intersection (GetPendingQueue dedup, RemoveGrabbed, OldestPendingRelease)
+            // then drops the row, breaking 6 tests at once. The default below synthesizes a
+            // RemoteChapter whose Chapters match the input ParsedChapterInfo's ChapterNumbers
+            // against the fixture's two test chapters.
+            Mocker.GetMock<IMangaParsingService>()
+                .Setup(p => p.Map(It.IsAny<ParsedChapterInfo>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<IList<NzbDrone.Core.Manga.Chapter>>()))
+                .Returns<ParsedChapterInfo, NzbDrone.Core.Manga.Manga, IList<NzbDrone.Core.Manga.Chapter>>((parsed, manga, _) =>
+                {
+                    var matchedChapters = (parsed?.ChapterNumbers ?? Array.Empty<decimal>())
+                        .Select(num => _chapters.FirstOrDefault(c => c.ChapterNumber == num))
+                        .Where(c => c != null)
+                        .ToList();
+                    return new RemoteChapter
+                    {
+                        Manga = manga,
+                        ParsedChapterInfo = parsed,
+                        Chapters = matchedChapters,
+                    };
+                });
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -186,14 +210,20 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
         {
             // MockSequence pins the call order — Insert MUST appear before PublishEvent.
             // Mirrors the recycle-FIRST proven pattern from Plan 09-07 UpgradeChapterFileServiceFixture.
+            //
+            // RC-A fix (debug session phase-09-10-pending-fixtures): drop MockBehavior.Strict
+            // requests. AutoMoqer pre-creates a default-behavior mock for IMangaPendingReleaseRepository
+            // in SetUp() (see line ~77 above), and AutoMoqer.GetMock<T>(Strict) throws when
+            // the existing mock has default behavior. MockSequence enforces ordering on
+            // loose mocks just as effectively (sequence violations throw at .Verify time).
             var sequence = new MockSequence();
 
-            Mocker.GetMock<IMangaPendingReleaseRepository>(MockBehavior.Strict)
+            Mocker.GetMock<IMangaPendingReleaseRepository>()
                 .InSequence(sequence)
                 .Setup(r => r.Insert(It.IsAny<MangaPendingRelease>()))
                 .Returns<MangaPendingRelease>(p => p);
 
-            Mocker.GetMock<IEventAggregator>(MockBehavior.Strict)
+            Mocker.GetMock<IEventAggregator>()
                 .InSequence(sequence)
                 .Setup(a => a.PublishEvent(It.IsAny<MangaPendingReleasesUpdatedEvent>()));
 
@@ -232,15 +262,20 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
             Mocker.GetMock<IEventAggregator>().Invocations.Clear();
 
             // Sequence: Delete must precede MangaPendingReleasesUpdatedEvent publish.
+            //
+            // RC-A fix (debug session phase-09-10-pending-fixtures): drop MockBehavior.Strict
+            // for the same reason as Add_should_insert_into_repository... — the mock already
+            // exists with default behavior from SetUp() and the .Reset() above does NOT
+            // change its Behavior field (Reset() only clears setups + invocations).
             var sequence = new MockSequence();
             Mocker.GetMock<IMangaPendingReleaseRepository>().Reset();
             Mocker.GetMock<IMangaPendingReleaseRepository>().Setup(r => r.All()).Returns(new List<MangaPendingRelease> { row });
             Mocker.GetMock<IMangaPendingReleaseRepository>().Setup(r => r.AllByMangaId(_manga.Id)).Returns(new List<MangaPendingRelease> { row });
 
-            Mocker.GetMock<IMangaPendingReleaseRepository>(MockBehavior.Strict)
+            Mocker.GetMock<IMangaPendingReleaseRepository>()
                 .InSequence(sequence)
                 .Setup(r => r.Delete(row));
-            Mocker.GetMock<IEventAggregator>(MockBehavior.Strict)
+            Mocker.GetMock<IEventAggregator>()
                 .InSequence(sequence)
                 .Setup(a => a.PublishEvent(It.IsAny<MangaPendingReleasesUpdatedEvent>()));
 

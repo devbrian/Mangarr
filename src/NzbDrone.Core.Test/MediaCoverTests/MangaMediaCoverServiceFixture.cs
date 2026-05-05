@@ -12,6 +12,7 @@ using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaCover;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.MediaCoverTests
 {
@@ -100,6 +101,11 @@ namespace NzbDrone.Core.Test.MediaCoverTests
 
             Mocker.GetMock<IEventAggregator>()
                 .Verify(e => e.PublishEvent(It.IsAny<MangaCoversUpdatedEvent>()), Times.Never);
+
+            // Production deliberately Warn-logs the swallowed IOException at MangaMediaCoverService.cs:177
+            // before returning early. Declare the expected Warn so TestBase.AssertNoUnexpectedLogs
+            // (which calls ExpectedWarns(0) in TearDown) does not fail this test.
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
