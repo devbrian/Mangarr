@@ -25,7 +25,6 @@ namespace NzbDrone.Core.Manga
     // frontend/src/Manga/Manga.ts as the union 'all' | 'future' | 'missing' | 'latest' | 'none'.
     public enum MangaMonitor
     {
-        Unknown,
         All,
         Future,
         Missing,
