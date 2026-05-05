@@ -225,7 +225,26 @@ namespace NzbDrone.Core.Manga
             var primarySourceId = ResolveSourceIdForPrimary(newManga, primary);
             var primaryTuple = primary.GetMangaInfo(primarySourceId);
             var primaryManga = primaryTuple.Item1;
+
+            // Phase 8 cluster-03 cascade: TV's pattern is `series.ApplyChanges(newSeries)`
+            // (metadata ← user). Manga's call direction is reversed (newManga ← primaryManga),
+            // so since Plan 03-05 expanded ApplyChanges to copy user-owned fields
+            // (RootFolderPath, Path, Tags, Monitored, AddOptions) per audit gap-02, those user
+            // inputs would now get clobbered by the metadata's nulls. Save user inputs across
+            // the call. Phase 9 should restructure PrepareForAdd to use TV's call ordering.
+            var userRootFolderPath = newManga.RootFolderPath;
+            var userPath = newManga.Path;
+            var userTags = newManga.Tags;
+            var userMonitored = newManga.Monitored;
+            var userAddOptions = newManga.AddOptions;
+
             newManga.ApplyChanges(primaryManga);
+
+            newManga.RootFolderPath = userRootFolderPath ?? newManga.RootFolderPath;
+            newManga.Path = userPath ?? newManga.Path;
+            newManga.Tags = userTags ?? newManga.Tags;
+            newManga.Monitored = userMonitored;
+            newManga.AddOptions = userAddOptions ?? newManga.AddOptions;
 
             // Carry over the primary IDs returned by GetMangaInfo (incl. any links extracted by
             // MapManga, e.g. MangaDex links.al/mal).
