@@ -24,6 +24,12 @@ namespace NzbDrone.Core.Manga
         // ChapterFileId IS NULL regardless of parent manga state.
         List<Chapter> AllMissingMonitoredChapters();
 
+        // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-11) — sibling of TV's
+        // `IEpisodeService.EpisodesWithFiles(int seriesId)`. Inverse of the Missing feed: returns
+        // chapters for a manga that DO have a ChapterFile imported. Used by Phase 6 file-rename
+        // pipeline, housekeeping, and bulk operations.
+        List<Chapter> ChaptersWithFiles(int mangaId);
+
         // Plan 06-09 (Rule 3) — paged variant for the V5 Wanted/Missing controller. Sibling of
         // TV's `IEpisodeService.EpisodesWithoutFiles(PagingSpec, bool includeSpecials)`. The
         // monitored filter is APPLIED INSIDE the paging spec by the controller (so callers can

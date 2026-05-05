@@ -31,6 +31,13 @@ namespace NzbDrone.Core.Manga
         // during import/move pipelines (Phase 4 archiver territory).
         List<Chapter> GetChapterByFileId(int fileId);
 
+        // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-11) — sibling of TV's
+        // `IEpisodeRepository.EpisodesWithFiles(int seriesId)`. Returns chapter rows that DO have
+        // a ChapterFile imported, scoped to a single manga. Manga's `ChapterFileId` is nullable
+        // (vs. TV's int sentinel `0`), so the predicate compares via `!= null`. Used by Phase 6
+        // file-rename pipeline, housekeeping, and bulk operations.
+        List<Chapter> ChaptersWithFiles(int mangaId);
+
         // Phase 6 D-09 — monitored chapter rows with no ChapterFile imported (Wanted/Missing feed).
         List<Chapter> AllMissingMonitoredChapters();
 

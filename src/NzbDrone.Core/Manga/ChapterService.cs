@@ -61,6 +61,13 @@ namespace NzbDrone.Core.Manga
             return _chapterRepository.AllMissingMonitoredChapters();
         }
 
+        public List<Chapter> ChaptersWithFiles(int mangaId)
+        {
+            // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-11) — pass-through.
+            // Mirrors TV's EpisodeService.EpisodesWithFiles (Tv/EpisodeService.cs:156-159).
+            return _chapterRepository.ChaptersWithFiles(mangaId);
+        }
+
         public PagingSpec<Chapter> ChaptersWithoutFiles(PagingSpec<Chapter> pagingSpec)
         {
             // Plan 06-09 — pass-through. The repository pre-pends a `ChapterFileId IS NULL`

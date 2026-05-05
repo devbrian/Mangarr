@@ -54,6 +54,16 @@ namespace NzbDrone.Core.Manga
             return Query(c => c.ChapterFileId == fileId).ToList();
         }
 
+        public List<Chapter> ChaptersWithFiles(int mangaId)
+        {
+            // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-11). Mirrors TV's
+            // EpisodeRepository.EpisodesWithFiles (line 95-...). V1 simplification: no JOIN to
+            // ChapterFile table — manga's ChapterFileId is nullable, so the `!= null` predicate
+            // alone narrows to imported rows. Consumers that need the file row can hydrate via
+            // ChapterFile lazy-load or a separate IChapterFileService lookup.
+            return Query(c => c.MangaId == mangaId && c.ChapterFileId != null).ToList();
+        }
+
         public List<Chapter> AllMissingMonitoredChapters()
         {
             // Monitored chapter rows with no ChapterFile imported yet.
