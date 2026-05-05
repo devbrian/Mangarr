@@ -55,14 +55,17 @@ namespace NzbDrone.Core.Manga
             return newManga;
         }
 
+        // Phase 8 audit gap-10 (SeriesService-vs-MangaService.md): bulk-add publishes
+        // ONE MangaImportedEvent carrying all newly-added ids — mirrors Tv/SeriesService
+        // .AddSeries(List<Series>) at line 81-87. Replaces the prior N-event-per-add
+        // loop (one MangaAddedEvent per manga) which fanned out N RefreshMangaCommand
+        // pushes; MangaAddedHandler.Handle(MangaImportedEvent) now batches them into
+        // one PushMany. Single-add path (AddManga(Manga) above) keeps publishing
+        // MangaAddedEvent for backwards compat with existing single-item consumers.
         public List<Manga> AddManga(List<Manga> newManga)
         {
             _mangaRepository.InsertMany(newManga);
-
-            foreach (var manga in newManga)
-            {
-                _eventAggregator.PublishEvent(new MangaAddedEvent(GetManga(manga.Id)));
-            }
+            _eventAggregator.PublishEvent(new MangaImportedEvent(newManga.Select(m => m.Id).ToList()));
 
             return newManga;
         }
