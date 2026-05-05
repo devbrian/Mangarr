@@ -369,16 +369,18 @@ namespace NzbDrone.Core.Test.MangaPipeline
                                          "Pitfall 7: providers with SupportsOnChapterImport=false MUST NOT be in OnChapterImportEnabled()");
         }
 
-        // ── Test 4: 13-spec auto-discovery contract (Pitfall 6) ──
+        // ── Test 4: 14-spec auto-discovery contract (Pitfall 6) ──
         // F-01 + Pitfall 6 mitigation per VALIDATION.md Wave 0: assert the FULL spec set
         // implements IMangaDecisionEngineSpecification and is reachable from the production
         // assembly. Phase 5 D-06 shipped 11 specs; Phase 8 cluster-02 added a 12th
         // (DeletedChapterFileSpecification per audit/no-sibling/DeletedEpisodeFileSpecification.md);
         // Phase 8 cluster 06-03 added a 13th (MangaSpecification per
-        // audit/no-sibling/SeriesSpecification.md).
+        // audit/no-sibling/SeriesSpecification.md); Phase 8 cluster 06-04 added a 14th
+        // (SingleChapterSearchMatchSpecification per
+        // audit/no-sibling/SingleEpisodeSearchMatchSpecification.md).
         [Test]
         [Category("F-01-BLOCKING")]
-        public void Phase8_13_spec_count_still_passes()
+        public void Phase8_14_spec_count_still_passes()
         {
             var coreAssembly = typeof(IMangaDecisionEngineSpecification).Assembly;
             var specTypes = coreAssembly
@@ -388,12 +390,13 @@ namespace NzbDrone.Core.Test.MangaPipeline
                             && typeof(IMangaDecisionEngineSpecification).IsAssignableFrom(t))
                 .ToList();
 
-            specTypes.Count.Should().Be(13,
+            specTypes.Count.Should().Be(14,
                 "Phase 5 shipped 11 manga specs; Phase 8 cluster-02 added DeletedChapterFileSpecification "
                 + "(audit/no-sibling/DeletedEpisodeFileSpecification); Phase 8 cluster 06-03 added "
-                + "MangaSpecification (audit/no-sibling/SeriesSpecification). The 13-spec auto-discovery "
-                + "contract (Pitfall 6) MUST hold or the F-01 round-trip's decision pass drops a "
-                + "spec at runtime.");
+                + "MangaSpecification (audit/no-sibling/SeriesSpecification); Phase 8 cluster 06-04 added "
+                + "SingleChapterSearchMatchSpecification (audit/no-sibling/SingleEpisodeSearchMatchSpecification). "
+                + "The 14-spec auto-discovery contract (Pitfall 6) MUST hold or the F-01 round-trip's "
+                + "decision pass drops a spec at runtime.");
 
             // WR-05 defensive cross-check (mirrors Phase 5 fixture lines 264-271): no spec
             // must implement BOTH the manga and TV decision-engine interfaces. Cross-tagged
