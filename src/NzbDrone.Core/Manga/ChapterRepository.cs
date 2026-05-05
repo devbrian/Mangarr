@@ -38,6 +38,14 @@ namespace NzbDrone.Core.Manga
             return Query(c => c.MangaId == mangaId && c.IsSynthetic).ToList();
         }
 
+        public List<Chapter> GetChapterByFileId(int fileId)
+        {
+            // Phase 8 audit (EpisodeRepository-vs-ChapterRepository.md gap-02). Mirrors TV's
+            // EpisodeRepository.GetEpisodeByFileId (line 90-93). Manga's ChapterFileId is
+            // nullable, so the equality predicate matches via Nullable<int>.Value semantics.
+            return Query(c => c.ChapterFileId == fileId).ToList();
+        }
+
         public List<Chapter> AllMissingMonitoredChapters()
         {
             // Monitored chapter rows with no ChapterFile imported yet.

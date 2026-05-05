@@ -17,6 +17,14 @@ namespace NzbDrone.Core.Manga
         List<Chapter> GetByMangaId(int mangaId);
         List<Chapter> GetSyntheticByMangaId(int mangaId);
 
+        // Phase 8 audit (EpisodeRepository-vs-ChapterRepository.md gap-02) — sibling of TV's
+        // `IEpisodeRepository.GetEpisodeByFileId(int fileId)`. Returns all chapters that reference a
+        // specific ChapterFile.Id. Manga's `ChapterFileId` is nullable (vs. TV's int sentinel `0`),
+        // so the predicate compares against the int value via the Nullable HasValue path. List
+        // shape mirrors TV — multiple chapter rows can theoretically reference the same file
+        // during import/move pipelines (Phase 4 archiver territory).
+        List<Chapter> GetChapterByFileId(int fileId);
+
         // Phase 6 D-09 — monitored chapter rows with no ChapterFile imported (Wanted/Missing feed).
         List<Chapter> AllMissingMonitoredChapters();
 
