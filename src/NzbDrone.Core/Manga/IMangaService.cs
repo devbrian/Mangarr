@@ -31,6 +31,7 @@ namespace NzbDrone.Core.Manga
         List<int> AllMalIds();
         List<int> AllAniListIds();
         Dictionary<int, string> GetAllMangaPaths();
+        Dictionary<int, List<int>> GetAllMangaTags();
         Manga UpdateManga(Manga manga, bool publishUpdatedEvent = true);
         bool MangaPathExists(string folder);
         void RemoveAddOptions(Manga manga);

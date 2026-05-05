@@ -162,6 +162,15 @@ namespace NzbDrone.Core.Manga
             return _mangaRepository.AllMangaPaths();
         }
 
+        // Phase 8 audit gap-05 (SeriesService-vs-MangaService.md): mirrors TV's
+        // SeriesService.GetAllSeriesTags (Tv/SeriesService.cs:185). Returns mangaId →
+        // tag list for bulk tag operations / housekeeping cleanup. Wraps
+        // IMangaRepository.AllMangaTags.
+        public Dictionary<int, List<int>> GetAllMangaTags()
+        {
+            return _mangaRepository.AllMangaTags();
+        }
+
         // BL-09 fix: refuse to publish update events for a no-op update (manga
         // does not exist). Dapper's UPDATE ... WHERE Id silently no-ops on missing
         // rows, then SignalR would broadcast a phantom event the UI then refetches
