@@ -113,6 +113,15 @@ namespace NzbDrone.Core.Manga
             newManga.SortTitle = newManga.CleanTitle;
             newManga.Added = DateTime.UtcNow;
 
+            // Phase 8 audit gap-05 (AddSeriesService-vs-AddMangaService.md): mirror
+            // Tv/AddSeriesService.cs:154-157 — when the user explicitly chose Monitor=None
+            // on the Add Manga dialog, force Monitored=false so the post-add chapter monitor
+            // cascade respects the choice.
+            if (newManga.AddOptions != null && newManga.AddOptions.Monitor == MangaMonitor.None)
+            {
+                newManga.Monitored = false;
+            }
+
             // 5. Persist + publish (MangaService.AddManga publishes MangaAddedEvent).
             var added = _mangaService.AddManga(newManga);
 
