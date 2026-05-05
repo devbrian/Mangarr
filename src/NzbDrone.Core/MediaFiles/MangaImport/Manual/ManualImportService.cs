@@ -6,6 +6,7 @@ using NLog;
 using NzbDrone.Common.Disk;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Common.Instrumentation.Extensions;
+using NzbDrone.Core.Download.Clients.InProcess;   // IChapterDownloadStateRepository — Plan 09-14 fast-path
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Parser.Manga;
@@ -29,10 +30,16 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
     // Manga divergences from TV:
     //   * No IAggregationService (manga has no scene-numbering / episode-aggregation per
     //     MangaImportDecisionMaker's Phase 6 simplification).
-    //   * No ITrackedDownloadService dependency yet — Phase 4 manga lifecycle owns the
-    //     tracked-download-to-LocalChapter mapping (Plan 06-08); this service consumes the
-    //     resolved LocalChapter only. TODO Phase 8 follow-up: wire IMangaTrackedDownloadService
-    //     analog when it ships so the downloadId path matches TV behavior.
+    //   * No IMangaTrackedDownloadService analog (heavier sibling service deferred — see
+    //     v1.1 follow-up below). Phase 9 Plan 09-14 closes the downloadId fast-path TODO via
+    //     OPTION A (audit gap-06 close-out): wire IChapterDownloadStateRepository directly
+    //     into the ctor so GetMediaFiles can back-resolve the original Manga + StagingPath
+    //     when the caller supplies a non-null downloadId. The fast-path mirrors TV's
+    //     ITrackedDownloadService.Find shape semantically (silent no-op when stale) but uses
+    //     the lighter Phase 4 state-row lookup instead of introducing a new sibling service.
+    //     v1.1 follow-up (NOT Plan 09-14): introduce IMangaTrackedDownloadService analog if
+    //     multi-consumer pattern emerges (per audit gap-06 OPTION B notes — currently
+    //     IChapterDownloadStateRepository covers all in-scope consumers).
     //   * No IDiskScanService manga peer in v1 — uses raw IDiskProvider + the manga
     //     archive-extension allowlist (mirrors MangaTitleNormalizer's allowlist convention).
     //     TODO Phase 8 follow-up: replace with IMangaDiskScanService when that ships.
@@ -61,6 +68,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
         private readonly IChapterService _chapterService;
         private readonly IMakeMangaImportDecision _importDecisionMaker;
         private readonly IImportApprovedChapters _importApprovedChapters;
+        private readonly IChapterDownloadStateRepository _chapterDownloadStateRepository;   // NEW per Plan 09-14 (audit gap-06)
         private readonly Logger _logger;
 
         public ManualImportService(IDiskProvider diskProvider,
@@ -69,6 +77,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
                                    IChapterService chapterService,
                                    IMakeMangaImportDecision importDecisionMaker,
                                    IImportApprovedChapters importApprovedChapters,
+                                   IChapterDownloadStateRepository chapterDownloadStateRepository,   // NEW Plan 09-14
                                    Logger logger)
         {
             _diskProvider = diskProvider;
@@ -77,16 +86,49 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
             _chapterService = chapterService;
             _importDecisionMaker = importDecisionMaker;
             _importApprovedChapters = importApprovedChapters;
+            _chapterDownloadStateRepository = chapterDownloadStateRepository;   // NEW Plan 09-14
             _logger = logger;
         }
 
         public List<ManualImportItem> GetMediaFiles(string folder, string downloadId, int? mangaId, bool filterExistingFiles)
         {
             // Sibling of TV ManualImportService.GetMediaFiles(string path, ...). Manga
-            // simplification: no tracked-download fast-path yet (Phase 4 lifecycle owns
-            // that boundary — TODO Phase 8 follow-up) and no rooted-on-Manga.Path overload
-            // (the Manga aggregate replacement for that lives in IChapterFileService.GetFilesByManga
-            // when the V5 InteractiveImport controller ships).
+            // simplification: no rooted-on-Manga.Path overload (the Manga aggregate
+            // replacement for that lives in IChapterFileService.GetFilesByManga when the
+            // V5 InteractiveImport controller ships). The downloadId fast-path below
+            // (Plan 09-14) closes the previously-deferred TV TrackedDownload-equivalent.
+
+            // Phase 9 Plan 09-14 (sub-wave A 09-05 audit gap-06 close-out): downloadId fast-path.
+            // When caller supplies a non-null downloadId from the InteractiveImport modal post-grab
+            // reconciliation flow, back-resolve the original Manga + StagingPath via the Phase 4
+            // ChapterDownloadState row. Mirrors TV ITrackedDownloadService.Find(downloadId) shape
+            // semantically (silent no-op when stale). Stale downloadId or null state row → fall
+            // through to the existing folder-fallback chain below (NOT an error path).
+            if (downloadId.IsNotNullOrWhiteSpace())
+            {
+                var stateRow = _chapterDownloadStateRepository.FindByDownloadId(downloadId);
+                if (stateRow != null)
+                {
+                    // Override folder with the tracked-download's StagingPath when present
+                    // (StagingPath is the manga-side equivalent of TV's ImportItem.OutputPath —
+                    // see ChapterDownloadState.StagingPath: "OutputPath after Status=Completed (D-11)").
+                    if (stateRow.StagingPath.IsNotNullOrWhiteSpace())
+                    {
+                        folder = stateRow.StagingPath;
+                    }
+
+                    // Seed mangaId from the tracked download ONLY if caller didn't supply one.
+                    // Caller's mangaId wins over stateRow.MangaId — the InteractiveImport modal
+                    // user-pick path is an intentional manual override (the user picked a
+                    // different Manga than what the download client grabbed for).
+                    if (!mangaId.HasValue)
+                    {
+                        mangaId = stateRow.MangaId;
+                    }
+                }
+
+                // stateRow == null → silent fast-path skip; fall through to folder-fallback.
+            }
 
             if (folder.IsNullOrWhiteSpace())
             {
