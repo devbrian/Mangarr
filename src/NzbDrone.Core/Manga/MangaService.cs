@@ -94,6 +94,33 @@ namespace NzbDrone.Core.Manga
             return _mangaRepository.FindByTitle(MangaTitleNormalizer.Normalize(title), year);
         }
 
+        // Phase 8 audit gap-03 (SeriesService-vs-MangaService.md): service-level wrapper
+        // for the parser's fuzzy substring fallback path. Mirrors the SHAPE of TV's
+        // SeriesService.FindByTitleInexact (Tv/SeriesService.cs:109-151) but returns
+        // the full candidate list (not the leftmost-longest single pick) — manga
+        // signature diverges to give callers (parser fallback, future disambiguation
+        // UI) all matches so they can apply domain-aware selection (PublicationYear /
+        // PrimaryAuthor confirms per D-21). Normalizes the input title via
+        // MangaTitleNormalizer (D-05's single source of truth) before delegating to
+        // IMangaRepository.FindByTitleInexact. Empty / null / whitespace input yields
+        // an empty list (the repository BL-02 guard returns empty on missing input).
+        public List<Manga> FindByTitleInexact(string title)
+        {
+            var cleanTitle = MangaTitleNormalizer.Normalize(title);
+            var list = _mangaRepository.FindByTitleInexact(cleanTitle);
+
+            if (list.Count > 1)
+            {
+                _logger.Debug("Multiple manga matched substring of title {0}", title);
+                foreach (var entry in list)
+                {
+                    _logger.Debug("Multiple manga match candidate: {0} cleantitle: {1}", entry.Title, entry.CleanTitle);
+                }
+            }
+
+            return list;
+        }
+
         public Manga FindByPath(string path)
         {
             return _mangaRepository.FindByPath(path);
