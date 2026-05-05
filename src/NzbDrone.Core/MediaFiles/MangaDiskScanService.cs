@@ -27,7 +27,7 @@ namespace NzbDrone.Core.MediaFiles
     //
     // IExecute<RescanMangaCommand> + filesystem walk over Manga.Path (.cbz/.cbr/.zip/.cb7
     // per MangaFileExtensions). Calls MangaFileTableCleanupService at end (D-09-03 #1 lock).
-    // OMITS IUpdateMediaInfo per D-09-04 (UpdateChapterInfoService deferred to v1.1).
+    // OMITS the media-info updater dep per D-09-04 (UpdateChapterInfoService deferred to v1.1).
     //
     // Manga divergence vs TV DiskScanService:
     //   * IMakeMangaImportDecision.GetImportDecisions takes List<LocalChapter>, not List<string>
@@ -37,7 +37,7 @@ namespace NzbDrone.Core.MediaFiles
     //     MangaParser.ParseChapterTitle before calling the decision maker.
     //   * No SeriesScanSkippedEvent manga sibling — log + return when root-folder is missing
     //     (per RESEARCH note: skip-event has no manga peer in v1).
-    //   * No update-existing-files-with-different-size loop (TV uses _updateMediaInfoService
+    //   * No update-existing-files-with-different-size loop (TV uses the media-info updater
     //     for the post-scan re-probe path; manga drops this per D-09-04).
     //   * No GetNonVideoFiles / extra-file scan (manga has no Extras/ subtree per
     //     gap_deferred — see CONTEXT D-09-14).
