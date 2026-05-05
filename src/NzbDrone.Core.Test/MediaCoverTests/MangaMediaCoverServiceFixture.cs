@@ -61,8 +61,10 @@ namespace NzbDrone.Core.Test.MediaCoverTests
             Subject.HandleAsync(new MangaUpdatedEvent(_manga));
 
             Mocker.GetMock<IEventAggregator>()
-                .Verify(e => e.PublishEvent(It.Is<MangaCoversUpdatedEvent>(
-                    evt => evt.Manga.Id == _manga.Id && evt.Updated == true)), Times.Once);
+                .Verify(
+                    e => e.PublishEvent(It.Is<MangaCoversUpdatedEvent>(
+                        evt => evt.Manga.Id == _manga.Id && evt.Updated == true)),
+                    Times.Once);
         }
 
         [Test]
@@ -75,8 +77,10 @@ namespace NzbDrone.Core.Test.MediaCoverTests
             Subject.HandleAsync(new MangaUpdatedEvent(_manga));
 
             Mocker.GetMock<IEventAggregator>()
-                .Verify(e => e.PublishEvent(It.Is<MangaCoversUpdatedEvent>(
-                    evt => evt.Manga.Id == _manga.Id && evt.Updated == false)), Times.Once);
+                .Verify(
+                    e => e.PublishEvent(It.Is<MangaCoversUpdatedEvent>(
+                        evt => evt.Manga.Id == _manga.Id && evt.Updated == false)),
+                    Times.Once);
         }
 
         [Test]

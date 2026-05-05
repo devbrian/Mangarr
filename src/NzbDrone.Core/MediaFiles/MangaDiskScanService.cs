@@ -104,6 +104,7 @@ namespace NzbDrone.Core.MediaFiles
                 if (!_diskProvider.FolderExists(rootFolder))
                 {
                     _logger.Warn("Manga's root folder ({0}) doesn't exist.", rootFolder);
+
                     // No MangaScanSkippedEvent sibling — log and return.
                     return;
                 }
@@ -111,6 +112,7 @@ namespace NzbDrone.Core.MediaFiles
                 if (_diskProvider.FolderEmpty(rootFolder))
                 {
                     _logger.Warn("Manga's root folder ({0}) is empty.", rootFolder);
+
                     // No MangaScanSkippedEvent sibling — log and return.
                     return;
                 }
@@ -220,6 +222,7 @@ namespace NzbDrone.Core.MediaFiles
         private void CompletedScanning(Manga manga)
         {
             _logger.Info("Completed scanning manga: {0}", manga.Title);
+
             // Pitfall 4 — event publish is the LAST line of the scan flow.
             _eventAggregator.PublishEvent(new MangaScannedEvent(manga, new List<string>()));
         }

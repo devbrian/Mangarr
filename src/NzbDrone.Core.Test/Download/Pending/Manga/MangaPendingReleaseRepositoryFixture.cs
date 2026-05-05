@@ -40,6 +40,7 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
                     Guid = $"guid-{mangaId}",
                     DownloadUrl = "https://example.invalid/release",
                 },
+
                 // RemoteChapter is intentionally NOT set — verifies it round-trips as null
                 // because it is registered with .Ignore(...) in TableMapping.cs.
             };

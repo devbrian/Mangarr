@@ -12,8 +12,8 @@ using NzbDrone.Core.DecisionEngine.Manga;
 using NzbDrone.Core.DecisionEngine.Manga.Aggregators;
 using NzbDrone.Core.Download.Pending;
 using NzbDrone.Core.Download.Pending.Manga;
-using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.Indexers;
+using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
@@ -147,7 +147,7 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
 
             return new MangaDownloadDecision(
                 remoteChapter,
-                new DownloadRejection(RejectionType.Permanent, "rejected for test"));
+                new DownloadRejection(DownloadRejectionReason.Unknown, "rejected for test", RejectionType.Permanent));
         }
 
         private MangaPendingRelease BuildPendingRow(NzbDrone.Core.Manga.Chapter chapter, PendingReleaseReason reason = PendingReleaseReason.Delay, int id = 0)
@@ -489,6 +489,7 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
             var oldest = Subject.OldestPendingRelease(_manga.Id, new[] { _chapters[0].Id });
 
             oldest.Should().NotBeNull();
+
             // The older row (greater AgeHours) should be returned via MaxBy(AgeHours).
             oldest.Release.PublishDate.Should().Be(older.Release.PublishDate);
         }

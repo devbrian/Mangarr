@@ -190,9 +190,11 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
             Subject.Execute(new MangaRssSyncCommand());
 
             Mocker.GetMock<IEventAggregator>()
-                .Verify(e => e.PublishEvent(It.Is<MangaRssSyncCompleteEvent>(
-                    evt => evt.ProcessedDecisions != null
-                           && ReferenceEquals(evt.ProcessedDecisions, decisions))), Times.Once);
+                .Verify(
+                    e => e.PublishEvent(It.Is<MangaRssSyncCompleteEvent>(
+                        evt => evt.ProcessedDecisions != null
+                               && ReferenceEquals(evt.ProcessedDecisions, decisions))),
+                    Times.Once);
         }
 
         [Test]
@@ -225,11 +227,13 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
             Subject.Execute(new MangaRssSyncCommand());
 
             Mocker.GetMock<IIndexerFactory>()
-                .Verify(f => f.Update(It.Is<IndexerDefinition>(
-                    d => d.Id == 1
-                         && d.LastRssSync.HasValue
-                         && d.LastRssSync.Value >= beforeRun
-                         && d.LastRssSync.Value <= DateTime.UtcNow.AddSeconds(1))), Times.Once);
+                .Verify(
+                    f => f.Update(It.Is<IndexerDefinition>(
+                        d => d.Id == 1
+                             && d.LastRssSync.HasValue
+                             && d.LastRssSync.Value >= beforeRun
+                             && d.LastRssSync.Value <= DateTime.UtcNow.AddSeconds(1))),
+                    Times.Once);
         }
 
         [Test]

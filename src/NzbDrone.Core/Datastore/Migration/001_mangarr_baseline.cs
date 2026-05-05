@@ -513,8 +513,10 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("ParsedChapterInfo").AsString().NotNullable()
                 .WithColumn("Release").AsString().NotNullable()
                 .WithColumn("Reason").AsInt32().NotNullable().WithDefaultValue(0);
+
                 // No AdditionalInfo column — TV's PendingReleaseAdditionalInfo holds SeriesMatchType +
                 // ReleaseSource; manga has no analog (per D-09-06 manga-shape). See PATTERNS §7 POCO note.
+
             // END Phase 9 INSERT
 
             Create.TableForModel("RemotePathMappings")
