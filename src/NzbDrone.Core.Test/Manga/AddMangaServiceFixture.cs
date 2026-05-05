@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using FluentAssertions;
+using FluentValidation.Results;
 using Moq;
 using NLog;
 using NUnit.Framework;
@@ -88,6 +89,13 @@ namespace NzbDrone.Core.Test.MangaTests
             Mocker.GetMock<IBuildMangaFileNames>()
                   .Setup(b => b.GetMangaFolder(It.IsAny<Manga.Manga>(), It.IsAny<NamingConfig>()))
                   .Returns("Test Manga");
+
+            // Phase 8 audit gap-04: AddMangaService now invokes IAddMangaValidator before
+            // persistence. Default to a passing ValidationResult so tests that don't care
+            // about validation don't NRE on the auto-mock's null return.
+            Mocker.GetMock<IAddMangaValidator>()
+                  .Setup(v => v.Validate(It.IsAny<Manga.Manga>()))
+                  .Returns(new ValidationResult());
         }
 
         [Test]

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using FluentValidation;
 using NLog;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
@@ -44,6 +45,7 @@ namespace NzbDrone.Core.Manga
         private readonly IChapterListService _chapterListService;
         private readonly IBuildMangaFileNames _fileNameBuilder;
         private readonly CrossSourceIdResolver _resolver;
+        private readonly IAddMangaValidator _addMangaValidator;
         private readonly Logger _logger;
 
         public AddMangaService(IMangaService mangaService,
@@ -51,6 +53,7 @@ namespace NzbDrone.Core.Manga
                                IChapterListService chapterListService,
                                IBuildMangaFileNames fileNameBuilder,
                                CrossSourceIdResolver resolver,
+                               IAddMangaValidator addMangaValidator,
                                Logger logger)
         {
             _mangaService = mangaService;
@@ -58,6 +61,7 @@ namespace NzbDrone.Core.Manga
             _chapterListService = chapterListService;
             _fileNameBuilder = fileNameBuilder;
             _resolver = resolver;
+            _addMangaValidator = addMangaValidator;
             _logger = logger;
         }
 
@@ -136,6 +140,18 @@ namespace NzbDrone.Core.Manga
             if (newManga.AddOptions != null && newManga.AddOptions.Monitor == MangaMonitor.None)
             {
                 newManga.Monitored = false;
+            }
+
+            // Phase 8 audit gap-04 (AddSeriesService-vs-AddMangaService.md): mirror
+            // Tv/AddSeriesService.cs:159-164 — run FluentValidation via IAddMangaValidator
+            // (RootFolderValidator + IsValidPath today; cluster-05 will add MangaPath/
+            // Ancestor/TitleSlug peers). Throws ValidationException on failure so the
+            // Add Manga UI surfaces a typed error instead of persisting bad input.
+            var validationResult = _addMangaValidator.Validate(newManga);
+
+            if (!validationResult.IsValid)
+            {
+                throw new ValidationException(validationResult.Errors);
             }
 
             // 5. Persist + publish (MangaService.AddManga publishes MangaAddedEvent).
