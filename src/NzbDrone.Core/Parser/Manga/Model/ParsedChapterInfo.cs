@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace NzbDrone.Core.Parser.Manga.Model
 {
@@ -32,5 +33,67 @@ namespace NzbDrone.Core.Parser.Manga.Model
         public string Title { get; set; }
         public string TranslatedLanguage { get; set; }
         public string ScanlationGroup { get; set; }
+
+        // Mirror of TV's ParsedEpisodeInfo.ToString (Parser/Model/ParsedEpisodeInfo.cs:117-150).
+        // Builds a human-readable label for logs / UI surfaces (queue, activity, status rows).
+        // Format: "{MangaTitle} - {chapter-portion} [{TranslatedLanguage}|{ScanlationGroup}]".
+        // Optional fields are skipped gracefully so log lines stay legible.
+        public override string ToString()
+        {
+            string chapterPortion;
+
+            switch (ChapterType)
+            {
+                case ChapterType.Oneshot:
+                    chapterPortion = "Oneshot";
+                    break;
+
+                default:
+                    if (ChapterNumbers != null && ChapterNumbers.Any())
+                    {
+                        var formatted = ChapterNumbers
+                            .Select(c => c.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))
+                            .ToArray();
+
+                        chapterPortion = formatted.Length > 1
+                            ? string.Format("Ch.{0}-{1}", formatted.First(), formatted.Last())
+                            : string.Format("Ch.{0}", formatted[0]);
+                    }
+                    else if (VolumeNumber.HasValue)
+                    {
+                        chapterPortion = string.Format("Vol.{0:00}", VolumeNumber.Value);
+                    }
+                    else
+                    {
+                        chapterPortion = "[Unknown Chapter]";
+                    }
+
+                    break;
+            }
+
+            // Tag block: "[lang|group]", with empty optional fields dropped.
+            var hasLang = !string.IsNullOrWhiteSpace(TranslatedLanguage);
+            var hasGroup = !string.IsNullOrWhiteSpace(ScanlationGroup);
+
+            string tag;
+            if (hasLang && hasGroup)
+            {
+                tag = string.Format(" [{0}|{1}]", TranslatedLanguage, ScanlationGroup);
+            }
+            else if (hasLang)
+            {
+                tag = string.Format(" [{0}]", TranslatedLanguage);
+            }
+            else if (hasGroup)
+            {
+                tag = string.Format(" [{0}]", ScanlationGroup);
+            }
+            else
+            {
+                tag = string.Empty;
+            }
+
+            return string.Format("{0} - {1}{2}", MangaTitle, chapterPortion, tag);
+        }
     }
 }
