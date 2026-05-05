@@ -54,5 +54,19 @@ namespace NzbDrone.Core.Download.Clients.InProcess
             // SQL DELETE WHERE pass; zero-row matches return without throwing.
             Delete(c => c.ChapterId == chapterId);
         }
+
+        // Phase 9 Plan 09-14 — sub-wave A 09-05 audit gap-06 close-out (downloadId fast-path
+        // for MangaImport.Manual.ManualImportService.GetMediaFiles). The string downloadId is the
+        // row Id rendered as "D" (decimal) — see InProcessImageDownloadClient.GetItems(). Silent
+        // null on non-numeric or stale input (caller falls through to folder-fallback chain).
+        public ChapterDownloadState FindByDownloadId(string downloadId)
+        {
+            if (!int.TryParse(downloadId, out var rowId))
+            {
+                return null;
+            }
+
+            return Find(rowId);
+        }
     }
 }
