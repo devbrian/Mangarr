@@ -8,8 +8,8 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Configuration.Events;
 using NzbDrone.Core.DecisionEngine.Manga;
 using NzbDrone.Core.DecisionEngine.Manga.Aggregators;
-using NzbDrone.Core.IndexerSearch.Manga;          // MangaRssSyncCompleteEvent (Plan 09-12) + MangaRssSyncCommand
 using NzbDrone.Core.Indexers;
+using NzbDrone.Core.IndexerSearch.Manga;          // MangaRssSyncCompleteEvent (Plan 09-12) + MangaRssSyncCommand
 using NzbDrone.Core.Jobs;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Manga.Events;
@@ -30,9 +30,9 @@ namespace NzbDrone.Core.Download.Pending.Manga
     // rather than the POCO type. The namespace-scoped alias below pins `Manga` to the
     // type for body code (decision.RemoteChapter.Manga.Id, message.Manga, etc.).
     // Pattern matches IChapterFileService.cs:5 (Phase 6 precedent — commit 6597c94c7).
-    using Manga = NzbDrone.Core.Manga.Manga;
     using Chapter = NzbDrone.Core.Manga.Chapter;
     using IMangaService = NzbDrone.Core.Manga.IMangaService;
+    using Manga = NzbDrone.Core.Manga.Manga;
 
     // Sonarr divergence: NEW manga sibling per Phase 9 D-09-06..08 — see DIVERGENCE.md.
     // Role-match analog: src/NzbDrone.Core/Download/Pending/PendingReleaseService.cs (701 lines).
@@ -375,6 +375,7 @@ namespace NzbDrone.Core.Download.Pending.Manga
                 Title = decision.RemoteChapter.Release.Title,
                 Added = DateTime.UtcNow,
                 Reason = reason,
+
                 // No AdditionalInfo — manga has no SeriesMatchType/ReleaseSource analog (D-09-06).
             });
 
