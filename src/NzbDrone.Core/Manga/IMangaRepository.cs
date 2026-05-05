@@ -25,5 +25,6 @@ namespace NzbDrone.Core.Manga
         List<int> AllMalIds();
         List<int> AllAniListIds();
         Dictionary<int, string> AllMangaPaths();
+        Dictionary<int, List<int>> AllMangaTags();
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Dapper;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Messaging.Events;
 
@@ -83,6 +84,15 @@ namespace NzbDrone.Core.Manga
         public Dictionary<int, string> AllMangaPaths()
         {
             return All().ToDictionary(m => m.Id, m => m.Path);
+        }
+
+        public Dictionary<int, List<int>> AllMangaTags()
+        {
+            using (var conn = _database.OpenConnection())
+            {
+                var strSql = "SELECT \"Id\" AS Key, \"Tags\" AS Value FROM \"Manga\" WHERE \"Tags\" IS NOT NULL";
+                return conn.Query<KeyValuePair<int, List<int>>>(strSql).ToDictionary(x => x.Key, x => x.Value);
+            }
         }
     }
 }
