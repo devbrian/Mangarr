@@ -109,6 +109,14 @@ namespace NzbDrone.Core.Manga
             return _mangaRepository.All().ToList();
         }
 
+        // Mirrors Tv/SeriesService.AllForTag (Tv/SeriesService.cs:195) verbatim.
+        // Closes Phase 8 audit gap-04: Settings/Tags UI manga-using-tag count + tag delete flow.
+        public List<Manga> AllForTag(int tagId)
+        {
+            return GetAllManga().Where(m => m.Tags.Contains(tagId))
+                                .ToList();
+        }
+
         public List<int> AllMangaIds()
         {
             return _mangaRepository.All().Select(m => m.Id).ToList();

@@ -24,6 +24,7 @@ namespace NzbDrone.Core.Manga
         Manga FindByPath(string path);
         void DeleteManga(List<int> mangaIds, bool deleteFiles);
         List<Manga> GetAllManga();
+        List<Manga> AllForTag(int tagId);
         List<int> AllMangaIds();
         Dictionary<int, string> GetAllMangaPaths();
         Manga UpdateManga(Manga manga, bool publishUpdatedEvent = true);
