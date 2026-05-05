@@ -72,6 +72,137 @@ namespace NzbDrone.Core.Manga
                 throw new ArgumentNullException(nameof(newManga));
             }
 
+            var primaryTuple = PrepareForAdd(newManga);
+            var primaryChapters = primaryTuple.Item2;
+
+            // 5. Persist + publish (MangaService.AddManga publishes MangaAddedEvent).
+            var added = _mangaService.AddManga(newManga);
+
+            // 6. Synthesize / sync chapters per D-17.
+            _chapterListService.SyncChapters(added, primaryChapters);
+
+            // 7. Initial RefreshMangaCommand (IsNewManga=true) is dispatched by
+            //    MangaAddedHandler via the published MangaAddedEvent (Phase 8 audit
+            //    gap-01 — Sonarr's SeriesAddedHandler pattern restored; no inline push).
+
+            return added;
+        }
+
+        // Phase 8 audit gap-01 (AddSeriesService-vs-AddMangaService.md): bulk add overload
+        // mirroring Tv/AddSeriesService.cs:57-112 (`AddSeries(List<Series>, bool ignoreErrors)`).
+        // Used by future ImportLists pipeline (v2 IMP-01..03) + bulk-add UI flow. Per-item
+        // runs the same metadata-fetch + cross-source-resolution + validation pipeline as
+        // the single-add path; dedups against existing manga (by MangaDex/MAL/AniList ID)
+        // and against the in-progress batch; tolerates ValidationException per item when
+        // ignoreErrors=true. Persists via the bulk IMangaService.AddManga(List<Manga>) so
+        // a single InsertMany roundtrip lands the batch — chapter-list synthesis is deferred
+        // to the per-item RefreshMangaCommand fired by MangaAddedHandler via MangaAddedEvent
+        // (the same path Sonarr's SeriesAddedHandler walks for TV).
+        //
+        // gap-02 (TitleSlug bulk dedup) is intentionally NOT implemented here — manga has
+        // no TitleSlug field yet (Series-vs-Manga audit gap-04 territory); this method
+        // becomes the obvious anchor for that check once TitleSlug ships.
+        public List<Manga> AddManga(List<Manga> newManga, bool ignoreErrors = false)
+        {
+            var added = DateTime.UtcNow;
+            var mangaToAdd = new List<Manga>();
+            var existingMangaDexIds = new HashSet<Guid>(_mangaService.GetAllManga()
+                .Where(m => m.MangaDexId.HasValue)
+                .Select(m => m.MangaDexId.Value));
+            var existingMalIds = new HashSet<int>(_mangaService.GetAllManga()
+                .Where(m => m.MalId.HasValue)
+                .Select(m => m.MalId.Value));
+            var existingAniListIds = new HashSet<int>(_mangaService.GetAllManga()
+                .Where(m => m.AniListId.HasValue)
+                .Select(m => m.AniListId.Value));
+
+            foreach (var m in newManga)
+            {
+                if (string.IsNullOrWhiteSpace(m.Path))
+                {
+                    _logger.Info("Adding Manga {0} Root Folder Path: [{1}]", m.Title, m.RootFolderPath);
+                }
+                else
+                {
+                    _logger.Info("Adding Manga {0} Path: [{1}]", m.Title, m.Path);
+                }
+
+                try
+                {
+                    PrepareForAdd(m);
+                    m.Added = added;
+
+                    // Mirror Tv/AddSeriesService.cs:79-89 — drop already-existing primary IDs
+                    // (TVDB on TV; any populated cross-source ID on manga). Includes both
+                    // the persisted-in-DB check AND the in-progress-batch dedup. The persisted
+                    // check is best-effort (the single-add path's per-ID Find* lookups in
+                    // PrepareForAdd already throw InvalidOperationException on collision); the
+                    // batch-dedup catches the multi-list-source case where two import-list
+                    // entries point at the same primary ID.
+                    if (m.MangaDexId.HasValue && existingMangaDexIds.Contains(m.MangaDexId.Value))
+                    {
+                        _logger.Debug("MangaDex ID {0} was not added — manga {1} already exists in database", m.MangaDexId, m.Title);
+                        continue;
+                    }
+
+                    if (m.MalId.HasValue && existingMalIds.Contains(m.MalId.Value))
+                    {
+                        _logger.Debug("MAL ID {0} was not added — manga {1} already exists in database", m.MalId, m.Title);
+                        continue;
+                    }
+
+                    if (m.AniListId.HasValue && existingAniListIds.Contains(m.AniListId.Value))
+                    {
+                        _logger.Debug("AniList ID {0} was not added — manga {1} already exists in database", m.AniListId, m.Title);
+                        continue;
+                    }
+
+                    if (m.MangaDexId.HasValue && mangaToAdd.Any(f => f.MangaDexId == m.MangaDexId))
+                    {
+                        _logger.Trace("MangaDex ID {0} was already added from another import list, not adding manga {1} again", m.MangaDexId, m.Title);
+                        continue;
+                    }
+
+                    if (m.MalId.HasValue && mangaToAdd.Any(f => f.MalId == m.MalId))
+                    {
+                        _logger.Trace("MAL ID {0} was already added from another import list, not adding manga {1} again", m.MalId, m.Title);
+                        continue;
+                    }
+
+                    if (m.AniListId.HasValue && mangaToAdd.Any(f => f.AniListId == m.AniListId))
+                    {
+                        _logger.Trace("AniList ID {0} was already added from another import list, not adding manga {1} again", m.AniListId, m.Title);
+                        continue;
+                    }
+
+                    mangaToAdd.Add(m);
+                }
+                catch (ValidationException ex)
+                {
+                    if (!ignoreErrors)
+                    {
+                        throw;
+                    }
+
+                    _logger.Debug("Manga {0} (MangaDex ID {1}, MAL {2}, AniList {3}) was not added due to validation failures. {4}",
+                        m.Title,
+                        m.MangaDexId,
+                        m.MalId,
+                        m.AniListId,
+                        ex.Message);
+                }
+            }
+
+            return _mangaService.AddManga(mangaToAdd);
+        }
+
+        // Extract of the single-add prep pipeline (steps 1-4 + path/AddOptions/validator)
+        // shared by AddManga(Manga) and the bulk AddManga(List<Manga>, bool) overload. Returns
+        // the (primaryManga, primaryChapters) tuple from the primary metadata fetch so
+        // single-add can hand the chapters to ChapterListService.SyncChapters; bulk path
+        // discards the chapter list (per-item refresh fires via MangaAddedHandler).
+        private Tuple<Manga, List<Chapter>> PrepareForAdd(Manga newManga)
+        {
             // 1. Reject duplicates by any populated cross-source ID.
             if (newManga.MangaDexId.HasValue && _mangaService.FindByMangaDexId(newManga.MangaDexId.Value) != null)
             {
@@ -94,7 +225,6 @@ namespace NzbDrone.Core.Manga
             var primarySourceId = ResolveSourceIdForPrimary(newManga, primary);
             var primaryTuple = primary.GetMangaInfo(primarySourceId);
             var primaryManga = primaryTuple.Item1;
-            var primaryChapters = primaryTuple.Item2;
             newManga.ApplyChanges(primaryManga);
 
             // Carry over the primary IDs returned by GetMangaInfo (incl. any links extracted by
@@ -154,17 +284,7 @@ namespace NzbDrone.Core.Manga
                 throw new ValidationException(validationResult.Errors);
             }
 
-            // 5. Persist + publish (MangaService.AddManga publishes MangaAddedEvent).
-            var added = _mangaService.AddManga(newManga);
-
-            // 6. Synthesize / sync chapters per D-17.
-            _chapterListService.SyncChapters(added, primaryChapters);
-
-            // 7. Initial RefreshMangaCommand (IsNewManga=true) is dispatched by
-            //    MangaAddedHandler via the published MangaAddedEvent (Phase 8 audit
-            //    gap-01 — Sonarr's SeriesAddedHandler pattern restored; no inline push).
-
-            return added;
+            return primaryTuple;
         }
 
         private static string ResolveSourceIdForPrimary(Manga manga, IProvideMangaInfo primary)
