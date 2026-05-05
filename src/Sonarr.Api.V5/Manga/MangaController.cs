@@ -25,7 +25,8 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     IHandle<MangaAddedEvent>,
     IHandle<MangaUpdatedEvent>,
     IHandle<MangaDeletedEvent>,
-    IHandle<ChapterListUpdatedEvent>
+    IHandle<ChapterListUpdatedEvent>,
+    IHandle<MangaCoversUpdatedEvent>     // NEW per Plan 09-13 (audit gap-03 SignalR consumer)
 {
     private readonly IMangaService _mangaService;
     private readonly IAddMangaService _addMangaService;
@@ -183,5 +184,19 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     public void Handle(ChapterListUpdatedEvent message)
     {
         BroadcastResourceChange(ModelAction.Updated, message.Manga.Id);
+    }
+
+    // Phase 9 Plan 09-13 (sub-wave A 09-04 audit gap-03 close-out): SignalR consumer for the
+    // new MangaCoversUpdatedEvent published by MangaMediaCoverService.HandleAsync(MangaUpdatedEvent).
+    // Mirrors SeriesController.cs:415-421 verbatim shape — only broadcasts when Updated == true
+    // (Pitfall 4 contract — the event was published AFTER disk writes completed, so the
+    // downstream re-fetch reads fresh thumbnail data from /MediaCover/manga/{id}/...).
+    [NonAction]
+    public void Handle(MangaCoversUpdatedEvent message)
+    {
+        if (message.Updated)
+        {
+            BroadcastResourceChange(ModelAction.Updated, message.Manga.Id);
+        }
     }
 }
