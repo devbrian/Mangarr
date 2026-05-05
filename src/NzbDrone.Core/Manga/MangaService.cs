@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NLog;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Organizer.Manga;
 using NzbDrone.Core.Parser.Manga;
 
 namespace NzbDrone.Core.Manga
@@ -17,14 +19,17 @@ namespace NzbDrone.Core.Manga
     {
         private readonly IMangaRepository _mangaRepository;
         private readonly IEventAggregator _eventAggregator;
+        private readonly IBuildMangaPaths _mangaPathBuilder;
         private readonly Logger _logger;
 
         public MangaService(IMangaRepository mangaRepository,
                             IEventAggregator eventAggregator,
+                            IBuildMangaPaths mangaPathBuilder,
                             Logger logger)
         {
             _mangaRepository = mangaRepository;
             _eventAggregator = eventAggregator;
+            _mangaPathBuilder = mangaPathBuilder;
             _logger = logger;
         }
 
@@ -235,6 +240,49 @@ namespace NzbDrone.Core.Manga
             }
 
             return updated;
+        }
+
+        // Phase 8 audit gap-01 (SeriesService-vs-MangaService.md): bulk-edit fan-out
+        // mirroring Tv/SeriesService.UpdateSeries(List<Series>, bool) at line 236-263.
+        // Per-item path rebuild via IBuildMangaPaths when RootFolderPath is set,
+        // single UpdateMany round-trip, single MangaBulkEditedEvent publish at the
+        // end. Intentionally diverges from the single-item UpdateManga in two ways:
+        //   1. No per-item Find existence guard — bulk callers (V5 MangaController
+        //      PUT /editor) pre-load via GetManga(IEnumerable<int>), so the rows
+        //      are guaranteed to exist; a per-item Find here would just double
+        //      the read traffic for the same answer.
+        //   2. Always publishes MangaBulkEditedEvent (no opt-out flag) — the bulk
+        //      path has only one consumer shape (post-edit fan-out: rename, move,
+        //      refresh) and there is no parity for the RefreshMangaService
+        //      "suppress all events" carve-out the single-item path needs.
+        // No IAutoTaggingService.UpdateTags call — auto-tagging is Phase 5+ territory
+        // per Manga/CLAUDE.md "Phase 2 Out-of-Phase 2" (matches the omission in the
+        // single-item UpdateManga at line 216-238).
+        public List<Manga> UpdateManga(List<Manga> manga, bool useExistingRelativeFolder)
+        {
+            _logger.Debug("Updating {0} manga", manga.Count);
+
+            foreach (var m in manga)
+            {
+                _logger.Trace("Updating: {0}", m.Title);
+
+                if (!m.RootFolderPath.IsNullOrWhiteSpace())
+                {
+                    m.Path = _mangaPathBuilder.BuildPath(m, useExistingRelativeFolder);
+
+                    _logger.Trace("Changing path for {0} to {1}", m.Title, m.Path);
+                }
+                else
+                {
+                    _logger.Trace("Not changing path for: {0}", m.Title);
+                }
+            }
+
+            _mangaRepository.UpdateMany(manga);
+            _logger.Debug("{0} manga updated", manga.Count);
+            _eventAggregator.PublishEvent(new MangaBulkEditedEvent(manga));
+
+            return manga;
         }
 
         public bool MangaPathExists(string folder)
