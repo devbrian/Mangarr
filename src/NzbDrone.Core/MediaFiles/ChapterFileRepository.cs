@@ -24,6 +24,20 @@ namespace NzbDrone.Core.MediaFiles
             return Query(c => c.MangaId == mangaId).ToList();
         }
 
+        // Phase 9 D-09-03 #3 + 09-01 audit gap-01: bulk get-by-multiple-parent-IDs.
+        // Mirrors MediaFileRepository.GetFilesBySeriesIds verbatim with manga substitution.
+        public List<ChapterFile> GetFilesByMangaIds(List<int> mangaIds)
+        {
+            return Query(c => mangaIds.Contains(c.MangaId)).ToList();
+        }
+
+        // Phase 9 D-09-03 #3 + 09-01 audit gap-05: relative-path collision detection.
+        // Mirrors MediaFileRepository.GetFilesWithRelativePath verbatim with manga substitution.
+        public List<ChapterFile> GetFilesWithRelativePath(int mangaId, string relativePath)
+        {
+            return Query(c => c.MangaId == mangaId && c.RelativePath == relativePath).ToList();
+        }
+
         public void DeleteForManga(int mangaId)
         {
             Delete(c => c.MangaId == mangaId);
