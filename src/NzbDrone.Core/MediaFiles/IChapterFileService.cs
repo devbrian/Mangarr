@@ -1,8 +1,9 @@
 using System.Collections.Generic;
-using NzbDrone.Core.Manga;
 
 namespace NzbDrone.Core.MediaFiles
 {
+    using Manga = NzbDrone.Core.Manga.Manga;
+
     // Sonarr divergence: NEW manga sibling per Phase 6 PIPELINE-04 — see DIVERGENCE.md.
     // Phase 9 D-09-03 #3 + 09-01 audit: added GetFilesByMangaIds (gap-01),
     // FilterExistingFiles instance overload (gap-02), and GetFilesWithRelativePath (gap-05)

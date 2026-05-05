@@ -3,13 +3,14 @@ using System.IO;
 using System.Linq;
 using NLog;
 using NzbDrone.Common;
-using NzbDrone.Core.Manga;
 using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.Messaging.Events;
 
 namespace NzbDrone.Core.MediaFiles
 {
+    using Manga = NzbDrone.Core.Manga.Manga;
+
     // Sonarr divergence: NEW manga sibling per Phase 6 PIPELINE-04 — see DIVERGENCE.md.
     // Role-match analog: MediaFileService. Phase 8 cleanup: collapse on Tv/ deletion.
     // Cascade delete on MangaDeletedEvent mirrors TV's IHandleAsync<SeriesDeletedEvent>.
