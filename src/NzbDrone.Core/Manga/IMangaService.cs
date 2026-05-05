@@ -21,6 +21,7 @@ namespace NzbDrone.Core.Manga
         Manga FindByMalId(int malId);
         Manga FindByAniListId(int aniListId);
         Manga FindByTitle(string title);
+        Manga FindByTitle(string title, int year);
         Manga FindByPath(string path);
         void DeleteManga(List<int> mangaIds, bool deleteFiles);
         List<Manga> GetAllManga();

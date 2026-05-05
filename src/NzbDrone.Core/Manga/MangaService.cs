@@ -5,6 +5,7 @@ using NLog;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Parser.Manga;
 
 namespace NzbDrone.Core.Manga
 {
@@ -79,6 +80,18 @@ namespace NzbDrone.Core.Manga
         public Manga FindByTitle(string title)
         {
             return _mangaRepository.FindByTitle(title);
+        }
+
+        // Phase 8 audit gap-02 (SeriesService-vs-MangaService.md): year-disambiguating
+        // overload mirrors Tv/SeriesService.FindByTitle(string, int) at line 158-161.
+        // Same-title collisions on the manga axis (remakes, alternative scanlations)
+        // are real — PublicationYear lives on Manga.cs:79 and Parser disambiguation
+        // needs this. Normalizes the input title via MangaTitleNormalizer (D-05's
+        // single source of truth) then delegates to IMangaRepository.FindByTitle,
+        // which lower-cases the normalized result and filters on PublicationYear.
+        public Manga FindByTitle(string title, int year)
+        {
+            return _mangaRepository.FindByTitle(MangaTitleNormalizer.Normalize(title), year);
         }
 
         public Manga FindByPath(string path)
