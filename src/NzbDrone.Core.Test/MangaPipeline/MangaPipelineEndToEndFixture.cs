@@ -369,15 +369,14 @@ namespace NzbDrone.Core.Test.MangaPipeline
                                          "Pitfall 7: providers with SupportsOnChapterImport=false MUST NOT be in OnChapterImportEnabled()");
         }
 
-        // ── Test 4: Phase 5 11-spec count still passes (Pitfall 6 — auto-discovery contract) ──
+        // ── Test 4: 12-spec auto-discovery contract (Pitfall 6) ──
         // F-01 + Pitfall 6 mitigation per VALIDATION.md Wave 0: assert the FULL spec set
         // implements IMangaDecisionEngineSpecification and is reachable from the production
-        // assembly. Phase 6 wired the three Phase 5 STUBs (Blocklist + QueueDuplicate +
-        // AlreadyImportedChapter) to real backing services without changing the class
-        // count — this assertion proves the contract still holds with the wired ctor deps.
+        // assembly. Phase 5 D-06 shipped 11 specs; Phase 8 cluster-02 added a 12th
+        // (DeletedChapterFileSpecification per audit/no-sibling/DeletedEpisodeFileSpecification.md).
         [Test]
         [Category("F-01-BLOCKING")]
-        public void Phase5_11_spec_count_still_passes()
+        public void Phase8_12_spec_count_still_passes()
         {
             var coreAssembly = typeof(IMangaDecisionEngineSpecification).Assembly;
             var specTypes = coreAssembly
@@ -387,11 +386,11 @@ namespace NzbDrone.Core.Test.MangaPipeline
                             && typeof(IMangaDecisionEngineSpecification).IsAssignableFrom(t))
                 .ToList();
 
-            specTypes.Count.Should().Be(11,
-                "Phase 6 wired the three Phase 5 STUB specs (Blocklist + QueueDuplicate + "
-                + "AlreadyImportedChapter) to real backing services WITHOUT changing the "
-                + "class count. The 11-spec auto-discovery contract (Pitfall 6) MUST hold "
-                + "after wiring or the F-01 round-trip's decision pass drops a spec at runtime.");
+            specTypes.Count.Should().Be(12,
+                "Phase 5 shipped 11 manga specs; Phase 8 cluster-02 added DeletedChapterFileSpecification "
+                + "(audit/no-sibling/DeletedEpisodeFileSpecification). The 12-spec auto-discovery "
+                + "contract (Pitfall 6) MUST hold or the F-01 round-trip's decision pass drops a "
+                + "spec at runtime.");
 
             // WR-05 defensive cross-check (mirrors Phase 5 fixture lines 264-271): no spec
             // must implement BOTH the manga and TV decision-engine interfaces. Cross-tagged

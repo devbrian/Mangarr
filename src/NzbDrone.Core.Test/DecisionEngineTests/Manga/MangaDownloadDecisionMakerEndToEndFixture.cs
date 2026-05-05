@@ -231,16 +231,18 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
         }
 
         [Test]
-        public void All_eleven_manga_specs_auto_discovered_via_assembly_reflection()
+        public void All_twelve_manga_specs_auto_discovered_via_assembly_reflection()
         {
             // F-01 + Pitfall 6 mitigation per 05-VALIDATION.md Wave 0: assert the FULL spec set
             // implements IMangaDecisionEngineSpecification and is reachable from the production
             // assembly. DryIoc IEnumerable<IMangaDecisionEngineSpecification> in production resolves
             // to exactly this set via reflection-based assembly scanning (pattern S1).
             //
-            // The 11 specs (per D-06) are: MonitoredManga, MonitoredChapter, ChapterRequested,
-            // AlreadyImportedChapter, Blocklist (Phase 5 stub), LanguageInTranslationProfile,
-            // CustomFormatMinimumScore, MinimumAge, AcceptableSize, MaximumSize, QueueDuplicate.
+            // Phase 5 D-06 shipped 11 specs; Phase 8 cluster-02 added DeletedChapterFileSpecification
+            // (audit/no-sibling/DeletedEpisodeFileSpecification.md) for a current total of 12:
+            // MonitoredManga, MonitoredChapter, ChapterRequested, AlreadyImportedChapter,
+            // Blocklist, LanguageInTranslationProfile, CustomFormatMinimumScore, MinimumAge,
+            // AcceptableSize, MaximumSize, QueueDuplicate, DeletedChapterFile.
             //
             // We use reflection on the loaded NzbDrone.Core assembly because the AutoMoqer test
             // container does NOT auto-discover concrete spec types via DryIoc (it falls back to
@@ -254,10 +256,11 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
                             && typeof(IMangaDecisionEngineSpecification).IsAssignableFrom(t))
                 .ToList();
 
-            specTypes.Count.Should().Be(11,
-                "exactly 11 manga decision-engine specs ship per D-06; any extra suggests a TV spec was "
-                + "accidentally cross-tagged via IMangaDecisionEngineSpecification (Pitfall 6 — a class "
-                + "that implements both IMangaDecisionEngineSpecification AND IDownloadDecisionEngineSpecification "
+            specTypes.Count.Should().Be(12,
+                "exactly 12 manga decision-engine specs ship after Phase 8 cluster-02 backfill; "
+                + "any extra suggests a TV spec was accidentally cross-tagged via "
+                + "IMangaDecisionEngineSpecification (Pitfall 6 — a class that implements both "
+                + "IMangaDecisionEngineSpecification AND IDownloadDecisionEngineSpecification "
                 + "would auto-discover into both makers and NRE on the wrong subject type at runtime). "
                 + "Missing specs fail to fire at runtime.");
 
