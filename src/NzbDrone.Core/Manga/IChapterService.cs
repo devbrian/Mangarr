@@ -64,5 +64,13 @@ namespace NzbDrone.Core.Manga
         void InsertMany(List<Chapter> chapters);
         void UpdateMany(List<Chapter> chapters);
         void DeleteMany(List<Chapter> chapters);
+
+        // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-07) — sibling of TV's
+        // `IEpisodeService.UpdateLastSearchTime(List<Episode>)` (Tv/EpisodeService.cs:199-202).
+        // Focused setter via `IChapterRepository.SetFields(chapters, c => c.LastSearchTime)` to
+        // avoid touching unrelated columns. Consumed by ChapterSearchService /
+        // MissingChapterSearchService to record search history per chapter so subsequent polls
+        // can skip recently-searched rows (avoids indexer rate-limit pressure).
+        void UpdateLastSearchTime(List<Chapter> chapters);
     }
 }

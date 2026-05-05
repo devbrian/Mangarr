@@ -39,6 +39,12 @@ namespace NzbDrone.Core.Manga
         // Consumed by Plan 06-07 UpgradeSpec + Plan 06-09 Wanted query.
         public int? ChapterFileId { get; set; }
 
+        // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-07) — sibling of TV's
+        // `Episode.LastSearchTime`. Recorded by ChapterSearchService / MissingChapterSearchService
+        // via `IChapterService.UpdateLastSearchTime` to avoid re-searching every poll cycle.
+        // Nullable: null = never searched.
+        public DateTime? LastSearchTime { get; set; }
+
         public int CompareTo(object obj)
         {
             if (obj is not Chapter other)

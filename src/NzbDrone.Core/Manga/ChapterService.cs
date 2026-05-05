@@ -194,6 +194,16 @@ namespace NzbDrone.Core.Manga
             _chapterRepository.DeleteMany(chapters);
         }
 
+        // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-07) — sibling of TV's
+        // `EpisodeService.UpdateLastSearchTime(List<Episode>)` (Tv/EpisodeService.cs:199-202).
+        // Focused SetFields to record per-chapter search timestamps without touching other columns.
+        // Consumed by ChapterSearchService / MissingChapterSearchService to skip recently-searched
+        // rows on subsequent polls (avoids indexer rate-limit pressure).
+        public void UpdateLastSearchTime(List<Chapter> chapters)
+        {
+            _chapterRepository.SetFields(chapters, c => c.LastSearchTime);
+        }
+
         // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-03) — sibling of TV's
         // `EpisodeService.Handle(EpisodeFileAddedEvent)` (Tv/EpisodeService.cs:288-306).
         // When a ChapterFile is imported, link its Id onto the linked Chapter row so

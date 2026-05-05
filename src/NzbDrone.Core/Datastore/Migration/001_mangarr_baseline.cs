@@ -649,7 +649,8 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("ChapterType").AsString().NotNullable().WithDefaultValue("Regular")  // folded from 002 (D-11)
                 .WithColumn("VolumeNumber").AsInt32().Nullable()                                  // folded from 002 (D-11)
                 .WithColumn("AbsoluteChapterNumber").AsDecimal(10, 3).Nullable()                  // folded from 002 (D-11)
-                .WithColumn("IsSynthetic").AsBoolean().NotNullable().WithDefaultValue(false);     // folded from 002 (D-17 marker)
+                .WithColumn("IsSynthetic").AsBoolean().NotNullable().WithDefaultValue(false)      // folded from 002 (D-17 marker)
+                .WithColumn("LastSearchTime").AsDateTime().Nullable();                            // Phase 8 audit gap-07 — search-history per chapter (sibling of Episodes.LastSearchTime)
 
             // ─────────────────────────────────────────────────────────────────────
             // History/Blocklist nullable manga columns (D-07).
