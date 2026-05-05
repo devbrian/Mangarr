@@ -42,9 +42,11 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
     // Manga divergences from TV ImportApprovedEpisodes:
     //   * Uses _chapterFileService.Add (not _mediaFileService.Add — that takes EpisodeFile).
     //   * Uses _pathBuilder.BuildChapterPath (Plan 06-01 deliverable, not BuildPath/BuildFilePath).
-    //   * No IUpgradeMediaFiles invocation in v1 (UpgradeSpecification rejects non-upgrades
-    //     before this method is called; the actual file replacement is a Phase 8 follow-up
-    //     that adds delete-existing-file-on-upgrade-accepted semantics).
+    //   * IUpgradeChapterFiles invocation per Phase 9 D-09-05: when a decision passes
+    //     UpgradeSpecification AND the chapter has an existing ChapterFileId > 0, the
+    //     previous CBZ is recycled via IRecycleBinProvider + the old ChapterFile row is
+    //     deleted (Pitfall 4 ordering: recycle FIRST, delete row SECOND, new ChapterFile
+    //     insert + ChapterImportedEvent publish LAST). See PATTERNS §A.
     //   * No IExtraService / IExistingExtraFiles (no manga subtitle/extras concept).
     //   * Deletes Phase 4 ChapterDownloadState row + scratch dir on success
     //     (Phase 4 D-08 lifecycle).
@@ -64,6 +66,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
         private readonly IManageCommandQueue _commandQueueManager;
         private readonly ITranslationProfileService _translationProfileService;
         private readonly IConfigService _configService;
+        private readonly IUpgradeChapterFiles _upgradeChapterFileService;   // Phase 9 D-09-05
         private readonly Logger _logger;
 
         public ImportApprovedChapters(
@@ -76,6 +79,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             IManageCommandQueue commandQueueManager,
             ITranslationProfileService translationProfileService,
             IConfigService configService,
+            IUpgradeChapterFiles upgradeChapterFileService,                  // Phase 9 D-09-05
             Logger logger)
         {
             _chapterFileService = chapterFileService;
@@ -87,6 +91,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             _commandQueueManager = commandQueueManager;
             _translationProfileService = translationProfileService;
             _configService = configService;
+            _upgradeChapterFileService = upgradeChapterFileService;
             _logger = logger;
         }
 
@@ -136,6 +141,33 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                     {
                         importResults.Add(new MangaImportResult(decision, "Manga or Chapter missing on LocalChapter — cannot import"));
                         continue;
+                    }
+
+                    // ---- 0.5 NEW per Phase 9 D-09-05 — Upgrade promotion: recycle previous file BEFORE destination build ----
+                    // Mirrors TV ImportApprovedEpisodes upgrade-call site. Pitfall 4 ordering preserved
+                    // (recycle + DB-delete old row happen BEFORE new ChapterFile row insert + ChapterImportedEvent
+                    // publish at step 6). The presence of a prior ChapterFileId means the decision passed
+                    // UpgradeSpecification (Phase 6 D-10 three-state effective-upgrade-allowed gate).
+                    //
+                    // First arg is null (recycle-only mode): step 2 below already owns the new-file move via
+                    // _diskProvider.MoveFile, so UpgradeChapterFileService skips its mover invocation and
+                    // only performs the recycle + delete-row side effect documented above.
+                    if (lc.Chapter.ChapterFileId.HasValue && lc.Chapter.ChapterFileId.Value > 0)
+                    {
+                        try
+                        {
+                            _upgradeChapterFileService.UpgradeChapterFile(null, lc, copyOnly: false);
+                        }
+                        catch (Exception upgradeEx)
+                        {
+                            // Recycle failure is non-fatal in TV (UpgradeMediaFileService.cs same shape):
+                            // the new file still lands; the old leaks to disk but at least the import
+                            // doesn't fail outright. Diagnostic surfaces in logs; downstream rescan can
+                            // reconcile. We deliberately do NOT publish ChapterImportFailedEvent here —
+                            // surfacing as failure would block the auto-retry orchestrator from finishing
+                            // an otherwise-successful upgrade import.
+                            _logger.Error(upgradeEx, "Failed to recycle previous ChapterFile during upgrade for chapter {0} of manga {1}", lc.Chapter.Id, lc.Manga?.Title);
+                        }
                     }
 
                     // ---- 1. Build destination path (Phase 5 builder + Plan 06-01 BuildChapterPath) ----
