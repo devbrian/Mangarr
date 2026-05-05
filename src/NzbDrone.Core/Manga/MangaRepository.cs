@@ -37,6 +37,23 @@ namespace NzbDrone.Core.Manga
             return Query(m => m.CleanTitle == cleanTitle).SingleOrDefault();
         }
 
+        public Manga FindByTitle(string cleanTitle, int year)
+        {
+            // Phase 8 audit gap-01 (SeriesRepository-vs-MangaRepository.md): year-disambiguating
+            // overload mirrors Tv/SeriesRepository.FindByTitle(string, int) at line 47-54.
+            // Manga axis is PublicationYear (nullable int) per Manga.cs:79; TV axis is the
+            // non-nullable Series.Year. Inherits the BL-02 null-input guard from the
+            // single-arg overload above for consistency on parser short-paths.
+            if (string.IsNullOrWhiteSpace(cleanTitle))
+            {
+                return null;
+            }
+
+            cleanTitle = cleanTitle.ToLowerInvariant();
+
+            return Query(m => m.CleanTitle == cleanTitle && m.PublicationYear == year).SingleOrDefault();
+        }
+
         public Manga FindByMangaDexId(Guid mangaDexId)
         {
             return Query(m => m.MangaDexId == mangaDexId).SingleOrDefault();
