@@ -28,5 +28,6 @@ namespace NzbDrone.Core.Manga
         Dictionary<int, string> GetAllMangaPaths();
         Manga UpdateManga(Manga manga, bool publishUpdatedEvent = true);
         bool MangaPathExists(string folder);
+        void RemoveAddOptions(Manga manga);
     }
 }

@@ -149,5 +149,14 @@ namespace NzbDrone.Core.Manga
         {
             return _mangaRepository.MangaPathExists(folder);
         }
+
+        // Mirrors Tv/SeriesService.RemoveAddOptions (Tv/SeriesService.cs:270): clears
+        // Manga.AddOptions and persists via SetFields so only the AddOptions column is
+        // written without firing MangaUpdatedEvent. Closes Phase 8 audit gap-07.
+        public void RemoveAddOptions(Manga manga)
+        {
+            manga.AddOptions = null;
+            _mangaRepository.SetFields(manga, m => m.AddOptions);
+        }
     }
 }

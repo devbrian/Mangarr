@@ -25,8 +25,9 @@ namespace NzbDrone.Core.Manga
     //          flag, and fall back to MangaSearchCommand for the cutoff-unmet-only flag (no
     //          CutoffUnmetChapterSearchCommand sibling exists in v1; closest semantic is the bulk
     //          whole-manga MangaSearchCommand which Phase 5 quality specs will narrow at decision time).
-    //       4. Clear AddOptions and persist via UpdateManga(publishUpdatedEvent: false). TODO: Plan
-    //          03-12 introduces IMangaService.RemoveAddOptions sibling — swap to that when it lands.
+    //       4. Clear AddOptions via IMangaService.RemoveAddOptions (mirrors
+    //          Tv/SeriesService.RemoveAddOptions — uses repository SetFields so only the AddOptions
+    //          column is persisted and no MangaUpdatedEvent is fired).
     //       5. Publish MangaAddCompletedEvent.
     //
     // Sonarr divergence: TV also handles SeriesScanSkippedEvent. The manga-side scan-skipped event
@@ -98,12 +99,9 @@ namespace NzbDrone.Core.Manga
                 }
             }
 
-            // TODO: Plan 03-12 introduces IMangaService.RemoveAddOptions sibling (mirrors
-            // Tv/ISeriesService.RemoveAddOptions). Until then, clear AddOptions inline and
-            // persist with publishUpdatedEvent: false to avoid an extra MangaUpdatedEvent
-            // round-trip during the post-add lifecycle.
-            manga.AddOptions = null;
-            _mangaService.UpdateManga(manga, publishUpdatedEvent: false);
+            // Clear AddOptions via the RemoveAddOptions sibling (mirrors Tv/SeriesService.RemoveAddOptions
+            // — uses SetFields so only the AddOptions column is persisted and no MangaUpdatedEvent fires).
+            _mangaService.RemoveAddOptions(manga);
 
             _eventAggregator.PublishEvent(new MangaAddCompletedEvent(manga));
         }
