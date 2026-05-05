@@ -6,6 +6,7 @@ using NzbDrone.Common.Disk;
 using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Common.Http;
+using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.Messaging.Events;
 
@@ -35,6 +36,16 @@ namespace NzbDrone.Core.MediaCover
     /// the existing series-side service stays untouched. Any rename happens only at Phase 8
     /// cutover.
     /// </para>
+    /// <para>
+    /// PHASE 9 PLAN 09-13 (sub-wave A 09-04 audit gap-03 + gap-04 close-out): publishes
+    /// <see cref="MangaCoversUpdatedEvent"/> at end of <see cref="HandleAsync(MangaUpdatedEvent)"/>
+    /// (consumed by MangaController.Handle for SignalR resource broadcast); rewrites
+    /// <see cref="ConvertToLocalUrls"/> with the saved-manga branch (mirroring
+    /// <see cref="MediaCoverService.ConvertToLocalUrls"/>:73-103) so saved manga serve covers
+    /// from the on-disk cache with <c>?lastWrite={ticks}</c> cache-bust suffix instead of
+    /// always proxy-routing. Pitfall 4 ordering preserved: disk writes (DownloadCover +
+    /// EnsureResized) FIRST, event publish LAST.
+    /// </para>
     /// </summary>
     public class MangaMediaCoverService :
         IHandleAsync<MangaUpdatedEvent>,
@@ -46,6 +57,8 @@ namespace NzbDrone.Core.MediaCover
         private readonly IHttpClient _httpClient;
         private readonly IDiskProvider _diskProvider;
         private readonly ICoverExistsSpecification _coverExistsSpecification;
+        private readonly IEventAggregator _eventAggregator;       // NEW per Plan 09-13 (audit gap-03)
+        private readonly IConfigFileProvider _configFileProvider; // NEW per Plan 09-13 (audit gap-04)
         private readonly Logger _logger;
 
         // Distinct sub-folder per RESEARCH §Pattern 5 — never collides with the series
@@ -58,6 +71,8 @@ namespace NzbDrone.Core.MediaCover
                                       IDiskProvider diskProvider,
                                       ICoverExistsSpecification coverExistsSpecification,
                                       IAppFolderInfo appFolderInfo,
+                                      IEventAggregator eventAggregator,
+                                      IConfigFileProvider configFileProvider,
                                       Logger logger)
         {
             _mediaCoverProxy = mediaCoverProxy;
@@ -65,6 +80,8 @@ namespace NzbDrone.Core.MediaCover
             _httpClient = httpClient;
             _diskProvider = diskProvider;
             _coverExistsSpecification = coverExistsSpecification;
+            _eventAggregator = eventAggregator;             // NEW per Plan 09-13 (audit gap-03)
+            _configFileProvider = configFileProvider;       // NEW per Plan 09-13 (audit gap-04)
             _logger = logger;
             _coverRootFolder = Path.Combine(appFolderInfo.GetMediaCoverPath(), "manga");
         }
@@ -78,6 +95,12 @@ namespace NzbDrone.Core.MediaCover
                 $"{coverType.ToString().ToLowerInvariant()}{heightSuffix}{GetExtension(coverType)}");
         }
 
+        // PHASE 9 PLAN 09-13 (audit gap-04 close-out): rewritten with proxy-vs-local branch
+        // mirroring TV MediaCoverService.cs:73-103. mangaId == 0 routes through proxy
+        // (referrer-dodging path for unsaved manga); mangaId != 0 rewrites to a local-cache
+        // URL with `?lastWrite={ticks}` cache-bust suffix when the on-disk file exists.
+        // The static-file mapper (Sonarr.Http/Frontend/Mappers/MediaCoverMapper.cs:44-47)
+        // already serves the /MediaCover/manga/... shape from disk transparently.
         public void ConvertToLocalUrls(int mangaId, IEnumerable<MediaCover> covers)
         {
             if (covers == null)
@@ -87,12 +110,40 @@ namespace NzbDrone.Core.MediaCover
 
             foreach (var c in covers)
             {
+                // Defensive guard predating the proxy path — protect against upstream metadata
+                // sources that only populate .Url. Preserved per audit gap-04 backfill_notes
+                // line 140 ("Preserve this fallback in the rewrite").
                 if (string.IsNullOrEmpty(c.RemoteUrl) && c.Url != null)
                 {
                     c.RemoteUrl = c.Url;
                 }
 
-                c.Url = _mediaCoverProxy.RegisterUrl(c.RemoteUrl);
+                if (mangaId == 0)
+                {
+                    // Manga isn't in the database yet — map via proxy (referrer-dodging path).
+                    // Mirrors TV MediaCoverService.cs:78 verbatim shape with seriesId→mangaId.
+                    c.Url = _mediaCoverProxy.RegisterUrl(c.RemoteUrl);
+                }
+                else
+                {
+                    // Saved manga: rewrite to local-cache URL with ?lastWrite= cache-bust suffix
+                    // when the on-disk file exists. Mirrors TV MediaCoverService.cs:83-101 with
+                    // /MediaCover/{seriesId}/ → /MediaCover/manga/{mangaId}/ substitution.
+                    if (c.CoverType == MediaCoverTypes.Unknown)
+                    {
+                        continue;
+                    }
+
+                    var filePath = GetMangaCoverPath(mangaId, c.CoverType);
+                    c.Url = _configFileProvider.UrlBase + "/MediaCover/manga/" + mangaId + "/" +
+                            c.CoverType.ToString().ToLowerInvariant() + GetExtension(c.CoverType);
+
+                    if (_diskProvider.FileExists(filePath))
+                    {
+                        var lastWrite = _diskProvider.FileGetLastWrite(filePath);
+                        c.Url += "?lastWrite=" + lastWrite.Ticks;
+                    }
+                }
             }
         }
 
@@ -114,6 +165,9 @@ namespace NzbDrone.Core.MediaCover
             // cover downloads for this event AND any chained handler subscriptions
             // EventAggregator was about to dispatch. Bail this manga gracefully
             // (Warn + return) so other handlers still run.
+            //
+            // PHASE 9 PLAN 09-13 NOTE: early-return path does NOT publish MangaCoversUpdatedEvent
+            // because no covers were attempted. SignalR consumer skips the no-op resource refresh.
             try
             {
                 EnsureCoversFolder(manga.Id);
@@ -123,6 +177,12 @@ namespace NzbDrone.Core.MediaCover
                 _logger.Warn(ex, "Failed to ensure cover folder for manga {0}; skipping cover sync", manga.Id);
                 return;
             }
+
+            // PHASE 9 PLAN 09-13 (audit gap-03): track whether at least one cover was
+            // newly downloaded (AlreadyExists short-circuit leaves it false). The event's
+            // `Updated` flag drives MangaController's SignalR push — only fires when a
+            // genuine change happened.
+            var updated = false;
 
             foreach (var cover in manga.Images ?? new List<MediaCover>())
             {
@@ -136,12 +196,26 @@ namespace NzbDrone.Core.MediaCover
 
                     DownloadCover(localPath, cover.RemoteUrl);
                     EnsureResized(localPath, manga.Id, cover.CoverType);
+
+                    // Per-cover write succeeded — flag the batch as containing genuine changes.
+                    updated = true;
                 }
                 catch (Exception ex)
                 {
                     _logger.Warn(ex, "Cover download failed for manga {0} cover {1}", manga.Id, cover.CoverType);
+
+                    // Per-cover failure does NOT flip `updated` to true (no successful disk write).
+                    // Per-cover failure does NOT abort the batch (existing log-and-continue contract).
                 }
             }
+
+            // PHASE 9 PLAN 09-13 (audit gap-03) — Pitfall 4 GUARD: publish AFTER all on-disk
+            // writes complete. SignalR consumer (MangaController.Handle) race-fires on this
+            // event and re-fetches the manga resource via BroadcastResourceChange; if the
+            // event published before disk writes, consumer would render stale thumbnails.
+            // The existing per-cover try/catch ensures all disk writes that COULD complete
+            // HAVE completed by the time we reach this line.
+            _eventAggregator.PublishEvent(new MangaCoversUpdatedEvent(manga, updated));
         }
 
         public void HandleAsync(MangaDeletedEvent message)
