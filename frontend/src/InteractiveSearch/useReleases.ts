@@ -570,7 +570,10 @@ interface MangaGrabRelease {
 export const useGrabMangaRelease = () => {
   const [isGrabbed, setIsGrabbed] = useState(false);
 
-  const { mutate, isPending, error } = useApiMutation<unknown, MangaGrabRelease>({
+  const { mutate, isPending, error } = useApiMutation<
+    unknown,
+    MangaGrabRelease
+  >({
     path: '/manga/release',
     method: 'POST',
     mutationOptions: {
