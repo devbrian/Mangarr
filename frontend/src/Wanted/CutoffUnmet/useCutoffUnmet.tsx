@@ -6,13 +6,26 @@
 // (Pitfall 5 — TV/manga cache MUST NOT collide). Phase 8 collapses.
 //
 // Closest analog: frontend/src/Wanted/Missing/useMissing.tsx (Plan 07-10) — same pattern.
+//
+// Phase 12 REVIEW MED-03 — body now actually mirrors useMissing.tsx:79-96 by composing
+// `filters` from `findSelectedFilters(selectedFilterKey, FILTERS, customFilters)` and
+// passing it to usePagedApiQuery (replacing the prior `queryParams: { monitored }`
+// shortcut). Functionally equivalent on the URL surface — `findSelectedFilters` emits
+// `[{key: 'monitored', value: [true|false], type: 'equal'}]`, which getQueryString
+// flattens to `?monitored=true|false` (the same shape the controller's `bool monitored`
+// query param binds). The structural symmetry now matches the docstring's claim and
+// makes the hook ready for the customFilters UI surface when CutoffUnmet.tsx adds a
+// CutoffUnmetFilterModal (currently passes customFilters={[]} — no UI surface for v1,
+// but the hook is wired correctly for it when added).
 import { keepPreviousData } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import Episode from 'Episode/Episode';
 import { setEpisodeQueryKey } from 'Episode/useEpisode';
 import { Filter } from 'Filters/Filter';
+import { useCustomFiltersList } from 'Filters/useCustomFilters';
 import usePage from 'Helpers/Hooks/usePage';
 import usePagedApiQuery from 'Helpers/Hooks/usePagedApiQuery';
+import findSelectedFilters from 'Utilities/Filter/findSelectedFilters';
 import translate from 'Utilities/String/translate';
 import { useCutoffUnmetOptions } from './cutoffUnmetOptionsStore';
 
@@ -47,6 +60,11 @@ const useCutoffUnmet = (mediaType: CutoffUnmetMediaType = 'series') => {
   const { page, goToPage } = usePage('cutoffUnmet');
   const { pageSize, selectedFilterKey, sortKey, sortDirection } =
     useCutoffUnmetOptions();
+  const customFilters = useCustomFiltersList('wanted.cutoffUnmet');
+
+  const filters = useMemo(() => {
+    return findSelectedFilters(selectedFilterKey, FILTERS, customFilters);
+  }, [selectedFilterKey, customFilters]);
 
   const path =
     mediaType === 'manga' ? '/manga/wanted/cutoff' : '/wanted/cutoff';
@@ -55,9 +73,7 @@ const useCutoffUnmet = (mediaType: CutoffUnmetMediaType = 'series') => {
     path,
     page,
     pageSize,
-    queryParams: {
-      monitored: selectedFilterKey === 'monitored',
-    },
+    filters,
     sortKey,
     sortDirection,
     queryOptions: {
