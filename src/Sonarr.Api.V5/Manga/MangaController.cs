@@ -224,7 +224,18 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     [NonAction]
     public void Handle(MangaEditedEvent message)
     {
-        BroadcastResourceChange(ModelAction.Updated, message.Manga.Id);
+        // WR-04 fix: catch NotFoundException so a benign delete-race between
+        // event publish and SignalR fan-out does not surface as an ERROR-level
+        // log line. BroadcastResourceChange(action, int) round-trips through
+        // the controller-overridden GetResourceById which throws on missing.
+        try
+        {
+            BroadcastResourceChange(ModelAction.Updated, message.Manga.Id);
+        }
+        catch (NotFoundException)
+        {
+            // benign race: manga deleted between MangaEditedEvent publish and SignalR fan-out
+        }
     }
 
     // Phase 10 Plan 10-05 (sub-wave A FINDINGS gap_in_scope close-out): SignalR consumer for
@@ -235,7 +246,18 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     [NonAction]
     public void Handle(MangaRenamedEvent message)
     {
-        BroadcastResourceChange(ModelAction.Updated, message.Manga.Id);
+        // WR-04 fix: catch NotFoundException so a benign delete-race between
+        // event publish and SignalR fan-out does not surface as an ERROR-level
+        // log line. BroadcastResourceChange(action, int) round-trips through
+        // the controller-overridden GetResourceById which throws on missing.
+        try
+        {
+            BroadcastResourceChange(ModelAction.Updated, message.Manga.Id);
+        }
+        catch (NotFoundException)
+        {
+            // benign race: manga deleted between MangaRenamedEvent publish and SignalR fan-out
+        }
     }
 
     // Phase 10 Plan 10-05 (sub-wave A FINDINGS gap_in_scope close-out): SignalR consumer for
@@ -280,7 +302,18 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     [NonAction]
     public void Handle(ChapterFileAddedEvent message)
     {
-        BroadcastResourceChange(ModelAction.Updated, message.ChapterFile.MangaId);
+        // WR-04 fix: catch NotFoundException so a benign delete-race between
+        // event publish and SignalR fan-out does not surface as an ERROR-level
+        // log line. BroadcastResourceChange(action, int) round-trips through
+        // the controller-overridden GetResourceById which throws on missing.
+        try
+        {
+            BroadcastResourceChange(ModelAction.Updated, message.ChapterFile.MangaId);
+        }
+        catch (NotFoundException)
+        {
+            // benign race: manga deleted between ChapterFileAddedEvent publish and SignalR fan-out
+        }
     }
 
     // Phase 10 Plan 10-06 (FINDINGS gap_in_scope close-out — EpisodeFileDeletedEvent-vs-ChapterFileDeletedEvent
@@ -303,7 +336,20 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
             return;
         }
 
-        BroadcastResourceChange(ModelAction.Updated, message.ChapterFile.MangaId);
+        // WR-04 fix: catch NotFoundException so a benign delete-race between
+        // event publish and SignalR fan-out does not surface as an ERROR-level
+        // log line. BroadcastResourceChange(action, int) round-trips through
+        // the controller-overridden GetResourceById which throws on missing.
+        // Especially plausible here: housekeeping-driven full-library delete
+        // can race a tracked-download finalize-and-delete on the same manga.
+        try
+        {
+            BroadcastResourceChange(ModelAction.Updated, message.ChapterFile.MangaId);
+        }
+        catch (NotFoundException)
+        {
+            // benign race: manga deleted between ChapterFileDeletedEvent publish and SignalR fan-out
+        }
     }
 
     // Phase 10 Plan 10-08 (FINDINGS gap_in_scope close-out — SeriesImportedEvent → MangaImportedEvent
