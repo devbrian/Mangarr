@@ -201,9 +201,9 @@ namespace NzbDrone.Core.Manga
                     // per WR-07 — one removed-at-source manga must not abort the whole loop.
                     // TV rethrows because its outer Execute treats single-series refreshes
                     // as fatal; manga's outer Execute is sequential-tolerant by design.
-                    if (existing.Status != "deleted")
+                    if (existing.Status != MangaStatusType.Deleted)
                     {
-                        existing.Status = "deleted";
+                        existing.Status = MangaStatusType.Deleted;
                         _mangaService.UpdateManga(existing, publishUpdatedEvent: false);
                         _logger.Debug("Manga marked as deleted at source for {0}", existing.Title);
                         _eventAggregator.PublishEvent(new MangaUpdatedEvent(existing));

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using FluentAssertions;
 using NUnit.Framework;
+using NzbDrone.Core.Manga;
 using NzbDrone.Core.Test.Framework;
 using MangaModel = NzbDrone.Core.Manga.Manga;
 using MangaRepository = NzbDrone.Core.Manga.MangaRepository;
@@ -20,7 +21,7 @@ namespace NzbDrone.Core.Test.MangaTests
                 Title = title,
                 CleanTitle = title.ToLowerInvariant(),
                 SortTitle = title.ToLowerInvariant(),
-                Status = "ongoing",
+                Status = MangaStatusType.Ongoing,
                 Path = $"C:\\manga\\{title}",
                 Monitored = true,
                 Added = DateTime.UtcNow,
@@ -94,7 +95,7 @@ namespace NzbDrone.Core.Test.MangaTests
             var manga = BuildManga();
             Subject.Insert(manga);
 
-            manga.Status = "completed";
+            manga.Status = MangaStatusType.Completed;
             manga.Overview = "Story of a ninja";
             Subject.Update(manga);
 

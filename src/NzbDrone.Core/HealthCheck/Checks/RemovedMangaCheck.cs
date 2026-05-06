@@ -28,8 +28,6 @@ namespace NzbDrone.Core.HealthCheck.Checks
     [CheckOn(typeof(MangaRefreshCompleteEvent))]
     public class RemovedMangaCheck : HealthCheckBase, ICheckOnCondition<MangaUpdatedEvent>, ICheckOnCondition<MangaDeletedEvent>
     {
-        private const string DeletedStatus = "deleted";
-
         private readonly IMangaService _mangaService;
 
         public RemovedMangaCheck(IMangaService mangaService, ILocalizationService localizationService)
@@ -40,7 +38,7 @@ namespace NzbDrone.Core.HealthCheck.Checks
 
         public override HealthCheck Check()
         {
-            var deletedManga = _mangaService.GetAllManga().Where(m => m.Status == DeletedStatus).ToList();
+            var deletedManga = _mangaService.GetAllManga().Where(m => m.Status == MangaStatusType.Deleted).ToList();
 
             if (deletedManga.Empty())
             {
@@ -73,12 +71,12 @@ namespace NzbDrone.Core.HealthCheck.Checks
 
         public bool ShouldCheckOnEvent(MangaDeletedEvent deletedEvent)
         {
-            return deletedEvent.Manga.Status == DeletedStatus;
+            return deletedEvent.Manga.Status == MangaStatusType.Deleted;
         }
 
         public bool ShouldCheckOnEvent(MangaUpdatedEvent updatedEvent)
         {
-            return updatedEvent.Manga.Status == DeletedStatus;
+            return updatedEvent.Manga.Status == MangaStatusType.Deleted;
         }
     }
 }
