@@ -7,6 +7,7 @@ using NzbDrone.Core.Manga;
 using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaCover;
 using NzbDrone.Core.MediaFiles;
+using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
 using Sonarr.Api.V5.Manga;
@@ -133,6 +134,67 @@ namespace NzbDrone.Api.Test.Manga
                   .Verify(b => b.BroadcastMessage(It.Is<SignalRMessage>(m =>
                       m.Action == ModelAction.Updated && m.Name == "manga")),
                       Times.Exactly(3));
+        }
+
+        // ===================== Plan 10-06 — ChapterFileAddedEvent =====================
+
+        [Test]
+        public void Handle_ChapterFileAddedEvent_should_BroadcastResourceChange_Updated_with_manga_id()
+        {
+            var chapterFile = Builder<ChapterFile>.CreateNew()
+                .With(c => c.MangaId = 42)
+                .Build();
+
+            // ChapterFileAddedEvent ctor: (ChapterFile chapterFile) — verified
+            // src/NzbDrone.Core/MediaFiles/Events/ChapterFileAddedEvent.cs:13.
+            Subject.Handle(new ChapterFileAddedEvent(chapterFile));
+
+            // Predicate locked per W6 (revision iteration 1) — verbatim shape from
+            // Plan 10-05 Task 2 exemplar. Resource name "manga" auto-derives from
+            // MangaResource type name via RestControllerWithSignalR convention.
+            Mocker.GetMock<IBroadcastSignalRMessage>()
+                  .Verify(b => b.BroadcastMessage(It.Is<SignalRMessage>(m =>
+                      m.Action == ModelAction.Updated && m.Name == "manga")),
+                      Times.Once);
+        }
+
+        // ===================== Plan 10-06 — ChapterFileDeletedEvent =====================
+
+        [Test]
+        public void Handle_ChapterFileDeletedEvent_should_BroadcastResourceChange_Updated_with_manga_id()
+        {
+            var chapterFile = Builder<ChapterFile>.CreateNew()
+                .With(c => c.MangaId = 42)
+                .Build();
+
+            // ChapterFileDeletedEvent ctor: (ChapterFile chapterFile, DeleteMediaFileReason reason) —
+            // verified src/NzbDrone.Core/MediaFiles/Events/ChapterFileDeletedEvent.cs:12.
+            // DeleteMediaFileReason.Manual is the canonical user-deletion reason and bypasses
+            // the Upgrade short-circuit in the handler so the broadcast fires.
+            Subject.Handle(new ChapterFileDeletedEvent(chapterFile, DeleteMediaFileReason.Manual));
+
+            Mocker.GetMock<IBroadcastSignalRMessage>()
+                  .Verify(b => b.BroadcastMessage(It.Is<SignalRMessage>(m =>
+                      m.Action == ModelAction.Updated && m.Name == "manga")),
+                      Times.Once);
+        }
+
+        // ===================== Plan 10-06 — Upgrade short-circuit =====================
+
+        [Test]
+        public void Handle_ChapterFileDeletedEvent_should_NOT_broadcast_when_reason_is_Upgrade()
+        {
+            var chapterFile = Builder<ChapterFile>.CreateNew()
+                .With(c => c.MangaId = 42)
+                .Build();
+
+            // Upgrade-reason short-circuit mirrors SeriesController.Handle(EpisodeFileDeletedEvent):
+            // the upcoming Add event will fire next, so broadcasting twice for one logical change is
+            // wasteful. Verify the short-circuit by asserting BroadcastMessage was NEVER called.
+            Subject.Handle(new ChapterFileDeletedEvent(chapterFile, DeleteMediaFileReason.Upgrade));
+
+            Mocker.GetMock<IBroadcastSignalRMessage>()
+                  .Verify(b => b.BroadcastMessage(It.IsAny<SignalRMessage>()), Times.Never);
         }
     }
 }

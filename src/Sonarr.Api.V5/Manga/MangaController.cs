@@ -6,6 +6,8 @@ using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaCover;
+using NzbDrone.Core.MediaFiles;
+using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.SignalR;
 using Sonarr.Http;
@@ -29,7 +31,9 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     IHandle<MangaCoversUpdatedEvent>,    // Plan 09-13 (audit gap-03 SignalR consumer)
     IHandle<MangaEditedEvent>,           // Plan 10-05 (Phase 10 sub-wave A FINDINGS gap_in_scope close-out — UI bulk-edit modal close + UI single-edit save after Plan 10-07 dual-publish)
     IHandle<MangaRenamedEvent>,          // Plan 10-05 (FINDINGS gap_in_scope close-out — UI rename re-render after RenameChapterFileService completes)
-    IHandle<MangaBulkEditedEvent>        // Plan 10-05 (FINDINGS gap_in_scope close-out — UI bulk-edit fan-out for each manga in payload)
+    IHandle<MangaBulkEditedEvent>,       // Plan 10-05 (FINDINGS gap_in_scope close-out — UI bulk-edit fan-out for each manga in payload)
+    IHandle<ChapterFileAddedEvent>,      // Plan 10-06 (FINDINGS gap_in_scope close-out — UI library page re-fetch on chapter-file arrival; mirrors SeriesController.IHandle<EpisodeImportedEvent>)
+    IHandle<ChapterFileDeletedEvent>     // Plan 10-06 (FINDINGS gap_in_scope close-out — UI library page re-fetch on chapter-file deletion; mirrors SeriesController.IHandle<EpisodeFileDeletedEvent>)
 {
     private readonly IMangaService _mangaService;
     private readonly IAddMangaService _addMangaService;
@@ -245,5 +249,47 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         {
             BroadcastResourceChange(ModelAction.Updated, manga.Id);
         }
+    }
+
+    // Phase 10 Plan 10-06 (FINDINGS gap_in_scope close-out — EpisodeFileAddedEvent-vs-ChapterFileAddedEvent
+    // pair report subscriber-set asymmetry): SignalR consumer for ChapterFileAddedEvent published by
+    // ChapterFileService.Add (RESEARCH §7 line 482). Mirrors SeriesController.Handle(EpisodeImportedEvent)
+    // shape — broadcasts Updated for the manga.Id so the UI library page re-fetches the row's
+    // chapter-file count after the import completes (Pitfall 4 contract — DB write happened FIRST in
+    // ChapterFileService.Add, this event publishes LAST).
+    //
+    // Manga has no separate ChapterFileController in v1 (PROJECT.md flat-chapter design); the SignalR
+    // push reuses the `manga` resource name. Frontend SignalRListener.tsx `name === 'manga'` handler
+    // (Plan 07-02) invalidates the ['/manga'] query key — UI library page re-fetches.
+    //
+    // mangaId-extraction path: ChapterFile.MangaId direct property (verified
+    // src/NzbDrone.Core/MediaFiles/ChapterFile.cs:13). No LazyLoad navigation needed.
+    [NonAction]
+    public void Handle(ChapterFileAddedEvent message)
+    {
+        BroadcastResourceChange(ModelAction.Updated, message.ChapterFile.MangaId);
+    }
+
+    // Phase 10 Plan 10-06 (FINDINGS gap_in_scope close-out — EpisodeFileDeletedEvent-vs-ChapterFileDeletedEvent
+    // pair report subscriber-set asymmetry): SignalR consumer for ChapterFileDeletedEvent published by
+    // ChapterFileService.Delete (RESEARCH §7 line 483). Mirrors SeriesController.Handle(EpisodeFileDeletedEvent)
+    // shape — broadcasts Updated for the manga.Id so the UI library page re-fetches the chapter-file count
+    // after the deletion completes.
+    //
+    // Mirrors TV's Upgrade-reason short-circuit: SeriesController bails when Reason == Upgrade because
+    // an upgrade replaces one file with another and the Add event will fire next; broadcasting twice for
+    // the same logical change is wasteful. Manga adopts the same short-circuit verbatim.
+    //
+    // mangaId-extraction path: ChapterFile.MangaId direct property (verified
+    // src/NzbDrone.Core/MediaFiles/ChapterFile.cs:13).
+    [NonAction]
+    public void Handle(ChapterFileDeletedEvent message)
+    {
+        if (message.Reason == DeleteMediaFileReason.Upgrade)
+        {
+            return;
+        }
+
+        BroadcastResourceChange(ModelAction.Updated, message.ChapterFile.MangaId);
     }
 }
