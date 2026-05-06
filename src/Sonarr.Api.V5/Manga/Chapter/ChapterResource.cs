@@ -1,3 +1,4 @@
+using Sonarr.Api.V5.Manga.Subresources;
 using Sonarr.Http.REST;
 
 namespace Sonarr.Api.V5.Manga.Chapter;
@@ -8,14 +9,23 @@ namespace Sonarr.Api.V5.Manga.Chapter;
 // Manga sibling preserves: RestResource base + ToResource extension mapper convention.
 //
 // Manga sibling diverges from EpisodeResource:
-//   * Drop SeasonNumber, SceneNumbering*, AirDate*, EpisodeFile subresource, Series
-//     subresource (PROJECT.md Volumes/Seasons Out-of-Scope; subresource hydration is
+//   * Drop SeasonNumber, SceneNumbering*, AirDate*, EpisodeFile subresource
+//     (PROJECT.md Volumes/Seasons Out-of-Scope; EpisodeFile-subresource hydration is
 //     deferred until a real consumer needs it).
 //   * Rename Series→Manga, Episode→Chapter.
 //   * Add TranslatedLanguage (BCP-47), ScanlationGroup, IsSynthetic, ChapterType (string
 //     enum projection), VolumeNumber (display-only — no Volumes table).
 //   * ChapterNumber is decimal (DECIMAL(10,3) per Phase 2 D-12 widen — supports 1.5,
 //     1.123, etc.).
+//
+// Phase-12 follow-up (canonical-resource-reuse, 2026-05-06): added optional
+// `Manga` subresource field so `MangaMissingController` / `MangaCutoffController`
+// can reuse this canonical DTO instead of shipping their own
+// `MissingChapterResource` / `MangaCutoffResource` POCOs (mirrors TV's
+// `EpisodeResource.Series?` subresource hydration consumed by `MissingController` /
+// `CutoffController`). Hydrated only when the `[FromQuery] *Subresource[]?
+// includeSubresources` query contains `Manga` (TV-mirroring enum-array shape;
+// see `MangaMissingSubresource` / `MangaCutoffSubresource`).
 //
 // Phase 8 cleanup: collapse with EpisodeResource when Tv/ deletes.
 public class ChapterResource : RestResource
@@ -34,6 +44,14 @@ public class ChapterResource : RestResource
     public bool Monitored { get; set; }
     public bool HasFile => ChapterFileId.HasValue;
     public string? ExternalId { get; set; }
+
+    // Phase-12 follow-up (canonical-resource-reuse, 2026-05-06): optional Manga
+    // subresource hydrated by MangaMissingController / MangaCutoffController when
+    // `includeSubresources=Manga` is passed (mirrors TV's EpisodeResource.Series? +
+    // MissingController/CutoffController `MissingSubresource.Series` /
+    // `CutoffSubresource.Series` enum-array pattern). Null by default to preserve
+    // existing ChapterController callers' wire shape.
+    public MangaSubresource? Manga { get; set; }
 }
 
 public static class ChapterResourceMapper
