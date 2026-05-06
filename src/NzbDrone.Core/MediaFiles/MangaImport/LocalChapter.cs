@@ -47,6 +47,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
         public string ScanlationGroup { get; set; }
         public List<CustomFormat> CustomFormats { get; set; }
         public int CustomFormatScore { get; set; }
+        public bool ScriptImported { get; set; }
 
         public override string ToString()
         {

@@ -28,11 +28,14 @@ namespace NzbDrone.Core.MediaFiles
     // Slim ctor relative to TV: IChapterService is unused (TV's _episodeService.GetEpisodesByFileId
     // hydrates the multi-episode list inside Move(ef, series); manga has 1:1 ChapterFile→Chapter so
     // the caller passes the Chapter list via Manga.Path-only resolution and Plan 02-12's
-    // IUpdateChapterFileService takes the Chapter list directly). IImportScript is dropped — manga
-    // has no import-script hook in v1 (Phase 9 may revisit). SeasonFolder branch is dropped per
-    // D-13 (manga has no season concept).
+    // IUpdateChapterFileService takes the Chapter list directly). SeasonFolder branch is dropped
+    // per D-13 (manga has no season concept).
     //
-    // Phase 8 cleanup: collapse with EpisodeFileMovingService when Tv/ deletes.
+    // Phase 8 Plan 99-09: IImportChapterScript hooked into the LocalChapter import paths
+    // (Move + Copy). Rename pipeline (MoveChapterFile(ChapterFile, Manga)) does NOT call the
+    // script — TV's analog doesn't either.
+    //
+    // Phase 14 cleanup: collapse with EpisodeFileMovingService when Tv/ deletes.
     public interface IMoveChapterFiles
     {
         ChapterFile MoveChapterFile(ChapterFile chapterFile, MangaModel manga);
@@ -50,6 +53,7 @@ namespace NzbDrone.Core.MediaFiles
         private readonly IRootFolderService _rootFolderService;
         private readonly IEventAggregator _eventAggregator;
         private readonly IConfigService _configService;
+        private readonly IImportChapterScript _scriptImportDecider;
         private readonly Logger _logger;
 
         public ChapterFileMovingService(IUpdateChapterFileService updateChapterFileService,
@@ -60,6 +64,7 @@ namespace NzbDrone.Core.MediaFiles
                                         IRootFolderService rootFolderService,
                                         IEventAggregator eventAggregator,
                                         IConfigService configService,
+                                        IImportChapterScript scriptImportDecider,
                                         Logger logger)
         {
             _updateChapterFileService = updateChapterFileService;
@@ -70,6 +75,7 @@ namespace NzbDrone.Core.MediaFiles
             _rootFolderService = rootFolderService;
             _eventAggregator = eventAggregator;
             _configService = configService;
+            _scriptImportDecider = scriptImportDecider;
             _logger = logger;
         }
 
@@ -98,7 +104,7 @@ namespace NzbDrone.Core.MediaFiles
 
             _logger.Debug("Moving chapter file: {0} to {1}", chapterFile.Path, filePath);
 
-            return TransferFile(chapterFile, localChapter.Manga, localChapter.Chapters, filePath, TransferMode.Move);
+            return RunScriptThenTransfer(chapterFile, localChapter, filePath, TransferMode.Move);
         }
 
         public ChapterFile CopyChapterFile(ChapterFile chapterFile, LocalChapter localChapter)
@@ -110,11 +116,30 @@ namespace NzbDrone.Core.MediaFiles
             if (_configService.CopyUsingHardlinks)
             {
                 _logger.Debug("Attempting to hardlink chapter file: {0} to {1}", chapterFile.Path, filePath);
-                return TransferFile(chapterFile, localChapter.Manga, localChapter.Chapters, filePath, TransferMode.HardLinkOrCopy);
+                return RunScriptThenTransfer(chapterFile, localChapter, filePath, TransferMode.HardLinkOrCopy);
             }
 
             _logger.Debug("Copying chapter file: {0} to {1}", chapterFile.Path, filePath);
-            return TransferFile(chapterFile, localChapter.Manga, localChapter.Chapters, filePath, TransferMode.Copy);
+            return RunScriptThenTransfer(chapterFile, localChapter, filePath, TransferMode.Copy);
+        }
+
+        // Phase 8 Plan 99-09 — gives the user-configured import script first crack at the move.
+        // If the script reports MoveComplete, we trust it and skip our internal TransferFile.
+        // DeferMove (default when UseScriptImport=false) and RenameRequested fall through to
+        // the normal internal transfer path.
+        private ChapterFile RunScriptThenTransfer(ChapterFile chapterFile, LocalChapter localChapter, string destinationFilePath, TransferMode mode)
+        {
+            var sourcePath = chapterFile.Path ?? Path.Combine(localChapter.Manga.Path, chapterFile.RelativePath);
+            var decision = _scriptImportDecider.TryImport(sourcePath, destinationFilePath, localChapter, chapterFile, mode);
+
+            if (decision == ScriptImportDecision.MoveComplete && localChapter.ScriptImported)
+            {
+                // Script reported completion + acknowledged the move. Skip internal transfer.
+                _logger.Debug("Import script reported MoveComplete for {0}; skipping internal transfer", chapterFile.Path);
+                return chapterFile;
+            }
+
+            return TransferFile(chapterFile, localChapter.Manga, localChapter.Chapters, destinationFilePath, mode);
         }
 
         private ChapterFile TransferFile(ChapterFile chapterFile, MangaModel manga, List<Manga.Chapter> chapters, string destinationFilePath, TransferMode mode)
