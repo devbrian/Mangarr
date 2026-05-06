@@ -21,15 +21,15 @@ Two views into "what's missing or upgradable":
 | `missingOptionsStore.ts` | Zustand options |
 | `useMissing.tsx` | API hook (accepts `mediaType` arg switching `/wanted/missing` ↔ `/manga/wanted/missing`) |
 
-### CutoffUnmet/ (~5 files)
+### CutoffUnmet/ (~6 files)
 | File | Purpose |
 |------|---------|
-| `CutoffUnmet.tsx` | Page |
+| `CutoffUnmet.tsx` | Page (accepts `mediaType?: 'series' \| 'manga'` prop — Phase 7 D-10 / Plan 12-08) |
+| `MangaCutoffUnmet.tsx` | Plan 12-08 thin wrapper rendering `<CutoffUnmet mediaType="manga" />` |
 | `CutoffUnmetRow.tsx` | Row |
+| `CutoffUnmetFilterModal.tsx` | Filter modal (Phase 12 REVIEW MED-03 follow-up — mirrors `MissingFilterModal.tsx` shape; consumes `FILTER_BUILDER` export from `useCutoffUnmet.tsx` and dispatches `setCutoffUnmetOption('selectedFilterKey', ...)` against `cutoffUnmetOptionsStore`; `customFilterType="wanted.cutoffUnmet"` matches the existing `WANTED_CUTOFF_UNMET` entity key in `Episode/episodeEntities.ts`) |
 | `cutoffUnmetOptionsStore.ts` | Zustand |
-| `useCutoffUnmet.tsx` | Hook |
-
-Note: A `CutoffUnmetFilterModal` is referenced via the missing one (or there's a shared filter component). Both pages share table column definitions.
+| `useCutoffUnmet.tsx` | Hook (accepts `mediaType` arg switching `/wanted/cutoff` ↔ `/manga/wanted/cutoff`; exports `FILTERS` + `FILTER_BUILDER`) |
 
 ## API
 

@@ -37,6 +37,7 @@ import Episode from 'Episode/Episode';
 import { useToggleEpisodesMonitored } from 'Episode/useEpisode';
 import EpisodeFileProvider from 'EpisodeFile/EpisodeFileProvider';
 import { Filter } from 'Filters/Filter';
+import { useCustomFiltersList } from 'Filters/useCustomFilters';
 import { align, icons, kinds } from 'Helpers/Props';
 import { SortDirection } from 'Helpers/Props/sortDirections';
 import { CheckInputChanged } from 'typings/inputs';
@@ -54,6 +55,7 @@ import {
   setCutoffUnmetSort,
   useCutoffUnmetOptions,
 } from './cutoffUnmetOptionsStore';
+import CutoffUnmetFilterModal from './CutoffUnmetFilterModal';
 import CutoffUnmetRow from './CutoffUnmetRow';
 import useCutoffUnmet, { FILTERS } from './useCutoffUnmet';
 
@@ -70,6 +72,7 @@ function getMonitoredValue(
 
 function CutoffUnmetContent({ mediaType = 'series' }: CutoffUnmetProps) {
   const executeCommand = useExecuteCommand();
+  const customFilters = useCustomFiltersList('wanted.cutoffUnmet');
 
   const {
     records,
@@ -266,7 +269,8 @@ function CutoffUnmetContent({ mediaType = 'series' }: CutoffUnmetProps) {
               alignMenu={align.RIGHT}
               selectedFilterKey={selectedFilterKey}
               filters={FILTERS}
-              customFilters={[]}
+              customFilters={customFilters}
+              filterModalConnectorComponent={CutoffUnmetFilterModal}
               onFilterSelect={handleFilterSelect}
             />
           </PageToolbarSection>

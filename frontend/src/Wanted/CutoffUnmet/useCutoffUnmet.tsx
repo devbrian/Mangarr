@@ -13,16 +13,16 @@
 // shortcut). Functionally equivalent on the URL surface — `findSelectedFilters` emits
 // `[{key: 'monitored', value: [true|false], type: 'equal'}]`, which getQueryString
 // flattens to `?monitored=true|false` (the same shape the controller's `bool monitored`
-// query param binds). The structural symmetry now matches the docstring's claim and
-// makes the hook ready for the customFilters UI surface when CutoffUnmet.tsx adds a
-// CutoffUnmetFilterModal (currently passes customFilters={[]} — no UI surface for v1,
-// but the hook is wired correctly for it when added).
+// query param binds). The structural symmetry matches the docstring's claim and
+// the customFilters UI surface is wired via CutoffUnmetFilterModal.tsx (sibling
+// to MissingFilterModal.tsx; consumes the FILTER_BUILDER export below).
 import { keepPreviousData } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import Episode from 'Episode/Episode';
 import { setEpisodeQueryKey } from 'Episode/useEpisode';
-import { Filter } from 'Filters/Filter';
+import { Filter, FilterBuilderProp } from 'Filters/Filter';
 import { useCustomFiltersList } from 'Filters/useCustomFilters';
+import { filterBuilderValueTypes } from 'Helpers/Props';
 import usePage from 'Helpers/Hooks/usePage';
 import usePagedApiQuery from 'Helpers/Hooks/usePagedApiQuery';
 import findSelectedFilters from 'Utilities/Filter/findSelectedFilters';
@@ -53,6 +53,15 @@ export const FILTERS: Filter[] = [
         type: 'equal',
       },
     ],
+  },
+];
+
+export const FILTER_BUILDER: FilterBuilderProp<Episode>[] = [
+  {
+    name: 'monitored',
+    label: () => translate('Monitored'),
+    type: 'exact',
+    valueType: filterBuilderValueTypes.BOOL,
   },
 ];
 
