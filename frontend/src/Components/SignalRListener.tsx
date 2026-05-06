@@ -465,12 +465,32 @@ function SignalRListener() {
       return;
     }
 
+    // Phase-12 follow-up (F-MISSING-SIGNALR closure, 2026-05-06): upgraded from the
+    // Plan 07-02 invalidateQueries shape to the per-row updatePagedItem shape after
+    // MissingChaptersController was refactored to extend
+    // RestControllerWithSignalR<MissingChapterResource, Chapter> + subscribe to
+    // ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent.
+    // BroadcastResourceChange(ModelAction.Updated, chapterId) now emits a per-row
+    // MissingChapterResource body (the same shape TV's wanted/missing handler at
+    // lines 359-371 consumes via updatePagedItem<Episode>). The structural cast
+    // ``body.resource as Episode`` is safe because updatePagedItem only matches by
+    // ``id`` at runtime, and MissingChapterResource.Id (inherited from RestResource)
+    // carries the chapter id from the broadcast. Resource name
+    // 'manga/wanted/missing' is the route-attribute literal per Plan 07-02 URL-shaped
+    // React Query key contract (matches the path arg useMissing passes to
+    // usePagedApiQuery when mediaType === 'manga'). Mirrors the F-CUTOFF-SIGNALR
+    // closure for cross-controller consistency.
     if (name === 'manga/wanted/missing') {
-      if (version < 5) {
+      if (version < 5 || body.action !== 'updated') {
         return;
       }
 
-      queryClient.invalidateQueries({ queryKey: ['/manga/wanted/missing'] });
+      updatePagedItem<Episode>(
+        queryClient,
+        ['/manga/wanted/missing'],
+        body.resource as Episode
+      );
+
       return;
     }
 
