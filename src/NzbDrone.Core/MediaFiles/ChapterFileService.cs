@@ -154,6 +154,22 @@ namespace NzbDrone.Core.MediaFiles
                 try
                 {
                     var manga = _mangaService.GetManga(mangaId);
+
+                    // Phase 11 review CR-02: IMangaService.GetManga returns null on missing IDs
+                    // per the BL-01 contract on MangaService.cs:36-43 (uses _mangaRepository.Find,
+                    // not Get — does NOT throw ModelNotFoundException). The TV peer at
+                    // MediaFileDeletionService.cs:108 calls SeriesService.GetSeries which throws,
+                    // so the TV outer-catch path attributes failure correctly. Manga inherits the
+                    // call shape but not the contract — explicit null-check produces a typed
+                    // diagnostic ("manga not found") instead of an NRE swallowed by the outer
+                    // try/catch and reported as a generic Indeterminate Warn.
+                    if (manga == null)
+                    {
+                        _logger.Warn("Unable to delete files for manga with ID {0}: manga not found.", mangaId);
+                        _commandResultReporter.Report(CommandResult.Indeterminate);
+                        continue;
+                    }
+
                     var chapterFiles = _chapterFileRepository.GetFilesByManga(mangaId);
 
                     _logger.ProgressDebug("{0}: Deleting chapter files", manga.Title);

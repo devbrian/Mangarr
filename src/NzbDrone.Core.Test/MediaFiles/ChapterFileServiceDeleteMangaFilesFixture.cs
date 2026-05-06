@@ -131,7 +131,15 @@ namespace NzbDrone.Core.Test.MediaFiles
         {
             // ===================== Throw-then-no-publish invariant =====================
             // Source: 11-PATTERNS.md Pattern E + 11-RESEARCH.md §6 #4 + Phase 10 commit 9a65806b6.
-            Mocker.GetMock<IMangaService>().Setup(s => s.GetManga(99)).Throws<InvalidOperationException>();
+            //
+            // Phase 11 review CR-02: IMangaService.GetManga(int) returns null on missing IDs
+            // per BL-01 contract (MangaService.cs:36-43 calls _mangaRepository.Find, not Get).
+            // TV's SeriesService.GetSeries throws ModelNotFoundException on missing — manga
+            // does NOT. The earlier .Throws<InvalidOperationException>() setup masked the
+            // real production semantic and gave a false-positive on the unknown-id error path.
+            // The handler now explicitly null-checks manga before dereferencing manga.Title,
+            // logs Warn, reports Indeterminate, and continues.
+            Mocker.GetMock<IMangaService>().Setup(s => s.GetManga(99)).Returns((Manga)null);
 
             Subject.Execute(new DeleteMangaFilesCommand { MangaIds = new List<int> { 99 } });
 
@@ -141,7 +149,9 @@ namespace NzbDrone.Core.Test.MediaFiles
                   .Verify(e => e.PublishEvent(It.IsAny<CommandExecutedEvent>()), Times.Never);
             Mocker.GetMock<IChapterFileRepository>()
                   .Verify(r => r.Delete(It.IsAny<ChapterFile>()), Times.Never);
-            ExceptionVerification.ExpectedWarns(1);   // outer try/catch logs Warn per TV line 171
+            Mocker.GetMock<ICommandResultReporter>()
+                  .Verify(r => r.Report(CommandResult.Indeterminate), Times.AtLeastOnce);
+            ExceptionVerification.ExpectedWarns(1);   // explicit null-check logs Warn (CR-02 fix)
         }
 
         [Test]
