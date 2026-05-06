@@ -83,6 +83,32 @@ v1 developer REST endpoints for the manga domain. Phase 2 shipped the core CRUD 
   - **Settings → Notifications → Komga + Kavita** add-flow (Plans 06-10 / 06-11) with auto-test on save
 - **Phase 8 rename**: when the `Series → Manga` cutover lands, this directory becomes the canonical "primary domain" controller — the existing `Series/`, `History/`, `Blocklist/`, `Queue/`, `Release/`, `Wanted/` peers are deleted; the `Protocol == DownloadProtocol.Http` early-return guard in `CompletedDownloadService` disappears with `ImportApprovedEpisodes`; the `MangaReleaseController.BuildRemoteEpisodeShim` thin shim disappears with the `IDownloadService` unification.
 
+## MangaController IHandle subscribers (post-Phase-10)
+
+The `MangaController` fans out SignalR resource changes for the manga lifecycle. As of the Phase 10 close-out, the controller subscribes to **11 IHandle interfaces** — 4 from Phase 2 Plan 02-10, 1 from Phase 9 Plan 09-13, and 6 from Phase 10 sub-wave C (Plans 10-05 / 10-06 / 10-08). The `manga` SignalR resource name is auto-derived from `MangaResource.ResourceName` (Plan 07-02 + Plan 07-01 Lock #6); the frontend `SignalRListener.tsx` handler at line 399 invalidates `['/manga']` query key on every Updated / Created / Deleted action.
+
+| #  | IHandle interface                  | Origin plan          | Behavior |
+|----|------------------------------------|----------------------|----------|
+| 1  | `IHandle<MangaAddedEvent>`         | Phase 2 Plan 02-10   | `BroadcastResourceChange(Created, message.Manga.Id)` |
+| 2  | `IHandle<MangaUpdatedEvent>`       | Phase 2 Plan 02-10   | `BroadcastResourceChange(Updated, message.Manga.Id)` |
+| 3  | `IHandle<MangaDeletedEvent>`       | Phase 2 Plan 02-10   | `BroadcastResourceChange(Deleted, MapResource(message.Manga))` (deleted-with-payload pattern; null-guarded) |
+| 4  | `IHandle<ChapterListUpdatedEvent>` | Phase 2 Plan 02-10   | `BroadcastResourceChange(Updated, message.Manga.Id)` |
+| 5  | `IHandle<MangaCoversUpdatedEvent>` | Phase 9 Plan 09-13   | `BroadcastResourceChange(Updated, message.Manga.Id)` IF `message.Updated == true` (skip on AlreadyExists short-circuit) |
+| 6  | `IHandle<MangaEditedEvent>`        | **Phase 10 Plan 10-05** | `BroadcastResourceChange(Updated, message.Manga.Id)` — fires on user-explicit-edit (UI single-edit PUT after Plan 10-07's 3-arg `triggerSeriesEdited:true` opt-in + bulk-edit path) |
+| 7  | `IHandle<MangaRenamedEvent>`       | **Phase 10 Plan 10-05** | `BroadcastResourceChange(Updated, message.Manga.Id)` — fires after `RenameChapterFileService` completes |
+| 8  | `IHandle<MangaBulkEditedEvent>`    | **Phase 10 Plan 10-05** | `foreach (var manga in message.Manga) BroadcastResourceChange(Updated, manga.Id)` — bulk-edit fan-out, one broadcast per manga in payload |
+| 9  | `IHandle<ChapterFileAddedEvent>`   | **Phase 10 Plan 10-06** | `BroadcastResourceChange(Updated, message.ChapterFile.MangaId)` — fires after chapter-file import (Plan 06-09 `ChapterFileService.Add` publishes; mangaId via direct FK property, not LazyLoad) |
+| 10 | `IHandle<ChapterFileDeletedEvent>` | **Phase 10 Plan 10-06** | `BroadcastResourceChange(Updated, message.ChapterFile.MangaId)` — fires after chapter-file deletion. **Upgrade-reason short-circuit:** bails when `message.Reason == DeleteMediaFileReason.Upgrade` because the upcoming Add event will fire next; mirrors `SeriesController.Handle(EpisodeFileDeletedEvent)` verbatim. |
+| 11 | `IHandle<MangaImportedEvent>`      | **Phase 10 Plan 10-08** | `foreach (var mangaId in message.MangaIds) BroadcastResourceChange(Updated, mangaId)` — bulk-add library-import fan-out, primitive-id payload (`List<int>`). Parallel subscriber: `MangaAddedHandler.IHandle<MangaImportedEvent>` (refresh-trigger PushMany — DryIoc dispatches both). |
+
+**SignalR resource name:** `manga` (auto-derived from `MangaResource.ResourceName` via `RestControllerWithSignalR.cs:81-89`; Plan 07-02 `SignalRListener.tsx` handler entry verified).
+
+**Phase 14 cleanup target:** This IHandle list collapses with `SeriesController.cs`'s IHandle list when `Tv/` deletes — Manga prefix dropped (e.g., `IHandle<MangaEditedEvent>` becomes `IHandle<EditedEvent>` in the renamed namespace). The 6 net-new Phase 10 entries are intentional manga-side parity additions; SeriesController retains the same 11-subscriber shape pre-cutover.
+
+**Test coverage:** `src/NzbDrone.Api.Test/Manga/MangaControllerSignalRFixture.cs` (Plan 10-05 introduced; extended in Plans 10-06 + 10-08; total **7 tests** — 3 from Plan 10-05 covering Edited/Renamed/BulkEdited, 3 from Plan 10-06 covering ChapterFileAdded happy path + ChapterFileDeleted Manual-reason + ChapterFileDeleted Upgrade-reason `Times.Never` short-circuit, 1 from Plan 10-08 covering MangaImportedEvent bulk fan-out with `Times.Exactly(3)` assertion). All tests use predicate-locked `It.Is<SignalRMessage>(m => m.Action == ModelAction.Updated && m.Name == "manga")` shape — never `It.IsAny<>`. Full Api.Test suite green: 33/33.
+
+**Note on test fixture location:** the fixture lives under `NzbDrone.Api.Test`, NOT `NzbDrone.Core.Test`, because `Sonarr.Core.Test` does not project-reference `Sonarr.Api.V5`. Plan 10-05 established this convention via Rule 3 deviation; Plans 10-06 + 10-08 appended to the same fixture file.
+
 ## Cross-References
 
 - Sonarr V5 analogs (each Phase 6 controller mirrors a TV peer):
@@ -101,3 +127,10 @@ v1 developer REST endpoints for the manga domain. Phase 2 shipped the core CRUD 
 - AddMangaService (META-02 orchestrator, D-19/D-20 wiring): [`src/NzbDrone.Core/Manga/AddMangaService.cs`](../../NzbDrone.Core/Manga/AddMangaService.cs)
 - MetadataSource scaffold (D-14, D-15): [`src/NzbDrone.Core/MetadataSource/CLAUDE.md`](../../NzbDrone.Core/MetadataSource/CLAUDE.md)
 - Manga cover mapper (Plan 02-09 sibling per RESEARCH §Pattern 5): [`src/NzbDrone.Core/MediaCover/MangaMediaCoverService.cs`](../../NzbDrone.Core/MediaCover/MangaMediaCoverService.cs)
+- Phase 10 IHandle backfill SUMMARYs:
+  - [Plan 10-05 SUMMARY](../../../.planning/phases/10-events-and-subscribers-sweep/10-05-SUMMARY.md) — MangaEditedEvent / MangaRenamedEvent / MangaBulkEditedEvent
+  - [Plan 10-06 SUMMARY](../../../.planning/phases/10-events-and-subscribers-sweep/10-06-SUMMARY.md) — ChapterFileAddedEvent / ChapterFileDeletedEvent + Upgrade-reason short-circuit
+  - [Plan 10-08 SUMMARY](../../../.planning/phases/10-events-and-subscribers-sweep/10-08-SUMMARY.md) — MangaImportedEvent bulk fan-out
+
+---
+*Last updated: 2026-05-05 after Phase 10 Plan 10-09 close-out — MangaController IHandle subscriber list refreshed from 5 to 11 entries (Plans 10-05/06/08 ship the source code; Plan 10-09 ships this doc update per CLAUDE.md HIGH PRIORITY rule).*
