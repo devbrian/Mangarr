@@ -35,6 +35,13 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
             Mocker.GetMock<IMangaSearchForReleases>()
                 .Setup(s => s.ChapterSearch(It.IsAny<ChapterSearchCriteria>()))
                 .ReturnsAsync(new List<MangaDownloadDecision>());
+
+            Mocker.GetMock<IProcessMangaDownloadDecisions>()
+                .Setup(p => p.ProcessDecisions(It.IsAny<List<MangaDownloadDecision>>()))
+                .ReturnsAsync(new ProcessedMangaDecisions(
+                    new List<MangaDownloadDecision>(),
+                    new List<MangaDownloadDecision>(),
+                    new List<MangaDownloadDecision>()));
         }
 
         [Test]

@@ -9,11 +9,8 @@ using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Parser.Manga.Model;
-using NzbDrone.Core.Parser.Model;
 using Sonarr.Http;
 using HttpStatusCode = System.Net.HttpStatusCode;
-using TvEpisode = NzbDrone.Core.Tv.Episode;
-using TvSeries = NzbDrone.Core.Tv.Series;
 
 namespace Sonarr.Api.V5.Manga.Release
 {
@@ -140,7 +137,7 @@ namespace Sonarr.Api.V5.Manga.Release
                 // reads only `Release` (manifest fetch) plus `Series.Id` → MangaId + `Episodes[0].Id`
                 // → ChapterId in ChapterDownloadService.EnqueueAsync. Mirrors the Phase 4 thin-shim
                 // convention; collapses in Phase 8 when RemoteEpisode → RemoteChapter rename lands.
-                var shim = BuildRemoteEpisodeShim(remoteChapter);
+                var shim = remoteChapter.ToRemoteEpisodeShim();
                 await _downloadService.DownloadReport(shim, downloadClientId: null);
             }
             catch (ReleaseDownloadException ex)
@@ -171,33 +168,5 @@ namespace Sonarr.Api.V5.Manga.Release
 
         private static string GetCacheKey(MangaReleaseResource resource)
             => string.Concat(resource.IndexerId, "_", resource.Guid ?? string.Empty);
-
-        private static RemoteEpisode BuildRemoteEpisodeShim(RemoteChapter remoteChapter)
-        {
-            // Wire-level shim: TV's IDownloadService takes RemoteEpisode and the IDownloadClient
-            // contract is `Download(RemoteEpisode, IIndexer)`. Phase 4 D-10 routes Http-protocol
-            // releases past TV's import path; the in-process client only reads `.Release`,
-            // `.Series.Id`, and `.Episodes[0].Id`. Phase 8 collapse renames the type.
-            var manga = remoteChapter.Manga;
-            var chapters = remoteChapter.Chapters ?? new List<NzbDrone.Core.Manga.Chapter>();
-
-            var seriesShim = new TvSeries { Id = manga?.Id ?? 0 };
-            var episodeShims = chapters
-                .Select(c => new TvEpisode { Id = c.Id })
-                .ToList();
-            if (episodeShims.Count == 0)
-            {
-                episodeShims.Add(new TvEpisode { Id = 0 });
-            }
-
-            return new RemoteEpisode
-            {
-                Release = remoteChapter.Release,
-                Series = seriesShim,
-                Episodes = episodeShims,
-                CustomFormats = remoteChapter.CustomFormats,
-                CustomFormatScore = remoteChapter.CustomFormatScore
-            };
-        }
     }
 }

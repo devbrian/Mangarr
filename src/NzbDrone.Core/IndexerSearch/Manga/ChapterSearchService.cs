@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using System.Linq;
 using NLog;
 using NzbDrone.Common.Instrumentation.Extensions;
+using NzbDrone.Core.DecisionEngine.Manga;
 using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Messaging.Commands;
@@ -14,25 +14,29 @@ namespace NzbDrone.Core.IndexerSearch.Manga
     //
     // Per-chapter dispatch (Interactive Search + auto-retry consumer per D-12).
     // Each ChapterSearchCommand carries N chapter ids; this service walks them and
-    // fires one ChapterSearch fan-out per id. Decisions are returned; the grab
-    // path lives downstream (Plan 06-07/08).
+    // fires one ChapterSearch fan-out per id, then hands the ranked decisions to
+    // IProcessMangaDownloadDecisions for the grab + Pending/Rejected bucketing
+    // (Phase 8 Plan 99-06 — closes gap-01 family).
     //
-    // Phase 8 cleanup: collapse with EpisodeSearchService when Tv/ deletes.
+    // Phase 15 cleanup: collapse with EpisodeSearchService when Tv/ deletes.
     public class ChapterSearchService : IExecute<ChapterSearchCommand>
     {
         private readonly IMangaService _mangaService;
         private readonly IChapterService _chapterService;
         private readonly IMangaSearchForReleases _releaseSearchService;
+        private readonly IProcessMangaDownloadDecisions _processDownloadDecisions;
         private readonly Logger _logger;
 
         public ChapterSearchService(IMangaService mangaService,
                                     IChapterService chapterService,
                                     IMangaSearchForReleases releaseSearchService,
+                                    IProcessMangaDownloadDecisions processDownloadDecisions,
                                     Logger logger)
         {
             _mangaService = mangaService;
             _chapterService = chapterService;
             _releaseSearchService = releaseSearchService;
+            _processDownloadDecisions = processDownloadDecisions;
             _logger = logger;
         }
 
@@ -71,24 +75,13 @@ namespace NzbDrone.Core.IndexerSearch.Manga
                 };
 
                 var decisions = _releaseSearchService.ChapterSearch(criteria).GetAwaiter().GetResult();
-                var approved = decisions.Count(d => d.Approved);
+                var processed = _processDownloadDecisions.ProcessDecisions(decisions).GetAwaiter().GetResult();
 
-                // TODO(phase-08 audit gap-01): manga has no IProcessMangaDownloadDecisions analog of
-                // TV's IProcessDownloadDecisions (EpisodeSearchService.cs:115). Approved decisions are
-                // counted and dropped — no grab is dispatched. AutoRetryOrchestrator (Download/Manga/
-                // AutoRetryOrchestrator.cs:111) and POST /api/v5/manga/chapter/{id}/search both push
-                // ChapterSearchCommand expecting the search to FIND AND GRAB; today they find-only.
-                // Backfill shape: new IProcessMangaDownloadDecisions service consuming
-                // List<MangaDownloadDecision>, hand top-ranked approved to IDownloadService.DownloadReport
-                // via a RemoteEpisode shim (mirror MangaReleaseController.BuildRemoteEpisodeShim at
-                // Sonarr.Api.V5/Manga/Release/MangaReleaseController.cs:175-201). Pair with
-                // MangaSearchService and SeriesSearchService gap-01. Tracked in Phase 8 deferred-items.
                 _logger.ProgressInfo(
-                    "Chapter search completed for {0} Ch.{1:0.###}. {2}/{3} releases approved",
+                    "Chapter search completed for {0} Ch.{1:0.###}. {2} reports downloaded.",
                     manga.Title,
                     chapter.ChapterNumber,
-                    approved,
-                    decisions.Count);
+                    processed.Grabbed.Count);
             }
         }
     }
