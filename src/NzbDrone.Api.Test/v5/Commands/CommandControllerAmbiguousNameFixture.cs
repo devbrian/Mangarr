@@ -6,8 +6,8 @@ using NzbDrone.Common.Composition;
 using NzbDrone.Core.Messaging.Commands;
 using Sonarr.Api.V5.Commands;
 using Sonarr.Http.REST;
-using TvManualImportCommand = NzbDrone.Core.MediaFiles.EpisodeImport.Manual.ManualImportCommand;
 using MangaManualImportCommand = NzbDrone.Core.MediaFiles.MangaImport.Manual.ManualImportCommand;
+using TvManualImportCommand = NzbDrone.Core.MediaFiles.EpisodeImport.Manual.ManualImportCommand;
 
 namespace NzbDrone.Api.Test.v5.Commands
 {
@@ -66,7 +66,9 @@ namespace NzbDrone.Api.Test.v5.Commands
         [Test]
         public void should_route_to_manga_when_contractName_supplied()
         {
-            var resolved = CommandTypeResolver.Resolve(_knownTypes, "ManualImport",
+            var resolved = CommandTypeResolver.Resolve(
+                _knownTypes,
+                "ManualImport",
                 "NzbDrone.Core.MediaFiles.MangaImport.Manual.ManualImportCommand");
             resolved.Should().Be<MangaManualImportCommand>();
         }
@@ -74,7 +76,9 @@ namespace NzbDrone.Api.Test.v5.Commands
         [Test]
         public void should_route_to_tv_when_explicit_tv_contractName_supplied()
         {
-            var resolved = CommandTypeResolver.Resolve(_knownTypes, "ManualImport",
+            var resolved = CommandTypeResolver.Resolve(
+                _knownTypes,
+                "ManualImport",
                 "NzbDrone.Core.MediaFiles.EpisodeImport.Manual.ManualImportCommand");
             resolved.Should().Be<TvManualImportCommand>();
         }
@@ -82,7 +86,9 @@ namespace NzbDrone.Api.Test.v5.Commands
         [Test]
         public void should_throw_BadRequestException_for_mismatched_contractName()
         {
-            Action act = () => CommandTypeResolver.Resolve(_knownTypes, "ManualImport",
+            Action act = () => CommandTypeResolver.Resolve(
+                _knownTypes,
+                "ManualImport",
                 "NzbDrone.Core.MediaFiles.MangaImport.Manual.NotARealCommand");
             act.Should().Throw<BadRequestException>();
         }
@@ -90,7 +96,9 @@ namespace NzbDrone.Api.Test.v5.Commands
         [Test]
         public void contractName_is_case_insensitive_match_against_FullName()
         {
-            var resolved = CommandTypeResolver.Resolve(_knownTypes, "ManualImport",
+            var resolved = CommandTypeResolver.Resolve(
+                _knownTypes,
+                "ManualImport",
                 "nzbdrone.core.mediafiles.mangaimport.manual.manualimportcommand");
             resolved.Should().Be<MangaManualImportCommand>();
         }
