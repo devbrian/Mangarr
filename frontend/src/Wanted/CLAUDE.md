@@ -91,17 +91,27 @@ toggles invalidate the correct cache.
 |--------------|---------|------------------|
 | `Missing/MangaMissing.tsx` | `<Missing mediaType="manga" />` | `/manga/wanted/missing` |
 
-**SignalR auto-refresh:** Plan 07-02's `frontend/src/Components/SignalRListener.tsx` handler
-for `manga/wanted/missing` invalidates the matching React Query key
-(`['/manga/wanted/missing']`) — the manga Wanted/Missing page auto-refreshes on backend events
-identically to how the TV Wanted/Missing page auto-refreshes on `wanted/missing` SignalR pushes.
-The Phase-12 follow-up (F-CUTOFF-SIGNALR closure, 2026-05-06) adds the matching wiring for
-`manga/wanted/cutoff`: `MangaCutoffController` (Plan 12-12) was refactored to extend
-`RestControllerWithSignalR<MangaCutoffResource, Chapter>` and now broadcasts `Updated` on
-`ChapterGrabbedEvent` / `ChapterImportedEvent` / `ChapterFileDeletedEvent`; the SignalRListener
-handler for `manga/wanted/cutoff` uses `updatePagedItem` against `['/manga/wanted/cutoff']`
-(mirrors TV `wanted/cutoff` per-row update shape) so the Wanted/CutoffUnmet page auto-refreshes
-end-to-end.
+**SignalR auto-refresh:** Both manga Wanted pages auto-refresh end-to-end on backend
+chapter/file pipeline events identically to how the TV Wanted pages auto-refresh on
+`wanted/missing` / `wanted/cutoff` SignalR pushes. The Phase-12 follow-up pair (F-CUTOFF-SIGNALR
+closure + F-MISSING-SIGNALR closure, both 2026-05-06) ships the matching backend +
+frontend wiring for both endpoints:
+
+- **`manga/wanted/cutoff`** — `MangaCutoffController` (Plan 12-12) was refactored to extend
+  `RestControllerWithSignalR<MangaCutoffResource, Chapter>` and now broadcasts `Updated` on
+  `ChapterGrabbedEvent` / `ChapterImportedEvent` / `ChapterFileDeletedEvent`; the
+  `SignalRListener` handler uses `updatePagedItem` against `['/manga/wanted/cutoff']` (mirrors
+  TV `wanted/cutoff` per-row update shape) so the Wanted/CutoffUnmet page auto-refreshes
+  end-to-end.
+- **`manga/wanted/missing`** — `MissingChaptersController` (Plan 06-09) was refactored
+  in the F-MISSING-SIGNALR follow-up to extend
+  `RestControllerWithSignalR<MissingChapterResource, Chapter>` with the same three IHandle
+  subscriptions; the `SignalRListener` handler was upgraded from the original Plan 07-02
+  `invalidateQueries({ queryKey: ['/manga/wanted/missing'] })` shape (which was dead code
+  because the backend never emitted on the resource name) to the per-row
+  `updatePagedItem<Episode>(queryClient, ['/manga/wanted/missing'], body.resource as Episode)`
+  shape — matching TV `wanted/missing` (lines 359-371) and the cutoff sibling. The
+  Wanted/Missing page now auto-refreshes end-to-end.
 
 **Phase 8 cleanup:** When `/manga/wanted/missing` is promoted (or `/wanted/missing` is dropped),
 the thin wrapper merges into `Missing.tsx` (`mediaType` default flips to `'manga'`) and the

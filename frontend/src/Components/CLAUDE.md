@@ -154,7 +154,7 @@ These components are **domain-agnostic** and require no changes for Mangarr:
 
 ## SignalRListener (`SignalRListener.tsx`)
 
-Hub-message dispatch table that opens `/signalr/messages?access_token=<apiKey>` on mount and routes per-resource pushes to React Query cache invalidations / Redux store updates / `repopulatePage` calls. Phase 7 Plan 07-02 extends the dispatch table with **6 manga resource handlers** (closes Phase 6 deferred-items.md F-01); Phase 12 follow-up (F-CUTOFF-SIGNALR closure, 2026-05-06) adds a **7th** handler for `manga/wanted/cutoff`:
+Hub-message dispatch table that opens `/signalr/messages?access_token=<apiKey>` on mount and routes per-resource pushes to React Query cache invalidations / Redux store updates / `repopulatePage` calls. Phase 7 Plan 07-02 extends the dispatch table with **6 manga resource handlers** (closes Phase 6 deferred-items.md F-01); Phase 12 follow-up (F-CUTOFF-SIGNALR closure, 2026-05-06) adds a **7th** handler for `manga/wanted/cutoff`. The Phase 12 F-MISSING-SIGNALR follow-up (2026-05-06) upgrades the existing `manga/wanted/missing` handler from the original `invalidateQueries` shape to the same per-row `updatePagedItem<Episode>` shape after `MissingChaptersController` was refactored to extend `RestControllerWithSignalR<MissingChapterResource, Chapter>` for cross-controller consistency with `MangaCutoffController`:
 
 | Resource | Backend `[V5ApiController(...)]` route | Handler shape |
 |----------|----------------------------------------|---------------|
@@ -163,7 +163,7 @@ Hub-message dispatch table that opens `/signalr/messages?access_token=<apiKey>` 
 | `manga/queue` | `[V5ApiController("manga/queue")]` on MangaQueueController | `queryClient.invalidateQueries({ queryKey: ['/manga/queue'] })` |
 | `manga/blocklist` | `[V5ApiController("manga/blocklist")]` on MangaBlocklistController | `queryClient.invalidateQueries({ queryKey: ['/manga/blocklist'] })` |
 | `manga/history` | `[V5ApiController("manga/history")]` on ChapterHistoryController | `queryClient.invalidateQueries({ queryKey: ['/manga/history'] })` |
-| `manga/wanted/missing` | `[V5ApiController("manga/wanted/missing")]` on MissingChaptersController | `queryClient.invalidateQueries({ queryKey: ['/manga/wanted/missing'] })` |
+| `manga/wanted/missing` | `[V5ApiController("manga/wanted/missing")]` on MissingChaptersController (Phase 6 Plan 06-09 + F-MISSING-SIGNALR follow-up) | `updatePagedItem<Episode>(queryClient, ['/manga/wanted/missing'], body.resource as Episode)` (mirrors TV `wanted/missing` per-row update shape at lines 359-371; `MissingChaptersController` extends `RestControllerWithSignalR<MissingChapterResource, Chapter>` and broadcasts on `ChapterGrabbedEvent` / `ChapterImportedEvent` / `ChapterFileDeletedEvent` (Phase 12 follow-up — F-MISSING-SIGNALR closure 2026-05-06 mirrors the F-CUTOFF-SIGNALR closure)) |
 | `manga/wanted/cutoff` | `[V5ApiController("manga/wanted/cutoff")]` on MangaCutoffController (Phase 12 Plan 12-12 + F-CUTOFF-SIGNALR follow-up) | `updatePagedItem<Episode>(queryClient, ['/manga/wanted/cutoff'], body.resource as Episode)` (mirrors TV `wanted/cutoff` per-row update shape; `MangaCutoffController` extends `RestControllerWithSignalR<MangaCutoffResource, Chapter>` and broadcasts on `ChapterGrabbedEvent` / `ChapterImportedEvent` / `ChapterFileDeletedEvent`) |
 
 **Insertion invariant** (Pitfall 1): Every new handler MUST land BEFORE the fall-through `console.error('signalR: Unable to find handler for ${name}')` line — otherwise it's unreachable.
