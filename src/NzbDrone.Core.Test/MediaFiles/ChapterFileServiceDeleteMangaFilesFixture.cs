@@ -180,8 +180,12 @@ namespace NzbDrone.Core.Test.MediaFiles
             Mocker.GetMock<IRootFolderService>().Setup(r => r.GetBestRootFolderPath(manga2.Path)).Returns(@"C:\Test\Manga".AsOsAgnostic());
 
             // First mangaId triggers exception in recycle; subsequent mangaId still processes.
-            // Reset the mock so the SetUp's no-op .Returns(string.Empty) does not shadow .Throws().
-            Mocker.GetMock<IRecycleBinProvider>().Reset();
+            // Phase 11 review WR-03: drop the prior Mocker.GetMock<IRecycleBinProvider>().Reset()
+            // call. Moq honors the most-recently-registered .Setup for the same matcher, so this
+            // .Throws(...) overrides the SetUp's earlier .Returns(string.Empty) without needing
+            // Reset(). Reset() also clobbers all setups — including any future Strict-mode
+            // contract setups — and would brittlely couple this test to the SetUp's exact mock
+            // registration order.
             Mocker.GetMock<IRecycleBinProvider>()
                   .Setup(p => p.DeleteFile(It.IsAny<string>(), It.IsAny<string>()))
                   .Throws(new IOException("test recycle failure"));
