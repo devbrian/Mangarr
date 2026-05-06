@@ -95,6 +95,13 @@ toggles invalidate the correct cache.
 for `manga/wanted/missing` invalidates the matching React Query key
 (`['/manga/wanted/missing']`) — the manga Wanted/Missing page auto-refreshes on backend events
 identically to how the TV Wanted/Missing page auto-refreshes on `wanted/missing` SignalR pushes.
+The Phase-12 follow-up (F-CUTOFF-SIGNALR closure, 2026-05-06) adds the matching wiring for
+`manga/wanted/cutoff`: `MangaCutoffController` (Plan 12-12) was refactored to extend
+`RestControllerWithSignalR<MangaCutoffResource, Chapter>` and now broadcasts `Updated` on
+`ChapterGrabbedEvent` / `ChapterImportedEvent` / `ChapterFileDeletedEvent`; the SignalRListener
+handler for `manga/wanted/cutoff` uses `updatePagedItem` against `['/manga/wanted/cutoff']`
+(mirrors TV `wanted/cutoff` per-row update shape) so the Wanted/CutoffUnmet page auto-refreshes
+end-to-end.
 
 **Phase 8 cleanup:** When `/manga/wanted/missing` is promoted (or `/wanted/missing` is dropped),
 the thin wrapper merges into `Missing.tsx` (`mediaType` default flips to `'manga'`) and the
