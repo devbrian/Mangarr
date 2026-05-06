@@ -9,6 +9,7 @@ using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.SignalR;
+using Sonarr.Api.V5.Manga.Chapter;
 using Sonarr.Api.V5.Manga.Subresources;
 using Sonarr.Http;
 using Sonarr.Http.Extensions;
@@ -22,6 +23,14 @@ namespace Sonarr.Api.V5.Manga.Wanted
     // added IHandle subscriptions so the `/manga/wanted/missing` page auto-refreshes on
     // chapter/chapterfile pipeline events end-to-end (matching TV's `/wanted/missing` behavior
     // and mirroring the F-CUTOFF-SIGNALR closure verbatim — see MangaCutoffController.cs).
+    //
+    // Phase-12 follow-up (canonical-resource-reuse, 2026-05-06) refactored the resource shape
+    // from custom `MissingChapterResource` (deleted) → canonical `ChapterResource` reuse,
+    // mirroring TV's `MissingController` returning `Ok<PagingResource<EpisodeResource>>` rather
+    // than its own custom resource. The query param `bool includeManga` was likewise replaced
+    // with TV's `[FromQuery] MangaMissingSubresource[]? includeSubresources` enum-array shape
+    // (see `MangaMissingSubresource.cs` — single `Manga` value mirrors TV's `MissingSubresource
+    // { Series, Images }`). Closes the canonical-resource-reuse divergence.
     //
     // Role-match analog: src/Sonarr.Api.V5/Wanted/MissingController.cs (TV peer — extends
     // EpisodeControllerWithSignalR which itself extends RestControllerWithSignalR<EpisodeResource,
@@ -37,7 +46,7 @@ namespace Sonarr.Api.V5.Manga.Wanted
     //
     // Manga sibling diverges from MissingController:
     //   * Inject IChapterService (paged ChaptersWithoutFiles overload added by Plan 06-09)
-    //     + IMangaService (for ageRating filter join + includeManga hydration).
+    //     + IMangaService (for ageRating filter join + Manga subresource hydration).
     //   * Drop EpisodesWithoutFiles + includeSpecials (manga has no specials concept).
     //   * Add mangaIds + languages + ageRating filters per WANTED-03.
     //   * D-04 honored: IsSynthetic=true rows are surfaced identically to IsSynthetic=false
@@ -46,7 +55,7 @@ namespace Sonarr.Api.V5.Manga.Wanted
     //   * ageRating filter is post-paged (in-memory) because it requires a JOIN to Manga
     //     and the v1 ChapterRepository.ChaptersWithoutFiles does not JOIN. Acceptable for
     //     Phase 6 — the result set is bounded by the paging spec (default 10/page).
-    //   * Extends RestControllerWithSignalR<MissingChapterResource, Chapter> + subscribes to
+    //   * Extends RestControllerWithSignalR<ChapterResource, Chapter> + subscribes to
     //     ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent (NOT plain
     //     Controller). F-MISSING-SIGNALR follow-up (2026-05-06) — mirrors the F-CUTOFF-SIGNALR
     //     closure for cross-controller consistency between the two manga V5 wanted endpoints.
@@ -69,7 +78,7 @@ namespace Sonarr.Api.V5.Manga.Wanted
     //
     // Phase 8 cleanup: collapse with MissingController when Tv/ deletes.
     [V5ApiController("manga/wanted/missing")]
-    public class MangaMissingController : RestControllerWithSignalR<MissingChapterResource, NzbDrone.Core.Manga.Chapter>,
+    public class MangaMissingController : RestControllerWithSignalR<ChapterResource, NzbDrone.Core.Manga.Chapter>,
                                              IHandle<ChapterGrabbedEvent>,
                                              IHandle<ChapterImportedEvent>,
                                              IHandle<ChapterFileDeletedEvent>
@@ -88,15 +97,17 @@ namespace Sonarr.Api.V5.Manga.Wanted
 
         [HttpGet]
         [Produces("application/json")]
-        public Ok<PagingResource<MissingChapterResource>> GetMissingChapters([FromQuery] PagingRequestResource paging,
-                                                                            bool monitored = true,
-                                                                            [FromQuery] int[]? mangaIds = null,
-                                                                            [FromQuery] string[]? languages = null,
-                                                                            [FromQuery] string? ageRating = null,
-                                                                            [FromQuery] bool includeManga = false)
+        public Ok<PagingResource<ChapterResource>> GetMissingChapters([FromQuery] PagingRequestResource paging,
+                                                                      bool monitored = true,
+                                                                      [FromQuery] int[]? mangaIds = null,
+                                                                      [FromQuery] string[]? languages = null,
+                                                                      [FromQuery] string? ageRating = null,
+                                                                      [FromQuery] MangaMissingSubresource[]? includeSubresources = null)
         {
-            var pagingResource = new PagingResource<MissingChapterResource>(paging);
-            var pagingSpec = pagingResource.MapToPagingSpec<MissingChapterResource, NzbDrone.Core.Manga.Chapter>(
+            var includeManga = includeSubresources?.Contains(MangaMissingSubresource.Manga) ?? false;
+
+            var pagingResource = new PagingResource<ChapterResource>(paging);
+            var pagingSpec = pagingResource.MapToPagingSpec<ChapterResource, NzbDrone.Core.Manga.Chapter>(
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
                     "releaseDate",
@@ -153,15 +164,20 @@ namespace Sonarr.Api.V5.Manga.Wanted
         // throws — provide the manga-shape lookup so IHandle subscribers can broadcast by id.
         // Mirrors EpisodeControllerWithSignalR.GetResourceById at EpisodeControllerWithSignalR.cs:53-58
         // and MangaCutoffController.GetResourceById (F-CUTOFF-SIGNALR sibling, 2026-05-06).
-        protected override MissingChapterResource GetResourceById(int id)
+        // After canonical-resource-reuse follow-up (2026-05-06): returns ChapterResource via the
+        // canonical ChapterResourceMapper.ToResource extension (no Manga subresource hydration on
+        // the broadcast path — TV's EpisodeControllerWithSignalR.GetResourceById hydrates Series
+        // for the broadcast, but the manga-side default is `false` for parity with the original
+        // shape; the broadcast Body's Id is the load-bearing field for updatePagedItem<Episode>).
+        protected override ChapterResource GetResourceById(int id)
         {
             var chapter = _chapterService.GetChapter(id);
             return MapToResource(chapter, includeManga: false);
         }
 
-        private MissingChapterResource MapToResource(NzbDrone.Core.Manga.Chapter chapter, bool includeManga)
+        private ChapterResource MapToResource(NzbDrone.Core.Manga.Chapter chapter, bool includeManga)
         {
-            var resource = chapter.ToMissingResource()!;
+            var resource = chapter.ToResource();
 
             if (includeManga)
             {
@@ -183,7 +199,7 @@ namespace Sonarr.Api.V5.Manga.Wanted
         // EpisodeControllerWithSignalR.Handle(EpisodeGrabbedEvent) at lines 122-132 +
         // MangaCutoffController.Handle(ChapterGrabbedEvent) sibling. RemoteChapter carries the
         // resolved Chapters list (Parser/Manga/Model/RemoteChapter.cs:32). Each id round-trips
-        // through BroadcastResourceChange → GetResourceById → MissingChapterResource so the
+        // through BroadcastResourceChange → GetResourceById → ChapterResource so the
         // React Query cache for ['/manga/wanted/missing'] sees a fresh row per chapter on grab.
         [NonAction]
         public void Handle(ChapterGrabbedEvent message)
