@@ -128,7 +128,15 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         }
 
         existing.ApplyChanges(resource.ToModel()!);
-        _mangaService.UpdateManga(existing);
+
+        // Phase 10 Plan 10-07 (W4 revision iteration 1 — Option B locked per D-10-08):
+        // opt the UI single-edit PUT path INTO BOTH MangaUpdatedEvent + MangaEditedEvent
+        // so MangaController.IHandle<MangaEditedEvent> (Plan 10-05) fires on the
+        // user-explicit-edit signal and MangaController.IHandle<MangaUpdatedEvent>
+        // fires on the any-update signal. Without this opt-in, the IHandle subscriber
+        // for MangaEditedEvent would never fire on the UI single-edit path — the
+        // half-broken intermediate state D-10-08 explicitly prohibits.
+        _mangaService.UpdateManga(existing, publishUpdatedEvent: true, triggerSeriesEdited: true);
 
         return TypedAccepted(resource.Id);
     }

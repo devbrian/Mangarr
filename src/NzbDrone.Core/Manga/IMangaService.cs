@@ -34,6 +34,16 @@ namespace NzbDrone.Core.Manga
         Dictionary<int, string> GetAllMangaPaths();
         Dictionary<int, List<int>> GetAllMangaTags();
         Manga UpdateManga(Manga manga, bool publishUpdatedEvent = true);
+
+        // Phase 10 Plan 10-07 (FINDINGS Open Q 5 close-out): 3-arg overload mirrors
+        // TV's ISeriesService.UpdateSeries shape (two-bool gating). UI single-edit PUT
+        // path passes both flags true so the MangaController.IHandle<MangaEditedEvent>
+        // (Plan 10-05) fires on the user-explicit-edit signal alongside MangaUpdatedEvent;
+        // RefreshMangaService can pass both false to suppress events on the metadata-
+        // refresh path. The 2-arg overload above stays for backwards-compat — it
+        // delegates to this 3-arg overload with triggerSeriesEdited: false.
+        Manga UpdateManga(Manga manga, bool publishUpdatedEvent, bool triggerSeriesEdited);
+
         List<Manga> UpdateManga(List<Manga> manga, bool useExistingRelativeFolder);
         bool MangaPathExists(string folder);
         void RemoveAddOptions(Manga manga);
