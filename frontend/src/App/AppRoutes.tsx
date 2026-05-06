@@ -39,6 +39,7 @@ import Tasks from 'System/Tasks/Tasks';
 import Updates from 'System/Updates/Updates';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
 import CutoffUnmet from 'Wanted/CutoffUnmet/CutoffUnmet';
+import MangaCutoffUnmet from 'Wanted/CutoffUnmet/MangaCutoffUnmet';
 import MangaMissing from 'Wanted/Missing/MangaMissing';
 import Missing from 'Wanted/Missing/Missing';
 
@@ -143,16 +144,21 @@ function AppRoutes() {
       <Route path="/wanted/cutoffunmet" component={CutoffUnmet} />
 
       {/*
-        Manga Wanted (Phase 7 Plan 07-10 — additive per D-09 + D-10 + Lock #1;
-        existing /wanted/missing TV route UNTOUCHED. Renders the existing Missing
-        page with mediaType='manga' via thin wrapper. React Query key namespaces
-        via path prop in useMissing (['/manga/wanted/missing']) so SignalR
-        invalidations from Plan 07-02 hit the correct cache without TV cross-
-        contamination. See .planning/phases/07-api-v5-frontend-manga-shell/
-        07-10-PLAN.md.)
+        Manga Wanted (Phase 7 Plan 07-10 + Phase 12 Plan 12-08 — additive per D-09 + D-10 + Lock #1;
+        existing /wanted/missing + /wanted/cutoffunmet TV routes UNTOUCHED. Renders the existing
+        Missing + CutoffUnmet pages with mediaType='manga' via thin wrappers. React Query keys
+        namespace via path prop in useMissing/useCutoffUnmet (['/manga/wanted/missing'] +
+        ['/manga/wanted/cutoff']) so SignalR invalidations from Plan 07-02 + Plan 12-08 hit the
+        correct cache without TV cross-contamination. See .planning/phases/07-api-v5-frontend-manga-shell/
+        07-10-PLAN.md + .planning/phases/12-mock-contract-frontend-parity-audit/12-08-PLAN.md.)
       */}
 
       <Route path="/manga/wanted/missing" component={MangaMissing} />
+
+      <Route
+        path="/manga/wanted/cutoffunmet"
+        component={MangaCutoffUnmet}
+      />
 
       {/*
         Settings

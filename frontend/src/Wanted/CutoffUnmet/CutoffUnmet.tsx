@@ -1,3 +1,13 @@
+// Sonarr divergence: per Phase 7 D-10 + Lock #1 (Plan 12-08 sub-wave C extension) — mediaType prop added — see DIVERGENCE.md.
+// Existing TV call-site (`/wanted/cutoffunmet` route → <CutoffUnmet />`) preserved verbatim via the
+// default mediaType='series'. Manga call-site is the thin wrapper MangaCutoffUnmet.tsx
+// invoking <CutoffUnmet mediaType="manga" /> for the /manga/wanted/cutoffunmet route. React
+// Query key auto-namespaces via the path prop in useCutoffUnmet (['/wanted/cutoff'] vs
+// ['/manga/wanted/cutoff']) per Plan 07-02 URL-shaped key contract so SignalR invalidations
+// route to the correct cache (Pitfall 5 — TV/manga cache MUST NOT collide). Phase 8 collapses
+// (default flips to 'manga' and wrapper deletes).
+//
+// Closest analog: frontend/src/Wanted/Missing/Missing.tsx (Plan 07-10) — same pattern.
 import React, {
   PropsWithChildren,
   useCallback,
@@ -47,6 +57,10 @@ import {
 import CutoffUnmetRow from './CutoffUnmetRow';
 import useCutoffUnmet, { FILTERS } from './useCutoffUnmet';
 
+interface CutoffUnmetProps {
+  mediaType?: 'series' | 'manga';
+}
+
 function getMonitoredValue(
   filters: Filter[],
   selectedFilterKey: string | number
@@ -54,7 +68,7 @@ function getMonitoredValue(
   return !!getFilterValue(filters, selectedFilterKey, 'monitored', false);
 }
 
-function CutoffUnmetContent() {
+function CutoffUnmetContent({ mediaType = 'series' }: CutoffUnmetProps) {
   const executeCommand = useExecuteCommand();
 
   const {
@@ -67,7 +81,7 @@ function CutoffUnmetContent() {
     page,
     goToPage,
     refetch,
-  } = useCutoffUnmet();
+  } = useCutoffUnmet(mediaType);
 
   const { columns, pageSize, sortKey, sortDirection, selectedFilterKey } =
     useCutoffUnmetOptions();
@@ -92,7 +106,7 @@ function CutoffUnmetContent() {
     useState(false);
 
   const { toggleEpisodesMonitored, isToggling } = useToggleEpisodesMonitored([
-    '/wanted/cutoff',
+    mediaType === 'manga' ? '/manga/wanted/cutoff' : '/wanted/cutoff',
   ]);
 
   const isShowingMonitored = getMonitoredValue(FILTERS, selectedFilterKey);
@@ -268,7 +282,11 @@ function CutoffUnmetContent() {
           ) : null}
 
           {!isLoading && !error && !records.length ? (
-            <Alert kind={kinds.INFO}>{translate('CutoffUnmetNoItems')}</Alert>
+            <Alert kind={kinds.INFO}>
+              {mediaType === 'manga'
+                ? translate('NothingWanted')
+                : translate('CutoffUnmetNoItems')}
+            </Alert>
           ) : null}
 
           {!isLoading && !error && !!records.length ? (
@@ -333,12 +351,14 @@ function CutoffUnmetContent() {
   );
 }
 
-export default function CutoffUnmet() {
-  const { records } = useCutoffUnmet();
+export default function CutoffUnmet({
+  mediaType = 'series',
+}: CutoffUnmetProps) {
+  const { records } = useCutoffUnmet(mediaType);
 
   return (
     <SelectProvider<Episode> items={records}>
-      <CutoffUnmetContent />
+      <CutoffUnmetContent mediaType={mediaType} />
     </SelectProvider>
   );
 }
