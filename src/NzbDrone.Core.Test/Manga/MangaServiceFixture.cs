@@ -130,6 +130,19 @@ namespace NzbDrone.Core.Test.MangaTests
         {
             Assert.Throws<ArgumentNullException>(
                 () => Subject.UpdateManga(null, publishUpdatedEvent: true, triggerSeriesEdited: true));
+
+            // WR-03 fix: verify zero-publish guarantee before the throw. A future
+            // regression that moves the null guard below the event publish (e.g.
+            // into the publishUpdatedEvent / triggerSeriesEdited branch) would
+            // still throw at the manga.Id NRE access AFTER MangaUpdatedEvent had
+            // already fired with a null-property payload — corrupting downstream
+            // subscribers. Pin the invariant: null in => no event, no Update.
+            Mocker.GetMock<IEventAggregator>()
+                  .Verify(e => e.PublishEvent(It.IsAny<MangaUpdatedEvent>()), Times.Never);
+            Mocker.GetMock<IEventAggregator>()
+                  .Verify(e => e.PublishEvent(It.IsAny<MangaEditedEvent>()), Times.Never);
+            Mocker.GetMock<IMangaRepository>()
+                  .Verify(r => r.Update(It.IsAny<NzbDrone.Core.Manga.Manga>()), Times.Never);
         }
     }
 }
