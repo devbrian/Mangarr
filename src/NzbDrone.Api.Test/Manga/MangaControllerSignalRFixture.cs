@@ -11,6 +11,7 @@ using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
 using Sonarr.Api.V5.Manga;
+using Sonarr.Http;
 
 namespace NzbDrone.Api.Test.Manga
 {
@@ -60,6 +61,23 @@ namespace NzbDrone.Api.Test.Manga
                   .Returns(_manga);
         }
 
+        // WR-02 fix helper: build a distinct Manga with the given Id so per-id
+        // mock stubs in the bulk-handler tests can return different instances.
+        // The bulk tests then bind Verify(...) on Resource.Id == expectedId so
+        // a regression that captures only the first id (or always Id=42) fails
+        // the assertion. Mirrors the per-id mock pattern from
+        // 10-REVIEW.md WR-02 fix exemplar.
+        private static NzbDrone.Core.Manga.Manga BuildManga(int id)
+        {
+            return Builder<NzbDrone.Core.Manga.Manga>.CreateNew()
+                .With(m => m.Id = id)
+                .With(m => m.Title = $"Manga {id}")
+                .With(m => m.Images = new List<MediaCover>())
+                .With(m => m.Genres = new List<string>())
+                .With(m => m.Tags = new HashSet<int>())
+                .Build();
+        }
+
         // ===================== Plan 10-05 — MangaEditedEvent =====================
 
         [Test]
@@ -103,37 +121,44 @@ namespace NzbDrone.Api.Test.Manga
         [Test]
         public void Handle_MangaBulkEditedEvent_should_BroadcastResourceChange_Updated_for_each_manga_in_payload()
         {
+            // WR-02 fix: stub GetManga per-id with distinct Manga instances so the
+            // Verify(...) predicate can bind on Resource.Id == expectedId. The
+            // SetUp wildcard `It.IsAny<int>().Returns(_manga)` is overridden by
+            // these more-specific Setup(int)`s — Moq picks the most specific
+            // matcher per call.
+            foreach (var id in new[] { 1, 2, 3 })
+            {
+                var thisId = id;
+                Mocker.GetMock<IMangaService>()
+                      .Setup(s => s.GetManga(thisId))
+                      .Returns(BuildManga(thisId));
+            }
+
             var bulk = new List<NzbDrone.Core.Manga.Manga>
             {
-                Builder<NzbDrone.Core.Manga.Manga>.CreateNew()
-                    .With(m => m.Id = 1)
-                    .With(m => m.Images = new List<MediaCover>())
-                    .With(m => m.Genres = new List<string>())
-                    .With(m => m.Tags = new HashSet<int>())
-                    .Build(),
-                Builder<NzbDrone.Core.Manga.Manga>.CreateNew()
-                    .With(m => m.Id = 2)
-                    .With(m => m.Images = new List<MediaCover>())
-                    .With(m => m.Genres = new List<string>())
-                    .With(m => m.Tags = new HashSet<int>())
-                    .Build(),
-                Builder<NzbDrone.Core.Manga.Manga>.CreateNew()
-                    .With(m => m.Id = 3)
-                    .With(m => m.Images = new List<MediaCover>())
-                    .With(m => m.Genres = new List<string>())
-                    .With(m => m.Tags = new HashSet<int>())
-                    .Build(),
+                BuildManga(1),
+                BuildManga(2),
+                BuildManga(3),
             };
 
             Subject.Handle(new MangaBulkEditedEvent(bulk));
 
-            // Bulk handler MUST broadcast once per manga in the payload (Times.Exactly(3)).
-            // Predicate locked per W6 (revision iteration 1) — same shape as single-edit
-            // tests above, matched 3x for the 3 manga IDs in the payload.
-            Mocker.GetMock<IBroadcastSignalRMessage>()
-                  .Verify(b => b.BroadcastMessage(It.Is<SignalRMessage>(m =>
-                      m.Action == ModelAction.Updated && m.Name == "manga")),
-                      Times.Exactly(3));
+            // WR-02 fix: bind the Verify predicate on Resource.Id == expectedId
+            // (one Verify per id, with Times.Once). This catches the regression
+            // class where the iteration variable is captured incorrectly (e.g.
+            // `BroadcastResourceChange(ModelAction.Updated, message.Manga[0].Id)`
+            // broadcasting Id=1 three times) which the old same-shape predicate
+            // + Times.Exactly(3) silently passed.
+            foreach (var id in new[] { 1, 2, 3 })
+            {
+                var expectedId = id;
+                Mocker.GetMock<IBroadcastSignalRMessage>()
+                      .Verify(b => b.BroadcastMessage(It.Is<SignalRMessage>(m =>
+                          m.Action == ModelAction.Updated &&
+                          m.Name == "manga" &&
+                          ((ResourceChangeMessage<MangaResource>)m.Body).Resource.Id == expectedId)),
+                          Times.Once);
+            }
         }
 
         // ===================== Plan 10-06 — ChapterFileAddedEvent =====================
@@ -205,17 +230,42 @@ namespace NzbDrone.Api.Test.Manga
             // MangaImportedEvent ctor: (List<int> mangaIds) — verified
             // src/NzbDrone.Core/Manga/Events/MangaImportedEvent.cs:17-20.
             // Payload is purely numeric (no Manga objects); handler iterates and broadcasts once per id.
+
+            // WR-02 fix: stub GetManga per-id with distinct Manga instances so the
+            // Verify(...) predicate can bind on Resource.Id == expectedId (one
+            // Verify per id, Times.Once). The SetUp wildcard
+            // `It.IsAny<int>().Returns(_manga)` is overridden by these more
+            // specific Setup(int)s — Moq picks the most specific matcher per
+            // call. Without per-id mocks, every broadcast carries Id=42 and
+            // a same-shape Times.Exactly(3) predicate silently passes even if
+            // the handler erroneously broadcasts Id=42 three times instead of
+            // 1, 2, 3.
+            foreach (var id in new[] { 1, 2, 3 })
+            {
+                var thisId = id;
+                Mocker.GetMock<IMangaService>()
+                      .Setup(s => s.GetManga(thisId))
+                      .Returns(BuildManga(thisId));
+            }
+
             var evt = new MangaImportedEvent(new List<int> { 1, 2, 3 });
 
             Subject.Handle(evt);
 
-            // Bulk handler MUST broadcast once per id in the payload (Times.Exactly(3)).
-            // Predicate locked per W6 (revision iteration 1) — verbatim shape from Plan 10-05 Task 2 exemplar;
-            // bulk-import path fans out 3 manga so call count is Times.Exactly(3).
-            Mocker.GetMock<IBroadcastSignalRMessage>()
-                  .Verify(b => b.BroadcastMessage(It.Is<SignalRMessage>(m =>
-                      m.Action == ModelAction.Updated && m.Name == "manga")),
-                      Times.Exactly(3));
+            // WR-02 fix: per-id binding on Resource.Id catches the iteration-
+            // variable-captured regression class (broadcast Id=1 three times
+            // instead of Ids 1, 2, 3) which the old same-shape Times.Exactly(3)
+            // predicate silently passed.
+            foreach (var id in new[] { 1, 2, 3 })
+            {
+                var expectedId = id;
+                Mocker.GetMock<IBroadcastSignalRMessage>()
+                      .Verify(b => b.BroadcastMessage(It.Is<SignalRMessage>(m =>
+                          m.Action == ModelAction.Updated &&
+                          m.Name == "manga" &&
+                          ((ResourceChangeMessage<MangaResource>)m.Body).Resource.Id == expectedId)),
+                          Times.Once);
+            }
         }
     }
 }
