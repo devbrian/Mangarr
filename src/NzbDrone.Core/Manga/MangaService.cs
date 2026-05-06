@@ -206,28 +206,60 @@ namespace NzbDrone.Core.Manga
             return _mangaRepository.AllMangaTags();
         }
 
-        // BL-09 fix: refuse to publish update events for a no-op update (manga
-        // does not exist). Dapper's UPDATE ... WHERE Id silently no-ops on missing
-        // rows, then SignalR would broadcast a phantom event the UI then refetches
-        // and 404s on. Find-first prevents the phantom.
-        //
-        // Phase 8 audit gap-09: this method is the USER-EDIT path (mirrors TV's
-        // SeriesService.UpdateSeries at Tv/SeriesService.cs:230). It now publishes
-        // MangaEditedEvent(new, old) carrying the pre-update snapshot so handlers
-        // can diff (path change → move, etc.). The pre-update snapshot is the row
-        // currently in the DB; we capture it via the same Find call that gates the
-        // existence check (single read, no extra query).
-        //
-        // RefreshMangaService still publishes MangaUpdatedEvent directly for the
-        // post-sync pulse — its UpdateManga(publishUpdatedEvent:false) call here
-        // suppresses ALL events from this path so there is no double-publish.
+        // Phase 10 Plan 10-07 (FINDINGS Open Q 5 close-out): existing 2-arg overload
+        // REWIRED to delegate to the new 3-arg overload below with
+        // triggerSeriesEdited: false. The Phase 8 audit gap-09 close-out behavior
+        // (publish MangaEditedEvent on the USER-EDIT path) is now driven by the
+        // MangaController PUT call site explicitly opting INTO triggerSeriesEdited
+        // via the 3-arg overload (Option B locked per W4 revision). All other
+        // 2-arg callers (RefreshMangaService passes publishUpdatedEvent=false;
+        // MoveMangaService and MangaLinksController default to publishUpdatedEvent=true)
+        // now emit MangaUpdatedEvent on the 2-arg path; only the explicit user-edit
+        // PUT entry point emits both events.
         public Manga UpdateManga(Manga manga, bool publishUpdatedEvent = true)
+        {
+            return UpdateManga(manga, publishUpdatedEvent, triggerSeriesEdited: false);
+        }
+
+        // Sonarr divergence: Phase 10 Plan 10-07 (FINDINGS Open Q 5 close-out — UI
+        // single-edit path missing MangaEditedEvent publish on top of MangaUpdatedEvent)
+        // — see DIVERGENCE.md.
+        // Role-match analog: Tv/SeriesService.cs UpdateSeries(Series, bool, bool) at
+        // lines 203-234. TV's analog has only one event publish (SeriesEditedEvent
+        // gated by publishUpdatedEvent); the manga 3-arg variant introduces a second
+        // bool (triggerSeriesEdited) so the controller-PUT call site can opt into
+        // BOTH MangaUpdatedEvent + MangaEditedEvent atomically. Phase 14 will collapse
+        // the two-bool shape into TV's single-bool shape if/when the manga aggregate
+        // becomes the canonical update entry point.
+        //
+        // Why two booleans: TV semantics — publishUpdatedEvent gates MangaUpdatedEvent
+        // (any update, incl. metadata refresh); triggerSeriesEdited gates
+        // MangaEditedEvent (user-explicit edit only). RefreshMangaService bypasses
+        // both via the 2-arg overload's publishUpdatedEvent=false path; the
+        // MangaController PUT endpoint passes both true so MangaController's
+        // IHandle<MangaEditedEvent> (Plan 10-05) and IHandle<MangaUpdatedEvent>
+        // both fire on the UI single-edit path.
+        //
+        // Pitfall 4 ordering: DB Update FIRST, MangaUpdatedEvent SECOND, MangaEditedEvent
+        // LAST. Subscribers reading manga state via the repository see committed
+        // values for both event handlers.
+        //
+        // BL-09 fix preservation: the no-op-update guard (Find-first → throw
+        // ModelNotFoundException if missing) is preserved verbatim — Dapper's
+        // UPDATE ... WHERE Id silently no-ops on missing rows, then SignalR would
+        // broadcast a phantom event the UI then refetches and 404s on.
+        //
+        // Phase 14 cleanup: rename `triggerSeriesEdited` parameter to `triggerMangaEdited`
+        // when Tv/ deletes; preserve method behavior verbatim.
+        public Manga UpdateManga(Manga manga, bool publishUpdatedEvent, bool triggerSeriesEdited)
         {
             if (manga == null)
             {
                 throw new ArgumentNullException(nameof(manga));
             }
 
+            // Capture pre-edit snapshot for the MangaEditedEvent payload + BL-09
+            // existence guard.
             var stored = _mangaRepository.Find(manga.Id);
 
             if (stored == null)
@@ -235,9 +267,22 @@ namespace NzbDrone.Core.Manga
                 throw new ModelNotFoundException(typeof(Manga), manga.Id);
             }
 
+            // 1. DB Update FIRST.
             var updated = _mangaRepository.Update(manga);
 
+            // 2. THEN MangaUpdatedEvent (any-update signal). Sonarr's
+            //    IEventAggregator.PublishEvent is synchronous fan-out — subscribers
+            //    see the committed DB row when they query the repository in response
+            //    to either event.
             if (publishUpdatedEvent)
+            {
+                _eventAggregator.PublishEvent(new MangaUpdatedEvent(updated));
+            }
+
+            // 3. LAST, MangaEditedEvent (user-explicit-edit signal). Carries the
+            //    pre-edit snapshot so handlers can diff (path change → move,
+            //    monitor flip → refresh, etc.).
+            if (triggerSeriesEdited)
             {
                 _eventAggregator.PublishEvent(new MangaEditedEvent(updated, stored));
             }
