@@ -251,13 +251,28 @@ function MissingContent({ mediaType = 'series' }: MissingProps) {
               onPress={handleToggleSelectedPress}
             />
 
-            <PageToolbarSeparator />
+            {/* Phase 12 Plan 12-11 LOCK guard — sub-wave-B-addition (audit row 4 secondary closure):
+                InteractiveImport flow is TV-only in v1; the manga-side useInteractiveImport
+                discriminator-extension is v1.1-deferred (Plan 12-98 promoted PRIMARY entry to
+                v1.1-roadmap.md per D-12-19). This guard prevents the silently-broken UI exposure
+                identified by Plan 12-06 audit `## Manga sibling reachability` first row — the
+                manga user clicking "Manual Import" today would land at TV-only /manualimport
+                endpoint with TV-only response shapes. v1.1+ deletion: when the manga InteractiveImport
+                discriminator-extension ships, drop this guard as the FIRST task of that v1.1 plan
+                (per audit `### v1.1-roadmap.md entry skeleton — PRIMARY` Wiring sites line).
+                Guarded for v1 — drop when Phase 12-98 v1.1+ InteractiveImport discriminator extension lands.
+                NOTE: Two adjacent ternaries (not a Fragment) because PageToolbarSection's TS prop
+                signature accepts only `ReactElement<PageToolbarButtonProps> | ReactElement<never> | null`
+                children — Fragments would also break the section's separator-detection heuristic. */}
+            {mediaType !== 'manga' ? <PageToolbarSeparator /> : null}
 
-            <PageToolbarButton
-              label={translate('ManualImport')}
-              iconName={icons.INTERACTIVE}
-              onPress={handleInteractiveImportPress}
-            />
+            {mediaType !== 'manga' ? (
+              <PageToolbarButton
+                label={translate('ManualImport')}
+                iconName={icons.INTERACTIVE}
+                onPress={handleInteractiveImportPress}
+              />
+            ) : null}
           </PageToolbarSection>
 
           <PageToolbarSection alignContent={align.RIGHT}>
@@ -354,10 +369,15 @@ function MissingContent({ mediaType = 'series' }: MissingProps) {
           ) : null}
         </PageContentBody>
 
-        <InteractiveImportModal
-          isOpen={isInteractiveImportModalOpen}
-          onModalClose={handleInteractiveImportModalClose}
-        />
+        {/* Phase 12 Plan 12-11 LOCK guard — sub-wave-B-addition (audit row 4 secondary closure):
+            See toolbar-button guard above — same v1 LOCK rationale; same v1.1+ deletion path.
+            Guarded for v1 — drop when Phase 12-98 v1.1+ InteractiveImport discriminator extension lands. */}
+        {mediaType !== 'manga' ? (
+          <InteractiveImportModal
+            isOpen={isInteractiveImportModalOpen}
+            onModalClose={handleInteractiveImportModalClose}
+          />
+        ) : null}
       </PageContent>
     </QueueDetailsProvider>
   );
