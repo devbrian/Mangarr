@@ -389,6 +389,21 @@ function getReleasePath(payload: InteractiveSearchPayload): string {
   return '/release';
 }
 
+// Phase 12 Plan 12-10 — Sub-wave-B-addition (audit row C closure):
+// ChapterSearchPayload + MangaSearchPayload grab POSTs route to /api/v5/manga/release
+// (Phase 6 MangaReleaseController.DownloadRelease) — companion to getReleasePath.
+// TV variants preserved verbatim. See Plan 12-05 audit
+// .planning/phases/08-tv-manga-parity-audit/audit/OverrideMatch-vs-MangaPayloadRouting.md.
+// Exported for v1.1+ when ChapterOverrideMatchModal vs MangaOverrideMatchModal siblings
+// route discriminately by payload variant per Plan 12-98 v1.1-roadmap promotion.
+export function getGrabPath(payload: InteractiveSearchPayload): string {
+  if ('chapterId' in payload || 'mangaId' in payload) {
+    return '/manga/release';
+  }
+
+  return '/release';
+}
+
 const useReleases = (payload: InteractiveSearchPayload) => {
   const customFilters = useCustomFiltersList('releases');
   const { episodeSelectedFilterKey, seasonSelectedFilterKey } =
@@ -498,6 +513,65 @@ export const useGrabRelease = () => {
   // Explicitly define the types for the mutation so we can pass in no arguments to mutate as expected.
   const { mutate, isPending, error } = useApiMutation<unknown, GrabRelease>({
     path: '/release',
+    method: 'POST',
+    mutationOptions: {
+      onMutate: () => {
+        setIsGrabbed(false);
+      },
+      onSuccess: () => {
+        setIsGrabbed(true);
+      },
+    },
+  });
+
+  const grabError = useMemo(() => {
+    if (!error) {
+      return undefined;
+    }
+
+    return error.statusBody?.message ?? translate('InteractiveSearchGrabError');
+  }, [error]);
+
+  return {
+    grabRelease: mutate,
+    isGrabbing: isPending,
+    isGrabbed,
+    grabError,
+  };
+};
+
+// Phase 12 Plan 12-10 — Sub-wave-B-addition (audit row C closure):
+// Manga-shaped grab override body. MangaReleaseResource (backend
+// src/Sonarr.Api.V5/Manga/Release/MangaReleaseResource.cs) carries no
+// MappedSeriesId / MappedSeasonNumber / MappedEpisodeInfo / Quality /
+// Languages — manga override surface is intentionally minimal.
+interface MangaOverrideRelease {
+  mangaId: number;
+  chapterIds: number[];
+  downloadClientId: number | null;
+  scanlationGroup?: string;
+  translatedLanguage?: string;
+}
+
+interface MangaGrabRelease {
+  guid: string;
+  indexerId: number;
+  override?: MangaOverrideRelease;
+  searchInfo?: InteractiveSearchPayload;
+}
+
+// Phase 12 Plan 12-10 — Sub-wave-B-addition (audit row C closure):
+// Manga grab POST handler — POSTs to /manga/release (Phase 6 MangaReleaseController);
+// path-keyed cache invalidation flows via SignalR listener (Components/SignalRListener.tsx
+// 'manga' resource handler at lines 399-419) per Plan 07-02 URL-shaped key contract;
+// Pitfall 5 — TV/manga cache MUST NOT collide because path: '/manga/release' produces
+// query keys that auto-namespace under ['/manga/release'] (NOT ['/release']). Existing TV
+// useGrabRelease above preserved verbatim per D-12-18.
+export const useGrabMangaRelease = () => {
+  const [isGrabbed, setIsGrabbed] = useState(false);
+
+  const { mutate, isPending, error } = useApiMutation<unknown, MangaGrabRelease>({
+    path: '/manga/release',
     method: 'POST',
     mutationOptions: {
       onMutate: () => {
