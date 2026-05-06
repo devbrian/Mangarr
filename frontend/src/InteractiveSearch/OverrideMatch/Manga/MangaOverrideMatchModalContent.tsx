@@ -99,10 +99,26 @@ function MangaOverrideMatchModalContent(
   );
 
   const onGrabPress = useCallback(() => {
-    if (!mangaId) {
-      setError(translate('OverrideGrabNoSeries'));
-      return;
-    } else if (!chapterIds.length) {
+    // Phase 12 REVIEW MED-02 — sentinel-aware validation. InteractiveSearchRow.tsx:380-394
+    // documents two valid payload shapes the manga override modal accepts:
+    //   * ChapterSearchPayload: mangaId=0 (sentinel), chapterIds=[N] (non-empty)
+    //   * MangaSearchPayload:   mangaId=N (real id), chapterIds=[] (empty — backend
+    //                           resolves chapters from the cached RemoteChapter)
+    // The backend MangaReleaseController.DownloadRelease keys off the cached
+    // RemoteChapter (indexerId + guid), so mangaId / chapterIds are informational on
+    // their respective sentinel paths and cache resolution drives the actual grab.
+    //
+    // The previous `if (!mangaId)` guard treated 0 as JS-falsy and surfaced a misleading
+    // 'OverrideGrabNoSeries' error before the POST fired, locking the chapter-search
+    // override-grab flow even though the backend would accept it. The corrected guard
+    // rejects only when BOTH cache-keying fields are missing (genuinely no identifier
+    // for the backend to resolve) — accepting either sentinel-mangaId or empty-chapterIds
+    // alone, but not both.
+    //
+    // Phase 15 cleanup: when v1.1-04 splits this modal into ChapterOverrideMatchModal +
+    // MangaOverrideMatchModal siblings, the sentinel disappears and this guard tightens
+    // back to per-modal `if (!mangaId)` / `if (!chapterIds.length)` shapes.
+    if (!mangaId && !chapterIds.length) {
       setError(translate('OverrideGrabNoEpisode'));
       return;
     }
