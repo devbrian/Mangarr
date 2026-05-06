@@ -33,7 +33,8 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     IHandle<MangaRenamedEvent>,          // Plan 10-05 (FINDINGS gap_in_scope close-out — UI rename re-render after RenameChapterFileService completes)
     IHandle<MangaBulkEditedEvent>,       // Plan 10-05 (FINDINGS gap_in_scope close-out — UI bulk-edit fan-out for each manga in payload)
     IHandle<ChapterFileAddedEvent>,      // Plan 10-06 (FINDINGS gap_in_scope close-out — UI library page re-fetch on chapter-file arrival; mirrors SeriesController.IHandle<EpisodeImportedEvent>)
-    IHandle<ChapterFileDeletedEvent>     // Plan 10-06 (FINDINGS gap_in_scope close-out — UI library page re-fetch on chapter-file deletion; mirrors SeriesController.IHandle<EpisodeFileDeletedEvent>)
+    IHandle<ChapterFileDeletedEvent>,    // Plan 10-06 (FINDINGS gap_in_scope close-out — UI library page re-fetch on chapter-file deletion; mirrors SeriesController.IHandle<EpisodeFileDeletedEvent>)
+    IHandle<MangaImportedEvent>          // Plan 10-08 (FINDINGS gap_in_scope close-out — UI library page re-fetch on bulk-add-complete; mirrors SeriesController.IHandle<EpisodeImportedEvent>)
 {
     private readonly IMangaService _mangaService;
     private readonly IAddMangaService _addMangaService;
@@ -291,5 +292,25 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         }
 
         BroadcastResourceChange(ModelAction.Updated, message.ChapterFile.MangaId);
+    }
+
+    // Phase 10 Plan 10-08 (FINDINGS gap_in_scope close-out — SeriesImportedEvent → MangaImportedEvent
+    // subscriber-set asymmetry on MangaController vs SeriesController.IHandle<EpisodeImportedEvent>):
+    // SignalR consumer for MangaImportedEvent published by MangaService.AddManga(List<Manga>) bulk-add
+    // path (RESEARCH §7 line 474-475). Mirrors SeriesController.Handle(EpisodeImportedEvent) shape —
+    // broadcasts Updated for EACH manga.Id in the bulk payload so the UI library page re-fetches the
+    // affected rows after Phase 7 AddManga library-import flow completes.
+    //
+    // Note: MangaAddedHandler at src/NzbDrone.Core/Manga/MangaAddedHandler.cs:35 ALSO subscribes to
+    // this event for refresh-trigger PushMany. DryIoc auto-discovery dispatches both subscribers in
+    // parallel — no conflict (this controller does SignalR fan-out only; the handler does command-queue
+    // work only).
+    [NonAction]
+    public void Handle(MangaImportedEvent message)
+    {
+        foreach (var mangaId in message.MangaIds)
+        {
+            BroadcastResourceChange(ModelAction.Updated, mangaId);
+        }
     }
 }

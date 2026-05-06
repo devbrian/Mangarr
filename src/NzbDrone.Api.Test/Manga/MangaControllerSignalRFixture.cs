@@ -196,5 +196,26 @@ namespace NzbDrone.Api.Test.Manga
             Mocker.GetMock<IBroadcastSignalRMessage>()
                   .Verify(b => b.BroadcastMessage(It.IsAny<SignalRMessage>()), Times.Never);
         }
+
+        // ===================== Plan 10-08 — MangaImportedEvent =====================
+
+        [Test]
+        public void Handle_MangaImportedEvent_should_BroadcastResourceChange_Updated_for_each_id_in_payload()
+        {
+            // MangaImportedEvent ctor: (List<int> mangaIds) — verified
+            // src/NzbDrone.Core/Manga/Events/MangaImportedEvent.cs:17-20.
+            // Payload is purely numeric (no Manga objects); handler iterates and broadcasts once per id.
+            var evt = new MangaImportedEvent(new List<int> { 1, 2, 3 });
+
+            Subject.Handle(evt);
+
+            // Bulk handler MUST broadcast once per id in the payload (Times.Exactly(3)).
+            // Predicate locked per W6 (revision iteration 1) — verbatim shape from Plan 10-05 Task 2 exemplar;
+            // bulk-import path fans out 3 manga so call count is Times.Exactly(3).
+            Mocker.GetMock<IBroadcastSignalRMessage>()
+                  .Verify(b => b.BroadcastMessage(It.Is<SignalRMessage>(m =>
+                      m.Action == ModelAction.Updated && m.Name == "manga")),
+                      Times.Exactly(3));
+        }
     }
 }
