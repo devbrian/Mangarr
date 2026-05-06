@@ -32,7 +32,7 @@ namespace NzbDrone.Core.Notifications
           IHandle<UpdateInstalledEvent>,
           IHandle<ManualInteractionRequiredEvent>,
           IHandle<ChapterImportedEvent>,
-          IHandle<MangaAddedEvent>,
+          IHandle<MangaAddCompletedEvent>,
           IHandle<MangaDeletedEvent>,
           IHandle<MangaRenamedEvent>,
           IHandleAsync<DeleteCompletedEvent>,
@@ -333,7 +333,11 @@ namespace NzbDrone.Core.Notifications
         }
 
         // Phase 8 Plan 99-08 — manga library-state fan-out (siblings of TV Series* IHandle methods).
-        public void Handle(MangaAddedEvent message)
+        // F-01 fix (sonarr-consistency-audit 2026-05-06): listens to MangaAddCompletedEvent (post-scan
+        // lifecycle) instead of MangaAddedEvent (post-Insert). Mirrors TV `Handle(SeriesAddCompletedEvent)`
+        // which fires after MangaScannedHandler.cs:106 publishes — the user-facing "manga added"
+        // notification needs hydrated metadata, which is only present post-scan.
+        public void Handle(MangaAddCompletedEvent message)
         {
             var addMessage = new MangaAddMessage
             {

@@ -92,6 +92,40 @@ namespace NzbDrone.Core.DecisionEngine.Manga
             return new ProcessedMangaDecisions(grabbed, pending, rejected);
         }
 
+        // Phase 8 Plan 99-06 + sonarr-consistency-audit F-02 — singular-overload sibling of TV
+        // ProcessDownloadDecisions.ProcessDecision (line 127). Used by MangaReleaseController
+        // (Plan 06-09 Interactive Search modal grab POST path) so the controller routes through
+        // the same Pending/Rejected/Failed bucketing as the batch ProcessDecisions path. Verbatim
+        // shape mirror of TV — qualified-report gate, TemporarilyRejected → Pending(Delay),
+        // ProcessDecisionInternal hands to IDownloadService.DownloadReport via the shim.
+        public async Task<ProcessedDecisionResult> ProcessDecision(MangaDownloadDecision decision, int? downloadClientId)
+        {
+            if (decision == null)
+            {
+                return ProcessedDecisionResult.Skipped;
+            }
+
+            if (!IsQualifiedReport(decision))
+            {
+                return ProcessedDecisionResult.Rejected;
+            }
+
+            if (decision.TemporarilyRejected)
+            {
+                _pendingReleaseService.Add(decision, PendingReleaseReason.Delay);
+                return ProcessedDecisionResult.Pending;
+            }
+
+            var result = await ProcessDecisionInternal(decision, downloadClientId);
+
+            if (result == ProcessedDecisionResult.Failed)
+            {
+                _pendingReleaseService.Add(decision, PendingReleaseReason.DownloadClientUnavailable);
+            }
+
+            return result;
+        }
+
         internal List<MangaDownloadDecision> GetQualifiedReports(IEnumerable<MangaDownloadDecision> decisions)
         {
             return decisions.Where(IsQualifiedReport).ToList();
@@ -129,7 +163,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga
             pending.Add(report);
         }
 
-        private async Task<ProcessedDecisionResult> ProcessDecisionInternal(MangaDownloadDecision decision)
+        private async Task<ProcessedDecisionResult> ProcessDecisionInternal(MangaDownloadDecision decision, int? downloadClientId = null)
         {
             var remoteChapter = decision.RemoteChapter;
             var remoteIndexer = remoteChapter.Release?.Indexer;
@@ -137,7 +171,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga
             try
             {
                 _logger.Trace("Grabbing manga release '{0}' from Indexer {1}.", remoteChapter, remoteIndexer);
-                await _downloadService.DownloadReport(remoteChapter.ToRemoteEpisodeShim(), downloadClientId: null);
+                await _downloadService.DownloadReport(remoteChapter.ToRemoteEpisodeShim(), downloadClientId);
                 return ProcessedDecisionResult.Grabbed;
             }
             catch (ReleaseUnavailableException)

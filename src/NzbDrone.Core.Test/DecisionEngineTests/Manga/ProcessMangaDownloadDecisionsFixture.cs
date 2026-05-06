@@ -179,5 +179,39 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             result.Grabbed.Should().BeEmpty();
             result.Rejected.Should().HaveCount(1);
         }
+
+        // F-02 fix coverage — ProcessDecision singular overload (sonarr-consistency-audit
+        // 2026-05-06). Mirrors TV ProcessDownloadDecisionsFixture's ProcessDecision tests.
+
+        [Test]
+        public async Task ProcessDecision_returns_Skipped_for_null_decision()
+        {
+            var result = await Subject.ProcessDecision(null, downloadClientId: null);
+            result.Should().Be(ProcessedDecisionResult.Skipped);
+        }
+
+        [Test]
+        public async Task ProcessDecision_returns_Pending_for_temporarily_rejected_decision()
+        {
+            var decision = BuildTemporarilyRejected(50);
+
+            var result = await Subject.ProcessDecision(decision, downloadClientId: null);
+
+            result.Should().Be(ProcessedDecisionResult.Pending);
+            Mocker.GetMock<IMangaPendingReleaseService>()
+                .Verify(p => p.Add(decision, PendingReleaseReason.Delay), Times.Once);
+        }
+
+        [Test]
+        public async Task ProcessDecision_returns_Grabbed_for_approved_decision()
+        {
+            var decision = BuildApproved(60);
+
+            var result = await Subject.ProcessDecision(decision, downloadClientId: 7);
+
+            result.Should().Be(ProcessedDecisionResult.Grabbed);
+            Mocker.GetMock<IDownloadService>()
+                .Verify(d => d.DownloadReport(It.IsAny<RemoteEpisode>(), 7), Times.Once);
+        }
     }
 }

@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NLog;
 using NzbDrone.Common.Cache;
-using NzbDrone.Core.Download;
+using NzbDrone.Core.DecisionEngine.Manga;
 using NzbDrone.Core.Exceptions;
 using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.IndexerSearch.Manga;
@@ -27,21 +27,22 @@ namespace Sonarr.Api.V5.Manga.Release
     //   * Inject IMangaSearchForReleases (Plan 06-06) instead of ISearchForReleases.
     //   * Cache RemoteChapter (Phase 5 type) instead of RemoteEpisode.
     //   * No quality model / no SeasonSearch path / no TV scene-mapping logic.
-    //   * The Grab POST builds a thin RemoteEpisode shim around the cached RemoteChapter and
-    //     delegates to the existing IDownloadService.DownloadReport — Phase 4 D-10's
-    //     `Protocol == DownloadProtocol.Http` early-return guard routes the manga-protocol
-    //     release into InProcessImageDownloadClient. Mirrors the Phase 4 ChapterDownloadService
-    //     wire-level adapter convention (uses remote.Series.Id as the manga id and
-    //     remote.Episodes[0].Id as the chapter id).
+    //   * The Grab POST routes through IProcessMangaDownloadDecisions.ProcessDecision (sonarr-
+    //     consistency-audit F-02 fix 2026-05-06) — same Pending/Rejected/Failed bucketing as the
+    //     batch ProcessDecisions path used by ChapterSearchService + MangaSearchService. The
+    //     service then hands the cached RemoteChapter to IDownloadService.DownloadReport via
+    //     RemoteChapter.ToRemoteEpisodeShim() — Phase 4 D-10's `Protocol == DownloadProtocol.Http`
+    //     early-return guard routes the manga-protocol release into InProcessImageDownloadClient.
     //
     // Phase 8 cleanup: collapse with ReleaseController when Tv/ deletes — the TV-side
     // `Protocol == DownloadProtocol.Http` early-return guard disappears with it; the manga
-    // grab path becomes a direct call into a unified IDownloadService.
+    // grab path becomes a direct call into a unified IDownloadService through the unified
+    // IProcessDownloadDecisions service.
     [V5ApiController("manga/release")]
     public class MangaReleaseController : Controller
     {
         private readonly IMangaSearchForReleases _releaseSearchService;
-        private readonly IDownloadService _downloadService;
+        private readonly IProcessMangaDownloadDecisions _processDownloadDecisions;
         private readonly IMangaService _mangaService;
         private readonly IChapterService _chapterService;
         private readonly Logger _logger;
@@ -49,14 +50,14 @@ namespace Sonarr.Api.V5.Manga.Release
         private readonly ICached<RemoteChapter> _remoteChapterCache;
 
         public MangaReleaseController(IMangaSearchForReleases releaseSearchService,
-                                      IDownloadService downloadService,
+                                      IProcessMangaDownloadDecisions processDownloadDecisions,
                                       IMangaService mangaService,
                                       IChapterService chapterService,
                                       ICacheManager cacheManager,
                                       Logger logger)
         {
             _releaseSearchService = releaseSearchService;
-            _downloadService = downloadService;
+            _processDownloadDecisions = processDownloadDecisions;
             _mangaService = mangaService;
             _chapterService = chapterService;
             _logger = logger;
@@ -133,12 +134,16 @@ namespace Sonarr.Api.V5.Manga.Release
 
             try
             {
-                // Build the wire-level RemoteEpisode shim. Phase 4's InProcessImageDownloadClient
-                // reads only `Release` (manifest fetch) plus `Series.Id` → MangaId + `Episodes[0].Id`
-                // → ChapterId in ChapterDownloadService.EnqueueAsync. Mirrors the Phase 4 thin-shim
-                // convention; collapses in Phase 8 when RemoteEpisode → RemoteChapter rename lands.
-                var shim = remoteChapter.ToRemoteEpisodeShim();
-                await _downloadService.DownloadReport(shim, downloadClientId: null);
+                // F-02 fix (sonarr-consistency-audit 2026-05-06): route through
+                // IProcessMangaDownloadDecisions.ProcessDecision — same Pending/Rejected/Failed
+                // bucketing as the batch ProcessDecisions path. The service applies the
+                // qualified-report gate, the TemporarilyRejected → Pending(Delay) routing, and
+                // the IDownloadService.DownloadReport(remoteChapter.ToRemoteEpisodeShim(), id)
+                // call via the shared ProcessDecisionInternal — Phase 4 D-10's
+                // `Protocol == DownloadProtocol.Http` early-return guard still routes the
+                // manga-protocol release into InProcessImageDownloadClient.
+                var decision = new NzbDrone.Core.DecisionEngine.Manga.MangaDownloadDecision(remoteChapter);
+                await _processDownloadDecisions.ProcessDecision(decision, downloadClientId: null);
             }
             catch (ReleaseDownloadException ex)
             {
