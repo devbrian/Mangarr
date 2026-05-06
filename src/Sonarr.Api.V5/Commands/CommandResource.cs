@@ -9,6 +9,10 @@ namespace Sonarr.Api.V5.Commands;
 public class CommandResource : RestResource
 {
     public string? Name { get; set; }
+
+    // Optional discriminator for POSTs whose simple Name matches >1 Command type.
+    // Out direction (server → client) is always null; inbound only.
+    public string? ContractName { get; set; }
     public string? CommandName { get; set; }
     public string? Message { get; set; }
     public Command? Body { get; set; }
