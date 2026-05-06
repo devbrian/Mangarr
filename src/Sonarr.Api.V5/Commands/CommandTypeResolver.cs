@@ -4,19 +4,14 @@ using Sonarr.Http.REST;
 
 namespace Sonarr.Api.V5.Commands;
 
-/// <summary>
-/// Resolves a CLR <see cref="Command"/>-derived <see cref="Type"/> from the JSON
-/// <c>Name</c> (and optional <c>ContractName</c>) fields posted by a V5 caller.
-/// Handles the simple-name-collision case where multiple <see cref="Command"/>
-/// subclasses share a <see cref="Type.Name"/> (e.g. the
-/// <c>EpisodeImport.Manual.ManualImportCommand</c> + <c>MangaImport.Manual.ManualImportCommand</c>
-/// pair).
-/// </summary>
-/// <remarks>
-/// Phase 14 cleanup-eligible: once <c>Tv/</c> deletes, the simple-name collision
-/// disappears and the multi-match branches become dead code. Plan 11-08 close-out
-/// records this for the Phase-14 cascade.
-/// </remarks>
+// Resolves a CLR Command-derived Type from the JSON Name (and optional ContractName)
+// fields posted by a V5 caller. Handles the simple-name-collision case where multiple
+// Command subclasses share a Type.Name (e.g. the EpisodeImport.Manual.ManualImportCommand
+// + MangaImport.Manual.ManualImportCommand pair).
+//
+// Phase 14 cleanup-eligible: once Tv/ deletes, the simple-name collision disappears
+// and the multi-match branches become dead code. Plan 11-08 close-out records this
+// for the Phase-14 cascade.
 public static class CommandTypeResolver
 {
     public static Type Resolve(KnownTypes knownTypes, string? name, string? contractName)
