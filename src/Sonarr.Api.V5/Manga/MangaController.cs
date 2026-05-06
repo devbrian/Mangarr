@@ -26,7 +26,10 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     IHandle<MangaUpdatedEvent>,
     IHandle<MangaDeletedEvent>,
     IHandle<ChapterListUpdatedEvent>,
-    IHandle<MangaCoversUpdatedEvent>     // NEW per Plan 09-13 (audit gap-03 SignalR consumer)
+    IHandle<MangaCoversUpdatedEvent>,    // Plan 09-13 (audit gap-03 SignalR consumer)
+    IHandle<MangaEditedEvent>,           // Plan 10-05 (Phase 10 sub-wave A FINDINGS gap_in_scope close-out — UI bulk-edit modal close + UI single-edit save after Plan 10-07 dual-publish)
+    IHandle<MangaRenamedEvent>,          // Plan 10-05 (FINDINGS gap_in_scope close-out — UI rename re-render after RenameChapterFileService completes)
+    IHandle<MangaBulkEditedEvent>        // Plan 10-05 (FINDINGS gap_in_scope close-out — UI bulk-edit fan-out for each manga in payload)
 {
     private readonly IMangaService _mangaService;
     private readonly IAddMangaService _addMangaService;
@@ -197,6 +200,42 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         if (message.Updated)
         {
             BroadcastResourceChange(ModelAction.Updated, message.Manga.Id);
+        }
+    }
+
+    // Phase 10 Plan 10-05 (sub-wave A FINDINGS gap_in_scope close-out): SignalR consumer for
+    // MangaEditedEvent published by MangaService.UpdateManga (bulk-edit path; UI single-edit
+    // path adds a dual-publish in Plan 10-07). Mirrors SeriesController.cs Handle(SeriesEditedEvent)
+    // shape — broadcasts Updated for the manga.Id so the UI list re-fetches after the
+    // user-explicit edit (vs metadata-refresh-driven MangaUpdatedEvent path).
+    [NonAction]
+    public void Handle(MangaEditedEvent message)
+    {
+        BroadcastResourceChange(ModelAction.Updated, message.Manga.Id);
+    }
+
+    // Phase 10 Plan 10-05 (sub-wave A FINDINGS gap_in_scope close-out): SignalR consumer for
+    // MangaRenamedEvent published by RenameChapterFileService at src/NzbDrone.Core/MediaFiles/RenameChapterFileService.cs
+    // (Plan 02-10 ordering invariant — DB write FIRST, event LAST). Mirrors SeriesController.cs
+    // Handle(SeriesRenamedEvent) shape verbatim — UI re-renders manga details + chapter list after
+    // file rename completes.
+    [NonAction]
+    public void Handle(MangaRenamedEvent message)
+    {
+        BroadcastResourceChange(ModelAction.Updated, message.Manga.Id);
+    }
+
+    // Phase 10 Plan 10-05 (sub-wave A FINDINGS gap_in_scope close-out): SignalR consumer for
+    // MangaBulkEditedEvent published by MangaService bulk-edit path (Phase 8 audit
+    // gap-01 SeriesService-vs-MangaService.md). Mirrors SeriesController.cs
+    // Handle(SeriesBulkEditedEvent) shape — broadcasts Updated for EACH manga in the
+    // bulk payload so the UI library list re-fetches the affected rows.
+    [NonAction]
+    public void Handle(MangaBulkEditedEvent message)
+    {
+        foreach (var manga in message.Manga)
+        {
+            BroadcastResourceChange(ModelAction.Updated, manga.Id);
         }
     }
 }
