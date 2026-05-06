@@ -474,6 +474,29 @@ function SignalRListener() {
       return;
     }
 
+    // Phase-12 follow-up (F-CUTOFF-SIGNALR closure, 2026-05-06): mirrors the TV
+    // 'wanted/cutoff' handler shape at lines 345-357. Backend MangaCutoffController
+    // now extends RestControllerWithSignalR<MangaCutoffResource, Chapter> + subscribes
+    // to ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent and
+    // BroadcastResourceChange(ModelAction.Updated, chapterId) emits a per-row update
+    // body (the MangaCutoffResource shape — matches TV's Episode-keyed updatePagedItem
+    // call). Resource name 'manga/wanted/cutoff' is the route-attribute literal per
+    // Plan 07-02 URL-shaped React Query key contract (matches the path arg the
+    // useCutoffUnmet hook passes to usePagedApiQuery when mediaType === 'manga').
+    if (name === 'manga/wanted/cutoff') {
+      if (version < 5 || body.action !== 'updated') {
+        return;
+      }
+
+      updatePagedItem<Episode>(
+        queryClient,
+        ['/manga/wanted/cutoff'],
+        body.resource as Episode
+      );
+
+      return;
+    }
+
     console.error(`signalR: Unable to find handler for ${name}`);
   });
 
