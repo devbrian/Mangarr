@@ -7,7 +7,6 @@ using NzbDrone.Common.Composition;
 using NzbDrone.Common.Serializer;
 using NzbDrone.Common.TPL;
 using NzbDrone.Core.Datastore.Events;
-using NzbDrone.Core.MediaFiles.EpisodeImport.Manual;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.ProgressMessaging;
@@ -53,16 +52,17 @@ namespace Sonarr.Api.V3.Commands
         [Produces("application/json")]
         public ActionResult<CommandResource> StartCommand([FromBody] CommandResource commandResource)
         {
-            var commandType =
-                _knownTypes.GetImplementations(typeof(Command))
-                               .Single(c => c.Name.Replace("Command", "")
-                                             .Equals(commandResource.Name, StringComparison.InvariantCultureIgnoreCase));
+            var commandType = CommandTypeResolver.Resolve(_knownTypes, commandResource.Name, commandResource.ContractName);
 
             Request.Body.Seek(0, SeekOrigin.Begin);
             using (var reader = new StreamReader(Request.Body))
             {
                 var body = reader.ReadToEnd();
-                var priority = commandType == typeof(ManualImportCommand)
+
+                // Both ManualImportCommand variants (Tv-EpisodeImport and Manga-MangaImport) bump to
+                // CommandPriority.High per the original V3 behavior. Comparing on Type.Name (string)
+                // catches both colliding simple-name variants instead of only the TV-namespace CLR-type.
+                var priority = commandType.Name == "ManualImportCommand"
                     ? CommandPriority.High
                     : CommandPriority.Normal;
 
