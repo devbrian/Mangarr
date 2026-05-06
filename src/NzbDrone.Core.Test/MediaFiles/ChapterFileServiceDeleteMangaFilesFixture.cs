@@ -107,6 +107,26 @@ namespace NzbDrone.Core.Test.MediaFiles
         }
 
         [Test]
+        public void Execute_reports_Indeterminate_when_manga_folder_missing()
+        {
+            // Phase 11 review CR-01 — third guard clause coverage.
+            // Root folder exists + has sibling directories (guards 1+2 pass), but the specific
+            // manga.Path directory does not exist. Per-mangaId loop must Warn-log + report
+            // Indeterminate + continue without iterating chapterFiles or invoking recycle.
+            Mocker.GetMock<IDiskProvider>().Setup(d => d.FolderExists(It.IsAny<string>())).Returns(true);
+            Mocker.GetMock<IDiskProvider>().Setup(d => d.FolderExists(_manga.Path)).Returns(false);
+            Mocker.GetMock<IDiskProvider>().Setup(d => d.GetDirectories(It.IsAny<string>())).Returns(new[] { "x" });
+
+            Subject.Execute(new DeleteMangaFilesCommand { MangaIds = new List<int> { 42 } });
+
+            Mocker.GetMock<IRecycleBinProvider>()
+                  .Verify(p => p.DeleteFile(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+            Mocker.GetMock<ICommandResultReporter>()
+                  .Verify(r => r.Report(CommandResult.Indeterminate), Times.AtLeastOnce);
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
         public void Execute_throw_then_no_publish_when_unknown_manga_id()
         {
             // ===================== Throw-then-no-publish invariant =====================

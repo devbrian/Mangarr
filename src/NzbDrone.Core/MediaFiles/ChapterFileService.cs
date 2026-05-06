@@ -180,6 +180,21 @@ namespace NzbDrone.Core.MediaFiles
                         continue;
                     }
 
+                    // Phase 11 review CR-01: third guard clause, mirrors TV
+                    // MediaFileDeletionService.cs:135-140 verbatim. Without it, when the manga's
+                    // parent root folder exists with sibling directories (so guards 1 and 2 pass)
+                    // but the manga.Path directory has been removed out-of-band, the per-file
+                    // FileExists check short-circuits silently — chapter files stay orphaned
+                    // in the DB and the user-facing command reports "Successful" with no
+                    // diagnostic. Logging Warn + reporting Indeterminate + continuing matches
+                    // the TV peer behavior so the outer command result reflects the real state.
+                    if (!_diskProvider.FolderExists(manga.Path))
+                    {
+                        _logger.Warn("Manga's folder ({0}) does not exist.", manga.Path);
+                        _commandResultReporter.Report(CommandResult.Indeterminate);
+                        continue;
+                    }
+
                     foreach (var chapterFile in chapterFiles)
                     {
                         var fullPath = Path.Combine(manga.Path, chapterFile.RelativePath);
