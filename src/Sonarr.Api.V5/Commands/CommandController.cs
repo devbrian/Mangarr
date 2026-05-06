@@ -50,10 +50,7 @@ public class CommandController : RestControllerWithSignalR<CommandResource, Comm
     [Produces("application/json")]
     public Results<Created<CommandResource>, NotFound> StartCommand([FromBody] CommandResource commandResource)
     {
-        var commandType =
-            _knownTypes.GetImplementations(typeof(Command))
-                           .Single(c => c.Name.Replace("Command", "")
-                                         .Equals(commandResource.Name, StringComparison.InvariantCultureIgnoreCase));
+        var commandType = CommandTypeResolver.Resolve(_knownTypes, commandResource.Name, commandResource.ContractName);
 
         Request.Body.Seek(0, SeekOrigin.Begin);
         using (var reader = new StreamReader(Request.Body))
