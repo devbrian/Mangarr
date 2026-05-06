@@ -16,6 +16,18 @@ using Debouncer = NzbDrone.Common.TPL.Debouncer;
 
 namespace Sonarr.Api.V5.Commands;
 
+// Phase 11 review WR-04: StartCommand below declares Results<Created<CommandResource>, NotFound>
+// but CommandTypeResolver.Resolve can throw BadRequestException (e.g. when contractName is
+// supplied but does not match any candidate FullName, or — post-WR-01/05 fix — when the
+// multi-match tv-prefer rule does not select exactly one candidate). BadRequestException
+// derives from ApiException and is converted to HTTP 400 by the global error pipeline
+// (see Sonarr.Http.Exceptions.ApiException + middleware), NOT returned as a typed result.
+//
+// The 400 response body therefore follows the global error contract, not Created<CommandResource>
+// or NotFound. OpenAPI generation that reads ONLY the typed-results signature will not see
+// the 400 schema — clients should consult the global error contract for the BadRequest body
+// shape. We deliberately do NOT widen the typed return to include BadRequest<TError> because
+// that would imply the controller body itself returns a typed BadRequest, which it does not.
 [V5ApiController]
 public class CommandController : RestControllerWithSignalR<CommandResource, CommandModel>, IHandle<CommandUpdatedEvent>
 {
