@@ -248,7 +248,19 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     {
         foreach (var manga in message.Manga)
         {
-            BroadcastResourceChange(ModelAction.Updated, manga.Id);
+            // WR-01 fix: catch NotFoundException INSIDE the foreach so iteration
+            // continues to surviving items if any one row is concurrently deleted
+            // between bulk-edit publish and SignalR fan-out (benign race —
+            // SeriesController's analogous handler short-circuits via in-memory
+            // payload null-check; Mangarr's pragmatic equivalent is this catch).
+            try
+            {
+                BroadcastResourceChange(ModelAction.Updated, manga.Id);
+            }
+            catch (NotFoundException)
+            {
+                // benign race: manga deleted between bulk-edit publish and SignalR fan-out
+            }
         }
     }
 
@@ -310,7 +322,20 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     {
         foreach (var mangaId in message.MangaIds)
         {
-            BroadcastResourceChange(ModelAction.Updated, mangaId);
+            // WR-01 fix: catch NotFoundException INSIDE the foreach so iteration
+            // continues for surviving ids if any one row is concurrently deleted
+            // between bulk-import publish and SignalR fan-out. MangaImportedEvent
+            // carries only `List<int> MangaIds` (no Manga objects), so the
+            // in-memory short-circuit available to MangaBulkEditedEvent isn't an
+            // option here — catching post-fetch is the only path.
+            try
+            {
+                BroadcastResourceChange(ModelAction.Updated, mangaId);
+            }
+            catch (NotFoundException)
+            {
+                // benign race: manga deleted between bulk-import publish and SignalR fan-out
+            }
         }
     }
 }
