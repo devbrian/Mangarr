@@ -467,7 +467,8 @@ function SignalRListener() {
 
     // Phase-12 follow-up (F-MISSING-SIGNALR closure, 2026-05-06): upgraded from the
     // Plan 07-02 invalidateQueries shape to the per-row updatePagedItem shape after
-    // MissingChaptersController was refactored to extend
+    // MangaMissingController (renamed from MissingChaptersController for naming
+    // consistency with the rest of the manga V5 namespace) was refactored to extend
     // RestControllerWithSignalR<MissingChapterResource, Chapter> + subscribe to
     // ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent.
     // BroadcastResourceChange(ModelAction.Updated, chapterId) now emits a per-row

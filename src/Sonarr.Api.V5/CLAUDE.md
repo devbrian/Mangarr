@@ -185,8 +185,8 @@ API key is in General Settings; resettable.
 | `EpisodeController` | `ChapterController` |
 | `EpisodeFileController` | `ChapterFileController` |
 | `RenameEpisodeController` | `RenameChapterController` |
-| `MissingController` | `MissingChaptersController` |
-| `CutoffController` | `CutoffChaptersController` |
+| `MissingController` | `MangaMissingController` |
+| `CutoffController` | `MangaCutoffController` |
 | `SeasonPassController` | `VolumePassController` (or remove if N/A) |
 
 ### New Endpoints to Add
@@ -209,7 +209,7 @@ Phase 6 Plan 06-09 ships 5 manga-side V5 controllers under `/api/v5/manga/` that
 | `Manga/Blocklist/MangaBlocklistController.cs` at `/api/v5/manga/blocklist` | `Blocklist/BlocklistController.cs` | BLOCK-01..02 — paged GET with `mangaIds[] / includeManga` filters; `[RestDeleteById]` single-row delete; `[HttpDelete("bulk")]` bulk delete via `MangaBlocklistBulkResource { Ids: List<int> }`; carries D-11 release-identity triple `(SourceKey, ReleaseGuid, SourceTitle)` |
 | `Manga/Queue/MangaQueueController.cs` at `/api/v5/manga/queue` | `Queue/QueueController.cs` | PIPELINE-03 — `RestControllerWithSignalR<MangaQueueResource, MangaQueueItem>` + `IHandle<MangaQueueUpdatedEvent>`; GET returns full projection (no DB paging — static-list from `TrackedDownloadRefreshedEvent`); SignalR resource name = `mangaqueue` |
 | `Manga/Release/MangaReleaseController.cs` at `/api/v5/manga/release` | `Release/ReleaseController.cs` | PIPELINE-01 — Interactive Search modal; GET `?chapterId=` runs `IMangaSearchForReleases.ChapterSearch`; POST grabs the cached RemoteChapter via a thin `RemoteEpisode` shim (`Series = { Id = manga.Id }`, `Episodes = [{ Id = chapter.Id }]`); Phase 4 D-10 `Protocol == DownloadProtocol.Http` early-return routes into `InProcessImageDownloadClient`. ICached<RemoteChapter> 30-min TTL mirrors TV's `_remoteEpisodeCache` |
-| `Manga/Wanted/MissingChaptersController.cs` at `/api/v5/manga/wanted/missing` | `Wanted/MissingController.cs` | WANTED-01..03 — paged GET with `monitored=true & mangaIds[] & languages[] & ageRating & includeManga` filters; backed by new `IChapterService.ChaptersWithoutFiles(PagingSpec)` paged overload; D-04 GUARD: NO `IsSynthetic` filter (synthetic rows surface alongside real rows by default) |
+| `Manga/Wanted/MangaMissingController.cs` at `/api/v5/manga/wanted/missing` | `Wanted/MissingController.cs` | WANTED-01..03 — paged GET with `monitored=true & mangaIds[] & languages[] & ageRating & includeManga` filters; backed by new `IChapterService.ChaptersWithoutFiles(PagingSpec)` paged overload; D-04 GUARD: NO `IsSynthetic` filter (synthetic rows surface alongside real rows by default). Renamed 2026-05-06 from `MissingChaptersController` for naming consistency with the rest of the manga V5 namespace (`Manga` prefix as anti-collision strategy, matching `MangaCutoffController`/`MangaQueueController`/etc.). |
 | `Manga/Subresources/MangaSubresource.cs + ChapterSubresource.cs` | (none — new pattern) | Shared minimal-shape POCOs reused across all Phase 6 controller payloads (avoids leaking full `MangaResource` shape on every nested hydration). Phase 8 cleanup: collapse with the `Series` subresource pattern. |
 
 **Required upstream substrate added by Plan 06-09 (Rule 2 + Rule 3 deviations):**

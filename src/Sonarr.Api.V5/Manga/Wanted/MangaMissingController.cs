@@ -69,7 +69,7 @@ namespace Sonarr.Api.V5.Manga.Wanted
     //
     // Phase 8 cleanup: collapse with MissingController when Tv/ deletes.
     [V5ApiController("manga/wanted/missing")]
-    public class MissingChaptersController : RestControllerWithSignalR<MissingChapterResource, NzbDrone.Core.Manga.Chapter>,
+    public class MangaMissingController : RestControllerWithSignalR<MissingChapterResource, NzbDrone.Core.Manga.Chapter>,
                                              IHandle<ChapterGrabbedEvent>,
                                              IHandle<ChapterImportedEvent>,
                                              IHandle<ChapterFileDeletedEvent>
@@ -77,7 +77,7 @@ namespace Sonarr.Api.V5.Manga.Wanted
         private readonly IChapterService _chapterService;
         private readonly IMangaService _mangaService;
 
-        public MissingChaptersController(IChapterService chapterService,
+        public MangaMissingController(IChapterService chapterService,
                                          IMangaService mangaService,
                                          IBroadcastSignalRMessage signalRBroadcaster)
             : base(signalRBroadcaster)

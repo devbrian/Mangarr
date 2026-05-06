@@ -23,8 +23,9 @@ namespace Sonarr.Api.V5.Manga.Wanted
     // chapter/chapterfile pipeline events end-to-end (matching TV's `/wanted/cutoffunmet` behavior).
     // See DIVERGENCE.md.
     //
-    // Role-match analog (filing): src/Sonarr.Api.V5/Manga/Wanted/MissingChaptersController.cs
-    // (Plan 06-09 sibling — still plain Controller, NOT refactored as part of this follow-up).
+    // Role-match analog (filing): src/Sonarr.Api.V5/Manga/Wanted/MangaMissingController.cs
+    // (Plan 06-09 sibling — also extends RestControllerWithSignalR<,> after the F-MISSING-SIGNALR
+    // follow-up landed the parallel refactor 2026-05-06, mirroring this controller's shape).
     // TV peer reference (cutoff-endpoint semantics + SignalR shape):
     //   src/Sonarr.Api.V5/Wanted/CutoffController.cs:15-63 (extends EpisodeControllerWithSignalR
     //   which itself extends RestControllerWithSignalR<EpisodeResource, Episode> + subscribes to
@@ -34,9 +35,12 @@ namespace Sonarr.Api.V5.Manga.Wanted
     // 2026-05-06). The manga ChapterController (Phase 7 Plan 07-01) likewise extends
     // RestControllerWithSignalR<TResource, TModel> directly without an intermediate base.
     // Creating an intermediate manga base for one consumer is over-engineered; matching the
-    // existing manga ChapterController shape is the more honest mirror. Phase 8/15 cleanup may
-    // introduce a `ChapterControllerWithSignalR` peer base if a second consumer (e.g., a future
-    // MissingChaptersController refactor) emerges.
+    // existing manga ChapterController shape is the more honest mirror. After F-MISSING-SIGNALR
+    // landed (MangaMissingController also extends RestControllerWithSignalR<,> directly), the
+    // pair pattern is now: two manga V5 wanted controllers extending the foundational base
+    // directly. Phase 15 cleanup may introduce a `ChapterControllerWithSignalR` peer base when
+    // collapsing with the TV side, since TV's MissingController + CutoffController share the
+    // EpisodeControllerWithSignalR intermediate.
     //
     // Trigger: F-CUTOFF surfaced by Plan 12-99 Task 7 Playwright walkthrough on 2026-05-06 — the
     // frontend route /manga/wanted/cutoffunmet (shipped by Plan 12-08) renders without errors but
@@ -49,12 +53,12 @@ namespace Sonarr.Api.V5.Manga.Wanted
     // The service computes belowCutoff translation + custom-format profile id sets, then delegates
     // the paged query to ChapterRepository.ChaptersWhereCutoffUnmet (src/NzbDrone.Core/Manga/ChapterRepository.cs:88-90).
     //
-    // Manga sibling preserves (from MissingChaptersController): [V5ApiController] route attribute
+    // Manga sibling preserves (from MangaMissingController): [V5ApiController] route attribute
     // (literal string per Plan 07-02 URL-shaped key contract); PagingRequestResource shape;
     // monitored filter; FilterExpressions chain; sort keys (releaseDate, chapterNumber, title);
     // optional MangaSubresource lazy hydration via includeManga query.
     //
-    // Manga sibling diverges from MissingChaptersController:
+    // Manga sibling diverges from MangaMissingController:
     //   * Inject IChapterCutoffService (not IChapterService) — different paged query.
     //   * Drop the languages[] + ageRating filters (cutoff is profile-driven; languages + ageRating
     //     are upstream of the cutoff calculation per ChapterCutoffService:63-103). Keep monitored +
@@ -62,8 +66,8 @@ namespace Sonarr.Api.V5.Manga.Wanted
     //   * Drop the post-paged in-memory ageRating filter (no ageRating query in this endpoint).
     //   * Extends RestControllerWithSignalR<MangaCutoffResource, Chapter> + subscribes to
     //     ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent (NOT plain
-    //     Controller). MissingChaptersController is intentionally left plain by this follow-up —
-    //     Phase 12 / 13+ will decide whether to apply the same SignalR refactor there.
+    //     Controller). MangaMissingController has the same shape after the F-MISSING-SIGNALR
+    //     follow-up landed (commit 6c587de3d) for cross-controller consistency.
     //
     // Manga sibling diverges from TV's CutoffController:
     //   * Extends RestControllerWithSignalR<MangaCutoffResource, Chapter> directly (TV extends
@@ -139,7 +143,7 @@ namespace Sonarr.Api.V5.Manga.Wanted
                 pagingSpec.FilterExpressions.Add(c => mangaIds.Contains(c.MangaId));
             }
 
-            // D-04: NO IsSynthetic filter (mirrors MissingChaptersController). Synthetic rows
+            // D-04: NO IsSynthetic filter (mirrors MangaMissingController). Synthetic rows
             // surface alongside real-feed rows by default. Indexer match upgrades the synthetic
             // row in place per Phase 2 D-17.
 

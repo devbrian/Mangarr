@@ -25,7 +25,7 @@ namespace NzbDrone.Api.Test.Manga.Wanted
 {
     // Sonarr divergence: NEW manga V5 controller fixture per Phase 6 Plan 06-09 — see DIVERGENCE.md.
     // Phase-12 follow-up (F-MISSING-SIGNALR closure, 2026-05-06) authored this fixture from
-    // scratch when MissingChaptersController was refactored from plain `Controller` →
+    // scratch when MangaMissingController was refactored from plain `Controller` →
     // `RestControllerWithSignalR<MissingChapterResource, Chapter>` + IHandle subscriptions for
     // ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent. Mirrors the
     // MangaCutoffControllerFixture pattern verbatim (commit 6ae1e771d) for cross-controller
@@ -33,7 +33,7 @@ namespace NzbDrone.Api.Test.Manga.Wanted
     //
     // Role-match analog: src/NzbDrone.Api.Test/Manga/Wanted/MangaCutoffControllerFixture.cs
     // (the immediate sibling — same shape, same SetUp, same five SignalR-broadcast tests +
-    // route literal pin + filter/hydration assertions adapted to MissingChaptersController's
+    // route literal pin + filter/hydration assertions adapted to MangaMissingController's
     // MissingChapterResource + IChapterService.ChaptersWithoutFiles surface).
     //
     // Fixture lives under NzbDrone.Api.Test (NOT NzbDrone.Core.Test) because Sonarr.Core.Test does not
@@ -49,7 +49,7 @@ namespace NzbDrone.Api.Test.Manga.Wanted
     //   3. Filter-expression behavior tests (monitored / mangaIds / languages — defense-in-depth
     //      mirroring 12-REVIEW MED-01 pattern).
     //   4. Subresource hydration test (includeManga=true / includeManga=false).
-    //   5. (F-MISSING-SIGNALR) Base-class assertion: MissingChaptersController extends
+    //   5. (F-MISSING-SIGNALR) Base-class assertion: MangaMissingController extends
     //      RestControllerWithSignalR<MissingChapterResource, Chapter> (NOT plain Controller). This
     //      pin protects against silent regression to the plain-Controller shape.
     //   6. (F-MISSING-SIGNALR) IHandle<ChapterGrabbedEvent> broadcasts Updated for each chapter
@@ -66,7 +66,7 @@ namespace NzbDrone.Api.Test.Manga.Wanted
     // IBroadcastSignalRMessage.IsConnected to be true AND requires the controller's
     // GetResourceById(int) override to return a non-null resource — SetUp wires both.
     [TestFixture]
-    public class MissingChaptersControllerFixture : TestBase<MissingChaptersController>
+    public class MangaMissingControllerFixture : TestBase<MangaMissingController>
     {
         [SetUp]
         public void Setup()
@@ -134,7 +134,7 @@ namespace NzbDrone.Api.Test.Manga.Wanted
             // controller. Mismatched route literal silently breaks every fetch from
             // /manga/wanted/missing. Pitfall 5 — TV/manga cache MUST NOT collide.
             var attr = (V5ApiControllerAttribute)Attribute.GetCustomAttribute(
-                typeof(MissingChaptersController), typeof(V5ApiControllerAttribute));
+                typeof(MangaMissingController), typeof(V5ApiControllerAttribute));
 
             attr.Should().NotBeNull();
             attr.Resource.Should().Be("manga/wanted/missing");
@@ -346,7 +346,7 @@ namespace NzbDrone.Api.Test.Manga.Wanted
 
         // ===================== F-MISSING-SIGNALR follow-up (2026-05-06) =====================
         // Phase-12 follow-up tests covering the SignalR refactor that landed in commit
-        // 6c587de3d (MissingChaptersController extends RestControllerWithSignalR<MissingChapterResource,
+        // 6c587de3d (MangaMissingController extends RestControllerWithSignalR<MissingChapterResource,
         // Chapter> + subscribes to ChapterGrabbedEvent / ChapterImportedEvent /
         // ChapterFileDeletedEvent). Without these tests, a future Phase 8/15 collapse could
         // silently revert the controller to plain Controller and the page-auto-refresh
@@ -367,12 +367,12 @@ namespace NzbDrone.Api.Test.Manga.Wanted
             // to plain Controller (which would dead-letter the SignalR emission contract). The
             // assertion is on the open generic to avoid coupling to TResource/TModel name
             // changes — the LOAD-bearing fact is "this controller has the SignalR base".
-            typeof(MissingChaptersController).BaseType.Should().NotBeNull();
-            typeof(MissingChaptersController).BaseType!.IsGenericType.Should().BeTrue(
-                "MissingChaptersController must extend a generic SignalR base — F-MISSING-SIGNALR contract");
-            typeof(MissingChaptersController).BaseType!.GetGenericTypeDefinition()
+            typeof(MangaMissingController).BaseType.Should().NotBeNull();
+            typeof(MangaMissingController).BaseType!.IsGenericType.Should().BeTrue(
+                "MangaMissingController must extend a generic SignalR base — F-MISSING-SIGNALR contract");
+            typeof(MangaMissingController).BaseType!.GetGenericTypeDefinition()
                 .Should().Be(typeof(RestControllerWithSignalR<,>),
-                    "MissingChaptersController must extend RestControllerWithSignalR<,> so the React " +
+                    "MangaMissingController must extend RestControllerWithSignalR<,> so the React " +
                     "Query cache for ['/manga/wanted/missing'] auto-refreshes on chapter/file pipeline events");
         }
 

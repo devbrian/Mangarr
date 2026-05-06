@@ -33,7 +33,7 @@ v1 developer REST endpoints for the manga domain. Phase 2 shipped the core CRUD 
 | `Release/MangaReleaseResource.cs` + `MangaReleaseResourceMapper` | DTO + mapper for ranked release listing (PIPELINE-01 Interactive Search) |
 | `Release/MangaReleaseController.cs` | GET `/api/v5/manga/release?chapterId=` + POST grab (PIPELINE-01) |
 | `Wanted/MissingChapterResource.cs` + `MissingChapterResourceMapper` | DTO + mapper for monitored chapters without files (WANTED-01..03) |
-| `Wanted/MissingChaptersController.cs` | GET `/api/v5/manga/wanted/missing` paged with monitored / mangaIds / languages / ageRating filters (WANTED-01..03) |
+| `Wanted/MangaMissingController.cs` | GET `/api/v5/manga/wanted/missing` paged with monitored / mangaIds / languages / ageRating filters (WANTED-01..03) |
 
 ## Endpoints
 
@@ -69,7 +69,7 @@ v1 developer REST endpoints for the manga domain. Phase 2 shipped the core CRUD 
 - **Resource POCOs flatten entity → wire shape**: `MangaQueueResource` does not leak `RemoteChapter` (in-process EF reference); subresource POCOs (`MangaSubresource`, `ChapterSubresource`) carry only id + display fields.
 - **`ICached<RemoteChapter>` round-trip between GET search and POST grab** (`MangaReleaseController`): keyed on `(IndexerId, Guid)` with 30-min TTL; mirrors TV `ReleaseController._remoteEpisodeCache`.
 - **Wire-level RemoteEpisode shim for the manga grab path**: `MangaReleaseController.DownloadRelease` constructs `RemoteEpisode { Series = { Id = mangaId }, Episodes = [{ Id = chapterId }], Release = ... }` and calls `IDownloadService.DownloadReport` — Phase 4 D-10's `Protocol == DownloadProtocol.Http` early-return guard routes the manga release into `InProcessImageDownloadClient`. Phase 8 collapse drops the shim when the unified `IDownloadService` lands.
-- **D-04 IsSynthetic-treated-identically pattern** at the REST layer: `MissingChaptersController` does NOT add a `WHERE IsSynthetic = false` filter — synthetic rows (Phase 2 D-17 metadata-only-count fallback) are surfaced alongside real rows. A future `excludeSynthetic` query param could opt-in to the filter; v1 default is INCLUDE.
+- **D-04 IsSynthetic-treated-identically pattern** at the REST layer: `MangaMissingController` does NOT add a `WHERE IsSynthetic = false` filter — synthetic rows (Phase 2 D-17 metadata-only-count fallback) are surfaced alongside real rows. A future `excludeSynthetic` query param could opt-in to the filter; v1 default is INCLUDE.
 - **HISTORY-03 retry shape**: POST `/failed/{id}/retry` pushes a single-element `ChapterSearchCommand` (Plan 06-06) for the failed chapter; the decision engine skips the now-blocklisted release (Plan 06-04 D-19 + Pitfall 5 normalization) and grabs next-best. This is the user's manual escape hatch after the D-13 `MaxAutoRetriesPerChapter` budget exhausts.
 - **Singular cross-source IDs** (`Guid?`, `int?`) on `MangaResource` reflect the manga 1:1-across-sources model.
 

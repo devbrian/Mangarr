@@ -103,7 +103,7 @@ frontend wiring for both endpoints:
   `SignalRListener` handler uses `updatePagedItem` against `['/manga/wanted/cutoff']` (mirrors
   TV `wanted/cutoff` per-row update shape) so the Wanted/CutoffUnmet page auto-refreshes
   end-to-end.
-- **`manga/wanted/missing`** — `MissingChaptersController` (Plan 06-09) was refactored
+- **`manga/wanted/missing`** — `MangaMissingController` (renamed 2026-05-06 from `MissingChaptersController` for naming consistency with the rest of the manga V5 namespace; Plan 06-09 origin) was refactored
   in the F-MISSING-SIGNALR follow-up to extend
   `RestControllerWithSignalR<MissingChapterResource, Chapter>` with the same three IHandle
   subscriptions; the `SignalRListener` handler was upgraded from the original Plan 07-02
