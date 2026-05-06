@@ -103,7 +103,10 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("OnManualInteractionRequired").AsBoolean().NotNullable().WithDefaultValue(false)
                 .WithColumn("OnHealthRestored").AsBoolean().NotNullable().WithDefaultValue(false)
                 .WithColumn("OnImportComplete").AsBoolean().NotNullable().WithDefaultValue(false)
-                .WithColumn("OnChapterImport").AsBoolean().NotNullable().WithDefaultValue(true);
+                .WithColumn("OnChapterImport").AsBoolean().NotNullable().WithDefaultValue(true)
+                .WithColumn("OnMangaAdd").AsBoolean().NotNullable().WithDefaultValue(true)
+                .WithColumn("OnMangaDelete").AsBoolean().NotNullable().WithDefaultValue(true)
+                .WithColumn("OnMangaRename").AsBoolean().NotNullable().WithDefaultValue(true);
 
             // Sonarr's Metadata table is the ThingiProvider for IMetadataConsumer
             // (Kodi/Roksbox/Wdtv). CONTEXT.md D-01 'MetadataSources' refers to this

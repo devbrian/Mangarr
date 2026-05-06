@@ -6,6 +6,7 @@ using NLog;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.HealthCheck;
+using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;
@@ -31,6 +32,9 @@ namespace NzbDrone.Core.Notifications
           IHandle<UpdateInstalledEvent>,
           IHandle<ManualInteractionRequiredEvent>,
           IHandle<ChapterImportedEvent>,
+          IHandle<MangaAddedEvent>,
+          IHandle<MangaDeletedEvent>,
+          IHandle<MangaRenamedEvent>,
           IHandleAsync<DeleteCompletedEvent>,
           IHandleAsync<DownloadsProcessedEvent>,
           IHandleAsync<RenameCompletedEvent>,
@@ -111,6 +115,25 @@ namespace NzbDrone.Core.Notifications
             }
 
             _logger.Debug("{0} does not have any intersecting tags with {1}. Notification will not be sent.", definition.Name, series.Title);
+            return false;
+        }
+
+        // Phase 8 Plan 99-08 — sibling of ShouldHandleSeries; tag-filter discipline mirrors TV.
+        private bool ShouldHandleManga(ProviderDefinition definition, NzbDrone.Core.Manga.Manga manga)
+        {
+            if (definition.Tags.Empty())
+            {
+                _logger.Debug("No tags set for this notification.");
+                return true;
+            }
+
+            if (definition.Tags.Intersect(manga.Tags).Any())
+            {
+                _logger.Debug("Notification and manga have one or more intersecting tags.");
+                return true;
+            }
+
+            _logger.Debug("{0} does not have any intersecting tags with {1}. Notification will not be sent.", definition.Name, manga.Title);
             return false;
         }
 
@@ -305,6 +328,75 @@ namespace NzbDrone.Core.Notifications
                 {
                     _notificationStatusService.RecordFailure(notification.Definition.Id);
                     _logger.Warn(ex, "Unable to send OnRename notification to: " + notification.Definition.Name);
+                }
+            }
+        }
+
+        // Phase 8 Plan 99-08 — manga library-state fan-out (siblings of TV Series* IHandle methods).
+        public void Handle(MangaAddedEvent message)
+        {
+            var addMessage = new MangaAddMessage
+            {
+                Manga = message.Manga,
+                Message = message.Manga.Title
+            };
+
+            foreach (var notification in _notificationFactory.OnMangaAddEnabled())
+            {
+                try
+                {
+                    if (ShouldHandleManga(notification.Definition, message.Manga))
+                    {
+                        notification.OnMangaAdd(addMessage);
+                        _notificationStatusService.RecordSuccess(notification.Definition.Id);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _notificationStatusService.RecordFailure(notification.Definition.Id);
+                    _logger.Warn(ex, "Unable to send OnMangaAdd notification to: " + notification.Definition.Name);
+                }
+            }
+        }
+
+        public void Handle(MangaDeletedEvent message)
+        {
+            var deleteMessage = new MangaDeleteMessage(message.Manga, message.DeleteFiles);
+
+            foreach (var notification in _notificationFactory.OnMangaDeleteEnabled())
+            {
+                try
+                {
+                    if (ShouldHandleManga(notification.Definition, message.Manga))
+                    {
+                        notification.OnMangaDelete(deleteMessage);
+                        _notificationStatusService.RecordSuccess(notification.Definition.Id);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _notificationStatusService.RecordFailure(notification.Definition.Id);
+                    _logger.Warn(ex, "Unable to send OnMangaDelete notification to: " + notification.Definition.Name);
+                }
+            }
+        }
+
+        public void Handle(MangaRenamedEvent message)
+        {
+            foreach (var notification in _notificationFactory.OnMangaRenameEnabled())
+            {
+                try
+                {
+                    if (ShouldHandleManga(notification.Definition, message.Manga))
+                    {
+                        notification.OnMangaRename(message.Manga, message.RenamedFiles);
+                        _notificationStatusService.RecordSuccess(notification.Definition.Id);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _notificationStatusService.RecordFailure(notification.Definition.Id);
+                    _logger.Warn(ex, "Unable to send OnMangaRename notification to: " + notification.Definition.Name);
                 }
             }
         }

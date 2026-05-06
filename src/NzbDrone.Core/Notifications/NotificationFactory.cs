@@ -24,6 +24,9 @@ namespace NzbDrone.Core.Notifications
         List<INotification> OnApplicationUpdateEnabled(bool filterBlockedNotifications = true);
         List<INotification> OnManualInteractionEnabled(bool filterBlockedNotifications = true);
         List<INotification> OnChapterImportEnabled(bool filterBlockedNotifications = true);
+        List<INotification> OnMangaAddEnabled(bool filterBlockedNotifications = true);
+        List<INotification> OnMangaDeleteEnabled(bool filterBlockedNotifications = true);
+        List<INotification> OnMangaRenameEnabled(bool filterBlockedNotifications = true);
     }
 
     public class NotificationFactory : ProviderFactory<INotification, NotificationDefinition>, INotificationFactory
@@ -188,6 +191,38 @@ namespace NzbDrone.Core.Notifications
             return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnChapterImport && n.SupportsOnChapterImport).ToList();
         }
 
+        // Phase 8 Plan 99-08 — Definition-enabled + Supports-flag dual filter (Pitfall 7 mitigation).
+        // No v1 provider overrides OnMangaAdd/Delete/Rename, so these return empty until v1.1+.
+        public List<INotification> OnMangaAddEnabled(bool filterBlockedNotifications = true)
+        {
+            if (filterBlockedNotifications)
+            {
+                return FilterBlockedNotifications(GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnMangaAdd && n.SupportsOnMangaAdd)).ToList();
+            }
+
+            return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnMangaAdd && n.SupportsOnMangaAdd).ToList();
+        }
+
+        public List<INotification> OnMangaDeleteEnabled(bool filterBlockedNotifications = true)
+        {
+            if (filterBlockedNotifications)
+            {
+                return FilterBlockedNotifications(GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnMangaDelete && n.SupportsOnMangaDelete)).ToList();
+            }
+
+            return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnMangaDelete && n.SupportsOnMangaDelete).ToList();
+        }
+
+        public List<INotification> OnMangaRenameEnabled(bool filterBlockedNotifications = true)
+        {
+            if (filterBlockedNotifications)
+            {
+                return FilterBlockedNotifications(GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnMangaRename && n.SupportsOnMangaRename)).ToList();
+            }
+
+            return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnMangaRename && n.SupportsOnMangaRename).ToList();
+        }
+
         private IEnumerable<INotification> FilterBlockedNotifications(IEnumerable<INotification> notifications)
         {
             var blockedNotifications = _notificationStatusService.GetBlockedProviders().ToDictionary(v => v.ProviderId, v => v);
@@ -222,6 +257,9 @@ namespace NzbDrone.Core.Notifications
             definition.SupportsOnApplicationUpdate = provider.SupportsOnApplicationUpdate;
             definition.SupportsOnManualInteractionRequired = provider.SupportsOnManualInteractionRequired;
             definition.SupportsOnChapterImport = provider.SupportsOnChapterImport;
+            definition.SupportsOnMangaAdd = provider.SupportsOnMangaAdd;
+            definition.SupportsOnMangaDelete = provider.SupportsOnMangaDelete;
+            definition.SupportsOnMangaRename = provider.SupportsOnMangaRename;
 
             // Phase 6 Plan 14 — BL-01 mitigation. NotificationDefinition.OnChapterImport
             // defaults to true at the property level for ergonomic first-save UX (newly
@@ -232,9 +270,17 @@ namespace NzbDrone.Core.Notifications
             // configs (Id > 0) are untouched — this only affects first save.
             // Defense-in-depth: NotificationFactory.OnChapterImportEnabled (above) still
             // dual-filters on `Definition.OnChapterImport && n.SupportsOnChapterImport`.
+            //
+            // Phase 8 Plan 99-08 — same BL-01 pattern applied to manga library-state hooks.
+            // No v1 provider overrides OnMangaAdd/Delete/Rename, so on first save the
+            // toggles get scoped to FALSE; v1.1+ providers that DO override flip them to
+            // TRUE on save without the user touching a checkbox.
             if (definition.Id == 0)
             {
                 definition.OnChapterImport = provider.SupportsOnChapterImport;
+                definition.OnMangaAdd = provider.SupportsOnMangaAdd;
+                definition.OnMangaDelete = provider.SupportsOnMangaDelete;
+                definition.OnMangaRename = provider.SupportsOnMangaRename;
             }
         }
 

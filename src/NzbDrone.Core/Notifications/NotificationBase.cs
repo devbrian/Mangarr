@@ -94,6 +94,20 @@ namespace NzbDrone.Core.Notifications
         {
         }
 
+        // Phase 8 Plan 99-08 — manga library-state hooks (siblings of OnSeriesAdd/Delete/Rename).
+        // Virtual no-ops; reflection-backed Supports* default to FALSE; v1.1+ providers override.
+        public virtual void OnMangaAdd(MangaAddMessage message)
+        {
+        }
+
+        public virtual void OnMangaDelete(MangaDeleteMessage deleteMessage)
+        {
+        }
+
+        public virtual void OnMangaRename(NzbDrone.Core.Manga.Manga manga, List<RenamedChapterFile> renamedFiles)
+        {
+        }
+
         public virtual void ProcessQueue()
         {
         }
@@ -112,6 +126,9 @@ namespace NzbDrone.Core.Notifications
         public bool SupportsOnApplicationUpdate => HasConcreteImplementation("OnApplicationUpdate");
         public bool SupportsOnManualInteractionRequired => HasConcreteImplementation("OnManualInteractionRequired");
         public bool SupportsOnChapterImport => HasConcreteImplementation("OnChapterImport");
+        public bool SupportsOnMangaAdd => HasConcreteImplementation("OnMangaAdd");
+        public bool SupportsOnMangaDelete => HasConcreteImplementation("OnMangaDelete");
+        public bool SupportsOnMangaRename => HasConcreteImplementation("OnMangaRename");
 
         protected TSettings Settings => (TSettings)Definition.Settings;
 

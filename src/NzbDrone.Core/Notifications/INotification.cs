@@ -25,6 +25,12 @@ namespace NzbDrone.Core.Notifications
         // Phase 8 cleanup: collapse with OnImportComplete when domain rename runs.
         void OnChapterImport(ChapterImportMessage message);
 
+        // Phase 8 Plan 99-08 — manga library-state hooks (siblings of OnSeriesAdd/Delete/Rename).
+        // v1 default no-op (no provider overrides); v1.1+ providers (Discord / email / webhook) override.
+        void OnMangaAdd(MangaAddMessage message);
+        void OnMangaDelete(MangaDeleteMessage deleteMessage);
+        void OnMangaRename(NzbDrone.Core.Manga.Manga manga, List<NzbDrone.Core.MediaFiles.RenamedChapterFile> renamedFiles);
+
         void ProcessQueue();
         bool SupportsOnGrab { get; }
         bool SupportsOnDownload { get; }
@@ -40,5 +46,8 @@ namespace NzbDrone.Core.Notifications
         bool SupportsOnApplicationUpdate { get; }
         bool SupportsOnManualInteractionRequired { get; }
         bool SupportsOnChapterImport { get; }
+        bool SupportsOnMangaAdd { get; }
+        bool SupportsOnMangaDelete { get; }
+        bool SupportsOnMangaRename { get; }
     }
 }

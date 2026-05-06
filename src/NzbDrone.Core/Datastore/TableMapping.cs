@@ -109,7 +109,10 @@ namespace NzbDrone.Core.Datastore
                   .Ignore(i => i.SupportsOnHealthRestored)
                   .Ignore(i => i.SupportsOnApplicationUpdate)
                   .Ignore(i => i.SupportsOnManualInteractionRequired)
-                  .Ignore(i => i.SupportsOnChapterImport);
+                  .Ignore(i => i.SupportsOnChapterImport)
+                  .Ignore(i => i.SupportsOnMangaAdd)
+                  .Ignore(i => i.SupportsOnMangaDelete)
+                  .Ignore(i => i.SupportsOnMangaRename);
 
             Mapper.Entity<MetadataDefinition>("Metadata").RegisterModel()
                   .Ignore(x => x.ImplementationName)
