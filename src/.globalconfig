@@ -1,3 +1,11 @@
 is_global = true
 
 dotnet_diagnostic.CA1014.severity = none
+
+# SA1200 disabled: manga sibling files (e.g. ChapterFileService, MangaPendingReleaseService,
+# MangaDiskScanService) deliberately use namespace-scoped using aliases to resolve CS0118
+# ambiguity between the `NzbDrone.Core.Manga` namespace and `NzbDrone.Core.Manga.Manga` POCO.
+# Pattern documented in commit 6597c94c7 (Phase 9 — fix(09-08): resolve CS0118 by aliasing
+# Manga class via namespace-scoped using). Phase 14 cleanup: collapse on Tv/ rename when the
+# Manga namespace is renamed to Mangarr or removed.
+dotnet_diagnostic.SA1200.severity = none
