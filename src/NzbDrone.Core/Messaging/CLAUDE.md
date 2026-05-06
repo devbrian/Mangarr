@@ -67,25 +67,37 @@ Handlers are auto-registered via convention (see `NzbDrone.Common/Composition/`)
 ## Command Pattern
 
 ```csharp
-// 1. Define a command
+// 1. Define a command (POCO inheriting Command base)
 public class RefreshSeriesCommand : Command
 {
     public List<int> SeriesIds { get; set; }
     public override string CompletionMessage => "Series refresh completed";
 }
 
-// 2. Define an executor
+// 2. Define an executor (DI auto-discovers — single-handler dispatch via IExecute<T>)
 public class RefreshSeriesCommandExecutor : IExecute<RefreshSeriesCommand>
 {
-    public void Execute(RefreshSeriesCommand message) { /* … */ }
+    public void Execute(RefreshSeriesCommand message) { /* side-effect work */ }
 }
 
-// 3. Submit via API: POST /api/v5/command { "name": "RefreshSeriesCommand", "seriesIds": [1,2,3] }
+// 3. Queue it via API: POST /api/v5/command { "name": "RefreshSeriesCommand", "seriesIds": [1,2,3] }
 //    Or programmatically:
 _commandQueueManager.Push(new RefreshSeriesCommand { SeriesIds = ids });
 ```
 
 Commands are persisted (so they survive restart), executed in priority order, and their progress is broadcast to the UI via SignalR.
+
+### Anti-pattern C — `TaskManager.defaultTasks` vs migration seed
+
+Scheduled commands (e.g. `RefreshMangaCommand` 12h cadence, `MangaRssSyncCommand`, `MissingChapterSearchCommand`, `ProcessMangaCompletedCommand`) MUST be registered in `Jobs/TaskManager.defaultTasks` at runtime, NOT seeded via Migration 001 `Insert.IntoTable("ScheduledTasks")`. The structural fixture [`TaskManagerDefaultTasksFixture`](../../NzbDrone.Core.Test/JobTests/TaskManagerDefaultTasksFixture.cs) enforces both halves: (a) per-command `_taskManagerSource.Should().Contain("typeof(NewMangaCommand).FullName", ...)` assertions; (b) `Migration_001_contains_zero_Insert_IntoTable_calls` floor.
+
+The bug class was first surfaced in Phase 6 — Plan 06-06 wired `MangaRssSyncCommand` + `MissingChapterSearchCommand` runtime registrations after they had been silently shipped without cadence; Plan 06-08 wired `ProcessMangaCompletedCommand`. The `sonarr-consistency-audit` skill ([.claude/skills/sonarr-consistency-audit/SKILL.md](../../../.claude/skills/sonarr-consistency-audit/SKILL.md)) was authored to catch this exact pattern in future phases. Phase 11 swept the full inventory (16 registrations as of 2026-05-06) and verified zero gaps. See [Jobs/CLAUDE.md](../Jobs/CLAUDE.md) for the registration template + sister-fixture-row mandate.
+
+### Anti-pattern D — `UnknownCommandExecutor` silent fallback
+
+`CommandExecutor.ExecuteCommand` resolves the handler via `_serviceFactory.Build(typeof(IExecute<TCommand>))`. If NO concrete `IExecute<TCommand>` is registered for a queued command, DryIoc auto-discovery falls through to [`UnknownCommandExecutor`](Commands/UnknownCommandExecutor.cs) — silently. The command body is logged at Debug, the substrate publishes `CommandExecutedEvent`, and the user-facing UI sees a "completed" command that did nothing.
+
+**Rule:** every new `*Command.cs` MUST ship its `IExecute<>` implementer in the same plan. Phase 11 Plan 11-06 closed the canonical instance — `DeleteMangaFilesCommand` had been silently swallowed since Phase 8 cluster-02 (class shipped without handler). Plan 11-06 added `IExecute<DeleteMangaFilesCommand>` to `ChapterFileService` (manga peer of `MediaFileDeletionService.IExecute<DeleteSeriesFilesCommand>`); the silent `UnknownCommandExecutor` fallback for manga bulk-delete is now closed. See [`MediaFiles/CLAUDE.md`](../MediaFiles/CLAUDE.md) for the handler attribution row.
 
 ## Common Events (Observed in Code)
 
