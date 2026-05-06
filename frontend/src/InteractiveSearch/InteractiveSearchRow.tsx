@@ -20,6 +20,13 @@ import formatBytes from 'Utilities/Number/formatBytes';
 import formatCustomFormatScore from 'Utilities/Number/formatCustomFormatScore';
 import translate from 'Utilities/String/translate';
 import InteractiveSearchPayload from './InteractiveSearchPayload';
+// Phase 12 Plan 12-10 — Sub-wave-B-addition (audit row C closure):
+// MangaOverrideMatchModal is the manga-shape sibling for chapter/manga payloads.
+// Routed at the OverrideMatchModal mount point below via payload-shape discriminator
+// `'chapterId' in searchPayload || 'mangaId' in searchPayload` — verbatim shape from
+// useReleases.ts:385 (Plan 07-05 union-routing pattern). TV branch preserved verbatim
+// per D-12-18.
+import MangaOverrideMatchModal from './OverrideMatch/Manga/MangaOverrideMatchModal';
 import OverrideMatchModal from './OverrideMatch/OverrideMatchModal';
 import Peers from './Peers';
 import ReleaseSceneIndicator from './ReleaseSceneIndicator';
@@ -357,22 +364,55 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
         onCancel={onGrabCancel}
       />
 
-      <OverrideMatchModal
-        isOpen={isOverrideModalOpen}
-        title={title}
-        indexerId={indexerId}
-        guid={guid}
-        seriesId={mappedSeriesId}
-        seasonNumber={mappedSeasonNumber}
-        episodes={mappedEpisodeInfo}
-        languages={languages}
-        quality={quality}
-        protocol={protocol}
-        isGrabbing={isGrabbing}
-        grabError={grabError}
-        grabRelease={grabRelease}
-        onModalClose={onOverrideModalClose}
-      />
+      {/* Phase 12 Plan 12-10 — Sub-wave-B-addition (audit row C closure):
+          Payload-shape discriminator. Chapter/manga searchPayloads route to
+          MangaOverrideMatchModal (manga grab body shape; POSTs to /manga/release
+          via useGrabMangaRelease); episode/season payloads route to the existing
+          TV OverrideMatchModal (preserved verbatim per D-12-18). Discriminator
+          shape `'chapterId' in searchPayload || 'mangaId' in searchPayload`
+          mirrors useReleases.ts:385 exactly (Plan 07-05 union-routing pattern).
+
+          Known TODO (v1.1+): chapterIds extraction below defaults to
+          `[searchPayload.chapterId]` for ChapterSearchPayload and `[]` for
+          MangaSearchPayload (whole-manga search). v1.1+ may tighten with
+          separate ChapterOverrideMatchModal vs MangaOverrideMatchModal siblings
+          if multi-chapter manga selection becomes a use case (tracked by Plan
+          12-98 v1.1-roadmap.md promotion). The mangaId fallback `0` is a
+          sentinel — the backend MangaReleaseController.DownloadRelease keys
+          off the cached RemoteChapter (indexerId + guid), so the override
+          mangaId field is informational; cache resolution drives the actual
+          grab. */}
+      {'chapterId' in searchPayload || 'mangaId' in searchPayload ? (
+        <MangaOverrideMatchModal
+          isOpen={isOverrideModalOpen}
+          title={title}
+          indexerId={indexerId}
+          guid={guid}
+          mangaId={'mangaId' in searchPayload ? searchPayload.mangaId : 0}
+          chapterIds={
+            'chapterId' in searchPayload ? [searchPayload.chapterId] : []
+          }
+          protocol={protocol}
+          onModalClose={onOverrideModalClose}
+        />
+      ) : (
+        <OverrideMatchModal
+          isOpen={isOverrideModalOpen}
+          title={title}
+          indexerId={indexerId}
+          guid={guid}
+          seriesId={mappedSeriesId}
+          seasonNumber={mappedSeasonNumber}
+          episodes={mappedEpisodeInfo}
+          languages={languages}
+          quality={quality}
+          protocol={protocol}
+          isGrabbing={isGrabbing}
+          grabError={grabError}
+          grabRelease={grabRelease}
+          onModalClose={onOverrideModalClose}
+        />
+      )}
     </TableRow>
   );
 }
