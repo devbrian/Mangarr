@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using NLog;
 using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Manga.Events;
@@ -39,16 +40,19 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     private readonly IMangaService _mangaService;
     private readonly IAddMangaService _addMangaService;
     private readonly IMapMangaCoversToLocal _coverMapper;
+    private readonly Logger _logger;
 
     public MangaController(IBroadcastSignalRMessage signalRBroadcaster,
                            IMangaService mangaService,
                            IAddMangaService addMangaService,
-                           IMapMangaCoversToLocal coverMapper)
+                           IMapMangaCoversToLocal coverMapper,
+                           Logger logger)
         : base(signalRBroadcaster)
     {
         _mangaService = mangaService;
         _addMangaService = addMangaService;
         _coverMapper = coverMapper;
+        _logger = logger;
 
         SharedValidator.RuleFor(m => m.Title).NotEmpty();
 
@@ -234,7 +238,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         }
         catch (NotFoundException)
         {
-            // benign race: manga deleted between MangaEditedEvent publish and SignalR fan-out
+            _logger.Debug("MangaEditedEvent: manga {Id} no longer exists, skipping SignalR fan-out (benign delete-race)", message.Manga.Id);
         }
     }
 
@@ -256,7 +260,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         }
         catch (NotFoundException)
         {
-            // benign race: manga deleted between MangaRenamedEvent publish and SignalR fan-out
+            _logger.Debug("MangaRenamedEvent: manga {Id} no longer exists, skipping SignalR fan-out (benign delete-race)", message.Manga.Id);
         }
     }
 
@@ -281,7 +285,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
             }
             catch (NotFoundException)
             {
-                // benign race: manga deleted between bulk-edit publish and SignalR fan-out
+                _logger.Debug("MangaBulkEditedEvent: manga {Id} no longer exists, skipping SignalR fan-out for this row (benign delete-race)", manga.Id);
             }
         }
     }
@@ -312,7 +316,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         }
         catch (NotFoundException)
         {
-            // benign race: manga deleted between ChapterFileAddedEvent publish and SignalR fan-out
+            _logger.Debug("ChapterFileAddedEvent: manga {Id} no longer exists, skipping SignalR fan-out (benign delete-race)", message.ChapterFile.MangaId);
         }
     }
 
@@ -348,7 +352,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         }
         catch (NotFoundException)
         {
-            // benign race: manga deleted between ChapterFileDeletedEvent publish and SignalR fan-out
+            _logger.Debug("ChapterFileDeletedEvent: manga {Id} no longer exists, skipping SignalR fan-out (benign delete-race)", message.ChapterFile.MangaId);
         }
     }
 
@@ -380,7 +384,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
             }
             catch (NotFoundException)
             {
-                // benign race: manga deleted between bulk-import publish and SignalR fan-out
+                _logger.Debug("MangaImportedEvent: manga {Id} no longer exists, skipping SignalR fan-out for this row (benign delete-race)", mangaId);
             }
         }
     }
