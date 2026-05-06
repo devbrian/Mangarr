@@ -897,6 +897,8 @@
   "Host": "Host",
   "Hostname": "Hostname",
   "HourShorthand": "h",
+  "HttpDelay": "HTTP Delay",
+  "HttpDelayHelpText": "Delay in minutes to wait before grabbing an HTTP release from manga indexers",
   "HttpHttps": "HTTP(S)",
   "ICalFeed": "iCal Feed",
   "ICalFeedHelpText": "Copy this URL to your client(s) or click to subscribe if your browser supports webcal",

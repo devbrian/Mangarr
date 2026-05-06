@@ -7,6 +7,7 @@ interface DelayProfile extends ModelBase {
   preferredProtocol: string;
   usenetDelay: number;
   torrentDelay: number;
+  httpDelay: number;
   bypassIfHighestQuality: boolean;
   bypassIfAboveCustomFormatScore: boolean;
   minimumCustomFormatScore: number;

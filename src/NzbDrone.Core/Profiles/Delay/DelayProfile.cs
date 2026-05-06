@@ -11,6 +11,7 @@ namespace NzbDrone.Core.Profiles.Delay
         public DownloadProtocol PreferredProtocol { get; set; }
         public int UsenetDelay { get; set; }
         public int TorrentDelay { get; set; }
+        public int HttpDelay { get; set; }
         public int Order { get; set; }
         public bool BypassIfHighestQuality { get; set; }
         public bool BypassIfAboveCustomFormatScore { get; set; }
@@ -24,7 +25,12 @@ namespace NzbDrone.Core.Profiles.Delay
 
         public int GetProtocolDelay(DownloadProtocol protocol)
         {
-            return protocol == DownloadProtocol.Torrent ? TorrentDelay : UsenetDelay;
+            return protocol switch
+            {
+                DownloadProtocol.Torrent => TorrentDelay,
+                DownloadProtocol.Http => HttpDelay,
+                _ => UsenetDelay
+            };
         }
     }
 }

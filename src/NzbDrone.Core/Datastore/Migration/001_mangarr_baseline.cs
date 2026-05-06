@@ -374,6 +374,7 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("PreferredProtocol").AsInt32()
                 .WithColumn("UsenetDelay").AsInt32()
                 .WithColumn("TorrentDelay").AsInt32()
+                .WithColumn("HttpDelay").AsInt32().NotNullable().WithDefaultValue(0)
                 .WithColumn("Order").AsInt32()
                 .WithColumn("Tags").AsString()
                 .WithColumn("BypassIfHighestQuality").AsBoolean().NotNullable().WithDefaultValue(false)

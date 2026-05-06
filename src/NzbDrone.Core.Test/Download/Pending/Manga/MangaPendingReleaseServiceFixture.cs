@@ -530,21 +530,21 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // GetDelay KNOWN LIMITATION pin (Open Q §3 — DelayProfile.GetProtocolDelay(Http)
-        // returns UsenetDelay; deferred to v1.1).
+        // GetDelay routes Http to the new DelayProfile.HttpDelay column
+        // (Phase 8 Plan 99-07 closed the Open Q §3 KNOWN LIMITATION).
         // ─────────────────────────────────────────────────────────────────────
 
         [Test]
-        public void GetPendingQueue_uses_UsenetDelay_for_Http_releases_per_KnownLimitation_OpenQ3()
+        public void GetPendingQueue_uses_HttpDelay_for_Http_releases()
         {
-            // Arrange: profile with distinct Usenet vs Torrent values so we can detect which one
-            // bleeds through. Http should silently take the UsenetDelay path per the GetDelay
-            // body's KNOWN LIMITATION comment.
+            // Arrange: profile with distinct Usenet / Torrent / Http values so we can detect
+            // which column the GetDelay path resolves. Http should now route to HttpDelay
+            // (was UsenetDelay pre-99-07).
             Mocker.GetMock<IDelayProfileService>()
                 .Setup(s => s.AllForTags(It.IsAny<HashSet<int>>()))
                 .Returns(new List<DelayProfile>
                 {
-                    new DelayProfile { Order = 0, UsenetDelay = 999, TorrentDelay = 111, PreferredProtocol = DownloadProtocol.Http },
+                    new DelayProfile { Order = 0, UsenetDelay = 999, TorrentDelay = 111, HttpDelay = 555, PreferredProtocol = DownloadProtocol.Http },
                 });
 
             var row = BuildPendingRow(_chapters[0], PendingReleaseReason.Delay, id: 1);
@@ -559,15 +559,18 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
             // Act
             var queue = Subject.GetPendingQueue();
 
-            // Assert: the projected EstimatedCompletionTime must reflect the UsenetDelay (999 min)
-            // not the TorrentDelay (111 min). This pins the v1.1 fix target — when DelayProfile
-            // gains an explicit HttpDelay column, this test will need to be updated.
+            // Assert: EstimatedCompletionTime must reflect HttpDelay (555 min), neither
+            // UsenetDelay (999) nor TorrentDelay (111). Window-asserts ±60 min around 555
+            // to account for the IConfigService.MinimumAge floor inside GetDelay (defaulted
+            // to 0 in this fixture; explicit floor would shift the window upward).
             queue.Should().HaveCount(1);
             var item = queue.Single();
             item.EstimatedCompletionTime.Should().NotBeNull();
             var deltaMinutes = (item.EstimatedCompletionTime.Value - DateTime.UtcNow).TotalMinutes;
-            deltaMinutes.Should().BeGreaterThan(900,
-                because: "GetDelay should silently use UsenetDelay (999) per Open Q §3 KNOWN LIMITATION; v1.1 fix will surface HttpDelay separately");
+            deltaMinutes.Should().BeInRange(
+                495,
+                615,
+                "GetDelay should now use HttpDelay (555) per Phase 8 Plan 99-07; UsenetDelay (999) and TorrentDelay (111) must NOT be selected for Http releases");
         }
     }
 }

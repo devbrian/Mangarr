@@ -13,6 +13,7 @@ namespace Sonarr.Api.V3.Profiles.Delay
         public DownloadProtocol PreferredProtocol { get; set; }
         public int UsenetDelay { get; set; }
         public int TorrentDelay { get; set; }
+        public int HttpDelay { get; set; }
         public bool BypassIfHighestQuality { get; set; }
         public bool BypassIfAboveCustomFormatScore { get; set; }
         public int MinimumCustomFormatScore { get; set; }
@@ -38,6 +39,7 @@ namespace Sonarr.Api.V3.Profiles.Delay
                 PreferredProtocol = model.PreferredProtocol,
                 UsenetDelay = model.UsenetDelay,
                 TorrentDelay = model.TorrentDelay,
+                HttpDelay = model.HttpDelay,
                 BypassIfHighestQuality = model.BypassIfHighestQuality,
                 BypassIfAboveCustomFormatScore = model.BypassIfAboveCustomFormatScore,
                 MinimumCustomFormatScore = model.MinimumCustomFormatScore,
@@ -62,6 +64,7 @@ namespace Sonarr.Api.V3.Profiles.Delay
                 PreferredProtocol = resource.PreferredProtocol,
                 UsenetDelay = resource.UsenetDelay,
                 TorrentDelay = resource.TorrentDelay,
+                HttpDelay = resource.HttpDelay,
                 BypassIfHighestQuality = resource.BypassIfHighestQuality,
                 BypassIfAboveCustomFormatScore = resource.BypassIfAboveCustomFormatScore,
                 MinimumCustomFormatScore = resource.MinimumCustomFormatScore,

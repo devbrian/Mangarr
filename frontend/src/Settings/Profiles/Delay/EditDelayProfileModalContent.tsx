@@ -36,6 +36,7 @@ const newDelayProfile: DelayProfile & { [key: string]: unknown } = {
   preferredProtocol: 'usenet',
   usenetDelay: 0,
   torrentDelay: 0,
+  httpDelay: 0,
   bypassIfHighestQuality: false,
   bypassIfAboveCustomFormatScore: false,
   minimumCustomFormatScore: 0,
@@ -119,6 +120,7 @@ function EditDelayProfileModalContent({
     preferredProtocol,
     usenetDelay,
     torrentDelay,
+    httpDelay,
     bypassIfHighestQuality,
     bypassIfAboveCustomFormatScore,
     minimumCustomFormatScore,
@@ -289,6 +291,19 @@ function EditDelayProfileModalContent({
                 />
               </FormGroup>
             ) : null}
+
+            <FormGroup>
+              <FormLabel>{translate('HttpDelay')}</FormLabel>
+
+              <FormInputGroup
+                type={inputTypes.NUMBER}
+                name="httpDelay"
+                unit="minutes"
+                {...httpDelay}
+                helpText={translate('HttpDelayHelpText')}
+                onChange={onInputChange}
+              />
+            </FormGroup>
 
             <FormGroup>
               <FormLabel>{translate('BypassDelayIfHighestQuality')}</FormLabel>

@@ -81,13 +81,6 @@ vs TV's tri-split `ProcessedDecisions`).
 - **`_configService.MangaRssSyncInterval`** for the per-rebuild cooldown step (parallel
   to TV's `RssSyncInterval`); manga config key landed in Phase 6 per `IConfigService.cs:122`.
 
-## Known Limitations
-
-- **`DelayProfile.GetProtocolDelay(DownloadProtocol.Http)` returns `UsenetDelay`** (Open Q §3,
-  RESEARCH Pitfall 5). Manga delay-profile cooldown silently uses the Usenet number.
-  `GetDelay(RemoteChapter)` carries the inline `// KNOWN LIMITATION` comment + `// TODO v1.1`
-  pointer. Deferred to v1.1 (`MangaDelayProfile` follow-up logged in Plan 09-11 close-out).
-
 ## Anti-Patterns
 
 - **DO NOT subscribe** `AutoRetryOrchestrator` to `MangaPendingReleasesUpdatedEvent`

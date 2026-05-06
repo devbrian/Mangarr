@@ -50,12 +50,6 @@ namespace NzbDrone.Core.Download.Pending.Manga
     // does NOT subscribe to MangaPendingReleasesUpdatedEvent — would create infinite
     // re-search loop. Auto-retry uses MangaBlocklistAddedEvent only.
     //
-    // KNOWN LIMITATION (per RESEARCH Open Q §3 + Pitfall 5): GetDelay calls
-    // DelayProfile.GetProtocolDelay(DownloadProtocol.Http) which falls through to UsenetDelay
-    // (DelayProfile.cs:25-28 — Http is neither Usenet nor Torrent). Manga delay-profile
-    // cooldown silently uses the Usenet number. v1.1 follow-up: extend DelayProfile with
-    // explicit HttpDelay column. Logged in Plan 09-11 close-out to 08/deferred-items.md.
-    //
     // RemoveGrabbed simplification vs TV (Phase 5 D-04 — manga has NO QualityProfile):
     // TV's RemoveGrabbed compares quality via QualityModelComparer to keep higher-quality
     // pending releases. Manga has no quality model, so we delete every pending release that
@@ -685,19 +679,12 @@ namespace NzbDrone.Core.Download.Pending.Manga
         }
 
         // ============================================================================
-        // GetDelay — KNOWN LIMITATION per Open Q §3 / Pitfall 5
+        // GetDelay — uses DelayProfile.HttpDelay (Phase 8 Plan 99-07 added the column)
         // ============================================================================
         private int GetDelay(RemoteChapter remoteChapter)
         {
             var delayProfile = _delayProfileService.AllForTags(remoteChapter.Manga.Tags).OrderBy(d => d.Order).First();
 
-            // KNOWN LIMITATION: DelayProfile.GetProtocolDelay(DownloadProtocol.Http) returns
-            // UsenetDelay (DelayProfile.cs:25-28 — Http falls into the else branch since it's
-            // neither Usenet nor Torrent). Manga delay-profile cooldown silently uses the
-            // Usenet number, which most v1 users will leave at 0. Pending releases may never
-            // advance from cooldown if user expects a non-zero Http delay.
-            // TODO v1.1: extend DelayProfile with explicit HttpDelay column. Deferred per Open Q §3.
-            // Logged in Plan 09-11 close-out to 08/deferred-items.md as "MangaDelayProfile v1.1 follow-up".
             var delay = delayProfile.GetProtocolDelay(DownloadProtocol.Http);
 
             var minimumAge = _configService.MinimumAge;
