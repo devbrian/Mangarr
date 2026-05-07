@@ -86,10 +86,30 @@ namespace Sonarr.Api.V5.Manga.Queue
         // simplified Remove signature has no blocklist/skipRedownload/changeCategory v1 params
         // (per existing [RestDeleteById] precedent at line 75-80) — Phase 15 collapse will
         // unify the signature when Tv/ deletes alongside the manga pending/blocklist plumbing.
+        //
+        // Phase 13 Plan 13-13 CR-02 hardening:
+        //   * [Consumes("application/json")] — pinned media-type aligns with sibling manga V5
+        //     endpoints (MangaQueueActionController.Grab, ChapterFileController bulk DELETE)
+        //     and surfaces the request shape correctly through OpenAPI v5 doc gen. Without it,
+        //     OpenAPI may emit `*/*` accept-list (breaking typed-client codegen) and form-
+        //     urlencoded posts may bind `resource` as null (NRE on resource.Ids enumeration).
+        //   * Null-guard on resource / resource.Ids — a missing or null body short-circuits to
+        //     NoContent rather than NRE-ing inside the foreach. The TV peer's wider param surface
+        //     masks this; the manga simplification reintroduces the risk.
+        //   * .Distinct() before iterating — duplicate ids in the request body would otherwise
+        //     fire duplicate IMangaQueueService.Remove calls, each publishing a
+        //     MangaQueueUpdatedEvent and triggering a redundant SignalR Sync broadcast (UI
+        //     thrash). Mirrors TV QueueController.cs:122/127 DistinctBy semantics.
         [HttpDelete("bulk")]
+        [Consumes("application/json")]
         public NoContent RemoveMany([FromBody] QueueBulkResource resource)
         {
-            foreach (var id in resource.Ids)
+            if (resource?.Ids == null)
+            {
+                return TypedResults.NoContent();
+            }
+
+            foreach (var id in resource.Ids.Distinct())
             {
                 _queueService.Remove(id);
             }

@@ -98,5 +98,88 @@ namespace NzbDrone.Api.Test.Manga.Queue
                 "RemoveMany action template must be exactly \"bulk\" so DELETE /api/v5/manga/queue/bulk routes correctly " +
                 "(F-01 gap closure from smoke-test quick-260507-p13)");
         }
+
+        // ===================== CR-02 (Phase 13 Plan 13-13) — RemoveMany hardening =====================
+
+        [Test]
+        public void Bulk_DELETE_attribute_includes_Consumes_application_json()
+        {
+            // CR-02 hardening: pin [Consumes("application/json")] on RemoveMany so OpenAPI v5
+            // doc generation surfaces the request media-type correctly. Without [Consumes], the
+            // generated spec may emit `*/*` accept-list (breaking typed-client codegen) and
+            // form-urlencoded posts may bind `resource` as null (NRE on resource.Ids enumeration).
+            // Sibling endpoints (MangaQueueActionController.Grab, ChapterFileController bulk
+            // DELETE) standardize on this attribute.
+            var removeMany = typeof(MangaQueueController)
+                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .SingleOrDefault(m => m.Name == "RemoveMany"
+                                      && m.GetParameters().Length == 1
+                                      && m.GetParameters()[0].ParameterType == typeof(QueueBulkResource));
+
+            removeMany.Should().NotBeNull();
+
+            var consumes = removeMany!.GetCustomAttribute<ConsumesAttribute>();
+            consumes.Should().NotBeNull("RemoveMany(QueueBulkResource) must be annotated with [Consumes(\"application/json\")] " +
+                                        "(CR-02 sibling-endpoint consistency + OpenAPI v5 codegen contract)");
+            consumes!.ContentTypes.Should().Contain("application/json",
+                "RemoveMany [Consumes] attribute must list 'application/json' as the bound request media type");
+        }
+
+        [Test]
+        public void Bulk_DELETE_with_null_resource_returns_NoContent_without_calling_Remove()
+        {
+            // CR-02 null-guard: a missing or null body must short-circuit to NoContent rather
+            // than NRE inside the foreach. ASP.NET Core can deliver `resource = null` when the
+            // body is absent / unparseable — we MUST handle that without exploding.
+            var result = Subject.RemoveMany(null!);
+
+            result.Should().NotBeNull();
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(x => x.Remove(It.IsAny<int>()), Times.Never);
+        }
+
+        [Test]
+        public void Bulk_DELETE_with_null_ids_returns_NoContent_without_calling_Remove()
+        {
+            // CR-02 null-guard part 2: a body with `Ids = null` (e.g., `{}`) must short-circuit
+            // to NoContent rather than NRE on the .Ids.Distinct() / foreach iteration.
+            var resource = new QueueBulkResource { Ids = null! };
+
+            var result = Subject.RemoveMany(resource);
+
+            result.Should().NotBeNull();
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(x => x.Remove(It.IsAny<int>()), Times.Never);
+        }
+
+        [Test]
+        public void Bulk_DELETE_with_duplicate_ids_calls_Remove_once_per_unique_id()
+        {
+            // CR-02 dedupe: duplicate ids in the request body must be collapsed via .Distinct()
+            // BEFORE iterating. Each IMangaQueueService.Remove call publishes a
+            // MangaQueueUpdatedEvent which triggers a SignalR Sync broadcast — duplicates would
+            // otherwise N-times multiply UI thrash. Mirrors TV QueueController.cs:122/127
+            // DistinctBy semantics.
+            //
+            // Payload: 5 ids, 2 distinct (11, 22) — Remove must be called exactly twice.
+            var resource = new QueueBulkResource
+            {
+                Ids = new System.Collections.Generic.List<int> { 11, 22, 11, 22, 11 },
+            };
+
+            var result = Subject.RemoveMany(resource);
+
+            result.Should().NotBeNull();
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(
+                      x => x.Remove(It.IsAny<int>()),
+                      Times.Exactly(2),
+                      "duplicate ids must be deduped via .Distinct() before invoking Remove " +
+                      "(prevents redundant SignalR Sync broadcasts on the manga queue)");
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(x => x.Remove(11), Times.Once);
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(x => x.Remove(22), Times.Once);
+        }
     }
 }

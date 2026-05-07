@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using NLog;
 using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Exceptions;
 using NzbDrone.Core.Manga;
@@ -64,16 +65,19 @@ public class ChapterFileController : RestControllerWithSignalR<ChapterFileResour
     private readonly IChapterFileService _chapterFileService;
     private readonly IDeleteMediaFiles _mediaFileDeletionService;
     private readonly IMangaService _mangaService;
+    private readonly Logger _logger;
 
     public ChapterFileController(IBroadcastSignalRMessage signalRBroadcaster,
                                  IChapterFileService chapterFileService,
                                  IDeleteMediaFiles mediaFileDeletionService,
-                                 IMangaService mangaService)
+                                 IMangaService mangaService,
+                                 Logger logger)
         : base(signalRBroadcaster)
     {
         _chapterFileService = chapterFileService;
         _mediaFileDeletionService = mediaFileDeletionService;
         _mangaService = mangaService;
+        _logger = logger;
     }
 
     protected override ChapterFileResource GetResourceById(int id)
@@ -143,11 +147,37 @@ public class ChapterFileController : RestControllerWithSignalR<ChapterFileResour
             return TypedResults.NoContent();
         }
 
-        var manga = _mangaService.GetManga(chapterFiles.First().MangaId);
-
-        foreach (var chapterFile in chapterFiles)
+        // CR-01 (Phase 13 Plan 13-13) cross-manga path-corruption fix:
+        // Group by parent MangaId so each ChapterFile is recycled against ITS OWN manga.Path
+        // (and thus the correct RootFolder for the recycle-bin lookup at
+        // MediaFileDeletionService.DeleteChapterFile). The TV peer (EpisodeFileController.cs:130-143)
+        // resolves Series ONCE from episodeFiles.First().SeriesId and reuses that for every file —
+        // a request body containing files that span multiple parents silently feeds the wrong
+        // parent.Path into Path.Combine, computing a non-existent fullPath that fails the
+        // FileExists check, skipping recycle while still deleting the DB row (orphaned file on
+        // disk; DB row gone). The Mangarr peer FIXES this by per-parent group resolution; the TV
+        // peer carries the bug forward and SHOULD be back-ported via a separate Sonarr-upstream
+        // tracker issue (Phase 13 13-REVIEW.md CR-01 disposition).
+        //
+        // Null-guard contract: orphaned ChapterFile rows (MangaId points to a deleted Manga) are
+        // SKIPPED with a warning log; the bulk operation proceeds for every other group rather
+        // than aborting the batch. This matches the per-row DeleteChapterFile single-id contract
+        // (line 116-133 above) which throws NotFound on a missing chapterFile but does NOT throw
+        // on a missing parent — preserving "best-effort bulk" semantics.
+        foreach (var group in chapterFiles.GroupBy(f => f.MangaId))
         {
-            _mediaFileDeletionService.DeleteChapterFile(manga, chapterFile);
+            var manga = _mangaService.GetManga(group.Key);
+
+            if (manga == null)
+            {
+                _logger.Warn("Skipping {0} chapter file(s) for missing parent manga id {1} during bulk delete (orphaned rows)", group.Count(), group.Key);
+                continue;
+            }
+
+            foreach (var chapterFile in group)
+            {
+                _mediaFileDeletionService.DeleteChapterFile(manga, chapterFile);
+            }
         }
 
         return TypedResults.NoContent();

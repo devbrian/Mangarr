@@ -2,11 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
+using FluentValidation;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.Profiles.Translations;
+using NzbDrone.Core.RootFolders;
 using NzbDrone.Test.Common;
 using Sonarr.Api.V5.Manga;
 using Sonarr.Http;
@@ -90,6 +93,13 @@ namespace NzbDrone.Api.Test.Manga
                 .Setup(s => s.UpdateManga(It.IsAny<List<NzbDrone.Core.Manga.Manga>>(), It.IsAny<bool>()))
                 .Returns<List<NzbDrone.Core.Manga.Manga>, bool>((m, _) => m);
 
+            // Plan 13-13 CR-03: MangaEditorValidator now wires TranslationProfileExistsValidator
+            // (PropertyValidator that calls ITranslationProfileService.Exists). Mock the lookup
+            // so the validator passes for the test's chosen TranslationProfileId == 7.
+            Mocker.GetMock<ITranslationProfileService>()
+                .Setup(s => s.Exists(7))
+                .Returns(true);
+
             var resource = new MangaEditorResource
             {
                 MangaIds = new List<int> { 1, 2 },
@@ -148,6 +158,58 @@ namespace NzbDrone.Api.Test.Manga
                     Times.Once);
 
             result.Should().BeOfType<NoContent>();
+        }
+
+        // ===================== CR-03 (Phase 13 Plan 13-13) — MangaEditorValidator existence checks =====================
+
+        [Test]
+        public void Validator_rejects_unknown_root_folder_path()
+        {
+            // CR-03 closure of T-13-03 mass-assignment mitigation: MangaEditorValidator now
+            // wires RootFolderExistsValidator so a PUT with a rootFolderPath that does NOT
+            // match any registered root folder is REJECTED with a ValidationException at the
+            // controller boundary. Without the validator, IMangaService.UpdateManga would
+            // silently mass-assign the bogus path across every row in mangaIds (defeating
+            // T-13-03 — the "M" in mass-assignment).
+            //
+            // Test setup: mock IRootFolderService.All() to return a single root at "/manga"
+            // and submit a request with rootFolderPath = "C:\\Windows\\System32" — the
+            // validator must throw FluentValidation.ValidationException; UpdateManga must NOT
+            // be invoked.
+            var mangaList = new List<NzbDrone.Core.Manga.Manga>
+            {
+                new() { Id = 1, Title = "Manga A", Monitored = false, Tags = new HashSet<int>() },
+            };
+
+            Mocker.GetMock<IMangaService>()
+                .Setup(s => s.GetManga(It.IsAny<IEnumerable<int>>()))
+                .Returns(mangaList);
+
+            Mocker.GetMock<IRootFolderService>()
+                .Setup(s => s.All())
+                .Returns(new List<RootFolder>
+                {
+                    new() { Id = 1, Path = "/manga" },
+                });
+
+            var resource = new MangaEditorResource
+            {
+                MangaIds = new List<int> { 1 },
+                RootFolderPath = "/not/a/registered/root",
+            };
+
+            // Controller throws FluentValidation.ValidationException on validator failure
+            // (MangaEditorController.cs:114-117). The exception escapes the controller and
+            // is mapped to HTTP 400 by the upstream pipeline; here we assert at the unit-test
+            // layer that the throw fires before any UpdateManga delegation.
+            Assert.Throws<ValidationException>(() => Subject.SaveAll(resource));
+
+            // Hard-pin: UpdateManga must NOT be invoked when RootFolder validation fails.
+            Mocker.GetMock<IMangaService>()
+                .Verify(s => s.UpdateManga(It.IsAny<List<NzbDrone.Core.Manga.Manga>>(), It.IsAny<bool>()),
+                    Times.Never,
+                    "RootFolderExistsValidator failure must short-circuit BEFORE the UpdateManga " +
+                    "persistence call — otherwise T-13-03 mass-assignment closure is incomplete");
         }
     }
 }
