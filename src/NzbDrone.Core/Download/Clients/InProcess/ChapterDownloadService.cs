@@ -29,7 +29,7 @@ namespace NzbDrone.Core.Download.Clients.InProcess
     /// ONCE, retries the page once with the new URL; second 403/410 = chapter terminal failure.
     ///
     /// BLOCKER #4 fix (revision 1): per-instance Settings (DownloadsPerSource +
-    /// PagesPerChapter) flow from <see cref="InProcessImageDownloadClient.Download"/> through
+    /// PagesPerChapter) flow from <see cref="InProcessImageDownloadClient.Download(NzbDrone.Core.Parser.Model.RemoteEpisode, NzbDrone.Core.Indexers.IIndexer)"/> through
     /// <see cref="EnqueueAsync"/> into the per-source Channel capacity + the
     /// <see cref="ChapterDownloadJob"/> carrier. Hardcoded resolver constants eliminated.
     /// Channel capacity is fixed at first-use per SourceKey (Channel&lt;T&gt; is immutable post

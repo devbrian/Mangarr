@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using FluentValidation.Results;
 using NLog;
@@ -9,6 +10,7 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Http;
 using NzbDrone.Core.Localization;
+using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.RemotePathMappings;
 
@@ -49,6 +51,43 @@ namespace NzbDrone.Core.Download.Clients.InProcess
             _indexerFactory = indexerFactory;
             _stateRepo = stateRepo;
             _orchestrator = orchestrator;
+        }
+
+        // Phase 15 Wave (A) W-6 pre-land per
+        // .planning/phases/15-domain-rename-rebrand/15-CONTRACTS-AUDIT.md §22.
+        // Manga-shape overload sits alongside the TV-shape Download(RemoteEpisode, IIndexer).
+        // Phase 15 Wave (C) deletes the TV overload when Tv/ deletes; the manga overload
+        // becomes canonical. Both overloads coexist on Mangarr-v0 — purely additive.
+        //
+        // Routes through the existing TV-shape overload via a local conversion (NOT the
+        // public RemoteChapter.ToRemoteEpisodeShim() static, which Wave (A) W-5 deletes).
+        // The orchestrator's RemoteChapterJson serialization preserves the manga-relevant
+        // fields (Manga.Id → Series.Id, Chapter.Id → Episode.Id) so Phase 4 staging-handoff
+        // path is unaffected.
+        public Task<string> Download(RemoteChapter remoteChapter, IIndexer indexer)
+        {
+            var manga = remoteChapter.Manga;
+            var chapters = remoteChapter.Chapters ?? new List<NzbDrone.Core.Manga.Chapter>();
+
+            var seriesShim = new NzbDrone.Core.Tv.Series { Id = manga?.Id ?? 0 };
+            var episodeShims = chapters
+                .Select(c => new NzbDrone.Core.Tv.Episode { Id = c.Id })
+                .ToList();
+            if (episodeShims.Count == 0)
+            {
+                episodeShims.Add(new NzbDrone.Core.Tv.Episode { Id = 0 });
+            }
+
+            var shim = new RemoteEpisode
+            {
+                Release = remoteChapter.Release,
+                Series = seriesShim,
+                Episodes = episodeShims,
+                CustomFormats = remoteChapter.CustomFormats,
+                CustomFormatScore = remoteChapter.CustomFormatScore
+            };
+
+            return Download(shim, indexer);
         }
 
         // Phase 4 thin shim — Phase 8 collapse renames RemoteEpisode → RemoteChapter.
