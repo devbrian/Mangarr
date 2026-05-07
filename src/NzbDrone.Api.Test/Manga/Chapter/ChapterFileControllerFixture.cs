@@ -210,6 +210,143 @@ namespace NzbDrone.Api.Test.Manga.Chapter
             Assert.Throws<BadRequestException>(() => Subject.GetChapterFiles(null, new List<int>()));
         }
 
+        // ===================== CR-01 (Phase 13 Plan 13-13) — bulk DELETE cross-manga group routing =====================
+
+        [Test]
+        public void Bulk_DELETE_with_files_spanning_two_manga_resolves_each_to_correct_parent()
+        {
+            // CR-01 regression pin: DeleteChapterFiles must GroupBy(f => f.MangaId) and resolve
+            // ONE Manga per group, NOT one Manga for the entire batch from
+            // chapterFiles.First().MangaId. Without the fix, every file beyond the first manga's
+            // group is fed the wrong manga.Path into MediaFileDeletionService.DeleteChapterFile,
+            // skipping recycle (FileExists fails on the bad fullPath) while still deleting the DB
+            // row — orphaned files on disk.
+            //
+            // Test setup: 4 chapter files spanning 2 mangas (ids 100 + 200), 2 files each. Mock
+            // _mangaService.GetManga(100) and (200) to return distinct Manga instances with
+            // distinct Path values. Verify _mediaFileDeletionService.DeleteChapterFile is called
+            // with the correct Manga for each file (matched by Manga.Id and ChapterFile.MangaId).
+            var mangaA = new NzbDrone.Core.Manga.Manga { Id = 100, Title = "Manga A", Path = "/manga/A" };
+            var mangaB = new NzbDrone.Core.Manga.Manga { Id = 200, Title = "Manga B", Path = "/manga/B" };
+
+            // Override the SetUp default GetManga(int) for the two specific ids — Mocker.Setup
+            // calls layered after the SetUp call replace the prior return value.
+            Mocker.GetMock<IMangaService>()
+                  .Setup(s => s.GetManga(100))
+                  .Returns(mangaA);
+            Mocker.GetMock<IMangaService>()
+                  .Setup(s => s.GetManga(200))
+                  .Returns(mangaB);
+
+            var files = new List<ChapterFile>
+            {
+                new() { Id = 1, MangaId = 100, ChapterId = 1, RelativePath = "ch01.cbz" },
+                new() { Id = 2, MangaId = 200, ChapterId = 2, RelativePath = "ch02.cbz" },
+                new() { Id = 3, MangaId = 100, ChapterId = 3, RelativePath = "ch03.cbz" },
+                new() { Id = 4, MangaId = 200, ChapterId = 4, RelativePath = "ch04.cbz" },
+            };
+
+            var ids = files.Select(f => f.Id).ToList();
+            Mocker.GetMock<IChapterFileService>()
+                  .Setup(s => s.Get(It.Is<IEnumerable<int>>(e => e.SequenceEqual(ids))))
+                  .Returns(files);
+
+            var resource = new ChapterFileListResource { ChapterFileIds = ids };
+
+            Subject.DeleteChapterFiles(resource);
+
+            // Each file must be deleted against the manga whose Id matches its MangaId.
+            // ASSERT each file individually so a regression that re-uses ONE manga for all files
+            // surfaces here (mangaA being used for file id=2 would fail this assertion).
+            Mocker.GetMock<IDeleteMediaFiles>()
+                  .Verify(d => d.DeleteChapterFile(
+                      It.Is<NzbDrone.Core.Manga.Manga>(m => m.Id == 100),
+                      It.Is<ChapterFile>(f => f.Id == 1)),
+                      Times.Once);
+            Mocker.GetMock<IDeleteMediaFiles>()
+                  .Verify(d => d.DeleteChapterFile(
+                      It.Is<NzbDrone.Core.Manga.Manga>(m => m.Id == 200),
+                      It.Is<ChapterFile>(f => f.Id == 2)),
+                      Times.Once);
+            Mocker.GetMock<IDeleteMediaFiles>()
+                  .Verify(d => d.DeleteChapterFile(
+                      It.Is<NzbDrone.Core.Manga.Manga>(m => m.Id == 100),
+                      It.Is<ChapterFile>(f => f.Id == 3)),
+                      Times.Once);
+            Mocker.GetMock<IDeleteMediaFiles>()
+                  .Verify(d => d.DeleteChapterFile(
+                      It.Is<NzbDrone.Core.Manga.Manga>(m => m.Id == 200),
+                      It.Is<ChapterFile>(f => f.Id == 4)),
+                      Times.Once);
+
+            // Per-group resolution implies GetManga(100) + GetManga(200) called exactly once each
+            // (not 4 times — once per file — and not just once on the first id).
+            Mocker.GetMock<IMangaService>()
+                  .Verify(s => s.GetManga(100), Times.Once);
+            Mocker.GetMock<IMangaService>()
+                  .Verify(s => s.GetManga(200), Times.Once);
+
+            // Total DeleteChapterFile calls = 4 (no orphan-skip).
+            Mocker.GetMock<IDeleteMediaFiles>()
+                  .Verify(d => d.DeleteChapterFile(It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<ChapterFile>()),
+                      Times.Exactly(4));
+        }
+
+        [Test]
+        public void Bulk_DELETE_with_orphaned_parent_skips_group_and_processes_other_groups()
+        {
+            // CR-01 second contract: when a group's parent Manga is null (orphaned ChapterFile
+            // rows pointing at a deleted Manga), that group is SKIPPED with a warn log; OTHER
+            // groups proceed. This preserves "best-effort bulk" semantics rather than aborting
+            // the entire batch on the first orphan.
+            var mangaA = new NzbDrone.Core.Manga.Manga { Id = 100, Title = "Manga A", Path = "/manga/A" };
+
+            Mocker.GetMock<IMangaService>()
+                  .Setup(s => s.GetManga(100))
+                  .Returns(mangaA);
+            Mocker.GetMock<IMangaService>()
+                  .Setup(s => s.GetManga(999))
+                  .Returns((NzbDrone.Core.Manga.Manga)null!);
+
+            var files = new List<ChapterFile>
+            {
+                new() { Id = 1, MangaId = 100, ChapterId = 1, RelativePath = "ch01.cbz" },
+                new() { Id = 2, MangaId = 999, ChapterId = 2, RelativePath = "orphan.cbz" }, // orphan group
+                new() { Id = 3, MangaId = 100, ChapterId = 3, RelativePath = "ch03.cbz" },
+            };
+
+            var ids = files.Select(f => f.Id).ToList();
+            Mocker.GetMock<IChapterFileService>()
+                  .Setup(s => s.Get(It.Is<IEnumerable<int>>(e => e.SequenceEqual(ids))))
+                  .Returns(files);
+
+            Subject.DeleteChapterFiles(new ChapterFileListResource { ChapterFileIds = ids });
+
+            // Files 1 + 3 (manga 100) — deleted; file 2 (orphan) — NOT deleted.
+            Mocker.GetMock<IDeleteMediaFiles>()
+                  .Verify(d => d.DeleteChapterFile(It.Is<NzbDrone.Core.Manga.Manga>(m => m.Id == 100),
+                                                   It.Is<ChapterFile>(f => f.Id == 1)),
+                      Times.Once);
+            Mocker.GetMock<IDeleteMediaFiles>()
+                  .Verify(d => d.DeleteChapterFile(It.Is<NzbDrone.Core.Manga.Manga>(m => m.Id == 100),
+                                                   It.Is<ChapterFile>(f => f.Id == 3)),
+                      Times.Once);
+            Mocker.GetMock<IDeleteMediaFiles>()
+                  .Verify(d => d.DeleteChapterFile(It.IsAny<NzbDrone.Core.Manga.Manga>(),
+                                                   It.Is<ChapterFile>(f => f.Id == 2)),
+                      Times.Never);
+
+            // Total = 2 (file 2 skipped).
+            Mocker.GetMock<IDeleteMediaFiles>()
+                  .Verify(d => d.DeleteChapterFile(It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<ChapterFile>()),
+                      Times.Exactly(2));
+
+            // Acknowledge the expected Warn log for the orphaned-parent skip — the LoggingTest
+            // base teardown otherwise fails the test on any unexpected Warn/Error log emitted
+            // during the run (per ExceptionVerification.AssertNoUnexpectedLogs contract).
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
         // ===================== Pattern 5 — IHandle broadcast tests =====================
 
         [Test]
