@@ -45,8 +45,9 @@ namespace NzbDrone.Api.Test.Manga.Queue
     //      base (this is a one-shot bulk-action endpoint per RESEARCH §Pitfall 1; SignalR push lives
     //      on MangaQueueController.Handle(MangaQueueUpdatedEvent) instead).
     //   4. Grab_single_calls_FindPendingQueueItem_and_DownloadService — happy-path mock chain verifies
-    //      RemoteChapter.ToRemoteEpisodeShim() is invoked and IDownloadService.DownloadReport is
-    //      called once with the shim-converted RemoteEpisode (Phase 6 Plan 06-09 shim pattern).
+    //      IMangaDownloadService.DownloadReport is called once with the RemoteChapter directly
+    //      (Phase 15 Wave (A) W-4 rebind 2026-05-07 — pre-Wave-(A) the test verified the
+    //      RemoteChapter.ToRemoteEpisodeShim() conversion against IDownloadService).
     //   5. Grab_single_with_unknown_id_throws_NotFoundException — null-return short-circuit asserts
     //      404 propagation (mirrors TV QueueActionController.Grab line 30-32 pattern).
     [TestFixture]
@@ -102,9 +103,10 @@ namespace NzbDrone.Api.Test.Manga.Queue
         public async Task Grab_single_calls_FindPendingQueueItem_and_DownloadService()
         {
             // Happy-path mock chain: FindPendingQueueItem(42) returns a MangaQueueItem with a
-            // populated RemoteChapter; verify ToRemoteEpisodeShim() runs and DownloadReport is
-            // called exactly once with a non-null RemoteEpisode and a null downloadClientId
-            // (mirrors TV QueueActionController.Grab line 34 verbatim).
+            // populated RemoteChapter; verify IMangaDownloadService.DownloadReport is called
+            // exactly once with the RemoteChapter directly and a null downloadClientId
+            // (Phase 15 Wave (A) W-4 rebind 2026-05-07 — pre-Wave-(A) the controller wrapped
+            // the RemoteChapter through ToRemoteEpisodeShim and called IDownloadService).
             var release = new ReleaseInfo { Title = "Test Manga - Chapter 1", IndexerId = 1 };
             var manga = new NzbDrone.Core.Manga.Manga { Id = 99, Title = "Test Manga" };
             var chapters = new List<NzbDrone.Core.Manga.Chapter>
@@ -136,17 +138,15 @@ namespace NzbDrone.Api.Test.Manga.Queue
             Mocker.GetMock<IMangaPendingReleaseService>()
                   .Verify(s => s.FindPendingQueueItem(42), Times.Once);
 
-            // The shim-converted RemoteEpisode must reference the same Release + carry the manga's
-            // shim-Series (Id = 99) + shim-Episodes (one per Chapter).
-            Mocker.GetMock<IDownloadService>()
+            Mocker.GetMock<IMangaDownloadService>()
                   .Verify(s => s.DownloadReport(
-                      It.Is<RemoteEpisode>(re =>
-                          re.Release == release &&
-                          re.Series != null &&
-                          re.Series.Id == 99 &&
-                          re.Episodes != null &&
-                          re.Episodes.Count == 1 &&
-                          re.Episodes[0].Id == 7),
+                      It.Is<RemoteChapter>(rc =>
+                          rc.Release == release &&
+                          rc.Manga != null &&
+                          rc.Manga.Id == 99 &&
+                          rc.Chapters != null &&
+                          rc.Chapters.Count == 1 &&
+                          rc.Chapters[0].Id == 7),
                       null),
                       Times.Once);
         }
@@ -162,9 +162,9 @@ namespace NzbDrone.Api.Test.Manga.Queue
 
             Assert.ThrowsAsync<NotFoundException>(async () => await Subject.Grab(999));
 
-            // No DownloadService call should have happened.
-            Mocker.GetMock<IDownloadService>()
-                  .Verify(s => s.DownloadReport(It.IsAny<RemoteEpisode>(), It.IsAny<int?>()),
+            // No download-service call should have happened.
+            Mocker.GetMock<IMangaDownloadService>()
+                  .Verify(s => s.DownloadReport(It.IsAny<RemoteChapter>(), It.IsAny<int?>()),
                           Times.Never);
         }
     }
