@@ -438,6 +438,41 @@ function SignalRListener() {
       return;
     }
 
+    // Phase 13 Plan 13-07 (Plan 13-00 Pattern κ closure): chapterfile handler — manga
+    // sibling of the episodefile handler at lines 157-181 above. Resource name
+    // 'chapterfile' (lowercase) auto-derives from ChapterFileResource.ResourceName per
+    // RestResource.cs:11 + RestControllerWithSignalR.cs:23-33 — bare [V5ApiController]
+    // on ChapterFileController falls back to `new ChapterFileResource().ResourceName.Trim('/')`.
+    // React Query key '/chapterFile' (camelCase) matches the future useChapterFiles.ts
+    // path arg per the Plan 07-02 URL-shaped React Query key contract (see lines 386-397
+    // above for the version<5 gating rationale).
+    if (name === 'chapterfile') {
+      if (version < 5) {
+        return;
+      }
+
+      if (body.action === 'updated') {
+        const updatedItem = body.resource as ModelBase;
+
+        updateQueryClientItem(
+          queryClient,
+          ['/chapterFile'],
+          updatedItem,
+          true // Add the chapter file to the list if it doesn't exist. This can happen when a chapter file is imported and wasn't previously in the list of chapter files (mirrors episodefile handler at line 169).
+        );
+
+        // Repopulate the page to handle recently imported file (mirrors episodefile precedent at line 173).
+        repopulatePage('chapterFileUpdated');
+      } else if (body.action === 'deleted') {
+        const id = body.resource.id;
+
+        removeQueryClientItem(queryClient, ['/chapterFile'], id);
+        repopulatePage('chapterFileDeleted');
+      }
+
+      return;
+    }
+
     if (name === 'manga/queue') {
       if (version < 5) {
         return;
