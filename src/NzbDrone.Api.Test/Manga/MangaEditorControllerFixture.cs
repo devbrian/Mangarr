@@ -8,7 +8,6 @@ using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Manga;
 using NzbDrone.Test.Common;
-using Sonarr.Api.V5;
 using Sonarr.Api.V5.Manga;
 using Sonarr.Http;
 
