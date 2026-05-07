@@ -9,6 +9,7 @@ using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.SignalR;
+using Sonarr.Api.V5.Manga.Chapter;
 using Sonarr.Api.V5.Manga.Subresources;
 using Sonarr.Http;
 using Sonarr.Http.Extensions;
@@ -22,6 +23,14 @@ namespace Sonarr.Api.V5.Manga.Wanted
     // and added IHandle subscriptions so the `/manga/wanted/cutoffunmet` page auto-refreshes on
     // chapter/chapterfile pipeline events end-to-end (matching TV's `/wanted/cutoffunmet` behavior).
     // See DIVERGENCE.md.
+    //
+    // Phase-12 follow-up (canonical-resource-reuse, 2026-05-06) refactored the resource shape
+    // from custom `MangaCutoffResource` (deleted) → canonical `ChapterResource` reuse, mirroring
+    // TV's `CutoffController` returning `Ok<PagingResource<EpisodeResource>>` rather than its
+    // own custom resource. The query param `bool includeManga` was likewise replaced with TV's
+    // `[FromQuery] MangaCutoffSubresource[]? includeSubresources` enum-array shape (see
+    // `MangaCutoffSubresource.cs` — single `Manga` value mirrors TV's `CutoffSubresource
+    // { Series, EpisodeFile, Images }`). Closes the canonical-resource-reuse divergence.
     //
     // Role-match analog (filing): src/Sonarr.Api.V5/Manga/Wanted/MangaMissingController.cs
     // (Plan 06-09 sibling — also extends RestControllerWithSignalR<,> after the F-MISSING-SIGNALR
@@ -56,25 +65,26 @@ namespace Sonarr.Api.V5.Manga.Wanted
     // Manga sibling preserves (from MangaMissingController): [V5ApiController] route attribute
     // (literal string per Plan 07-02 URL-shaped key contract); PagingRequestResource shape;
     // monitored filter; FilterExpressions chain; sort keys (releaseDate, chapterNumber, title);
-    // optional MangaSubresource lazy hydration via includeManga query.
+    // optional MangaSubresource lazy hydration via the includeSubresources enum-array.
     //
     // Manga sibling diverges from MangaMissingController:
     //   * Inject IChapterCutoffService (not IChapterService) — different paged query.
     //   * Drop the languages[] + ageRating filters (cutoff is profile-driven; languages + ageRating
     //     are upstream of the cutoff calculation per ChapterCutoffService:63-103). Keep monitored +
-    //     mangaIds[] + includeManga.
+    //     mangaIds[] + includeSubresources.
     //   * Drop the post-paged in-memory ageRating filter (no ageRating query in this endpoint).
-    //   * Extends RestControllerWithSignalR<MangaCutoffResource, Chapter> + subscribes to
+    //   * Extends RestControllerWithSignalR<ChapterResource, Chapter> + subscribes to
     //     ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent (NOT plain
     //     Controller). MangaMissingController has the same shape after the F-MISSING-SIGNALR
     //     follow-up landed (commit 6c587de3d) for cross-controller consistency.
     //
     // Manga sibling diverges from TV's CutoffController:
-    //   * Extends RestControllerWithSignalR<MangaCutoffResource, Chapter> directly (TV extends
+    //   * Extends RestControllerWithSignalR<ChapterResource, Chapter> directly (TV extends
     //     EpisodeControllerWithSignalR — no manga peer base class exists; see top-of-file note).
-    //   * No CutoffSubresource enum (TV's CutoffController accepts includeSubresources to lazy-hydrate
-    //     Series/EpisodeFile/Images on the EpisodeResource); the manga peer surfaces a fixed
-    //     MangaCutoffResource shape with optional MangaSubresource via the includeManga bool.
+    //   * `MangaCutoffSubresource` enum has a single `Manga` value (TV's `CutoffSubresource` has
+    //     `{ Series, EpisodeFile, Images }`). The ChapterFile subresource on ChapterResource is
+    //     the `ChapterFileId` scalar (not a nested resource) and chapter-level images are deferred
+    //     per Plan 06-09 rationale — so neither analog applies in v1.
     //
     // SignalR emission contract (mirrors TV EpisodeControllerWithSignalR shape verbatim):
     //   * `manga/wanted/cutoff` resource name auto-derives from [V5ApiController("manga/wanted/cutoff")]
@@ -95,7 +105,7 @@ namespace Sonarr.Api.V5.Manga.Wanted
     // Phase 8 cleanup: collapse with TV's CutoffController (rename + flatten to src/Sonarr.Api.V5/Wanted/CutoffController.cs
     // post-Tv-namespace-delete) when Tv/ deletes.
     [V5ApiController("manga/wanted/cutoff")]
-    public class MangaCutoffController : RestControllerWithSignalR<MangaCutoffResource, NzbDrone.Core.Manga.Chapter>,
+    public class MangaCutoffController : RestControllerWithSignalR<ChapterResource, NzbDrone.Core.Manga.Chapter>,
                                          IHandle<ChapterGrabbedEvent>,
                                          IHandle<ChapterImportedEvent>,
                                          IHandle<ChapterFileDeletedEvent>
@@ -117,13 +127,15 @@ namespace Sonarr.Api.V5.Manga.Wanted
 
         [HttpGet]
         [Produces("application/json")]
-        public Ok<PagingResource<MangaCutoffResource>> GetCutoffUnmetChapters([FromQuery] PagingRequestResource paging,
-                                                                              bool monitored = true,
-                                                                              [FromQuery] int[]? mangaIds = null,
-                                                                              [FromQuery] bool includeManga = false)
+        public Ok<PagingResource<ChapterResource>> GetCutoffUnmetChapters([FromQuery] PagingRequestResource paging,
+                                                                          bool monitored = true,
+                                                                          [FromQuery] int[]? mangaIds = null,
+                                                                          [FromQuery] MangaCutoffSubresource[]? includeSubresources = null)
         {
-            var pagingResource = new PagingResource<MangaCutoffResource>(paging);
-            var pagingSpec = pagingResource.MapToPagingSpec<MangaCutoffResource, NzbDrone.Core.Manga.Chapter>(
+            var includeManga = includeSubresources?.Contains(MangaCutoffSubresource.Manga) ?? false;
+
+            var pagingResource = new PagingResource<ChapterResource>(paging);
+            var pagingSpec = pagingResource.MapToPagingSpec<ChapterResource, NzbDrone.Core.Manga.Chapter>(
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
                     "releaseDate",
@@ -158,15 +170,20 @@ namespace Sonarr.Api.V5.Manga.Wanted
         // GetResourceById to materialize the resource for the SignalR Body. Default base impl
         // throws — provide the manga-shape lookup so IHandle subscribers can broadcast by id.
         // Mirrors EpisodeControllerWithSignalR.GetResourceById at EpisodeControllerWithSignalR.cs:53-58.
-        protected override MangaCutoffResource GetResourceById(int id)
+        // After canonical-resource-reuse follow-up (2026-05-06): returns ChapterResource via the
+        // canonical ChapterResourceMapper.ToResource extension (no Manga subresource hydration on
+        // the broadcast path — TV's EpisodeControllerWithSignalR.GetResourceById hydrates Series
+        // for the broadcast, but the manga-side default is `false` for parity with the original
+        // shape; the broadcast Body's Id is the load-bearing field for updatePagedItem<Episode>).
+        protected override ChapterResource GetResourceById(int id)
         {
             var chapter = _chapterService.GetChapter(id);
             return MapToResource(chapter, includeManga: false);
         }
 
-        private MangaCutoffResource MapToResource(NzbDrone.Core.Manga.Chapter chapter, bool includeManga)
+        private ChapterResource MapToResource(NzbDrone.Core.Manga.Chapter chapter, bool includeManga)
         {
-            var resource = chapter.ToCutoffResource()!;
+            var resource = chapter.ToResource();
 
             if (includeManga)
             {
@@ -187,7 +204,7 @@ namespace Sonarr.Api.V5.Manga.Wanted
         // F-CUTOFF-SIGNALR follow-up (2026-05-06): mirrors TV
         // EpisodeControllerWithSignalR.Handle(EpisodeGrabbedEvent) at lines 122-132. RemoteChapter
         // carries the resolved Chapters list (Parser/Manga/Model/RemoteChapter.cs:32). Each id
-        // round-trips through BroadcastResourceChange → GetResourceById → MangaCutoffResource so
+        // round-trips through BroadcastResourceChange → GetResourceById → ChapterResource so
         // the React Query cache for ['/manga/wanted/cutoff'] sees a fresh row per chapter on grab.
         [NonAction]
         public void Handle(ChapterGrabbedEvent message)

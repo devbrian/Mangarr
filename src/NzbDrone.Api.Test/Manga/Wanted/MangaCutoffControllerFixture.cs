@@ -17,6 +17,7 @@ using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
+using Sonarr.Api.V5.Manga.Chapter;
 using Sonarr.Api.V5.Manga.Wanted;
 using Sonarr.Http;
 using Sonarr.Http.REST;
@@ -30,6 +31,12 @@ namespace NzbDrone.Api.Test.Manga.Wanted
     // tests covering the IHandle<ChapterGrabbedEvent> / IHandle<ChapterImportedEvent> /
     // IHandle<ChapterFileDeletedEvent> + Upgrade-reason short-circuit subscriptions (mirrors
     // MangaControllerSignalRFixture pattern at src/NzbDrone.Api.Test/Manga/MangaControllerSignalRFixture.cs).
+    //
+    // Phase-12 follow-up (canonical-resource-reuse, 2026-05-06) refactored every assertion that
+    // referenced the now-deleted `MangaCutoffResource` to consume the canonical `ChapterResource`
+    // instead — mirrors TV's `CutoffControllerFixture` consuming `EpisodeResource` (no custom
+    // resource class). The `bool includeManga` query was likewise replaced with the
+    // `MangaCutoffSubresource[]? includeSubresources` enum-array shape (TV peer pattern).
     //
     // Role-match analog: src/NzbDrone.Api.Test/Manga/Chapter/ChapterControllerFixture.cs (Plan 07-01 D-07 —
     // canonical AutoMoqer + TestBase<TController> pattern for V5 controller-shape tests) +
@@ -47,17 +54,18 @@ namespace NzbDrone.Api.Test.Manga.Wanted
     //   2. Reflective Attribute lookup confirms route literal "manga/wanted/cutoff" — the contract that
     //      the frontend Plan 12-08 fetch path expects per Plan 07-02 URL-shaped key contract.
     //   3. Filter-expression behavior tests (Phase 12 REVIEW MED-01 defense-in-depth).
-    //   4. Subresource hydration tests (Phase 12 REVIEW MED-01 defense-in-depth).
-    //   5. (NEW — F-CUTOFF-SIGNALR) Base-class assertion: MangaCutoffController extends
-    //      RestControllerWithSignalR<MangaCutoffResource, Chapter> (NOT plain Controller). This
+    //   4. Subresource hydration tests (canonical-resource-reuse follow-up — exercises the
+    //      `includeSubresources?.Contains(Manga) ?? false` shape across [Manga] / null / empty array).
+    //   5. (F-CUTOFF-SIGNALR) Base-class assertion: MangaCutoffController extends
+    //      RestControllerWithSignalR<ChapterResource, Chapter> (NOT plain Controller). This
     //      pin protects against silent regression to the plain-Controller shape.
-    //   6. (NEW — F-CUTOFF-SIGNALR) IHandle<ChapterGrabbedEvent> broadcasts Updated for each chapter
+    //   6. (F-CUTOFF-SIGNALR) IHandle<ChapterGrabbedEvent> broadcasts Updated for each chapter
     //      id in the RemoteChapter.Chapters list.
-    //   7. (NEW — F-CUTOFF-SIGNALR) IHandle<ChapterImportedEvent> broadcasts Updated for the imported
+    //   7. (F-CUTOFF-SIGNALR) IHandle<ChapterImportedEvent> broadcasts Updated for the imported
     //      chapter's id (single Chapter per event — Plan 06-07 Pitfall 4 ordering).
-    //   8. (NEW — F-CUTOFF-SIGNALR) IHandle<ChapterFileDeletedEvent> broadcasts Updated for the
+    //   8. (F-CUTOFF-SIGNALR) IHandle<ChapterFileDeletedEvent> broadcasts Updated for the
     //      deleted file's ChapterId.
-    //   9. (NEW — F-CUTOFF-SIGNALR) IHandle<ChapterFileDeletedEvent> Upgrade-reason short-circuit
+    //   9. (F-CUTOFF-SIGNALR) IHandle<ChapterFileDeletedEvent> Upgrade-reason short-circuit
     //      mirrors MangaController precedent (no broadcast on Upgrade — the upcoming Add fires next).
     //
     // BroadcastResourceChange path (RestControllerWithSignalR.cs:52-67) requires
@@ -79,8 +87,8 @@ namespace NzbDrone.Api.Test.Manga.Wanted
 
             // BroadcastResourceChange(ModelAction, int) round-trips through
             // GetResourceById -> _chapterService.GetChapter(id). Default mock returns null,
-            // which would NRE when ToCutoffResource() runs. Provide a default non-null
-            // chapter for any id so the broadcast reaches BroadcastMessage. Per-test
+            // which would NRE when ToResource() runs against a null Chapter. Provide a default
+            // non-null chapter for any id so the broadcast reaches BroadcastMessage. Per-test
             // Setups can override with .Setup(s => s.GetChapter(specificId)) for
             // id-binding assertions.
             Mocker.GetMock<IChapterService>()
@@ -115,8 +123,8 @@ namespace NzbDrone.Api.Test.Manga.Wanted
 
             var result = Subject.GetCutoffUnmetChapters(new PagingRequestResource());
 
-            result.Should().BeOfType<Ok<PagingResource<MangaCutoffResource>>>();
-            var ok = (Ok<PagingResource<MangaCutoffResource>>)result;
+            result.Should().BeOfType<Ok<PagingResource<ChapterResource>>>();
+            var ok = (Ok<PagingResource<ChapterResource>>)result;
             ok.Value!.Records.Should().HaveCount(2);
 
             Mocker.GetMock<IChapterCutoffService>()
@@ -143,8 +151,8 @@ namespace NzbDrone.Api.Test.Manga.Wanted
         // controller behaviors the route-attribute + happy-path tests do not exercise:
         //   * `monitored=true` adds a `c.Monitored == true` FilterExpression
         //   * `mangaIds[]` (non-empty) adds a `mangaIds.Contains(c.MangaId)` FilterExpression
-        //   * `includeManga=true` triggers IMangaService.GetManga(MangaId) hydration in MapToResource
-        //   * `includeManga=true` populates MangaCutoffResource.Manga with {Id, Title}
+        //   * `includeSubresources=[Manga]` triggers IMangaService.GetManga(MangaId) hydration in MapToResource
+        //   * `includeSubresources=[Manga]` populates ChapterResource.Manga with {Id, Title}
         // These pin the FilterExpressions chain + subresource hydration so a future Phase 15
         // collapse / schema change cannot silently strip filter wiring while the smoke test
         // stays green (Phase 11 CR-02 lesson — mocks must verify against the real contract path,
@@ -267,7 +275,7 @@ namespace NzbDrone.Api.Test.Manga.Wanted
         }
 
         [Test]
-        public void GetCutoffUnmetChapters_hydrates_Manga_subresource_when_includeManga_true()
+        public void GetCutoffUnmetChapters_hydrates_Manga_subresource_when_includeSubresources_contains_Manga()
         {
             var chapters = new List<NzbDrone.Core.Manga.Chapter>
             {
@@ -287,14 +295,18 @@ namespace NzbDrone.Api.Test.Manga.Wanted
                 .Setup(s => s.GetManga(42))
                 .Returns(new NzbDrone.Core.Manga.Manga { Id = 42, Title = "Test Manga" });
 
-            var result = Subject.GetCutoffUnmetChapters(new PagingRequestResource(), includeManga: true);
+            // Canonical-resource-reuse follow-up (2026-05-06): use TV-mirroring enum-array shape
+            // `includeSubresources=[Manga]` instead of the original `bool includeManga = true`.
+            var result = Subject.GetCutoffUnmetChapters(
+                new PagingRequestResource(),
+                includeSubresources: new[] { MangaCutoffSubresource.Manga });
 
             // IMangaService.GetManga must be called exactly once for the single chapter row.
             Mocker.GetMock<IMangaService>()
                 .Verify(s => s.GetManga(42), Times.Once);
 
-            result.Should().BeOfType<Ok<PagingResource<MangaCutoffResource>>>();
-            var ok = (Ok<PagingResource<MangaCutoffResource>>)result;
+            result.Should().BeOfType<Ok<PagingResource<ChapterResource>>>();
+            var ok = (Ok<PagingResource<ChapterResource>>)result;
 
             // The Manga subresource must be populated on each row with {Id, Title}.
             var record = ok.Value!.Records.Single();
@@ -304,7 +316,7 @@ namespace NzbDrone.Api.Test.Manga.Wanted
         }
 
         [Test]
-        public void GetCutoffUnmetChapters_skips_Manga_subresource_hydration_when_includeManga_false()
+        public void GetCutoffUnmetChapters_skips_Manga_subresource_hydration_when_includeSubresources_null()
         {
             var chapters = new List<NzbDrone.Core.Manga.Chapter>
             {
@@ -320,29 +332,65 @@ namespace NzbDrone.Api.Test.Manga.Wanted
                     return spec;
                 });
 
-            // Default includeManga = false (no explicit arg).
+            // Default includeSubresources = null (no explicit arg).
             var result = Subject.GetCutoffUnmetChapters(new PagingRequestResource());
 
             Mocker.GetMock<IMangaService>()
                 .Verify(
                     s => s.GetManga(It.IsAny<int>()),
                     Times.Never,
-                    "includeManga=false must NOT trigger IMangaService.GetManga hydration");
+                    "includeSubresources=null must NOT trigger IMangaService.GetManga hydration");
 
-            result.Should().BeOfType<Ok<PagingResource<MangaCutoffResource>>>();
-            var ok = (Ok<PagingResource<MangaCutoffResource>>)result;
+            result.Should().BeOfType<Ok<PagingResource<ChapterResource>>>();
+            var ok = (Ok<PagingResource<ChapterResource>>)result;
             ok.Value!.Records.Single().Manga.Should().BeNull(
-                "Manga subresource must remain null when includeManga=false");
+                "Manga subresource must remain null when includeSubresources is null");
+        }
+
+        [Test]
+        public void GetCutoffUnmetChapters_skips_Manga_subresource_hydration_when_includeSubresources_empty_array()
+        {
+            // Canonical-resource-reuse follow-up (2026-05-06): explicit-empty-array branch
+            // exercises the `?? false` fallback inside `includeSubresources?.Contains(Manga) ?? false`
+            // (TV `CutoffController.GetCutoffUnmetEpisodes` follows the same shape).
+            var chapters = new List<NzbDrone.Core.Manga.Chapter>
+            {
+                new() { Id = 1, MangaId = 42, ChapterNumber = 1m, Monitored = true, ChapterType = ChapterType.Regular },
+            };
+
+            Mocker.GetMock<IChapterCutoffService>()
+                .Setup(s => s.ChaptersWhereCutoffUnmet(It.IsAny<PagingSpec<NzbDrone.Core.Manga.Chapter>>()))
+                .Returns<PagingSpec<NzbDrone.Core.Manga.Chapter>>(spec =>
+                {
+                    spec.Records = chapters;
+                    spec.TotalRecords = chapters.Count;
+                    return spec;
+                });
+
+            var result = Subject.GetCutoffUnmetChapters(
+                new PagingRequestResource(),
+                includeSubresources: Array.Empty<MangaCutoffSubresource>());
+
+            Mocker.GetMock<IMangaService>()
+                .Verify(
+                    s => s.GetManga(It.IsAny<int>()),
+                    Times.Never,
+                    "includeSubresources=[] must NOT trigger IMangaService.GetManga hydration");
+
+            result.Should().BeOfType<Ok<PagingResource<ChapterResource>>>();
+            var ok = (Ok<PagingResource<ChapterResource>>)result;
+            ok.Value!.Records.Single().Manga.Should().BeNull(
+                "Manga subresource must remain null when includeSubresources is an empty array");
         }
 
         // ===================== F-CUTOFF-SIGNALR follow-up (2026-05-06) =====================
         // Phase-12 follow-up tests covering the SignalR refactor that landed in commit
-        // b85529c58 (MangaCutoffController extends RestControllerWithSignalR<MangaCutoffResource,
-        // Chapter> + subscribes to ChapterGrabbedEvent / ChapterImportedEvent /
-        // ChapterFileDeletedEvent). Without these tests, a future Phase 8/15 collapse could
-        // silently revert the controller to plain Controller and the page-auto-refresh
-        // contract would silently break (no React Query invalidation on chapter/file pipeline
-        // events).
+        // b85529c58 (MangaCutoffController extends RestControllerWithSignalR<ChapterResource,
+        // Chapter> after the canonical-resource-reuse follow-up + subscribes to
+        // ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent). Without these
+        // tests, a future Phase 8/15 collapse could silently revert the controller to plain
+        // Controller and the page-auto-refresh contract would silently break (no React Query
+        // invalidation on chapter/file pipeline events).
         //
         // Predicate locked per MangaControllerSignalRFixture pattern (W6 revision iteration 1
         // shape extracted verbatim from RestControllerWithSignalR.cs:81-89): SignalRMessage
@@ -388,6 +436,7 @@ namespace NzbDrone.Api.Test.Manga.Wanted
 
             // One broadcast per chapter id (Times.Once each). Predicate binds on Resource.Id
             // so a regression that captures only the first id (or always Id=1) fails the assertion.
+            // Body type is now ResourceChangeMessage<ChapterResource> (canonical resource reuse).
             foreach (var id in new[] { 1, 2 })
             {
                 var expectedId = id;
@@ -395,7 +444,7 @@ namespace NzbDrone.Api.Test.Manga.Wanted
                       .Verify(b => b.BroadcastMessage(It.Is<SignalRMessage>(m =>
                           m.Action == ModelAction.Updated &&
                           m.Name == "manga/wanted/cutoff" &&
-                          ((ResourceChangeMessage<MangaCutoffResource>)m.Body).Resource.Id == expectedId)),
+                          ((ResourceChangeMessage<ChapterResource>)m.Body).Resource.Id == expectedId)),
                           Times.Once);
             }
         }
@@ -422,7 +471,7 @@ namespace NzbDrone.Api.Test.Manga.Wanted
                   .Verify(b => b.BroadcastMessage(It.Is<SignalRMessage>(m =>
                       m.Action == ModelAction.Updated &&
                       m.Name == "manga/wanted/cutoff" &&
-                      ((ResourceChangeMessage<MangaCutoffResource>)m.Body).Resource.Id == 7)),
+                      ((ResourceChangeMessage<ChapterResource>)m.Body).Resource.Id == 7)),
                       Times.Once);
         }
 
@@ -446,7 +495,7 @@ namespace NzbDrone.Api.Test.Manga.Wanted
                   .Verify(b => b.BroadcastMessage(It.Is<SignalRMessage>(m =>
                       m.Action == ModelAction.Updated &&
                       m.Name == "manga/wanted/cutoff" &&
-                      ((ResourceChangeMessage<MangaCutoffResource>)m.Body).Resource.Id == 7)),
+                      ((ResourceChangeMessage<ChapterResource>)m.Body).Resource.Id == 7)),
                       Times.Once);
         }
 
