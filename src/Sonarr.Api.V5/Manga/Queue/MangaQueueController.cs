@@ -5,6 +5,7 @@ using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.SignalR;
+using Sonarr.Api.V5.Queue;
 using Sonarr.Http;
 using Sonarr.Http.REST;
 using Sonarr.Http.REST.Attributes;
@@ -76,6 +77,23 @@ namespace Sonarr.Api.V5.Manga.Queue
         public NoContent RemoveQueueItem(int id)
         {
             _queueService.Remove(id);
+            return TypedResults.NoContent();
+        }
+
+        // Phase 13 Plan 13-12 — F-01 gap closure (smoke-test quick-260507-p13).
+        // Mirrors TV peer src/Sonarr.Api.V5/Queue/QueueController.cs:97-136 RemoveMany shape
+        // (bulk DELETE belongs on the CRUD controller, NOT on QueueActionController). Manga's
+        // simplified Remove signature has no blocklist/skipRedownload/changeCategory v1 params
+        // (per existing [RestDeleteById] precedent at line 75-80) — Phase 15 collapse will
+        // unify the signature when Tv/ deletes alongside the manga pending/blocklist plumbing.
+        [HttpDelete("bulk")]
+        public NoContent RemoveMany([FromBody] QueueBulkResource resource)
+        {
+            foreach (var id in resource.Ids)
+            {
+                _queueService.Remove(id);
+            }
+
             return TypedResults.NoContent();
         }
 

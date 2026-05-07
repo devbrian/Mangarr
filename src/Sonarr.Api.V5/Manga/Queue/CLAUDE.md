@@ -17,11 +17,11 @@ D-13-16 (purely additive in v1).
 
 ## Key Files
 
-### Phase 6 — pre-existing CRUD baseline
+### Phase 6 — pre-existing CRUD baseline (extended in Phase 13 Plan 13-12)
 
 | File | Purpose |
 |------|---------|
-| `MangaQueueController.cs` (Phase 6 Plan 06-09 — pre-existing, NOT Phase 13) | GET / DELETE `/api/v5/manga/queue` (`RestControllerWithSignalR<MangaQueueResource, MangaQueueItem>` with explicit `[V5ApiController("manga/queue")]` resource string + `IHandle<MangaQueueUpdatedEvent>` Sync broadcast) |
+| `MangaQueueController.cs` (Phase 6 Plan 06-09 — pre-existing; Plan 13-12 added `[HttpDelete("bulk")]` RemoveMany — F-01 gap closure from quick-260507-p13 smoke-test) | GET / DELETE / bulk-DELETE `/api/v5/manga/queue` (`RestControllerWithSignalR<MangaQueueResource, MangaQueueItem>` with explicit `[V5ApiController("manga/queue")]` resource string + `IHandle<MangaQueueUpdatedEvent>` Sync broadcast). Bulk-DELETE iterates `resource.Ids` and calls `_queueService.Remove(id)` per element — mirrors TV peer `QueueController.cs:97-136` shape. Manga's simplified `Remove(int)` signature omits the v1 `blocklist/skipRedownload/changeCategory` params per the existing `[RestDeleteById]` precedent. |
 | `MangaQueueResource.cs` (+ `MangaQueueResourceMapper`) | Queue DTO; flattens entity → wire shape; does not leak `RemoteChapter` (in-process EF reference); single-arg `ToResource()` extension shared with `MangaQueueDetailsController` |
 
 ### Phase 13 — API V5 surface backfill
@@ -35,11 +35,12 @@ D-13-16 (purely additive in v1).
 
 ## Endpoints
 
-### Phase 6 — pre-existing CRUD baseline
+### Phase 6 — pre-existing CRUD baseline (extended in Phase 13 Plan 13-12)
 
 ```
 GET    /api/v5/manga/queue                                        Full queue projection (no DB paging — static-list projection from TrackedDownloadRefreshedEvent)
 DELETE /api/v5/manga/queue/{id}                                   Remove an in-flight item
+DELETE /api/v5/manga/queue/bulk                                   Bulk-remove in-flight items (body: { ids: [...] } via TV's domain-neutral QueueBulkResource) — Plan 13-12 F-01 gap closure (smoke-test quick-260507-p13)
 ```
 
 ### Phase 13 — API V5 surface backfill
@@ -62,7 +63,7 @@ all coexist. ASP.NET Core MVC routes by `[Http*]` action templates, so no collis
 
 | Controller | Route attribute | Action templates |
 |------------|-----------------|------------------|
-| `MangaQueueController` | `[V5ApiController("manga/queue")]` | bare CRUD verbs (`GET /`, `DELETE /{id}`) inherited from `RestControllerWithSignalR<TResource, TModel>` base |
+| `MangaQueueController` | `[V5ApiController("manga/queue")]` | bare CRUD verbs (`GET /`, `DELETE /{id}`) inherited from `RestControllerWithSignalR<TResource, TModel>` base + explicit `[HttpDelete("bulk")]` (Plan 13-12 F-01 gap closure — bulk DELETE belongs on the CRUD controller per TV peer `QueueController.cs:97-136`, NOT on `MangaQueueActionController`) |
 | `MangaQueueDetailsController` | `[V5ApiController("manga/queue/details")]` | bare GET (paged) inherited from base |
 | `MangaQueueStatusController` | `[V5ApiController("manga/queue/status")]` | bare GET inherited from base |
 | `MangaQueueActionController` | `[V5ApiController("manga/queue")]` (shared with `MangaQueueController`) | `[HttpPost("grab/{id:int}")]` + `[HttpPost("grab/bulk")]` (the `:int` constraint + `grab/*` action template is the discriminator) |
@@ -70,7 +71,20 @@ all coexist. ASP.NET Core MVC routes by `[Http*]` action templates, so no collis
 A future regression that adds an unconstrained `[HttpPost("grab")]` or a bare `[HttpGet("")]`
 on `MangaQueueActionController` would collide with `MangaQueueController`'s inherited GET —
 the Wave 0 fixture pin (`Action_template_is_grab_id_int_per_PATTERNS`) catches this before
-runtime route discovery silently picks one of the two.
+runtime route discovery silently picks one of the two. The Plan 13-12 fixture
+(`Action_template_is_HttpDelete_bulk` in `MangaQueueControllerBulkDeleteFixture`) plays the
+same protective role for the new `[HttpDelete("bulk")]` action template.
+
+### Routing home for bulk DELETE (Plan 13-12)
+
+Bulk DELETE belongs on `MangaQueueController` (the CRUD controller), NOT on
+`MangaQueueActionController` (the bare-Controller bulk-action peer). This mirrors the TV
+peer convention: `QueueController.cs:97-136` carries `[HttpDelete("bulk")]` RemoveMany,
+while `QueueActionController` ships only `[HttpPost("grab/{id:int}")]` + `[HttpPost("grab/bulk")]`.
+Plan 13-10's stated objective referenced the URL pattern but correctly omitted the action
+from `MangaQueueActionController`; smoke-test `quick-260507-p13` finding F-01 surfaced the
+missing route a phase later, and Plan 13-12 closed it on the CRUD controller per the canonical
+Sonarr pattern.
 
 ### Subresource hydration
 
@@ -161,6 +175,7 @@ project-reference `Sonarr.Api.V5`; `Sonarr.Api.Test` does. Phase 13 fixtures:
 - `src/NzbDrone.Api.Test/Manga/Queue/MangaQueueDetailsControllerFixture.cs` (Plan 13-08; 4 tests)
 - `src/NzbDrone.Api.Test/Manga/Queue/MangaQueueStatusControllerFixture.cs` (Plan 13-09; 4 tests)
 - `src/NzbDrone.Api.Test/Manga/Queue/MangaQueueActionControllerFixture.cs` (Plan 13-10; 5 tests)
+- `src/NzbDrone.Api.Test/Manga/Queue/MangaQueueControllerBulkDeleteFixture.cs` (Plan 13-12; 3 tests — F-01 gap closure for the new `[HttpDelete("bulk")]` RemoveMany action)
 
 ## Cross-References
 
@@ -169,6 +184,7 @@ project-reference `Sonarr.Api.V5`; `Sonarr.Api.Test` does. Phase 13 fixtures:
   - [Plan 13-08 SUMMARY](../../../../.planning/phases/13-api-v5-surface-audit/13-08-SUMMARY.md) — `MangaQueueDetailsController` + `MangaQueueSubresource`
   - [Plan 13-09 SUMMARY](../../../../.planning/phases/13-api-v5-surface-audit/13-09-SUMMARY.md) — `MangaQueueStatusController` + `MangaQueueStatusResource`
   - [Plan 13-10 SUMMARY](../../../../.planning/phases/13-api-v5-surface-audit/13-10-SUMMARY.md) — `MangaQueueActionController`
+  - [Plan 13-12 SUMMARY](../../../../.planning/phases/13-api-v5-surface-audit/13-12-SUMMARY.md) — `MangaQueueController.RemoveMany` (`[HttpDelete("bulk")]`) F-01 gap closure
 - TV peers (Phase 15 collapse targets):
   - `src/Sonarr.Api.V5/Queue/QueueController.cs`
   - `src/Sonarr.Api.V5/Queue/QueueDetailsController.cs`
