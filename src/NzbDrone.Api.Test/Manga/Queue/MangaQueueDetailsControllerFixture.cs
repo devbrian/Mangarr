@@ -154,5 +154,50 @@ namespace NzbDrone.Api.Test.Manga.Queue
                       m.Action == ModelAction.Sync && m.Name == "manga/queue/details")),
                       Times.Once);
         }
+
+        // ===================== CR-04 (Phase 13 Plan 13-13) — chapterIds null-guard =====================
+
+        [Test]
+        public void GetQueue_with_null_chapterIds_returns_NoContent_or_full_list_without_NRE()
+        {
+            // CR-04 null-guard: ASP.NET Core MVC binds query parameter arrays to NULL
+            // (NOT an empty list) when the parameter is missing entirely from the query
+            // string AND the binding configuration prefers null over empty. The previous
+            // signature `[FromQuery] List<int> chapterIds` was non-nullable with no default
+            // — passing null at the model-binder layer landed in the chapterIds.Any() branch
+            // with chapterIds == null → NRE.
+            //
+            // Fix verified at this fixture: invoking GetQueue(mangaId: null, chapterIds: null,
+            // includeSubresources: null) MUST NOT NRE. Behavior contract: with no filter
+            // selectors set, fall through to the "else" branch that returns the full queue
+            // (the same shape as the no-params HTTP request `GET /api/v5/manga/queue/details`).
+            var queue = new List<MangaQueueItem>
+            {
+                new() { Id = 1, MangaId = 42 },
+                new() { Id = 2, MangaId = 99 },
+            };
+            var pending = new List<MangaQueueItem>
+            {
+                new() { Id = 3, MangaId = 7 },
+            };
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Setup(s => s.GetMangaQueue())
+                  .Returns(queue);
+            Mocker.GetMock<IMangaPendingReleaseService>()
+                  .Setup(s => s.GetPendingQueue())
+                  .Returns(pending);
+
+            // Direct call mirrors the model-binder's null delivery on the missing-param path.
+            // No throw expected — null chapterIds + null mangaId + null includeSubresources
+            // must yield the full concatenated queue (3 rows) without NRE.
+            Ok<List<MangaQueueResource>> result = null!;
+            Assert.DoesNotThrow(() => result = Subject.GetQueue(mangaId: null, chapterIds: null, includeSubresources: null));
+
+            result.Should().NotBeNull("GetQueue with all-null filter params must succeed without throwing");
+            result.Value!.Select(r => r.Id).Should().BeEquivalentTo(new[] { 1, 2, 3 },
+                "with no filter selector set the response is the full concatenated queue + pending list, " +
+                "exactly as the no-filter `GET /api/v5/manga/queue/details` HTTP shape");
+        }
     }
 }

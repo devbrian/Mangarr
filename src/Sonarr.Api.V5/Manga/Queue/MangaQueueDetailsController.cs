@@ -101,9 +101,24 @@ namespace Sonarr.Api.V5.Manga.Queue
         [HttpGet]
         [Produces("application/json")]
         public Ok<List<MangaQueueResource>> GetQueue(int? mangaId,
-                                                    [FromQuery] List<int> chapterIds,
+                                                    [FromQuery] List<int>? chapterIds = null,
                                                     [FromQuery] MangaQueueSubresource[]? includeSubresources = null)
         {
+            // Phase 13 Plan 13-13 CR-04 null-guard: ASP.NET Core MVC binds query parameter
+            // arrays in two distinct ways depending on the request:
+            //   * Empty/missing query string → `chapterIds` is null (NOT empty list).
+            //   * Present but empty → `chapterIds` is empty list.
+            // The previous signature declared `List<int>` (non-nullable, no default value),
+            // which falsely promised the binder would never deliver null. Hitting
+            // GET /api/v5/manga/queue/details?chapterIds= or certain absent-param scenarios
+            // would land in the chapterIds.Any() branch with chapterIds == null → NRE.
+            //
+            // Fix: signature changed to `List<int>? chapterIds = null` (explicit nullable +
+            // default), and the chapterIds branch uses pattern-match `is { Count: > 0 }`
+            // which short-circuits to false on null. The TV peer at QueueDetailsController.cs:42
+            // inherits the same defect; the manga rebuild uses this opportunity to fix the
+            // pattern (forward-prophylactic improvement; back-port to TV peer via separate
+            // Sonarr-upstream tracker issue).
             var queue = _queueService.GetMangaQueue();
             var pending = _pendingReleaseService.GetPendingQueue();
             var fullQueue = queue.Concat(pending);
@@ -117,7 +132,7 @@ namespace Sonarr.Api.V5.Manga.Queue
             {
                 filtered = fullQueue.Where(q => q.MangaId == mangaId);
             }
-            else if (chapterIds.Any())
+            else if (chapterIds is { Count: > 0 })
             {
                 // Mirrors TV QueueDetailsController episodeIds filter at QueueDetailsController.cs:55-60:
                 // include any queue row whose Chapters list intersects the supplied chapterIds.
