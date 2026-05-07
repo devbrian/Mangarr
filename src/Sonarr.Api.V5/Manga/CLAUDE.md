@@ -85,6 +85,48 @@ v1 developer REST endpoints for the manga domain. Phase 2 shipped the core CRUD 
   - **Settings → Notifications → Komga + Kavita** add-flow (Plans 06-10 / 06-11) with auto-test on save
 - **Phase 8 rename**: when the `Series → Manga` cutover lands, this directory becomes the canonical "primary domain" controller — the existing `Series/`, `History/`, `Blocklist/`, `Queue/`, `Release/`, `Wanted/` peers are deleted; the `Protocol == DownloadProtocol.Http` early-return guard in `CompletedDownloadService` disappears with `ImportApprovedEpisodes`; the `MangaReleaseController.BuildRemoteEpisodeShim` thin shim disappears with the `IDownloadService` unification.
 
+## Phase 13 — API V5 surface backfill
+
+Phase 13 (API V5 Surface Audit) backfilled the controller-pair gaps surfaced by the
+sub-wave A FINDINGS sweep ([13-API-V5-SURFACE-FINDINGS.md](../../../.planning/phases/13-api-v5-surface-audit/13-API-V5-SURFACE-FINDINGS.md))
+under the D-13-04 forward-prophylactic disposition: when no manga peer existed AND no
+D-13-05/06 exception applied, the manga peer ships regardless of current frontend usage.
+Two new controllers landed at the `Manga/` directory root (one bulk-action editor, one
+folder-name preview); peers under `Manga/Chapter/` and `Manga/Queue/` are documented in
+those subdirectory CLAUDE.md files.
+
+### Key Files (Phase 13 additions)
+
+| File | Purpose |
+|------|---------|
+| `MangaEditorController.cs` | Bulk-action editor at `/api/v5/manga/editor` (Plan 13-04 — closes silent 404 from useManga.ts:608+:655 F-CUTOFF class) |
+| `MangaEditorResource.cs` + `MangaEditorValidator.cs` | Bulk-edit DTO mirroring useManga.ts:470-477 wire shape (mangaIds + monitored? + translationProfileId? + customFormatProfileId? + rootFolderPath? + tags?); empty FluentValidation validator scaffold for v1 (preserves SeriesEditorController DI shape for Phase 15 collapse) |
+| `MangaFolderController.cs` | Folder-name preview at `/api/v5/manga/{id}/folder` (Plan 13-05 — D-13-04 forward-prophylactic per Series-rename family rule) |
+
+### Endpoints (Phase 13 additions)
+
+- `PUT    /api/v5/manga/editor` — bulk apply field deltas (monitored, translationProfileId, customFormatProfileId, rootFolderPath, tags via ApplyTags switch); MoveFiles bool propagates to `IMangaService.UpdateManga`'s `useExistingRelativeFolder = !MoveFiles` arg
+- `DELETE /api/v5/manga/editor` — bulk delete by mangaIds (with optional `deleteFiles` flag); per RESEARCH §Pitfall 4 the call drops the `addImportListExclusion` arg per `IMangaService.DeleteManga` 2-arg signature (Import Lists deferred to v1.1)
+- `GET    /api/v5/manga/{id}/folder` — folder-name preview computed via `IBuildMangaFileNames.GetMangaFolder(manga, null)` (2-arg call per the manga-side divergence from TV's 1-arg `GetSeriesFolder`)
+
+### Patterns / Conventions (Phase 13 additions)
+
+- **Bulk-action controllers (`MangaEditorController`, `MangaFolderController`) extend bare `Controller`** (NOT `RestController<T>` or `RestControllerWithSignalR<,>`) per RESEARCH §Pitfall 1 — they do NOT broadcast SignalR; the underlying CRUD controller (`MangaController`) handles SignalR fan-out via its 11 `IHandle<*>` subscribers (see the table below). A future regression that "upgrades" either controller to a SignalR base would silently double-fire SignalR broadcasts on every bulk update.
+- **`MangaFolderController` uses `[V5ApiController("manga")]`** (NOT `"manga/folder"`) per RESEARCH §Pitfall 2 — shares the route prefix with `MangaController` and discriminates via the action template `[HttpGet("{id}/folder")]`. Baking the suffix into the route attribute would produce `/api/v5/manga/folder/{id}/folder` and silently 404 every caller.
+- **Allow-list DTO pattern (T-13-03 mass-assignment mitigation):** `MangaEditorResource` enumerates exactly the fields callers may flip; fields outside the whitelist are silently dropped by `System.Text.Json` deserialization. Empty `MangaEditorValidator` scaffold ships now to preserve the `SeriesEditorController` constructor-injection shape (easier Phase 15 collapse than retrofitting a validator dependency later).
+- **Forward-compat no-op field:** `AddImportListExclusion` is preserved on `MangaEditorResource` for wire-shape stability with `useManga.ts:467` but dropped from the underlying `IMangaService.DeleteManga` call per RESEARCH §Pitfall 4 (manga signature is 2-arg only; Import Lists are deferred to v1.1 per PROJECT.md).
+- **Phase 15 collapse:** Both `MangaEditorController` and `MangaFolderController` collapse with their TV peers (`SeriesEditorController` and `SeriesFolderController`) into a single canonical `EditorController` / `FolderController` when `Tv/` deletes per D-13-16.
+
+### Cross-References (Phase 13)
+
+- Sub-wave A FINDINGS (canonical source of truth for which controllers were backfilled): [13-API-V5-SURFACE-FINDINGS.md](../../../.planning/phases/13-api-v5-surface-audit/13-API-V5-SURFACE-FINDINGS.md)
+- Phase 13 plan SUMMARYs:
+  - [Plan 13-04 SUMMARY](../../../.planning/phases/13-api-v5-surface-audit/13-04-SUMMARY.md) — `MangaEditorController` + `MangaEditorResource` + `MangaEditorValidator`
+  - [Plan 13-05 SUMMARY](../../../.planning/phases/13-api-v5-surface-audit/13-05-SUMMARY.md) — `MangaFolderController`
+- Subdirectory CLAUDE.md updates:
+  - [`Chapter/CLAUDE.md`](./Chapter/CLAUDE.md) — `RenameChapterController` + `ChapterFileController` (Plans 13-06 / 13-07)
+  - [`Queue/CLAUDE.md`](./Queue/CLAUDE.md) — `MangaQueueDetailsController` + `MangaQueueStatusController` + `MangaQueueActionController` (Plans 13-08 / 13-09 / 13-10)
+
 ## MangaController IHandle subscribers (post-Phase-10)
 
 The `MangaController` fans out SignalR resource changes for the manga lifecycle. As of the Phase 10 close-out, the controller subscribes to **11 IHandle interfaces** — 4 from Phase 2 Plan 02-10, 1 from Phase 9 Plan 09-13, and 6 from Phase 10 sub-wave C (Plans 10-05 / 10-06 / 10-08). The `manga` SignalR resource name is auto-derived from `MangaResource.ResourceName` (Plan 07-02 + Plan 07-01 Lock #6); the frontend `SignalRListener.tsx` handler at line 399 invalidates `['/manga']` query key on every Updated / Created / Deleted action.

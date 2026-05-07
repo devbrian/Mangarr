@@ -5,6 +5,7 @@ using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.SignalR;
+using Sonarr.Api.V5.Queue;
 using Sonarr.Http;
 using Sonarr.Http.REST;
 using Sonarr.Http.REST.Attributes;
@@ -76,6 +77,43 @@ namespace Sonarr.Api.V5.Manga.Queue
         public NoContent RemoveQueueItem(int id)
         {
             _queueService.Remove(id);
+            return TypedResults.NoContent();
+        }
+
+        // Phase 13 Plan 13-12 — F-01 gap closure (smoke-test quick-260507-p13).
+        // Mirrors TV peer src/Sonarr.Api.V5/Queue/QueueController.cs:97-136 RemoveMany shape
+        // (bulk DELETE belongs on the CRUD controller, NOT on QueueActionController). Manga's
+        // simplified Remove signature has no blocklist/skipRedownload/changeCategory v1 params
+        // (per existing [RestDeleteById] precedent at line 75-80) — Phase 15 collapse will
+        // unify the signature when Tv/ deletes alongside the manga pending/blocklist plumbing.
+        //
+        // Phase 13 Plan 13-13 CR-02 hardening:
+        //   * [Consumes("application/json")] — pinned media-type aligns with sibling manga V5
+        //     endpoints (MangaQueueActionController.Grab, ChapterFileController bulk DELETE)
+        //     and surfaces the request shape correctly through OpenAPI v5 doc gen. Without it,
+        //     OpenAPI may emit `*/*` accept-list (breaking typed-client codegen) and form-
+        //     urlencoded posts may bind `resource` as null (NRE on resource.Ids enumeration).
+        //   * Null-guard on resource / resource.Ids — a missing or null body short-circuits to
+        //     NoContent rather than NRE-ing inside the foreach. The TV peer's wider param surface
+        //     masks this; the manga simplification reintroduces the risk.
+        //   * .Distinct() before iterating — duplicate ids in the request body would otherwise
+        //     fire duplicate IMangaQueueService.Remove calls, each publishing a
+        //     MangaQueueUpdatedEvent and triggering a redundant SignalR Sync broadcast (UI
+        //     thrash). Mirrors TV QueueController.cs:122/127 DistinctBy semantics.
+        [HttpDelete("bulk")]
+        [Consumes("application/json")]
+        public NoContent RemoveMany([FromBody] QueueBulkResource resource)
+        {
+            if (resource?.Ids == null)
+            {
+                return TypedResults.NoContent();
+            }
+
+            foreach (var id in resource.Ids.Distinct())
+            {
+                _queueService.Remove(id);
+            }
+
             return TypedResults.NoContent();
         }
 
