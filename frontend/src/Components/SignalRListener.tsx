@@ -472,15 +472,21 @@ function SignalRListener() {
     // RestControllerWithSignalR<MissingChapterResource, Chapter> + subscribe to
     // ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent.
     // BroadcastResourceChange(ModelAction.Updated, chapterId) now emits a per-row
-    // MissingChapterResource body (the same shape TV's wanted/missing handler at
-    // lines 359-371 consumes via updatePagedItem<Episode>). The structural cast
-    // ``body.resource as Episode`` is safe because updatePagedItem only matches by
-    // ``id`` at runtime, and MissingChapterResource.Id (inherited from RestResource)
-    // carries the chapter id from the broadcast. Resource name
-    // 'manga/wanted/missing' is the route-attribute literal per Plan 07-02 URL-shaped
-    // React Query key contract (matches the path arg useMissing passes to
-    // usePagedApiQuery when mediaType === 'manga'). Mirrors the F-CUTOFF-SIGNALR
-    // closure for cross-controller consistency.
+    // resource body (matches TV's wanted/missing handler at lines 359-371 which
+    // consumes EpisodeResource via updatePagedItem<Episode>).
+    //
+    // Phase-12 follow-up (canonical-resource-reuse, 2026-05-06): MangaMissingController
+    // now extends RestControllerWithSignalR<ChapterResource, Chapter> (the canonical
+    // chapter DTO — replaces the deleted MissingChapterResource POCO; mirrors TV's
+    // EpisodeResource reuse pattern). The structural cast ``body.resource as Episode``
+    // remains correct because updatePagedItem only matches by ``id`` at runtime, and
+    // ChapterResource.Id (inherited from RestResource) carries the chapter id from
+    // the broadcast.
+    //
+    // Resource name 'manga/wanted/missing' is the route-attribute literal per Plan
+    // 07-02 URL-shaped React Query key contract (matches the path arg useMissing
+    // passes to usePagedApiQuery when mediaType === 'manga'). Mirrors the
+    // F-CUTOFF-SIGNALR closure for cross-controller consistency.
     if (name === 'manga/wanted/missing') {
       if (version < 5 || body.action !== 'updated') {
         return;
@@ -497,12 +503,21 @@ function SignalRListener() {
 
     // Phase-12 follow-up (F-CUTOFF-SIGNALR closure, 2026-05-06): mirrors the TV
     // 'wanted/cutoff' handler shape at lines 345-357. Backend MangaCutoffController
-    // now extends RestControllerWithSignalR<MangaCutoffResource, Chapter> + subscribes
-    // to ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent and
-    // BroadcastResourceChange(ModelAction.Updated, chapterId) emits a per-row update
-    // body (the MangaCutoffResource shape — matches TV's Episode-keyed updatePagedItem
-    // call). Resource name 'manga/wanted/cutoff' is the route-attribute literal per
-    // Plan 07-02 URL-shaped React Query key contract (matches the path arg the
+    // extends RestControllerWithSignalR<,> + subscribes to ChapterGrabbedEvent /
+    // ChapterImportedEvent / ChapterFileDeletedEvent; BroadcastResourceChange
+    // (ModelAction.Updated, chapterId) emits a per-row update body that matches TV's
+    // Episode-keyed updatePagedItem call.
+    //
+    // Phase-12 follow-up (canonical-resource-reuse, 2026-05-06): MangaCutoffController
+    // now extends RestControllerWithSignalR<ChapterResource, Chapter> (the canonical
+    // chapter DTO — replaces the deleted MangaCutoffResource POCO; mirrors TV's
+    // EpisodeResource reuse pattern). The structural cast ``body.resource as Episode``
+    // remains correct because updatePagedItem only matches by ``id`` at runtime, and
+    // ChapterResource.Id (inherited from RestResource) carries the chapter id from
+    // the broadcast.
+    //
+    // Resource name 'manga/wanted/cutoff' is the route-attribute literal per Plan
+    // 07-02 URL-shaped React Query key contract (matches the path arg the
     // useCutoffUnmet hook passes to usePagedApiQuery when mediaType === 'manga').
     if (name === 'manga/wanted/cutoff') {
       if (version < 5 || body.action !== 'updated') {

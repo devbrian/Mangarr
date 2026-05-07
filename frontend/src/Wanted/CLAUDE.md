@@ -98,20 +98,28 @@ closure + F-MISSING-SIGNALR closure, both 2026-05-06) ships the matching backend
 frontend wiring for both endpoints:
 
 - **`manga/wanted/cutoff`** — `MangaCutoffController` (Plan 12-12) was refactored to extend
-  `RestControllerWithSignalR<MangaCutoffResource, Chapter>` and now broadcasts `Updated` on
+  `RestControllerWithSignalR<,>` and now broadcasts `Updated` on
   `ChapterGrabbedEvent` / `ChapterImportedEvent` / `ChapterFileDeletedEvent`; the
   `SignalRListener` handler uses `updatePagedItem` against `['/manga/wanted/cutoff']` (mirrors
   TV `wanted/cutoff` per-row update shape) so the Wanted/CutoffUnmet page auto-refreshes
-  end-to-end.
+  end-to-end. **After canonical-resource-reuse follow-up (2026-05-06):** the controller
+  extends `RestControllerWithSignalR<ChapterResource, Chapter>` (the canonical chapter
+  DTO; `MangaCutoffResource` POCO was deleted) and accepts `MangaCutoffSubresource[]?
+  includeSubresources` — mirrors TV `CutoffController` reusing `EpisodeResource` +
+  `CutoffSubresource` enum-array.
 - **`manga/wanted/missing`** — `MangaMissingController` (renamed 2026-05-06 from `MissingChaptersController` for naming consistency with the rest of the manga V5 namespace; Plan 06-09 origin) was refactored
   in the F-MISSING-SIGNALR follow-up to extend
-  `RestControllerWithSignalR<MissingChapterResource, Chapter>` with the same three IHandle
+  `RestControllerWithSignalR<,>` with the same three IHandle
   subscriptions; the `SignalRListener` handler was upgraded from the original Plan 07-02
   `invalidateQueries({ queryKey: ['/manga/wanted/missing'] })` shape (which was dead code
   because the backend never emitted on the resource name) to the per-row
   `updatePagedItem<Episode>(queryClient, ['/manga/wanted/missing'], body.resource as Episode)`
   shape — matching TV `wanted/missing` (lines 359-371) and the cutoff sibling. The
-  Wanted/Missing page now auto-refreshes end-to-end.
+  Wanted/Missing page now auto-refreshes end-to-end. **After canonical-resource-reuse
+  follow-up (2026-05-06):** the controller extends `RestControllerWithSignalR<ChapterResource,
+  Chapter>` (the canonical chapter DTO; `MissingChapterResource` POCO was deleted) and
+  accepts `MangaMissingSubresource[]? includeSubresources` — mirrors TV `MissingController`
+  reusing `EpisodeResource` + `MissingSubresource` enum-array.
 
 **Phase 8 cleanup:** When `/manga/wanted/missing` is promoted (or `/wanted/missing` is dropped),
 the thin wrapper merges into `Missing.tsx` (`mediaType` default flips to `'manga'`) and the

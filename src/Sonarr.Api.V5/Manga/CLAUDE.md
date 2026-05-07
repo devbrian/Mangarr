@@ -32,8 +32,9 @@ v1 developer REST endpoints for the manga domain. Phase 2 shipped the core CRUD 
 | `Queue/MangaQueueController.cs` | GET `/api/v5/manga/queue` + DELETE id + SignalR fan-out via `IHandle<MangaQueueUpdatedEvent>` |
 | `Release/MangaReleaseResource.cs` + `MangaReleaseResourceMapper` | DTO + mapper for ranked release listing (PIPELINE-01 Interactive Search) |
 | `Release/MangaReleaseController.cs` | GET `/api/v5/manga/release?chapterId=` + POST grab (PIPELINE-01) |
-| `Wanted/MissingChapterResource.cs` + `MissingChapterResourceMapper` | DTO + mapper for monitored chapters without files (WANTED-01..03) |
-| `Wanted/MangaMissingController.cs` | GET `/api/v5/manga/wanted/missing` paged with monitored / mangaIds / languages / ageRating filters (WANTED-01..03) |
+| `Wanted/MangaMissingController.cs` | GET `/api/v5/manga/wanted/missing` paged with monitored / mangaIds / languages / ageRating / `includeSubresources[]=Manga` filters (WANTED-01..03). Returns canonical `ChapterResource` (no custom paged-row DTO — mirrors TV `MissingController` reusing `EpisodeResource`; canonical-resource-reuse follow-up 2026-05-06 deleted the prior `MissingChapterResource` POCO). |
+| `Wanted/MangaCutoffController.cs` | GET `/api/v5/manga/wanted/cutoff` paged with monitored / mangaIds / `includeSubresources[]=Manga` filters (Plan 12-12 F-CUTOFF closure). Returns canonical `ChapterResource` (canonical-resource-reuse follow-up 2026-05-06 deleted the prior `MangaCutoffResource` POCO; mirrors TV `CutoffController` reusing `EpisodeResource`). |
+| `Wanted/MangaMissingSubresource.cs` + `Wanted/MangaCutoffSubresource.cs` | Enum-array subresource selectors driving the `[FromQuery] *Subresource[]? includeSubresources` query on the two wanted controllers (canonical-resource-reuse follow-up 2026-05-06; mirror TV `MissingSubresource { Series, Images }` + `CutoffSubresource { Series, EpisodeFile, Images }`). Each manga peer ships a single `Manga` value for v1. |
 
 ## Endpoints
 
@@ -58,7 +59,8 @@ v1 developer REST endpoints for the manga domain. Phase 2 shipped the core CRUD 
 - `DELETE /api/v5/manga/queue/{id}` — remove an in-flight item
 - `GET    /api/v5/manga/release?chapterId=` — Interactive Search modal (PIPELINE-01); fans out to all enabled manga indexers, runs Decision Engine, returns ranked Approved/Rejected list
 - `POST   /api/v5/manga/release` — grab a release (body = `MangaReleaseResource` returned from GET; cached `RemoteChapter` round-tripped by `(IndexerId, Guid)`)
-- `GET    /api/v5/manga/wanted/missing` — paged missing chapters; filters: `monitored=true&mangaIds[]&languages[]&ageRating&includeManga`
+- `GET    /api/v5/manga/wanted/missing` — paged missing chapters; filters: `monitored=true&mangaIds[]&languages[]&ageRating&includeSubresources[]=Manga`. Returns canonical `ChapterResource` per canonical-resource-reuse follow-up (2026-05-06).
+- `GET    /api/v5/manga/wanted/cutoff` — paged cutoff-unmet chapters (Plan 12-12 F-CUTOFF closure); filters: `monitored=true&mangaIds[]&includeSubresources[]=Manga`. Returns canonical `ChapterResource` per canonical-resource-reuse follow-up (2026-05-06).
 
 ## Patterns / Conventions
 
