@@ -81,6 +81,26 @@ PATHS_REQUIRED=(
   "/api/v5/customformatprofile"
   "/api/v5/config/manganaming"
   "/api/v5/chapter"
+  # Phase 12 retrofit (Plan 12-12 — MangaCutoffController shipped /manga/wanted/cutoff
+  # but the script's PATHS_REQUIRED was not updated at Phase 12 close-out per RESEARCH
+  # §"Hardcoded PATHS_REQUIRED list incomplete relative to Phase 12 deliveries". Plan
+  # 13-99 batch-update closes this gap.)
+  "/api/v5/manga/wanted/cutoff"
+  # Phase 13 backfills (Plans 13-04..13-10 — sub-wave C V5 surface backfill per
+  # 13-API-V5-SURFACE-FINDINGS.md §1 + §2 + Cross-Section Reconciliation
+  # forward-prophylactic gap_in_scope rows per D-13-04). Batch-update at sub-wave E
+  # close-out per RESEARCH Open Question §1 answer.
+  "/api/v5/manga/editor"               # Plan 13-04 — MangaEditorController PUT bulk-edit + DELETE bulk-delete
+  "/api/v5/manga/{id}/folder"          # Plan 13-05 — MangaFolderController GET folder-name preview
+  "/api/v5/manga/rename"               # Plan 13-06 — RenameChapterController GET single-manga rename preview
+  "/api/v5/manga/rename/bulk"          # Plan 13-06 — RenameChapterController GET bulk rename preview
+  "/api/v5/chapterFile"                # Plan 13-07 — ChapterFileController CRUD + SignalR (auto-derived camelCase route per useApiQuery key '/chapterFile' contract)
+  "/api/v5/manga/queue/details"        # Plan 13-08 — MangaQueueDetailsController GET queue+pending concat with subresource hydration
+  "/api/v5/manga/queue/status"         # Plan 13-09 — MangaQueueStatusController GET debounced 5s broadcast counters
+  "/api/v5/manga/queue/grab/{id}"      # Plan 13-10 — MangaQueueActionController POST single-grab via FindPendingQueueItem + RemoteChapter shim
+  "/api/v5/manga/queue/grab/bulk"      # Plan 13-10 — MangaQueueActionController POST bulk-grab on QueueBulkResource Ids list
+  "/api/v5/manga/queue/{id}"           # Phase 6 — MangaQueueController DELETE-by-id (RestDeleteById) — listed for completeness per Plan 13-99 objective
+  "/api/v5/manga/queue/bulk"           # Phase 6 — MangaQueueController bulk DELETE — listed for completeness per Plan 13-99 objective
 )
 MISSING=0
 for path in "${PATHS_REQUIRED[@]}"; do
