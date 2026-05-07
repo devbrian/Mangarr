@@ -21,6 +21,13 @@ namespace NzbDrone.Core.MediaFiles
     public interface IDeleteMediaFiles
     {
         void DeleteEpisodeFile(Series series, EpisodeFile episodeFile);
+
+        // Phase 13 Plan 13-07 (D-13-04 forward-prophylactic + D-13-07 Series-rename family):
+        // Manga sibling of DeleteEpisodeFile. Per-file recycle + DB delete used by
+        // ChapterFileController.RestDeleteById + bulk DELETE. Mirrors the TV shape so the
+        // existing IDeleteMediaFiles interface stays the single per-file deletion seam.
+        // Phase 8 cleanup: collapse with DeleteEpisodeFile when Tv/ deletes.
+        void DeleteChapterFile(NzbDrone.Core.Manga.Manga manga, ChapterFile chapterFile);
     }
 
     public class MediaFileDeletionService : IDeleteMediaFiles,
@@ -31,6 +38,7 @@ namespace NzbDrone.Core.MediaFiles
         private readonly IDiskProvider _diskProvider;
         private readonly IRecycleBinProvider _recycleBinProvider;
         private readonly IMediaFileService _mediaFileService;
+        private readonly IChapterFileService _chapterFileService;
         private readonly ISeriesService _seriesService;
         private readonly IRootFolderService _rootFolderService;
         private readonly IConfigService _configService;
@@ -41,6 +49,7 @@ namespace NzbDrone.Core.MediaFiles
         public MediaFileDeletionService(IDiskProvider diskProvider,
                                         IRecycleBinProvider recycleBinProvider,
                                         IMediaFileService mediaFileService,
+                                        IChapterFileService chapterFileService,
                                         ISeriesService seriesService,
                                         IRootFolderService rootFolderService,
                                         IConfigService configService,
@@ -51,6 +60,7 @@ namespace NzbDrone.Core.MediaFiles
             _diskProvider = diskProvider;
             _recycleBinProvider = recycleBinProvider;
             _mediaFileService = mediaFileService;
+            _chapterFileService = chapterFileService;
             _seriesService = seriesService;
             _rootFolderService = rootFolderService;
             _configService = configService;
@@ -95,6 +105,53 @@ namespace NzbDrone.Core.MediaFiles
 
             // Delete the episode file from the database to clean it up even if the file was already deleted
             _mediaFileService.Delete(episodeFile, DeleteMediaFileReason.Manual);
+
+            _eventAggregator.PublishEvent(new DeleteCompletedEvent());
+        }
+
+        // Phase 13 Plan 13-07 (D-13-04 forward-prophylactic + D-13-07 Series-rename family):
+        // Manga sibling of DeleteEpisodeFile (lines above). Same recycle-then-DB-delete
+        // ordering invariant per Pitfall 4 — recycle FIRST so an exception leaves the DB row
+        // intact (user can retry); only Delete the row AFTER the recycle succeeds.
+        // ChapterFileService.Delete publishes ChapterFileDeletedEvent which the Plan 13-07
+        // ChapterFileController IHandle<ChapterFileDeletedEvent> consumes for SignalR fan-out.
+        // Phase 8 cleanup: collapse with DeleteEpisodeFile when Tv/ deletes.
+        public void DeleteChapterFile(NzbDrone.Core.Manga.Manga manga, ChapterFile chapterFile)
+        {
+            var fullPath = Path.Combine(manga.Path, chapterFile.RelativePath);
+            var rootFolder = _rootFolderService.GetBestRootFolderPath(manga.Path);
+
+            if (!_diskProvider.FolderExists(rootFolder))
+            {
+                _logger.Warn("Manga's root folder ({0}) doesn't exist.", rootFolder);
+                throw new NzbDroneClientException(HttpStatusCode.Conflict, "Manga's root folder ({0}) doesn't exist.", rootFolder);
+            }
+
+            if (_diskProvider.GetDirectories(rootFolder).Empty())
+            {
+                _logger.Warn("Manga's root folder ({0}) is empty.", rootFolder);
+                throw new NzbDroneClientException(HttpStatusCode.Conflict, "Manga's root folder ({0}) is empty.", rootFolder);
+            }
+
+            if (_diskProvider.FolderExists(manga.Path) && _diskProvider.FileExists(fullPath))
+            {
+                _logger.Info("Deleting chapter file: {0}", fullPath);
+
+                var subfolder = _diskProvider.GetParentFolder(manga.Path).GetRelativePath(_diskProvider.GetParentFolder(fullPath));
+
+                try
+                {
+                    _recycleBinProvider.DeleteFile(fullPath, subfolder);
+                }
+                catch (Exception e)
+                {
+                    _logger.Error(e, "Unable to delete chapter file");
+                    throw new NzbDroneClientException(HttpStatusCode.InternalServerError, "Unable to delete chapter file");
+                }
+            }
+
+            // Delete the chapter file from the database to clean it up even if the file was already deleted
+            _chapterFileService.Delete(chapterFile, DeleteMediaFileReason.Manual);
 
             _eventAggregator.PublishEvent(new DeleteCompletedEvent());
         }
