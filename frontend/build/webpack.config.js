@@ -161,7 +161,7 @@ module.exports = (env) => {
       rules: [
         {
           test: [/\.jsx?$/, /\.tsx?$/],
-          exclude: /(node_modules|JsLibraries)/,
+          exclude: /(node_modules|JsLibraries|\.test\.tsx?$)/,
           use: [
             {
               loader: 'babel-loader',
