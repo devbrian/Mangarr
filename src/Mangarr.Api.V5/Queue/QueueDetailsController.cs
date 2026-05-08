@@ -7,8 +7,8 @@ using NzbDrone.Core.Download.Pending;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Queue;
 using NzbDrone.SignalR;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Queue
 {

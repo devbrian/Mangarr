@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using NzbDrone.Core.CustomFormats;
-using Sonarr.Http.ClientSchema;
-using Sonarr.Http.REST;
+using Mangarr.Http.ClientSchema;
+using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.CustomFormats
 {

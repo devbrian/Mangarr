@@ -3,7 +3,7 @@ using NzbDrone.Core.Parser.Model;
 using Mangarr.Api.V5.CustomFormats;
 using Mangarr.Api.V5.Episodes;
 using Mangarr.Api.V5.Series;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Parse;
 

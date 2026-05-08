@@ -5,8 +5,8 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Languages;
 using NzbDrone.Core.MediaFiles.EpisodeImport.Manual;
 using NzbDrone.Core.Qualities;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.ManualImport;
 

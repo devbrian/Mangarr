@@ -1,6 +1,6 @@
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Parser.Model;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Release;
 

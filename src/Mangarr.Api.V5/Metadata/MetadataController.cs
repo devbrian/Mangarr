@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Extras.Metadata;
 using NzbDrone.SignalR;
 using Mangarr.Api.V5.Provider;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Metadata;
 

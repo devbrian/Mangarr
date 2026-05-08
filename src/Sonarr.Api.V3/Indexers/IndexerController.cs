@@ -2,7 +2,7 @@ using FluentValidation;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Validation;
 using NzbDrone.SignalR;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Sonarr.Api.V3.Indexers
 {

@@ -6,7 +6,7 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.Validation;
 using NzbDrone.Core.Validation.Paths;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Sonarr.Api.V3.Config
 {

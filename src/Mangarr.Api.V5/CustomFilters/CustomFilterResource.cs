@@ -1,7 +1,7 @@
 using System.Dynamic;
 using NzbDrone.Common.Serializer;
 using NzbDrone.Core.CustomFilters;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.CustomFilters;
 

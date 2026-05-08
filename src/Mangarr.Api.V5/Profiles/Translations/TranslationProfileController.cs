@@ -4,9 +4,9 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Parser;
 using NzbDrone.Core.Profiles.Translations;
-using Sonarr.Http;
-using Sonarr.Http.REST;
-using Sonarr.Http.REST.Attributes;
+using Mangarr.Http;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
 
 namespace Mangarr.Api.V5.Profiles.Translations;
 

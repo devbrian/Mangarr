@@ -11,7 +11,7 @@ using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
 using Mangarr.Api.V5.Manga;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace NzbDrone.Api.Test.Manga
 {

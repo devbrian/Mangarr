@@ -4,8 +4,8 @@ using System.Linq;
 using System.Text.Json.Serialization;
 using NzbDrone.Core.AutoTagging;
 using NzbDrone.Core.AutoTagging.Specifications;
-using Sonarr.Http.ClientSchema;
-using Sonarr.Http.REST;
+using Mangarr.Http.ClientSchema;
+using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.AutoTagging
 {

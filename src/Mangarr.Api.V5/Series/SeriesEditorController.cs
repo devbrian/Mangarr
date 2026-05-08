@@ -6,7 +6,7 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Tv;
 using NzbDrone.Core.Tv.Commands;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Series;
 

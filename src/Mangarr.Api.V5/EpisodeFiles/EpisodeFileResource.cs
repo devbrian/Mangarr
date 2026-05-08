@@ -5,7 +5,7 @@ using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Qualities;
 using Mangarr.Api.V5.CustomFormats;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.EpisodeFiles
 {

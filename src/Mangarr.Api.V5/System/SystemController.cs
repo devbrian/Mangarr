@@ -8,8 +8,8 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Lifecycle;
-using Sonarr.Http;
-using Sonarr.Http.Validation;
+using Mangarr.Http;
+using Mangarr.Http.Validation;
 
 namespace Mangarr.Api.V5.System;
 

@@ -2,7 +2,7 @@ using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Common.Serializer;
 using Sonarr.Api.V3.Profiles.Release;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace NzbDrone.Api.Test.v3.ReleaseProfiles
 {

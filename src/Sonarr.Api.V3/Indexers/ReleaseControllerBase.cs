@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.DecisionEngine;
 using NzbDrone.Core.Profiles.Qualities;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.Indexers
 {

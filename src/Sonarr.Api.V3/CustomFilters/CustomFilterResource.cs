@@ -3,7 +3,7 @@ using System.Dynamic;
 using System.Linq;
 using NzbDrone.Common.Serializer;
 using NzbDrone.Core.CustomFilters;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.CustomFilters
 {

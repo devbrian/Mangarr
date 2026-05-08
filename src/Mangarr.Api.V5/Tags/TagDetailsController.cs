@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Tags;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Tags;
 

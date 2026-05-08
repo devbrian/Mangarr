@@ -10,8 +10,8 @@ using NzbDrone.Core.History;
 using NzbDrone.Core.Tv;
 using Mangarr.Api.V5.Episodes;
 using Mangarr.Api.V5.Series;
-using Sonarr.Http;
-using Sonarr.Http.Extensions;
+using Mangarr.Http;
+using Mangarr.Http.Extensions;
 
 namespace Mangarr.Api.V5.History;
 

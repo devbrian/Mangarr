@@ -4,8 +4,8 @@ using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Languages;
-using Sonarr.Http;
-using Sonarr.Http.REST.Attributes;
+using Mangarr.Http;
+using Mangarr.Http.REST.Attributes;
 
 namespace Sonarr.Api.V3.Config
 {

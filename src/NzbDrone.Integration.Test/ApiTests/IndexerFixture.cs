@@ -4,7 +4,7 @@ using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using NzbDrone.Core.ThingiProvider;
 using Sonarr.Api.V3.Indexers;
-using Sonarr.Http.ClientSchema;
+using Mangarr.Http.ClientSchema;
 
 namespace NzbDrone.Integration.Test.ApiTests
 {

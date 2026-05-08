@@ -5,7 +5,7 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Languages;
 using NzbDrone.Core.MediaCover;
 using NzbDrone.Core.Tv;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.Series
 {

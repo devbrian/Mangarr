@@ -6,9 +6,9 @@ using NzbDrone.Core.Blocklisting;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Indexers;
-using Sonarr.Http;
-using Sonarr.Http.Extensions;
-using Sonarr.Http.REST.Attributes;
+using Mangarr.Http;
+using Mangarr.Http.Extensions;
+using Mangarr.Http.REST.Attributes;
 
 namespace Sonarr.Api.V3.Blocklist
 {

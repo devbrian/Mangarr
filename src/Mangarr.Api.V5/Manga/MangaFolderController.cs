@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Organizer.Manga;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Manga;
 

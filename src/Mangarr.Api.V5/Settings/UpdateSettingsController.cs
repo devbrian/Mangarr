@@ -2,7 +2,7 @@ using FluentValidation;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Update;
 using NzbDrone.Core.Validation.Paths;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Settings;
 

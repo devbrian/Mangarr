@@ -4,7 +4,7 @@ using NzbDrone.Core.Profiles.Qualities;
 using NzbDrone.Core.Tv;
 using Mangarr.Api.V5.CustomFormats;
 using Mangarr.Api.V5.Series;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Release;
 

@@ -1,6 +1,6 @@
 ﻿using System;
 using NzbDrone.Core.Backup;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.System.Backup
 {

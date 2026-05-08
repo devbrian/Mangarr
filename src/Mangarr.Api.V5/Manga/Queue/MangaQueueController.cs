@@ -6,9 +6,9 @@ using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.SignalR;
 using Mangarr.Api.V5.Queue;
-using Sonarr.Http;
-using Sonarr.Http.REST;
-using Sonarr.Http.REST.Attributes;
+using Mangarr.Http;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
 
 namespace Mangarr.Api.V5.Manga.Queue
 {

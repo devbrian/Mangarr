@@ -6,7 +6,7 @@ using NzbDrone.Core.MediaCover;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.Organizer;
 using NzbDrone.Core.SeriesStats;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Series;
 

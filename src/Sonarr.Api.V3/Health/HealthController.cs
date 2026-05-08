@@ -6,8 +6,8 @@ using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.HealthCheck;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.SignalR;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.Health
 {

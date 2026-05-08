@@ -11,8 +11,8 @@ using NzbDrone.Core.ThingiProvider;
 using NzbDrone.Core.ThingiProvider.Events;
 using NzbDrone.Core.Validation;
 using NzbDrone.SignalR;
-using Sonarr.Http.REST;
-using Sonarr.Http.REST.Attributes;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
 
 namespace Sonarr.Api.V3
 {

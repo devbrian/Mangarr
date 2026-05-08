@@ -9,7 +9,7 @@ using NzbDrone.Core.Queue;
 using Sonarr.Api.V3.CustomFormats;
 using Sonarr.Api.V3.Episodes;
 using Sonarr.Api.V3.Series;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 #pragma warning disable CS0612
 namespace Sonarr.Api.V3.Queue

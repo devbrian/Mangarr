@@ -15,10 +15,10 @@ using NzbDrone.Core.Profiles.Qualities;
 using NzbDrone.Core.Qualities;
 using NzbDrone.Core.Queue;
 using NzbDrone.SignalR;
-using Sonarr.Http;
-using Sonarr.Http.Extensions;
-using Sonarr.Http.REST;
-using Sonarr.Http.REST.Attributes;
+using Mangarr.Http;
+using Mangarr.Http.Extensions;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
 
 namespace Mangarr.Api.V5.Queue
 {

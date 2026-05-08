@@ -8,7 +8,7 @@ using NzbDrone.Core.Queue.Manga;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
 using Mangarr.Api.V5.Manga.Queue;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace NzbDrone.Api.Test.Manga.Queue
 {
@@ -101,7 +101,7 @@ namespace NzbDrone.Api.Test.Manga.Queue
             typeof(MangaQueueStatusController).BaseType!.IsGenericType.Should().BeTrue(
                 "MangaQueueStatusController must extend a generic SignalR base — D-13-04 contract");
             typeof(MangaQueueStatusController).BaseType!.GetGenericTypeDefinition()
-                .Should().Be(typeof(Sonarr.Http.REST.RestControllerWithSignalR<,>),
+                .Should().Be(typeof(Mangarr.Http.REST.RestControllerWithSignalR<,>),
                     "MangaQueueStatusController must extend RestControllerWithSignalR<,> so the React " +
                     "Query cache for ['/manga/queue/status'] auto-refreshes on queue mutation events");
         }

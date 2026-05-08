@@ -1,5 +1,5 @@
 using Mangarr.Api.V5.Manga.Subresources;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Manga.Chapter;
 

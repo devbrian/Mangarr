@@ -45,7 +45,7 @@ namespace NzbDrone.Core.Test.CustomFormatsTests
         }
 
         // Mirrors Mangarr.Api.V5.CustomFormats.CustomFormatResource.MapSpecification lines 57-78
-        // verbatim. Production uses Sonarr.Http.ClientSchema.SchemaBuilder.ReadFromSchema for the
+        // verbatim. Production uses Mangarr.Http.ClientSchema.SchemaBuilder.ReadFromSchema for the
         // field copy; this mirror uses direct reflection on the [FieldDefinition]-marked properties
         // since SchemaBuilder requires container init (ILocalizationService) we don't need here.
         private static ICustomFormatSpecification MapSpecificationViaReflection(

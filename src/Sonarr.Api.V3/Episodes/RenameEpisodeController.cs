@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.MediaFiles;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.Episodes
 {

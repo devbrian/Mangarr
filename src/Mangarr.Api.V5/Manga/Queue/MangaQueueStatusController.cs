@@ -5,8 +5,8 @@ using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.SignalR;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 using Debouncer = NzbDrone.Common.TPL.Debouncer;
 
 namespace Mangarr.Api.V5.Manga.Queue

@@ -15,10 +15,10 @@ using NzbDrone.Core.Parser;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Tv;
 using NzbDrone.SignalR;
-using Sonarr.Http;
-using Sonarr.Http.REST;
-using Sonarr.Http.REST.Attributes;
-using BadRequestException = Sonarr.Http.REST.BadRequestException;
+using Mangarr.Http;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
+using BadRequestException = Mangarr.Http.REST.BadRequestException;
 
 namespace Sonarr.Api.V3.EpisodeFiles
 {

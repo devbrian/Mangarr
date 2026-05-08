@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Localization;
 

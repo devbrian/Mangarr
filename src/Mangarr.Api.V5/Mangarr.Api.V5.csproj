@@ -13,6 +13,6 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\NzbDrone.Core\Mangarr.Core.csproj" />
-		<ProjectReference Include="..\Sonarr.Http\Sonarr.Http.csproj" />
+		<ProjectReference Include="..\Mangarr.Http\Mangarr.Http.csproj" />
 	</ItemGroup>
 </Project>

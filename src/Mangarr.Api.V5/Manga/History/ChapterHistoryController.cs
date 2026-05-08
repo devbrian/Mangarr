@@ -9,9 +9,9 @@ using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Messaging.Commands;
 using Mangarr.Api.V5.Manga.Subresources;
-using Sonarr.Http;
-using Sonarr.Http.Extensions;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.Extensions;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Manga.History
 {

@@ -10,10 +10,10 @@ using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.SignalR;
-using Sonarr.Http;
-using Sonarr.Http.REST;
-using Sonarr.Http.REST.Attributes;
-using BadRequestException = Sonarr.Http.REST.BadRequestException;
+using Mangarr.Http;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
+using BadRequestException = Mangarr.Http.REST.BadRequestException;
 
 namespace Mangarr.Api.V5.Manga.Chapter;
 

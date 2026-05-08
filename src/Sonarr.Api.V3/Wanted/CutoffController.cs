@@ -7,8 +7,8 @@ using NzbDrone.Core.DecisionEngine.Specifications;
 using NzbDrone.Core.Tv;
 using NzbDrone.SignalR;
 using Sonarr.Api.V3.Episodes;
-using Sonarr.Http;
-using Sonarr.Http.Extensions;
+using Mangarr.Http;
+using Mangarr.Http.Extensions;
 
 namespace Sonarr.Api.V3.Wanted
 {

@@ -1,4 +1,4 @@
-﻿using Sonarr.Http.REST;
+﻿using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.DiskSpace
 {

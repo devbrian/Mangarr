@@ -3,7 +3,7 @@ using NzbDrone.Core.ImportLists;
 using NzbDrone.Core.Validation;
 using NzbDrone.Core.Validation.Paths;
 using NzbDrone.SignalR;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Sonarr.Api.V3.ImportLists
 {

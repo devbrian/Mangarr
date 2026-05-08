@@ -1,7 +1,7 @@
 using FluentValidation;
 using NzbDrone.Core.Download;
 using NzbDrone.SignalR;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Sonarr.Api.V3.DownloadClient
 {

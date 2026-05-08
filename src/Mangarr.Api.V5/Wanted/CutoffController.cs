@@ -7,8 +7,8 @@ using NzbDrone.Core.DecisionEngine.Specifications;
 using NzbDrone.Core.Tv;
 using NzbDrone.SignalR;
 using Mangarr.Api.V5.Episodes;
-using Sonarr.Http;
-using Sonarr.Http.Extensions;
+using Mangarr.Http;
+using Mangarr.Http.Extensions;
 
 namespace Mangarr.Api.V5.Wanted;
 

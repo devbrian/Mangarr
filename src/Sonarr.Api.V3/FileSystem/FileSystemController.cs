@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Common.Disk;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.MediaFiles;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Sonarr.Api.V3.FileSystem
 {

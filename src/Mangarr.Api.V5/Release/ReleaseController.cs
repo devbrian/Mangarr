@@ -17,8 +17,8 @@ using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Profiles.Qualities;
 using NzbDrone.Core.Tv;
 using NzbDrone.Core.Validation;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 using HttpStatusCode = System.Net.HttpStatusCode;
 
 namespace Mangarr.Api.V5.Release;

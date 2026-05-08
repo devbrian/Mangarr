@@ -6,7 +6,7 @@ using NzbDrone.Core.MediaCover;
 using NzbDrone.Core.Tv;
 using Sonarr.Api.V3.EpisodeFiles;
 using Sonarr.Api.V3.Series;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Sonarr.Api.V3.Episodes

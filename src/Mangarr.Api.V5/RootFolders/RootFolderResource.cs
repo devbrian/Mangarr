@@ -1,6 +1,6 @@
 ﻿using NzbDrone.Common.Extensions;
 using NzbDrone.Core.RootFolders;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.RootFolders;
 

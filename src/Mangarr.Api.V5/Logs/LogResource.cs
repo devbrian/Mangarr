@@ -1,5 +1,5 @@
 using NzbDrone.Core.Instrumentation;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Logs
 {

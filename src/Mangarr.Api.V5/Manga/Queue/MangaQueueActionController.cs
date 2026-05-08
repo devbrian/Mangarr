@@ -4,8 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Pending.Manga;
 using Mangarr.Api.V5.Queue;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Manga.Queue
 {

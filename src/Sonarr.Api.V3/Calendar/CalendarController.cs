@@ -9,7 +9,7 @@ using NzbDrone.Core.Tags;
 using NzbDrone.Core.Tv;
 using NzbDrone.SignalR;
 using Sonarr.Api.V3.Episodes;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Sonarr.Api.V3.Calendar
 {

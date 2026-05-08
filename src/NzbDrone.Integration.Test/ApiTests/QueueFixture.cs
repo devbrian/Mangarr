@@ -6,7 +6,7 @@ using NUnit.Framework;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Integration.Test.Client;
 using Sonarr.Api.V3.Queue;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace NzbDrone.Integration.Test.ApiTests
 {

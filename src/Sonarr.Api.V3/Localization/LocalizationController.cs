@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Localization;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.Localization
 {

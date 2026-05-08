@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Profiles.Qualities;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Sonarr.Api.V3.Profiles.Quality
 {

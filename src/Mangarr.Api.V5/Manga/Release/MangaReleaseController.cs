@@ -9,7 +9,7 @@ using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Parser.Manga.Model;
-using Sonarr.Http;
+using Mangarr.Http;
 using HttpStatusCode = System.Net.HttpStatusCode;
 
 namespace Mangarr.Api.V5.Manga.Release

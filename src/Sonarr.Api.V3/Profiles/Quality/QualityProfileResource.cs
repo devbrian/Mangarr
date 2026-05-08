@@ -3,7 +3,7 @@ using System.Linq;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.Profiles;
 using NzbDrone.Core.Profiles.Qualities;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.Profiles.Quality
 {

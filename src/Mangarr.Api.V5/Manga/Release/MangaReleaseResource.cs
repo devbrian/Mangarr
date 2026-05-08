@@ -1,6 +1,6 @@
 using NzbDrone.Core.DecisionEngine.Manga;
 using NzbDrone.Core.Indexers;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Manga.Release
 {

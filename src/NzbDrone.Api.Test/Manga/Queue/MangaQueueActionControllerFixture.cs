@@ -14,8 +14,8 @@ using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.Test.Common;
 using Mangarr.Api.V5.Manga.Queue;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 
 namespace NzbDrone.Api.Test.Manga.Queue
 {

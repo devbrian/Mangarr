@@ -3,7 +3,7 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Languages;
 using NzbDrone.Core.MediaCover;
 using NzbDrone.Core.Tv;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Mangarr.Api.V5.Series;

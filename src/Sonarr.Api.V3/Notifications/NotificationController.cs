@@ -2,7 +2,7 @@ using System;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Notifications;
 using NzbDrone.SignalR;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Sonarr.Api.V3.Notifications
 {

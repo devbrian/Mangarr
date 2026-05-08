@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using NzbDrone.Common.Composition;
 using NzbDrone.Core.Messaging.Commands;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.Commands
 {

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using NzbDrone.Core.Update;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Sonarr.Api.V3.Update
 {

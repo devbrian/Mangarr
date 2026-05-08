@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 using NUnit.Framework;
 using NzbDrone.Core.Messaging.Commands;
 using RestSharp;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace NzbDrone.Integration.Test.Client
 {

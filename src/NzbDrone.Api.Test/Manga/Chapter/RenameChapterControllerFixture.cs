@@ -7,8 +7,8 @@ using NUnit.Framework;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Test.Common;
 using Mangarr.Api.V5.Manga.Chapter;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 
 namespace NzbDrone.Api.Test.Manga.Chapter
 {

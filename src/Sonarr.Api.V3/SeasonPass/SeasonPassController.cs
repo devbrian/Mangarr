@@ -1,7 +1,7 @@
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Tv;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace Sonarr.Api.V3.SeasonPass
 {

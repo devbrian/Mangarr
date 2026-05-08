@@ -10,7 +10,7 @@ using NzbDrone.Core.Organizer;
 using NzbDrone.Core.Organizer.Manga;
 using NzbDrone.Test.Common;
 using Mangarr.Api.V5.Manga;
-using Sonarr.Http;
+using Mangarr.Http;
 
 namespace NzbDrone.Api.Test.Manga
 {

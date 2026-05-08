@@ -5,9 +5,9 @@ using NzbDrone.Core.Blocklisting.Manga;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Manga;
 using Mangarr.Api.V5.Manga.Subresources;
-using Sonarr.Http;
-using Sonarr.Http.Extensions;
-using Sonarr.Http.REST.Attributes;
+using Mangarr.Http;
+using Mangarr.Http.Extensions;
+using Mangarr.Http.REST.Attributes;
 
 namespace Mangarr.Api.V5.Manga.Blocklist
 {

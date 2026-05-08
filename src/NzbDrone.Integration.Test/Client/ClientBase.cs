@@ -5,8 +5,8 @@ using FluentAssertions;
 using NLog;
 using NzbDrone.Common.Serializer;
 using RestSharp;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 
 namespace NzbDrone.Integration.Test.Client
 {

@@ -8,10 +8,10 @@ using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.ProgressMessaging;
 using NzbDrone.SignalR;
-using Sonarr.Http;
-using Sonarr.Http.REST;
-using Sonarr.Http.REST.Attributes;
-using Sonarr.Http.Validation;
+using Mangarr.Http;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
+using Mangarr.Http.Validation;
 using Debouncer = NzbDrone.Common.TPL.Debouncer;
 
 namespace Mangarr.Api.V5.Commands;
@@ -21,7 +21,7 @@ namespace Mangarr.Api.V5.Commands;
 // supplied but does not match any candidate FullName, or — post-WR-01/05 fix — when the
 // multi-match tv-prefer rule does not select exactly one candidate). BadRequestException
 // derives from ApiException and is converted to HTTP 400 by the global error pipeline
-// (see Sonarr.Http.Exceptions.ApiException + middleware), NOT returned as a typed result.
+// (see Mangarr.Http.Exceptions.ApiException + middleware), NOT returned as a typed result.
 //
 // The 400 response body therefore follows the global error contract, not Created<CommandResource>
 // or NotFound. OpenAPI generation that reads ONLY the typed-results signature will not see

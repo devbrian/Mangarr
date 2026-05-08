@@ -11,7 +11,7 @@ using NzbDrone.Core.Parser.Manga;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
 using Mangarr.Api.V5.Manga.Chapter;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace NzbDrone.Api.Test.Manga.Chapter
 {

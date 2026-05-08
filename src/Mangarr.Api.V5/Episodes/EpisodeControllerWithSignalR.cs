@@ -9,7 +9,7 @@ using NzbDrone.Core.Tv;
 using NzbDrone.SignalR;
 using Mangarr.Api.V5.EpisodeFiles;
 using Mangarr.Api.V5.Series;
-using Sonarr.Http.REST;
+using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Episodes;
 

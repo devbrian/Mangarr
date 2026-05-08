@@ -99,7 +99,7 @@ namespace NzbDrone.Core.MediaCover
         // mirroring TV MediaCoverService.cs:73-103. mangaId == 0 routes through proxy
         // (referrer-dodging path for unsaved manga); mangaId != 0 rewrites to a local-cache
         // URL with `?lastWrite={ticks}` cache-bust suffix when the on-disk file exists.
-        // The static-file mapper (Sonarr.Http/Frontend/Mappers/MediaCoverMapper.cs:44-47)
+        // The static-file mapper (Mangarr.Http/Frontend/Mappers/MediaCoverMapper.cs:44-47)
         // already serves the /MediaCover/manga/... shape from disk transparently.
         public void ConvertToLocalUrls(int mangaId, IEnumerable<MediaCover> covers)
         {
