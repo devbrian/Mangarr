@@ -8,7 +8,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NzbDrone.Test.Common\Mangarr.Test.Common.csproj" />
-    <ProjectReference Include="..\Sonarr.Api.V3\Sonarr.Api.V3.csproj" />
     <ProjectReference Include="..\Mangarr.Http\Mangarr.Http.csproj" />
   </ItemGroup>
 </Project>
