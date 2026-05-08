@@ -100,7 +100,7 @@ public class ChapterController : RestControllerWithSignalR<ChapterResource, NzbD
     {
         // Mirrors EpisodeController.SetEpisodeMonitored (Sonarr v5-develop): trust
         // _chapterService.GetChapter(id) → _chapterRepository.Get(id) to throw
-        // ModelNotFoundException on missing rows; SonarrErrorPipeline maps the
+        // ModelNotFoundException on missing rows; MangarrErrorPipeline maps the
         // throw to HTTP 404. (See SONARR-AUDIT.md F-01 for the audit history.)
         _chapterService.SetChapterMonitored(id, resource.Monitored);
         return TypedResults.Ok(_chapterService.GetChapter(id).ToResource());

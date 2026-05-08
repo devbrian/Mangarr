@@ -44,7 +44,7 @@ namespace NzbDrone.Console
 
                 Bootstrap.Start(args);
             }
-            catch (SonarrStartupException ex)
+            catch (MangarrStartupException ex)
             {
                 System.Console.WriteLine("");
                 System.Console.WriteLine("");

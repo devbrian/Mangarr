@@ -8,7 +8,7 @@ namespace ServiceUninstall
 {
     public static class ServiceHelper
     {
-        private static string SonarrExe => Path.Combine(new FileInfo(Assembly.GetExecutingAssembly().Location).Directory.FullName, "Mangarr.Console.exe");
+        private static string MangarrExe => Path.Combine(new FileInfo(Assembly.GetExecutingAssembly().Location).Directory.FullName, "Mangarr.Console.exe");
 
         private static bool IsAnAdministrator()
         {
@@ -18,7 +18,7 @@ namespace ServiceUninstall
 
         public static void Run(string arg)
         {
-            if (!File.Exists(SonarrExe))
+            if (!File.Exists(MangarrExe))
             {
                 Console.WriteLine("Unable to find Mangarr.exe in the current directory.");
                 return;
@@ -32,7 +32,7 @@ namespace ServiceUninstall
 
             var startInfo = new ProcessStartInfo
                                 {
-                                    FileName = SonarrExe,
+                                    FileName = MangarrExe,
                                     Arguments = arg,
                                     UseShellExecute = false,
                                     RedirectStandardOutput = true,
