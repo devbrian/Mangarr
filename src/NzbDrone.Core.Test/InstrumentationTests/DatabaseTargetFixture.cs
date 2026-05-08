@@ -6,7 +6,6 @@ using NUnit.Framework;
 using NzbDrone.Common.Instrumentation;
 using NzbDrone.Core.Datastore.Migration.Framework;
 using NzbDrone.Core.Instrumentation;
-using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common;
 
@@ -99,7 +98,7 @@ namespace NzbDrone.Core.Test.InstrumentationTests
         [Test]
         public void null_string_as_arg_should_not_fail()
         {
-            var epFile = new EpisodeFile();
+            var epFile = new NzbDrone.Core.MediaFiles.ChapterFile(); // Sonarr divergence: Plan 15-11 — EpisodeFile deleted, ChapterFile is the manga peer
             _logger.Debug("File {0} no longer exists on disk. removing from database.", epFile.RelativePath);
 
             Thread.Sleep(1000);

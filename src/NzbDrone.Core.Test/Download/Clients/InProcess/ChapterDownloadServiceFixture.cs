@@ -11,12 +11,15 @@ using NzbDrone.Common.Disk;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Indexers.Http;
+using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Test.Framework;
-using NzbDrone.Core.Tv;
 using NzbDrone.Test.Common;
+
+// Sonarr divergence: Phase 15 Plan 15-11 cascade absorption — RemoteChapter/Series/Episode replaced with RemoteChapter/Manga/Chapter.
 
 namespace NzbDrone.Core.Test.Download.Clients.InProcess
 {
@@ -119,12 +122,12 @@ namespace NzbDrone.Core.Test.Download.Clients.InProcess
             return m;
         }
 
-        private static RemoteEpisode BuildRemote(int mangaId, int chapterId)
+        private static RemoteChapter BuildRemote(int mangaId, int chapterId)
         {
-            return new RemoteEpisode
+            return new RemoteChapter
             {
-                Series = new Series { Id = mangaId, Title = $"M{mangaId}" },
-                Episodes = new List<Episode> { new Episode { Id = chapterId } },
+                Manga = new NzbDrone.Core.Manga.Manga { Id = mangaId, Title = $"M{mangaId}" },
+                Chapters = new List<Chapter> { new Chapter { Id = chapterId } },
                 Release = new ReleaseInfo { Title = $"Chapter {chapterId}", IndexerId = 1 }
             };
         }

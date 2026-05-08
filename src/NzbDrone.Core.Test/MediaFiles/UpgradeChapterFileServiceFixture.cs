@@ -6,7 +6,6 @@ using NUnit.Framework;
 using NzbDrone.Common.Disk;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles;
-using NzbDrone.Core.MediaFiles.EpisodeImport;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common;

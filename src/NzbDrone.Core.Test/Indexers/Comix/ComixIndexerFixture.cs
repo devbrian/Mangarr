@@ -57,15 +57,6 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         }
 
         [Test]
-        public void Fetch_SeasonSearchCriteria_throws_NotSupportedException()
-        {
-            var criteria = new SeasonSearchCriteria();
-            FluentActions.Awaiting(() => Subject.Fetch(criteria))
-                .Should().ThrowAsync<System.NotSupportedException>()
-                .WithMessage("*manga indexer*");
-        }
-
-        [Test]
         public void GetDownloadHeaders_returns_Referer_for_comix()
         {
             // D-14: comix.to requires Referer header on chapter requests.

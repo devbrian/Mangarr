@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using FizzWare.NBuilder;
+using Mangarr.Api.V5.Manga;
+using Mangarr.Http;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Datastore.Events;
@@ -10,9 +12,6 @@ using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
-using Mangarr.Api.V5.Manga;
-using Mangarr.Http;
-
 namespace NzbDrone.Api.Test.Manga
 {
     // Phase 10 Plan 10-05 fixture: covers the 3 new IHandle dispatch paths added to

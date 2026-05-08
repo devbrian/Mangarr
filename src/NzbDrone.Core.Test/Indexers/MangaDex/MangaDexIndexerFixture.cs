@@ -60,24 +60,6 @@ namespace NzbDrone.Core.Test.Indexers.MangaDex
         }
 
         [Test]
-        public void Fetch_SeasonSearchCriteria_throws_NotSupportedException()
-        {
-            // D-03: manga indexer must reject inherited TV criteria with NotSupportedException
-            var criteria = new SeasonSearchCriteria();
-            FluentActions.Awaiting(() => Subject.Fetch(criteria))
-                .Should().ThrowAsync<System.NotSupportedException>()
-                .WithMessage("*manga indexer*");
-        }
-
-        [Test]
-        public void Fetch_SingleEpisodeSearchCriteria_throws_NotSupportedException()
-        {
-            var criteria = new SingleEpisodeSearchCriteria();
-            FluentActions.Awaiting(() => Subject.Fetch(criteria))
-                .Should().ThrowAsync<System.NotSupportedException>();
-        }
-
-        [Test]
         public void GetDownloadHeaders_returns_empty_for_MangaDex()
         {
             // D-14: MangaDex does not require a Referer header (unlike Comix); default empty.

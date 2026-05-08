@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
+using Mangarr.Api.V5.Manga.Queue;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Moq;
 using NUnit.Framework;
@@ -10,10 +13,6 @@ using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
-using Mangarr.Api.V5.Manga.Queue;
-using Mangarr.Http;
-using Mangarr.Http.REST;
-
 namespace NzbDrone.Api.Test.Manga.Queue
 {
     // Sonarr divergence: NEW manga V5 controller fixture per Phase 13 Plan 13-08

@@ -60,7 +60,7 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
         private Mock<IIndexer> BuildUsenetIndexer(int id, string name)
         {
             var indexer = new Mock<IIndexer>();
-            indexer.SetupGet(i => i.Protocol).Returns(DownloadProtocol.Usenet);
+            indexer.SetupGet(i => i.Protocol).Returns(DownloadProtocol.Unknown);
             indexer.SetupGet(i => i.Definition).Returns(new IndexerDefinition { Id = id, Name = name });
             indexer.Setup(i => i.FetchRecent()).ReturnsAsync(new List<ReleaseInfo>());
             return indexer;

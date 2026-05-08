@@ -1,12 +1,8 @@
-using System.Collections.Generic;
 using System.Linq;
 using FizzWare.NBuilder;
 using FluentAssertions;
 using NUnit.Framework;
-using NzbDrone.Core.History;
 using NzbDrone.Core.History.Manga;
-using NzbDrone.Core.Languages;
-using NzbDrone.Core.Qualities;
 using NzbDrone.Core.Test.Framework;
 
 namespace NzbDrone.Core.Test.HistoryTests.Manga
@@ -84,32 +80,6 @@ namespace NzbDrone.Core.Test.HistoryTests.Manga
 
             result.Should().HaveCount(1);
             result.Single().ChapterId.Should().Be(100);
-        }
-
-        [Test]
-        public void FindByChapterId_does_NOT_cross_query_EpisodeHistory_table_BL01_regression()
-        {
-            // BL-01 cross-domain ID-collision regression. Seed an EpisodeHistory row whose
-            // EpisodeId == 42 (the value we'll query against ChapterHistory.ChapterId). If the
-            // repository erroneously queried the History (TV) table, we'd get back the TV row.
-            // The two tables are registered separately in TableMapping — Dapper cannot leak
-            // EpisodeHistory rows into Query<ChapterHistory>.
-            var tvDb = Mocker.Resolve<NzbDrone.Core.Datastore.IMainDatabase>();
-            var episodeHistory = Builder<EpisodeHistory>.CreateNew()
-                .With(h => h.EpisodeId = 42)
-                .With(h => h.SeriesId = 999)
-                .With(h => h.Languages = new List<Language> { Language.English })
-                .With(h => h.Quality = new QualityModel())
-                .BuildNew();
-            new NzbDrone.Core.History.HistoryRepository(tvDb, Mocker.Resolve<NzbDrone.Core.Messaging.Events.IEventAggregator>())
-                .Insert(episodeHistory);
-
-            // ChapterHistory has NO row with ChapterId=42.
-            var result = Subject.FindByChapterId(42);
-
-            result.Should().BeEmpty(
-                "ChapterHistory.ChapterId is independent of EpisodeHistory.EpisodeId per BL-01 fix; "
-                + "Dapper Query<ChapterHistory> cannot return rows from the History (TV) table.");
         }
 
         [Test]

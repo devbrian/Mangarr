@@ -7,12 +7,14 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Core.Configuration;
+using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.MediaFiles.ChapterArchiving.Cbz;
 using NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo;
 using NzbDrone.Core.Parser.Model;
+
+// Sonarr divergence: Phase 15 Plan 15-11 cascade absorption — Series/Episode replaced with manga peer Manga/Chapter; Series.Certification -> Manga.ContentRating; Episode.EpisodeNumber/AirDateUtc -> Chapter.ChapterNumber/ReleaseDate.
 using NzbDrone.Core.Test.Framework;
-using NzbDrone.Core.Tv;
 
 namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving.Metadata
 {
@@ -37,16 +39,16 @@ namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving.Metadata
         {
             _req = new ChapterArchiveRequest
             {
-                Manga = new Series
+                Manga = new Manga.Manga
                 {
                     Title = "Vagabond",
                     Genres = new List<string>(),
-                    Certification = "safe",
+                    ContentRating = "safe",
                 },
-                Chapter = new Episode
+                Chapter = new Chapter
                 {
                     Title = "Ch 132",
-                    EpisodeNumber = 132,
+                    ChapterNumber = 132,
                 },
                 Release = new ReleaseInfo
                 {

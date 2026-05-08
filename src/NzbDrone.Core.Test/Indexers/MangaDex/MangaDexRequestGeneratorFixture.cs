@@ -53,13 +53,5 @@ namespace NzbDrone.Core.Test.Indexers.MangaDex
             url.Should().Contain("/manga/a1c7c817-4e59-43b7-9365-09675a149a6f/feed");
             url.Should().Contain("limit=500");
         }
-
-        [Test]
-        public void GetSearchRequests_SeasonSearchCriteria_returns_empty_chain()
-        {
-            // D-03: TV criteria → no search requests emitted (no-op fan-out)
-            var chain = Subject.GetSearchRequests(new SeasonSearchCriteria());
-            chain.GetAllTiers().Should().BeEmpty();
-        }
     }
 }
