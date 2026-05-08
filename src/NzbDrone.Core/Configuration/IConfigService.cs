@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using NzbDrone.Common.Http.Proxy;
-using NzbDrone.Core.ImportLists;
+
+// Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-only namespace imports stripped:
+//   using NzbDrone.Core.ImportLists; ← deleted (ImportLists/ moved to .planning/reference/ per D-26)
+//   using NzbDrone.Core.MediaFiles.EpisodeImport; ← deleted (subtree DELETED per Plan 15-10 A2)
+//   using NzbDrone.Core.Qualities; ← deleted (Qualities/ DELETED per Plan 15-03)
 using NzbDrone.Core.MediaFiles;
-using NzbDrone.Core.MediaFiles.EpisodeImport;
-using NzbDrone.Core.Qualities;
 using NzbDrone.Core.Security;
 
 namespace NzbDrone.Core.Configuration
@@ -27,7 +29,8 @@ namespace NzbDrone.Core.Configuration
         bool AutoUnmonitorPreviouslyDownloadedEpisodes { get; set; }
         string RecycleBin { get; set; }
         int RecycleBinCleanupDays { get; set; }
-        ProperDownloadTypes DownloadPropersAndRepacks { get; set; }
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — ProperDownloadTypes (TV Quality cascade) stripped.
+        //   ProperDownloadTypes DownloadPropersAndRepacks { get; set; }
         bool CreateEmptySeriesFolders { get; set; }
         bool DeleteEmptyFolders { get; set; }
         FileDateType FileDate { get; set; }
@@ -40,7 +43,8 @@ namespace NzbDrone.Core.Configuration
         bool ImportExtraFiles { get; set; }
         string ExtraFileExtensions { get; set; }
         RescanAfterRefreshType RescanAfterRefresh { get; set; }
-        EpisodeTitleRequiredType EpisodeTitleRequired { get; set; }
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — EpisodeTitleRequiredType (TV EpisodeImport) stripped.
+        //   EpisodeTitleRequiredType EpisodeTitleRequired { get; set; }
         string UserRejectedExtensions { get; set; }
 
         // Season Pack Upgrade (Media Management)
@@ -58,7 +62,8 @@ namespace NzbDrone.Core.Configuration
         int MaximumSize { get; set; }
         int MinimumAge { get; set; }
 
-        ListSyncLevelType ListSyncLevel { get; set; }
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — ListSyncLevelType (TV ImportLists) stripped.
+        //   ListSyncLevelType ListSyncLevel { get; set; }
         int ListSyncTag { get; set; }
 
         // UI

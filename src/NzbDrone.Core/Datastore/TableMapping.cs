@@ -26,7 +26,10 @@ using NzbDrone.Core.Download.Pending.Manga;
 //   using NzbDrone.Core.Extras.Metadata.Files; ← deleted
 //   using NzbDrone.Core.Extras.Others; ← deleted
 //   using NzbDrone.Core.Extras.Subtitles; ← deleted
-using NzbDrone.Core.History;
+// Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+// History/{EpisodeHistory,Repository,Service}.cs DELETED (TV-only; manga peer
+// History/Manga/ChapterHistory* preserved).
+//   using NzbDrone.Core.History; ← deleted
 using NzbDrone.Core.History.Manga;
 using NzbDrone.Core.ImportLists;
 using NzbDrone.Core.ImportLists.Exclusions;
@@ -143,7 +146,11 @@ namespace NzbDrone.Core.Datastore
 
             Mapper.Entity<SceneMapping>("SceneMappings").RegisterModel();
 
-            Mapper.Entity<EpisodeHistory>("History").RegisterModel();
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // EpisodeHistory entity registration stripped (History/EpisodeHistory.cs DELETED).
+            // The History schema table is dropped per Phase 15 D-22 (Migration 001 baseline);
+            // manga peer ChapterHistory uses a separate ChapterHistory table.
+            //   Mapper.Entity<EpisodeHistory>("History").RegisterModel();
 
             // Sonarr divergence: Phase 15 D-24 schema delete — TV-shape entity registrations stripped
             //   Mapper.Entity<Series>("Series").RegisterModel(); ← deleted (Plan 15-03)
@@ -173,7 +180,11 @@ namespace NzbDrone.Core.Datastore
 
             Mapper.Entity<Log>("Logs").RegisterModel();
             Mapper.Entity<NamingConfig>("NamingConfig").RegisterModel();
-            Mapper.Entity<Blocklist>("Blocklist").RegisterModel();
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // TV Blocklist entity registration stripped (Blocklisting/{Blocklist,Repository,Service}.cs DELETED).
+            // The Blocklist schema table is dropped per Phase 15 D-22 (Migration 001 baseline);
+            // manga peer MangaBlocklist registers below at line 229.
+            //   Mapper.Entity<Blocklist>("Blocklist").RegisterModel();
             // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
             // Extras/* file entity registrations stripped (Extras/ subtree DELETED).
             //   Mapper.Entity<MetadataFile>("MetadataFiles").RegisterModel();
