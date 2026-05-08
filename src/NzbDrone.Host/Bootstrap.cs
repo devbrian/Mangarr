@@ -73,7 +73,7 @@ namespace NzbDrone.Host
             }
             catch (InvalidConfigFileException ex)
             {
-                throw new SonarrStartupException(ex);
+                throw new MangarrStartupException(ex);
             }
             catch (TerminateApplicationException e)
             {
@@ -300,22 +300,22 @@ namespace NzbDrone.Host
                 }
                 else
                 {
-                    throw new SonarrStartupException($"Invalid certificate type: {type}");
+                    throw new MangarrStartupException($"Invalid certificate type: {type}");
                 }
             }
             catch (CryptographicException ex)
             {
                 if (ex.HResult == 0x2 || ex.HResult == 0x2006D080)
                 {
-                    throw new SonarrStartupException(ex,
+                    throw new MangarrStartupException(ex,
                         $"The SSL certificate file {cert} does not exist");
                 }
 
-                throw new SonarrStartupException(ex);
+                throw new MangarrStartupException(ex);
             }
             catch (Exception ex)
             {
-                throw new SonarrStartupException(ex);
+                throw new MangarrStartupException(ex);
             }
 
             return certificate;

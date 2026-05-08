@@ -3,7 +3,7 @@ using NzbDrone.Common.Messaging;
 namespace NzbDrone.Core.Manga.Events
 {
     // POCO event published by MangaService.UpdateManga on the USER-EDIT path
-    // (publishUpdatedEvent: true). Mirrors Sonarr's SeriesEditedEvent
+    // (publishUpdatedEvent: true). Mirrors Mangarr's SeriesEditedEvent
     // (Tv/Events/SeriesEditedEvent.cs) verbatim shape: carries the new manga, the
     // pre-update snapshot, and a chaptersChanged flag (TV: episodesChanged).
     //

@@ -21,8 +21,8 @@ namespace NzbDrone.Api.Test.Manga
     // discipline from MangaMediaCoverServiceFixture (Plan 09-13).
     //
     // Fixture lives under NzbDrone.Api.Test rather than NzbDrone.Core.Test (per the
-    // 10-05 plan's nominal path) because Sonarr.Core.Test does not project-reference
-    // Mangarr.Api.V5; Sonarr.Api.Test does. Same Mocker / TestBase<TSubject> behaviour;
+    // 10-05 plan's nominal path) because Mangarr.Core.Test does not project-reference
+    // Mangarr.Api.V5; Mangarr.Api.Test does. Same Mocker / TestBase<TSubject> behaviour;
     // only the project boundary changes. Documented as Rule 3 deviation in the plan
     // SUMMARY.
     //

@@ -53,7 +53,7 @@ function PageHeader() {
         <Link className={styles.logoLink} to="/">
           <img
             className={styles.logo}
-            src={`${window.Sonarr.urlBase}/Content/Images/logo.svg`}
+            src={`${window.Mangarr.urlBase}/Content/Images/logo.svg`}
             alt="Mangarr"
           />
         </Link>

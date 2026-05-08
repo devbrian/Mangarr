@@ -11,7 +11,7 @@ episodes, manga-shape filter/sort columns).
 
 ## File Tree
 
-82 files (Sonarr's `Series/Index/` had 95; 13 omitted per Lock #10):
+82 files (Mangarr's `Series/Index/` had 95; 13 omitted per Lock #10):
 
 ```
 Manga/Index/
@@ -52,7 +52,7 @@ Manga/Index/
 
 ## Lock #10 Omissions
 
-13 files dropped from the verbatim Sonarr port:
+13 files dropped from the verbatim Mangarr port:
 
 | Path | Reason |
 |------|--------|
@@ -80,7 +80,7 @@ Manga/Index/
 - **SignalR cache key:** `['/manga']` (Plan 07-02 contract). Backend
   `manga` resource pushes invalidate the manga list within 1s.
 
-## Sonarr Inheritance Notes
+## Mangarr Inheritance Notes
 
 A handful of inherited components reach back into `frontend/src/Series/` for
 peer modals + helpers that Plan 07-04 chose not to fork in scope:

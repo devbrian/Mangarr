@@ -14,14 +14,14 @@ Manga naming engine — token resolution, path builder, reader-compat presets, V
 | `IBuildMangaFileNames.cs` | Manga sibling to `IBuildFileNames` (TV) — operates on `Chapter` / `Manga` / `ReleaseInfo` (not `EpisodeFile`) |
 
 ## Patterns / Conventions
-- Reuses Sonarr's `FileNameBuilder.TitleRegex` (lines 48-49) for token+padding regex semantics — DO NOT REINVENT
+- Reuses Mangarr's `FileNameBuilder.TitleRegex` (lines 48-49) for token+padding regex semantics — DO NOT REINVENT
 - Padding uses C# canonical `IFormattable.ToString("000.0", CultureInfo.InvariantCulture)` per Pitfall 7 — culture-invariant
 - Default seeded preset = Komga per D-16
 - All preset templates locked per 05-RESEARCH.md Pattern 5 (web-verified against Komga / Kavita / ComicRack docs)
 - Folder layout = flat (D-15): `<root>/<Manga Title>/<chapter file>` — no volume nesting in v1
 
 ## Manga Adaptation Notes
-This is a NEW manga-side directory. Sonarr's `FileNameBuilder` handles `{Series Title}` / `{episode:00}` etc.; manga sibling handles `{Manga.Title}` / `{Chapter.Number:000}` / `{Manga.MangaDexId}` etc. Token set per D-14:
+This is a NEW manga-side directory. Mangarr's `FileNameBuilder` handles `{Series Title}` / `{episode:00}` etc.; manga sibling handles `{Manga.Title}` / `{Chapter.Number:000}` / `{Manga.MangaDexId}` etc. Token set per D-14:
 
 - Required (READER-02): `{Manga.Title}`, `{Manga.MalId}`, `{Chapter.Number}`, `{Chapter.Title}`, `{ScanlationGroup}`, `{Language}`
 - Plus per user direction 2026-05-03: `{Manga.MangaDexId}` (Guid), `{Manga.AniListId}` (int), padding control on chapter number, `{Source}`
@@ -36,5 +36,5 @@ When `Tv/` deletes in Phase 8, this directory collapses into the canonical `Orga
 - [Phase 5 CONTEXT](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md) — D-13, D-14, D-15, D-16
 - [Phase 5 RESEARCH](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-RESEARCH.md) — Pattern 5 (locked preset templates), Pitfall 7 (padding)
 - [Phase 5 PATTERNS-MAP](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-PATTERNS.md) — pattern S10 ([SetCulture("de-DE")] regression)
-- [Sonarr FileNameBuilder pattern source](../FileNameBuilder.cs)
-- [Sonarr SeriesPathBuilder pattern source](../../Tv/SeriesPathBuilder.cs)
+- [Mangarr FileNameBuilder pattern source](../FileNameBuilder.cs)
+- [Mangarr SeriesPathBuilder pattern source](../../Tv/SeriesPathBuilder.cs)

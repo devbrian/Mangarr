@@ -9,7 +9,7 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving
     /// Phase 4 ARCHIVE-03 — strategy factory selecting <see cref="IChapterArchiver"/>
     /// by <c>Config.OutputFormat</c> (D-13). DryIoc auto-discovers all
     /// <see cref="IChapterArchiver"/> impls and injects them as <see cref="IEnumerable{T}"/>
-    /// — same convention Sonarr uses for
+    /// — same convention Mangarr uses for
     /// <c>MediaFiles.EpisodeImport.IImportDecisionEngineSpecification</c> (DELETED Phase 15)
     /// in <c>MediaFiles.EpisodeImport.ImportDecisionMaker</c> (DELETED Phase 15).
     ///

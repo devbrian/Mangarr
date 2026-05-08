@@ -168,7 +168,7 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
           />
         </Label>
 
-        {/* Manga divergence: 'completed' fills the Sonarr 'ended' overlay slot;
+        {/* Manga divergence: 'completed' fills the Mangarr 'ended' overlay slot;
             'cancelled' fills the 'deleted' slot. CSS class names preserved. */}
         {status === 'completed' ? (
           <div

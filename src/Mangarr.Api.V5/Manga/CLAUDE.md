@@ -1,10 +1,10 @@
-# Sonarr.Api.V5/Manga (Phase 2 + Phase 6 Developer Endpoints)
+# Mangarr.Api.V5/Manga (Phase 2 + Phase 6 Developer Endpoints)
 
 ## Purpose
 
 v1 developer REST endpoints for the manga domain. Phase 2 shipped the core CRUD (`Manga` + `Lookup` + `Links`); Phase 6 added the pipeline surface (`History`, `Blocklist`, `Queue`, `Release`, `Wanted/Missing`). UI lives in Phase 7. All endpoints carry `[V5ApiController]` (admin X-Api-Key requirement per RESEARCH §Security Domain V4).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Sonarr.Api.V5\Manga`
+**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Api.V5\Manga`
 
 ## Key Files
 
@@ -151,16 +151,16 @@ The `MangaController` fans out SignalR resource changes for the manga lifecycle.
 
 **Test coverage:** `src/NzbDrone.Api.Test/Manga/MangaControllerSignalRFixture.cs` (Plan 10-05 introduced; extended in Plans 10-06 + 10-08; total **7 tests** — 3 from Plan 10-05 covering Edited/Renamed/BulkEdited, 3 from Plan 10-06 covering ChapterFileAdded happy path + ChapterFileDeleted Manual-reason + ChapterFileDeleted Upgrade-reason `Times.Never` short-circuit, 1 from Plan 10-08 covering MangaImportedEvent bulk fan-out with `Times.Exactly(3)` assertion). All tests use predicate-locked `It.Is<SignalRMessage>(m => m.Action == ModelAction.Updated && m.Name == "manga")` shape — never `It.IsAny<>`. Full Api.Test suite green: 33/33.
 
-**Note on test fixture location:** the fixture lives under `NzbDrone.Api.Test`, NOT `NzbDrone.Core.Test`, because `Sonarr.Core.Test` does not project-reference `Sonarr.Api.V5`. Plan 10-05 established this convention via Rule 3 deviation; Plans 10-06 + 10-08 appended to the same fixture file.
+**Note on test fixture location:** the fixture lives under `NzbDrone.Api.Test`, NOT `NzbDrone.Core.Test`, because `Mangarr.Core.Test` does not project-reference `Mangarr.Api.V5`. Plan 10-05 established this convention via Rule 3 deviation; Plans 10-06 + 10-08 appended to the same fixture file.
 
 ## Cross-References
 
-- Sonarr V5 analogs (each Phase 6 controller mirrors a TV peer):
-  - `src/Sonarr.Api.V5/History/HistoryController.cs` (history listing + retry)
-  - `src/Sonarr.Api.V5/Blocklist/BlocklistController.cs` (blocklist CRUD)
-  - `src/Sonarr.Api.V5/Queue/QueueController.cs` (in-flight queue + SignalR)
-  - `src/Sonarr.Api.V5/Release/ReleaseController.cs` (Interactive Search + Grab)
-  - `src/Sonarr.Api.V5/Wanted/MissingController.cs` (Missing list)
+- Mangarr V5 analogs (each Phase 6 controller mirrors a TV peer):
+  - `src/Mangarr.Api.V5/History/HistoryController.cs` (history listing + retry)
+  - `src/Mangarr.Api.V5/Blocklist/BlocklistController.cs` (blocklist CRUD)
+  - `src/Mangarr.Api.V5/Queue/QueueController.cs` (in-flight queue + SignalR)
+  - `src/Mangarr.Api.V5/Release/ReleaseController.cs` (Interactive Search + Grab)
+  - `src/Mangarr.Api.V5/Wanted/MissingController.cs` (Missing list)
 - Phase 6 backing services:
   - `src/NzbDrone.Core/History/Manga/IChapterHistoryService.cs` (Plan 06-03)
   - `src/NzbDrone.Core/Blocklisting/Manga/IMangaBlocklistService.cs` (Plan 06-04)

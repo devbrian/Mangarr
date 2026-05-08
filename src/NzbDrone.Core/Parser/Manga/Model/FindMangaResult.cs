@@ -1,6 +1,6 @@
 namespace NzbDrone.Core.Parser.Manga.Model
 {
-    // Resolver output DTO. Mirrors Sonarr's Parser/Model/FindSeriesResult.cs shape —
+    // Resolver output DTO. Mirrors Mangarr's Parser/Model/FindSeriesResult.cs shape —
     // pairs the resolved Manga aggregate with the match-type that produced it
     // (Title / Alias / Id) so callers (e.g. MangaParsingService.GetManga, downstream
     // RemoteChapter.MangaMatchType plumbing) can surface match-confidence to the

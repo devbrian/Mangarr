@@ -1,10 +1,10 @@
-# Sonarr.Api.V5/MetadataSource (Phase 2 Developer Endpoints)
+# Mangarr.Api.V5/MetadataSource (Phase 2 Developer Endpoints)
 
 ## Purpose
 
 v1 REST CRUD for `IMetadataSource` ThingiProvider definitions + the bespoke `SetPrimary` endpoint per D-15. Per CONTEXT Claude's Discretion: "Phase 7 wires up the React Settings → Metadata Sources page" — Phase 2 ships only the developer surface.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Sonarr.Api.V5\MetadataSource`
+**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Api.V5\MetadataSource`
 
 ## Key Files
 
@@ -32,7 +32,7 @@ v1 REST CRUD for `IMetadataSource` ThingiProvider definitions + the bespoke `Set
 - All endpoints `[V5ApiController]` → admin X-Api-Key requirement (RESEARCH §Security Domain V4)
 - `ProviderControllerBase` auto-provides the standard ThingiProvider REST surface — same shape as `IndexerController`
 - `SetPrimary(id)` delegates to `MetadataSourceFactory.SetPrimary` which enforces D-15's at-most-one invariant via demote-all-then-promote-one
-- Settings JSON is the inherited `ProviderDefinition.Settings` storage; ClientId (MAL) is stored in plaintext per RESEARCH §Security Domain (same posture as Sonarr indexer API keys — local admin-only application)
+- Settings JSON is the inherited `ProviderDefinition.Settings` storage; ClientId (MAL) is stored in plaintext per RESEARCH §Security Domain (same posture as Mangarr indexer API keys — local admin-only application)
 - Threat T-CONFIG-DRIFT-01 mitigation: the route handler never mutates `IsPrimary` directly; it goes through the factory invariant gate
 
 ## Manga Adaptation Notes
@@ -42,6 +42,6 @@ v1 REST CRUD for `IMetadataSource` ThingiProvider definitions + the bespoke `Set
 
 ## Cross-References
 
-- Sonarr V5 analog: [`src/Sonarr.Api.V5/Indexers/`](../Indexers/) (`IndexerController`, `IndexerResource`)
+- Mangarr V5 analog: [`src/Mangarr.Api.V5/Indexers/`](../Indexers/) (`IndexerController`, `IndexerResource`)
 - Factory + invariant: [`src/NzbDrone.Core/MetadataSource/CLAUDE.md`](../../NzbDrone.Core/MetadataSource/CLAUDE.md), [`MetadataSourceFactory.cs`](../../NzbDrone.Core/MetadataSource/MetadataSourceFactory.cs)
-- Provider base: [`src/Sonarr.Api.V5/Provider/ProviderControllerBase.cs`](../Provider/ProviderControllerBase.cs)
+- Provider base: [`src/Mangarr.Api.V5/Provider/ProviderControllerBase.cs`](../Provider/ProviderControllerBase.cs)

@@ -62,7 +62,7 @@ namespace Mangarr.Http.Authentication
             {
                 if (e.InnerException is XmlException)
                 {
-                    _logger.Error(e, "Failed to authenticate user due to corrupt XML. Please remove all XML files from {0} and restart Sonarr", Path.Combine(_appFolderInfo.AppDataFolder, "asp"));
+                    _logger.Error(e, "Failed to authenticate user due to corrupt XML. Please remove all XML files from {0} and restart Mangarr", Path.Combine(_appFolderInfo.AppDataFolder, "asp"));
                 }
                 else
                 {

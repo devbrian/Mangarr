@@ -12,11 +12,11 @@ using NzbDrone.Core.Exceptions;
 
 namespace Mangarr.Http.ErrorManagement
 {
-    public class SonarrErrorPipeline
+    public class MangarrErrorPipeline
     {
         private readonly Logger _logger;
 
-        public SonarrErrorPipeline(Logger logger)
+        public MangarrErrorPipeline(Logger logger)
         {
             _logger = logger;
         }

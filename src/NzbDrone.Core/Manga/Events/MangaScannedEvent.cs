@@ -3,7 +3,7 @@ using NzbDrone.Common.Messaging;
 
 namespace NzbDrone.Core.Manga.Events
 {
-    // POCO event mirroring Sonarr's SeriesScannedEvent (MediaFiles/Events/SeriesScannedEvent.cs)
+    // POCO event mirroring Mangarr's SeriesScannedEvent (MediaFiles/Events/SeriesScannedEvent.cs)
     // verbatim shape. IEvent carrying the just-scanned Manga + PossibleExtraFiles list;
     // intended to be published by manga DiskScanService at end of scan (publish wiring deferred
     // to disk-scan / scanned-handler integration — see audit no-sibling/SeriesScannedEvent.md).

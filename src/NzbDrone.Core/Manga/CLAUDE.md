@@ -42,10 +42,10 @@ This directory is the **manga-side parallel** of `src/NzbDrone.Core/Tv/`. Both c
 
 ## Patterns / Conventions
 
-- **Mirror Sonarr's shape verbatim where it works.** `MangaService` mirrors `SeriesService.AddSeries` event-publish-after-insert at line 73-79. `ChapterRepository.Find` mirrors `EpisodeRepository.Find` at line 53-57.
+- **Mirror Mangarr's shape verbatim where it works.** `MangaService` mirrors `SeriesService.AddSeries` event-publish-after-insert at line 73-79. `ChapterRepository.Find` mirrors `EpisodeRepository.Find` at line 53-57.
 - **Repositories extend `BasicRepository<T>`** (NOT `IRepository<T>` — that's a different abstraction). This inherits the static `RetryStrategy` Polly pipeline at `BasicRepository.cs:61-76` (D-15 Polly retry on `SQLITE_BUSY`).
 - **Find methods are SINGULAR for cross-source IDs** (`FindByMangaDexId/MalId/AniListId`) because manga has 1:1 source mapping. Anime uses `HashSet<int> MalIds/AniListIds` because a single anime can carry multiple cross-references.
-- **Constructor DI ordering** matches Sonarr precedent: `IRepository → IEventAggregator → IConfigService (optional) → ICached (optional) → Logger` last.
+- **Constructor DI ordering** matches Mangarr precedent: `IRepository → IEventAggregator → IConfigService (optional) → ICached (optional) → Logger` last.
 - **Event publishing happens in the SERVICE, not the repository.** Repositories raise low-level DB events via `IEventAggregator` (inherited from `BasicRepository`); services raise domain-level events (`MangaAddedEvent`, etc.).
 - **DryIoc auto-discovery** picks up both services and both repositories via DI convention scanning. No manual registration required.
 
@@ -60,7 +60,7 @@ This directory is the **manga-side parallel** of `src/NzbDrone.Core/Tv/`. Both c
 
 **Pitfall 4 ordering invariant** (10-PATTERNS section B; numbered inline comments lock the contract): **DB Update FIRST, `MangaUpdatedEvent` SECOND, `MangaEditedEvent` LAST.** Subscribers reading manga state from `IMangaRepository` in response to either event see committed values. The two-event ordering is novel — TV's analog (`Tv/SeriesService.UpdateSeries`) publishes only one event, so the question doesn't arise upstream.
 
-**TV semantic mirror (with explicit divergence):** `publishUpdatedEvent` gates the "any update including metadata refresh" signal; `triggerSeriesEdited` gates the "user-explicit edit only" signal. The parameter name `triggerSeriesEdited` preserves TV verbatim per PROJECT.md design philosophy (*preserve Sonarr's shape; diverge only where the manga domain forces us*); Phase 14 will rename it to `triggerMangaEdited` when `Tv/` deletes. Sonarr divergence note: TV's actual `UpdateSeries(Series, bool, bool)` third arg is `updateEpisodesToMatchSeason` (a season-fan-out gate, NOT a second event-publish gate); manga's 3-arg overload introduces the dual-publish pattern explicitly because the controller-PUT path needs to opt into both events without forking the controller call site. Documented in the per-method comment block on the 3-arg method.
+**TV semantic mirror (with explicit divergence):** `publishUpdatedEvent` gates the "any update including metadata refresh" signal; `triggerSeriesEdited` gates the "user-explicit edit only" signal. The parameter name `triggerSeriesEdited` preserves TV verbatim per PROJECT.md design philosophy (*preserve Mangarr's shape; diverge only where the manga domain forces us*); Phase 14 will rename it to `triggerMangaEdited` when `Tv/` deletes. Mangarr divergence note: TV's actual `UpdateSeries(Series, bool, bool)` third arg is `updateEpisodesToMatchSeason` (a season-fan-out gate, NOT a second event-publish gate); manga's 3-arg overload introduces the dual-publish pattern explicitly because the controller-PUT path needs to opt into both events without forking the controller call site. Documented in the per-method comment block on the 3-arg method.
 
 **BL-09 fix preservation:** Both overloads route through the 3-arg method's Find-first existence guard. If `_mangaRepository.Find(manga.Id)` returns null, the method throws `ModelNotFoundException` BEFORE Dapper's UPDATE silently no-ops on the missing row. Without this guard, SignalR would broadcast a phantom event the UI then re-fetches and 404s on. Tests cover the throw path explicitly.
 
@@ -68,7 +68,7 @@ This directory is the **manga-side parallel** of `src/NzbDrone.Core/Tv/`. Both c
 
 **Test coverage:** `src/NzbDrone.Core.Test/Manga/MangaServiceFixture.cs` (Plan 10-07 introduced — 6 NUnit tests covering the (`publishUpdatedEvent`, `triggerSeriesEdited`) matrix + 2-arg delegation contract + BL-09 `ModelNotFoundException` + `ArgumentNullException` paths). All 6 green; full `MangaTests` namespace 47/47 green; full solution build clean.
 
-**Caller-side opt-in status — Option B locked:** Plan 10-07 chose **Option B** (per W4 revision iteration 1; D-10-08 audit). `MangaController` PUT (`src/Sonarr.Api.V5/Manga/MangaController.cs:144`) calls the 3-arg overload directly with `publishUpdatedEvent: true, triggerSeriesEdited: true`. The legacy 2-arg call site `_mangaService.UpdateManga(existing)` was removed from the controller — verified by `grep` against the file. Plan 10-05's `IHandle<MangaEditedEvent>` consumer is therefore wired end-to-end on the UI single-edit path on first deploy of the Plan 10-07 commits; no follow-up plan needed to flip the switch.
+**Caller-side opt-in status — Option B locked:** Plan 10-07 chose **Option B** (per W4 revision iteration 1; D-10-08 audit). `MangaController` PUT (`src/Mangarr.Api.V5/Manga/MangaController.cs:144`) calls the 3-arg overload directly with `publishUpdatedEvent: true, triggerSeriesEdited: true`. The legacy 2-arg call site `_mangaService.UpdateManga(existing)` was removed from the controller — verified by `grep` against the file. Plan 10-05's `IHandle<MangaEditedEvent>` consumer is therefore wired end-to-end on the UI single-edit path on first deploy of the Plan 10-07 commits; no follow-up plan needed to flip the switch.
 
 ## Manga Adaptation Notes
 
@@ -83,7 +83,7 @@ This directory is the **manga-side parallel** of `src/NzbDrone.Core/Tv/`. Both c
 - **Table mapping**: `src/NzbDrone.Core/Datastore/TableMapping.cs:139-140` registers `Manga` + `Chapter` entities. Dapper handles `Guid?` round-trips through the global `GuidConverter` registered for `Users.Identifier` (Phase 1 baseline).
 - **Parser tree**: `src/NzbDrone.Core/Parser/Manga/CLAUDE.md` (parser side) — `MangaParsingService.Map` consumes `IChapterService.FindByMangaAndNumber` per D-03.
 - **Metadata sources**: `src/NzbDrone.Core/MetadataSource/CLAUDE.md` (Plan 02-05+) — providers read/write Manga via `IMangaService`.
-- **Sonarr analogs**: `src/NzbDrone.Core/Tv/CLAUDE.md` — domain-model precedents this directory mirrors.
+- **Mangarr analogs**: `src/NzbDrone.Core/Tv/CLAUDE.md` — domain-model precedents this directory mirrors.
 - **Phase 10 Plan 10-07 SUMMARY** (3-arg `UpdateManga` overload + Option B controller opt-in): [`.planning/phases/10-events-and-subscribers-sweep/10-07-SUMMARY.md`](../../../.planning/phases/10-events-and-subscribers-sweep/10-07-SUMMARY.md).
 
 ---

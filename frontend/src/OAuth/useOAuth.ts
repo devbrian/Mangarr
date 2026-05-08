@@ -3,7 +3,7 @@ import { type Error } from 'App/State/AppSectionState';
 import createAjaxRequest from 'Utilities/createAjaxRequest';
 import requestAction from 'Utilities/requestAction';
 
-const callbackUrl = `${window.location.origin}${window.Sonarr.urlBase}/oauth.html`;
+const callbackUrl = `${window.location.origin}${window.Mangarr.urlBase}/oauth.html`;
 
 interface OAuthResult {
   [key: string]: string | number | boolean;

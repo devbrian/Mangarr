@@ -46,6 +46,6 @@ The `MediaManagement.tsx` page now renders the existing `<Naming />` (TV Episode
 
 - [../CLAUDE.md (Settings)](../../CLAUDE.md)
 - [../../../typings/CLAUDE.md](../../../typings/CLAUDE.md)
-- [../../../../src/Sonarr.Api.V5/CLAUDE.md](../../../../src/Sonarr.Api.V5/CLAUDE.md)
-- Phase 5 Plan 05-06 backend: [src/Sonarr.Api.V5/Config/MangaNamingConfigController.cs](../../../../src/Sonarr.Api.V5/Config/MangaNamingConfigController.cs)
+- [../../../../src/Mangarr.Api.V5/CLAUDE.md](../../../../src/Mangarr.Api.V5/CLAUDE.md)
+- Phase 5 Plan 05-06 backend: [src/Mangarr.Api.V5/Config/MangaNamingConfigController.cs](../../../../src/Mangarr.Api.V5/Config/MangaNamingConfigController.cs)
 - Phase 5 D-13..D-16 preset locks: [.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md](../../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md)

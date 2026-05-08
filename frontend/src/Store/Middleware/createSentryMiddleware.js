@@ -65,7 +65,7 @@ export default function createSentryMiddleware() {
     version,
     release,
     isProduction
-  } = window.Sonarr;
+  } = window.Mangarr;
 
   if (!analytics) {
     return;

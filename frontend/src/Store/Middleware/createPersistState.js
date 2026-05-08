@@ -102,7 +102,7 @@ const config = {
   slicer,
   serialize,
   merge,
-  key: window.Sonarr.instanceName.toLowerCase().replace(/ /g, '_') || KEY
+  key: window.Mangarr.instanceName.toLowerCase().replace(/ /g, '_') || KEY
 };
 
 export default function createPersistState() {

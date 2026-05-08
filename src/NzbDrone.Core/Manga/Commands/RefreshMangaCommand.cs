@@ -6,7 +6,7 @@ using NzbDrone.Core.Messaging.Commands;
 namespace NzbDrone.Core.Manga.Commands
 {
     /// <summary>
-    /// Verbatim manga-side mirror of Sonarr's <c>RefreshSeriesCommand</c> (DELETED Phase 15)
+    /// Verbatim manga-side mirror of Mangarr's <c>RefreshSeriesCommand</c> (DELETED Phase 15)
     /// per D-18. Submitting an empty <see cref="MangaIds"/> list refreshes ALL manga;
     /// submitting one or more IDs refreshes only those targets.
     /// </summary>
@@ -14,8 +14,8 @@ namespace NzbDrone.Core.Manga.Commands
     {
         // WR-18: this property is INTENTIONALLY a setter-only alias (the getter
         // returns 0 by design and the [JsonIgnore(WhenWritingDefault)] suppresses
-        // it on serialization). It mirrors the Sonarr RefreshSeriesCommand.SeriesId
-        // pattern verbatim per the project's \"preserve Sonarr's shape\" design
+        // it on serialization). It mirrors the Mangarr RefreshSeriesCommand.SeriesId
+        // pattern verbatim per the project's \"preserve Mangarr's shape\" design
         // philosophy (CLAUDE.md). Behavior:
         //   * Inbound JSON `{ "MangaId": 5 }` → adds 5 to MangaIds (only when the
         //     MangaIds list arrives empty — first-write-wins so a body with both
@@ -24,7 +24,7 @@ namespace NzbDrone.Core.Manga.Commands
         //     WhenWritingDefault suppresses it).
         // Inbound bodies sending BOTH `MangaId` and `MangaIds` get JSON-property-
         // order-dependent behavior — the setter fires once, in arrival order, and
-        // appends only when MangaIds is still empty. Same caveat as Sonarr's
+        // appends only when MangaIds is still empty. Same caveat as Mangarr's
         // SeriesId pattern; downstream consumers should send one or the other,
         // not both.
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]

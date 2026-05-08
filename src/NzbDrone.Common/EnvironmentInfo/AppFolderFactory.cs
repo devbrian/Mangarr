@@ -6,6 +6,11 @@ using NzbDrone.Common.Exceptions;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Common.Instrumentation;
 
+// Sonarr divergence: Phase 15 D-08 — default data dir flipped Sonarr → Mangarr
+// (~/.config/Mangarr Linux/Mac, C:\ProgramData\Mangarr Windows). Legacy NzbDrone migrator path
+// preserved verbatim because that's documented Sonarr-historical state, not Sonarr-the-fork-source.
+// Pre-v1.0.0 fresh-DB rule covers any user-side migration concern (no Sonarr-managing-manga users
+// per Phase 0 lock).
 namespace NzbDrone.Common.EnvironmentInfo
 {
     public interface IAppFolderFactory
@@ -43,7 +48,7 @@ namespace NzbDrone.Common.EnvironmentInfo
             }
             catch (UnauthorizedAccessException)
             {
-                throw new SonarrStartupException("Cannot create AppFolder, Access to the path {0} is denied", _appFolderInfo.AppDataFolder);
+                throw new MangarrStartupException("Cannot create AppFolder, Access to the path {0} is denied", _appFolderInfo.AppDataFolder);
             }
 
             if (OsInfo.IsWindows)
@@ -53,7 +58,7 @@ namespace NzbDrone.Common.EnvironmentInfo
 
             if (!_diskProvider.FolderWritable(_appFolderInfo.AppDataFolder))
             {
-                throw new SonarrStartupException("AppFolder {0} is not writable", _appFolderInfo.AppDataFolder);
+                throw new MangarrStartupException("AppFolder {0} is not writable", _appFolderInfo.AppDataFolder);
             }
 
             InitializeMonoApplicationData();
@@ -77,7 +82,7 @@ namespace NzbDrone.Common.EnvironmentInfo
             {
                 if (OsInfo.IsOsx)
                 {
-                    var userAppDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile, Environment.SpecialFolderOption.DoNotVerify), ".config", "Sonarr");
+                    var userAppDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile, Environment.SpecialFolderOption.DoNotVerify), ".config", "Mangarr");
 
                     if (_diskProvider.FolderExists(userAppDataFolder) && !_diskProvider.FileExists(_appFolderInfo.GetConfigPath()))
                     {
@@ -145,7 +150,7 @@ namespace NzbDrone.Common.EnvironmentInfo
             catch (Exception ex)
             {
                 _logger.Debug(ex, ex.Message);
-                throw new SonarrStartupException(ex, "Unable to migrate AppData folder from {0} to {1}. Migrate manually", _appFolderInfo.LegacyAppDataFolder, _appFolderInfo.AppDataFolder);
+                throw new MangarrStartupException(ex, "Unable to migrate AppData folder from {0} to {1}. Migrate manually", _appFolderInfo.LegacyAppDataFolder, _appFolderInfo.AppDataFolder);
             }
         }
 
@@ -224,7 +229,7 @@ namespace NzbDrone.Common.EnvironmentInfo
         {
             if (OsInfo.IsNotWindows && _diskProvider.FolderExists(_appFolderInfo.AppDataFolder))
             {
-                _diskProvider.DeleteFile(Path.Combine(_appFolderInfo.AppDataFolder, "sonarr.pid"));
+                _diskProvider.DeleteFile(Path.Combine(_appFolderInfo.AppDataFolder, "mangarr.pid"));
             }
         }
     }

@@ -3,7 +3,7 @@ using NzbDrone.Core.MediaCover;
 
 namespace Mangarr.Api.V5.Manga;
 
-// Phase 2 developer-surface DTO per Plan 02-10. Mirrors Sonarr's SeriesResource shape
+// Phase 2 developer-surface DTO per Plan 02-10. Mirrors Mangarr's SeriesResource shape
 // (Mangarr.Api.V5/Series/SeriesResource.cs) but diverges on cross-source ID typing per
 // 02-CONTEXT.md specifics: SINGULAR `Guid? MangaDexId`, `int? MalId`, `int? AniListId`
 // (manga is 1:1 across sources, unlike anime which uses HashSets on Series).

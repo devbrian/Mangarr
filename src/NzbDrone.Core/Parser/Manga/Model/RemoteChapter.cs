@@ -7,7 +7,7 @@ using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Parser.Manga.Model
 {
-    // Resolver output DTO. Mirrors Sonarr's RemoteEpisode shape (Parser/Model/
+    // Resolver output DTO. Mirrors Mangarr's RemoteEpisode shape (Parser/Model/
     // RemoteEpisode.cs) — pairs the parsed release info with the resolved Manga
     // aggregate + the existing Chapter rows that the indexer pipeline will
     // dedup/grab against (Phase 3 hook point per 02-CONTEXT.md D-03).
@@ -32,7 +32,7 @@ namespace NzbDrone.Core.Parser.Manga.Model
         public List<Chapter> Chapters { get; set; }
 
         // Phase 5 — CF augmentation per Phase 5 RESEARCH §"RemoteChapter extensions".
-        // Mirrors RemoteEpisode.CustomFormats / .CustomFormatScore (Sonarr precedent).
+        // Mirrors RemoteEpisode.CustomFormats / .CustomFormatScore (Mangarr precedent).
         // Populated by MangaDownloadDecisionMaker.GetDecisionForReport (Wave 2 plan 05-04).
         public List<CustomFormat> CustomFormats { get; set; }
         public int CustomFormatScore { get; set; }

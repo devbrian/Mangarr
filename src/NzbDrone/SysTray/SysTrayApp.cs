@@ -29,8 +29,8 @@ namespace NzbDrone.SysTray
             _trayMenu.Items.Add(new ToolStripSeparator());
             _trayMenu.Items.Add(new ToolStripMenuItem("Exit", null, OnExit));
 
-            _trayIcon.Text = string.Format("Sonarr - {0}", BuildInfo.Version);
-            _trayIcon.Icon = Properties.Resources.Sonarr;
+            _trayIcon.Text = string.Format("Mangarr - {0}", BuildInfo.Version);
+            _trayIcon.Icon = Properties.Resources.Mangarr;
 
             _trayIcon.ContextMenuStrip = _trayMenu;
             _trayIcon.Visible = true;

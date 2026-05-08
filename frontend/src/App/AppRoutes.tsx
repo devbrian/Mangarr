@@ -56,7 +56,7 @@ function AppRoutes() {
 
       <Route exact={true} path="/" component={MangaIndex} />
 
-      {window.Sonarr.urlBase && (
+      {window.Mangarr.urlBase && (
         <Route
           exact={true}
           path="/"

@@ -19,7 +19,7 @@ This is **infrastructure** — media-agnostic. The directory survives the Phase 
 
 ## Patterns / Conventions
 
-### Anti-pattern C — `defaultTasks` vs migration seed (canonical Sonarr-consistency-audit gate)
+### Anti-pattern C — `defaultTasks` vs migration seed (canonical Mangarr-consistency-audit gate)
 
 Scheduled commands MUST be registered in `TaskManager.defaultTasks` at runtime (in the C# `List<ScheduledTask>` initializer inside `Handle(ApplicationStartedEvent)`), NOT seeded via Migration 001 `Insert.IntoTable("ScheduledTasks")`. The structural fixture [`TaskManagerDefaultTasksFixture`](../../NzbDrone.Core.Test/JobTests/TaskManagerDefaultTasksFixture.cs) enforces both halves:
 

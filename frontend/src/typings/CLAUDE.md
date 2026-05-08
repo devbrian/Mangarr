@@ -86,4 +86,4 @@ TypeScript interface definitions mirroring the backend REST API resources (DTOs)
 - [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Manga type (Phase 7 Plan 07-03)
 - [../Chapter/CLAUDE.md](../Chapter/CLAUDE.md) — Chapter type (Phase 7 Plan 07-03)
 - [../AddManga/CLAUDE.md](../AddManga/CLAUDE.md) — AddManga flow types (Phase 7 Plan 07-03)
-- [../../../src/Sonarr.Api.V5/CLAUDE.md](../../../src/Sonarr.Api.V5/CLAUDE.md) — Backend resources these types mirror
+- [../../../src/Mangarr.Api.V5/CLAUDE.md](../../../src/Mangarr.Api.V5/CLAUDE.md) — Backend resources these types mirror

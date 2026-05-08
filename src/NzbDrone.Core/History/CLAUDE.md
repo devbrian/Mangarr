@@ -43,4 +43,4 @@ Phase 8 collapses the sibling tables into a unified `History` namespace when dom
 - [../Messaging/CLAUDE.md](../Messaging/CLAUDE.md) — Events that history consumes
 - [../DecisionEngine/CLAUDE.md](../DecisionEngine/CLAUDE.md) — `AlreadyImportedSpecification` (TV) + `AlreadyImportedChapterSpecification` (manga) consume the history
 - [../Datastore/CLAUDE.md](../Datastore/CLAUDE.md) — `TableMapping.cs` registers the sibling tables
-- [../../Sonarr.Api.V5/CLAUDE.md](../../Sonarr.Api.V5/CLAUDE.md) — `Manga/History/ChapterHistoryController.cs` exposes the manga history over REST (HISTORY-01..03)
+- [../../Mangarr.Api.V5/CLAUDE.md](../../Mangarr.Api.V5/CLAUDE.md) — `Manga/History/ChapterHistoryController.cs` exposes the manga history over REST (HISTORY-01..03)

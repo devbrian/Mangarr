@@ -54,7 +54,7 @@ Startup.Configure(IApplicationBuilder app)
      │  - UseUrlBase / UseLogging / UseCacheHeaders / UseStartingUp
      │  - UseAuthentication / UseAuthorization
      │  - Map controllers + SignalR hub
-     │  - Map static frontend (mappers from Sonarr.Http.Frontend)
+     │  - Map static frontend (mappers from Mangarr.Http.Frontend)
      │
      ▼
 WebHost.Run() — Kestrel listens on configured port (8989 default)
@@ -129,7 +129,7 @@ public void Configure(IApplicationBuilder app)
 
 ## Single-Instance Policy
 
-Uses a named mutex (`Sonarr-Mutex`). If a second instance starts with `--terminate`, it signals the first to exit; otherwise it errors out.
+Uses a named mutex (`Mangarr-Mutex`). If a second instance starts with `--terminate`, it signals the first to exit; otherwise it errors out.
 
 ## ApplicationModes
 
@@ -144,14 +144,14 @@ Uses a named mutex (`Sonarr-Mutex`). If a second instance starts with `--termina
 ## Manga Adaptation Notes
 
 This project is mostly **infrastructure** and reusable as-is. Items to revisit:
-- The mutex name `Sonarr-Mutex` — change to `Mangarr-Mutex` when rebranding (otherwise Sonarr installs would conflict).
+- The mutex name `Mangarr-Mutex` — change to `Mangarr-Mutex` when rebranding (otherwise Mangarr installs would conflict).
 - `BrowserService` opens `http://localhost:8989` — same path, no change needed.
-- Default API path prefix and project naming are still `Sonarr.*` — these will rename in a future migration step.
+- Default API path prefix and project naming are still `Mangarr.*` — these will rename in a future migration step.
 
 ## Cross-References
 
 - [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) — Overall architecture
 - [NzbDrone.Console/CLAUDE.md](../NzbDrone.Console/CLAUDE.md) — Calls `Bootstrap.Start`
-- [Sonarr.Http/CLAUDE.md](../Sonarr.Http/CLAUDE.md) — Middleware + REST base used here
-- [Sonarr.Api.V5/CLAUDE.md](../Sonarr.Api.V5/CLAUDE.md) — Controllers mapped via `MapControllers`
+- [Mangarr.Http/CLAUDE.md](../Mangarr.Http/CLAUDE.md) — Middleware + REST base used here
+- [Mangarr.Api.V5/CLAUDE.md](../Mangarr.Api.V5/CLAUDE.md) — Controllers mapped via `MapControllers`
 - [NzbDrone.SignalR/CLAUDE.md](../NzbDrone.SignalR/CLAUDE.md) — Hub registered here

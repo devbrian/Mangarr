@@ -11,7 +11,7 @@ interface PageContentProps {
 }
 
 // Sonarr divergence: per Phase 7 Plan 07-11 + UI-01 — browser tab title default — see DIVERGENCE.md.
-// Falls back to "Mangarr" when `window.Sonarr.instanceName` is empty/undefined so per-page
+// Falls back to "Mangarr" when `window.Mangarr.instanceName` is empty/undefined so per-page
 // titles still read "<Page> - Mangarr" not "<Page> - " on a fresh install.
 const PAGE_DEFAULT_TITLE = 'Mangarr';
 
@@ -20,7 +20,7 @@ function PageContent({
   title,
   children,
 }: PageContentProps) {
-  const instance = window.Sonarr.instanceName || PAGE_DEFAULT_TITLE;
+  const instance = window.Mangarr.instanceName || PAGE_DEFAULT_TITLE;
 
   return (
     <ErrorBoundary errorComponent={PageContentError}>

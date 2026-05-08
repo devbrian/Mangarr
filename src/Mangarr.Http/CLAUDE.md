@@ -1,8 +1,8 @@
-# Sonarr.Http
+# Mangarr.Http
 
 ## Purpose
 
-HTTP infrastructure layer — sits between API controllers (`Sonarr.Api.V5`/`V3`) and the host. Provides:
+HTTP infrastructure layer — sits between API controllers (`Mangarr.Api.V5`/`V3`) and the host. Provides:
 
 - REST controller / resource base classes
 - Authentication handlers (cookie / API key / basic / OAuth)
@@ -11,7 +11,7 @@ HTTP infrastructure layer — sits between API controllers (`Sonarr.Api.V5`/`V3`
 - Frontend serving (mappers for `index.html`, login, static assets, covers, manifest)
 - Validation utilities + dynamic schema generation for plugin forms
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Sonarr.Http\`
+**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Http\`
 
 **File count**: ~70 .cs files across 10 namespaces.
 
@@ -158,11 +158,11 @@ Auth method (None / Forms / Basic) and required scope (Disabled / Local / Enable
 
 ## Manga Adaptation Notes
 
-This project is **infrastructure-only** and reusable as-is. The only Sonarr-specific bit is the project name itself. Controllers in `Sonarr.Api.V5` are the things that need conceptual renaming.
+This project is **infrastructure-only** and reusable as-is. The only Mangarr-specific bit is the project name itself. Controllers in `Mangarr.Api.V5` are the things that need conceptual renaming.
 
 ## Cross-References
 
 - [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) — Architecture
-- [Sonarr.Api.V5/CLAUDE.md](../Sonarr.Api.V5/CLAUDE.md) — Controllers using these bases
-- [Sonarr.Api.V3/CLAUDE.md](../Sonarr.Api.V3/CLAUDE.md) — Legacy controllers
+- [Mangarr.Api.V5/CLAUDE.md](../Mangarr.Api.V5/CLAUDE.md) — Controllers using these bases
+- [Mangarr.Api.V3/CLAUDE.md](../Mangarr.Api.V3/CLAUDE.md) — Legacy controllers
 - [NzbDrone.Host/CLAUDE.md](../NzbDrone.Host/CLAUDE.md) — Hosts this middleware

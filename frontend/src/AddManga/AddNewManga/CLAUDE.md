@@ -39,11 +39,11 @@ User picks Root Folder, Monitor, TranslationProfile, CustomFormatProfile,
 Navigate to /manga (library) or /manga/:titleSlug (detail page) — Plan 07-05
 ```
 
-## Form-Field Divergence (Sonarr -> Mangarr)
+## Form-Field Divergence (Mangarr -> Mangarr)
 
 Per Phase 7 D-04 + Phase 6 D-03 + Phase 6 D-06.
 
-| Sonarr field | Manga field | Source endpoint | Notes |
+| Mangarr field | Manga field | Source endpoint | Notes |
 |--------------|-------------|------------------|-------|
 | `rootFolderPath` | `rootFolderPath` | `/api/v5/rootfolder` | unchanged |
 | `monitor` (11-value SeriesMonitor) | `monitor` (5-value MangaMonitor) | inline values array | Phase 6 D-03 |
@@ -77,12 +77,12 @@ copy bundle). Until then, `translate()` falls back to the key string.
 - `MangaInImportListExclusions` / `ViewMangaOnSource` / `CountChapters` /
   `Ongoing` / `Hiatus` / `Cancelled` / `Completed` (search-result chips)
 
-Inherited (Sonarr already ships these keys): `RootFolder`, `Monitor`,
+Inherited (Mangarr already ships these keys): `RootFolder`, `Monitor`,
 `MonitoringOptions`, `Tags`, `AlreadyInYourLibrary`.
 
 ## Patterns / Conventions
 
-- **Debounce 500ms** on the search input (Sonarr ships 300ms; manga uses 500ms
+- **Debounce 500ms** on the search input (Mangarr ships 300ms; manga uses 500ms
   because MangaDex lookups are slower than TVDB — UI-SPEC §AddManga Layout
   Contract).
 - **Cover URL** flows through `manga.images[].url` (already rewritten to
@@ -103,8 +103,8 @@ Inherited (Sonarr already ships these keys): `RootFolder`, `Monitor`,
 - **T-07-12 (XSS via lookup term)** — React JSX default escapes `{title}`,
   `{overview}`, etc. No `dangerouslySetInnerHTML`. Safe.
 - **T-07-13 (Lookup error disclosure)** — `getErrorMessage(error)` is the
-  Sonarr-canonical sanitizer; messages are surface-safe.
-- **T-07-14 (Anonymous POST)** — Inherited Sonarr auth middleware (X-Api-Key
+  Mangarr-canonical sanitizer; messages are surface-safe.
+- **T-07-14 (Anonymous POST)** — Inherited Mangarr auth middleware (X-Api-Key
   + cookie session) protects `POST /api/v5/manga`; verified Phase 2.
 
 ## Cross-References
@@ -113,8 +113,8 @@ Inherited (Sonarr already ships these keys): `RootFolder`, `Monitor`,
 - [../AddManga.ts](../AddManga.ts) — `AddMangaResult` + `AddMangaPayload` types.
 - [../addMangaOptionsStore.ts](../addMangaOptionsStore.ts) — zustand store backing the form's persisted defaults.
 - [../MangaMonitoringOptionsPopoverContent.tsx](../MangaMonitoringOptionsPopoverContent.tsx) — Help-popover content for the Monitor dropdown.
-- [../../AddSeries/AddNewSeries/](../../AddSeries/AddNewSeries/) — Sonarr analog subtree (Phase 8 cleanup target).
+- [../../AddSeries/AddNewSeries/](../../AddSeries/AddNewSeries/) — Mangarr analog subtree (Phase 8 cleanup target).
 - [../../Manga/useManga.ts](../../Manga/useManga.ts) — `useManga` for "already in library" check.
-- [../../../../src/Sonarr.Api.V5/Manga/MangaController.cs](../../../../src/Sonarr.Api.V5/Manga/MangaController.cs) — Backend POST /api/v5/manga.
+- [../../../../src/Mangarr.Api.V5/Manga/MangaController.cs](../../../../src/Mangarr.Api.V5/Manga/MangaController.cs) — Backend POST /api/v5/manga.
 - [../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-06-PLAN.md](../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-06-PLAN.md) — Plan that created this subtree.
 - [../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-UI-SPEC.md](../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-UI-SPEC.md) — UI contract for §AddManga, §Empty states, §Form / monitor labels.

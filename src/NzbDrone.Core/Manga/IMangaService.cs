@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace NzbDrone.Core.Manga
 {
-    // Service contract for Manga aggregate. Mirrors Sonarr's ISeriesService
+    // Service contract for Manga aggregate. Mirrors Mangarr's ISeriesService
     // (Tv/SeriesService.cs:12-37) shape, with manga-domain divergence:
     //   * FindByTvdbId etc. → FindByMangaDexId / FindByMalId / FindByAniListId
     //   * No IBuildSeriesPaths injection (manga path-build is bespoke; AddMangaService

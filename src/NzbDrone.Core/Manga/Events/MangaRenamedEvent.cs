@@ -5,7 +5,7 @@ using NzbDrone.Core.MediaFiles;
 namespace NzbDrone.Core.Manga.Events
 {
     // POCO event published by RenameChapterFileService after a successful per-manga
-    // rename pass. Mirrors Sonarr's SeriesRenamedEvent (MediaFiles/Events/SeriesRenamedEvent.cs)
+    // rename pass. Mirrors Mangarr's SeriesRenamedEvent (MediaFiles/Events/SeriesRenamedEvent.cs)
     // verbatim shape — carries the manga plus the list of renamed chapter files so
     // subscribers (notifications, search recheck, history) can react.
     //

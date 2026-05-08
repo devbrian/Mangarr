@@ -36,7 +36,7 @@ Port of `keiyoushi/extensions-source/src/en/comix/Comix.kt` (Apache-2.0; PR #116
 
 ## Cross-References
 
-- Sonarr analog (closest): `src/NzbDrone.Core/Indexers/Nyaa/Nyaa.cs` (single-source HttpIndexerBase plugin)
+- Mangarr analog (closest): `src/NzbDrone.Core/Indexers/Nyaa/Nyaa.cs` (single-source HttpIndexerBase plugin)
 - Phase 1 base: `src/NzbDrone.Core/Indexers/Http/HttpAggregatorBase.cs` (rate budget + honest UA)
 - Plan 03-04 sibling: `src/NzbDrone.Core/Indexers/MangaDex/CLAUDE.md` (BEDROCK shape; Comix is the FIRST keiyoushi-derived port)
 - Plan 03-02 contract: manga overloads on IIndexer + ReleaseInfo extension

@@ -64,7 +64,7 @@ The score is then consumed by:
 
 The custom-format **architecture is fully reusable**. Specifications need adaptation:
 
-| Sonarr Spec | Manga Equivalent |
+| Mangarr Spec | Manga Equivalent |
 |-------------|-------------------|
 | `ResolutionSpecification` (480p / 720p / 1080p) | DPI tier or "high quality" / "low quality" / "raw" |
 | `SourceSpecification` (BluRay / WebRip) | Source ("Official" / "Scan" / "Raw" / "Magazine") |

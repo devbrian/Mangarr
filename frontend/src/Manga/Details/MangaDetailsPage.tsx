@@ -39,7 +39,7 @@ function MangaDetailsPage() {
     ) {
       // Phase 8 cutover swaps /manga → /; until then the manga library page
       // stays at /manga.
-      history.push(`${window.Sonarr.urlBase}/manga`);
+      history.push(`${window.Mangarr.urlBase}/manga`);
     }
   }, [mangaIndex, previousIndex, history]);
 

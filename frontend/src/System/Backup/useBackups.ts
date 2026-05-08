@@ -76,12 +76,12 @@ export const useRestoreBackupUpload = () => {
   >({
     mutationFn: async (formData: FormData) => {
       const response = await fetch(
-        `${window.Sonarr.urlBase}/api/v5/system/backup/restore/upload`,
+        `${window.Mangarr.urlBase}/api/v5/system/backup/restore/upload`,
         {
           method: 'POST',
           headers: {
-            'X-Api-Key': window.Sonarr.apiKey,
-            'X-Sonarr-Client': 'Sonarr',
+            'X-Api-Key': window.Mangarr.apiKey,
+            'X-Mangarr-Client': 'Mangarr',
             // Don't set Content-Type, let browser set it with boundary for multipart/form-data
           },
           body: formData,

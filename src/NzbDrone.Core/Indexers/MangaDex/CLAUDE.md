@@ -35,7 +35,7 @@ documents the distinction). Shares `SourceKey="mangadex"` rate budget with the P
 
 ## Cross-References
 
-- Sonarr analog (closest): `src/NzbDrone.Core/Indexers/Nyaa/Nyaa.cs` (single-source HttpIndexerBase plugin)
+- Mangarr analog (closest): `src/NzbDrone.Core/Indexers/Nyaa/Nyaa.cs` (single-source HttpIndexerBase plugin)
 - Phase 1 base: `src/NzbDrone.Core/Indexers/Http/HttpAggregatorBase.cs` (rate budget + honest UA)
 - Phase 2 sibling: `src/NzbDrone.Core/MetadataSource/MangaDex/CLAUDE.md` (shared SourceKey + UA-hidden pattern)
 - Plan 03-02 contract: manga overloads on IIndexer + ReleaseInfo extension

@@ -1,11 +1,11 @@
 {
   "openapi": "3.0.4",
   "info": {
-    "title": "Sonarr",
-    "description": "Sonarr API docs - The v5 API docs apply to Sonarr v5 only.",
+    "title": "Mangarr",
+    "description": "Mangarr API docs - The v5 API docs apply to Mangarr v5 only.",
     "license": {
       "name": "GPL-3.0",
-      "url": "https://github.com/Sonarr/Sonarr/blob/develop/LICENSE"
+      "url": "https://github.com/Mangarr/Mangarr/blob/develop/LICENSE"
     },
     "version": "5.0.0"
   },

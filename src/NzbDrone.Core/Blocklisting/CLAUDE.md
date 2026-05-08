@@ -62,4 +62,4 @@ Phase 8 collapses the sibling tables into a unified `Blocklisting` namespace whe
 - [../Messaging/CLAUDE.md](../Messaging/CLAUDE.md) — Events that blocklisting consumes
 - [../DecisionEngine/CLAUDE.md](../DecisionEngine/CLAUDE.md) — `BlocklistSpecification` (TV) + manga `BlocklistSpecification` (Plan 06-04 STUB body replacement) consume the blocklist
 - [../Download/CLAUDE.md](../Download/CLAUDE.md) — `Download/Manga/AutoRetryOrchestrator.cs` (Plan 06-08) subscribes to `MangaBlocklistAddedEvent` (NOT `ChapterDownloadFailedEvent` — anti-race contract)
-- [../../Sonarr.Api.V5/CLAUDE.md](../../Sonarr.Api.V5/CLAUDE.md) — `Manga/Blocklist/MangaBlocklistController.cs` exposes the manga blocklist over REST (BLOCK-01..02)
+- [../../Mangarr.Api.V5/CLAUDE.md](../../Mangarr.Api.V5/CLAUDE.md) — `Manga/Blocklist/MangaBlocklistController.cs` exposes the manga blocklist over REST (BLOCK-01..02)

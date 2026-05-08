@@ -6,7 +6,7 @@ using NzbDrone.Core.Parser.Manga.Model;
 
 namespace NzbDrone.Core.Parser.Manga
 {
-    // DB-mapping layer for the Parser/Manga tree. Mirrors Sonarr's IParsingService /
+    // DB-mapping layer for the Parser/Manga tree. Mirrors Mangarr's IParsingService /
     // ParsingService precedent (Parser/ParsingService.cs:14) per 02-CONTEXT.md D-03;
     // the TV peer stays untouched until Phase 8.
     //
