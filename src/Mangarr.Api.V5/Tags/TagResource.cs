@@ -1,5 +1,5 @@
-﻿using NzbDrone.Core.Tags;
-using Mangarr.Http.REST;
+﻿using Mangarr.Http.REST;
+using NzbDrone.Core.Tags;
 
 namespace Mangarr.Api.V5.Tags;
 

@@ -1,4 +1,3 @@
-
 // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV namespaces stripped:
 //   using NzbDrone.Core.MediaFiles.EpisodeImport; ← deleted (subtree DELETED per Plan 15-10 A2)
 //   using NzbDrone.Core.Qualities; ← deleted (Qualities/ DELETED per Plan 15-03)
@@ -13,6 +12,7 @@ public class MediaManagementSettingsResource : RestResource
     public bool AutoUnmonitorPreviouslyDownloadedEpisodes { get; set; }
     public string? RecycleBin { get; set; }
     public int RecycleBinCleanupDays { get; set; }
+
     // Sonarr divergence: Phase 15 Plan 15-10 — ProperDownloadTypes (TV Quality) stripped.
     //   public ProperDownloadTypes DownloadPropersAndRepacks { get; set; }
     public bool CreateEmptySeriesFolders { get; set; }
@@ -48,6 +48,7 @@ public static class MediaManagementConfigResourceMapper
             AutoUnmonitorPreviouslyDownloadedEpisodes = model.AutoUnmonitorPreviouslyDownloadedEpisodes,
             RecycleBin = model.RecycleBin,
             RecycleBinCleanupDays = model.RecycleBinCleanupDays,
+
             // DownloadPropersAndRepacks stripped — Plan 15-10
             CreateEmptySeriesFolders = model.CreateEmptySeriesFolders,
             DeleteEmptyFolders = model.DeleteEmptyFolders,

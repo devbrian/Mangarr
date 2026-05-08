@@ -1,7 +1,7 @@
-using System.Text.RegularExpressions;
-using FluentValidation;
 // Sonarr divergence: Phase 15 Plan 15-10 — AutoTagging/ DELETED.
 //   using NzbDrone.Core.AutoTagging; ← deleted
+using System.Text.RegularExpressions;
+using FluentValidation;
 using Mangarr.Http;
 using Mangarr.Http.REST;
 using Mangarr.Http.REST.Attributes;
@@ -15,8 +15,8 @@ using NzbDrone.SignalR;
 
 namespace Mangarr.Api.V5.Tags;
 
-[V5ApiController]
 // Sonarr divergence: Phase 15 Plan 15-10 — IHandle<AutoTagsUpdatedEvent> stripped (event DELETED).
+[V5ApiController]
 public class TagController : RestControllerWithSignalR<TagResource, Tag>,
                              IHandle<TagsUpdatedEvent>
 {

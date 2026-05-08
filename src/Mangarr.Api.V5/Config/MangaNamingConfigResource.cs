@@ -25,6 +25,7 @@ public static class MangaNamingConfigResourceMapper
             Id = model.Id,
             RenameChapters = model.RenameChapters,
             ReplaceIllegalCharacters = model.ReplaceIllegalCharacters,
+
             // Sonarr divergence: Phase 15 Plan 15-10 — ColonReplacementFormat retyped enum->int (enum DELETED).
             ColonReplacementFormat = model.ColonReplacementFormat,
             CustomColonReplacementFormat = model.CustomColonReplacementFormat,
@@ -41,6 +42,7 @@ public static class MangaNamingConfigResourceMapper
     {
         target.RenameChapters = resource.RenameChapters;
         target.ReplaceIllegalCharacters = resource.ReplaceIllegalCharacters;
+
         // Sonarr divergence: Phase 15 Plan 15-10 — ColonReplacementFormat retyped enum->int.
         target.ColonReplacementFormat = resource.ColonReplacementFormat;
         target.CustomColonReplacementFormat = resource.CustomColonReplacementFormat ?? string.Empty;

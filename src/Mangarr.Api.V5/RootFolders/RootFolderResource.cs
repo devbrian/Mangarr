@@ -1,5 +1,5 @@
-﻿using NzbDrone.Common.Extensions;
-using Mangarr.Http.REST;
+﻿using Mangarr.Http.REST;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Core.RootFolders;
 
 namespace Mangarr.Api.V5.RootFolders;

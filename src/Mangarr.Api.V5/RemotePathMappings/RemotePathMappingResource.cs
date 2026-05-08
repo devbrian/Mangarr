@@ -1,5 +1,5 @@
-﻿using NzbDrone.Core.RemotePathMappings;
-using Mangarr.Http.REST;
+﻿using Mangarr.Http.REST;
+using NzbDrone.Core.RemotePathMappings;
 
 namespace Mangarr.Api.V5.RemotePathMappings;
 

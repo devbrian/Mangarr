@@ -1,5 +1,5 @@
-﻿using NzbDrone.Core.HealthCheck;
-using Mangarr.Http.REST;
+﻿using Mangarr.Http.REST;
+using NzbDrone.Core.HealthCheck;
 
 namespace Mangarr.Api.V5.Health;
 
