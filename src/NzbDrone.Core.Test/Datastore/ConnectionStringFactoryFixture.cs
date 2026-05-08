@@ -26,7 +26,7 @@ namespace NzbDrone.Core.Test.Datastore
                   .SetupGet(c => c.LogDbEnabled).Returns(false);
 
             // GetDatabase() / GetLogDatabase() are extension methods on IAppFolderInfo
-            // that resolve to Path.Combine(AppDataFolder, "sonarr.db" | "logs.db").
+            // that resolve to Path.Combine(AppDataFolder, "mangarr.db" | "logs.db").
             // Provide a deterministic AppDataFolder for the test.
             Mocker.GetMock<IAppFolderInfo>()
                   .SetupGet(a => a.AppDataFolder).Returns(@"C:\test\data");
