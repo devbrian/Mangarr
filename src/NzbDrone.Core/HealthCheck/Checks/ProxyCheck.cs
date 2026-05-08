@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using NLog;
-using NzbDrone.Common.Cloud;
 using NzbDrone.Common.Http;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Configuration.Events;
@@ -14,20 +13,22 @@ namespace NzbDrone.Core.HealthCheck.Checks
     [CheckOn(typeof(ConfigSavedEvent))]
     public class ProxyCheck : HealthCheckBase
     {
+        // Sonarr divergence: Phase 15 D-21 — replaced services.sonarr.tv /ping reachability check with
+        // a constant stub URL (https://www.google.com). Mangarr has no cloud service to validate against;
+        // a constant URL preserves proxy-reachability-test semantics without leaking install signal upstream.
+        // The stub URL is treated as a generic-internet reachability target; no Mangarr-managed service exists.
+        private const string ProxyReachabilityProbeUrl = "https://www.google.com";
+
         private readonly Logger _logger;
         private readonly IConfigService _configService;
         private readonly IHttpClient _client;
 
-        private readonly IHttpRequestBuilderFactory _cloudRequestBuilder;
-
-        public ProxyCheck(ISonarrCloudRequestBuilder cloudRequestBuilder, IConfigService configService, IHttpClient client, Logger logger, ILocalizationService localizationService)
+        public ProxyCheck(IConfigService configService, IHttpClient client, Logger logger, ILocalizationService localizationService)
             : base(localizationService)
         {
             _configService = configService;
             _client = client;
             _logger = logger;
-
-            _cloudRequestBuilder = cloudRequestBuilder.Services;
         }
 
         public override HealthCheck Check()
@@ -51,9 +52,8 @@ namespace NzbDrone.Core.HealthCheck.Checks
                     "#proxy-failed-resolve-ip");
             }
 
-            var request = _cloudRequestBuilder.Create()
-                .Resource("/ping")
-                .Build();
+            // Sonarr divergence: Phase 15 D-21 — replaced services.sonarr.tv /ping with constant stub URL.
+            var request = new HttpRequestBuilder(ProxyReachabilityProbeUrl).Build();
 
             try
             {

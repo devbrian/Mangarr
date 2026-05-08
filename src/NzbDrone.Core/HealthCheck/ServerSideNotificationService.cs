@@ -1,65 +1,26 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
 using NLog;
-using NzbDrone.Common.Cloud;
-using NzbDrone.Common.EnvironmentInfo;
-using NzbDrone.Common.Http;
-using NzbDrone.Common.Serializer;
-using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Localization;
 
 namespace NzbDrone.Core.HealthCheck
 {
+    // Sonarr divergence: Phase 15 D-21 — original implementation fetched server-side notifications from
+    // services.sonarr.tv/v1/notification (deprecation notices, package warnings, etc.). Mangarr has no
+    // cloud service. v1 ships with this stubbed to a no-op; v2 may reintroduce against a GitHub-hosted
+    // JSON manifest (DIST-03 alignment). Per archived 08-08 Sub-step E disposition.
     public class ServerSideNotificationService : HealthCheckBase
     {
-        private readonly IHttpClient _client;
-        private readonly ISonarrCloudRequestBuilder _cloudRequestBuilder;
-        private readonly IConfigFileProvider _configFileProvider;
         private readonly Logger _logger;
 
-        public ServerSideNotificationService(IHttpClient client, ISonarrCloudRequestBuilder cloudRequestBuilder, IConfigFileProvider configFileProvider, ILocalizationService localizationService, Logger logger)
+        public ServerSideNotificationService(ILocalizationService localizationService, Logger logger)
             : base(localizationService)
         {
-            _client = client;
-            _cloudRequestBuilder = cloudRequestBuilder;
-            _configFileProvider = configFileProvider;
             _logger = logger;
         }
 
         public override HealthCheck Check()
         {
-            var request = _cloudRequestBuilder.Services.Create()
-                .Resource("/notification")
-                .AddQueryParam("version", BuildInfo.Version)
-                .AddQueryParam("os", OsInfo.Os.ToString().ToLowerInvariant())
-                .AddQueryParam("arch", RuntimeInformation.OSArchitecture)
-                .AddQueryParam("branch", _configFileProvider.Branch)
-                .Build();
-
-            try
-            {
-                _logger.Trace("Getting notifications");
-
-                var response = _client.Execute(request);
-                var result = Json.Deserialize<List<ServerNotificationResponse>>(response.Content);
-
-                var checks = result.Select(x => new HealthCheck(GetType(),
-                    x.Type,
-                    HealthCheckReason.ServerNotification,
-                    x.Message,
-                    x.WikiUrl)).ToList();
-
-                // Only one health check is supported, services returns an ordered list, so use the first one
-                return checks.FirstOrDefault() ?? new HealthCheck(GetType());
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "Failed to retrieve notifications");
-
-                return new HealthCheck(GetType());
-            }
+            _logger.Trace("ServerSideNotificationService no-op (Mangarr has no cloud service)");
+            return new HealthCheck(GetType());
         }
     }
 
