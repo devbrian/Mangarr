@@ -137,6 +137,17 @@ export const FILTERS: Filter[] = [
       },
     ],
   },
+  {
+    key: 'not-rejected',
+    label: () => translate('NotRejected'),
+    filters: [
+      {
+        key: 'rejectionCount',
+        value: [0],
+        type: 'equal',
+      },
+    ],
+  },
 ];
 
 export const FILTER_BUILDER: FilterBuilderProp<Release>[] = [
@@ -406,18 +417,32 @@ export function getGrabPath(payload: InteractiveSearchPayload): string {
 
 const useReleases = (payload: InteractiveSearchPayload) => {
   const customFilters = useCustomFiltersList('releases');
-  const { episodeSelectedFilterKey, seasonSelectedFilterKey } =
-    useReleaseOptions();
+  const {
+    episodeSelectedFilterKey,
+    seasonSelectedFilterKey,
+    chapterSelectedFilterKey,
+    mangaSelectedFilterKey,
+  } = useReleaseOptions();
 
   const { sortKey, sortDirection } = releaseStore();
 
-  // Filter key uses the same season/episode store slots: chapter rows behave
-  // like episode rows (single-row release filter), manga rows behave like
-  // season packs (whole-manga release filter). Phase 8 may split these.
-  const selectedFilterKey =
-    'seriesId' in payload || 'mangaId' in payload
-      ? seasonSelectedFilterKey
-      : episodeSelectedFilterKey;
+  // Manga payloads route to dedicated filter slots so the chapter-scope default
+  // ('not-rejected') doesn't bleed into TV episode searches. Manga indexers
+  // (MangaDex, Comix) can fan out the whole-manga chapter list when a
+  // server-side point query is unavailable; defaulting chapter searches to
+  // 'not-rejected' hides the chapter-mismatch rejections that would otherwise
+  // dwarf the matching releases. User can toggle to 'all' to inspect rejections.
+  let selectedFilterKey: typeof episodeSelectedFilterKey;
+
+  if ('chapterId' in payload) {
+    selectedFilterKey = chapterSelectedFilterKey;
+  } else if ('mangaId' in payload) {
+    selectedFilterKey = mangaSelectedFilterKey;
+  } else if ('seriesId' in payload) {
+    selectedFilterKey = seasonSelectedFilterKey;
+  } else {
+    selectedFilterKey = episodeSelectedFilterKey;
+  }
 
   const { data, queryKey, ...result } = useApiQuery<Release[]>({
     path: getReleasePath(payload),

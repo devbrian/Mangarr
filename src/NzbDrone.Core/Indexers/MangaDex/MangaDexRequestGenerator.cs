@@ -51,21 +51,24 @@ namespace NzbDrone.Core.Indexers.MangaDex
 
         public IndexerPageableRequestChain GetSearchRequests(ChapterSearchCriteria sc)
         {
-            // Reuse the whole-manga feed; the parser filters by ChapterNumber + TranslatedLanguage
-            // client-side. MangaDex does not expose a single-chapter point query, and reusing the
-            // feed saves the SourceKey rate budget vs N point-queries — Phase 4 image-fetch is
-            // already on the same bucket and cannot afford the burst.
+            // MangaDex's GET /chapter endpoint supports simultaneous filtering by
+            // manga + chapter[] + translatedLanguage[] (verified 2026-05-08 against
+            // https://api.mangadex.org/docs/static/api.yaml). Hitting the point query
+            // returns only releases for the targeted chapter — no whole-feed fan-out,
+            // no client-side filter required. The previous "MangaDex does not expose
+            // a single-chapter point query" assumption (Phase 3 RESEARCH §612) was
+            // incorrect; the response is bounded to the requested chapter and the
+            // SourceKey rate budget is preserved (one request per chapter search).
             if (sc?.Manga?.MangaDexId == null)
             {
                 return new IndexerPageableRequestChain();
             }
 
-            return GetSearchRequests(new MangaSearchCriteria
-            {
-                Manga = sc.Manga,
-                Chapters = sc.Chapters,
-                PreferredLanguages = sc.PreferredLanguages
-            });
+            var url = Api?.BuildChapterPointQueryUrl(sc.Manga.MangaDexId.Value, sc.ChapterNumber, sc.PreferredLanguages)
+                ?? $"{Settings.BaseUrl.TrimEnd('/')}/chapter?manga={sc.Manga.MangaDexId.Value:D}&chapter[]={System.Net.WebUtility.UrlEncode(sc.ChapterNumber.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))}&order[publishAt]=desc&limit=100&includes[]=scanlation_group&includes[]=manga&contentRating[]=safe&contentRating[]=suggestive&translatedLanguage[]=en";
+            var chain = new IndexerPageableRequestChain();
+            chain.Add(new[] { new IndexerRequest(url, HttpAccept.Json) });
+            return chain;
         }
 
         // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-shape GetSearchRequests

@@ -1658,6 +1658,7 @@
   "NotificationsValidationUnableToSendTestMessageApiResponse": "Unable to send test message. Response from API: {error}",
   "NotificationTriggers": "Notification Triggers",
   "NotificationTriggersHelpText": "Select which events should trigger this notification",
+  "NotRejected": "Not Rejected",
   "NotSeasonPack": "Not Season Pack",
   "NoUpdatesAreAvailable": "No updates are available",
   "NzbgetHistoryItemMessage": "PAR Status: {parStatus} - Unpack Status: {unpackStatus} - Move Status: {moveStatus} - Script Status: {scriptStatus} - Delete Status: {deleteStatus} - Mark Status: {markStatus}",
