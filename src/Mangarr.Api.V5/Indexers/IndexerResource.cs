@@ -12,7 +12,10 @@ public class IndexerResource : ProviderResource<IndexerResource>
     public bool SupportsSearch { get; set; }
     public DownloadProtocol Protocol { get; set; }
     public int Priority { get; set; }
-    public int SeasonSearchMaximumSingleEpisodeAge { get; set; }
+
+    // Sonarr divergence: Phase 15 D-13 + D-22 — SeasonSearchMaximumSingleEpisodeAge property
+    // removed from resource (TV-only; column dropped). Debug session: mangadex-save-fails.
+
     public int DownloadClientId { get; set; }
 }
 
@@ -29,7 +32,6 @@ public class IndexerResourceMapper : ProviderResourceMapper<IndexerResource, Ind
         resource.SupportsSearch = definition.SupportsSearch;
         resource.Protocol = definition.Protocol;
         resource.Priority = definition.Priority;
-        resource.SeasonSearchMaximumSingleEpisodeAge = definition.SeasonSearchMaximumSingleEpisodeAge;
         resource.DownloadClientId = definition.DownloadClientId;
 
         return resource;
@@ -43,7 +45,6 @@ public class IndexerResourceMapper : ProviderResourceMapper<IndexerResource, Ind
         definition.EnableAutomaticSearch = resource.EnableAutomaticSearch;
         definition.EnableInteractiveSearch = resource.EnableInteractiveSearch;
         definition.Priority = resource.Priority;
-        definition.SeasonSearchMaximumSingleEpisodeAge = resource.SeasonSearchMaximumSingleEpisodeAge;
         definition.DownloadClientId = resource.DownloadClientId;
 
         return definition;

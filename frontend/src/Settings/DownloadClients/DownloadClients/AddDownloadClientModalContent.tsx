@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import AppState from 'App/State/AppState';
 import Alert from 'Components/Alert';
@@ -11,7 +11,6 @@ import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import { kinds } from 'Helpers/Props';
 import { fetchDownloadClientSchema } from 'Store/Actions/settingsActions';
-import DownloadClient from 'typings/DownloadClient';
 import translate from 'Utilities/String/translate';
 import AddDownloadClientItem from './AddDownloadClientItem';
 import styles from './AddDownloadClientModalContent.css';
@@ -29,27 +28,6 @@ function AddDownloadClientModalContent({
 
   const { isSchemaFetching, isSchemaPopulated, schemaError, schema } =
     useSelector((state: AppState) => state.settings.downloadClients);
-
-  const { usenetDownloadClients, torrentDownloadClients } = useMemo(() => {
-    return schema.reduce<{
-      usenetDownloadClients: DownloadClient[];
-      torrentDownloadClients: DownloadClient[];
-    }>(
-      (acc, item) => {
-        if (item.protocol === 'usenet') {
-          acc.usenetDownloadClients.push(item);
-        } else if (item.protocol === 'torrent') {
-          acc.torrentDownloadClients.push(item);
-        }
-
-        return acc;
-      },
-      {
-        usenetDownloadClients: [],
-        torrentDownloadClients: [],
-      }
-    );
-  }, [schema]);
 
   useEffect(() => {
     dispatch(fetchDownloadClientSchema());
@@ -75,24 +53,9 @@ function AddDownloadClientModalContent({
               <div>{translate('SupportedDownloadClientsMoreInfo')}</div>
             </Alert>
 
-            <FieldSet legend={translate('Usenet')}>
+            <FieldSet legend={translate('DownloadClients')}>
               <div className={styles.downloadClients}>
-                {usenetDownloadClients.map((downloadClient) => {
-                  return (
-                    <AddDownloadClientItem
-                      key={downloadClient.implementation}
-                      {...downloadClient}
-                      implementation={downloadClient.implementation}
-                      onDownloadClientSelect={onDownloadClientSelect}
-                    />
-                  );
-                })}
-              </div>
-            </FieldSet>
-
-            <FieldSet legend={translate('Torrents')}>
-              <div className={styles.downloadClients}>
-                {torrentDownloadClients.map((downloadClient) => {
+                {schema.map((downloadClient) => {
                   return (
                     <AddDownloadClientItem
                       key={downloadClient.implementation}

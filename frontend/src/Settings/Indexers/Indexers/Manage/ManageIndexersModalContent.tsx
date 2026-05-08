@@ -76,12 +76,6 @@ const COLUMNS: Column[] = [
     isVisible: true,
   },
   {
-    name: 'seasonSearchMaximumSingleEpisodeAge',
-    label: () => translate('MaximumSingleEpisodeAge'),
-    isSortable: true,
-    isVisible: true,
-  },
-  {
     name: 'tags',
     label: () => translate('Tags'),
     isSortable: true,

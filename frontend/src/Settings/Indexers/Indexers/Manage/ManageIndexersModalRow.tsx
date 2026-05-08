@@ -22,7 +22,6 @@ interface ManageIndexersModalRowProps {
   enableAutomaticSearch: boolean;
   enableInteractiveSearch: boolean;
   priority: number;
-  seasonSearchMaximumSingleEpisodeAge: number;
   implementation: string;
   tags: number[];
   columns: Column[];
@@ -37,7 +36,6 @@ function ManageIndexersModalRow(props: ManageIndexersModalRowProps) {
     enableAutomaticSearch,
     enableInteractiveSearch,
     priority,
-    seasonSearchMaximumSingleEpisodeAge,
     implementation,
     tags,
   } = props;
@@ -102,10 +100,6 @@ function ManageIndexersModalRow(props: ManageIndexersModalRowProps) {
       </TableRowCell>
 
       <TableRowCell className={styles.priority}>{priority}</TableRowCell>
-
-      <TableRowCell className={styles.seasonSearchMaximumSingleEpisodeAge}>
-        {seasonSearchMaximumSingleEpisodeAge}
-      </TableRowCell>
 
       <TableRowCell className={styles.tags}>
         <SeriesTagList tags={tags} />

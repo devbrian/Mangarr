@@ -9,7 +9,9 @@ public class IndexerBulkResource : ProviderBulkResource<IndexerBulkResource>
     public bool? EnableAutomaticSearch { get; set; }
     public bool? EnableInteractiveSearch { get; set; }
     public int? Priority { get; set; }
-    public int? SeasonSearchMaximumSingleEpisodeAge { get; set; }
+
+    // Sonarr divergence: Phase 15 D-13 + D-22 — SeasonSearchMaximumSingleEpisodeAge property
+    // removed from bulk resource (TV-only; column dropped). Debug session: mangadex-save-fails.
 }
 
 public class IndexerBulkResourceMapper : ProviderBulkResourceMapper<IndexerBulkResource, IndexerDefinition>
@@ -22,7 +24,6 @@ public class IndexerBulkResourceMapper : ProviderBulkResourceMapper<IndexerBulkR
             existing.EnableAutomaticSearch = resource.EnableAutomaticSearch ?? existing.EnableAutomaticSearch;
             existing.EnableInteractiveSearch = resource.EnableInteractiveSearch ?? existing.EnableInteractiveSearch;
             existing.Priority = resource.Priority ?? existing.Priority;
-            existing.SeasonSearchMaximumSingleEpisodeAge = resource.SeasonSearchMaximumSingleEpisodeAge ?? existing.SeasonSearchMaximumSingleEpisodeAge;
         });
 
         return existingDefinitions;

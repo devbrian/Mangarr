@@ -19,7 +19,10 @@ public class IndexerController : ProviderControllerBase<IndexerResource, Indexer
         : base(signalRBroadcaster, indexerFactory, "indexer", ResourceMapper, BulkResourceMapper)
     {
         SharedValidator.RuleFor(c => c.Priority).InclusiveBetween(1, 50);
-        SharedValidator.RuleFor(c => c.SeasonSearchMaximumSingleEpisodeAge).GreaterThanOrEqualTo(0);
+
+        // Sonarr divergence: Phase 15 D-13 + D-22 — SeasonSearchMaximumSingleEpisodeAge validator
+        // rule removed (TV-only; column + property deleted). Debug session: mangadex-save-fails.
+
         SharedValidator.RuleFor(c => c.DownloadClientId).SetValidator(downloadClientExistsValidator);
     }
 }

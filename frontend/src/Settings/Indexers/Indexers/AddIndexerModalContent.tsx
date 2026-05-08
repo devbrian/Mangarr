@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import Alert from 'Components/Alert';
 import FieldSet from 'Components/FieldSet';
 import Button from 'Components/Link/Button';
@@ -10,7 +10,7 @@ import ModalHeader from 'Components/Modal/ModalHeader';
 import { kinds } from 'Helpers/Props';
 import { SelectedSchema } from 'Settings/useProviderSchema';
 import translate from 'Utilities/String/translate';
-import { IndexerModel, useIndexerSchema } from '../useIndexers';
+import { useIndexerSchema } from '../useIndexers';
 import AddIndexerItem from './AddIndexerItem';
 import styles from './AddIndexerModalContent.css';
 
@@ -25,27 +25,6 @@ function AddIndexerModalContent({
 }: AddIndexerModalContentProps) {
   const { isSchemaFetching, isSchemaFetched, schemaError, schema } =
     useIndexerSchema();
-
-  const { usenetIndexers, torrentIndexers } = useMemo(() => {
-    return schema.reduce<{
-      usenetIndexers: IndexerModel[];
-      torrentIndexers: IndexerModel[];
-    }>(
-      (acc, item) => {
-        if (item.protocol === 'usenet') {
-          acc.usenetIndexers.push(item);
-        } else if (item.protocol === 'torrent') {
-          acc.torrentIndexers.push(item);
-        }
-
-        return acc;
-      },
-      {
-        usenetIndexers: [],
-        torrentIndexers: [],
-      }
-    );
-  }, [schema]);
 
   return (
     <ModalContent onModalClose={onModalClose}>
@@ -65,24 +44,19 @@ function AddIndexerModalContent({
               <div>{translate('SupportedIndexersMoreInfo')}</div>
             </Alert>
 
-            <FieldSet legend={translate('Usenet')}>
+            {/*
+              Sonarr divergence: Phase 15 D-18 reduced DownloadProtocol to {Unknown, Http}
+              (TV usenet/torrent variants deleted). Manga aggregator indexers (MangaDex,
+              Comix, future MangaFire) all emit `protocol === 'http'`. The original Sonarr
+              UI bucketed schema items into Usenet/Torrent FieldSets, which silently dropped
+              anything that wasn't one of those two — leaving the Add-Indexer modal empty
+              for manga sources. This is the indexer twin of the prior DownloadClients fix
+              (.planning/debug/resolved/downloadclients-load-fail.md): render the schema as
+              a single "Indexers" group.
+            */}
+            <FieldSet legend={translate('Indexers')}>
               <div className={styles.indexers}>
-                {usenetIndexers.map((indexer) => {
-                  return (
-                    <AddIndexerItem
-                      key={indexer.implementation}
-                      {...indexer}
-                      implementation={indexer.implementation}
-                      onIndexerSelect={onIndexerSelect}
-                    />
-                  );
-                })}
-              </div>
-            </FieldSet>
-
-            <FieldSet legend={translate('Torrents')}>
-              <div className={styles.indexers}>
-                {torrentIndexers.map((indexer) => {
+                {schema.map((indexer) => {
                   return (
                     <AddIndexerItem
                       key={indexer.implementation}
