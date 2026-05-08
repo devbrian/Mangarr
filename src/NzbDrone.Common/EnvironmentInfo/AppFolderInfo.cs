@@ -4,6 +4,10 @@ using System.Reflection;
 using NLog;
 using NzbDrone.Common.Instrumentation;
 
+// Sonarr divergence: Phase 15 D-08 — default data dir flipped Sonarr → Mangarr
+// (~/.config/Mangarr Linux/Mac, C:\ProgramData\Mangarr Windows). Pre-v1.0.0 fresh-DB rule
+// (per dev-migration-policy + PROJECT.md Out-of-Scope "Existing Sonarr DB import path" lock):
+// no auto-migrator shim required.
 namespace NzbDrone.Common.EnvironmentInfo
 {
     public interface IAppFolderInfo

@@ -6,6 +6,11 @@ using NzbDrone.Common.Exceptions;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Common.Instrumentation;
 
+// Sonarr divergence: Phase 15 D-08 — default data dir flipped Sonarr → Mangarr
+// (~/.config/Mangarr Linux/Mac, C:\ProgramData\Mangarr Windows). Legacy NzbDrone migrator path
+// preserved verbatim because that's documented Sonarr-historical state, not Sonarr-the-fork-source.
+// Pre-v1.0.0 fresh-DB rule covers any user-side migration concern (no Sonarr-managing-manga users
+// per Phase 0 lock).
 namespace NzbDrone.Common.EnvironmentInfo
 {
     public interface IAppFolderFactory
@@ -224,7 +229,7 @@ namespace NzbDrone.Common.EnvironmentInfo
         {
             if (OsInfo.IsNotWindows && _diskProvider.FolderExists(_appFolderInfo.AppDataFolder))
             {
-                _diskProvider.DeleteFile(Path.Combine(_appFolderInfo.AppDataFolder, "sonarr.pid"));
+                _diskProvider.DeleteFile(Path.Combine(_appFolderInfo.AppDataFolder, "mangarr.pid"));
             }
         }
     }

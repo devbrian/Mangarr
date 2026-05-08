@@ -29,7 +29,9 @@ namespace NzbDrone.Common.Processes
                 return;
             }
 
-            var filename = Path.Combine(_appFolderInfo.AppDataFolder, "sonarr.pid");
+            // Sonarr divergence: Phase 15 D-08 — pid file sonarr.pid → mangarr.pid atomic with
+            // app-data path Sonarr → Mangarr cutover. Matches AppFolderFactory.RemovePidFile().
+            var filename = Path.Combine(_appFolderInfo.AppDataFolder, "mangarr.pid");
             try
             {
                 File.WriteAllText(filename, ProcessProvider.GetCurrentProcessId().ToString());
