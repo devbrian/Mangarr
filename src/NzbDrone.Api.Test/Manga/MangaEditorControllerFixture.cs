@@ -11,7 +11,7 @@ using NzbDrone.Core.Manga;
 using NzbDrone.Core.Profiles.Translations;
 using NzbDrone.Core.RootFolders;
 using NzbDrone.Test.Common;
-using Sonarr.Api.V5.Manga;
+using Mangarr.Api.V5.Manga;
 using Sonarr.Http;
 
 namespace NzbDrone.Api.Test.Manga
@@ -25,7 +25,7 @@ namespace NzbDrone.Api.Test.Manga
     // canonical AutoMoqer + TestBase<TController> pattern for V5 controller-shape tests).
     //
     // Fixture lives under NzbDrone.Api.Test (NOT NzbDrone.Core.Test) because Sonarr.Core.Test
-    // does not project-reference Sonarr.Api.V5; Sonarr.Api.Test does. Same convention as
+    // does not project-reference Mangarr.Api.V5; Sonarr.Api.Test does. Same convention as
     // src/NzbDrone.Api.Test/Manga/MangaControllerSignalRFixture.cs (Plan 10-05 Rule 3 deviation).
     //
     // Per-plan unit-test filter (D-13-18 + Pattern S4):

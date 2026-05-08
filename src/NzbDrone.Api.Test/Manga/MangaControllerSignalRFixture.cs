@@ -10,7 +10,7 @@ using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
-using Sonarr.Api.V5.Manga;
+using Mangarr.Api.V5.Manga;
 using Sonarr.Http;
 
 namespace NzbDrone.Api.Test.Manga
@@ -23,7 +23,7 @@ namespace NzbDrone.Api.Test.Manga
     //
     // Fixture lives under NzbDrone.Api.Test rather than NzbDrone.Core.Test (per the
     // 10-05 plan's nominal path) because Sonarr.Core.Test does not project-reference
-    // Sonarr.Api.V5; Sonarr.Api.Test does. Same Mocker / TestBase<TSubject> behaviour;
+    // Mangarr.Api.V5; Sonarr.Api.Test does. Same Mocker / TestBase<TSubject> behaviour;
     // only the project boundary changes. Documented as Rule 3 deviation in the plan
     // SUMMARY.
     //

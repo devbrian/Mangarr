@@ -13,7 +13,7 @@ using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.Test.Common;
-using Sonarr.Api.V5.Manga.Queue;
+using Mangarr.Api.V5.Manga.Queue;
 using Sonarr.Http;
 using Sonarr.Http.REST;
 
@@ -21,17 +21,17 @@ namespace NzbDrone.Api.Test.Manga.Queue
 {
     // Sonarr divergence: NEW manga V5 controller fixture per Phase 13 Plan 13-10 (sub-wave A FINDINGS
     // §1.12 verdict = gap_in_scope; §2 cross-section reconciliation §1+§2 agreed; CONFIRMED in
-    // 13-API-V5-SURFACE-FINDINGS.md line 988). Pairs with src/Sonarr.Api.V5/Manga/Queue/
+    // 13-API-V5-SURFACE-FINDINGS.md line 988). Pairs with src/Mangarr.Api.V5/Manga/Queue/
     // MangaQueueActionController.cs (the bare-Controller bulk-action peer that backs useQueue.ts:178
     // grab + :205 grab-bulk for manga callers).
     //
-    // Role-match analog: src/Sonarr.Api.V5/Queue/QueueActionController.cs (the TV peer this fixture's
+    // Role-match analog: src/Mangarr.Api.V5/Queue/QueueActionController.cs (the TV peer this fixture's
     // Subject mirrors — bare Controller, bulk-action one-shot pattern, NOT RestControllerWithSignalR).
     //
     // Fixture lives under NzbDrone.Api.Test (NOT NzbDrone.Core.Test) because Sonarr.Core.Test does
-    // not project-reference Sonarr.Api.V5; Sonarr.Api.Test does. Same convention as
+    // not project-reference Mangarr.Api.V5; Sonarr.Api.Test does. Same convention as
     // src/NzbDrone.Api.Test/Manga/Wanted/MangaCutoffControllerFixture.cs (Plan 12-12 + Plan 10-05
-    // Rule 3 deviation — documented in src/Sonarr.Api.V5/Manga/CLAUDE.md lines 108-111).
+    // Rule 3 deviation — documented in src/Mangarr.Api.V5/Manga/CLAUDE.md lines 108-111).
     //
     // Per-plan unit-test filter (Plan 13-10 PATTERNS.md S4): dotnet test --filter
     // "FullyQualifiedName~MangaQueueActionController" must return >= 1 passing test. This fixture

@@ -4,7 +4,7 @@ using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Common.Composition;
 using NzbDrone.Core.Messaging.Commands;
-using Sonarr.Api.V5.Commands;
+using Mangarr.Api.V5.Commands;
 using Sonarr.Http.REST;
 using MangaManualImportCommand = NzbDrone.Core.MediaFiles.MangaImport.Manual.ManualImportCommand;
 using TvManualImportCommand = NzbDrone.Core.MediaFiles.EpisodeImport.Manual.ManualImportCommand;

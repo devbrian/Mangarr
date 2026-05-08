@@ -6,29 +6,29 @@ using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.Test.Common;
-using Sonarr.Api.V5.Manga.Queue;
-using Sonarr.Api.V5.Queue;
+using Mangarr.Api.V5.Manga.Queue;
+using Mangarr.Api.V5.Queue;
 
 namespace NzbDrone.Api.Test.Manga.Queue
 {
     // Sonarr divergence: NEW manga V5 controller fixture per Phase 13 Plan 13-12
     // (gap closure for smoke-test quick-260507-p13 finding F-01 — `/api/v5/manga/queue/bulk`
     // DELETE returned HTTP 404). Pairs with the new [HttpDelete("bulk")] RemoveMany action on
-    // src/Sonarr.Api.V5/Manga/Queue/MangaQueueController.cs (the CRUD controller, NOT
+    // src/Mangarr.Api.V5/Manga/Queue/MangaQueueController.cs (the CRUD controller, NOT
     // MangaQueueActionController — bulk DELETE belongs on the CRUD controller per TV peer
     // canonical pattern at QueueController.cs:97-136).
     //
-    // Role-match analog: src/Sonarr.Api.V5/Queue/QueueController.cs:97-136 RemoveMany — the TV
+    // Role-match analog: src/Mangarr.Api.V5/Queue/QueueController.cs:97-136 RemoveMany — the TV
     // peer this fixture's Subject mirrors (HttpDelete("bulk") action template + iterate
     // resource.Ids + return TypedResults.NoContent()). Manga's simplified Remove signature
     // (no blocklist/skipRedownload/changeCategory v1 params) per the existing [RestDeleteById]
     // precedent at MangaQueueController.cs:75-80 — Phase 15 collapse will unify the signature.
     //
     // Fixture lives under NzbDrone.Api.Test (NOT NzbDrone.Core.Test) because Sonarr.Core.Test
-    // does not project-reference Sonarr.Api.V5; Sonarr.Api.Test does. Same convention as
+    // does not project-reference Mangarr.Api.V5; Sonarr.Api.Test does. Same convention as
     // src/NzbDrone.Api.Test/Manga/Queue/MangaQueueDetailsControllerFixture.cs (Plan 13-08) and
     // src/NzbDrone.Api.Test/Manga/Queue/MangaQueueActionControllerFixture.cs (Plan 13-10) —
-    // documented in src/Sonarr.Api.V5/Manga/CLAUDE.md lines 108-111.
+    // documented in src/Mangarr.Api.V5/Manga/CLAUDE.md lines 108-111.
     //
     // Per-plan unit-test filter: `dotnet test --filter
     // "FullyQualifiedName~MangaQueueControllerBulkDeleteFixture"` must return >= 3 passing

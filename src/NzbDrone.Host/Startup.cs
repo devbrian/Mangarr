@@ -29,7 +29,7 @@ using NzbDrone.Host.AccessControl;
 using NzbDrone.Http.Authentication;
 using NzbDrone.SignalR;
 using Sonarr.Api.V3.System;
-using Sonarr.Api.V5.Series;
+using Mangarr.Api.V5.Series;
 using Sonarr.Http;
 using Sonarr.Http.Authentication;
 using Sonarr.Http.ClientSchema;

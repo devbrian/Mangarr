@@ -12,7 +12,7 @@ using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
-using Sonarr.Api.V5.Manga.Chapter;
+using Mangarr.Api.V5.Manga.Chapter;
 using Sonarr.Http;
 using Sonarr.Http.REST;
 
@@ -28,7 +28,7 @@ namespace NzbDrone.Api.Test.Manga.Chapter
     // BroadcastMessage Verify shape).
     //
     // Fixture lives under NzbDrone.Api.Test (NOT NzbDrone.Core.Test) because Sonarr.Core.Test
-    // does not project-reference Sonarr.Api.V5; Sonarr.Api.Test does. Same convention as
+    // does not project-reference Mangarr.Api.V5; Sonarr.Api.Test does. Same convention as
     // src/NzbDrone.Api.Test/Manga/MangaControllerSignalRFixture.cs (Plan 10-05 Rule 3 deviation).
     //
     // Per-plan unit-test filter (Plan 13-07 verify): dotnet test
@@ -355,7 +355,7 @@ namespace NzbDrone.Api.Test.Manga.Chapter
             // ChapterFileAddedEvent ctor: (ChapterFile) — verified
             // src/NzbDrone.Core/MediaFiles/Events/ChapterFileAddedEvent.cs:13.
             // Mirrors TV EpisodeFileController.Handle(EpisodeFileAddedEvent) at
-            // src/Sonarr.Api.V5/EpisodeFiles/EpisodeFileController.cs:194-198.
+            // src/Mangarr.Api.V5/EpisodeFiles/EpisodeFileController.cs:194-198.
             var chapterFile = Builder<ChapterFile>.CreateNew()
                 .With(c => c.Id = 99)
                 .With(c => c.MangaId = 42)
@@ -385,7 +385,7 @@ namespace NzbDrone.Api.Test.Manga.Chapter
             // ChapterFileDeletedEvent ctor: (ChapterFile, DeleteMediaFileReason) — verified
             // src/NzbDrone.Core/MediaFiles/Events/ChapterFileDeletedEvent.cs:12.
             // Mirrors TV EpisodeFileController.Handle(EpisodeFileDeletedEvent) at
-            // src/Sonarr.Api.V5/EpisodeFiles/EpisodeFileController.cs:200-204 — TV peer
+            // src/Mangarr.Api.V5/EpisodeFiles/EpisodeFileController.cs:200-204 — TV peer
             // also broadcasts ModelAction.Deleted by the deleted file's id (NOT by ChapterId).
             var chapterFile = Builder<ChapterFile>.CreateNew()
                 .With(c => c.Id = 77)

@@ -6,7 +6,7 @@ using Sonarr.Http.REST;
 
 namespace Sonarr.Api.V3.Commands
 {
-    // V3 mirror of Sonarr.Api.V5.Commands.CommandTypeResolver. Duplicated rather than
+    // V3 mirror of Mangarr.Api.V5.Commands.CommandTypeResolver. Duplicated rather than
     // cross-project-referenced because V3 does NOT project-reference V5 (V3 is the
     // legacy API surface; V5 is the current surface — referencing V5 from V3 would
     // invert the dependency direction).
