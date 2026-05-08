@@ -12,9 +12,9 @@
 		<PackageReference Include="DryIoc.Microsoft.DependencyInjection" Version="6.2.0" />
 	</ItemGroup>
 	<ItemGroup>
-		<ProjectReference Include="..\NzbDrone.Common\Sonarr.Common.csproj" />
-		<ProjectReference Include="..\NzbDrone.Core\Sonarr.Core.csproj" />
-		<ProjectReference Include="..\NzbDrone.SignalR\Sonarr.SignalR.csproj" />
+		<ProjectReference Include="..\NzbDrone.Common\Mangarr.Common.csproj" />
+		<ProjectReference Include="..\NzbDrone.Core\Mangarr.Core.csproj" />
+		<ProjectReference Include="..\NzbDrone.SignalR\Mangarr.SignalR.csproj" />
 		<ProjectReference Include="..\Sonarr.Api.V3\Sonarr.Api.V3.csproj" />
 		<ProjectReference Include="..\Sonarr.Api.V5\Sonarr.Api.V5.csproj" />
 		<ProjectReference Include="..\Sonarr.Http\Sonarr.Http.csproj" />

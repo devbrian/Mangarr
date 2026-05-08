@@ -1,5 +1,16 @@
 <Project>
-  <!-- Common to all Sonarr Projects -->
+  <!-- Sonarr divergence: Phase 15 D-06 — csproj filenames rebranded `Sonarr.X.csproj` → `Mangarr.X.csproj`
+       (NzbDrone.* directories + namespaces UNCHANGED — only filename + AssemblyName rebrand). The
+       RootNamespace replacer flipped from `Replace('Sonarr', 'NzbDrone')` to `Replace('Mangarr', 'NzbDrone')`
+       so RootNamespace continues to derive `NzbDrone.X` from renamed csproj filename. The
+       MSBuildProjectName=='Mangarr' Exe predicate (no suffix — distinguishes the NzbDrone-root entrypoint
+       from Mangarr.Console) is the keystone for `Mangarr.exe` emission per archived 08-05-PLAN T-8-18
+       silent-failure mitigation: skipping it produces `Mangarr.dll` Library instead of `Mangarr.exe`.
+       MangarrProject + MangarrOutputType + MangarrRootDir vars renamed in lockstep with the
+       MSBuildProjectName.StartsWith('Mangarr') predicate so Mangarr-prefixed csprojs auto-flag as
+       'our own libraries' for the OutputPath / Sentry / StyleCop / etc. conditional groups below.
+       The 4 Sonarr.* layer csprojs (Sonarr.Api.V3/V5/Http/RuntimePatches) rename in Plan 15-06 Wave 2b. -->
+  <!-- Common to all Mangarr Projects -->
   <PropertyGroup>
     <AnalysisLevel>6.0-all</AnalysisLevel>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -10,22 +21,23 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <RuntimeIdentifiers>win-x64;win-x86;osx-x64;osx-arm64;linux-x64;linux-musl-x64;linux-arm;linux-arm64;linux-musl-arm64</RuntimeIdentifiers>
 
-    <SonarrRootDir>$(MSBuildThisFileDirectory)..\</SonarrRootDir>
+    <MangarrRootDir>$(MSBuildThisFileDirectory)..\</MangarrRootDir>
 
     <!-- Specifies the type of output -->
-    <SonarrOutputType>Library</SonarrOutputType>
-    <SonarrOutputType Condition="$(MSBuildProjectName.Contains('.Test'))">Test</SonarrOutputType>
-    <SonarrOutputType Condition="'$(MSBuildProjectName)'=='ServiceInstall'">Exe</SonarrOutputType>
-    <SonarrOutputType Condition="'$(MSBuildProjectName)'=='ServiceUninstall'">Exe</SonarrOutputType>
-    <SonarrOutputType Condition="'$(MSBuildProjectName)'=='Sonarr'">Exe</SonarrOutputType>
-    <SonarrOutputType Condition="'$(MSBuildProjectName)'=='Sonarr.Console'">Exe</SonarrOutputType>
-    <SonarrOutputType Condition="'$(MSBuildProjectName)'=='Sonarr.Update'">Update</SonarrOutputType>
+    <MangarrOutputType>Library</MangarrOutputType>
+    <MangarrOutputType Condition="$(MSBuildProjectName.Contains('.Test'))">Test</MangarrOutputType>
+    <MangarrOutputType Condition="'$(MSBuildProjectName)'=='ServiceInstall'">Exe</MangarrOutputType>
+    <MangarrOutputType Condition="'$(MSBuildProjectName)'=='ServiceUninstall'">Exe</MangarrOutputType>
+    <MangarrOutputType Condition="'$(MSBuildProjectName)'=='Mangarr'">Exe</MangarrOutputType>
+    <MangarrOutputType Condition="'$(MSBuildProjectName)'=='Mangarr.Console'">Exe</MangarrOutputType>
+    <MangarrOutputType Condition="'$(MSBuildProjectName)'=='Mangarr.Update'">Update</MangarrOutputType>
 
     <!-- Specifies whether it's one of our own libraries -->
-    <SonarrProject>false</SonarrProject>
-    <SonarrProject Condition="$(MSBuildProjectName.StartsWith('Sonarr'))">true</SonarrProject>
-    <SonarrProject Condition="$(MSBuildProjectName.StartsWith('ServiceInstall'))">true</SonarrProject>
-    <SonarrProject Condition="$(MSBuildProjectName.StartsWith('ServiceUninstall'))">true</SonarrProject>
+    <MangarrProject>false</MangarrProject>
+    <MangarrProject Condition="$(MSBuildProjectName.StartsWith('Mangarr'))">true</MangarrProject>
+    <MangarrProject Condition="$(MSBuildProjectName.StartsWith('Sonarr'))">true</MangarrProject>
+    <MangarrProject Condition="$(MSBuildProjectName.StartsWith('ServiceInstall'))">true</MangarrProject>
+    <MangarrProject Condition="$(MSBuildProjectName.StartsWith('ServiceUninstall'))">true</MangarrProject>
 
     <!-- A test project gets the test sdk packages automatically added -->
     <TestProject>false</TestProject>
@@ -42,14 +54,14 @@
   <PropertyGroup>
     <Configuration Condition="'$(Configuration)'==''">Release</Configuration>
     <!-- Centralize intermediate and default outputs -->
-    <BaseIntermediateOutputPath>$(SonarrRootDir)_temp\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
-    <IntermediateOutputPath>$(SonarrRootDir)_temp\obj\$(MSBuildProjectName)\$(Configuration)\</IntermediateOutputPath>
-    <OutputPath>$(SonarrRootDir)_temp\bin\$(Configuration)\$(MSBuildProjectName)\</OutputPath>
+    <BaseIntermediateOutputPath>$(MangarrRootDir)_temp\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(MangarrRootDir)_temp\obj\$(MSBuildProjectName)\$(Configuration)\</IntermediateOutputPath>
+    <OutputPath>$(MangarrRootDir)_temp\bin\$(Configuration)\$(MSBuildProjectName)\</OutputPath>
 
     <!-- Output to _output and _tests respectively -->
-    <OutputPath Condition="'$(SonarrProject)'=='true'">$(SonarrRootDir)_output\</OutputPath>
-    <OutputPath Condition="'$(SonarrOutputType)'=='Test'">$(SonarrRootDir)_tests\</OutputPath>
-    <OutputPath Condition="'$(SonarrOutputType)'=='Update'">$(SonarrRootDir)_output\Sonarr.Update\</OutputPath>
+    <OutputPath Condition="'$(MangarrProject)'=='true'">$(MangarrRootDir)_output\</OutputPath>
+    <OutputPath Condition="'$(MangarrOutputType)'=='Test'">$(MangarrRootDir)_tests\</OutputPath>
+    <OutputPath Condition="'$(MangarrOutputType)'=='Update'">$(MangarrRootDir)_output\Mangarr.Update\</OutputPath>
 
     <!-- Paths relative to project file for better readability -->
     <EnableBaseIntermediateOutputPathMismatchWarning>false</EnableBaseIntermediateOutputPathMismatchWarning>
@@ -61,14 +73,16 @@
   </PropertyGroup>
   
   <!-- Test projects need bindingRedirects -->
-  <PropertyGroup Condition="'$(SonarrOutputType)'=='Test'">
+  <PropertyGroup Condition="'$(MangarrOutputType)'=='Test'">
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
     <SelfContained>false</SelfContained>
   </PropertyGroup>
 
   <!-- Set the Product and Version info for our own projects -->
-  <PropertyGroup Condition="'$(SonarrProject)'=='true'">
+  <!-- Sonarr divergence: Phase 15 D-06 — Product/Company/Copyright preserved as Sonarr in this wave;
+       full brand-string sweep lands in Plan 15-08 Wave 4. -->
+  <PropertyGroup Condition="'$(MangarrProject)'=='true'">
     <Product>Sonarr</Product>
     <Company>sonarr.tv</Company>
     <Copyright>Copyright 2014-$([System.DateTime]::Now.ToString('yyyy')) sonarr.tv (GNU General Public v3)</Copyright>
@@ -88,15 +102,19 @@
   </PropertyGroup>
 
   <!-- Set the AssemblyConfiguration attribute for projects -->
-  <ItemGroup Condition="'$(SonarrProject)'=='true'">
+  <ItemGroup Condition="'$(MangarrProject)'=='true'">
     <AssemblyAttribute Include="System.Reflection.AssemblyConfigurationAttribute">
       <_Parameter1>$(AssemblyConfiguration)</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
 
   <PropertyGroup>
-    <!-- For now keep the NzbDrone namespace -->
-    <RootNamespace Condition="'$(SonarrProject)'=='true'">$(MSBuildProjectName.Replace('Sonarr','NzbDrone'))</RootNamespace>
+    <!-- Sonarr divergence: Phase 15 D-06 — keep the NzbDrone namespace per cross-cutting constraint #4.
+         Replacer flipped Replace('Sonarr','NzbDrone') → Replace('Mangarr','NzbDrone') so renamed
+         Mangarr.Core.csproj continues to derive RootNamespace = NzbDrone.Core. The Sonarr replacer is
+         retained as a fallback for the 4 Wave-2b csprojs (Sonarr.Api.V3/V5/Http/RuntimePatches) that
+         haven't yet renamed; chained Replace handles both layers idempotently. -->
+    <RootNamespace Condition="'$(MangarrProject)'=='true'">$(MSBuildProjectName.Replace('Mangarr','NzbDrone').Replace('Sonarr','NzbDrone'))</RootNamespace>
   </PropertyGroup>
 
   <!-- Sentry specific configuration: Only in Release mode -->
@@ -127,13 +145,13 @@
     <PackageReference Include="NunitXml.TestLogger" Version="3.1.20" />
   </ItemGroup>
 
-  <PropertyGroup Condition="'$(SonarrProject)'=='true' and '$(EnableAnalyzers)'=='false'">
+  <PropertyGroup Condition="'$(MangarrProject)'=='true' and '$(EnableAnalyzers)'=='false'">
     <!-- FXCop Built into Net5 SDK now as NETAnalyzers, Enabled by default on net5 projects -->
     <EnableNETAnalyzers>false</EnableNETAnalyzers>
   </PropertyGroup>
 
   <!-- Set up stylecop -->
-  <ItemGroup Condition="'$(SonarrProject)'=='true' and '$(EnableAnalyzers)'!='false'">
+  <ItemGroup Condition="'$(MangarrProject)'=='true' and '$(EnableAnalyzers)'!='false'">
     <!-- StyleCop analysis -->
     <PackageReference Include="StyleCop.Analyzers.Unstable" Version="1.2.0.556">
       <PrivateAssets>all</PrivateAssets>

@@ -10,9 +10,9 @@
     <PackageReference Include="Mono.Posix.NETStandard" Version="5.20.1.34-servarr24" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\NzbDrone.Common.Test\Sonarr.Common.Test.csproj" />
-    <ProjectReference Include="..\NzbDrone.Mono\Sonarr.Mono.csproj" />
-    <ProjectReference Include="..\NzbDrone.Test.Common\Sonarr.Test.Common.csproj" />
+    <ProjectReference Include="..\NzbDrone.Common.Test\Mangarr.Common.Test.csproj" />
+    <ProjectReference Include="..\NzbDrone.Mono\Mangarr.Mono.csproj" />
+    <ProjectReference Include="..\NzbDrone.Test.Common\Mangarr.Test.Common.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="Files\**\*.*">

@@ -8,8 +8,8 @@
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\NzbDrone.Host\Sonarr.Host.csproj" />
-    <ProjectReference Include="..\NzbDrone.Windows\Sonarr.Windows.csproj" />
+    <ProjectReference Include="..\NzbDrone.Host\Mangarr.Host.csproj" />
+    <ProjectReference Include="..\NzbDrone.Windows\Mangarr.Windows.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">
