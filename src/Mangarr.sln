@@ -58,13 +58,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mangarr.Windows.Test", "Nzb
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mangarr.Mono.Test", "NzbDrone.Mono.Test\Mangarr.Mono.Test.csproj", "{40D72824-7D02-4A77-9106-8FE0EEA2B997}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sonarr.Api.V3", "Sonarr.Api.V3\Sonarr.Api.V3.csproj", "{7140FF1F-79BE-492F-9188-B21A050BF708}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sonarr.Http", "Sonarr.Http\Sonarr.Http.csproj", "{5370BFF7-1BD7-46BC-AF06-7D9EA5CDA1D6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mangarr.Http", "Mangarr.Http\Mangarr.Http.csproj", "{5370BFF7-1BD7-46BC-AF06-7D9EA5CDA1D6}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mangarr.Host.Test", "NzbDrone.Host.Test\Mangarr.Host.Test.csproj", "{C0EA1A40-91AD-4EEB-BD16-2DDDEBD20AE5}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sonarr.RuntimePatches", "Sonarr.RuntimePatches\Sonarr.RuntimePatches.csproj", "{F3F63718-63C6-432F-BDDC-C960AD95EC82}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mangarr.RuntimePatches", "Mangarr.RuntimePatches\Mangarr.RuntimePatches.csproj", "{F3F63718-63C6-432F-BDDC-C960AD95EC82}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{0C7E5F5A-C4CC-4945-B399-1E1C9817CC45}"
 	ProjectSection(SolutionItems) = preProject
@@ -75,7 +73,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mangarr.Mono", "NzbDrone.Mo
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mangarr.Windows", "NzbDrone.Windows\Mangarr.Windows.csproj", "{4AE3B731-442E-4AF0-88A5-9FABEB685A0D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sonarr.Api.V5", "Sonarr.Api.V5\Sonarr.Api.V5.csproj", "{1A9DFC67-3712-47A5-8DCA-0BCAA95F9EDC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mangarr.Api.V5", "Mangarr.Api.V5\Mangarr.Api.V5.csproj", "{1A9DFC67-3712-47A5-8DCA-0BCAA95F9EDC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -243,14 +241,6 @@ Global
 		{40D72824-7D02-4A77-9106-8FE0EEA2B997}.Release|Posix.Build.0 = Release|Any CPU
 		{40D72824-7D02-4A77-9106-8FE0EEA2B997}.Release|Windows.ActiveCfg = Release|Any CPU
 		{40D72824-7D02-4A77-9106-8FE0EEA2B997}.Release|Windows.Build.0 = Release|Any CPU
-		{7140FF1F-79BE-492F-9188-B21A050BF708}.Debug|Posix.ActiveCfg = Debug|Any CPU
-		{7140FF1F-79BE-492F-9188-B21A050BF708}.Debug|Posix.Build.0 = Debug|Any CPU
-		{7140FF1F-79BE-492F-9188-B21A050BF708}.Debug|Windows.ActiveCfg = Debug|Any CPU
-		{7140FF1F-79BE-492F-9188-B21A050BF708}.Debug|Windows.Build.0 = Debug|Any CPU
-		{7140FF1F-79BE-492F-9188-B21A050BF708}.Release|Posix.ActiveCfg = Release|Any CPU
-		{7140FF1F-79BE-492F-9188-B21A050BF708}.Release|Posix.Build.0 = Release|Any CPU
-		{7140FF1F-79BE-492F-9188-B21A050BF708}.Release|Windows.ActiveCfg = Release|Any CPU
-		{7140FF1F-79BE-492F-9188-B21A050BF708}.Release|Windows.Build.0 = Release|Any CPU
 		{5370BFF7-1BD7-46BC-AF06-7D9EA5CDA1D6}.Debug|Posix.ActiveCfg = Debug|Any CPU
 		{5370BFF7-1BD7-46BC-AF06-7D9EA5CDA1D6}.Debug|Posix.Build.0 = Debug|Any CPU
 		{5370BFF7-1BD7-46BC-AF06-7D9EA5CDA1D6}.Debug|Windows.ActiveCfg = Debug|Any CPU
