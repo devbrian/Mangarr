@@ -6,14 +6,16 @@ using NzbDrone.Common.Cache;
 using NzbDrone.Core.Backup;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Configuration.Events;
-using NzbDrone.Core.DataAugmentation.Scene;
+
+// using NzbDrone.Core.DataAugmentation.Scene; // Sonarr divergence: Phase 15 D-19 — DataAugmentation/ deleted by Plan 15-04 (UpdateSceneMappingCommand registration stripped)
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Download.Manga;
 using NzbDrone.Core.HealthCheck;
 using NzbDrone.Core.Housekeeping;
-using NzbDrone.Core.ImportLists;
-using NzbDrone.Core.Indexers;
+
+// using NzbDrone.Core.ImportLists; // Sonarr divergence: Phase 15 D-26 — ImportLists/ root contract MOVED to .planning/reference/ by Plan 15-04 (ImportListSyncCommand registration stripped)
+// using NzbDrone.Core.Indexers; // Sonarr divergence: Phase 15 D-10 — RssSyncCommand class deleted by Plan 15-04 (HandleAsync block stripped)
 using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Manga.Commands;
@@ -69,6 +71,11 @@ namespace NzbDrone.Core.Jobs
 
         public void Handle(ApplicationStartedEvent message)
         {
+            // Sonarr divergence: Phase 15 D-19 + D-26 + D-10 + D-24 — TV defaultTasks registrations stripped:
+            //   typeof(UpdateSceneMappingCommand).FullName ← deleted (DataAugmentation/Scene/ deleted Plan 15-04 per D-19)
+            //   typeof(ImportListSyncCommand).FullName ← deleted (ImportListSync MOVED to reference Plan 15-04 per D-26)
+            //   typeof(RssSyncCommand).FullName ← deleted Plan 15-03 (preemptive); class itself deleted Plan 15-04 per D-10
+            //   typeof(RefreshSeriesCommand).FullName ← deleted Plan 15-03 per D-24
             var defaultTasks = new List<ScheduledTask>
                 {
                     new ScheduledTask
@@ -90,11 +97,8 @@ namespace NzbDrone.Core.Jobs
                         TypeName = typeof(ApplicationUpdateCheckCommand).FullName
                     },
 
-                    new ScheduledTask
-                    {
-                        Interval = 3 * 60,
-                        TypeName = typeof(UpdateSceneMappingCommand).FullName
-                    },
+                    // Sonarr divergence: Phase 15 D-19 — UpdateSceneMappingCommand defaultTasks row stripped by Plan 15-04
+                    //   Class deleted in same plan (DataAugmentation/Scene/UpdateSceneMappingCommand.cs).
 
                     new ScheduledTask
                     {
@@ -134,11 +138,9 @@ namespace NzbDrone.Core.Jobs
                         TypeName = typeof(HousekeepInProcessDownloadsCommand).FullName
                     },
 
-                    new ScheduledTask
-                    {
-                        Interval = 5,
-                        TypeName = typeof(ImportListSyncCommand).FullName
-                    },
+                    // Sonarr divergence: Phase 15 D-26 — ImportListSyncCommand defaultTasks row stripped by Plan 15-04
+                    //   Root contract MOVED to .planning/reference/sonarr-vertical-slices/import-lists/ in same plan;
+                    //   per-provider TV subdirs deleted. v1.x/v2 manga peer (REQ IMP-01..03) translates from preserved reference.
 
                     new ScheduledTask
                     {
@@ -236,26 +238,13 @@ namespace NzbDrone.Core.Jobs
             return intervalMinutes * 60 * 24;
         }
 
-        private int GetRssSyncInterval()
-        {
-            var interval = _configService.RssSyncInterval;
-
-            if (interval > 0 && interval < 10)
-            {
-                return 10;
-            }
-
-            if (interval < 0)
-            {
-                return 0;
-            }
-
-            return interval;
-        }
+        // Sonarr divergence: Phase 15 D-10 — GetRssSyncInterval() removed; sole caller (HandleAsync RssSyncCommand
+        //   rebroadcast) stripped in same edit. Manga peer GetMangaRssSyncInterval() below preserves the same
+        //   clamp pattern (0 = disable, sub-10 floored to 10, anything else honored).
 
         // Phase 6 D-07 — global manga RSS sync default (Config.MangaRssSyncInterval, default 15min).
-        // Mirrors GetRssSyncInterval clamp: 0 = disable, sub-10 floored to 10, anything else honored.
-        // Per-IndexerDefinition.SyncInterval override applied at fetch time inside MangaRssSyncService.
+        // Clamp pattern (originally mirrored from deleted GetRssSyncInterval): 0 = disable, sub-10 floored to 10,
+        // anything else honored. Per-IndexerDefinition.SyncInterval override applied at fetch time inside MangaRssSyncService.
         private int GetMangaRssSyncInterval()
         {
             var interval = _configService.MangaRssSyncInterval;
@@ -295,8 +284,9 @@ namespace NzbDrone.Core.Jobs
 
         public void HandleAsync(ConfigSavedEvent message)
         {
-            var rss = _scheduledTaskRepository.GetDefinition(typeof(RssSyncCommand));
-            rss.Interval = GetRssSyncInterval();
+            // Sonarr divergence: Phase 15 D-10 — typeof(RssSyncCommand) rebroadcast block stripped by Plan 15-04
+            //   Class deleted in same plan (Indexers/RssSyncCommand.cs). Manga MangaRssSyncCommand rebroadcast
+            //   preserved per WR-02 mitigation (Settings → MangaRssSyncInterval still applies without restart).
 
             var backup = _scheduledTaskRepository.GetDefinition(typeof(BackupCommand));
             backup.Interval = GetBackupInterval();
@@ -307,9 +297,8 @@ namespace NzbDrone.Core.Jobs
             var mangaRss = _scheduledTaskRepository.GetDefinition(typeof(MangaRssSyncCommand));
             mangaRss.Interval = GetMangaRssSyncInterval();
 
-            _scheduledTaskRepository.UpdateMany(new List<ScheduledTask> { rss, backup, mangaRss });
+            _scheduledTaskRepository.UpdateMany(new List<ScheduledTask> { backup, mangaRss });
 
-            _cache.Find(rss.TypeName).Interval = rss.Interval;
             _cache.Find(backup.TypeName).Interval = backup.Interval;
             _cache.Find(mangaRss.TypeName).Interval = mangaRss.Interval;
         }
