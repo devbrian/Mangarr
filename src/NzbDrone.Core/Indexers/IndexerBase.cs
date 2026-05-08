@@ -91,8 +91,10 @@ namespace NzbDrone.Core.Indexers
 
             result.ForEach(c =>
             {
-                // Use multi languages from setting if ReleaseInfo languages is empty
-                if (c.Languages.Empty() && settings.MultiLanguages.Any() && Parser.Parser.HasMultipleLanguages(c.Title))
+                // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+                // Parser.Parser.HasMultipleLanguages stripped (Parser/Parser.cs DELETED);
+                // multi-language fallback from settings still applies on empty Languages.
+                if (c.Languages.Empty() && settings.MultiLanguages.Any())
                 {
                     c.Languages = settings.MultiLanguages.Select(i => (Language)i).ToList();
                 }

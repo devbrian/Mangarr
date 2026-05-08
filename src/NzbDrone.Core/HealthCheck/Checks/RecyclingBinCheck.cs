@@ -3,12 +3,12 @@ using NzbDrone.Common.Disk;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Localization;
-using NzbDrone.Core.MediaFiles.Events;
 
 namespace NzbDrone.Core.HealthCheck.Checks
 {
-    [CheckOn(typeof(EpisodeImportedEvent), CheckOnCondition.FailedOnly)]
-    [CheckOn(typeof(EpisodeImportFailedEvent), CheckOnCondition.SuccessfulOnly)]
+    // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV CheckOn(EpisodeImported|FailedEvent) attributes
+    // stripped (events DELETED). Manga peer events (ChapterImportedEvent / ChapterImportFailedEvent) may rewire
+    // in v1.x; for now the check fires only on its CheckOnSchedule cadence.
     public class RecyclingBinCheck : HealthCheckBase
     {
         private readonly IConfigService _configService;

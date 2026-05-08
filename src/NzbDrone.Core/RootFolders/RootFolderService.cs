@@ -8,8 +8,8 @@ using NzbDrone.Common;
 using NzbDrone.Common.Cache;
 using NzbDrone.Common.Disk;
 using NzbDrone.Common.Extensions;
-using NzbDrone.Core.Organizer;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.Organizer;
 
 namespace NzbDrone.Core.RootFolders
 {

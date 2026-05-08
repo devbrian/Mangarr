@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Languages;
 using NzbDrone.Core.Parser.Model;
-using NzbDrone.Core.Qualities;
+
+// Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — Qualities/ DELETED per Plan 15-03;
+// QualityModel field stripped from manga ManualImportFile.
 
 namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
 {
@@ -14,7 +16,8 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
         public int MangaId { get; set; }
         public List<int> ChapterIds { get; set; }
         public int? ChapterFileId { get; set; }
-        public QualityModel Quality { get; set; }
+
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — QualityModel stripped (Quality cascade per Plan 15-03).
         public List<Language> Languages { get; set; }
         public string ReleaseGroup { get; set; }
         public int IndexerFlags { get; set; }

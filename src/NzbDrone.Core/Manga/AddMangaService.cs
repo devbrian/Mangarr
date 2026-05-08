@@ -15,7 +15,7 @@ using NzbDrone.Core.Parser.Manga;
 namespace NzbDrone.Core.Manga
 {
     /// <summary>
-    /// META-02 AddManga orchestration mirroring <see cref="NzbDrone.Core.Tv.AddSeriesService"/>.
+    /// META-02 AddManga orchestration mirroring Sonarr's <c>AddSeriesService</c> (DELETED Phase 15).
     ///
     /// <para>Pipeline:
     /// 1. Reject duplicates by any populated cross-source ID

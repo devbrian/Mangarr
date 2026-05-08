@@ -10,8 +10,8 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving
     /// by <c>Config.OutputFormat</c> (D-13). DryIoc auto-discovers all
     /// <see cref="IChapterArchiver"/> impls and injects them as <see cref="IEnumerable{T}"/>
     /// — same convention Sonarr uses for
-    /// <see cref="MediaFiles.EpisodeImport.IImportDecisionEngineSpecification"/>
-    /// in <see cref="MediaFiles.EpisodeImport.ImportDecisionMaker"/>.
+    /// <c>MediaFiles.EpisodeImport.IImportDecisionEngineSpecification</c> (DELETED Phase 15)
+    /// in <c>MediaFiles.EpisodeImport.ImportDecisionMaker</c> (DELETED Phase 15).
     ///
     /// v1 ships <c>CbzChapterArchiver</c> (FormatKey="cbz", default — ARCHIVE-01) +
     /// <c>FolderImagesChapterArchiver</c> (FormatKey="folder" — ARCHIVE-02). v2 adds CBR /

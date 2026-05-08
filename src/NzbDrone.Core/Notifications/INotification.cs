@@ -1,10 +1,9 @@
 using System.Collections.Generic;
-using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.ThingiProvider;
 
 namespace NzbDrone.Core.Notifications
 {
-    // Sonarr divergence: Phase 15 W-1 (CONTRACTS-AUDIT § Wave A Cluster 2) - TV-only hooks removed:
+    // Sonarr divergence: Phase 15 W-1 (CONTRACTS-AUDIT ï¿½ Wave A Cluster 2) - TV-only hooks removed:
     // OnGrab, OnDownload, OnRename, OnEpisodeFileDelete, OnSeriesAdd, OnSeriesDelete,
     // OnImportComplete, OnManualInteractionRequired. Manga preserves OnChapterImport,
     // OnMangaAdd/Delete/Rename, OnHealthIssue/Restored, OnApplicationUpdate.

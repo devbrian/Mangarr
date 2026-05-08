@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using FluentValidation.Results;
 using NLog;
@@ -11,7 +10,6 @@ using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Http;
 using NzbDrone.Core.Localization;
 using NzbDrone.Core.Parser.Manga.Model;
-using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.RemotePathMappings;
 
 namespace NzbDrone.Core.Download.Clients.InProcess

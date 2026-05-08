@@ -1,10 +1,11 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using NzbDrone.Core.History;
 
 namespace NzbDrone.Core.Parser.Model
 {
+    // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — EpisodeHistory-based
+    // constructor stripped per Plan 15-10 History/EpisodeHistory.cs DELETE. Manga path
+    // populates GrabbedReleaseInfo from ReleaseInfo + ChapterIds list directly (Phase 6
+    // PIPELINE-04 — see ReleaseInfo.cs comment on the manga sibling field).
     public class GrabbedReleaseInfo
     {
         public string Title { get; set; }
@@ -15,23 +16,9 @@ namespace NzbDrone.Core.Parser.Model
 
         public List<int> EpisodeIds { get; set; }
 
-        public GrabbedReleaseInfo(List<EpisodeHistory> grabbedHistories)
+        public GrabbedReleaseInfo()
         {
-            var grabbedHistory = grabbedHistories.MaxBy(h => h.Date);
-            var episodeIds = grabbedHistories.Select(h => h.EpisodeId).Distinct().ToList();
-
-            grabbedHistory.Data.TryGetValue("indexer", out var indexer);
-            grabbedHistory.Data.TryGetValue("size", out var sizeString);
-            Enum.TryParse(grabbedHistory.Data.GetValueOrDefault("indexerFlags"), out IndexerFlags indexerFlags);
-            Enum.TryParse(grabbedHistory.Data.GetValueOrDefault("releaseType"), out ReleaseType releaseType);
-            long.TryParse(sizeString, out var size);
-
-            Title = grabbedHistory.SourceTitle;
-            Indexer = indexer;
-            Size = size;
-            EpisodeIds = episodeIds;
-            IndexerFlags = indexerFlags;
-            ReleaseType = releaseType;
+            EpisodeIds = new List<int>();
         }
     }
 }

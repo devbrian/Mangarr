@@ -29,6 +29,7 @@ namespace NzbDrone.Core.Configuration
         bool AutoUnmonitorPreviouslyDownloadedEpisodes { get; set; }
         string RecycleBin { get; set; }
         int RecycleBinCleanupDays { get; set; }
+
         // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — ProperDownloadTypes (TV Quality cascade) stripped.
         //   ProperDownloadTypes DownloadPropersAndRepacks { get; set; }
         bool CreateEmptySeriesFolders { get; set; }
@@ -43,6 +44,7 @@ namespace NzbDrone.Core.Configuration
         bool ImportExtraFiles { get; set; }
         string ExtraFileExtensions { get; set; }
         RescanAfterRefreshType RescanAfterRefresh { get; set; }
+
         // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — EpisodeTitleRequiredType (TV EpisodeImport) stripped.
         //   EpisodeTitleRequiredType EpisodeTitleRequired { get; set; }
         string UserRejectedExtensions { get; set; }

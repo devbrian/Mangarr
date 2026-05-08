@@ -1,11 +1,15 @@
 using System.Collections.Generic;
-using NzbDrone.Core.DataAugmentation.Scene;
+
+// Sonarr divergence: Phase 15 Plan 15-04 cascade absorption — DataAugmentation/ DELETED;
+// SearchMode enum no longer exists. Manga search criteria do not need SearchMode (TV
+// distinguishes default vs. RSS vs. interactive; manga uses MonitoredChaptersOnly +
+// UserInvokedSearch + InteractiveSearch flags directly).
 
 namespace NzbDrone.Core.IndexerSearch.Definitions
 {
     /// <summary>
     /// Base type for manga indexer search criteria (D-06). Parallel hierarchy to
-    /// <see cref="SearchCriteriaBase"/>: NO inheritance — that base carries TV-shaped
+    /// <c>SearchCriteriaBase</c> (DELETED Phase 15): NO inheritance — that base carries TV-shaped
     /// <c>Series</c> / <c>SceneTitles</c> / <c>Episodes</c> fields that would leak into manga code.
     /// Phase 8 collapses both bases when <c>Tv/</c> deletes.
     /// </summary>
@@ -29,7 +33,7 @@ namespace NzbDrone.Core.IndexerSearch.Definitions
         /// </summary>
         public IReadOnlyList<string> PreferredLanguages { get; set; }
 
-        public SearchMode SearchMode { get; set; }
+        // Sonarr divergence: Phase 15 Plan 15-04 — SearchMode (DataAugmentation/) stripped.
         public virtual bool MonitoredChaptersOnly { get; set; }
         public virtual bool UserInvokedSearch { get; set; }
         public virtual bool InteractiveSearch { get; set; }

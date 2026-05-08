@@ -243,19 +243,16 @@ namespace NzbDrone.Core.Notifications
         {
             base.SetProviderCharacteristics(provider, definition);
 
-            definition.SupportsOnGrab = provider.SupportsOnGrab;
-            definition.SupportsOnDownload = provider.SupportsOnDownload;
-            definition.SupportsOnUpgrade = provider.SupportsOnUpgrade;
-            definition.SupportsOnImportComplete = provider.SupportsOnImportComplete;
-            definition.SupportsOnRename = provider.SupportsOnRename;
-            definition.SupportsOnSeriesAdd = provider.SupportsOnSeriesAdd;
-            definition.SupportsOnSeriesDelete = provider.SupportsOnSeriesDelete;
-            definition.SupportsOnEpisodeFileDelete = provider.SupportsOnEpisodeFileDelete;
-            definition.SupportsOnEpisodeFileDeleteForUpgrade = provider.SupportsOnEpisodeFileDeleteForUpgrade;
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-shape
+            // Supports* properties (OnGrab / OnDownload / OnUpgrade / OnImportComplete /
+            // OnRename / OnSeriesAdd|Delete / OnEpisodeFileDelete / OnEpisodeFileDeleteForUpgrade)
+            // stripped per Plan 15-06 W-1/W-2 INotification + NotificationBase TV-hook trim.
             definition.SupportsOnHealthIssue = provider.SupportsOnHealthIssue;
             definition.SupportsOnHealthRestored = provider.SupportsOnHealthRestored;
             definition.SupportsOnApplicationUpdate = provider.SupportsOnApplicationUpdate;
-            definition.SupportsOnManualInteractionRequired = provider.SupportsOnManualInteractionRequired;
+
+            // Sonarr divergence: Phase 15 Plan 15-10 — SupportsOnManualInteractionRequired stripped (TV-shape).
+            //   definition.SupportsOnManualInteractionRequired = provider.SupportsOnManualInteractionRequired;
             definition.SupportsOnChapterImport = provider.SupportsOnChapterImport;
             definition.SupportsOnMangaAdd = provider.SupportsOnMangaAdd;
             definition.SupportsOnMangaDelete = provider.SupportsOnMangaDelete;
