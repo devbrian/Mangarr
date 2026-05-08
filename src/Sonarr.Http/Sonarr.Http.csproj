@@ -9,7 +9,7 @@
     <PackageReference Include="NLog" Version="5.5.1" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\NzbDrone.Core\Sonarr.Core.csproj" />
-    <ProjectReference Include="..\NzbDrone.SignalR\Sonarr.SignalR.csproj" />
+    <ProjectReference Include="..\NzbDrone.Core\Mangarr.Core.csproj" />
+    <ProjectReference Include="..\NzbDrone.SignalR\Mangarr.SignalR.csproj" />
   </ItemGroup>
 </Project>

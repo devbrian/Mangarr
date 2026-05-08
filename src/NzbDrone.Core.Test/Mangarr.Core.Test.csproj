@@ -7,8 +7,8 @@
     <PackageReference Include="NBuilder" Version="6.1.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\NzbDrone.Test.Common\Sonarr.Test.Common.csproj" />
-    <ProjectReference Include="..\NzbDrone.Core\Sonarr.Core.csproj" />
+    <ProjectReference Include="..\NzbDrone.Test.Common\Mangarr.Test.Common.csproj" />
+    <ProjectReference Include="..\NzbDrone.Core\Mangarr.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Logo\1024.png">

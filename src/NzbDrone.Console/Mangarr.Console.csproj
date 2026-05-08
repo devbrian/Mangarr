@@ -9,7 +9,7 @@
     <AssemblyName>Sonarr</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\NzbDrone.Host\Sonarr.Host.csproj" />
+    <ProjectReference Include="..\NzbDrone.Host\Mangarr.Host.csproj" />
     <ProjectReference Include="..\Sonarr.RuntimePatches\Sonarr.RuntimePatches.csproj" />
   </ItemGroup>
 </Project>

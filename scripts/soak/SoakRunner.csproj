@@ -7,6 +7,6 @@
     <AssemblyName>Mangarr.Soak.Runner</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\NzbDrone.Core\Sonarr.Core.csproj" />
+    <ProjectReference Include="..\..\src\NzbDrone.Core\Mangarr.Core.csproj" />
   </ItemGroup>
 </Project>
