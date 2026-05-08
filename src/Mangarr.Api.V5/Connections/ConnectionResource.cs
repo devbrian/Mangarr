@@ -11,10 +11,6 @@ public class ConnectionResource : ProviderResource<ConnectionResource>
     public bool OnUpgrade { get; set; }
     public bool OnImportComplete { get; set; }
     public bool OnRename { get; set; }
-    public bool OnSeriesAdd { get; set; }
-    public bool OnSeriesDelete { get; set; }
-    public bool OnEpisodeFileDelete { get; set; }
-    public bool OnEpisodeFileDeleteForUpgrade { get; set; }
     public bool OnHealthIssue { get; set; }
     public bool IncludeHealthWarnings { get; set; }
     public bool OnHealthRestored { get; set; }
@@ -25,10 +21,6 @@ public class ConnectionResource : ProviderResource<ConnectionResource>
     public bool SupportsOnUpgrade { get; set; }
     public bool SupportsOnImportComplete { get; set; }
     public bool SupportsOnRename { get; set; }
-    public bool SupportsOnSeriesAdd { get; set; }
-    public bool SupportsOnSeriesDelete { get; set; }
-    public bool SupportsOnEpisodeFileDelete { get; set; }
-    public bool SupportsOnEpisodeFileDeleteForUpgrade { get; set; }
     public bool SupportsOnHealthIssue { get; set; }
     public bool SupportsOnHealthRestored { get; set; }
     public bool SupportsOnApplicationUpdate { get; set; }
@@ -47,10 +39,6 @@ public class ConnectionResourceMapper : ProviderResourceMapper<ConnectionResourc
         resource.OnUpgrade = definition.OnUpgrade;
         resource.OnImportComplete = definition.OnImportComplete;
         resource.OnRename = definition.OnRename;
-        resource.OnSeriesAdd = definition.OnSeriesAdd;
-        resource.OnSeriesDelete = definition.OnSeriesDelete;
-        resource.OnEpisodeFileDelete = definition.OnEpisodeFileDelete;
-        resource.OnEpisodeFileDeleteForUpgrade = definition.OnEpisodeFileDeleteForUpgrade;
         resource.OnHealthIssue = definition.OnHealthIssue;
         resource.IncludeHealthWarnings = definition.IncludeHealthWarnings;
         resource.OnHealthRestored = definition.OnHealthRestored;
@@ -61,10 +49,6 @@ public class ConnectionResourceMapper : ProviderResourceMapper<ConnectionResourc
         resource.SupportsOnUpgrade = definition.SupportsOnUpgrade;
         resource.SupportsOnImportComplete = definition.SupportsOnImportComplete;
         resource.SupportsOnRename = definition.SupportsOnRename;
-        resource.SupportsOnSeriesAdd = definition.SupportsOnSeriesAdd;
-        resource.SupportsOnSeriesDelete = definition.SupportsOnSeriesDelete;
-        resource.SupportsOnEpisodeFileDelete = definition.SupportsOnEpisodeFileDelete;
-        resource.SupportsOnEpisodeFileDeleteForUpgrade = definition.SupportsOnEpisodeFileDeleteForUpgrade;
         resource.SupportsOnHealthIssue = definition.SupportsOnHealthIssue;
         resource.SupportsOnHealthRestored = definition.SupportsOnHealthRestored;
         resource.SupportsOnApplicationUpdate = definition.SupportsOnApplicationUpdate;
@@ -82,10 +66,6 @@ public class ConnectionResourceMapper : ProviderResourceMapper<ConnectionResourc
         definition.OnUpgrade = resource.OnUpgrade;
         definition.OnImportComplete = resource.OnImportComplete;
         definition.OnRename = resource.OnRename;
-        definition.OnSeriesAdd = resource.OnSeriesAdd;
-        definition.OnSeriesDelete = resource.OnSeriesDelete;
-        definition.OnEpisodeFileDelete = resource.OnEpisodeFileDelete;
-        definition.OnEpisodeFileDeleteForUpgrade = resource.OnEpisodeFileDeleteForUpgrade;
         definition.OnHealthIssue = resource.OnHealthIssue;
         definition.IncludeHealthWarnings = resource.IncludeHealthWarnings;
         definition.OnHealthRestored = resource.OnHealthRestored;
@@ -96,10 +76,6 @@ public class ConnectionResourceMapper : ProviderResourceMapper<ConnectionResourc
         definition.SupportsOnUpgrade = resource.SupportsOnUpgrade;
         definition.SupportsOnImportComplete = resource.SupportsOnImportComplete;
         definition.SupportsOnRename = resource.SupportsOnRename;
-        definition.SupportsOnSeriesAdd = resource.SupportsOnSeriesAdd;
-        definition.SupportsOnSeriesDelete = resource.SupportsOnSeriesDelete;
-        definition.SupportsOnEpisodeFileDelete = resource.SupportsOnEpisodeFileDelete;
-        definition.SupportsOnEpisodeFileDeleteForUpgrade = resource.SupportsOnEpisodeFileDeleteForUpgrade;
         definition.SupportsOnHealthIssue = resource.SupportsOnHealthIssue;
         definition.SupportsOnHealthRestored = resource.SupportsOnHealthRestored;
         definition.SupportsOnApplicationUpdate = resource.SupportsOnApplicationUpdate;
