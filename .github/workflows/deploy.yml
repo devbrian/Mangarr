@@ -12,11 +12,11 @@ on:
         type: string
         required: true
       major_version:
-        description: "Sonarr major version"
+        description: "Mangarr major version"
         type: string
         required: true
       version:
-        description: "Sonarr version"
+        description: "Mangarr version"
         type: string
         required: true
     secrets:
