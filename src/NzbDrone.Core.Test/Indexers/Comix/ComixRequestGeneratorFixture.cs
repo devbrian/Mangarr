@@ -8,13 +8,18 @@ using NzbDrone.Core.Test.Framework;
 namespace NzbDrone.Core.Test.Indexers.Comix
 {
     /// <summary>
-    /// Wave 0 stub fixture for <see cref="ComixRequestGenerator"/>. References NOT-YET-BUILT
-    /// production type (lands in Plan 03-05).
+    /// Fixture for <see cref="ComixRequestGenerator"/>.
     ///
     /// Coverage:
-    /// - URL composition for /api/v2/manga (FetchRecent / latest_updates ordering)
-    /// - URL composition for /api/v2/manga/{hash}/chapters (per-manga chapter list)
-    /// - D-03: TV criteria overloads return empty chain
+    /// - URL composition for /api/v1/manga (FetchRecent / latest_updates ordering)
+    /// - URL composition for /api/v1/manga/{hid}/chapters (per-manga chapter list)
+    ///   includes the keiyoushi <c>_=</c> anti-bot token
+    /// - Search request returns an empty chain when no <see cref="ComixRequestGenerator.ResolvedMangaHash"/>
+    ///   is set (the indexer resolves title→hid before invoking the generator)
+    ///
+    /// Updated 2026-05-08 (comix-indexer-404 debug session): pivoted from
+    /// /api/v2/manga/{slug}/chapters to /api/v1/manga/{hid}/chapters with hash token,
+    /// matching keiyoushi's current Comix.kt + the live API verified during the bug investigation.
     /// </summary>
     [TestFixture]
     public class ComixRequestGeneratorFixture : CoreTest<ComixRequestGenerator>
@@ -34,23 +39,57 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             var chain = Subject.GetRecentRequests();
             var url = chain.GetAllTiers().First().First().Url.FullUri;
-            url.Should().Contain("/api/v2/manga");
-            url.Should().Contain("order[chapter_updated_at]=desc");
+            url.Should().Contain("/api/v1/manga");
+
+            // bracket query params are URL-encoded on the wire to keep the request line valid;
+            // comix.to un-encodes them server-side.
+            url.Should().Contain("order%5Bchapter_updated_at%5D=desc");
         }
 
         [Test]
-        public void GetSearchRequests_MangaSearchCriteria_targets_manga_hash_chapters()
+        public void GetSearchRequests_with_unresolved_hash_returns_empty_chain()
         {
-            // Comix uses an opaque per-manga hash_id (not the int manga_id) — Phase 3 will need
-            // a comix-specific external-id lookup before /chapters. For Wave 0 this assertion
-            // pins the URL contract; the lookup machinery lands with 03-05.
+            // ComixIndexer.Fetch() resolves Manga.Title -> hid via /api/v1/manga?keyword=...
+            // before invoking the request generator. Without ResolvedMangaHash set, the
+            // generator emits an empty chain so FetchReleases short-circuits.
             var manga = new Manga.Manga { Title = "One Piece" };
             var criteria = new MangaSearchCriteria { Manga = manga };
+
             var chain = Subject.GetSearchRequests(criteria);
+
+            chain.GetAllTiers().Should().BeEmpty();
+        }
+
+        [Test]
+        public void GetSearchRequests_with_resolved_hash_targets_v1_chapters_with_token()
+        {
+            Subject.ResolvedMangaHash = "mr3m0";
+            Subject.ResolvedMangaSlug = "mr3m0-the-forgotten-field";
+
+            var manga = new Manga.Manga { Title = "The Forgotten Field" };
+            var criteria = new MangaSearchCriteria { Manga = manga };
+
+            var chain = Subject.GetSearchRequests(criteria);
+
             chain.GetAllTiers().Should().NotBeEmpty();
             var url = chain.GetAllTiers().First().First().Url.FullUri;
-            url.Should().Contain("/api/v2/manga/");
-            url.Should().Contain("/chapters");
+            url.Should().Contain("/api/v1/manga/mr3m0/chapters");
+            url.Should().Contain("order%5Bnumber%5D=desc");
+            url.Should().Contain("limit=100");
+            url.Should().Contain("page=1");
+            url.Should().Contain("_=");          // anti-bot token query param required by comix.to
+            url.Should().Contain("mangaSlug=");
+        }
+
+        [Test]
+        public void BuildChapterListUrl_token_is_deterministic_for_same_path()
+        {
+            // The hash token derives from the URL path — same path -> same token. This makes
+            // unit tests reproducible across runs. (We intentionally do NOT pin the EXACT
+            // token value here because that would couple the test to ComixHash internals.)
+            var u1 = Subject.BuildChapterListUrl("mr3m0", "mr3m0-the-forgotten-field");
+            var u2 = Subject.BuildChapterListUrl("mr3m0", "mr3m0-the-forgotten-field");
+            u1.Should().Be(u2);
         }
     }
 }
