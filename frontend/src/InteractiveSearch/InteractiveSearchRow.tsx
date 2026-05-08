@@ -30,7 +30,7 @@ import MangaOverrideMatchModal from './OverrideMatch/Manga/MangaOverrideMatchMod
 import OverrideMatchModal from './OverrideMatch/OverrideMatchModal';
 import Peers from './Peers';
 import ReleaseSceneIndicator from './ReleaseSceneIndicator';
-import { Release, useGrabRelease } from './useReleases';
+import { Release, useGrabMangaRelease, useGrabRelease } from './useReleases';
 import styles from './InteractiveSearchRow.css';
 
 function getDownloadIcon(
@@ -132,7 +132,30 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
 
   const [isConfirmGrabModalOpen, setIsConfirmGrabModalOpen] = useState(false);
   const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
-  const { isGrabbing, isGrabbed, grabError, grabRelease } = useGrabRelease();
+
+  // Bug fix (interactive-download-btn-red, 2026-05-08):
+  // The row-level direct-grab must route to the same endpoint that produced the
+  // release list. Phase 12 Plan 12-10 fixed the OverrideMatch modal to do this
+  // (see OverrideMatch routing at the bottom of this file) but the row-level
+  // download icon was still hard-wired to useGrabRelease (POSTs to /api/v5/release,
+  // which does not exist in this codebase — the TV ReleaseController was deleted
+  // during the Phase 6/8 manga cutover). Result: every chapter grab 404'd and the
+  // icon turned red.
+  //
+  // Both hooks expose an identical surface ({ grabRelease, isGrabbing, isGrabbed,
+  // grabError }); the rules of hooks require us to call both unconditionally and
+  // pick the active pair by payload shape. The discriminator
+  // `'chapterId' in searchPayload || 'mangaId' in searchPayload` matches the same
+  // shape check used at the OverrideMatchModal mount below and at
+  // useReleases.ts:385's getReleasePath. Phase 15 cleanup will collapse the two
+  // hooks into one when Tv/ deletes.
+  const isMangaPayload =
+    'chapterId' in searchPayload || 'mangaId' in searchPayload;
+  const tvGrab = useGrabRelease();
+  const mangaGrab = useGrabMangaRelease();
+  const { isGrabbing, isGrabbed, grabError, grabRelease } = isMangaPayload
+    ? mangaGrab
+    : tvGrab;
 
   const isBlocklisted = useMemo(() => {
     return (
@@ -382,7 +405,7 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
           off the cached RemoteChapter (indexerId + guid), so the override
           mangaId field is informational; cache resolution drives the actual
           grab. */}
-      {'chapterId' in searchPayload || 'mangaId' in searchPayload ? (
+      {isMangaPayload ? (
         <MangaOverrideMatchModal
           isOpen={isOverrideModalOpen}
           title={title}
@@ -407,9 +430,9 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
           languages={languages}
           quality={quality}
           protocol={protocol}
-          isGrabbing={isGrabbing}
-          grabError={grabError}
-          grabRelease={grabRelease}
+          isGrabbing={tvGrab.isGrabbing}
+          grabError={tvGrab.grabError}
+          grabRelease={tvGrab.grabRelease}
           onModalClose={onOverrideModalClose}
         />
       )}
