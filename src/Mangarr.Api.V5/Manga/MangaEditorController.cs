@@ -1,11 +1,11 @@
 using FluentValidation;
+using Mangarr.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Messaging.Commands;
-using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Manga;
 

@@ -1,10 +1,10 @@
 using FluentValidation;
+using Mangarr.Http;
 using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.Validation;
 using NzbDrone.Core.Validation.Paths;
-using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Settings;
 
@@ -16,7 +16,7 @@ public class MediaManagementSettingsController : SettingsController<MediaManagem
         PathExistsValidator pathExistsValidator,
         FolderChmodValidator folderChmodValidator,
         FolderWritableValidator folderWritableValidator,
-        SeriesPathValidator seriesPathValidator,
+        MangaPathValidator seriesPathValidator,
         StartupFolderValidator startupFolderValidator,
         SystemFolderValidator systemFolderValidator,
         RootFolderAncestorValidator rootFolderAncestorValidator,

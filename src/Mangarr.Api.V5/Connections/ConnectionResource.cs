@@ -1,5 +1,5 @@
-using NzbDrone.Core.Notifications;
 using Mangarr.Api.V5.Provider;
+using NzbDrone.Core.Notifications;
 
 namespace Mangarr.Api.V5.Connections;
 

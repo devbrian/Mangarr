@@ -1,5 +1,5 @@
-using NzbDrone.Core.MediaCover;
 using Mangarr.Http.REST;
+using NzbDrone.Core.MediaCover;
 
 namespace Mangarr.Api.V5.Manga;
 

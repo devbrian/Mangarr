@@ -1,6 +1,6 @@
+using Mangarr.Http.REST;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Update;
-using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Settings;
 

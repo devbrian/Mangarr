@@ -1,9 +1,9 @@
 using FluentValidation;
+using Mangarr.Api.V5.Provider;
+using Mangarr.Http;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Validation;
 using NzbDrone.SignalR;
-using Mangarr.Api.V5.Provider;
-using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Indexers;
 

@@ -1,5 +1,5 @@
-using NzbDrone.Core.Profiles.Translations;
 using Mangarr.Http.REST;
+using NzbDrone.Core.Profiles.Translations;
 
 namespace Mangarr.Api.V5.Profiles.Translations;
 

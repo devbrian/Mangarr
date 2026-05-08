@@ -1,10 +1,10 @@
+using Mangarr.Api.V5.Provider;
+using Mangarr.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.SignalR;
-using Mangarr.Api.V5.Provider;
-using Mangarr.Http;
 
 namespace Mangarr.Api.V5.MetadataSource;
 

@@ -2,11 +2,11 @@ using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Mangarr.Http.ErrorManagement;
+using Mangarr.Http.Extensions;
 using Microsoft.AspNetCore.Http;
 using NLog;
 using NzbDrone.Common.Extensions;
-using Mangarr.Http.ErrorManagement;
-using Mangarr.Http.Extensions;
 
 namespace Mangarr.Http.Middleware
 {

@@ -1,23 +1,24 @@
 using System.Text.RegularExpressions;
 using FluentValidation;
+// Sonarr divergence: Phase 15 Plan 15-10 — AutoTagging/ DELETED.
+//   using NzbDrone.Core.AutoTagging; ← deleted
+using Mangarr.Http;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using NzbDrone.Core.AutoTagging;
 using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Tags;
 using NzbDrone.SignalR;
-using Mangarr.Http;
-using Mangarr.Http.REST;
-using Mangarr.Http.REST.Attributes;
 
 namespace Mangarr.Api.V5.Tags;
 
 [V5ApiController]
+// Sonarr divergence: Phase 15 Plan 15-10 — IHandle<AutoTagsUpdatedEvent> stripped (event DELETED).
 public class TagController : RestControllerWithSignalR<TagResource, Tag>,
-                             IHandle<TagsUpdatedEvent>,
-                             IHandle<AutoTagsUpdatedEvent>
+                             IHandle<TagsUpdatedEvent>
 {
     private readonly ITagService _tagService;
 
@@ -74,9 +75,5 @@ public class TagController : RestControllerWithSignalR<TagResource, Tag>,
         BroadcastResourceChange(ModelAction.Sync);
     }
 
-    [NonAction]
-    public void Handle(AutoTagsUpdatedEvent message)
-    {
-        BroadcastResourceChange(ModelAction.Sync);
-    }
+    // Sonarr divergence: Phase 15 Plan 15-10 — Handle(AutoTagsUpdatedEvent) stripped (event DELETED).
 }

@@ -1,6 +1,6 @@
 using System;
-using NzbDrone.Core.Datastore.Events;
 using Mangarr.Http.REST;
+using NzbDrone.Core.Datastore.Events;
 
 namespace Mangarr.Http
 {

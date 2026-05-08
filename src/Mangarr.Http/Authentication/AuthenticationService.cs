@@ -1,8 +1,8 @@
+using Mangarr.Http.Extensions;
 using Microsoft.AspNetCore.Http;
 using NLog;
 using NzbDrone.Core.Authentication;
 using NzbDrone.Core.Configuration;
-using Mangarr.Http.Extensions;
 
 namespace Mangarr.Http.Authentication
 {

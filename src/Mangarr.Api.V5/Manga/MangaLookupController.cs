@@ -1,9 +1,9 @@
+using Mangarr.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.MediaCover;
 using NzbDrone.Core.MetadataSource;
-using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Manga;
 

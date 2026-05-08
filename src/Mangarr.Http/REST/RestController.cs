@@ -4,6 +4,8 @@ using System.Linq;
 using System.Reflection;
 using FluentValidation;
 using FluentValidation.Results;
+using Mangarr.Http.REST.Attributes;
+using Mangarr.Http.Validation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -12,8 +14,6 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using NLog;
 using NzbDrone.Common.Instrumentation;
 using NzbDrone.Core.Datastore;
-using Mangarr.Http.REST.Attributes;
-using Mangarr.Http.Validation;
 
 namespace Mangarr.Http.REST
 {

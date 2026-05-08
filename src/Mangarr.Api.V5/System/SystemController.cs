@@ -1,3 +1,5 @@
+using Mangarr.Http;
+using Mangarr.Http.Validation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -8,8 +10,6 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Lifecycle;
-using Mangarr.Http;
-using Mangarr.Http.Validation;
 
 namespace Mangarr.Api.V5.System;
 

@@ -1,10 +1,10 @@
+using Mangarr.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Common.Disk;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.MediaFiles;
-using Mangarr.Http;
 
 namespace Mangarr.Api.V5.FileSystem;
 
@@ -13,11 +13,11 @@ public class FileSystemController : Controller
 {
     private readonly IFileSystemLookupService _fileSystemLookupService;
     private readonly IDiskProvider _diskProvider;
-    private readonly IDiskScanService _diskScanService;
+    private readonly IMangaDiskScanService _diskScanService;
 
     public FileSystemController(IFileSystemLookupService fileSystemLookupService,
                             IDiskProvider diskProvider,
-                            IDiskScanService diskScanService)
+                            IMangaDiskScanService diskScanService)
     {
         _fileSystemLookupService = fileSystemLookupService;
         _diskProvider = diskProvider;
@@ -53,11 +53,9 @@ public class FileSystemController : Controller
             return TypedResults.Ok(Enumerable.Empty<object>());
         }
 
-        return TypedResults.Ok(_diskScanService.GetVideoFiles(path).Select(object (f) => new
-        {
-            Path = f,
-            RelativePath = path.GetRelativePath(f),
-            Name = Path.GetFileName(f)
-        }));
+        // Sonarr divergence: Phase 15 Plan 15-10 — IDiskScanService.GetVideoFiles stripped (TV-only).
+        // Manga uses MangaDiskScanService.GetMediaFiles in the import pipeline; this V5 endpoint
+        // is V1-deferred for manga (no per-file enumeration UI in v1). Returns empty list.
+        return TypedResults.Ok(Enumerable.Empty<object>());
     }
 }

@@ -1,5 +1,5 @@
-using Newtonsoft.Json;
 using Mangarr.Http.REST;
+using Newtonsoft.Json;
 
 namespace Mangarr.Api.V5.Indexers;
 

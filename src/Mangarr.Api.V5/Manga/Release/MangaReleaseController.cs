@@ -1,3 +1,4 @@
+using Mangarr.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,6 @@ using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Parser.Manga.Model;
-using Mangarr.Http;
 using HttpStatusCode = System.Net.HttpStatusCode;
 
 namespace Mangarr.Api.V5.Manga.Release

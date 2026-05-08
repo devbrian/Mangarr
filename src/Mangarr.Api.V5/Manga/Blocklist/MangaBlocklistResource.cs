@@ -1,6 +1,6 @@
-using NzbDrone.Core.Blocklisting.Manga;
 using Mangarr.Api.V5.Manga.Subresources;
 using Mangarr.Http.REST;
+using NzbDrone.Core.Blocklisting.Manga;
 
 namespace Mangarr.Api.V5.Manga.Blocklist
 {

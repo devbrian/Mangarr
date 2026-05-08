@@ -1,8 +1,8 @@
+using Mangarr.Api.V5.Manga.Subresources;
+using Mangarr.Http.REST;
 using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Queue.Manga;
-using Mangarr.Api.V5.Manga.Subresources;
-using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Manga.Queue
 {

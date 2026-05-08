@@ -1,4 +1,5 @@
 using FluentValidation;
+using Mangarr.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using NzbDrone.Common.Disk;
 using NzbDrone.Common.Extensions;
@@ -7,7 +8,6 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Update;
 using NzbDrone.Core.Validation;
 using NzbDrone.Core.Validation.Paths;
-using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Settings;
 

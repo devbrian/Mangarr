@@ -1,7 +1,7 @@
 using System.Threading.Tasks;
+using Mangarr.Http.Extensions;
 using Microsoft.AspNetCore.Http;
 using NzbDrone.Common.EnvironmentInfo;
-using Mangarr.Http.Extensions;
 
 namespace Mangarr.Http.Middleware
 {

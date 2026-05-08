@@ -1,5 +1,5 @@
-using NzbDrone.Core.MetadataSource;
 using Mangarr.Api.V5.Provider;
+using NzbDrone.Core.MetadataSource;
 
 namespace Mangarr.Api.V5.MetadataSource;
 

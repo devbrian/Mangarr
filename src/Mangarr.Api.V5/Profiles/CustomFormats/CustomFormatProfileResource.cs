@@ -1,7 +1,7 @@
+using Mangarr.Http.REST;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.Profiles;
 using NzbDrone.Core.Profiles.CustomFormats;
-using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Profiles.CustomFormats;
 

@@ -1,6 +1,6 @@
+using Mangarr.Http.REST;
 using NzbDrone.Common.Composition;
 using NzbDrone.Core.Messaging.Commands;
-using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Commands;
 

@@ -1,8 +1,10 @@
+
+// Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV namespaces stripped:
+//   using NzbDrone.Core.MediaFiles.EpisodeImport; ← deleted (subtree DELETED per Plan 15-10 A2)
+//   using NzbDrone.Core.Qualities; ← deleted (Qualities/ DELETED per Plan 15-03)
+using Mangarr.Http.REST;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.MediaFiles;
-using NzbDrone.Core.MediaFiles.EpisodeImport;
-using NzbDrone.Core.Qualities;
-using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Settings;
 
@@ -11,7 +13,8 @@ public class MediaManagementSettingsResource : RestResource
     public bool AutoUnmonitorPreviouslyDownloadedEpisodes { get; set; }
     public string? RecycleBin { get; set; }
     public int RecycleBinCleanupDays { get; set; }
-    public ProperDownloadTypes DownloadPropersAndRepacks { get; set; }
+    // Sonarr divergence: Phase 15 Plan 15-10 — ProperDownloadTypes (TV Quality) stripped.
+    //   public ProperDownloadTypes DownloadPropersAndRepacks { get; set; }
     public bool CreateEmptySeriesFolders { get; set; }
     public bool DeleteEmptyFolders { get; set; }
     public FileDateType FileDate { get; set; }
@@ -21,7 +24,8 @@ public class MediaManagementSettingsResource : RestResource
     public string? ChmodFolder { get; set; }
     public string? ChownGroup { get; set; }
 
-    public EpisodeTitleRequiredType EpisodeTitleRequired { get; set; }
+    // Sonarr divergence: Phase 15 Plan 15-10 — EpisodeTitleRequiredType (TV EpisodeImport) stripped.
+    //   public EpisodeTitleRequiredType EpisodeTitleRequired { get; set; }
     public bool SkipFreeSpaceCheckWhenImporting { get; set; }
     public int MinimumFreeSpaceWhenImporting { get; set; }
     public bool CopyUsingHardlinks { get; set; }
@@ -44,7 +48,7 @@ public static class MediaManagementConfigResourceMapper
             AutoUnmonitorPreviouslyDownloadedEpisodes = model.AutoUnmonitorPreviouslyDownloadedEpisodes,
             RecycleBin = model.RecycleBin,
             RecycleBinCleanupDays = model.RecycleBinCleanupDays,
-            DownloadPropersAndRepacks = model.DownloadPropersAndRepacks,
+            // DownloadPropersAndRepacks stripped — Plan 15-10
             CreateEmptySeriesFolders = model.CreateEmptySeriesFolders,
             DeleteEmptyFolders = model.DeleteEmptyFolders,
             FileDate = model.FileDate,
@@ -54,7 +58,7 @@ public static class MediaManagementConfigResourceMapper
             ChmodFolder = model.ChmodFolder,
             ChownGroup = model.ChownGroup,
 
-            EpisodeTitleRequired = model.EpisodeTitleRequired,
+            // EpisodeTitleRequired stripped — Plan 15-10
             SkipFreeSpaceCheckWhenImporting = model.SkipFreeSpaceCheckWhenImporting,
             MinimumFreeSpaceWhenImporting = model.MinimumFreeSpaceWhenImporting,
             CopyUsingHardlinks = model.CopyUsingHardlinks,

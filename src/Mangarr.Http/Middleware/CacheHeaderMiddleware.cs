@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Mangarr.Http.Extensions;
+using Microsoft.AspNetCore.Http;
 
 namespace Mangarr.Http.Middleware
 {
