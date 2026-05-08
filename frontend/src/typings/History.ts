@@ -1,5 +1,4 @@
 import Language from 'Language/Language';
-import { QualityModel } from 'Quality/Quality';
 import CustomFormat from './CustomFormat';
 
 export type HistoryEventType =
@@ -79,12 +78,15 @@ export type HistoryData =
   | EpisodeFileRenamedHistory
   | DownloadIgnoredHistory;
 
+// Sonarr divergence: Phase 15 Plan 15-12 — QualityModel stripped per cascade
+// absorption (Plan 15-03). Manga history uses typings/ChapterHistory.ts which
+// does not carry a QualityModel field. Phase 8 cleanup: collapse with ChapterHistory.
 export default interface History {
   episodeId: number;
   seriesId: number;
   sourceTitle: string;
   languages: Language[];
-  quality: QualityModel;
+  quality: unknown;
   customFormats: CustomFormat[];
   customFormatScore: number;
   qualityCutoffNotMet: boolean;

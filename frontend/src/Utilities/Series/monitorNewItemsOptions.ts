@@ -1,19 +1,3 @@
-import { EnhancedSelectInputValue } from 'Components/Form/Select/EnhancedSelectInput';
-import translate from 'Utilities/String/translate';
-
-const monitorNewItemsOptions: EnhancedSelectInputValue<string>[] = [
-  {
-    key: 'all',
-    get value() {
-      return translate('MonitorAllSeasons');
-    },
-  },
-  {
-    key: 'none',
-    get value() {
-      return translate('MonitorNoNewSeasons');
-    },
-  },
-];
-
+// Sonarr divergence: Phase 15 Plan 15-12 — STUB.
+const monitorNewItemsOptions: { key: string; value: string }[] = [];
 export default monitorNewItemsOptions;

@@ -23,9 +23,6 @@ import QualityFilterBuilderRowValue from './QualityFilterBuilderRowValue';
 import QualityProfileFilterBuilderRowValue from './QualityProfileFilterBuilderRowValue';
 import QueueStatusFilterBuilderRowValue from './QueueStatusFilterBuilderRowValue';
 import ReleaseTypeFilterBuilderRowValue from './ReleaseTypeFilterBuilderRowValue';
-import SeriesFilterBuilderRowValue from './SeriesFilterBuilderRowValue';
-import SeriesStatusFilterBuilderRowValue from './SeriesStatusFilterBuilderRowValue';
-import SeriesTypeFilterBuilderRowValue from './SeriesTypeFilterBuilderRowValue';
 import TagFilterBuilderRowValue from './TagFilterBuilderRowValue';
 import styles from './FilterBuilderRow.css';
 
@@ -117,14 +114,18 @@ function getRowValueConnector<T>(
     case filterBuilderValueTypes.RELEASE_TYPES:
       return ReleaseTypeFilterBuilderRowValue;
 
+    // Sonarr divergence: Phase 15 Plan 15-12 — SERIES/SERIES_STATUS/SERIES_TYPES branches
+    // fallthrough to DefaultFilterBuilderRowValue. The Series* row-value components were
+    // deleted (TV-only) and not yet replaced with manga peers; manga filter builders
+    // declare specific value types (e.g. STRING / EXACT) so this path is rarely hit.
     case filterBuilderValueTypes.SERIES:
-      return SeriesFilterBuilderRowValue;
+      return DefaultFilterBuilderRowValue;
 
     case filterBuilderValueTypes.SERIES_STATUS:
-      return SeriesStatusFilterBuilderRowValue;
+      return DefaultFilterBuilderRowValue;
 
     case filterBuilderValueTypes.SERIES_TYPES:
-      return SeriesTypeFilterBuilderRowValue;
+      return DefaultFilterBuilderRowValue;
 
     case filterBuilderValueTypes.TAG:
       return TagFilterBuilderRowValue;

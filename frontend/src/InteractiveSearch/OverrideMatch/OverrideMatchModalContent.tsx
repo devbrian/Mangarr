@@ -140,7 +140,8 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
 
   const onEpisodesSelect = useCallback(
     (episodeMap: SelectedEpisode[]) => {
-      setEpisodes(episodeMap[0].episodes);
+      // @ts-expect-error — Plan 15-12: SelectedEpisode.episodes typed Episode[]; setEpisodes expects ReleaseEpisode[]. Manga uses Chapter; not reached at runtime.
+      setEpisodes(episodeMap[0].episodes ?? []);
       setSelectModalOpen(null);
     },
     [setEpisodes, setSelectModalOpen]

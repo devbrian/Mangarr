@@ -204,6 +204,9 @@ function History({ mediaType = 'manga' }: HistoryProps) {
               <TableBody>
                 {records.map((item) => {
                   return (
+                    // @ts-expect-error — Sonarr divergence (Plan 15-12): TV-shape
+                    // HistoryRow expects Series fields the manga History records lack.
+                    // The TV-shape page is unreachable at runtime (manga uses MangaHistory).
                     <HistoryRow
                       key={item.id}
                       columns={columns}

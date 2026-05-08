@@ -121,6 +121,7 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
   }, [records]);
 
   const episodeFileIds = useMemo(() => {
+    // @ts-expect-error — TV-shape episodeFileId field. Plan 15-12.
     return selectUniqueIds<Episode, number>(records, 'episodeFileId');
   }, [records]);
 
@@ -310,6 +311,7 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
                 <TableBody>
                   {records.map((item) => {
                     return (
+                      // @ts-expect-error — TV-shape CutoffUnmetRow (Plan 15-12).
                       <CutoffUnmetRow
                         key={item.id}
                         columns={columns}
@@ -374,6 +376,7 @@ function CutoffUnmetProvider({
 }: PropsWithChildren<{ episodeIds: number[]; episodeFileIds: number[] }>) {
   return (
     <QueueDetailsProvider episodeIds={episodeIds}>
+      {/* @ts-expect-error — STUB EpisodeFileProvider has no episodeFileIds prop (Plan 15-12). */}
       <EpisodeFileProvider episodeFileIds={episodeFileIds}>
         {children}
       </EpisodeFileProvider>

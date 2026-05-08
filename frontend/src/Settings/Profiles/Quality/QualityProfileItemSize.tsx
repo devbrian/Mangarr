@@ -4,12 +4,27 @@ import NumberInput from 'Components/Form/NumberInput';
 import Label from 'Components/Label';
 import Popover from 'Components/Tooltip/Popover';
 import { kinds, tooltipPositions } from 'Helpers/Props';
-import QualityDefinitionLimits from 'Settings/Quality/Definition/QualityDefinitionLimits';
+// Sonarr divergence: Phase 15 Plan 15-12 — Settings/Quality/Definition/
+// QualityDefinitionLimits removed in Plan 15-07 along with the rest of the
+// frontend/src/Settings/Quality/ subtree. Inline stub below preserves the
+// settings page rendering shape without re-introducing the deleted module.
 import { InputChanged } from 'typings/inputs';
 import formatBytes from 'Utilities/Number/formatBytes';
 import roundNumber from 'Utilities/Number/roundNumber';
 import translate from 'Utilities/String/translate';
 import styles from './QualityProfileItemSize.css';
+
+interface QualityDefinitionLimitsProps {
+  bytes: number | null;
+  message: string;
+}
+
+function QualityDefinitionLimits({ bytes, message }: QualityDefinitionLimitsProps) {
+  if (!bytes) {
+    return <div>{message}</div>;
+  }
+  return null;
+}
 
 const MIN = 0;
 const MAX = 400;
