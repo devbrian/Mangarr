@@ -23,6 +23,8 @@ namespace NzbDrone.Core.Notifications
         List<INotification> OnMangaAddEnabled(bool filterBlockedNotifications = true);
         List<INotification> OnMangaDeleteEnabled(bool filterBlockedNotifications = true);
         List<INotification> OnMangaRenameEnabled(bool filterBlockedNotifications = true);
+        List<INotification> OnChapterFileDeleteEnabled(bool filterBlockedNotifications = true);
+        List<INotification> OnChapterFileDeleteForUpgradeEnabled(bool filterBlockedNotifications = true);
     }
 
     public class NotificationFactory : ProviderFactory<INotification, NotificationDefinition>, INotificationFactory
@@ -179,6 +181,29 @@ namespace NzbDrone.Core.Notifications
             return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnMangaRename && n.SupportsOnMangaRename).ToList();
         }
 
+        // Manga siblings of TV-deleted OnEpisodeFileDelete / OnEpisodeFileDeleteForUpgrade —
+        // Definition-enabled + Supports-flag dual filter (Pitfall 7 mitigation). No v1 provider
+        // overrides these hooks, so these return empty until v1.1+ providers ship.
+        public List<INotification> OnChapterFileDeleteEnabled(bool filterBlockedNotifications = true)
+        {
+            if (filterBlockedNotifications)
+            {
+                return FilterBlockedNotifications(GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnChapterFileDelete && n.SupportsOnChapterFileDelete)).ToList();
+            }
+
+            return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnChapterFileDelete && n.SupportsOnChapterFileDelete).ToList();
+        }
+
+        public List<INotification> OnChapterFileDeleteForUpgradeEnabled(bool filterBlockedNotifications = true)
+        {
+            if (filterBlockedNotifications)
+            {
+                return FilterBlockedNotifications(GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnChapterFileDeleteForUpgrade && n.SupportsOnChapterFileDeleteForUpgrade)).ToList();
+            }
+
+            return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnChapterFileDeleteForUpgrade && n.SupportsOnChapterFileDeleteForUpgrade).ToList();
+        }
+
         private IEnumerable<INotification> FilterBlockedNotifications(IEnumerable<INotification> notifications)
         {
             var blockedNotifications = _notificationStatusService.GetBlockedProviders().ToDictionary(v => v.ProviderId, v => v);
@@ -216,6 +241,8 @@ namespace NzbDrone.Core.Notifications
             definition.SupportsOnMangaAdd = provider.SupportsOnMangaAdd;
             definition.SupportsOnMangaDelete = provider.SupportsOnMangaDelete;
             definition.SupportsOnMangaRename = provider.SupportsOnMangaRename;
+            definition.SupportsOnChapterFileDelete = provider.SupportsOnChapterFileDelete;
+            definition.SupportsOnChapterFileDeleteForUpgrade = provider.SupportsOnChapterFileDeleteForUpgrade;
 
             // Phase 6 Plan 14 — BL-01 mitigation. NotificationDefinition.OnChapterImport
             // defaults to true at the property level for ergonomic first-save UX (newly
@@ -237,6 +264,8 @@ namespace NzbDrone.Core.Notifications
                 definition.OnMangaAdd = provider.SupportsOnMangaAdd;
                 definition.OnMangaDelete = provider.SupportsOnMangaDelete;
                 definition.OnMangaRename = provider.SupportsOnMangaRename;
+                definition.OnChapterFileDelete = provider.SupportsOnChapterFileDelete;
+                definition.OnChapterFileDeleteForUpgrade = provider.SupportsOnChapterFileDeleteForUpgrade;
             }
         }
 

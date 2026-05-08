@@ -22,7 +22,7 @@ This directory is a **manga-only sibling** of `Notifications/Komga/` (the other 
 
 ### D-18: OnChapterImport-only event hook
 
-Only `OnChapterImport(ChapterImportMessage)` is overridden. All other Sonarr `INotification` event hooks (`OnGrab`, `OnDownload`, `OnImportComplete`, `OnRename`, `OnSeriesAdd`, `OnSeriesDelete`, `OnEpisodeFileDelete`, `OnHealthIssue`, `OnHealthRestored`, `OnApplicationUpdate`, `OnManualInteractionRequired`) keep the base-class virtual no-op, and their `Supports*` flags resolve to `false` via the `NotificationBase.HasConcreteImplementation(...)` reflection helper. v2 may surface more hooks if Discord/email manga-shaped notifiers come online.
+Only `OnChapterImport(ChapterImportMessage)` is overridden. All other `INotification` event hooks (`OnHealthIssue`, `OnHealthRestored`, `OnApplicationUpdate`, `OnMangaAdd`, `OnMangaDelete`, `OnMangaRename`, `OnChapterFileDelete`, `OnChapterFileDeleteForUpgrade`) keep the base-class virtual no-op, and their `Supports*` flags resolve to `false` via the `NotificationBase.HasConcreteImplementation(...)` reflection helper. The TV peers (`OnGrab / OnDownload / OnImportComplete / OnRename / OnSeriesAdd / OnSeriesDelete / OnEpisodeFileDelete / OnManualInteractionRequired`) were trimmed in Phase 15 W-1/W-2. v1.1+ may surface more hooks if Discord/email manga-shaped notifiers come online.
 
 ### D-16: LibraryId is OPTIONAL (Kavita HAS scan-all)
 

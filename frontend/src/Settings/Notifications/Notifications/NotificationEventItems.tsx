@@ -29,6 +29,8 @@ function NotificationEventItems({
     onHealthRestored,
     onApplicationUpdate,
     onManualInteractionRequired,
+    onChapterFileDelete,
+    onChapterFileDeleteForUpgrade,
     supportsOnGrab,
     supportsOnDownload,
     supportsOnUpgrade,
@@ -36,6 +38,8 @@ function NotificationEventItems({
     supportsOnRename,
     supportsOnApplicationUpdate,
     supportsOnManualInteractionRequired,
+    supportsOnChapterFileDelete,
+    supportsOnChapterFileDeleteForUpgrade,
     supportsOnHealthIssue,
     supportsOnHealthRestored,
     includeHealthWarnings,
@@ -160,6 +164,28 @@ function NotificationEventItems({
               helpText={translate('OnManualInteractionRequired')}
               isDisabled={!supportsOnManualInteractionRequired.value}
               {...onManualInteractionRequired}
+              onChange={onInputChange}
+            />
+          </div>
+
+          <div>
+            <FormInputGroup
+              type={inputTypes.CHECK}
+              name="onChapterFileDelete"
+              helpText={translate('OnChapterFileDelete')}
+              isDisabled={!supportsOnChapterFileDelete.value}
+              {...onChapterFileDelete}
+              onChange={onInputChange}
+            />
+          </div>
+
+          <div>
+            <FormInputGroup
+              type={inputTypes.CHECK}
+              name="onChapterFileDeleteForUpgrade"
+              helpText={translate('OnChapterFileDeleteForUpgrade')}
+              isDisabled={!supportsOnChapterFileDeleteForUpgrade.value}
+              {...onChapterFileDeleteForUpgrade}
               onChange={onInputChange}
             />
           </div>

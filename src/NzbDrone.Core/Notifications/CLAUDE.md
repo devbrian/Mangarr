@@ -61,22 +61,37 @@ This directory is **media-agnostic** — only message text references "episodes/
 
 ## Event Hooks (NotificationBase)
 
+Phase 15 W-1/W-2 trimmed `INotification` to manga-shape only. The current contract:
+
 ```csharp
 public abstract class NotificationBase<TSettings> : INotification
     where TSettings : NotificationSettingsBase<TSettings>, new()
 {
-    public abstract void OnGrab(GrabMessage grabMessage);
-    public abstract void OnDownload(EpisodeDownloadMessage message);
-    public abstract void OnRename(Series series, List<RenamedEpisodeFile> renamedFiles);
-    public abstract void OnHealthIssue(HealthCheck.HealthCheck healthCheck);
-    public abstract void OnHealthRestored(HealthCheck.HealthCheck previousCheck);
-    public abstract void OnApplicationUpdate(ApplicationUpdateMessage message);
-    public abstract void OnManualInteractionRequired(ManualInteractionRequiredMessage message);
-    // … per-event toggles via Settings
+    // Health + lifecycle (media-agnostic — kept from Sonarr verbatim)
+    public virtual void OnHealthIssue(HealthCheck.HealthCheck healthCheck) { }
+    public virtual void OnHealthRestored(HealthCheck.HealthCheck previousCheck) { }
+    public virtual void OnApplicationUpdate(ApplicationUpdateMessage message) { }
+
+    // Phase 6 D-18 — manga import (Komga / Kavita rescan trigger)
+    public virtual void OnChapterImport(ChapterImportMessage message) { }
+
+    // Phase 8 Plan 99-08 — manga library-state hooks (siblings of OnSeriesAdd/Delete/Rename).
+    // v1: surface-only — no provider override; v1.1+ Discord/email/webhook providers opt in.
+    public virtual void OnMangaAdd(MangaAddMessage message) { }
+    public virtual void OnMangaDelete(MangaDeleteMessage deleteMessage) { }
+    public virtual void OnMangaRename(Manga.Manga manga, List<RenamedChapterFile> renamedFiles) { }
+
+    // Manga siblings of TV-deleted OnEpisodeFileDelete / OnEpisodeFileDeleteForUpgrade.
+    // v1: surface-only — no v1 publisher; v1.1+ providers opt in.
+    public virtual void OnChapterFileDelete(ChapterFileDeleteMessage deleteMessage) { }
+    public virtual void OnChapterFileDeleteForUpgrade(ChapterFileDeleteMessage deleteMessage) { }
+
+    // Reflection-backed Supports* flags resolve to TRUE iff the concrete provider overrides
+    // the matching method (HasConcreteImplementation in NotificationBase.cs:HasConcreteImplementation).
 }
 ```
 
-Each provider overrides only the hooks it cares about (and the `Supports*` flags it sets).
+Each provider overrides only the hooks it cares about; the `Supports*` flags reflect that automatically via the `HasConcreteImplementation` reflection helper.
 
 ## Adding a New Notification Provider
 
@@ -96,12 +111,11 @@ Each provider overrides only the hooks it cares about (and the `Supports*` flags
 
 ## Manga Adaptation Notes
 
-| Concern | Action |
-|---------|--------|
-| Message text references "Episode" / "Series" | Update message-builder methods to use "Chapter" / "Manga" |
-| `OnGrab` signature uses `GrabMessage` | The DTO references EpisodeGrabbedEvent → adjust to ChapterGrabbedEvent |
-| `OnRename` uses `RenamedEpisodeFile` | Rename to `RenamedChapterFile` |
-| Provider-specific text formatting | Update `BuildMessage` helpers in each provider |
+The TV→manga rename of the contract surface is complete:
+- `INotification` + `NotificationBase` trimmed of TV hooks (Phase 15 W-1/W-2).
+- `OnSeriesAdd / OnSeriesDelete / OnEpisodeFileDelete / OnEpisodeFileDeleteForUpgrade` columns dropped from the `Notifications` schema (Phase 15 D-22 / Plan 15-02 — see `Datastore/Migration/001_mangarr_baseline.cs:96`).
+- Manga peers shipped: `OnChapterImport` (Phase 6 D-18), `OnMangaAdd / OnMangaDelete / OnMangaRename` (Phase 8 Plan 99-08), `OnChapterFileDelete / OnChapterFileDeleteForUpgrade` (post-15 surface backfill).
+- `RenamedChapterFile` exists at `MediaFiles/RenamedChapterFile.cs`; `ChapterImportMessage`, `MangaAddMessage`, `MangaDeleteMessage`, `ChapterFileDeleteMessage` exist alongside the contract.
 
 The bulk of provider code (HTTP plumbing, settings, validation) stays the same.
 

@@ -16,6 +16,8 @@ public class ConnectionResource : ProviderResource<ConnectionResource>
     public bool OnHealthRestored { get; set; }
     public bool OnApplicationUpdate { get; set; }
     public bool OnManualInteractionRequired { get; set; }
+    public bool OnChapterFileDelete { get; set; }
+    public bool OnChapterFileDeleteForUpgrade { get; set; }
     public bool SupportsOnGrab { get; set; }
     public bool SupportsOnDownload { get; set; }
     public bool SupportsOnUpgrade { get; set; }
@@ -25,6 +27,8 @@ public class ConnectionResource : ProviderResource<ConnectionResource>
     public bool SupportsOnHealthRestored { get; set; }
     public bool SupportsOnApplicationUpdate { get; set; }
     public bool SupportsOnManualInteractionRequired { get; set; }
+    public bool SupportsOnChapterFileDelete { get; set; }
+    public bool SupportsOnChapterFileDeleteForUpgrade { get; set; }
     public string? TestCommand { get; set; }
 }
 
@@ -44,6 +48,8 @@ public class ConnectionResourceMapper : ProviderResourceMapper<ConnectionResourc
         resource.OnHealthRestored = definition.OnHealthRestored;
         resource.OnApplicationUpdate = definition.OnApplicationUpdate;
         resource.OnManualInteractionRequired = definition.OnManualInteractionRequired;
+        resource.OnChapterFileDelete = definition.OnChapterFileDelete;
+        resource.OnChapterFileDeleteForUpgrade = definition.OnChapterFileDeleteForUpgrade;
         resource.SupportsOnGrab = definition.SupportsOnGrab;
         resource.SupportsOnDownload = definition.SupportsOnDownload;
         resource.SupportsOnUpgrade = definition.SupportsOnUpgrade;
@@ -53,6 +59,8 @@ public class ConnectionResourceMapper : ProviderResourceMapper<ConnectionResourc
         resource.SupportsOnHealthRestored = definition.SupportsOnHealthRestored;
         resource.SupportsOnApplicationUpdate = definition.SupportsOnApplicationUpdate;
         resource.SupportsOnManualInteractionRequired = definition.SupportsOnManualInteractionRequired;
+        resource.SupportsOnChapterFileDelete = definition.SupportsOnChapterFileDelete;
+        resource.SupportsOnChapterFileDeleteForUpgrade = definition.SupportsOnChapterFileDeleteForUpgrade;
 
         return resource;
     }
@@ -71,6 +79,8 @@ public class ConnectionResourceMapper : ProviderResourceMapper<ConnectionResourc
         definition.OnHealthRestored = resource.OnHealthRestored;
         definition.OnApplicationUpdate = resource.OnApplicationUpdate;
         definition.OnManualInteractionRequired = resource.OnManualInteractionRequired;
+        definition.OnChapterFileDelete = resource.OnChapterFileDelete;
+        definition.OnChapterFileDeleteForUpgrade = resource.OnChapterFileDeleteForUpgrade;
         definition.SupportsOnGrab = resource.SupportsOnGrab;
         definition.SupportsOnDownload = resource.SupportsOnDownload;
         definition.SupportsOnUpgrade = resource.SupportsOnUpgrade;
@@ -80,6 +90,8 @@ public class ConnectionResourceMapper : ProviderResourceMapper<ConnectionResourc
         definition.SupportsOnHealthRestored = resource.SupportsOnHealthRestored;
         definition.SupportsOnApplicationUpdate = resource.SupportsOnApplicationUpdate;
         definition.SupportsOnManualInteractionRequired = resource.SupportsOnManualInteractionRequired;
+        definition.SupportsOnChapterFileDelete = resource.SupportsOnChapterFileDelete;
+        definition.SupportsOnChapterFileDeleteForUpgrade = resource.SupportsOnChapterFileDeleteForUpgrade;
 
         return definition;
     }
