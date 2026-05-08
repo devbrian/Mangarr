@@ -276,5 +276,74 @@ The `\bSonarr\b` word-boundary regex in the Wave 4 string sweep does NOT match `
 
 `SonarrCloudRequestBuilder` references remain only inside Pattern S2 comment markers (the `Cloud/SonarrCloudRequestBuilder.cs` file itself was deleted per D-21).
 
+### Phase 15 Plan 15-09 close-out — F-A (Donate href) + F-B (DB filename) decisions
+
+Plan 15-09 close-out absorbed two carry-forward findings from the Plan 15-08 post-rebrand
+smoke (`smoke-15-08-2026-05-08/SMOKE-FINDINGS.md`):
+
+**F-A — Donate link href**: Header "Donate" icon's `to` URL still pointed at
+`https://sonarr.tv/donate.html` after Plan 15-08's `\bSonarr\b` sweep (Pattern S2
+filter excluded the URL string per case-sensitive lowercase). Plan 15-09 explicit
+decision: **PRESERVE the URL as upstream-Sonarr acknowledgment.** Mangarr is a fork
+of Sonarr; routing user contributions to the upstream project's donate page honors
+PROJECT.md design philosophy ("preserve Sonarr's shape wherever it works") and
+Reference Preservation Policy. Implementation: `frontend/src/Components/Page/Header/PageHeader.tsx`
+aria-label + title flipped from `translate('Donate')` to `translate('DonateToSonarr')`
+("Donate to Sonarr (Mangarr's upstream project)") so screen-reader + tooltip clearly
+signal the destination. Inline comment cites this decision. The acknowledgment-page
+link in `frontend/src/System/Status/MoreInfo/MoreInfo.tsx` (visible label: `sonarr.tv/donate`,
+alongside the upstream `#sonarr` IRC channel) was left UNCHANGED — that page is
+already an upstream-acknowledgment context.
+
+**F-B — DB filename**: Plan 15-08 D-08 cutover flipped the AppData FOLDER (`AppFolderInfo.cs`)
+from `~/.config/Sonarr` / `C:\ProgramData\Sonarr` to `~/.config/Mangarr` / `C:\ProgramData\Mangarr`
+but the DB FILE constant (`PathExtensions.DB`) still hardcoded `"sonarr.db"`. Plan 15-09
+fix: const flipped to `"mangarr.db"`; legacy const `LEGACY_DB = "sonarr.db"` retained for
+the in-place migrator; `AppFolderFactory.MigrateAppDataFolder()` prepended with a
+`sonarr.db -> mangarr.db` rename step (runs BEFORE the existing `nzbdrone.db -> {DB}`
+migrator); `BackupService` post-backup-zip cleanup file flipped to `mangarr.db-journal`;
+backup `Restore()` accepts both legacy `sonarr.db` AND canonical `mangarr.db` filenames
+inside zip archives (legacy backup zips still restorable). DB_RESTORE const flipped
+`sonarr.restore -> mangarr.restore` (no other refs).
+
+### Phase 15 Plan 15-09 close-out — fix-forward Sonarr-string sweep
+
+Plan 15-09 mangarr-phase-smoke-test full pipeline app-boot stdout grep surfaced 6
+user-visible Sonarr-string survivors that Wave 4 string sweep (Plan 15-08) missed
+— likely batch-list truncation surfaced in Plan 15-08 SUMMARY (\bSonarr\b sweep
+covered 7000+ files; bash batching via xargs is sensitive to LOC budget). Per D-04
+fix-forward authority + Plan 15-09 explicit close-out scope, the gaps were flipped
+inline:
+
+- `NzbDrone.Host/Bootstrap.cs` — "Starting Sonarr" log + "Sonarr has shut down completely"
+  log + "Please delete the config file and Sonarr will recreate it." exception message
+  + 14 config-section prefixes "Sonarr:" -> "Mangarr:" (these bind env-var prefix
+  MANGARR__ to .NET ConfigurationBuilder keys; if left as "Sonarr:" the env-var
+  override path silently fails)
+- `NzbDrone.Host/Startup.cs` — Swagger Title "Sonarr" -> "Mangarr"; Description
+  "Sonarr API docs..." -> "Mangarr API docs..."; License URL
+  `https://github.com/Sonarr/Sonarr/blob/develop/LICENSE` PRESERVED per D-27 (b)
+  (factual GPL-3.0 inheritance / upstream attribution)
+- `NzbDrone.Core/Notifications/NotificationBase.cs` — 4 branded notification title
+  prefixes "Sonarr - {Import Complete|Health Check Failure|Health Check Restored|
+  Application Updated}" -> "Mangarr - ..."
+- `NzbDrone.Core/Notifications/NotificationService.cs` — UpdateInstalled message
+  "Sonarr updated from..." -> "Mangarr updated from..."
+- `NzbDrone.Test.Common/NzbDroneRunner.cs` — 6 "Sonarr__Postgres__*" env-var names
+  -> "Mangarr__Postgres__*" (test runner now matches production env-var prefix)
+
+### Phase 15 Plan 15-09 close-out — D-28 REG-DUMP hook
+
+Phase 14 R-1e-bundled-5 specced a DryIoc REG-DUMP capture hook in
+`src/NzbDrone.Common/Composition/Extensions.cs` but the hook never landed on Mangarr-v0.
+Plan 15-09 closes the gap: env-var-gated (`MANGARR__REGDUMP=<path>`) one-shot dump
+of `container.GetServiceRegistrations()` in baseline format "REG-DUMP: <iface> ->
+<impl> [<reuse>]". Zero-cost in production (no-op when env var unset). Captured
+artifact at Plan 15-09 close: `regdump-wave-C.txt` (3113 entries; +1114 vs Phase 14
+baseline 1999 — capture-method-delta, not accidental duplicate registration; verified
+via Pattern κ static audit returning 0 violations on Series/Episode/Season interfaces).
+
 ---
 *Last updated: 2026-05-08 (Phase 15 plan 15-08 Wave 4 — appended Phase 15 closing section: intentional Sonarr-named survivors (6 categories); hard-fork threshold marker; Two-layer-NzbDrone-preserved rationale (D-06); surgical class-prefix renames record (SonarrStartupException + SonarrErrorPipeline + SonarrExe))*
+
+*Last updated: 2026-05-08 (Phase 15 plan 15-09 Wave 5 close-out — appended F-A (Donate href: PRESERVE as upstream-acknowledgment) + F-B (DB filename: sonarr.db -> mangarr.db + in-place migrator) decisions + fix-forward Sonarr-string sweep (Bootstrap.cs + Startup.cs + NotificationBase.cs + NotificationService.cs + NzbDroneRunner.cs) + D-28 REG-DUMP hook closure)*

@@ -91,6 +91,20 @@ namespace NzbDrone.Common.EnvironmentInfo
                     }
                 }
 
+                // Sonarr divergence: Phase 15 D-08 carry-forward (smoke-15-08-2026-05-08 F-B) —
+                // detect any existing sonarr.db inside the (already-Mangarr-pathed) AppData folder
+                // and rename to mangarr.db in-place, so an upgrade from Phase 15-08 (which flipped
+                // the folder but not the file) doesn't lose data. Runs BEFORE the nzbdrone.db
+                // migrator so that a Phase-15-08-installed sonarr.db gets canonicalized first.
+                var legacySonarrDbFile = _appFolderInfo.GetLegacyDatabase();
+
+                if (!_diskProvider.FileExists(_appFolderInfo.GetDatabase()) &&
+                    _diskProvider.FileExists(legacySonarrDbFile))
+                {
+                    _logger.Info("Migrating legacy sonarr.db -> mangarr.db (Phase 15 D-08 F-B carry-forward)");
+                    MoveSqliteDatabase(legacySonarrDbFile, _appFolderInfo.GetDatabase());
+                }
+
                 var oldDbFile = Path.Combine(_appFolderInfo.AppDataFolder, "nzbdrone.db");
 
                 if (_startupContext.Args.ContainsKey(StartupContext.APPDATA))

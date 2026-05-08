@@ -139,12 +139,12 @@ namespace NzbDrone.Test.Common
             StringDictionary envVars = new();
             if (PostgresOptions?.Host != null)
             {
-                envVars.Add("Sonarr__Postgres__Host", PostgresOptions.Host);
-                envVars.Add("Sonarr__Postgres__Port", PostgresOptions.Port.ToString());
-                envVars.Add("Sonarr__Postgres__User", PostgresOptions.User);
-                envVars.Add("Sonarr__Postgres__Password", PostgresOptions.Password);
-                envVars.Add("Sonarr__Postgres__MainDb", PostgresOptions.MainDb);
-                envVars.Add("Sonarr__Postgres__LogDb", PostgresOptions.LogDb);
+                envVars.Add("Mangarr__Postgres__Host", PostgresOptions.Host);
+                envVars.Add("Mangarr__Postgres__Port", PostgresOptions.Port.ToString());
+                envVars.Add("Mangarr__Postgres__User", PostgresOptions.User);
+                envVars.Add("Mangarr__Postgres__Password", PostgresOptions.Password);
+                envVars.Add("Mangarr__Postgres__MainDb", PostgresOptions.MainDb);
+                envVars.Add("Mangarr__Postgres__LogDb", PostgresOptions.LogDb);
 
                 TestContext.Progress.WriteLine("Using env vars:\n{0}", envVars.ToJson());
             }

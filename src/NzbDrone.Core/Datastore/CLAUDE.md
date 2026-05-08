@@ -139,7 +139,7 @@ public class SeriesRepository : BasicRepository<Series>, ISeriesRepository
 ## Database Files
 
 ### Main DB
-- **SQLite (default)**: `<datafolder>/sonarr.db`
+- **SQLite (default)**: `<datafolder>/mangarr.db` (renamed from `sonarr.db` per Phase 15 D-08 F-B carry-forward; legacy file detected + renamed in-place by `AppFolderFactory.MigrateAppDataFolder()`)
 - **Postgres**: configurable via `<Mangarr><Postgres><Host>` etc. in `config.xml`
 
 ### Log DB

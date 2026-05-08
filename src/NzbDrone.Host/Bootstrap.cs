@@ -51,7 +51,14 @@ namespace NzbDrone.Host
         {
             try
             {
-                Logger.Info("Starting Sonarr - {0} - Version {1}",
+                // Sonarr divergence: Phase 15 close-out (Plan 15-09 fix-forward) — Bootstrap.Start
+                // log line was the last user-visible "Starting Sonarr" string in app boot output
+                // (caught by Plan 15-09 mangarr-phase-smoke-test stdout grep). Pattern ι sweep
+                // missed it because Wave 4 sweep applied case-sensitive \bSonarr\b in src/**/*.cs
+                // but this file had been modified by Wave 4 / 15-08 brand sweep — verified the
+                // line was NOT touched by the regex (likely batch-list-truncation cf Plan 15-08
+                // 7000+ files). Flipped here per fix-forward authority.
+                Logger.Info("Starting Mangarr - {0} - Version {1}",
                             Environment.ProcessPath,
                             Assembly.GetExecutingAssembly().GetName().Version);
 
@@ -69,7 +76,7 @@ namespace NzbDrone.Host
 
                 RunHostUntilShutdown(args, startupContext, appMode, trayCallback);
 
-                Logger.Info("Sonarr has shut down completely");
+                Logger.Info("Mangarr has shut down completely");
             }
             catch (InvalidConfigFileException ex)
             {
@@ -108,12 +115,12 @@ namespace NzbDrone.Host
                 })
                 .ConfigureServices(services =>
                 {
-                    services.Configure<PostgresOptions>(config.GetSection("Sonarr:Postgres"));
-                    services.Configure<AppOptions>(config.GetSection("Sonarr:App"));
-                    services.Configure<AuthOptions>(config.GetSection("Sonarr:Auth"));
-                    services.Configure<ServerOptions>(config.GetSection("Sonarr:Server"));
-                    services.Configure<LogOptions>(config.GetSection("Sonarr:Log"));
-                    services.Configure<UpdateOptions>(config.GetSection("Sonarr:Update"));
+                    services.Configure<PostgresOptions>(config.GetSection("Mangarr:Postgres"));
+                    services.Configure<AppOptions>(config.GetSection("Mangarr:App"));
+                    services.Configure<AuthOptions>(config.GetSection("Mangarr:Auth"));
+                    services.Configure<ServerOptions>(config.GetSection("Mangarr:Server"));
+                    services.Configure<LogOptions>(config.GetSection("Mangarr:Log"));
+                    services.Configure<UpdateOptions>(config.GetSection("Mangarr:Update"));
                 })
                 .Build();
         }
@@ -144,14 +151,14 @@ namespace NzbDrone.Host
         {
             var config = GetConfiguration(context);
 
-            var bindAddress = config.GetValue<string>($"Sonarr:Server:{nameof(ServerOptions.BindAddress)}") ?? config.GetValue(nameof(ConfigFileProvider.BindAddress), "*");
-            var port = config.GetValue<int?>($"Sonarr:Server:{nameof(ServerOptions.Port)}") ?? config.GetValue(nameof(ConfigFileProvider.Port), 8989);
-            var sslPort = config.GetValue<int?>($"Sonarr:Server:{nameof(ServerOptions.SslPort)}") ?? config.GetValue(nameof(ConfigFileProvider.SslPort), 9898);
-            var enableSsl = config.GetValue<bool?>($"Sonarr:Server:{nameof(ServerOptions.EnableSsl)}") ?? config.GetValue(nameof(ConfigFileProvider.EnableSsl), false);
-            var sslCertPath = config.GetValue<string>($"Sonarr:Server:{nameof(ServerOptions.SslCertPath)}") ?? config.GetValue<string>(nameof(ConfigFileProvider.SslCertPath));
-            var sslKeyPath = config.GetValue<string>($"Sonarr:Server:{nameof(ServerOptions.SslKeyPath)}") ?? config.GetValue<string>(nameof(ConfigFileProvider.SslKeyPath));
-            var sslCertPassword = config.GetValue<string>($"Sonarr:Server:{nameof(ServerOptions.SslCertPassword)}") ?? config.GetValue<string>(nameof(ConfigFileProvider.SslCertPassword));
-            var logDbEnabled = config.GetValue<bool?>($"Sonarr:Log:{nameof(LogOptions.DbEnabled)}") ?? config.GetValue(nameof(ConfigFileProvider.LogDbEnabled), true);
+            var bindAddress = config.GetValue<string>($"Mangarr:Server:{nameof(ServerOptions.BindAddress)}") ?? config.GetValue(nameof(ConfigFileProvider.BindAddress), "*");
+            var port = config.GetValue<int?>($"Mangarr:Server:{nameof(ServerOptions.Port)}") ?? config.GetValue(nameof(ConfigFileProvider.Port), 8989);
+            var sslPort = config.GetValue<int?>($"Mangarr:Server:{nameof(ServerOptions.SslPort)}") ?? config.GetValue(nameof(ConfigFileProvider.SslPort), 9898);
+            var enableSsl = config.GetValue<bool?>($"Mangarr:Server:{nameof(ServerOptions.EnableSsl)}") ?? config.GetValue(nameof(ConfigFileProvider.EnableSsl), false);
+            var sslCertPath = config.GetValue<string>($"Mangarr:Server:{nameof(ServerOptions.SslCertPath)}") ?? config.GetValue<string>(nameof(ConfigFileProvider.SslCertPath));
+            var sslKeyPath = config.GetValue<string>($"Mangarr:Server:{nameof(ServerOptions.SslKeyPath)}") ?? config.GetValue<string>(nameof(ConfigFileProvider.SslKeyPath));
+            var sslCertPassword = config.GetValue<string>($"Mangarr:Server:{nameof(ServerOptions.SslCertPassword)}") ?? config.GetValue<string>(nameof(ConfigFileProvider.SslCertPassword));
+            var logDbEnabled = config.GetValue<bool?>($"Mangarr:Log:{nameof(LogOptions.DbEnabled)}") ?? config.GetValue(nameof(ConfigFileProvider.LogDbEnabled), true);
 
             var urls = new List<string> { BuildUrl("http", bindAddress, port) };
 
@@ -185,12 +192,12 @@ namespace NzbDrone.Host
                 })
                 .ConfigureServices(services =>
                 {
-                    services.Configure<PostgresOptions>(config.GetSection("Sonarr:Postgres"));
-                    services.Configure<AppOptions>(config.GetSection("Sonarr:App"));
-                    services.Configure<AuthOptions>(config.GetSection("Sonarr:Auth"));
-                    services.Configure<ServerOptions>(config.GetSection("Sonarr:Server"));
-                    services.Configure<LogOptions>(config.GetSection("Sonarr:Log"));
-                    services.Configure<UpdateOptions>(config.GetSection("Sonarr:Update"));
+                    services.Configure<PostgresOptions>(config.GetSection("Mangarr:Postgres"));
+                    services.Configure<AppOptions>(config.GetSection("Mangarr:App"));
+                    services.Configure<AuthOptions>(config.GetSection("Mangarr:Auth"));
+                    services.Configure<ServerOptions>(config.GetSection("Mangarr:Server"));
+                    services.Configure<LogOptions>(config.GetSection("Mangarr:Log"));
+                    services.Configure<UpdateOptions>(config.GetSection("Mangarr:Update"));
                 })
                 .ConfigureWebHost(builder =>
                 {
@@ -273,7 +280,7 @@ namespace NzbDrone.Host
             {
                 Logger.Error(ex, ex.Message);
 
-                throw new InvalidConfigFileException($"{configPath} is corrupt or invalid. Please delete the config file and Sonarr will recreate it.", ex);
+                throw new InvalidConfigFileException($"{configPath} is corrupt or invalid. Please delete the config file and Mangarr will recreate it.", ex);
             }
         }
 

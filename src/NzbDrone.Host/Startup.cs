@@ -122,10 +122,13 @@ namespace NzbDrone.Host
                 c.SwaggerDoc("v5", new OpenApiInfo
                 {
                     Version = "5.0.0",
-                    Title = "Sonarr",
-                    Description = "Sonarr API docs - The v5 API docs apply to Sonarr v5 only.",
+                    Title = "Mangarr",
+                    Description = "Mangarr API docs - The v5 API docs apply to Mangarr v1 only.",
                     License = new OpenApiLicense
                     {
+                        // Sonarr divergence: Phase 15 close-out — License URL preserved per
+                        // D-27 (b) (Sonarr/Sonarr GitHub repo guard); GPL-3.0 inheritance is
+                        // factual/legal upstream attribution.
                         Name = "GPL-3.0",
                         Url = new Uri("https://github.com/Sonarr/Sonarr/blob/develop/LICENSE")
                     }

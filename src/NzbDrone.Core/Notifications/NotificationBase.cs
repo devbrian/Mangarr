@@ -6,7 +6,7 @@ using NzbDrone.Core.ThingiProvider;
 
 namespace NzbDrone.Core.Notifications
 {
-    // Sonarr divergence: Phase 15 W-2 (CONTRACTS-AUDIT � Wave A Cluster 2) - removed:
+    // Sonarr divergence: Phase 15 W-2 (CONTRACTS-AUDIT � Wave A Cluster 2) - removed:
     //  - Virtual no-op overrides for the 8 TV-only INotification hooks (OnGrab, OnDownload,
     //    OnRename, OnEpisodeFileDelete, OnSeriesAdd, OnSeriesDelete, OnImportComplete,
     //    OnManualInteractionRequired)
@@ -22,10 +22,14 @@ namespace NzbDrone.Core.Notifications
         protected const string HEALTH_RESTORED_TITLE = "Health Check Restored";
         protected const string APPLICATION_UPDATE_TITLE = "Application Updated";
 
-        protected const string IMPORT_COMPLETE_TITLE_BRANDED = "Sonarr - " + IMPORT_COMPLETE_TITLE;
-        protected const string HEALTH_ISSUE_TITLE_BRANDED = "Sonarr - " + HEALTH_ISSUE_TITLE;
-        protected const string HEALTH_RESTORED_TITLE_BRANDED = "Sonarr - " + HEALTH_RESTORED_TITLE;
-        protected const string APPLICATION_UPDATE_TITLE_BRANDED = "Sonarr - " + APPLICATION_UPDATE_TITLE;
+        // Sonarr divergence: Phase 15 close-out (Plan 15-09 fix-forward) — branded notification
+        // title prefixes flipped Sonarr → Mangarr. These are user-visible (push notification
+        // body / email subject); Wave 4 \bSonarr\b string sweep missed them likely due to the
+        // batch-list truncation surfaced in Plan 15-08 SUMMARY.
+        protected const string IMPORT_COMPLETE_TITLE_BRANDED = "Mangarr - " + IMPORT_COMPLETE_TITLE;
+        protected const string HEALTH_ISSUE_TITLE_BRANDED = "Mangarr - " + HEALTH_ISSUE_TITLE;
+        protected const string HEALTH_RESTORED_TITLE_BRANDED = "Mangarr - " + HEALTH_RESTORED_TITLE;
+        protected const string APPLICATION_UPDATE_TITLE_BRANDED = "Mangarr - " + APPLICATION_UPDATE_TITLE;
 
         public abstract string Name { get; }
 
