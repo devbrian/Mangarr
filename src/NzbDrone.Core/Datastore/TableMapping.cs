@@ -39,15 +39,18 @@ using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Profiles;
 using NzbDrone.Core.Profiles.CustomFormats;
 using NzbDrone.Core.Profiles.Delay;
-using NzbDrone.Core.Profiles.Qualities;
+
+// using NzbDrone.Core.Profiles.Qualities; // Sonarr divergence: Phase 15 D-11 — Profiles/Qualities/ subtree deleted by Plan 15-03
 using NzbDrone.Core.Profiles.Releases;
 using NzbDrone.Core.Profiles.Translations;
-using NzbDrone.Core.Qualities;
+
+// using NzbDrone.Core.Qualities; // Sonarr divergence: Phase 15 D-11 — Qualities/ subtree deleted by Plan 15-03
 using NzbDrone.Core.RemotePathMappings;
 using NzbDrone.Core.RootFolders;
 using NzbDrone.Core.Tags;
 using NzbDrone.Core.ThingiProvider;
-using NzbDrone.Core.Tv;
+
+// using NzbDrone.Core.Tv; // Sonarr divergence: Phase 15 D-24 — Tv/ subtree deleted by Plan 15-03
 using NzbDrone.Core.Update.History;
 using static Dapper.SqlMapper;
 
@@ -135,23 +138,12 @@ namespace NzbDrone.Core.Datastore
 
             Mapper.Entity<EpisodeHistory>("History").RegisterModel();
 
-            Mapper.Entity<Series>("Series").RegisterModel()
-                  .Ignore(s => s.RootFolderPath)
-                  .HasOne(s => s.QualityProfile, s => s.QualityProfileId);
-
-            Mapper.Entity<EpisodeFile>("EpisodeFiles").RegisterModel()
-                  .HasOne(f => f.Series, f => f.SeriesId)
-                  .LazyLoad(x => x.Episodes,
-                            (db, parent) => db.Query<Episode>(new SqlBuilder(db.DatabaseType).Where<Episode>(c => c.EpisodeFileId == parent.Id)).ToList(),
-                            t => t.Id > 0)
-                  .Ignore(f => f.Path);
-
-            Mapper.Entity<Episode>("Episodes").RegisterModel()
-                  .Ignore(e => e.SeriesTitle)
-                  .Ignore(e => e.Series)
-                  .Ignore(e => e.HasFile)
-                  .Ignore(e => e.AbsoluteEpisodeNumberAdded)
-                  .HasOne(s => s.EpisodeFile, s => s.EpisodeFileId);
+            // Sonarr divergence: Phase 15 D-24 schema delete — TV-shape entity registrations stripped
+            //   Mapper.Entity<Series>("Series").RegisterModel(); ← deleted (Plan 15-03)
+            //   Mapper.Entity<EpisodeFile>("EpisodeFiles").RegisterModel(); ← deleted (Plan 15-03)
+            //   Mapper.Entity<Episode>("Episodes").RegisterModel(); ← deleted (Plan 15-03)
+            //   Mapper.Entity<QualityDefinition>("QualityDefinitions").RegisterModel(); ← deleted (Plan 15-03 per D-11)
+            //   Mapper.Entity<QualityProfile>("QualityProfiles").RegisterModel(); ← deleted (Plan 15-03 per D-11)
 
             // Phase 2 manga domain (02-02) — Manga aggregate root + flat Chapter list.
             // Manga.MangaDexId is Guid?; Dapper round-trips through the global
@@ -160,16 +152,11 @@ namespace NzbDrone.Core.Datastore
             Mapper.Entity<Core.Manga.Manga>("Manga").RegisterModel();
             Mapper.Entity<Core.Manga.Chapter>("Chapters").RegisterModel();
 
-            Mapper.Entity<QualityDefinition>("QualityDefinitions").RegisterModel()
-                  .Ignore(d => d.GroupName)
-                  .Ignore(d => d.Weight)
-                  .Ignore(d => d.MinSize)
-                  .Ignore(d => d.MaxSize)
-                  .Ignore(d => d.PreferredSize);
+            // Sonarr divergence: Phase 15 D-11 schema delete — QualityDefinition entity registration stripped (Plan 15-03)
 
             Mapper.Entity<CustomFormat>("CustomFormats").RegisterModel();
 
-            Mapper.Entity<QualityProfile>("QualityProfiles").RegisterModel();
+            // Sonarr divergence: Phase 15 D-11 schema delete — QualityProfile entity registration stripped (Plan 15-03)
 
             // Phase 5 D-01 — TranslationProfile entity registration. Sibling to QualityProfiles.
             Mapper.Entity<TranslationProfile>("TranslationProfiles").RegisterModel();

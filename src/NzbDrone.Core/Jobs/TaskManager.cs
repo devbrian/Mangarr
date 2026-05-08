@@ -20,7 +20,8 @@ using NzbDrone.Core.Manga.Commands;
 using NzbDrone.Core.MediaFiles.Commands;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
-using NzbDrone.Core.Tv.Commands;
+
+// using NzbDrone.Core.Tv.Commands; // Sonarr divergence: Phase 15 D-24 — Tv/Commands/ deleted by Plan 15-03
 using NzbDrone.Core.Update.Commands;
 
 namespace NzbDrone.Core.Jobs
@@ -101,11 +102,8 @@ namespace NzbDrone.Core.Jobs
                         TypeName = typeof(CheckHealthCommand).FullName
                     },
 
-                    new ScheduledTask
-                    {
-                        Interval = 12 * 60,
-                        TypeName = typeof(RefreshSeriesCommand).FullName
-                    },
+                    // Sonarr divergence: Phase 15 D-24 — RefreshSeriesCommand defaultTasks row stripped by Plan 15-03
+                    //   Class itself deleted by Plan 15-03 Tv/Commands/RefreshSeriesCommand.cs delete.
 
                     // 12h refresh cadence per Phase 2 D-18. Mirrors RefreshSeriesCommand;
                     // manual trigger lands via Plan 02-09 dev endpoint and Phase 7 UI.
@@ -148,11 +146,12 @@ namespace NzbDrone.Core.Jobs
                         TypeName = typeof(BackupCommand).FullName
                     },
 
-                    new ScheduledTask
-                    {
-                        Interval = GetRssSyncInterval(),
-                        TypeName = typeof(RssSyncCommand).FullName
-                    },
+                    // Sonarr divergence: Phase 15 D-24 — RssSyncCommand defaultTasks row stripped preemptively by Plan 15-03
+                    //   per Phase 14 Wave 1b row 7 disposition. The class itself still exists at this wave
+                    //   (deleted in Plan 15-04 Wave 1c); stripping the registration here prevents a Wave-1c-time
+                    //   runtime crash where defaultTasks references a deleted command type.
+                    //   The HandleAsync(ConfigSavedEvent) typeof(RssSyncCommand) rebroadcast block
+                    //   is DEFERRED to Plan 15-04 (class still exists at this wave; line still parses).
 
                     // Phase 6 D-07 — manga RSS poll. Global default Config.MangaRssSyncInterval
                     // (15min); per-IndexerDefinition.SyncInterval override applied inside
