@@ -47,20 +47,25 @@ interface SidebarItem {
   }[];
 }
 
+// Phase 15 Plan 15-07 (Wave 3) cutover — TV nav entries flipped to manga-rooted siblings:
+//   * Top-level Series -> Manga rebrand (root path '/' now renders MangaIndex per AppRoutes
+//     cutover; alias updated from '/series' to '/manga').
+//   * Activity entries flipped from /activity/{queue,history,blocklist} -> /manga/activity/*.
+//   * Wanted entries flipped from /wanted/{missing,cutoffunmet} -> /manga/wanted/*.
+//   * Quality false-spread guard DELETED entirely (paired atomically with Settings.tsx
+//     {false && (...)} JSX block delete in Plan 15-07 Task 6).
+//   * Add/import nav child REMOVED — manga has no folder-import flow in v1 (PROJECT.md
+//     Out-of-Scope; D-12-09); the AddNew child now points at /add/manga.
 export const links: SidebarItem[] = [
   {
     iconName: icons.SERIES_CONTINUING,
-    title: () => translate('Series'),
+    title: () => translate('Manga'),
     to: '/',
-    alias: '/series',
+    alias: '/manga',
     children: [
       {
         title: () => translate('AddNew'),
-        to: '/add/new',
-      },
-      {
-        title: () => translate('LibraryImport'),
-        to: '/add/import',
+        to: '/add/manga',
       },
     ],
   },
@@ -74,20 +79,20 @@ export const links: SidebarItem[] = [
   {
     iconName: icons.ACTIVITY,
     title: () => translate('Activity'),
-    to: '/activity/queue',
+    to: '/manga/activity/queue',
     children: [
       {
         title: () => translate('Queue'),
-        to: '/activity/queue',
+        to: '/manga/activity/queue',
         statusComponent: QueueStatus,
       },
       {
         title: () => translate('History'),
-        to: '/activity/history',
+        to: '/manga/activity/history',
       },
       {
         title: () => translate('Blocklist'),
-        to: '/activity/blocklist',
+        to: '/manga/activity/blocklist',
       },
     ],
   },
@@ -95,15 +100,15 @@ export const links: SidebarItem[] = [
   {
     iconName: icons.WARNING,
     title: () => translate('Wanted'),
-    to: '/wanted/missing',
+    to: '/manga/wanted/missing',
     children: [
       {
         title: () => translate('Missing'),
-        to: '/wanted/missing',
+        to: '/manga/wanted/missing',
       },
       {
         title: () => translate('CutoffUnmet'),
-        to: '/wanted/cutoffunmet',
+        to: '/manga/wanted/cutoffunmet',
       },
     ],
   },
@@ -121,13 +126,9 @@ export const links: SidebarItem[] = [
         title: () => translate('Profiles'),
         to: '/settings/profiles',
       },
-      // Sonarr divergence: Phase 7 D-05 — Quality nav hidden; route + sub-tree retained per Pitfall 8 grep-fidelity.
-      // Phase 14 D-14-13 — close S-12-01 carry-forward before pre-phase-14-rehearsal tag (Plan 14-00 Task 1).
-      // Phase 15 D-12 deletes both the route + this entry as part of the Quality cascade.
-      ...(false ? [{
-        title: () => translate('Quality'),
-        to: '/settings/quality',
-      }] : []),
+      // Sonarr divergence: Phase 15 Plan 15-07 D-12 — Quality nav DELETED entirely
+      // (paired with Settings.tsx false-guard block delete in same wave). The
+      // Phase 7 D-05 `false ? [{...}] : []` spread guard previously here is gone.
       {
         title: () => translate('CustomFormats'),
         to: '/settings/customformats',
