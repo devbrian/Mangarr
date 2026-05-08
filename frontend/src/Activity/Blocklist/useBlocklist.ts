@@ -1,8 +1,9 @@
 // Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType discriminator added — see DIVERGENCE.md.
-// Default 'series' preserves all existing TV call-sites unchanged. Manga callers pass 'manga'
-// (currently the MangaBlocklist thin wrapper at /manga/activity/blocklist) which switches the URL
-// to /manga/blocklist and the React Query key to ['/manga/blocklist'] so SignalR invalidations
-// namespace cleanly per Plan 07-02 (Pitfall 5 — TV/manga cache MUST NOT collide). Phase 8 collapses.
+// Phase 15 Plan 15-07 Wave 3 (Sub-step F option (a)): default flipped 'series' -> 'manga' since
+// TV is gone post-cutover; the type union 'series' | 'manga' collapsed to 'manga' (preserves the
+// discriminator type for v2 reintroduction — v2 may readd 'series' or rename if expanding the
+// catalogue beyond manga). The /blocklist URL branch is dead code now but the conditional is left
+// in place so v2 can flip the union back without re-deriving the URL switch.
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { Filter, FilterBuilderProp } from 'Filters/Filter';
@@ -16,7 +17,7 @@ import findSelectedFilters from 'Utilities/Filter/findSelectedFilters';
 import translate from 'Utilities/String/translate';
 import { useBlocklistOptions } from './blocklistOptionsStore';
 
-export type BlocklistMediaType = 'series' | 'manga';
+export type BlocklistMediaType = 'manga';
 
 interface BulkBlocklistData {
   ids: number[];
@@ -45,7 +46,7 @@ export const FILTER_BUILDER: FilterBuilderProp<Blocklist>[] = [
   },
 ];
 
-const useBlocklist = (mediaType: BlocklistMediaType = 'series') => {
+const useBlocklist = (mediaType: BlocklistMediaType = 'manga') => {
   const { page, goToPage } = usePage('blocklist');
   const { pageSize, selectedFilterKey, sortKey, sortDirection } =
     useBlocklistOptions();

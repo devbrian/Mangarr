@@ -1,9 +1,10 @@
 // Sonarr divergence: per Phase 7 D-10 + Lock #1 (Plan 12-08 sub-wave C extension) — mediaType discriminator added — see DIVERGENCE.md.
-// Default 'series' preserves all existing TV call-sites unchanged. Manga callers pass 'manga'
-// (currently the MangaCutoffUnmet thin wrapper at /manga/wanted/cutoffunmet) which switches the URL to
-// /manga/wanted/cutoff and the React Query key (auto-derived from path arg in usePagedApiQuery)
-// to ['/manga/wanted/cutoff'] so SignalR invalidations namespace cleanly per Plan 07-02
-// (Pitfall 5 — TV/manga cache MUST NOT collide). Phase 8 collapses.
+// Phase 15 Plan 15-07 Wave 3 (Sub-step F option (a)): default flipped 'series' -> 'manga' since
+// TV is gone post-cutover; the type union 'series' | 'manga' collapsed to 'manga' (preserves the
+// discriminator type for v2 reintroduction). The /wanted/cutoff URL branch is dead code now but
+// the conditional is left in place so v2 can flip the union back without re-deriving the URL switch.
+// NOTE: Episode imports below are orphaned post-Plan 15-07 Task 1 (frontend/src/Episode/ deleted)
+// and contribute to the expected ~247-error TS2307 cascade — Plan 15-08/15-09 resolves this.
 //
 // Closest analog: frontend/src/Wanted/Missing/useMissing.tsx (Plan 07-10) — same pattern.
 //
@@ -29,7 +30,7 @@ import findSelectedFilters from 'Utilities/Filter/findSelectedFilters';
 import translate from 'Utilities/String/translate';
 import { useCutoffUnmetOptions } from './cutoffUnmetOptionsStore';
 
-export type CutoffUnmetMediaType = 'series' | 'manga';
+export type CutoffUnmetMediaType = 'manga';
 
 export const FILTERS: Filter[] = [
   {
@@ -65,7 +66,7 @@ export const FILTER_BUILDER: FilterBuilderProp<Episode>[] = [
   },
 ];
 
-const useCutoffUnmet = (mediaType: CutoffUnmetMediaType = 'series') => {
+const useCutoffUnmet = (mediaType: CutoffUnmetMediaType = 'manga') => {
   const { page, goToPage } = usePage('cutoffUnmet');
   const { pageSize, selectedFilterKey, sortKey, sortDirection } =
     useCutoffUnmetOptions();
