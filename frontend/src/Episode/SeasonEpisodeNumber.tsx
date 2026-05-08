@@ -1,26 +1,4 @@
-import React from 'react';
-import { SeriesType } from 'Series/Series';
-import EpisodeNumber, { EpisodeNumberProps } from './EpisodeNumber';
-
-interface SeasonEpisodeNumberProps extends EpisodeNumberProps {
-  airDate?: string;
-  seriesType?: SeriesType;
+// Sonarr divergence: Phase 15 Plan 15-12 — STUB.
+export default function SeasonEpisodeNumber(_props: Record<string, unknown>) {
+  return null;
 }
-
-function SeasonEpisodeNumber(props: SeasonEpisodeNumberProps) {
-  const { airDate, seriesType, ...otherProps } = props;
-
-  if (seriesType === 'daily' && airDate) {
-    return <span>{airDate}</span>;
-  }
-
-  return (
-    <EpisodeNumber
-      seriesType={seriesType}
-      showSeasonNumber={true}
-      {...otherProps}
-    />
-  );
-}
-
-export default SeasonEpisodeNumber;

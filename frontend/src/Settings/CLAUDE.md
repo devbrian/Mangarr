@@ -67,7 +67,7 @@ This pattern is implemented once in shared components and reused by all four are
 - `useProviderSettings.ts` — load existing settings
 - `useProviderOptions.ts` — load options sets
 
-The backend builds these schemas via `Sonarr.Http/ClientSchema/SchemaBuilder.cs` (reflects on the C# settings class).
+The backend builds these schemas via `Mangarr.Http/ClientSchema/SchemaBuilder.cs` (reflects on the C# settings class).
 
 ## Page Structure (Conventional)
 
@@ -106,6 +106,6 @@ Settings pages are largely **architecture-stable** — provider plugin model mea
 
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview
 - [../Components/CLAUDE.md](../Components/CLAUDE.md) — Form components
-- [../../../src/Sonarr.Http/CLAUDE.md](../../../src/Sonarr.Http/CLAUDE.md) — `ClientSchema` builds form schemas
+- [../../../src/Mangarr.Http/CLAUDE.md](../../../src/Mangarr.Http/CLAUDE.md) — `ClientSchema` builds form schemas
 - [../../../src/NzbDrone.Core/Profiles/CLAUDE.md](../../../src/NzbDrone.Core/Profiles/CLAUDE.md) — Backend for Profiles page
 - [../../../src/NzbDrone.Core/CustomFormats/CLAUDE.md](../../../src/NzbDrone.Core/CustomFormats/CLAUDE.md) — Backend for CustomFormats page

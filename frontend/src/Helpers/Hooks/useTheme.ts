@@ -4,7 +4,7 @@ import themes from 'Styles/Themes';
 
 const useTheme = (): 'dark' | 'light' => {
   const { theme } = useUiSettingsValues();
-  const selectedTheme = theme ?? window.Sonarr.theme;
+  const selectedTheme = theme ?? window.Mangarr.theme;
   const [resolvedTheme, setResolvedTheme] = useState(() => {
     if (selectedTheme === 'auto') {
       return window.matchMedia('(prefers-color-scheme: dark)').matches

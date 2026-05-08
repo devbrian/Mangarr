@@ -1,27 +1,26 @@
 using System;
 using System.Collections.Generic;
 using FluentAssertions;
+using Mangarr.Api.V5.Manga.Queue;
+using Mangarr.Http;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
-using Sonarr.Api.V5.Manga.Queue;
-using Sonarr.Http;
-
 namespace NzbDrone.Api.Test.Manga.Queue
 {
     // Sonarr divergence: NEW manga V5 controller fixture per Phase 13 Plan 13-09 (D-13-04
-    // forward-prophylactic). Role-match analog: src/Sonarr.Api.V5/Queue/QueueStatusController.cs
+    // forward-prophylactic). Role-match analog: src/Mangarr.Api.V5/Queue/QueueStatusController.cs
     // (TV peer ships no fixture upstream — Sonarr Api.Test does not have a QueueStatusControllerFixture;
     // this is the manga-side Wave 0 fixture introduced for the per-plan filter discipline
     // mandated by 13-PATTERNS.md S4 + plan acceptance criteria).
     //
     // Fixture lives under NzbDrone.Api.Test (NOT NzbDrone.Core.Test) because Sonarr.Core.Test
-    // does not project-reference Sonarr.Api.V5; Sonarr.Api.Test does. Same convention as
+    // does not project-reference Mangarr.Api.V5; Sonarr.Api.Test does. Same convention as
     // src/NzbDrone.Api.Test/Manga/MangaControllerSignalRFixture.cs (Plan 10-05 Rule 3 deviation
-    // — documented in src/Sonarr.Api.V5/Manga/CLAUDE.md).
+    // — documented in src/Mangarr.Api.V5/Manga/CLAUDE.md).
     //
     // Per-plan unit-test filter (PATTERNS.md S4 + plan acceptance criteria):
     //   dotnet test --filter "FullyQualifiedName~MangaQueueStatusController"
@@ -101,7 +100,7 @@ namespace NzbDrone.Api.Test.Manga.Queue
             typeof(MangaQueueStatusController).BaseType!.IsGenericType.Should().BeTrue(
                 "MangaQueueStatusController must extend a generic SignalR base — D-13-04 contract");
             typeof(MangaQueueStatusController).BaseType!.GetGenericTypeDefinition()
-                .Should().Be(typeof(Sonarr.Http.REST.RestControllerWithSignalR<,>),
+                .Should().Be(typeof(Mangarr.Http.REST.RestControllerWithSignalR<,>),
                     "MangaQueueStatusController must extend RestControllerWithSignalR<,> so the React " +
                     "Query cache for ['/manga/queue/status'] auto-refreshes on queue mutation events");
         }

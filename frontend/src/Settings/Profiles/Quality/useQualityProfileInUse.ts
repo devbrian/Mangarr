@@ -1,10 +1,14 @@
+// Sonarr divergence: Phase 15 Plan 15-12 — useSeries -> useManga rebind per
+// cascade absorption (Plan 15-07 deleted Series subtree). The hook reports
+// counts of manga referencing the QualityProfile; importLists count preserved
+// from the legacy Redux slice. Phase 8 cleanup: collapse with Translation/CustomFormat profile in-use checks.
 import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import AppState from 'App/State/AppState';
-import useSeries from 'Series/useSeries';
+import useManga from 'Manga/useManga';
 
 function useQualityProfileInUse(id: number | undefined) {
-  const { data: series = [] } = useSeries();
+  const { data: manga = [] } = useManga();
   const importLists = useSelector(
     (state: AppState) => state.settings.importLists.items
   );
@@ -18,12 +22,12 @@ function useQualityProfileInUse(id: number | undefined) {
     }
 
     return {
-      seriesCount: series.filter((s) => s.qualityProfileId === id).length,
+      seriesCount: manga.filter((m) => m.qualityProfileId === id).length,
       importListCount: importLists.filter(
         (list) => list.qualityProfileId === id
       ).length,
     };
-  }, [id, series, importLists]);
+  }, [id, manga, importLists]);
 }
 
 export default useQualityProfileInUse;

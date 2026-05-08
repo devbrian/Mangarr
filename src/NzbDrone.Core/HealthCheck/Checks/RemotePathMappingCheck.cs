@@ -12,7 +12,6 @@ using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients;
 using NzbDrone.Core.Localization;
-using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.RemotePathMappings;
 using NzbDrone.Core.ThingiProvider.Events;
 
@@ -21,7 +20,8 @@ namespace NzbDrone.Core.HealthCheck.Checks
     [CheckOn(typeof(ProviderUpdatedEvent<IDownloadClient>))]
     [CheckOn(typeof(ProviderDeletedEvent<IDownloadClient>))]
     [CheckOn(typeof(ModelEvent<RemotePathMapping>))]
-    [CheckOn(typeof(EpisodeImportFailedEvent), CheckOnCondition.SuccessfulOnly)]
+
+    // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — CheckOn(EpisodeImportFailedEvent) stripped (event DELETED).
     public class RemotePathMappingCheck : HealthCheckBase, IProvideHealthCheck
     {
         private readonly IDiskProvider _diskProvider;
@@ -189,9 +189,14 @@ namespace NzbDrone.Core.HealthCheck.Checks
                 return new HealthCheck(GetType());
             }
 
-            if (message is EpisodeImportFailedEvent failureMessage)
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — EpisodeImportFailedEvent
+            // branch stripped (event DELETED). Manga peer ChapterImportFailedEvent has different shape;
+            // this method falls through to Check() unconditionally. v1.x rebuild may rewire.
+            return Check();
+            #pragma warning disable CS0162 // unreachable (kept structurally; full body stripped via early return above)
+            if (false)
             {
-                // if we can see the file exists but the import failed then likely a permissions issue
+                dynamic failureMessage = null;
                 if (failureMessage.EpisodeInfo != null)
                 {
                     var episodePath = failureMessage.EpisodeInfo.Path;

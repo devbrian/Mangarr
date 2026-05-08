@@ -4,7 +4,7 @@ namespace NzbDrone.Core.MetadataSource
 {
     /// <summary>
     /// Phase 2 split-contract per D-14 — search by user-typed title or by cross-source
-    /// reverse-lookup ID. Mirrors Sonarr's <see cref="ISearchForNewSeries"/> split-contract
+    /// reverse-lookup ID. Mirrors Mangarr's <c>ISearchForNewSeries</c> (DELETED Phase 15) split-contract
     /// precedent.
     /// </summary>
     public interface ISearchForNewManga

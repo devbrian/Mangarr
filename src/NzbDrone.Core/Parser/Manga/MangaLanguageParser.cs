@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace NzbDrone.Core.Parser.Manga
 {
     // BCP-47 translated-language extractor for manga release titles. Sibling to
-    // Sonarr's TV-side LanguageParser (Parser/LanguageParser.cs) per 02-CONTEXT.md
+    // Mangarr's TV-side LanguageParser (Parser/LanguageParser.cs) per 02-CONTEXT.md
     // D-04 — the TV peer stays untouched until Phase 8.
     //
     // Algorithm:

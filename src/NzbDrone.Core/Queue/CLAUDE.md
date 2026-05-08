@@ -32,7 +32,7 @@ Phase 6 Plan 06-05 ships `Queue/Manga/` as a parallel sibling. **Phase 8 cleanup
 
 ## Manga Adaptation Notes
 
-The static-list projection pattern is the canonical Sonarr shape and is preserved verbatim by Mangarr (Phase 6 Q-3 RESEARCH lock). The two divergences are:
+The static-list projection pattern is the canonical Mangarr shape and is preserved verbatim by Mangarr (Phase 6 Q-3 RESEARCH lock). The two divergences are:
 1. **Filter on Protocol** so TV and manga don't double-count rows from the shared `TrackedDownloadRefreshedEvent`.
 2. **Drop Quality / Languages**, add **TranslatedLanguage / ScanlationGroup** as first-class fields.
 
@@ -43,4 +43,4 @@ Phase 8 collapses the two services into one when `Tv/` deletes (and the Http fil
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview
 - [../Download/CLAUDE.md](../Download/CLAUDE.md) — `TrackedDownloads/` is the upstream source
 - [../DecisionEngine/CLAUDE.md](../DecisionEngine/CLAUDE.md) — `QueueSpecification` (TV) + `QueueDuplicateSpecification` (manga) consume the projections
-- [../../Sonarr.Api.V5/CLAUDE.md](../../Sonarr.Api.V5/CLAUDE.md) — `Manga/Queue/MangaQueueController.cs` exposes the projection over REST + SignalR
+- [../../Mangarr.Api.V5/CLAUDE.md](../../Mangarr.Api.V5/CLAUDE.md) — `Manga/Queue/MangaQueueController.cs` exposes the projection over REST + SignalR

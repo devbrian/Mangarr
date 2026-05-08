@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using FizzWare.NBuilder;
 using FluentAssertions;
+using Mangarr.Api.V5.Manga.Chapter;
+using Mangarr.Api.V5.Manga.Wanted;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Moq;
 using NUnit.Framework;
@@ -17,11 +21,6 @@ using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
-using Sonarr.Api.V5.Manga.Chapter;
-using Sonarr.Api.V5.Manga.Wanted;
-using Sonarr.Http;
-using Sonarr.Http.REST;
-
 namespace NzbDrone.Api.Test.Manga.Wanted
 {
     // Sonarr divergence: NEW manga V5 controller fixture per Phase 6 Plan 06-09 — see DIVERGENCE.md.
@@ -45,9 +44,9 @@ namespace NzbDrone.Api.Test.Manga.Wanted
     // ChapterResource + IChapterService.ChaptersWithoutFiles surface).
     //
     // Fixture lives under NzbDrone.Api.Test (NOT NzbDrone.Core.Test) because Sonarr.Core.Test does not
-    // project-reference Sonarr.Api.V5; Sonarr.Api.Test does. Same convention as
+    // project-reference Mangarr.Api.V5; Sonarr.Api.Test does. Same convention as
     // src/NzbDrone.Api.Test/Manga/MangaControllerSignalRFixture.cs (Plan 10-05 Rule 3 deviation —
-    // documented in src/Sonarr.Api.V5/Manga/CLAUDE.md lines 108-111) and the cutoff sibling.
+    // documented in src/Mangarr.Api.V5/Manga/CLAUDE.md lines 108-111) and the cutoff sibling.
     //
     // Per-plan unit-test filter: dotnet test --filter "FullyQualifiedName~MangaMissing" must
     // return at least 1 passing test. This fixture provides:

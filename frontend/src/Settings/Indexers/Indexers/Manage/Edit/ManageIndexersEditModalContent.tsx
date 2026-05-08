@@ -18,7 +18,6 @@ interface SavePayload {
   enableAutomaticSearch?: boolean;
   enableInteractiveSearch?: boolean;
   priority?: number;
-  seasonSearchMaximumSingleEpisodeAge?: number;
 }
 
 interface ManageIndexersEditModalContentProps {
@@ -61,10 +60,6 @@ function ManageIndexersEditModalContent(
   const [enableInteractiveSearch, setEnableInteractiveSearch] =
     useState(NO_CHANGE);
   const [priority, setPriority] = useState<null | number>(null);
-  const [
-    seasonSearchMaximumSingleEpisodeAge,
-    setSeasonSearchMaximumSingleEpisodeAge,
-  ] = useState<null | number>(null);
 
   const save = useCallback(() => {
     let hasChanges = false;
@@ -90,12 +85,6 @@ function ManageIndexersEditModalContent(
       payload.priority = priority as number;
     }
 
-    if (seasonSearchMaximumSingleEpisodeAge !== null) {
-      hasChanges = true;
-      payload.seasonSearchMaximumSingleEpisodeAge =
-        seasonSearchMaximumSingleEpisodeAge as number;
-    }
-
     if (hasChanges) {
       onSavePress(payload);
     }
@@ -106,7 +95,6 @@ function ManageIndexersEditModalContent(
     enableAutomaticSearch,
     enableInteractiveSearch,
     priority,
-    seasonSearchMaximumSingleEpisodeAge,
     onSavePress,
     onModalClose,
   ]);
@@ -124,9 +112,6 @@ function ManageIndexersEditModalContent(
         break;
       case 'priority':
         setPriority(value as number);
-        break;
-      case 'seasonSearchMaximumSingleEpisodeAge':
-        setSeasonSearchMaximumSingleEpisodeAge(value as number);
         break;
       default:
         console.warn(`EditIndexersModalContent Unknown Input: '${name}'`);
@@ -185,20 +170,6 @@ function ManageIndexersEditModalContent(
             value={priority}
             min={1}
             max={50}
-            onChange={onInputChange}
-          />
-        </FormGroup>
-
-        <FormGroup>
-          <FormLabel>{translate('MaximumSingleEpisodeAge')}</FormLabel>
-
-          <FormInputGroup
-            type={inputTypes.NUMBER}
-            name="seasonSearchMaximumSingleEpisodeAge"
-            helpText={translate('MaximumSingleEpisodeAgeHelpText')}
-            value={seasonSearchMaximumSingleEpisodeAge}
-            min={0}
-            unit="days"
             onChange={onInputChange}
           />
         </FormGroup>

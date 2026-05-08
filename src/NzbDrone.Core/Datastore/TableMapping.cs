@@ -1,30 +1,26 @@
+// Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+// using directives stripped:
+//   using NzbDrone.Core.AutoTagging.Specifications; ← AutoTagging/ DELETED (TV-only)
+//   using NzbDrone.Core.DataAugmentation.Scene; ← DataAugmentation/ DELETED per Plan 15-04
+//   using NzbDrone.Core.Download.History; ← Download/History/ DELETED per Plan 15-10
+//   using NzbDrone.Core.Extras.{Metadata,Metadata.Files,Others,Subtitles}; ← Extras/ DELETED
+//   using NzbDrone.Core.History; ← History/EpisodeHistory.cs DELETED (manga peer: History/Manga/)
+//   using NzbDrone.Core.ImportLists{,.Exclusions}; ← ImportLists/ MOVED per D-26
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dapper;
 using NzbDrone.Common.Reflection;
 using NzbDrone.Core.Authentication;
-using NzbDrone.Core.AutoTagging.Specifications;
-using NzbDrone.Core.Blocklisting;
 using NzbDrone.Core.Blocklisting.Manga;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.CustomFilters;
 using NzbDrone.Core.CustomFormats;
-using NzbDrone.Core.DataAugmentation.Scene;
 using NzbDrone.Core.Datastore.Converters;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
-using NzbDrone.Core.Download.History;
-using NzbDrone.Core.Download.Pending;
 using NzbDrone.Core.Download.Pending.Manga;
-using NzbDrone.Core.Extras.Metadata;
-using NzbDrone.Core.Extras.Metadata.Files;
-using NzbDrone.Core.Extras.Others;
-using NzbDrone.Core.Extras.Subtitles;
-using NzbDrone.Core.History;
 using NzbDrone.Core.History.Manga;
-using NzbDrone.Core.ImportLists;
-using NzbDrone.Core.ImportLists.Exclusions;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Instrumentation;
 using NzbDrone.Core.Jobs;
@@ -39,15 +35,18 @@ using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Profiles;
 using NzbDrone.Core.Profiles.CustomFormats;
 using NzbDrone.Core.Profiles.Delay;
-using NzbDrone.Core.Profiles.Qualities;
+
+// using NzbDrone.Core.Profiles.Qualities; // Sonarr divergence: Phase 15 D-11 — Profiles/Qualities/ subtree deleted by Plan 15-03
 using NzbDrone.Core.Profiles.Releases;
 using NzbDrone.Core.Profiles.Translations;
-using NzbDrone.Core.Qualities;
+
+// using NzbDrone.Core.Qualities; // Sonarr divergence: Phase 15 D-11 — Qualities/ subtree deleted by Plan 15-03
 using NzbDrone.Core.RemotePathMappings;
 using NzbDrone.Core.RootFolders;
 using NzbDrone.Core.Tags;
 using NzbDrone.Core.ThingiProvider;
-using NzbDrone.Core.Tv;
+
+// using NzbDrone.Core.Tv; // Sonarr divergence: Phase 15 D-24 — Tv/ subtree deleted by Plan 15-03
 using NzbDrone.Core.Update.History;
 using static Dapper.SqlMapper;
 
@@ -84,15 +83,19 @@ namespace NzbDrone.Core.Datastore
                   .Ignore(i => i.SupportsRss)
                   .Ignore(i => i.SupportsSearch);
 
-            Mapper.Entity<ImportListDefinition>("ImportLists").RegisterModel()
-                  .Ignore(x => x.ImplementationName)
-                  .Ignore(i => i.ListType)
-                  .Ignore(i => i.MinRefreshInterval)
-                  .Ignore(i => i.Enable);
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — ImportListDefinition
+            // entity registration stripped (ImportLists/ MOVED to .planning/reference/ per D-26).
+            //   Mapper.Entity<ImportListDefinition>("ImportLists").RegisterModel()
+            //          .Ignore(x => x.ImplementationName)
+            //          .Ignore(i => i.ListType)
+            //          .Ignore(i => i.MinRefreshInterval)
+            //          .Ignore(i => i.Enable);
 
-            Mapper.Entity<ImportListItemInfo>("ImportListItems").RegisterModel()
-                   .Ignore(i => i.ImportList)
-                   .Ignore(i => i.Seasons);
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — ImportListItemInfo
+            // entity registration stripped (ImportListItems table; ImportLists/ MOVED per D-26).
+            //   Mapper.Entity<ImportListItemInfo>("ImportListItems").RegisterModel()
+            //          .Ignore(i => i.ImportList)
+            //          .Ignore(i => i.Seasons);
 
             Mapper.Entity<NotificationDefinition>("Notifications").RegisterModel()
                   .Ignore(x => x.ImplementationName)
@@ -101,10 +104,6 @@ namespace NzbDrone.Core.Datastore
                   .Ignore(i => i.SupportsOnImportComplete)
                   .Ignore(i => i.SupportsOnUpgrade)
                   .Ignore(i => i.SupportsOnRename)
-                  .Ignore(i => i.SupportsOnSeriesAdd)
-                  .Ignore(i => i.SupportsOnSeriesDelete)
-                  .Ignore(i => i.SupportsOnEpisodeFileDelete)
-                  .Ignore(i => i.SupportsOnEpisodeFileDeleteForUpgrade)
                   .Ignore(i => i.SupportsOnHealthIssue)
                   .Ignore(i => i.SupportsOnHealthRestored)
                   .Ignore(i => i.SupportsOnApplicationUpdate)
@@ -114,9 +113,11 @@ namespace NzbDrone.Core.Datastore
                   .Ignore(i => i.SupportsOnMangaDelete)
                   .Ignore(i => i.SupportsOnMangaRename);
 
-            Mapper.Entity<MetadataDefinition>("Metadata").RegisterModel()
-                  .Ignore(x => x.ImplementationName)
-                  .Ignore(d => d.Tags);
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // MetadataDefinition entity registration stripped (Extras/Metadata/ deleted).
+            //   Mapper.Entity<MetadataDefinition>("Metadata").RegisterModel()
+            //         .Ignore(x => x.ImplementationName)
+            //         .Ignore(d => d.Tags);
 
             // Phase 2 (Plan 02-11) — IMetadataSource ProviderDefinition. Distinct from
             // the Sonarr-inherited Metadata IMetadataConsumer table above (Pitfall 2).
@@ -131,27 +132,21 @@ namespace NzbDrone.Core.Datastore
                   .Ignore(x => x.ImplementationName)
                   .Ignore(d => d.Protocol);
 
-            Mapper.Entity<SceneMapping>("SceneMappings").RegisterModel();
+            // Sonarr divergence: Phase 15 Plan 15-04 cascade absorption — SceneMapping entity registration stripped (DataAugmentation/Scene/ DELETED).
+            //   Mapper.Entity<SceneMapping>("SceneMappings").RegisterModel();
 
-            Mapper.Entity<EpisodeHistory>("History").RegisterModel();
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // EpisodeHistory entity registration stripped (History/EpisodeHistory.cs DELETED).
+            // The History schema table is dropped per Phase 15 D-22 (Migration 001 baseline);
+            // manga peer ChapterHistory uses a separate ChapterHistory table.
+            //   Mapper.Entity<EpisodeHistory>("History").RegisterModel();
 
-            Mapper.Entity<Series>("Series").RegisterModel()
-                  .Ignore(s => s.RootFolderPath)
-                  .HasOne(s => s.QualityProfile, s => s.QualityProfileId);
-
-            Mapper.Entity<EpisodeFile>("EpisodeFiles").RegisterModel()
-                  .HasOne(f => f.Series, f => f.SeriesId)
-                  .LazyLoad(x => x.Episodes,
-                            (db, parent) => db.Query<Episode>(new SqlBuilder(db.DatabaseType).Where<Episode>(c => c.EpisodeFileId == parent.Id)).ToList(),
-                            t => t.Id > 0)
-                  .Ignore(f => f.Path);
-
-            Mapper.Entity<Episode>("Episodes").RegisterModel()
-                  .Ignore(e => e.SeriesTitle)
-                  .Ignore(e => e.Series)
-                  .Ignore(e => e.HasFile)
-                  .Ignore(e => e.AbsoluteEpisodeNumberAdded)
-                  .HasOne(s => s.EpisodeFile, s => s.EpisodeFileId);
+            // Sonarr divergence: Phase 15 D-24 schema delete — TV-shape entity registrations stripped
+            //   Mapper.Entity<Series>("Series").RegisterModel(); ← deleted (Plan 15-03)
+            //   Mapper.Entity<EpisodeFile>("EpisodeFiles").RegisterModel(); ← deleted (Plan 15-03)
+            //   Mapper.Entity<Episode>("Episodes").RegisterModel(); ← deleted (Plan 15-03)
+            //   Mapper.Entity<QualityDefinition>("QualityDefinitions").RegisterModel(); ← deleted (Plan 15-03 per D-11)
+            //   Mapper.Entity<QualityProfile>("QualityProfiles").RegisterModel(); ← deleted (Plan 15-03 per D-11)
 
             // Phase 2 manga domain (02-02) — Manga aggregate root + flat Chapter list.
             // Manga.MangaDexId is Guid?; Dapper round-trips through the global
@@ -160,16 +155,11 @@ namespace NzbDrone.Core.Datastore
             Mapper.Entity<Core.Manga.Manga>("Manga").RegisterModel();
             Mapper.Entity<Core.Manga.Chapter>("Chapters").RegisterModel();
 
-            Mapper.Entity<QualityDefinition>("QualityDefinitions").RegisterModel()
-                  .Ignore(d => d.GroupName)
-                  .Ignore(d => d.Weight)
-                  .Ignore(d => d.MinSize)
-                  .Ignore(d => d.MaxSize)
-                  .Ignore(d => d.PreferredSize);
+            // Sonarr divergence: Phase 15 D-11 schema delete — QualityDefinition entity registration stripped (Plan 15-03)
 
             Mapper.Entity<CustomFormat>("CustomFormats").RegisterModel();
 
-            Mapper.Entity<QualityProfile>("QualityProfiles").RegisterModel();
+            // Sonarr divergence: Phase 15 D-11 schema delete — QualityProfile entity registration stripped (Plan 15-03)
 
             // Phase 5 D-01 — TranslationProfile entity registration. Sibling to QualityProfiles.
             Mapper.Entity<TranslationProfile>("TranslationProfiles").RegisterModel();
@@ -179,13 +169,23 @@ namespace NzbDrone.Core.Datastore
 
             Mapper.Entity<Log>("Logs").RegisterModel();
             Mapper.Entity<NamingConfig>("NamingConfig").RegisterModel();
-            Mapper.Entity<Blocklist>("Blocklist").RegisterModel();
-            Mapper.Entity<MetadataFile>("MetadataFiles").RegisterModel();
-            Mapper.Entity<SubtitleFile>("SubtitleFiles").RegisterModel();
-            Mapper.Entity<OtherExtraFile>("ExtraFiles").RegisterModel();
 
-            Mapper.Entity<PendingRelease>("PendingReleases").RegisterModel()
-                  .Ignore(e => e.RemoteEpisode);
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // TV Blocklist entity registration stripped (Blocklisting/{Blocklist,Repository,Service}.cs DELETED).
+            // The Blocklist schema table is dropped per Phase 15 D-22 (Migration 001 baseline);
+            // manga peer MangaBlocklist registers below at line 229.
+            //   Mapper.Entity<Blocklist>("Blocklist").RegisterModel();
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // Extras/* file entity registrations stripped (Extras/ subtree DELETED).
+            //   Mapper.Entity<MetadataFile>("MetadataFiles").RegisterModel();
+            //   Mapper.Entity<SubtitleFile>("SubtitleFiles").RegisterModel();
+            //   Mapper.Entity<OtherExtraFile>("ExtraFiles").RegisterModel();
+
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — PendingRelease entity
+            // registration stripped (Download/Pending/PendingRelease.cs DELETED). Manga peer
+            // MangaPendingRelease registers below.
+            //   Mapper.Entity<PendingRelease>("PendingReleases").RegisterModel()
+            //         .Ignore(e => e.RemoteEpisode);
 
             // Phase 9 D-09-06..08 — MangaPendingRelease registration (parallel sibling to
             // PendingRelease registered above). BL-01 mechanical guard: a separate Mapper.Entity
@@ -233,17 +233,28 @@ namespace NzbDrone.Core.Datastore
             Mapper.Entity<MangaBlocklist>("MangaBlocklist").RegisterModel();
 
             Mapper.Entity<DownloadClientStatus>("DownloadClientStatus").RegisterModel();
-            Mapper.Entity<ImportListStatus>("ImportListStatus").RegisterModel();
+
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — ImportListStatus entity
+            // registration stripped (ImportLists/ MOVED to .planning/reference/ per D-26).
+            //   Mapper.Entity<ImportListStatus>("ImportListStatus").RegisterModel();
             Mapper.Entity<NotificationStatus>("NotificationStatus").RegisterModel();
 
             Mapper.Entity<CustomFilter>("CustomFilters").RegisterModel();
 
-            Mapper.Entity<DownloadHistory>("DownloadHistory").RegisterModel();
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // DownloadHistory entity registration stripped (Download/History/ DELETED).
+            //   Mapper.Entity<DownloadHistory>("DownloadHistory").RegisterModel();
 
             Mapper.Entity<UpdateHistory>("UpdateHistory").RegisterModel();
-            Mapper.Entity<ImportListExclusion>("ImportListExclusions").RegisterModel();
 
-            Mapper.Entity<AutoTagging.AutoTag>("AutoTagging").RegisterModel();
+            // Sonarr divergence: Phase 15 Plan 15-04 cascade absorption — ImportListExclusion entity registration stripped (ImportLists/ MOVED per D-26).
+            //   Mapper.Entity<ImportListExclusion>("ImportListExclusions").RegisterModel();
+
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // AutoTagging entity registration stripped (AutoTagging/ subtree DELETED).
+            // The AutoTagging schema table remains in Migration 001 but is unmapped;
+            // v1.x rebuild may rewire if/when manga auto-tagging lands.
+            //   Mapper.Entity<AutoTagging.AutoTag>("AutoTagging").RegisterModel();
         }
 
         private static void RegisterMappers()
@@ -253,12 +264,21 @@ namespace NzbDrone.Core.Datastore
 
             SqlMapper.RemoveTypeMap(typeof(DateTime));
             SqlMapper.AddTypeHandler(new DapperUtcConverter());
-            SqlMapper.AddTypeHandler(new DapperQualityIntConverter());
-            SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<QualityProfileQualityItem>>(new QualityIntConverter()));
+
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // Quality / QualityModel / QualityProfileQualityItem / ParsedEpisodeInfo embedded
+            // converters stripped per Plan 15-03 Tv/+Quality DELETE + Plan 15-10 Parser/Model
+            // TV DELETE. Manga uses ParsedChapterInfo round-trip (registered below).
+            //   SqlMapper.AddTypeHandler(new DapperQualityIntConverter());
+            //   SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<QualityProfileQualityItem>>(new QualityIntConverter()));
+            //   SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<QualityModel>(new QualityIntConverter()));
+            //   SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<ParsedEpisodeInfo>(new QualityIntConverter(), new LanguageIntConverter()));
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<ProfileFormatItem>>(new CustomFormatIntConverter()));
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<ICustomFormatSpecification>>(new CustomFormatSpecificationListConverter()));
-            SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<IAutoTaggingSpecification>>(new AutoTaggingSpecificationConverter()));
-            SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<QualityModel>(new QualityIntConverter()));
+
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // IAutoTaggingSpecification embedded converter stripped (AutoTagging/ DELETED).
+            //   SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<IAutoTaggingSpecification>>(new AutoTaggingSpecificationConverter()));
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<Dictionary<string, string>>());
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<IDictionary<string, string>>());
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<int>>());
@@ -267,7 +287,8 @@ namespace NzbDrone.Core.Datastore
             SqlMapper.AddTypeHandler(new DapperLanguageIntConverter());
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<Language>>(new LanguageIntConverter()));
             SqlMapper.AddTypeHandler(new StringListConverter<List<string>>());
-            SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<ParsedEpisodeInfo>(new QualityIntConverter(), new LanguageIntConverter()));
+
+            // Sonarr divergence: ParsedEpisodeInfo handler stripped above; ParsedChapterInfo handler registered below.
 
             // Phase 9 D-09-06..08 — ParsedChapterInfo Dapper round-trip handler for
             // MangaPendingReleases.ParsedChapterInfo column. ParsedChapterInfo carries only
@@ -277,7 +298,10 @@ namespace NzbDrone.Core.Datastore
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<ParsedChapterInfo>());
 
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<ReleaseInfo>());
-            SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<PendingReleaseAdditionalInfo>());
+
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — PendingReleaseAdditionalInfo
+            // converter stripped (Download/Pending/PendingRelease.cs DELETED).
+            //   SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<PendingReleaseAdditionalInfo>());
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<HashSet<int>>());
             SqlMapper.AddTypeHandler(new OsPathConverter());
             SqlMapper.RemoveTypeMap(typeof(Guid));

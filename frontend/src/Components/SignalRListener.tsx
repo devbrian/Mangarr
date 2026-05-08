@@ -1,3 +1,9 @@
+// Phase 15 Plan 15-07 (Wave 3) cutover — TV resource handlers stripped per Plan 07-02
+// cleanup + Phase 14 Wave 3 commit b1ce62a7f reference. Manga handlers added by Phase 7
+// Plan 07-02 + Phase 13 Plans 13-07/13-08/13-09 + Phase 12 Plan 12-08 are now the
+// canonical handlers. handleReconnected invalidate flipped from ['/series'] to ['/manga'].
+// Removed cases: 'series', 'episode', 'episodefile', 'queue', 'queue/details',
+// 'queue/status', 'wanted/cutoff', 'wanted/missing', 'qualitydefinition'.
 import {
   HubConnection,
   HubConnectionBuilder,
@@ -10,10 +16,7 @@ import { setAppValue, setVersion } from 'App/appStore';
 import ModelBase from 'App/ModelBase';
 import Command from 'Commands/Command';
 import { useUpdateCommand } from 'Commands/useCommands';
-import Episode from 'Episode/Episode';
-import { EpisodeFile } from 'EpisodeFile/EpisodeFile';
 import { PagedQueryResponse } from 'Helpers/Hooks/usePagedApiQuery';
-import Series from 'Series/Series';
 import { IndexerModel } from 'Settings/Indexers/useIndexers';
 import { NotificationModel } from 'Settings/Notifications/useConnections';
 import { removeItem, updateItem } from 'Store/Actions/baseActions';
@@ -76,7 +79,9 @@ function SignalRListener() {
 
     // Repopulate the page (if a repopulator is set) to ensure things
     // are in sync after reconnecting.
-    queryClient.invalidateQueries({ queryKey: ['/series'] });
+    // Phase 15 Plan 15-07 Wave 3: invalidate flipped from ['/series'] -> ['/manga']
+    // (manga is the only library root post-cutover).
+    queryClient.invalidateQueries({ queryKey: ['/manga'] });
 
     queryClient.invalidateQueries({ queryKey: ['/command'] });
 
@@ -130,52 +135,6 @@ function SignalRListener() {
         dispatch(updateItem({ section, ...body.resource }));
       } else if (body.action === 'deleted') {
         dispatch(removeItem({ section, id: body.resource.id }));
-      }
-
-      return;
-    }
-
-    if (name === 'episode') {
-      if (version < 5) {
-        return;
-      }
-
-      if (body.action === 'updated') {
-        const updatedItem = body.resource as Episode;
-
-        updateQueryClientItem(
-          queryClient,
-          ['/episode'],
-          updatedItem,
-          false // Don't add the episode to the list if it doesn't exist. Episodes should already be in the list since they are included in the series details.
-        );
-      }
-
-      return;
-    }
-
-    if (name === 'episodefile') {
-      if (version < 5) {
-        return;
-      }
-
-      if (body.action === 'updated') {
-        const updatedItem = body.resource as EpisodeFile;
-
-        updateQueryClientItem(
-          queryClient,
-          ['/episodeFile'],
-          updatedItem,
-          true // Add the episode file to the list if it doesn't exist. This can happen when an episode file is imported and wasn't previously in the list of episode files.
-        );
-
-        // Repopulate the page to handle recently imported file
-        repopulatePage('episodeFileUpdated');
-      } else if (body.action === 'deleted') {
-        const id = body.resource.id;
-
-        removeQueryClientItem(queryClient, ['/episodeFile'], id);
-        repopulatePage('episodeFileDeleted');
       }
 
       return;
@@ -241,78 +200,12 @@ function SignalRListener() {
       return;
     }
 
-    if (name === 'qualitydefinition') {
-      if (version < 5) {
-        return;
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['/qualitydefinition'] });
-      return;
-    }
-
-    if (name === 'queue') {
-      if (version < 5) {
-        return;
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['/queue'] });
-      return;
-    }
-
-    if (name === 'queue/details') {
-      if (version < 5) {
-        return;
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['/queue/details'] });
-      return;
-    }
-
-    if (name === 'queue/status') {
-      if (version < 5) {
-        return;
-      }
-
-      const statusDetails = queryClient.getQueriesData({
-        queryKey: ['/queue/status'],
-      });
-
-      statusDetails.forEach(([queryKey]) => {
-        queryClient.setQueryData(queryKey, () => body.resource);
-      });
-
-      return;
-    }
-
     if (name === 'rootfolder') {
       if (version < 5) {
         return;
       }
 
       queryClient.invalidateQueries({ queryKey: ['/rootFolder'] });
-
-      return;
-    }
-
-    if (name === 'series') {
-      if (version < 5) {
-        return;
-      }
-
-      if (body.action === 'updated') {
-        const updatedItem = body.resource as Series;
-
-        updateQueryClientItem(
-          queryClient,
-          ['/series'],
-          updatedItem,
-          false // Don't add the series to the list if it doesn't exist. Series should already be in the list since they are included in the calendar and series details.
-        );
-
-        repopulatePage('seriesUpdated');
-      } else if (body.action === 'deleted') {
-        removeQueryClientItem(queryClient, ['/series'], body.resource.id);
-      }
 
       return;
     }
@@ -342,59 +235,17 @@ function SignalRListener() {
       return;
     }
 
-    if (name === 'wanted/cutoff') {
-      if (version < 5 || body.action !== 'updated') {
-        return;
-      }
-
-      updatePagedItem<Episode>(
-        queryClient,
-        ['/wanted/cutoff'],
-        body.resource as Episode
-      );
-
-      return;
-    }
-
-    if (name === 'wanted/missing') {
-      if (version < 5 || body.action !== 'updated') {
-        return;
-      }
-
-      updatePagedItem<Episode>(
-        queryClient,
-        ['/wanted/missing'],
-        body.resource as Episode
-      );
-
-      return;
-    }
-
-    // Phase 7 D-07 / F-01 close-out — 6 manga resource handlers.
+    // Phase 7 D-07 / F-01 close-out — manga resource handlers (canonical post Phase 15
+    // Plan 15-07 cutover; TV 'series'/'episode'/'episodefile' handlers DELETED).
     // Sonarr divergence: NEW manga sibling per Phase 7 D-07 — see DIVERGENCE.md.
-    // Role-match analog: existing 'series' / 'episode' / 'queue/status' handlers above.
     //
     // Backend resource names verified against [V5ApiController(...)] attributes
     // (Phase 7 Plan 07-02 Task 1 grep — see SUMMARY.md).
     //
-    // Type cast Option B: `{ id: number }` — Plan 03 has not shipped Manga/Chapter
-    // typings yet, so we use a minimal-shape cast here. Refine to typed casts
-    // (`Manga` / `Chapter`) when Plan 03 lands; the dispatch logic only reads
-    // `id` in any case.
-    //
-    // Phase 8 cleanup: when Tv/ deletes, these become the canonical handlers.
-    //
-    // WR-10: All 6 manga handlers below gate on `if (version < 5) { return; }`
-    // BEFORE acting on the action. This is structurally inconsistent with the
-    // older 'command' handler above (which does not version-gate because the
-    // command resource has been v5-shaped since v1), and creates a quiet
-    // desync window on `version<5` pushes during a rolling deploy: the
-    // matching React Query cache is NOT invalidated and stale data persists
-    // until the next manual refresh. Acceptable for v1 (single-version
-    // deploy) but worth re-evaluating in Phase 8 cutover when `version`
-    // becomes a manga-specific dimension. The version floor is correct — the
-    // backing resources never existed in v1-v4, so there is nothing to
-    // invalidate from a `version<5` push at the data-shape level.
+    // WR-10: All manga handlers below gate on `if (version < 5) { return; }` BEFORE
+    // acting on the action. The version floor is correct — the backing resources
+    // never existed in v1-v4, so there is nothing to invalidate from a `version<5`
+    // push at the data-shape level.
 
     if (name === 'manga') {
       if (version < 5) {
@@ -439,13 +290,11 @@ function SignalRListener() {
     }
 
     // Phase 13 Plan 13-07 (Plan 13-00 Pattern κ closure): chapterfile handler — manga
-    // sibling of the episodefile handler at lines 157-181 above. Resource name
-    // 'chapterfile' (lowercase) auto-derives from ChapterFileResource.ResourceName per
-    // RestResource.cs:11 + RestControllerWithSignalR.cs:23-33 — bare [V5ApiController]
-    // on ChapterFileController falls back to `new ChapterFileResource().ResourceName.Trim('/')`.
-    // React Query key '/chapterFile' (camelCase) matches the future useChapterFiles.ts
-    // path arg per the Plan 07-02 URL-shaped React Query key contract (see lines 386-397
-    // above for the version<5 gating rationale).
+    // sibling of the deleted episodefile handler. Resource name 'chapterfile' (lowercase)
+    // auto-derives from ChapterFileResource.ResourceName per RestResource.cs:11 +
+    // RestControllerWithSignalR.cs:23-33. React Query key '/chapterFile' (camelCase)
+    // matches the future useChapterFiles.ts path arg per the Plan 07-02 URL-shaped
+    // React Query key contract.
     if (name === 'chapterfile') {
       if (version < 5) {
         return;
@@ -458,10 +307,10 @@ function SignalRListener() {
           queryClient,
           ['/chapterFile'],
           updatedItem,
-          true // Add the chapter file to the list if it doesn't exist. This can happen when a chapter file is imported and wasn't previously in the list of chapter files (mirrors episodefile handler at line 169).
+          true // Add the chapter file to the list if it doesn't exist (mirrors the deleted episodefile handler's add-on-update behavior).
         );
 
-        // Repopulate the page to handle recently imported file (mirrors episodefile precedent at line 173).
+        // Repopulate the page to handle recently imported file (mirrors the deleted episodefile precedent).
         repopulatePage('chapterFileUpdated');
       } else if (body.action === 'deleted') {
         const id = body.resource.id;
@@ -501,11 +350,10 @@ function SignalRListener() {
     }
 
     // Phase 13 Plan 13-08 / 13-09 added MangaQueueDetailsController +
-    // MangaQueueStatusController as RestControllerWithSignalR<,> peers of the TV
-    // QueueDetailsController + QueueStatusController. Without these two handlers
-    // every page load fires console.error('signalR: Unable to find handler …')
-    // (F-06 from quick-260507-tff). Mirror the TV `queue/details` + `queue/status`
-    // shapes at lines 262-285 above.
+    // MangaQueueStatusController as RestControllerWithSignalR<,> peers of the (now
+    // deleted) TV QueueDetailsController + QueueStatusController. Without these two
+    // handlers every page load fires console.error('signalR: Unable to find handler …')
+    // (F-06 from quick-260507-tff).
     if (name === 'manga/queue/details') {
       if (version < 5) {
         return;
@@ -531,69 +379,45 @@ function SignalRListener() {
       return;
     }
 
-    // Phase-12 follow-up (F-MISSING-SIGNALR closure, 2026-05-06): upgraded from the
-    // Plan 07-02 invalidateQueries shape to the per-row updatePagedItem shape after
-    // MangaMissingController (renamed from MissingChaptersController for naming
-    // consistency with the rest of the manga V5 namespace) was refactored to extend
-    // RestControllerWithSignalR<MissingChapterResource, Chapter> + subscribe to
-    // ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent.
-    // BroadcastResourceChange(ModelAction.Updated, chapterId) now emits a per-row
-    // resource body (matches TV's wanted/missing handler at lines 359-371 which
-    // consumes EpisodeResource via updatePagedItem<Episode>).
+    // Phase-12 follow-up (F-MISSING-SIGNALR closure, 2026-05-06): per-row updatePagedItem
+    // shape after MangaMissingController extends RestControllerWithSignalR<MissingChapterResource, Chapter>
+    // + subscribes to ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent.
+    // BroadcastResourceChange(ModelAction.Updated, chapterId) emits a per-row resource body.
     //
-    // Phase-12 follow-up (canonical-resource-reuse, 2026-05-06): MangaMissingController
-    // now extends RestControllerWithSignalR<ChapterResource, Chapter> (the canonical
-    // chapter DTO — replaces the deleted MissingChapterResource POCO; mirrors TV's
-    // EpisodeResource reuse pattern). The structural cast ``body.resource as Episode``
-    // remains correct because updatePagedItem only matches by ``id`` at runtime, and
-    // ChapterResource.Id (inherited from RestResource) carries the chapter id from
-    // the broadcast.
-    //
-    // Resource name 'manga/wanted/missing' is the route-attribute literal per Plan
-    // 07-02 URL-shaped React Query key contract (matches the path arg useMissing
-    // passes to usePagedApiQuery when mediaType === 'manga'). Mirrors the
-    // F-CUTOFF-SIGNALR closure for cross-controller consistency.
+    // Phase 15 Plan 15-07 Wave 3: the structural cast here was previously `body.resource as Episode`
+    // (when the TV Episode type still existed); flipped to `body.resource as ModelBase` since
+    // updatePagedItem only matches by `id` at runtime — the Episode reference was a build-time
+    // shim that's no longer needed (ChapterResource.Id inherits from RestResource).
     if (name === 'manga/wanted/missing') {
       if (version < 5 || body.action !== 'updated') {
         return;
       }
 
-      updatePagedItem<Episode>(
+      updatePagedItem<ModelBase>(
         queryClient,
         ['/manga/wanted/missing'],
-        body.resource as Episode
+        body.resource as ModelBase
       );
 
       return;
     }
 
-    // Phase-12 follow-up (F-CUTOFF-SIGNALR closure, 2026-05-06): mirrors the TV
-    // 'wanted/cutoff' handler shape at lines 345-357. Backend MangaCutoffController
-    // extends RestControllerWithSignalR<,> + subscribes to ChapterGrabbedEvent /
-    // ChapterImportedEvent / ChapterFileDeletedEvent; BroadcastResourceChange
-    // (ModelAction.Updated, chapterId) emits a per-row update body that matches TV's
-    // Episode-keyed updatePagedItem call.
+    // Phase-12 follow-up (F-CUTOFF-SIGNALR closure, 2026-05-06): MangaCutoffController
+    // extends RestControllerWithSignalR<ChapterResource, Chapter> + subscribes to
+    // ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent.
+    // BroadcastResourceChange(ModelAction.Updated, chapterId) emits a per-row update body.
     //
-    // Phase-12 follow-up (canonical-resource-reuse, 2026-05-06): MangaCutoffController
-    // now extends RestControllerWithSignalR<ChapterResource, Chapter> (the canonical
-    // chapter DTO — replaces the deleted MangaCutoffResource POCO; mirrors TV's
-    // EpisodeResource reuse pattern). The structural cast ``body.resource as Episode``
-    // remains correct because updatePagedItem only matches by ``id`` at runtime, and
-    // ChapterResource.Id (inherited from RestResource) carries the chapter id from
-    // the broadcast.
-    //
-    // Resource name 'manga/wanted/cutoff' is the route-attribute literal per Plan
-    // 07-02 URL-shaped React Query key contract (matches the path arg the
-    // useCutoffUnmet hook passes to usePagedApiQuery when mediaType === 'manga').
+    // Phase 15 Plan 15-07 Wave 3: structural cast flipped from `Episode` to `ModelBase`
+    // (same rationale as the manga/wanted/missing handler above).
     if (name === 'manga/wanted/cutoff') {
       if (version < 5 || body.action !== 'updated') {
         return;
       }
 
-      updatePagedItem<Episode>(
+      updatePagedItem<ModelBase>(
         queryClient,
         ['/manga/wanted/cutoff'],
-        body.resource as Episode
+        body.resource as ModelBase
       );
 
       return;
@@ -605,12 +429,12 @@ function SignalRListener() {
   useEffect(() => {
     console.log('[signalR] starting');
 
-    const url = `${window.Sonarr.urlBase}/signalr/messages`;
+    const url = `${window.Mangarr.urlBase}/signalr/messages`;
 
     connection.current = new HubConnectionBuilder()
       .configureLogging(new SignalRLogger(LogLevel.Information))
       .withUrl(
-        `${url}?access_token=${encodeURIComponent(window.Sonarr.apiKey)}`
+        `${url}?access_token=${encodeURIComponent(window.Mangarr.apiKey)}`
       )
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (retryContext) => {

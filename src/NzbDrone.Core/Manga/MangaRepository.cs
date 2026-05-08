@@ -7,7 +7,7 @@ using NzbDrone.Core.Messaging.Events;
 
 namespace NzbDrone.Core.Manga
 {
-    // Dapper repository for Manga. Mirrors Sonarr's SeriesRepository
+    // Dapper repository for Manga. Mirrors Mangarr's SeriesRepository
     // (Tv/SeriesRepository.cs:25-138) shape verbatim. Inherits Phase 1 D-15 Polly
     // retry coverage automatically via BasicRepository<T>.
     public class MangaRepository : BasicRepository<Manga>, IMangaRepository

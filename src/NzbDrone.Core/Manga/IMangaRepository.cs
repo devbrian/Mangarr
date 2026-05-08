@@ -4,7 +4,7 @@ using NzbDrone.Core.Datastore;
 
 namespace NzbDrone.Core.Manga
 {
-    // Repository contract for Manga aggregate. Mirrors Sonarr's ISeriesRepository
+    // Repository contract for Manga aggregate. Mirrors Mangarr's ISeriesRepository
     // (Tv/SeriesRepository.cs:9-23) shape verbatim, with manga-domain divergence on
     // the Find methods per 02-CONTEXT specifics: singular cross-source IDs
     // (FindByMangaDexId/MalId/AniListId) because manga has 1:1 source mapping (vs.

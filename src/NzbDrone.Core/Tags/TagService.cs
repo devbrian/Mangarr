@@ -1,19 +1,20 @@
 using System.Collections.Generic;
 using System.Linq;
-using NzbDrone.Core.AutoTagging;
-using NzbDrone.Core.AutoTagging.Specifications;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Download;
-using NzbDrone.Core.ImportLists;
 using NzbDrone.Core.Indexers;
+using NzbDrone.Core.Manga;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Notifications;
 using NzbDrone.Core.Profiles.Delay;
 using NzbDrone.Core.Profiles.Releases;
-using NzbDrone.Core.Tv;
 
 namespace NzbDrone.Core.Tags
 {
+    // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+    // ISeriesService / IImportListFactory / IAutoTaggingService deps stripped
+    // (TV-only or no-longer-bound). IMangaService used as manga peer for
+    // tag-aggregate lookups (AllForTag).
     public interface ITagService
     {
         Tag GetTag(int tagId);
@@ -32,34 +33,28 @@ namespace NzbDrone.Core.Tags
         private readonly ITagRepository _repo;
         private readonly IEventAggregator _eventAggregator;
         private readonly IDelayProfileService _delayProfileService;
-        private readonly IImportListFactory _importListFactory;
         private readonly INotificationFactory _notificationFactory;
         private readonly IReleaseProfileService _releaseProfileService;
-        private readonly ISeriesService _seriesService;
+        private readonly IMangaService _mangaService;
         private readonly IIndexerFactory _indexerService;
-        private readonly IAutoTaggingService _autoTaggingService;
         private readonly IDownloadClientFactory _downloadClientFactory;
 
         public TagService(ITagRepository repo,
                           IEventAggregator eventAggregator,
                           IDelayProfileService delayProfileService,
-                          IImportListFactory importListFactory,
                           INotificationFactory notificationFactory,
                           IReleaseProfileService releaseProfileService,
-                          ISeriesService seriesService,
+                          IMangaService mangaService,
                           IIndexerFactory indexerService,
-                          IAutoTaggingService autoTaggingService,
                           IDownloadClientFactory downloadClientFactory)
         {
             _repo = repo;
             _eventAggregator = eventAggregator;
             _delayProfileService = delayProfileService;
-            _importListFactory = importListFactory;
             _notificationFactory = notificationFactory;
             _releaseProfileService = releaseProfileService;
-            _seriesService = seriesService;
+            _mangaService = mangaService;
             _indexerService = indexerService;
-            _autoTaggingService = autoTaggingService;
             _downloadClientFactory = downloadClientFactory;
         }
 
@@ -89,13 +84,11 @@ namespace NzbDrone.Core.Tags
         {
             var tag = GetTag(tagId);
             var delayProfiles = _delayProfileService.AllForTag(tagId);
-            var importLists = _importListFactory.AllForTag(tagId);
             var notifications = _notificationFactory.AllForTag(tagId);
             var releaseProfiles = _releaseProfileService.AllForTag(tagId);
             var excludedReleaseProfiles = _releaseProfileService.AllExcludedForTag(tagId);
-            var series = _seriesService.AllForTag(tagId);
+            var manga = _mangaService.AllForTag(tagId);
             var indexers = _indexerService.AllForTag(tagId);
-            var autoTags = _autoTaggingService.AllForTag(tagId);
             var downloadClients = _downloadClientFactory.AllForTag(tagId);
 
             return new TagDetails
@@ -103,13 +96,11 @@ namespace NzbDrone.Core.Tags
                 Id = tagId,
                 Label = tag.Label,
                 DelayProfileIds = delayProfiles.Select(c => c.Id).ToList(),
-                ImportListIds = importLists.Select(c => c.Id).ToList(),
                 NotificationIds = notifications.Select(c => c.Id).ToList(),
                 RestrictionIds = releaseProfiles.Select(c => c.Id).ToList(),
                 ExcludedReleaseProfileIds = excludedReleaseProfiles.Select(c => c.Id).ToList(),
-                SeriesIds = series.Select(c => c.Id).ToList(),
+                MangaIds = manga.Select(c => c.Id).ToList(),
                 IndexerIds = indexers.Select(c => c.Id).ToList(),
-                AutoTagIds = autoTags.Select(c => c.Id).ToList(),
                 DownloadClientIds = downloadClients.Select(c => c.Id).ToList()
             };
         }
@@ -118,13 +109,11 @@ namespace NzbDrone.Core.Tags
         {
             var tags = All();
             var delayProfiles = _delayProfileService.All();
-            var importLists = _importListFactory.All();
             var notifications = _notificationFactory.All();
             var releaseProfiles = _releaseProfileService.All();
             var excludedReleaseProfiles = _releaseProfileService.All();
-            var series = _seriesService.GetAllSeriesTags();
+            var manga = _mangaService.AllForTag(0); // empty filter — All() not currently exposed for manga tags
             var indexers = _indexerService.All();
-            var autoTags = _autoTaggingService.All();
             var downloadClients = _downloadClientFactory.All();
 
             var details = new List<TagDetails>();
@@ -132,19 +121,17 @@ namespace NzbDrone.Core.Tags
             foreach (var tag in tags)
             {
                 details.Add(new TagDetails
-                    {
-                        Id = tag.Id,
-                        Label = tag.Label,
-                        DelayProfileIds = delayProfiles.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
-                        ImportListIds = importLists.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
-                        NotificationIds = notifications.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
-                        RestrictionIds = releaseProfiles.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
-                        ExcludedReleaseProfileIds = excludedReleaseProfiles.Where(c => c.ExcludedTags.Contains(tag.Id)).Select(c => c.Id).ToList(),
-                        SeriesIds = series.Where(c => c.Value.Contains(tag.Id)).Select(c => c.Key).ToList(),
-                        IndexerIds = indexers.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
-                        AutoTagIds = GetAutoTagIds(tag, autoTags),
-                        DownloadClientIds = downloadClients.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
-                    });
+                {
+                    Id = tag.Id,
+                    Label = tag.Label,
+                    DelayProfileIds = delayProfiles.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
+                    NotificationIds = notifications.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
+                    RestrictionIds = releaseProfiles.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
+                    ExcludedReleaseProfileIds = excludedReleaseProfiles.Where(c => c.ExcludedTags.Contains(tag.Id)).Select(c => c.Id).ToList(),
+                    MangaIds = _mangaService.AllForTag(tag.Id).Select(c => c.Id).ToList(),
+                    IndexerIds = indexers.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
+                    DownloadClientIds = downloadClients.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
+                });
             }
 
             return details;
@@ -192,24 +179,6 @@ namespace NzbDrone.Core.Tags
 
             _repo.Delete(tagId);
             _eventAggregator.PublishEvent(new TagsUpdatedEvent());
-        }
-
-        private List<int> GetAutoTagIds(Tag tag, List<AutoTag> autoTags)
-        {
-            var autoTagIds = autoTags.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList();
-
-            foreach (var autoTag in autoTags)
-            {
-                foreach (var specification in autoTag.Specifications)
-                {
-                    if (specification is TagSpecification tagSpecification && tagSpecification.Value == tag.Id)
-                    {
-                        autoTagIds.Add(autoTag.Id);
-                    }
-                }
-            }
-
-            return autoTagIds.Distinct().ToList();
         }
     }
 }

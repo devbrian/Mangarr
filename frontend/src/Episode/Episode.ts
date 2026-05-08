@@ -1,29 +1,18 @@
-import ModelBase from 'App/ModelBase';
-import Series from 'Series/Series';
+// Sonarr divergence: Phase 15 Plan 15-12 — re-export Chapter as Episode.
+import Chapter from 'Chapter/Chapter';
 
-interface Episode extends ModelBase {
-  seriesId: number;
-  tvdbId: number;
-  episodeFileId: number;
-  seasonNumber: number;
-  episodeNumber: number;
-  airDate: string;
-  airDateUtc?: string;
-  lastSearchTime?: string;
-  runtime: number;
+interface Episode extends Chapter {
+  seasonNumber?: number;
+  episodeNumber?: number;
   absoluteEpisodeNumber?: number;
   sceneSeasonNumber?: number;
   sceneEpisodeNumber?: number;
   sceneAbsoluteEpisodeNumber?: number;
-  overview: string;
-  title: string;
-  episodeFile?: object;
-  hasFile: boolean;
-  monitored: boolean;
-  grabbed?: boolean;
-  unverifiedSceneNumbering: boolean;
-  series?: Series;
-  finaleType?: string;
+  airDate?: string;
+  airDateUtc?: string;
+  seriesId?: number;
+  episodeFileId?: number;
+  unverifiedSceneNumbering?: boolean;
 }
 
 export default Episode;

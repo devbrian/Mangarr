@@ -256,9 +256,19 @@ namespace NzbDrone.Core.Organizer.Manga
 
             var result = input;
 
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — ColonReplacementFormat enum
+            // and FileNameBuilder.Bad/GoodCharacters constants stripped per Plan 15-10 Organizer/
+            // FileNameBuilder.cs DELETE. ColonReplacementFormat retyped int (schema round-trip);
+            // values: 0=Smart, 1=Dash, 2=SpaceDash, 3=SpaceDashSpace, 4=Custom (Sonarr ordinal).
+            const int colonSmart = 0;
+            const int colonDash = 1;
+            const int colonSpaceDash = 2;
+            const int colonSpaceDashSpace = 3;
+            const int colonCustom = 4;
+
             if (namingConfig.ReplaceIllegalCharacters)
             {
-                if (namingConfig.ColonReplacementFormat == ColonReplacementFormat.Smart)
+                if (namingConfig.ColonReplacementFormat == colonSmart)
                 {
                     result = result.Replace(": ", " - ");
                     result = result.Replace(":", "-");
@@ -267,10 +277,10 @@ namespace NzbDrone.Core.Organizer.Manga
                 {
                     var replacement = namingConfig.ColonReplacementFormat switch
                     {
-                        ColonReplacementFormat.Dash => "-",
-                        ColonReplacementFormat.SpaceDash => " -",
-                        ColonReplacementFormat.SpaceDashSpace => " - ",
-                        ColonReplacementFormat.Custom => namingConfig.CustomColonReplacementFormat ?? string.Empty,
+                        colonDash => "-",
+                        colonSpaceDash => " -",
+                        colonSpaceDashSpace => " - ",
+                        colonCustom => namingConfig.CustomColonReplacementFormat ?? string.Empty,
                         _ => string.Empty
                     };
                     result = result.Replace(":", replacement);
@@ -281,11 +291,14 @@ namespace NzbDrone.Core.Organizer.Manga
                 result = result.Replace(":", string.Empty);
             }
 
-            for (var i = 0; i < FileNameBuilder.BadCharacters.Length; i++)
+            // Bad/Good character replacement — Sonarr's TV FileNameBuilder defined these inline; restore as locals.
+            var badChars = new[] { "\\", "/", "<", ">", "?", "*", "|", "\"" };
+            var goodChars = new[] { "+", "+", "{", "}", "!", "-", "", "" };
+            for (var i = 0; i < badChars.Length; i++)
             {
                 result = result.Replace(
-                    FileNameBuilder.BadCharacters[i],
-                    namingConfig.ReplaceIllegalCharacters ? FileNameBuilder.GoodCharacters[i] : string.Empty);
+                    badChars[i],
+                    namingConfig.ReplaceIllegalCharacters ? goodChars[i] : string.Empty);
             }
 
             return result.TrimStart(' ', '.').TrimEnd(' ');

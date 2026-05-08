@@ -209,43 +209,13 @@ namespace NzbDrone.Core.Download
             _eventAggregator.PublishEvent(chapterGrabbedEvent);
         }
 
-        // Wave (A) bridge: until W-6 lands the manga-shape Download(RemoteChapter, IIndexer)
-        // overload on InProcessImageDownloadClient, this private helper routes through the
-        // existing TV-shape IDownloadClient.Download(RemoteEpisode, IIndexer) via a LOCAL
-        // shim. This shim is private to MangaDownloadService — it is NOT the public
-        // RemoteChapter.ToRemoteEpisodeShim() static which Wave (A) W-5 deletes.
-        //
-        // Once W-6 ships the manga overload AND IDownloadClient adds Download(RemoteChapter,
-        // IIndexer), this helper collapses to a direct call. For Wave (A) additive scope on
-        // Mangarr-v0 we keep the bridge LOCAL so deleting the public shim is safe.
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — Tv/ deleted in Plan 15-03;
+        // local TV-shim helper stripped (BuildLocalShim + DownloadViaClient via shim). The
+        // IDownloadClient surface now consumes RemoteChapter directly per Plan 15-10 IDownloadClient
+        // refactor; calls to downloadClient.Download(remoteChapter, indexer) are direct.
         private async Task<string> DownloadViaClient(IDownloadClient downloadClient, RemoteChapter remoteChapter, IIndexer indexer)
         {
-            var shim = BuildLocalShim(remoteChapter);
-            return await downloadClient.Download(shim, indexer);
-        }
-
-        private static NzbDrone.Core.Parser.Model.RemoteEpisode BuildLocalShim(RemoteChapter remoteChapter)
-        {
-            var manga = remoteChapter.Manga;
-            var chapters = remoteChapter.Chapters ?? new List<NzbDrone.Core.Manga.Chapter>();
-
-            var seriesShim = new NzbDrone.Core.Tv.Series { Id = manga?.Id ?? 0 };
-            var episodeShims = chapters
-                .Select(c => new NzbDrone.Core.Tv.Episode { Id = c.Id })
-                .ToList();
-            if (episodeShims.Count == 0)
-            {
-                episodeShims.Add(new NzbDrone.Core.Tv.Episode { Id = 0 });
-            }
-
-            return new NzbDrone.Core.Parser.Model.RemoteEpisode
-            {
-                Release = remoteChapter.Release,
-                Series = seriesShim,
-                Episodes = episodeShims,
-                CustomFormats = remoteChapter.CustomFormats,
-                CustomFormatScore = remoteChapter.CustomFormatScore
-            };
+            return await downloadClient.Download(remoteChapter, indexer);
         }
     }
 }

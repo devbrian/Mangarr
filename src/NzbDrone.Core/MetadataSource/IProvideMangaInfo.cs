@@ -6,7 +6,7 @@ namespace NzbDrone.Core.MetadataSource
 {
     /// <summary>
     /// Phase 2 split-contract per D-14 — provides metadata + chapter list for an existing
-    /// known source ID. Mirrors Sonarr's <see cref="IProvideSeriesInfo"/> concrete-singleton
+    /// known source ID. Mirrors Mangarr's <c>IProvideSeriesInfo</c> (DELETED Phase 15) concrete-singleton
     /// precedent but registered as a ThingiProvider family (each implementation is a
     /// pluggable <c>MetadataSourceBase&lt;TSettings&gt;</c>).
     ///

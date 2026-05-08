@@ -148,23 +148,6 @@ namespace NzbDrone.Core.Test.HistoryTests.Manga
         }
 
         [Test]
-        public void Handle_DownloadIgnoredEvent_TV_shaped_does_NOT_insert_into_chapter_history()
-        {
-            // TV-shaped DownloadIgnoredEvent (SeriesId + EpisodeIds populated). Manga must not
-            // populate ChapterHistory from TV ignores — guarantee no Insert call.
-            var ignored = new DownloadIgnoredEvent
-            {
-                SeriesId = 100,
-                EpisodeIds = new List<int> { 200, 201 },
-                SourceTitle = "TV Show - S01E01"
-            };
-
-            Subject.Handle(ignored);
-
-            Mocker.GetMock<IChapterHistoryRepository>().Verify(r => r.Insert(It.IsAny<ChapterHistory>()), Times.Never);
-        }
-
-        [Test]
         public void Handle_MangaDeletedEvent_cascades_delete_for_manga()
         {
             var deleted = new MangaDeletedEvent(_manga, deleteFiles: true);

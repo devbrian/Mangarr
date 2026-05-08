@@ -94,7 +94,10 @@ namespace NzbDrone.Core.Backup
             _logger.ProgressDebug("Creating backup zip");
 
             // Delete journal file created during database backup
-            _diskProvider.DeleteFile(Path.Combine(_backupTempFolder, "sonarr.db-journal"));
+            // Sonarr divergence: Phase 15 D-08 F-B — DB filename canonical mangarr.db; the
+            // previous "sonarr.db-journal" reference flipped to "mangarr.db-journal" so the
+            // post-backup cleanup matches the actual journal-file name.
+            _diskProvider.DeleteFile(Path.Combine(_backupTempFolder, "mangarr.db-journal"));
 
             _archiveService.CreateZip(backupPath, _diskProvider.GetFiles(_backupTempFolder, false));
 
@@ -151,6 +154,16 @@ namespace NzbDrone.Core.Backup
 
                     if (fileName.Equals("sonarr.db", StringComparison.InvariantCultureIgnoreCase))
                     {
+                        // Sonarr divergence: Phase 15 D-08 F-B — accept legacy sonarr.db inside
+                        // restore zips (any backup zip created before Phase 15-09 close uses the
+                        // old name). Backup zips created post-15-09 use mangarr.db (next branch).
+                        _diskProvider.MoveFile(file, _appFolderInfo.GetDatabaseRestore(), true);
+                        restoredFile = true;
+                    }
+
+                    if (fileName.Equals("mangarr.db", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        // Sonarr divergence: Phase 15 D-08 F-B — canonical post-Phase-15-09 DB filename.
                         _diskProvider.MoveFile(file, _appFolderInfo.GetDatabaseRestore(), true);
                         restoredFile = true;
                     }

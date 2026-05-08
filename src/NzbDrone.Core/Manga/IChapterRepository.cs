@@ -3,7 +3,7 @@ using NzbDrone.Core.Datastore;
 
 namespace NzbDrone.Core.Manga
 {
-    // Repository contract for Chapter row. Mirrors Sonarr's IEpisodeRepository
+    // Repository contract for Chapter row. Mirrors Mangarr's IEpisodeRepository
     // (Tv/EpisodeRepository.cs:13-34) shape, with manga-domain divergence:
     //   * Find takes (mangaId, decimal chapterNumber, string translatedLanguage) —
     //     the Phase 1 composite index key (D-09 + 02-CONTEXT D-12 widen).

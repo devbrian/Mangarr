@@ -20,7 +20,7 @@ namespace NzbDrone.Core.Test.Indexers.MangaDex
     /// - SOURCE-04: TranslatedLanguage BCP-47 extraction
     /// - D-12: decimal-aware ChapterNumber parsing (e.g. "281.1", "261.5")
     /// - DownloadUrl shape: at-home/server endpoint pattern
-    /// - DownloadProtocol.Http for Mangarr aggregator sources (vs Sonarr's Usenet/Torrent)
+    /// - DownloadProtocol.Http for Mangarr aggregator sources (vs Mangarr's Usenet/Torrent)
     /// </summary>
     [TestFixture]
     public class MangaDexParserFixture : CoreTest<MangaDexParser>

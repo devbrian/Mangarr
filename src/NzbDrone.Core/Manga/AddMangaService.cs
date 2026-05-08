@@ -15,7 +15,7 @@ using NzbDrone.Core.Parser.Manga;
 namespace NzbDrone.Core.Manga
 {
     /// <summary>
-    /// META-02 AddManga orchestration mirroring <see cref="NzbDrone.Core.Tv.AddSeriesService"/>.
+    /// META-02 AddManga orchestration mirroring Mangarr's <c>AddSeriesService</c> (DELETED Phase 15).
     ///
     /// <para>Pipeline:
     /// 1. Reject duplicates by any populated cross-source ID
@@ -36,7 +36,7 @@ namespace NzbDrone.Core.Manga
     /// 6. Synthesize / sync chapters via <see cref="IChapterListService"/> (D-17)
     /// 7. Initial <c>RefreshMangaCommand</c> (IsNewManga=true) is dispatched by
     ///    <see cref="MangaAddedHandler"/> via the published <see cref="Events.MangaAddedEvent"/>
-    ///    (Phase 8 audit gap-01 — restored Sonarr's IHandle pattern; no longer inlined here).
+    ///    (Phase 8 audit gap-01 — restored Mangarr's IHandle pattern; no longer inlined here).
     /// </para>
     /// </summary>
     public class AddMangaService : IAddMangaService
@@ -84,7 +84,7 @@ namespace NzbDrone.Core.Manga
 
             // 7. Initial RefreshMangaCommand (IsNewManga=true) is dispatched by
             //    MangaAddedHandler via the published MangaAddedEvent (Phase 8 audit
-            //    gap-01 — Sonarr's SeriesAddedHandler pattern restored; no inline push).
+            //    gap-01 — Mangarr's SeriesAddedHandler pattern restored; no inline push).
 
             return added;
         }
@@ -98,7 +98,7 @@ namespace NzbDrone.Core.Manga
         // ignoreErrors=true. Persists via the bulk IMangaService.AddManga(List<Manga>) so
         // a single InsertMany roundtrip lands the batch — chapter-list synthesis is deferred
         // to the per-item RefreshMangaCommand fired by MangaAddedHandler via MangaAddedEvent
-        // (the same path Sonarr's SeriesAddedHandler walks for TV).
+        // (the same path Mangarr's SeriesAddedHandler walks for TV).
         //
         // gap-02 (TitleSlug bulk dedup) is intentionally NOT implemented here — manga has
         // no TitleSlug field yet (Series-vs-Manga audit gap-04 territory); this method
@@ -285,7 +285,7 @@ namespace NzbDrone.Core.Manga
             // Phase 8 audit gap-04 (Series-vs-Manga.md): TitleSlug parity. TV's
             // Series.TitleSlug arrives pre-computed from SkyHook (RefreshSeriesService:91);
             // manga's primary metadata sources don't expose a slug field, so we derive
-            // it locally via StringExtensions.ToUrlSlug() — the same extension Sonarr ships.
+            // it locally via StringExtensions.ToUrlSlug() — the same extension Mangarr ships.
             // Frontend /manga/:titleSlug route at MangaDetailsPage.tsx:28-31 + the
             // MangaIndexOverview link at line 114 require this end-to-end.
             newManga.TitleSlug = newManga.Title.ToUrlSlug();

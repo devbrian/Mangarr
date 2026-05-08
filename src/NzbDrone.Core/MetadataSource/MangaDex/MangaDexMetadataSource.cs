@@ -6,6 +6,7 @@ using FluentValidation.Results;
 using NLog;
 using NzbDrone.Common.Http;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.MediaCover;
 using NzbDrone.Core.MetadataSource.MangaDex.Resource;
 using NzbDrone.Core.Parser.Manga;
 
@@ -183,6 +184,31 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             if (author?.Attributes != null)
             {
                 manga.PrimaryAuthor = author.Attributes.Name;
+            }
+
+            // Sonarr divergence: Phase 15 Plan 15-12 fix-forward — populate Manga.Images
+            // from the cover_art relationship. Without this, /api/v5/manga and
+            // /api/v5/manga/lookup return empty `images: []` arrays and every UI poster
+            // falls back to the placeholder PNG (F-12 from 2026-05-08 smoke test).
+            //
+            // MangaDex cover URL pattern (per https://api.mangadex.org/docs):
+            //   https://uploads.mangadex.org/covers/{manga-id}/{filename}
+            // Thumbnails: append `.512.jpg` or `.256.jpg` for sized variants. The
+            // MangaImage.tsx frontend hook already does the size-suffix substitution
+            // (`poster.jpg` → `poster-{size}.jpg`); we register the full-resolution URL
+            // here. MangaMediaCoverService.ConvertToLocalUrls(0, ...) rewrites it to
+            // /MediaCoverProxy/{hash}/poster.jpg for unsaved manga and to
+            // /MediaCover/manga/{id}/poster.jpg for saved manga (after the cover-download
+            // job runs). The downloader fetches `RemoteUrl` so it must be the canonical
+            // CDN URL.
+            var coverArt = item.Relationships?.FirstOrDefault(r => r.Type == "cover_art");
+            if (!string.IsNullOrEmpty(coverArt?.Attributes?.FileName) && Guid.TryParse(item.Id, out var mangaGuid))
+            {
+                var coverUrl = $"https://uploads.mangadex.org/covers/{mangaGuid}/{coverArt.Attributes.FileName}";
+                manga.Images = new List<NzbDrone.Core.MediaCover.MediaCover>
+                {
+                    new NzbDrone.Core.MediaCover.MediaCover(MediaCoverTypes.Poster, coverUrl),
+                };
             }
 
             return manga;

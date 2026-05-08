@@ -14,7 +14,7 @@ namespace NzbDrone.Core.MediaCover
 {
     /// <summary>
     /// Maps remote manga cover URLs to local-cache URLs and resolves the on-disk path
-    /// for a given manga's cover. Sibling of <see cref="IMapCoversToLocal"/> per
+    /// for a given manga's cover. Sibling of Mangarr's <c>IMapCoversToLocal</c> (DELETED Phase 15) per
     /// RESEARCH §Pattern 5 — separate interface and folder so manga cover handling
     /// does not collide with series cover handling at the path or DI level.
     /// </summary>
@@ -25,10 +25,10 @@ namespace NzbDrone.Core.MediaCover
     }
 
     /// <summary>
-    /// NEW SIBLING of <see cref="MediaCoverService"/> per RESEARCH §Pattern 5. Subscribes to
+    /// NEW SIBLING of Mangarr's <c>MediaCoverService</c> (DELETED Phase 15) per RESEARCH §Pattern 5. Subscribes to
     /// <see cref="MangaUpdatedEvent"/> and <see cref="MangaDeletedEvent"/>; stores covers under
     /// <c>&lt;data&gt;/MediaCover/manga/{mangaId}/</c> — separate sub-folder from
-    /// <see cref="MediaCoverService"/>'s series tree so the two services never collide on
+    /// Mangarr's <c>MediaCoverService</c> (DELETED Phase 15) series tree so the two services never collide on
     /// path generation.
     ///
     /// <para>
@@ -40,8 +40,8 @@ namespace NzbDrone.Core.MediaCover
     /// PHASE 9 PLAN 09-13 (sub-wave A 09-04 audit gap-03 + gap-04 close-out): publishes
     /// <see cref="MangaCoversUpdatedEvent"/> at end of <see cref="HandleAsync(MangaUpdatedEvent)"/>
     /// (consumed by MangaController.Handle for SignalR resource broadcast); rewrites
-    /// <see cref="ConvertToLocalUrls"/> with the saved-manga branch (mirroring
-    /// <see cref="MediaCoverService.ConvertToLocalUrls"/>:73-103) so saved manga serve covers
+    /// <c>ConvertToLocalUrls</c> with the saved-manga branch (mirroring
+    /// Mangarr's <c>MediaCoverService.ConvertToLocalUrls</c> (DELETED Phase 15):73-103) so saved manga serve covers
     /// from the on-disk cache with <c>?lastWrite={ticks}</c> cache-bust suffix instead of
     /// always proxy-routing. Pitfall 4 ordering preserved: disk writes (DownloadCover +
     /// EnsureResized) FIRST, event publish LAST.
@@ -99,7 +99,7 @@ namespace NzbDrone.Core.MediaCover
         // mirroring TV MediaCoverService.cs:73-103. mangaId == 0 routes through proxy
         // (referrer-dodging path for unsaved manga); mangaId != 0 rewrites to a local-cache
         // URL with `?lastWrite={ticks}` cache-bust suffix when the on-disk file exists.
-        // The static-file mapper (Sonarr.Http/Frontend/Mappers/MediaCoverMapper.cs:44-47)
+        // The static-file mapper (Mangarr.Http/Frontend/Mappers/MediaCoverMapper.cs:44-47)
         // already serves the /MediaCover/manga/... shape from disk transparently.
         public void ConvertToLocalUrls(int mangaId, IEnumerable<MediaCover> covers)
         {
@@ -153,7 +153,7 @@ namespace NzbDrone.Core.MediaCover
         // For a 100-manga library refresh this can stall the event-aggregator
         // thread for tens of seconds. Acceptable for Phase 2 (refresh cadence is
         // 12h, blocking time is bounded). DEFERRED to Phase 5+: either move to a
-        // background command (mirror Sonarr's EnsureMediaCovers) or wait for
+        // background command (mirror Mangarr's EnsureMediaCovers) or wait for
         // IHttpClient to grow real async APIs. Tracked alongside the existing
         // Phase 2 deferred items.
         public void HandleAsync(MangaUpdatedEvent message)

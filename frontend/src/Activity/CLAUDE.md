@@ -70,7 +70,7 @@ The SignalR `queue` and `history` messages keep these views fresh without pollin
 
 These views are **largely reusable**. Migration is mostly terminology:
 
-| Sonarr term in UI | Manga term |
+| Mangarr term in UI | Manga term |
 |-------------------|------------|
 | Episode | Chapter |
 | Season | Volume |
@@ -121,4 +121,4 @@ the wrappers are deleted. The hooks lose the discriminator (single URL).
 - [../../../src/NzbDrone.Core/Queue/](../../../src/NzbDrone.Core/Queue/) — Backend Queue
 - [../../../src/NzbDrone.Core/History/](../../../src/NzbDrone.Core/History/) — Backend History
 - [../../../src/NzbDrone.Core/Blocklisting/](../../../src/NzbDrone.Core/Blocklisting/) — Backend Blocklist
-- [../../../src/Sonarr.Api.V5/Queue/](../../../src/Sonarr.Api.V5/Queue/) — REST endpoints
+- [../../../src/Mangarr.Api.V5/Queue/](../../../src/Mangarr.Api.V5/Queue/) — REST endpoints

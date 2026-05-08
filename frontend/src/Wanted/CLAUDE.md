@@ -55,12 +55,12 @@ These pages are **conceptually identical** for manga: just rename the data type.
 
 ### Key Considerations
 - Manga has chapter scheduling that's less precise than TV airing — backend logic for "should exist by now" needs adaptation:
-  - Sonarr: airDateUtc < now → missing
+  - Mangarr: airDateUtc < now → missing
   - Mangarr: lastKnownChapterReleaseDate < now → missing? Or just any monitored chapter without a file?
 - "Cutoff" semantics carry over (high-res scan vs. low-res; official vs. fan; etc.)
 
 ### File Renames
-| Sonarr | Manga |
+| Mangarr | Manga |
 |--------|-------|
 | `MissingRow.tsx` (Episode columns) | Update to Chapter columns |
 | `useMissing.tsx` (returns Episode rows) | `useMissingChapters.tsx` |

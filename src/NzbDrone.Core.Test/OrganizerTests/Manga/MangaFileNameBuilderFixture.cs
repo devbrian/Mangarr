@@ -29,7 +29,7 @@ namespace NzbDrone.Core.Test.OrganizerTests.Manga
             _namingConfig.MangaFolderFormat = "{Manga.Title}";
             _namingConfig.RenameChapters = true;
             _namingConfig.ReplaceIllegalCharacters = true;
-            _namingConfig.ColonReplacementFormat = ColonReplacementFormat.Smart;
+            _namingConfig.ColonReplacementFormat = 0; // Sonarr divergence: Plan 15-10 retyped enum -> int (Smart=0)
 
             Mocker.GetMock<INamingConfigService>()
                   .Setup(s => s.GetConfig())

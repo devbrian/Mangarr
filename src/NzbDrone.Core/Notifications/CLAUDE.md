@@ -68,9 +68,6 @@ public abstract class NotificationBase<TSettings> : INotification
     public abstract void OnGrab(GrabMessage grabMessage);
     public abstract void OnDownload(EpisodeDownloadMessage message);
     public abstract void OnRename(Series series, List<RenamedEpisodeFile> renamedFiles);
-    public abstract void OnEpisodeFileDelete(EpisodeDeleteMessage deleteMessage);
-    public abstract void OnSeriesAdd(SeriesAddMessage message);
-    public abstract void OnSeriesDelete(SeriesDeleteMessage message);
     public abstract void OnHealthIssue(HealthCheck.HealthCheck healthCheck);
     public abstract void OnHealthRestored(HealthCheck.HealthCheck previousCheck);
     public abstract void OnApplicationUpdate(ApplicationUpdateMessage message);
@@ -104,8 +101,6 @@ Each provider overrides only the hooks it cares about (and the `Supports*` flags
 | Message text references "Episode" / "Series" | Update message-builder methods to use "Chapter" / "Manga" |
 | `OnGrab` signature uses `GrabMessage` | The DTO references EpisodeGrabbedEvent → adjust to ChapterGrabbedEvent |
 | `OnRename` uses `RenamedEpisodeFile` | Rename to `RenamedChapterFile` |
-| `OnEpisodeFileDelete` | Rename to `OnChapterFileDelete` |
-| `OnSeriesAdd` / `OnSeriesDelete` | Rename to `OnMangaAdd` / `OnMangaDelete` |
 | Provider-specific text formatting | Update `BuildMessage` helpers in each provider |
 
 The bulk of provider code (HTTP plumbing, settings, validation) stays the same.

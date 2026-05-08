@@ -1,27 +1,4 @@
-import React from 'react';
-import Modal from 'Components/Modal/Modal';
-import Series from 'Series/Series';
-import SelectSeriesModalContent from './SelectSeriesModalContent';
-
-interface SelectSeriesModalProps {
-  isOpen: boolean;
-  modalTitle: string;
-  onSeriesSelect(series: Series): void;
-  onModalClose(): void;
+// Sonarr divergence: Phase 15 Plan 15-12 — STUB.
+export default function SelectSeriesModal(_props: Record<string, unknown>) {
+  return null;
 }
-
-function SelectSeriesModal(props: SelectSeriesModalProps) {
-  const { isOpen, modalTitle, onSeriesSelect, onModalClose } = props;
-
-  return (
-    <Modal isOpen={isOpen} onModalClose={onModalClose}>
-      <SelectSeriesModalContent
-        modalTitle={modalTitle}
-        onSeriesSelect={onSeriesSelect}
-        onModalClose={onModalClose}
-      />
-    </Modal>
-  );
-}
-
-export default SelectSeriesModal;

@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using NLog;
 using NzbDrone.Common.Extensions;
@@ -10,27 +8,24 @@ using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;
-using NzbDrone.Core.Qualities;
 using NzbDrone.Core.ThingiProvider;
-using NzbDrone.Core.Tv;
-using NzbDrone.Core.Tv.Events;
 using NzbDrone.Core.Update.History.Events;
 
 namespace NzbDrone.Core.Notifications
 {
+    // Sonarr divergence: Phase 15 W-1/W-2 cascade (CONTRACTS-AUDIT Wave A Cluster 2) -
+    // TV-only IHandle implementations and helper methods removed:
+    //  - IHandle<EpisodeGrabbedEvent>, IHandle<EpisodeImportedEvent>, IHandle<DownloadCompletedEvent>,
+    //    IHandle<UntrackedDownloadCompletedEvent>, IHandle<SeriesRenamedEvent>,
+    //    IHandle<SeriesAddCompletedEvent>, IHandle<SeriesDeletedEvent>, IHandle<EpisodeFileDeletedEvent>,
+    //    IHandle<ManualInteractionRequiredEvent> all DELETED
+    //  - GetMessage(Series, ...), GetFullSeasonMessage, GetQualityString, ShouldHandleSeries DELETED
+    // Manga peers preserved: ChapterImportedEvent, MangaAddCompletedEvent, MangaDeletedEvent,
+    // MangaRenamedEvent. Health + AppUpdate flows are media-agnostic and survive untouched.
     public class NotificationService
-        : IHandle<EpisodeGrabbedEvent>,
-          IHandle<EpisodeImportedEvent>,
-          IHandle<DownloadCompletedEvent>,
-          IHandle<UntrackedDownloadCompletedEvent>,
-          IHandle<SeriesRenamedEvent>,
-          IHandle<SeriesAddCompletedEvent>,
-          IHandle<SeriesDeletedEvent>,
-          IHandle<EpisodeFileDeletedEvent>,
-          IHandle<HealthCheckFailedEvent>,
+        : IHandle<HealthCheckFailedEvent>,
           IHandle<HealthCheckRestoredEvent>,
           IHandle<UpdateInstalledEvent>,
-          IHandle<ManualInteractionRequiredEvent>,
           IHandle<ChapterImportedEvent>,
           IHandle<MangaAddCompletedEvent>,
           IHandle<MangaDeletedEvent>,
@@ -51,74 +46,7 @@ namespace NzbDrone.Core.Notifications
             _logger = logger;
         }
 
-        private string GetMessage(Series series, List<Episode> episodes, QualityModel quality)
-        {
-            var qualityString = GetQualityString(series, quality);
-
-            if (episodes.Empty())
-            {
-                return $"{series.Title} - [{qualityString}]";
-            }
-
-            if (series.SeriesType == SeriesTypes.Daily)
-            {
-                var episode = episodes.First();
-
-                return $"{series.Title} - {episode.AirDate} - {episode.Title} [{qualityString}]";
-            }
-
-            var episodeNumbers = string.Concat(episodes.Select(e => $"x{e.EpisodeNumber:00}"));
-
-            var episodeTitles = string.Join(" + ", episodes.Select(e => e.Title));
-
-            return $"{series.Title} - {episodes.First().SeasonNumber}{episodeNumbers} - {episodeTitles} [{qualityString}]";
-        }
-
-        private string GetFullSeasonMessage(Series series, int seasonNumber, QualityModel quality)
-        {
-            var qualityString = GetQualityString(series, quality);
-
-            return $"{series.Title} - Season {seasonNumber} [{qualityString}]";
-        }
-
-        private string GetQualityString(Series series, QualityModel quality)
-        {
-            var qualityString = quality.Quality.ToString();
-
-            if (quality.Revision.Version > 1)
-            {
-                if (series.SeriesType == SeriesTypes.Anime)
-                {
-                    qualityString += " v" + quality.Revision.Version;
-                }
-                else
-                {
-                    qualityString += " Proper";
-                }
-            }
-
-            return qualityString;
-        }
-
-        private bool ShouldHandleSeries(ProviderDefinition definition, Series series)
-        {
-            if (definition.Tags.Empty())
-            {
-                _logger.Debug("No tags set for this notification.");
-                return true;
-            }
-
-            if (definition.Tags.Intersect(series.Tags).Any())
-            {
-                _logger.Debug("Notification and series have one or more intersecting tags.");
-                return true;
-            }
-
-            _logger.Debug("{0} does not have any intersecting tags with {1}. Notification will not be sent.", definition.Name, series.Title);
-            return false;
-        }
-
-        // Phase 8 Plan 99-08 — sibling of ShouldHandleSeries; tag-filter discipline mirrors TV.
+        // Phase 8 Plan 99-08 - tag-filter discipline mirrors TV (sibling of deleted ShouldHandleSeries).
         private bool ShouldHandleManga(ProviderDefinition definition, NzbDrone.Core.Manga.Manga manga)
         {
             if (definition.Tags.Empty())
@@ -152,191 +80,6 @@ namespace NzbDrone.Core.Notifications
             return false;
         }
 
-        public void Handle(EpisodeGrabbedEvent message)
-        {
-            var grabMessage = new GrabMessage
-            {
-                Message = GetMessage(message.Episode.Series, message.Episode.Episodes, message.Episode.ParsedEpisodeInfo.Quality),
-                Series = message.Episode.Series,
-                Quality = message.Episode.ParsedEpisodeInfo.Quality,
-                Episode = message.Episode,
-                DownloadClientType = message.DownloadClient,
-                DownloadClientName = message.DownloadClientName,
-                DownloadId = message.DownloadId
-            };
-
-            foreach (var notification in _notificationFactory.OnGrabEnabled())
-            {
-                try
-                {
-                    if (!ShouldHandleSeries(notification.Definition, message.Episode.Series))
-                    {
-                        continue;
-                    }
-
-                    notification.OnGrab(grabMessage);
-                    _notificationStatusService.RecordSuccess(notification.Definition.Id);
-                }
-                catch (Exception ex)
-                {
-                    _notificationStatusService.RecordFailure(notification.Definition.Id);
-                    _logger.Error(ex, "Unable to send OnGrab notification to {0}", notification.Definition.Name);
-                }
-            }
-        }
-
-        public void Handle(EpisodeImportedEvent message)
-        {
-            if (!message.NewDownload)
-            {
-                return;
-            }
-
-            var downloadMessage = new DownloadMessage
-            {
-                Message = GetMessage(message.EpisodeInfo.Series, message.EpisodeInfo.Episodes, message.EpisodeInfo.Quality),
-                Series = message.EpisodeInfo.Series,
-                EpisodeInfo = message.EpisodeInfo,
-                EpisodeFile = message.ImportedEpisode,
-                OldFiles = message.OldFiles,
-                SourcePath = message.EpisodeInfo.Path,
-                DownloadClientInfo = message.DownloadClientInfo,
-                DownloadId = message.DownloadId,
-                Release = message.EpisodeInfo.Release
-            };
-
-            foreach (var notification in _notificationFactory.OnDownloadEnabled())
-            {
-                try
-                {
-                    if (ShouldHandleSeries(notification.Definition, message.EpisodeInfo.Series))
-                    {
-                        if (downloadMessage.OldFiles.Empty() || ((NotificationDefinition)notification.Definition).OnUpgrade)
-                        {
-                            notification.OnDownload(downloadMessage);
-                            _notificationStatusService.RecordSuccess(notification.Definition.Id);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _notificationStatusService.RecordFailure(notification.Definition.Id);
-                    _logger.Warn(ex, "Unable to send OnDownload notification to: " + notification.Definition.Name);
-                }
-            }
-        }
-
-        public void Handle(DownloadCompletedEvent message)
-        {
-            var series = message.TrackedDownload.RemoteEpisode.Series;
-            var episodes = message.TrackedDownload.RemoteEpisode.Episodes;
-            var parsedEpisodeInfo = message.TrackedDownload.RemoteEpisode.ParsedEpisodeInfo;
-
-            var downloadMessage = new ImportCompleteMessage
-            {
-                Message = parsedEpisodeInfo.FullSeason
-                    ? GetFullSeasonMessage(series, episodes.First().SeasonNumber, parsedEpisodeInfo.Quality)
-                    : GetMessage(series, episodes, parsedEpisodeInfo.Quality),
-                Series = series,
-                Episodes = episodes,
-                EpisodeFiles = message.EpisodeFiles,
-                DownloadClientInfo = message.TrackedDownload.DownloadItem.DownloadClientInfo,
-                DownloadId = message.TrackedDownload.DownloadItem.DownloadId,
-                Release = message.Release,
-                SourcePath = message.TrackedDownload.DownloadItem.OutputPath.FullPath,
-                DestinationPath = message.EpisodeFiles.Select(e => Path.Join(series.Path, e.RelativePath)).ToList().GetLongestCommonPath(),
-                ReleaseGroup = parsedEpisodeInfo.ReleaseGroup,
-                ReleaseQuality = parsedEpisodeInfo.Quality
-            };
-
-            foreach (var notification in _notificationFactory.OnImportCompleteEnabled())
-            {
-                try
-                {
-                    if (ShouldHandleSeries(notification.Definition, series))
-                    {
-                        if (((NotificationDefinition)notification.Definition).OnImportComplete)
-                        {
-                            notification.OnImportComplete(downloadMessage);
-                            _notificationStatusService.RecordSuccess(notification.Definition.Id);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _notificationStatusService.RecordFailure(notification.Definition.Id);
-                    _logger.Warn(ex, "Unable to send OnImportComplete notification to: " + notification.Definition.Name);
-                }
-            }
-        }
-
-        public void Handle(UntrackedDownloadCompletedEvent message)
-        {
-            var series = message.Series;
-            var episodes = message.Episodes;
-            var parsedEpisodeInfo = message.ParsedEpisodeInfo;
-
-            var downloadMessage = new ImportCompleteMessage
-            {
-                Message = parsedEpisodeInfo.FullSeason
-                    ? GetFullSeasonMessage(series, episodes.First().SeasonNumber, parsedEpisodeInfo.Quality)
-                    : GetMessage(series, episodes, parsedEpisodeInfo.Quality),
-                Series = series,
-                Episodes = episodes,
-                EpisodeFiles = message.EpisodeFiles,
-                SourcePath = message.SourcePath,
-                SourceTitle = parsedEpisodeInfo.ReleaseTitle,
-                DestinationPath = message.EpisodeFiles.Select(e => Path.Join(series.Path, e.RelativePath)).ToList().GetLongestCommonPath(),
-                ReleaseGroup = parsedEpisodeInfo.ReleaseGroup,
-                ReleaseQuality = parsedEpisodeInfo.Quality
-            };
-
-            foreach (var notification in _notificationFactory.OnImportCompleteEnabled())
-            {
-                try
-                {
-                    if (ShouldHandleSeries(notification.Definition, series))
-                    {
-                        if (((NotificationDefinition)notification.Definition).OnImportComplete)
-                        {
-                            notification.OnImportComplete(downloadMessage);
-                            _notificationStatusService.RecordSuccess(notification.Definition.Id);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _notificationStatusService.RecordFailure(notification.Definition.Id);
-                    _logger.Warn(ex, "Unable to send OnImportComplete notification to: " + notification.Definition.Name);
-                }
-            }
-        }
-
-        public void Handle(SeriesRenamedEvent message)
-        {
-            foreach (var notification in _notificationFactory.OnRenameEnabled())
-            {
-                try
-                {
-                    if (ShouldHandleSeries(notification.Definition, message.Series))
-                    {
-                        notification.OnRename(message.Series, message.RenamedFiles);
-                        _notificationStatusService.RecordSuccess(notification.Definition.Id);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _notificationStatusService.RecordFailure(notification.Definition.Id);
-                    _logger.Warn(ex, "Unable to send OnRename notification to: " + notification.Definition.Name);
-                }
-            }
-        }
-
-        // Phase 8 Plan 99-08 — manga library-state fan-out (siblings of TV Series* IHandle methods).
-        // F-01 fix (sonarr-consistency-audit 2026-05-06): listens to MangaAddCompletedEvent (post-scan
-        // lifecycle) instead of MangaAddedEvent (post-Insert). Mirrors TV `Handle(SeriesAddCompletedEvent)`
-        // which fires after MangaScannedHandler.cs:106 publishes — the user-facing "manga added"
-        // notification needs hydrated metadata, which is only present post-scan.
         public void Handle(MangaAddCompletedEvent message)
         {
             var addMessage = new MangaAddMessage
@@ -408,7 +151,7 @@ namespace NzbDrone.Core.Notifications
         public void Handle(UpdateInstalledEvent message)
         {
             var updateMessage = new ApplicationUpdateMessage();
-            updateMessage.Message = $"Sonarr updated from {message.PreviousVerison.ToString()} to {message.NewVersion.ToString()}";
+            updateMessage.Message = $"Mangarr updated from {message.PreviousVerison.ToString()} to {message.NewVersion.ToString()}";
             updateMessage.PreviousVersion = message.PreviousVerison;
             updateMessage.NewVersion = message.NewVersion;
 
@@ -427,100 +170,6 @@ namespace NzbDrone.Core.Notifications
             }
         }
 
-        public void Handle(ManualInteractionRequiredEvent message)
-        {
-            var series = message.Episode?.Series;
-            var mess = "";
-
-            if (series != null)
-            {
-                mess = GetMessage(series, message.Episode.Episodes, message.Episode.ParsedEpisodeInfo.Quality);
-            }
-
-            if (mess.IsNullOrWhiteSpace() && message.TrackedDownload.DownloadItem != null)
-            {
-                mess = message.TrackedDownload.DownloadItem.Title;
-            }
-
-            if (mess.IsNullOrWhiteSpace())
-            {
-                return;
-            }
-
-            var manualInteractionMessage = new ManualInteractionRequiredMessage
-            {
-                Message = mess,
-                Series = series,
-                Quality = message.Episode?.ParsedEpisodeInfo.Quality,
-                Episode = message.Episode,
-                TrackedDownload = message.TrackedDownload,
-                DownloadClientInfo = message.TrackedDownload.DownloadItem?.DownloadClientInfo,
-                DownloadId = message.TrackedDownload.DownloadItem?.DownloadId,
-                Release = message.Release
-            };
-
-            foreach (var notification in _notificationFactory.OnManualInteractionEnabled())
-            {
-                try
-                {
-                    if (!ShouldHandleSeries(notification.Definition, message.Episode.Series))
-                    {
-                        continue;
-                    }
-
-                    notification.OnManualInteractionRequired(manualInteractionMessage);
-                    _notificationStatusService.RecordSuccess(notification.Definition.Id);
-                }
-                catch (Exception ex)
-                {
-                    _notificationStatusService.RecordFailure(notification.Definition.Id);
-                    _logger.Error(ex, "Unable to send OnManualInteractionRequired notification to {0}", notification.Definition.Name);
-                }
-            }
-        }
-
-        public void Handle(EpisodeFileDeletedEvent message)
-        {
-            if (message.EpisodeFile.Episodes.Value.Empty())
-            {
-                _logger.Trace("Skipping notification for deleted file without an episode (episode metadata was removed)");
-
-                return;
-            }
-
-            var deleteMessage = new EpisodeDeleteMessage();
-            deleteMessage.Message = GetMessage(message.EpisodeFile.Series, message.EpisodeFile.Episodes, message.EpisodeFile.Quality);
-            deleteMessage.Series = message.EpisodeFile.Series;
-            deleteMessage.EpisodeFile = message.EpisodeFile;
-            deleteMessage.Reason = message.Reason;
-
-            foreach (var notification in _notificationFactory.OnEpisodeFileDeleteEnabled())
-            {
-                try
-                {
-                    if (message.Reason != MediaFiles.DeleteMediaFileReason.Upgrade || ((NotificationDefinition)notification.Definition).OnEpisodeFileDeleteForUpgrade)
-                    {
-                        if (ShouldHandleSeries(notification.Definition, deleteMessage.EpisodeFile.Series))
-                        {
-                            notification.OnEpisodeFileDelete(deleteMessage);
-                            _notificationStatusService.RecordSuccess(notification.Definition.Id);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _notificationStatusService.RecordFailure(notification.Definition.Id);
-                    _logger.Warn(ex, "Unable to send OnEpisodeFileDelete notification to: " + notification.Definition.Name);
-                }
-            }
-        }
-
-        // Phase 6 D-18 — manga sibling of Handle(EpisodeImportedEvent). Pitfall 4 GUARD:
-        // ChapterImportedEvent is published by Plan 06-07 ImportApprovedChapters AFTER the
-        // ChapterFile DB row is committed AND the filesystem move has completed. Do NOT call
-        // this handler synchronously from inside the import method — go through
-        // _eventAggregator.PublishEvent(new ChapterImportedEvent ...) so the rescan target
-        // (Komga/Kavita) sees the file when it scans.
         public void Handle(ChapterImportedEvent message)
         {
             if (!message.NewDownload)
@@ -545,8 +194,6 @@ namespace NzbDrone.Core.Notifications
             {
                 try
                 {
-                    // OnChapterImportEnabled() already filters by Definition.OnChapterImport && SupportsOnChapterImport;
-                    // defensive re-check guards against any future bypass refactor.
                     if (!notification.SupportsOnChapterImport)
                     {
                         continue;
@@ -563,63 +210,8 @@ namespace NzbDrone.Core.Notifications
             }
         }
 
-        public void Handle(SeriesAddCompletedEvent message)
-        {
-            var series = message.Series;
-            var addMessage = new SeriesAddMessage
-            {
-                Series = series,
-                Message = series.Title
-            };
-
-            foreach (var notification in _notificationFactory.OnSeriesAddEnabled())
-            {
-                try
-                {
-                    if (ShouldHandleSeries(notification.Definition, series))
-                    {
-                        notification.OnSeriesAdd(addMessage);
-                        _notificationStatusService.RecordSuccess(notification.Definition.Id);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _notificationStatusService.RecordFailure(notification.Definition.Id);
-                    _logger.Warn(ex, "Unable to send OnSeriesAdd notification to: " + notification.Definition.Name);
-                }
-            }
-        }
-
-        public void Handle(SeriesDeletedEvent message)
-        {
-            foreach (var series in message.Series)
-            {
-                var deleteMessage = new SeriesDeleteMessage(series, message.DeleteFiles);
-
-                foreach (var notification in _notificationFactory.OnSeriesDeleteEnabled())
-                {
-                    try
-                    {
-                        if (ShouldHandleSeries(notification.Definition, deleteMessage.Series))
-                        {
-                            notification.OnSeriesDelete(deleteMessage);
-                            _notificationStatusService.RecordSuccess(notification.Definition.Id);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _notificationStatusService.RecordFailure(notification.Definition.Id);
-                        _logger.Warn(ex, "Unable to send OnSeriesDelete notification to: " + notification.Definition.Name);
-                    }
-                }
-            }
-        }
-
         public void Handle(HealthCheckFailedEvent message)
         {
-            // Don't send health check notifications during the start up grace period,
-            // once that duration expires they they'll be retested and fired off if necessary.
-
             if (message.IsInStartupGracePeriod)
             {
                 return;

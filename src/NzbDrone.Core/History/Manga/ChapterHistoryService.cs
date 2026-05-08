@@ -4,7 +4,6 @@ using System.Linq;
 using NLog;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Datastore;
-using NzbDrone.Core.Download;
 using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.MediaFiles.MangaImport;
@@ -27,11 +26,13 @@ namespace NzbDrone.Core.History.Manga
     //   Ignored         → DownloadClient, Message, Indexer
     //
     // Phase 8 cleanup: collapse with HistoryService when Tv/ deletes.
+    // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — DownloadIgnoredEvent
+    // (TV-only) handler stripped per Plan 15-10 Download/DownloadIgnoredEvent.cs DELETE.
+    // Manga ignores route via MangaQueueActionController -> IIgnoredDownloadService directly.
     public class ChapterHistoryService : IChapterHistoryService,
                                          IHandle<ChapterGrabbedEvent>,
                                          IHandle<ChapterImportedEvent>,
                                          IHandle<ChapterDownloadFailedEvent>,
-                                         IHandle<DownloadIgnoredEvent>,
                                          IHandle<MangaDeletedEvent>
     {
         private readonly IChapterHistoryRepository _repository;
@@ -218,21 +219,9 @@ namespace NzbDrone.Core.History.Manga
             _repository.Insert(history);
         }
 
-        public void Handle(DownloadIgnoredEvent message)
-        {
-            // Sonarr's DownloadIgnoredEvent carries SeriesId + EpisodeIds (TV-shaped). In v1 the
-            // manga pipeline does not emit this event — only TV providers do. Bail out so manga
-            // history is not populated with TV-side ignores. Phase 8 cleanup: collapse when
-            // Tv/ deletes (likely the event will lose its TV-specific fields then).
-            if (message.EpisodeIds == null || message.EpisodeIds.Count == 0)
-            {
-                return;
-            }
-
-            _logger.Trace(
-                "Skipping TV DownloadIgnoredEvent in ChapterHistoryService — manga ignores route via "
-                + "ChapterDownloadFailedEvent path (Phase 6 D-21)");
-        }
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — Handle(DownloadIgnoredEvent)
+        // stripped (event class deleted; manga ignores route via ChapterDownloadFailedEvent path
+        // per Phase 6 D-21).
 
         public void Handle(MangaDeletedEvent message)
         {

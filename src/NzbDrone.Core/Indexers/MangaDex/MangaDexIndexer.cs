@@ -8,7 +8,7 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Indexers.Http;
 using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.Localization;
-using NzbDrone.Core.Parser;
+using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Indexers.MangaDex
@@ -57,7 +57,7 @@ namespace NzbDrone.Core.Indexers.MangaDex
             IIndexerStatusService indexerStatusService,
             IIndexerSourceStatusService sourceStatusService,
             IConfigService configService,
-            IParsingService parsingService,
+            IMangaParsingService parsingService,
             Logger logger,
             ILocalizationService localizationService)
             : base(httpClient, indexerStatusService, sourceStatusService, configService, parsingService, logger, localizationService)
@@ -99,30 +99,9 @@ namespace NzbDrone.Core.Indexers.MangaDex
             return FetchReleases(g => g.GetSearchRequests(searchCriteria));
         }
 
-        // ── Phase 3 D-03 — TV overloads throw NotSupportedException (per-class stubs) ───────
-        // MangaDex is a manga indexer; the inherited TV-shaped overloads must trip loudly if
-        // Phase 5/6 wiring accidentally crosses streams. ThingiProvider resolves indexer-by-protocol
-        // so these are never called via the canonical pipeline anyway.
-        public override Task<IList<ReleaseInfo>> Fetch(SeasonSearchCriteria searchCriteria)
-            => throw new NotSupportedException("MangaDex is a manga indexer; TV search not applicable.");
-
-        public override Task<IList<ReleaseInfo>> Fetch(SingleEpisodeSearchCriteria searchCriteria)
-            => throw new NotSupportedException("MangaDex is a manga indexer; TV search not applicable.");
-
-        public override Task<IList<ReleaseInfo>> Fetch(DailyEpisodeSearchCriteria searchCriteria)
-            => throw new NotSupportedException("MangaDex is a manga indexer; TV search not applicable.");
-
-        public override Task<IList<ReleaseInfo>> Fetch(DailySeasonSearchCriteria searchCriteria)
-            => throw new NotSupportedException("MangaDex is a manga indexer; TV search not applicable.");
-
-        public override Task<IList<ReleaseInfo>> Fetch(AnimeEpisodeSearchCriteria searchCriteria)
-            => throw new NotSupportedException("MangaDex is a manga indexer; TV search not applicable.");
-
-        public override Task<IList<ReleaseInfo>> Fetch(AnimeSeasonSearchCriteria searchCriteria)
-            => throw new NotSupportedException("MangaDex is a manga indexer; TV search not applicable.");
-
-        public override Task<IList<ReleaseInfo>> Fetch(SpecialEpisodeSearchCriteria searchCriteria)
-            => throw new NotSupportedException("MangaDex is a manga indexer; TV search not applicable.");
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-shape Fetch overrides
+        // (Single|Season|Daily|Anime|SpecialEpisodeSearchCriteria, etc.) stripped per Plan 15-10
+        // IndexerSearch/Definitions DELETE. Manga overloads above are canonical.
 
         // ── Phase 3 D-14 — per-source HTTP headers for Phase 4 in-process downloader ───────
         // MangaDex /at-home/server URLs do NOT need a Referer (per RESEARCH §MangaDex Indexer);

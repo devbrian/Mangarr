@@ -17,7 +17,7 @@ function NotFound(props: NotFoundProps) {
 
         <img
           className={styles.image}
-          src={`${window.Sonarr.urlBase}/Content/Images/404.png`}
+          src={`${window.Mangarr.urlBase}/Content/Images/404.png`}
         />
       </div>
     </PageContent>

@@ -112,7 +112,7 @@ namespace NzbDrone.Core.Test.MangaPipeline.Decisions
         public void Rejects_when_any_subject_chapter_overlaps_queued_chapter()
         {
             // Subject release covers chapters 42, 43, 44; queued release covers 43.
-            // Overlap on 43 must reject — Sonarr precedent reject-on-any-intersection.
+            // Overlap on 43 must reject — Mangarr precedent reject-on-any-intersection.
             _queueService.Setup(s => s.GetMangaQueue())
                 .Returns(new List<MangaQueueItem> { BuildQueueItem(7, 43) });
 

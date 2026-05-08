@@ -171,9 +171,9 @@ function QualityProfileItemGroup({
                   qualityId={quality.id}
                   name={quality.name}
                   allowed={allowed}
-                  minSize={quality.minSize}
-                  maxSize={quality.maxSize}
-                  preferredSize={quality.preferredSize}
+                  minSize={quality.minSize ?? null}
+                  maxSize={quality.maxSize ?? null}
+                  preferredSize={quality.preferredSize ?? null}
                   qualityIndex={`${qualityIndex}.${index + 1}`}
                   isDraggingUp={isDraggingUp}
                   isDraggingDown={isDraggingDown}

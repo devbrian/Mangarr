@@ -1,19 +1,5 @@
-import padNumber from 'Utilities/Number/padNumber';
-import translate from 'Utilities/String/translate';
-
-export default function formatSeason(
-  seasonNumber: number,
-  shortFormat?: boolean
-) {
-  if (seasonNumber === 0) {
-    return translate('Specials');
-  }
-
-  if (seasonNumber > 0) {
-    return shortFormat
-      ? `S${padNumber(seasonNumber, 2)}`
-      : translate('SeasonNumberToken', { seasonNumber });
-  }
-
-  return null;
+// Sonarr divergence: Phase 15 Plan 15-12 — STUB. Manga has no seasons.
+export default function formatSeason(seasonNumber?: number): string {
+  if (seasonNumber == null) return '';
+  return seasonNumber === 0 ? 'Specials' : 'Season ' + seasonNumber;
 }

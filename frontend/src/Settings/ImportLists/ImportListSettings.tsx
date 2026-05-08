@@ -1,104 +1,25 @@
-import React, { useCallback, useRef, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import AppState from 'App/State/AppState';
+// Sonarr divergence: Phase 15 Plan 15-12 — STUB page restored to satisfy the
+// AppRoutes /settings/importlists route after the original ImportLists subtree
+// was deleted (Plan 15-07). Manga import-list UI is v1.1+ work; this stub
+// displays a 'not yet available' Alert so the navigation tree is intact and
+// `yarn build` is green for the Wave 3.7 UI smoke test.
+//
+// Phase 8 cleanup: replace with the real manga import-list page once the
+// backend manga import-list discriminator-extension lands (Phase 12-98 v1.1+).
+import React from 'react';
+import Alert from 'Components/Alert';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
-import PageToolbarButton from 'Components/Page/Toolbar/PageToolbarButton';
-import PageToolbarSeparator from 'Components/Page/Toolbar/PageToolbarSeparator';
-import { icons } from 'Helpers/Props';
-import SettingsToolbar from 'Settings/SettingsToolbar';
-import { testAllImportLists } from 'Store/Actions/settingsActions';
-import {
-  SaveCallback,
-  SettingsStateChange,
-} from 'typings/Settings/SettingsState';
+import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import ImportListExclusions from './ImportListExclusions/ImportListExclusions';
-import ImportLists from './ImportLists/ImportLists';
-import ManageImportListsModal from './ImportLists/Manage/ManageImportListsModal';
-import ImportListOptions from './Options/ImportListOptions';
 
 function ImportListSettings() {
-  const dispatch = useDispatch();
-  const isTestingAll = useSelector(
-    (state: AppState) => state.settings.importLists.isTestingAll
-  );
-
-  const saveOptions = useRef<() => void>();
-
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasPendingChanges, setHasPendingChanges] = useState(false);
-  const [isManageImportListsModalOpen, setIsManageImportListsModalOpen] =
-    useState(false);
-
-  const handleSetChildSave = useCallback((saveCallback: SaveCallback) => {
-    saveOptions.current = saveCallback;
-  }, []);
-
-  const handleChildStateChange = useCallback(
-    ({ isSaving, hasPendingChanges }: SettingsStateChange) => {
-      setIsSaving(isSaving);
-      setHasPendingChanges(hasPendingChanges);
-    },
-    []
-  );
-
-  const handleManageImportListsPress = useCallback(() => {
-    setIsManageImportListsModalOpen(true);
-  }, []);
-
-  const handleManageImportListsModalClose = useCallback(() => {
-    setIsManageImportListsModalOpen(false);
-  }, []);
-
-  const handleSavePress = useCallback(() => {
-    saveOptions.current?.();
-  }, []);
-
-  const handleTestAllIndexersPress = useCallback(() => {
-    dispatch(testAllImportLists());
-  }, [dispatch]);
-
   return (
-    <PageContent title={translate('ImportListSettings')}>
-      <SettingsToolbar
-        isSaving={isSaving}
-        hasPendingChanges={hasPendingChanges}
-        additionalButtons={
-          <>
-            <PageToolbarSeparator />
-
-            <PageToolbarButton
-              label={translate('TestAllLists')}
-              iconName={icons.TEST}
-              isSpinning={isTestingAll}
-              onPress={handleTestAllIndexersPress}
-            />
-
-            <PageToolbarButton
-              label={translate('ManageLists')}
-              iconName={icons.MANAGE}
-              onPress={handleManageImportListsPress}
-            />
-          </>
-        }
-        onSavePress={handleSavePress}
-      />
-
+    <PageContent title={translate('ImportLists')}>
       <PageContentBody>
-        <ImportLists />
-
-        <ImportListOptions
-          setChildSave={handleSetChildSave}
-          onChildStateChange={handleChildStateChange}
-        />
-
-        <ImportListExclusions />
-
-        <ManageImportListsModal
-          isOpen={isManageImportListsModalOpen}
-          onModalClose={handleManageImportListsModalClose}
-        />
+        <Alert kind={kinds.INFO}>
+          {translate('ImportLists') + ' — not yet available for manga (v1.1+).'}
+        </Alert>
       </PageContentBody>
     </PageContent>
   );

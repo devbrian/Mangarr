@@ -1,32 +1,4 @@
-import React, { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
-import Modal from 'Components/Modal/Modal';
-import { clearPendingChanges } from 'Store/Actions/baseActions';
-import EditSeriesModalContent, {
-  EditSeriesModalContentProps,
-} from './EditSeriesModalContent';
-
-interface EditSeriesModalProps extends EditSeriesModalContentProps {
-  isOpen: boolean;
+// Sonarr divergence: Phase 15 Plan 15-12 — STUB modal.
+export default function EditSeriesModal(_props: Record<string, unknown>) {
+  return null;
 }
-
-function EditSeriesModal({
-  isOpen,
-  onModalClose,
-  ...otherProps
-}: EditSeriesModalProps) {
-  const dispatch = useDispatch();
-
-  const handleModalClose = useCallback(() => {
-    dispatch(clearPendingChanges({ section: 'series' }));
-    onModalClose();
-  }, [dispatch, onModalClose]);
-
-  return (
-    <Modal isOpen={isOpen} onModalClose={handleModalClose}>
-      <EditSeriesModalContent {...otherProps} onModalClose={handleModalClose} />
-    </Modal>
-  );
-}
-
-export default EditSeriesModal;

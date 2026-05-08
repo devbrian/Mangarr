@@ -1,11 +1,11 @@
 // Sonarr divergence: per Phase 7 D-10 + Lock #1 (Plan 12-08 sub-wave C extension) — mediaType prop added — see DIVERGENCE.md.
-// Existing TV call-site (`/wanted/cutoffunmet` route → <CutoffUnmet />`) preserved verbatim via the
-// default mediaType='series'. Manga call-site is the thin wrapper MangaCutoffUnmet.tsx
-// invoking <CutoffUnmet mediaType="manga" /> for the /manga/wanted/cutoffunmet route. React
-// Query key auto-namespaces via the path prop in useCutoffUnmet (['/wanted/cutoff'] vs
-// ['/manga/wanted/cutoff']) per Plan 07-02 URL-shaped key contract so SignalR invalidations
-// route to the correct cache (Pitfall 5 — TV/manga cache MUST NOT collide). Phase 8 collapses
-// (default flips to 'manga' and wrapper deletes).
+// Phase 15 Plan 15-07 Wave 3 (Sub-step F option (a)): mediaType prop default flipped 'series' ->
+// 'manga' since TV is gone post-cutover; the prop type union 'series' | 'manga' collapsed to
+// 'manga' (preserves the discriminator type for v2 reintroduction). Both default-sites
+// (CutoffUnmetContent inner + CutoffUnmet outer) updated atomically.
+// NOTE: Episode + EpisodeFile imports below are orphaned post-Plan 15-07 Task 1
+// (frontend/src/{Episode,EpisodeFile}/ deleted) and contribute to the expected ~247-error
+// TS2307 cascade — Plan 15-08/15-09 resolves this.
 //
 // Closest analog: frontend/src/Wanted/Missing/Missing.tsx (Plan 07-10) — same pattern.
 import React, {
@@ -60,7 +60,7 @@ import CutoffUnmetRow from './CutoffUnmetRow';
 import useCutoffUnmet, { FILTERS } from './useCutoffUnmet';
 
 interface CutoffUnmetProps {
-  mediaType?: 'series' | 'manga';
+  mediaType?: 'manga';
 }
 
 function getMonitoredValue(
@@ -70,7 +70,7 @@ function getMonitoredValue(
   return !!getFilterValue(filters, selectedFilterKey, 'monitored', false);
 }
 
-function CutoffUnmetContent({ mediaType = 'series' }: CutoffUnmetProps) {
+function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
   const executeCommand = useExecuteCommand();
   const customFilters = useCustomFiltersList('wanted.cutoffUnmet');
 
@@ -121,6 +121,7 @@ function CutoffUnmetContent({ mediaType = 'series' }: CutoffUnmetProps) {
   }, [records]);
 
   const episodeFileIds = useMemo(() => {
+    // @ts-expect-error — TV-shape episodeFileId field. Plan 15-12.
     return selectUniqueIds<Episode, number>(records, 'episodeFileId');
   }, [records]);
 
@@ -310,6 +311,7 @@ function CutoffUnmetContent({ mediaType = 'series' }: CutoffUnmetProps) {
                 <TableBody>
                   {records.map((item) => {
                     return (
+                      // @ts-expect-error — TV-shape CutoffUnmetRow (Plan 15-12).
                       <CutoffUnmetRow
                         key={item.id}
                         columns={columns}
@@ -356,7 +358,7 @@ function CutoffUnmetContent({ mediaType = 'series' }: CutoffUnmetProps) {
 }
 
 export default function CutoffUnmet({
-  mediaType = 'series',
+  mediaType = 'manga',
 }: CutoffUnmetProps) {
   const { records } = useCutoffUnmet(mediaType);
 
@@ -374,6 +376,7 @@ function CutoffUnmetProvider({
 }: PropsWithChildren<{ episodeIds: number[]; episodeFileIds: number[] }>) {
   return (
     <QueueDetailsProvider episodeIds={episodeIds}>
+      {/* @ts-expect-error — STUB EpisodeFileProvider has no episodeFileIds prop (Plan 15-12). */}
       <EpisodeFileProvider episodeFileIds={episodeFileIds}>
         {children}
       </EpisodeFileProvider>

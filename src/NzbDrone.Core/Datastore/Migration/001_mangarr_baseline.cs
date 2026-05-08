@@ -4,15 +4,28 @@ using NzbDrone.Core.Datastore.Migration.Framework;
 namespace NzbDrone.Core.Datastore.Migration
 {
     // Phase 1 baseline migration. Replaces Sonarr's 224 inherited TV-shaped migrations
-    // with a single fresh manga-shaped baseline:
-    //   * Recreates the Tv-shaped tables (Series, Seasons, Episodes, EpisodeFiles) so
-    //     the inherited Tv/ C# code compiles (D-02). These tables sit empty at runtime;
-    //     Phase 8 drops them when Tv/ is removed.
-    //   * Recreates ThingiProvider + supporting tables verbatim (D-03). TV-specific
-    //     columns are flagged with `// TODO: Phase 8` comments for the rename-last cutover.
-    //   * Adds new manga tables: Manga and Chapters (D-01 / D-06 / D-08 / D-09).
-    //   * Adds nullable MangaId/ChapterId columns to History/Blocklist (D-07).
-    //   * Creates the five locked composite indexes from Phase 0 D-15.
+    // with a single fresh manga-shaped baseline.
+    //
+    // Phase 15 D-22 schema delete (header — see Plan 15-02 SUMMARY for full table+column list)
+    // executed by Plan 15-02 — this baseline is now manga-shaped end-to-end:
+    //   * TV domain tables (Series / Seasons / Episodes / EpisodeFiles) — DROPPED per D-22.
+    //     Sit-empty-at-runtime model retired; Tv/ C# subtree deletion lands at Plan 15-03.
+    //   * Quality-keyed tables (QualityDefinitions / QualityProfiles) — DROPPED per D-11/D-22
+    //     (Quality cascade; manga has no resolution concept; replaced by TranslationProfiles +
+    //     CustomFormatProfiles).
+    //   * TV-only side files (MetadataFiles / SubtitleFiles / ExtraFiles / SceneMappings) —
+    //     DROPPED per D-19/D-22/D-24 (TV-keyed; SceneMappings is anime-numbering-only).
+    //   * TV-only columns on KEEP tables (Notifications.OnSeries* / OnEpisodeFile*,
+    //     Indexers.SeasonSearchMaximumSingleEpisodeAge, NamingConfig.*EpisodeFormat /
+    //     SeriesFolderFormat / SeasonFolderFormat, ImportLists.SeriesType / SeasonFolder,
+    //     ImportListItems.TvdbId, History.SeriesId / EpisodeId, Blocklist.SeriesId /
+    //     EpisodeIds) — DROPPED per D-22.
+    //   * Manga tables (Manga / Chapters / ChapterFiles / ChapterHistory / MangaBlocklist /
+    //     MangaPendingReleases) and ThingiProvider tables (Indexers / DownloadClients /
+    //     Notifications / Metadata / MetadataSources / ImportLists / etc.) — KEPT per D-03.
+    //   * History.MangaId / ChapterId + Blocklist.MangaId / ChapterId — flipped to
+    //     NotNullable() per D-23 (every row IS manga post-Phase-15).
+    //   * Five locked composite indexes from Phase 0 D-15 — KEPT.
     //
     // No Down() method — NzbDroneMigrationBase.Down() throws NotImplementedException
     // by convention.
@@ -50,10 +63,12 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("LastStartTime").AsDateTime().Nullable();
 
             // ─────────────────────────────────────────────────────────────────────
-            // ThingiProvider tables (D-03 — verbatim recreation; TV-specific
-            // columns flagged for Phase 8 cleanup).
+            // ThingiProvider tables (D-03 — verbatim recreation). TV-specific
+            // columns previously flagged at this site were stripped by Phase 15
+            // Plan 15-02 per D-22 schema delete.
             // ─────────────────────────────────────────────────────────────────────
-            // TODO: Phase 8 — review TV-specific provider columns when Tv/ is removed.
+            // Phase 15 D-22 schema delete — Indexers.SeasonSearchMaximumSingleEpisodeAge column dropped (executed by Plan 15-02)
+            // Sonarr divergence: Phase 15 D-22 schema delete — stripped Indexers.SeasonSearchMaximumSingleEpisodeAge column (TV-only; manga indexers register against this same table per D-03)
             Create.TableForModel("Indexers")
                 .WithColumn("Name").AsString().Unique()
                 .WithColumn("Implementation").AsString()
@@ -65,8 +80,7 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("EnableInteractiveSearch").AsBoolean().Nullable()
                 .WithColumn("Priority").AsInt32().NotNullable().WithDefaultValue(25)
                 .WithColumn("DownloadClientId").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("Tags").AsString().Nullable()
-                .WithColumn("SeasonSearchMaximumSingleEpisodeAge").AsInt32().NotNullable().WithDefaultValue(0); // migration 172
+                .WithColumn("Tags").AsString().Nullable();
 
             Create.TableForModel("DownloadClients")
                 .WithColumn("Enable").AsBoolean()
@@ -79,7 +93,8 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("RemoveFailedDownloads").AsBoolean().NotNullable().WithDefaultValue(true)
                 .WithColumn("Tags").AsString().Nullable();
 
-            // TODO: Phase 8 — strip OnSeries* / OnEpisodeFile* event columns when Tv/ removed.
+            // Phase 15 D-22 schema delete (executed by Plan 15-02)
+            // Sonarr divergence: Phase 15 D-22 schema delete — stripped Notifications.OnSeriesAdd / OnSeriesDelete / OnEpisodeFileDelete / OnEpisodeFileDeleteForUpgrade columns (TV-only; manga uses OnMangaAdd / OnMangaDelete / OnChapterImport)
             // Phase 6 D-18 — OnChapterImport added at end (default TRUE so newly-added
             // Komga/Kavita providers fire OnChapterImport without an extra checkbox click;
             // user can still disable per-provider). See DIVERGENCE.md + dev-migration-policy.md.
@@ -93,10 +108,6 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("OnUpgrade").AsBoolean().Nullable()
                 .WithColumn("Tags").AsString().Nullable()
                 .WithColumn("OnRename").AsBoolean()
-                .WithColumn("OnSeriesAdd").AsBoolean().NotNullable().WithDefaultValue(false)
-                .WithColumn("OnSeriesDelete").AsBoolean().NotNullable().WithDefaultValue(false)
-                .WithColumn("OnEpisodeFileDelete").AsBoolean().NotNullable().WithDefaultValue(false)
-                .WithColumn("OnEpisodeFileDeleteForUpgrade").AsBoolean().NotNullable().WithDefaultValue(false)
                 .WithColumn("OnHealthIssue").AsBoolean().NotNullable().WithDefaultValue(false)
                 .WithColumn("IncludeHealthWarnings").AsBoolean().NotNullable().WithDefaultValue(false)
                 .WithColumn("OnApplicationUpdate").AsBoolean().NotNullable().WithDefaultValue(false)
@@ -133,7 +144,8 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("IsPrimary").AsBoolean().NotNullable().WithDefaultValue(false)
                 .WithColumn("Tags").AsString().Nullable();
 
-            // TODO: Phase 8 — drop SeriesType / SeasonFolder columns when Tv/ removed.
+            // Phase 15 D-22 schema delete (executed by Plan 15-02)
+            // Sonarr divergence: Phase 15 D-22 schema delete — stripped ImportLists.SeriesType / SeasonFolder columns (TV-only). Note: the ImportLists table itself will be dropped by a follow-up Phase 15 plan alongside the D-26 import-lists/ Reference Preservation MOVE — Plan 15-02 only removes the TV columns; the table survives this wave.
             Create.TableForModel("ImportLists")
                 .WithColumn("Name").AsString().Unique()
                 .WithColumn("Implementation").AsString()
@@ -143,39 +155,34 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("RootFolderPath").AsString()
                 .WithColumn("ShouldMonitor").AsInt32()
                 .WithColumn("QualityProfileId").AsInt32()
-                .WithColumn("SeriesType").AsInt32()
-                .WithColumn("SeasonFolder").AsBoolean()
                 .WithColumn("Tags").AsString().Nullable()
                 .WithColumn("MonitorNewItems").AsInt32().NotNullable().WithDefaultValue(0)
                 .WithColumn("SearchForMissingEpisodes").AsBoolean().NotNullable().WithDefaultValue(true); // migration 197
 
+            // Sonarr divergence: Phase 15 D-22 schema delete — stripped ImportListItems.TvdbId column (D-17 SkyHook delete cascade — TVDB ID lookup retired)
             Create.TableForModel("ImportListItems")
                 .WithColumn("ImplementationName").AsString()
                 .WithColumn("ImportListId").AsInt32()
                 .WithColumn("ServiceProviderId").AsInt32()
                 .WithColumn("Title").AsString()
-                .WithColumn("TvdbId").AsInt32().NotNullable().WithDefaultValue(0)
                 .WithColumn("ImdbId").AsString().Nullable()
                 .WithColumn("ReleaseDate").AsDateTime();
 
             Create.TableForModel("Tags")
                 .WithColumn("Label").AsString().Unique();
 
-            // TODO: Phase 8 — drop TV-specific naming format columns when Tv/ removed.
+            // Phase 15 D-22 schema delete (executed by Plan 15-02)
+            // Sonarr divergence: Phase 15 D-22 schema delete — stripped NamingConfig.MultiEpisodeStyle / StandardEpisodeFormat / DailyEpisodeFormat / SeriesFolderFormat / SeasonFolderFormat / AnimeEpisodeFormat columns (TV-only; manga uses StandardChapterFormat / MangaFolderFormat / RenameChapters)
             // ─────────────────────────────────────────────────────────────────────
             // Phase 5 — NamingConfig manga columns.
             // Per dev-migration-policy.md edit-001 + Phase 5 D-13 (extend existing NamingConfig
             // singleton; DO NOT ship a sibling MangaNamingConfig table — D-04 invariant: ONE
-            // singleton, no Library entity). Phase 8 cleanup: drop TV-shaped columns when Tv/ deletes.
+            // singleton, no Library entity). Phase 15 D-22 stripped TV-shaped columns; manga
+            // naming columns (StandardChapterFormat / MangaFolderFormat / RenameChapters) carry
+            // the file-renaming behavior end-to-end post-cutover.
             // ─────────────────────────────────────────────────────────────────────
             Create.TableForModel("NamingConfig")
-                .WithColumn("MultiEpisodeStyle").AsInt32()
                 .WithColumn("RenameEpisodes").AsBoolean().Nullable()
-                .WithColumn("StandardEpisodeFormat").AsString().Nullable()
-                .WithColumn("DailyEpisodeFormat").AsString().Nullable()
-                .WithColumn("SeriesFolderFormat").AsString().Nullable()
-                .WithColumn("SeasonFolderFormat").AsString().Nullable()
-                .WithColumn("AnimeEpisodeFormat").AsString().Nullable()
                 .WithColumn("ReplaceIllegalCharacters").AsBoolean().NotNullable().WithDefaultValue(true)
                 .WithColumn("SpecialsFolderFormat").AsString().NotNullable().WithDefaultValue("Specials")
                 .WithColumn("ColonReplacementFormat").AsInt32().NotNullable().WithDefaultValue(0)
@@ -185,109 +192,19 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("RenameChapters").AsBoolean().NotNullable().WithDefaultValue(false);
 
             // ─────────────────────────────────────────────────────────────────────
-            // TV domain tables (D-02 — verbatim recreation; sit empty at runtime;
-            // deleted in Phase 8 when Tv/ namespace is removed).
+            // Phase 15 D-22 schema delete (executed by Plan 15-02)
+            // Sonarr divergence: Phase 15 D-22 schema delete — `Series` table dropped (TV-only; manga uses `Manga` table created below)
+            // Sonarr divergence: Phase 15 D-22 schema delete — `Seasons` table dropped (TV-only; manga has no season concept per DOMAIN-02 — flat chapter list)
+            // Sonarr divergence: Phase 15 D-22 schema delete — `Episodes` table dropped (TV-only; manga uses `Chapters` table created below)
+            // Sonarr divergence: Phase 15 D-22 schema delete — `EpisodeFiles` table dropped (TV-only; manga uses `ChapterFiles` table created below)
+            // The Tv/ C# subtree delete (Series.cs / Episode.cs / Season.cs / EpisodeFile.cs et al.)
+            // lands at Plan 15-03 Wave 1b — the compile cascade follows the schema delete by one
+            // wave per Phase 14 dress-rehearsal Wave 1a finding (commit 79d669c3a; build remained
+            // GREEN here because Tv/ types reference C# classes, NOT migration columns).
             // ─────────────────────────────────────────────────────────────────────
-            // TODO: Phase 8 — drop entire Series/Seasons/Episodes/EpisodeFiles tables.
-            Create.TableForModel("Series")
-                .WithColumn("TvdbId").AsInt32().Unique()
-                .WithColumn("TvRageId").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("ImdbId").AsString().Nullable()
-                .WithColumn("Title").AsString()
-                .WithColumn("TitleSlug").AsString().Nullable()
-                .WithColumn("CleanTitle").AsString()
-                .WithColumn("SortTitle").AsString().Nullable()
-                .WithColumn("Status").AsInt32()
-                .WithColumn("Overview").AsString().Nullable()
-                .WithColumn("AirTime").AsString().Nullable()
-                .WithColumn("Images").AsString()
-                .WithColumn("Path").AsString()
-                .WithColumn("Monitored").AsBoolean()
-                .WithColumn("SeasonFolder").AsBoolean()
-                .WithColumn("LastInfoSync").AsDateTime().Nullable()
-                .WithColumn("LastDiskSync").AsDateTime().Nullable()
-                .WithColumn("Runtime").AsInt32()
-                .WithColumn("SeriesType").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("Network").AsString().Nullable()
-                .WithColumn("FirstAired").AsDateTime().Nullable()
-                .WithColumn("NextAiring").AsDateTime().Nullable()
-                .WithColumn("Year").AsInt32().Nullable()
-                .WithColumn("Seasons").AsString().Nullable()         // migration 020 — JSON list of Season
-                .WithColumn("Genres").AsString().Nullable()
-                .WithColumn("Ratings").AsString().Nullable()
-                .WithColumn("Actors").AsString().Nullable()
-                .WithColumn("Certification").AsString().Nullable()
-                .WithColumn("UseSceneNumbering").AsBoolean()
-                .WithColumn("Added").AsDateTime().Nullable()
-                .WithColumn("AddOptions").AsString().Nullable()
-                .WithColumn("LanguageProfileId").AsInt32().NotNullable().WithDefaultValue(1)
-                .WithColumn("QualityProfileId").AsInt32()
-                .WithColumn("Tags").AsString().Nullable()
-                .WithColumn("TvMazeId").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("TmdbId").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("MonitorNewItems").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("OriginalLanguage").AsInt32().NotNullable().WithDefaultValue(1)
-                .WithColumn("OriginalCountry").AsString().Nullable()
-                .WithColumn("LastAired").AsDateTime().Nullable()
-                .WithColumn("MalIds").AsString().Nullable()      // Sonarr partial migration 217
-                .WithColumn("AniListIds").AsString().Nullable(); // Sonarr partial migration 217
 
-            Create.TableForModel("Seasons")
-                .WithColumn("SeriesId").AsInt32()
-                .WithColumn("SeasonNumber").AsInt32()
-                .WithColumn("Monitored").AsBoolean();
-
-            Create.TableForModel("Episodes")
-                .WithColumn("TvDbEpisodeId").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("SeriesId").AsInt32()
-                .WithColumn("SeasonNumber").AsInt32()
-                .WithColumn("EpisodeNumber").AsInt32()
-                .WithColumn("Title").AsString().Nullable()
-                .WithColumn("Overview").AsString().Nullable()
-                .WithColumn("Ratings").AsString().Nullable()
-                .WithColumn("Images").AsString().Nullable()
-                .WithColumn("AirDate").AsString().Nullable()
-                .WithColumn("AirDateUtc").AsDateTime().Nullable()
-                .WithColumn("Monitored").AsBoolean()
-                .WithColumn("AbsoluteEpisodeNumber").AsInt32().Nullable()
-                .WithColumn("SceneAbsoluteEpisodeNumber").AsInt32().Nullable()
-                .WithColumn("SceneSeasonNumber").AsInt32().Nullable()
-                .WithColumn("SceneEpisodeNumber").AsInt32().Nullable()
-                .WithColumn("UnverifiedSceneNumbering").AsBoolean().NotNullable().WithDefaultValue(false)
-                .WithColumn("Runtime").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("EpisodeFileId").AsInt32().Nullable()
-                .WithColumn("LastSearchTime").AsDateTime().Nullable()
-                .WithColumn("FinaleType").AsString().Nullable()
-                .WithColumn("TvdbId").AsInt32().Nullable()                    // migration 167
-                .WithColumn("AiredAfterSeasonNumber").AsInt32().Nullable()    // migration 137
-                .WithColumn("AiredBeforeSeasonNumber").AsInt32().Nullable()   // migration 137
-                .WithColumn("AiredBeforeEpisodeNumber").AsInt32().Nullable(); // migration 137
-
-            Create.TableForModel("EpisodeFiles")
-                .WithColumn("SeriesId").AsInt32()
-                .WithColumn("Quality").AsString()
-                .WithColumn("Size").AsInt64()
-                .WithColumn("DateAdded").AsDateTime()
-                .WithColumn("SeasonNumber").AsInt32()
-                .WithColumn("RelativePath").AsString().Nullable()
-                .WithColumn("Language").AsInt32().NotNullable().WithDefaultValue(1)
-                .WithColumn("ReleaseGroup").AsString().Nullable()
-                .WithColumn("SceneName").AsString().Nullable()
-                .WithColumn("MediaInfo").AsString().Nullable()
-                .WithColumn("Languages").AsString().Nullable().WithDefaultValue("[]")
-                .WithColumn("OriginalFilePath").AsString().Nullable()
-                .WithColumn("CustomFormats").AsString().Nullable()
-                .WithColumn("CustomFormatScore").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("ReleaseHash").AsString().Nullable()
-                .WithColumn("ReleaseType").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("IndexerFlags").AsInt32().NotNullable().WithDefaultValue(0); // migration 202
-
-            // History and Blocklist hold both TV and manga events. The TV-shaped
-            // SeriesId/EpisodeIds columns sit empty at Mangarr runtime; the new
-            // MangaId/ChapterId columns (added below) carry manga events.
+            // Sonarr divergence: Phase 15 D-22 schema delete — History.SeriesId / EpisodeId columns dropped (TV-only); History row identity carries through MangaId / ChapterId columns added below (D-23 NotNullable per Phase 15)
             Create.TableForModel("History")
-                .WithColumn("EpisodeId").AsInt32()
-                .WithColumn("SeriesId").AsInt32()
                 .WithColumn("SourceTitle").AsString()
                 .WithColumn("Quality").AsString()
                 .WithColumn("Date").AsDateTime()
@@ -296,9 +213,8 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("DownloadId").AsString().Nullable()
                 .WithColumn("Languages").AsString().Nullable().WithDefaultValue("[]");
 
+            // Sonarr divergence: Phase 15 D-22 schema delete — Blocklist.SeriesId / EpisodeIds columns dropped (TV-only); Blocklist row identity carries through MangaId / ChapterId columns added below (D-23 NotNullable per Phase 15)
             Create.TableForModel("Blocklist")
-                .WithColumn("SeriesId").AsInt32()
-                .WithColumn("EpisodeIds").AsString()
                 .WithColumn("SourceTitle").AsString()
                 .WithColumn("Quality").AsString()
                 .WithColumn("Date").AsDateTime()
@@ -314,24 +230,9 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("Source").AsString().Nullable();                              // migration 223
 
             // ─────────────────────────────────────────────────────────────────────
-            // Quality / Profile tables (Phase 5 reuses; TV-shaped today).
+            // Sonarr divergence: Phase 15 D-22 schema delete — `QualityDefinitions` table dropped (TV-only resolution tiers; manga has no resolution concept per Phase 0 D-11 Quality-cascade)
+            // Sonarr divergence: Phase 15 D-22 schema delete — `QualityProfiles` table dropped (TV-only; manga uses `TranslationProfiles` (ordinal language preference) + `CustomFormatProfiles` (CF score thresholds) per Phase 5 D-01 + D-07)
             // ─────────────────────────────────────────────────────────────────────
-            Create.TableForModel("QualityDefinitions")
-                .WithColumn("Quality").AsInt32().Unique()
-                .WithColumn("Title").AsString().Unique()
-                .WithColumn("MinSize").AsDouble().Nullable()
-                .WithColumn("MaxSize").AsDouble().Nullable()
-                .WithColumn("PreferredSize").AsDouble().Nullable();
-
-            Create.TableForModel("QualityProfiles")
-                .WithColumn("Name").AsString().Unique()
-                .WithColumn("Cutoff").AsInt32()
-                .WithColumn("Items").AsString().NotNullable()
-                .WithColumn("UpgradeAllowed").AsBoolean().Nullable()
-                .WithColumn("MinFormatScore").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("CutoffFormatScore").AsInt32().NotNullable().WithDefaultValue(0)
-                .WithColumn("FormatItems").AsString().NotNullable().WithDefaultValue("[]")
-                .WithColumn("MinUpgradeFormatScore").AsInt32().NotNullable().WithDefaultValue(1);
 
             // ─────────────────────────────────────────────────────────────────────
             // Phase 5 — TranslationProfiles table.
@@ -562,43 +463,10 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("TvdbId").AsInt32().Unique()
                 .WithColumn("Title").AsString().NotNullable();
 
-            // TODO: Phase 8 — Metadata/Subtitle/Extra files are currently TV-keyed.
-            // Phase 4 will add manga equivalents; Phase 8 drops the SeriesId/EpisodeFile
-            // foreign keys when Tv/ is removed.
-            Create.TableForModel("MetadataFiles")
-                .WithColumn("SeriesId").AsInt32().NotNullable()
-                .WithColumn("Consumer").AsString().NotNullable()
-                .WithColumn("Type").AsInt32().NotNullable()
-                .WithColumn("RelativePath").AsString().NotNullable()
-                .WithColumn("LastUpdated").AsDateTime().NotNullable()
-                .WithColumn("SeasonNumber").AsInt32().Nullable()
-                .WithColumn("EpisodeFileId").AsInt32().Nullable()
-                .WithColumn("EpisodeId").AsInt32().Nullable()
-                .WithColumn("Added").AsDateTime().Nullable()
-                .WithColumn("Extension").AsString().NotNullable()
-                .WithColumn("Hash").AsString().Nullable();
-
-            Create.TableForModel("SubtitleFiles")
-                .WithColumn("SeriesId").AsInt32().NotNullable()
-                .WithColumn("SeasonNumber").AsInt32().NotNullable()
-                .WithColumn("EpisodeFileId").AsInt32().NotNullable()
-                .WithColumn("RelativePath").AsString().NotNullable()
-                .WithColumn("Added").AsDateTime()
-                .WithColumn("LastUpdated").AsDateTime().Nullable()
-                .WithColumn("Extension").AsString().Nullable()
-                .WithColumn("Language").AsInt32().NotNullable()
-                .WithColumn("LanguageTags").AsString().Nullable()
-                .WithColumn("Title").AsString().Nullable()
-                .WithColumn("Copy").AsInt32().NotNullable().WithDefaultValue(0); // migration 198
-
-            Create.TableForModel("ExtraFiles")
-                .WithColumn("SeriesId").AsInt32().NotNullable()
-                .WithColumn("SeasonNumber").AsInt32().NotNullable()
-                .WithColumn("EpisodeFileId").AsInt32().NotNullable()
-                .WithColumn("RelativePath").AsString().NotNullable()
-                .WithColumn("Extension").AsString().NotNullable()
-                .WithColumn("Added").AsDateTime().NotNullable()
-                .WithColumn("LastUpdated").AsDateTime().NotNullable();
+            // Phase 15 D-22 schema delete — MetadataFiles + SubtitleFiles + ExtraFiles tables dropped (TV-only per D-24; executed by Plan 15-02)
+            // Sonarr divergence: Phase 15 D-22 schema delete — `MetadataFiles` table dropped (TV-keyed via SeriesId/EpisodeFileId/EpisodeId; manga has no Kodi/Roksbox/Wdtv consumer pipeline; v2 may add manga peer if reader-metadata pull surfaces)
+            // Sonarr divergence: Phase 15 D-22 schema delete — `SubtitleFiles` table dropped (TV-only per D-24; manga has no subtitle concept)
+            // Sonarr divergence: Phase 15 D-22 schema delete — `ExtraFiles` table dropped (TV-only per D-24; manga has no extra-files concept)
 
             // ─────────────────────────────────────────────────────────────────────
             // Auth. Identifier stored AsString (not AsGuid) to match Sonarr's
@@ -612,16 +480,8 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("Salt").AsString().Nullable()
                 .WithColumn("Iterations").AsInt32().Nullable();
 
-            // TODO: Phase 8 — remove SceneMappings table when Tv/ is deleted.
-            Create.TableForModel("SceneMappings")
-                .WithColumn("TvdbId").AsInt32().NotNullable()
-                .WithColumn("SeasonNumber").AsInt32().Nullable()
-                .WithColumn("SearchTerm").AsString().NotNullable()
-                .WithColumn("ParseTerm").AsString().NotNullable()
-                .WithColumn("Title").AsString().NotNullable()
-                .WithColumn("Type").AsString().NotNullable()
-                .WithColumn("FilterRegex").AsString().Nullable()
-                .WithColumn("MappingId").AsString().Nullable(); // migration 230
+            // Phase 15 D-19 retagged — SceneMappings table dropped (TV anime-numbering; executed by Plan 15-02)
+            // Sonarr divergence: Phase 15 D-22 schema delete — `SceneMappings` table dropped (D-19; TheXem anime-TV scene-numbering only — manga uses scanlation groups; no scene-number concept)
 
             // ═════════════════════════════════════════════════════════════════════
             // NEW MANGA TABLES (D-01 / D-06 / D-08 / D-09).
@@ -675,14 +535,16 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("LastSearchTime").AsDateTime().Nullable();                            // Phase 8 audit gap-07 — search-history per chapter (sibling of Episodes.LastSearchTime)
 
             // ─────────────────────────────────────────────────────────────────────
-            // History/Blocklist nullable manga columns (D-07).
+            // History/Blocklist manga columns (D-07 added; D-23 flipped to NotNullable per Phase 15).
+            // Sonarr divergence: Phase 15 D-23 — History.MangaId / History.ChapterId / Blocklist.MangaId / Blocklist.ChapterId flipped to NotNullable() (every row IS manga post-Phase-15; NULL becomes meaningless. Pre-v1 fresh-DB rule means no existing data can violate; cascade-delete on Manga delete matches Sonarr's pattern.)
             // ─────────────────────────────────────────────────────────────────────
             Alter.Table("History")
-                .AddColumn("MangaId").AsInt32().Nullable()
-                .AddColumn("ChapterId").AsInt32().Nullable();
+                .AddColumn("MangaId").AsInt32().NotNullable().WithDefaultValue(0)
+                .AddColumn("ChapterId").AsInt32().NotNullable().WithDefaultValue(0);
 
             Alter.Table("Blocklist")
-                .AddColumn("MangaId").AsInt32().Nullable();
+                .AddColumn("MangaId").AsInt32().NotNullable().WithDefaultValue(0)
+                .AddColumn("ChapterId").AsInt32().NotNullable().WithDefaultValue(0);
 
             // ─────────────────────────────────────────────────────────────────────
             // Composite indexes — Phase 0 D-15 baseline floor.

@@ -9,9 +9,9 @@ using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Http;
+using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Test.Framework;
-
 namespace NzbDrone.Core.Test.Download.Clients.InProcess
 {
     /// <summary>
@@ -44,7 +44,7 @@ namespace NzbDrone.Core.Test.Download.Clients.InProcess
             _stateRepo = Mocker.GetMock<IChapterDownloadStateRepository>();
             _orchestrator = Mocker.GetMock<IChapterDownloadService>();
             _orchestrator.Setup(o => o.EnqueueAsync(
-                            It.IsAny<RemoteEpisode>(),
+                            It.IsAny<RemoteChapter>(),
                             It.IsAny<IHttpAggregator>(),
                             It.IsAny<ChapterManifest>(),
                             It.IsAny<InProcessImageDownloadClientSettings>()))
@@ -79,7 +79,7 @@ namespace NzbDrone.Core.Test.Download.Clients.InProcess
         {
             // Pitfall 8 / F-01 mitigation — assert the consumer ACTUALLY calls the injected service.
             var release = new ReleaseInfo { IndexerId = 7, DownloadUrl = "https://x" };
-            var remote = new RemoteEpisode { Release = release };
+            var remote = new RemoteChapter { Release = release };
 
             var downloadId = await Subject.Download(remote, (IIndexer)_aggregator.Object);
 
@@ -97,7 +97,7 @@ namespace NzbDrone.Core.Test.Download.Clients.InProcess
         public async Task Download_throws_when_indexer_is_not_HttpAggregator()
         {
             var nonHttpIndexer = new Mock<IIndexer>().Object;
-            var remote = new RemoteEpisode { Release = new ReleaseInfo() };
+            var remote = new RemoteChapter { Release = new ReleaseInfo() };
 
             Func<Task> act = () => Subject.Download(remote, nonHttpIndexer);
 

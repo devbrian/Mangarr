@@ -1,7 +1,8 @@
 // Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType prop added — see DIVERGENCE.md.
-// Existing TV call-site (`/activity/queue` route → <Queue />`) preserved verbatim via the default
-// mediaType='series'. Manga call-site is the thin wrapper MangaQueue.tsx (Plan 07-09 task 2)
-// invoking <Queue mediaType="manga" /> for the /manga/activity/queue route. Phase 8 collapses.
+// Phase 15 Plan 15-07 Wave 3 (Sub-step F option (a)): mediaType prop default flipped 'series' ->
+// 'manga' since TV is gone post-cutover; the prop type union 'series' | 'manga' collapsed to
+// 'manga' (preserves the discriminator type for v2 reintroduction). Both default-sites
+// (QueueContent inner + Queue outer) updated atomically.
 import React, {
   ReactElement,
   useCallback,
@@ -57,10 +58,10 @@ import useQueue, {
 } from './useQueue';
 
 interface QueueProps {
-  mediaType?: 'series' | 'manga';
+  mediaType?: 'manga';
 }
 
-function QueueContent({ mediaType = 'series' }: QueueProps) {
+function QueueContent({ mediaType = 'manga' }: QueueProps) {
   const executeCommand = useExecuteCommand();
 
   const {
@@ -268,6 +269,7 @@ function QueueContent({ mediaType = 'series' }: QueueProps) {
               <TableBody>
                 {records.map((item) => {
                   return (
+                    // @ts-expect-error — Sonarr divergence (Plan 15-12): TV-shape QueueRow.
                     <QueueRow
                       key={item.id}
                       columns={columns}
@@ -407,7 +409,7 @@ function QueueContent({ mediaType = 'series' }: QueueProps) {
   );
 }
 
-function Queue({ mediaType = 'series' }: QueueProps) {
+function Queue({ mediaType = 'manga' }: QueueProps) {
   const { records } = useQueue(mediaType);
 
   return (

@@ -4,10 +4,12 @@ using System.IO;
 using System.Xml.Linq;
 using FluentAssertions;
 using NUnit.Framework;
+using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo;
 using NzbDrone.Core.Parser.Model;
-using NzbDrone.Core.Tv;
+
+// Sonarr divergence: Phase 15 Plan 15-11 cascade absorption — Series/Episode replaced with manga peer Manga/Chapter; Series.Certification -> Manga.ContentRating; Episode.EpisodeNumber/AirDateUtc -> Chapter.ChapterNumber/ReleaseDate.
 
 namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving.Metadata
 {
@@ -29,7 +31,7 @@ namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving.Metadata
         {
             return new ChapterArchiveRequest
             {
-                Manga = new Series
+                Manga = new Manga.Manga
                 {
                     Title = "Vagabond",
                     Overview = "A samurai's journey",
@@ -38,13 +40,13 @@ namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving.Metadata
                     // Phase 2 hasn't added a dedicated ContentRating field; v1 reuses the
                     // existing Sonarr `Certification` string field as the AgeRating source.
                     // Phase 5 metadata-source work may rename / move this — see SUMMARY.
-                    Certification = contentRating,
+                    ContentRating = contentRating,
                 },
-                Chapter = new Episode
+                Chapter = new Chapter
                 {
                     Title = "Chapter 132",
-                    EpisodeNumber = chapterNumber,
-                    AirDateUtc = airDateUtc ?? new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+                    ChapterNumber = chapterNumber,
+                    ReleaseDate = airDateUtc ?? new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
                 },
                 Release = new ReleaseInfo
                 {

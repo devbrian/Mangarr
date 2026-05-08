@@ -18,10 +18,6 @@ function Notification({
   onUpgrade,
   onImportComplete,
   onRename,
-  onSeriesAdd,
-  onSeriesDelete,
-  onEpisodeFileDelete,
-  onEpisodeFileDeleteForUpgrade,
   onHealthIssue,
   onHealthRestored,
   onApplicationUpdate,
@@ -31,10 +27,6 @@ function Notification({
   supportsOnUpgrade,
   supportsOnImportComplete,
   supportsOnRename,
-  supportsOnSeriesAdd,
-  supportsOnSeriesDelete,
-  supportsOnEpisodeFileDelete,
-  supportsOnEpisodeFileDeleteForUpgrade,
   supportsOnHealthIssue,
   supportsOnHealthRestored,
   supportsOnApplicationUpdate,
@@ -110,26 +102,6 @@ function Notification({
         <Label kind={kinds.SUCCESS}>{translate('OnApplicationUpdate')}</Label>
       ) : null}
 
-      {supportsOnSeriesAdd && onSeriesAdd ? (
-        <Label kind={kinds.SUCCESS}>{translate('OnSeriesAdd')}</Label>
-      ) : null}
-
-      {supportsOnSeriesDelete && onSeriesDelete ? (
-        <Label kind={kinds.SUCCESS}>{translate('OnSeriesDelete')}</Label>
-      ) : null}
-
-      {supportsOnEpisodeFileDelete && onEpisodeFileDelete ? (
-        <Label kind={kinds.SUCCESS}>{translate('OnEpisodeFileDelete')}</Label>
-      ) : null}
-
-      {supportsOnEpisodeFileDeleteForUpgrade &&
-      onEpisodeFileDelete &&
-      onEpisodeFileDeleteForUpgrade ? (
-        <Label kind={kinds.SUCCESS}>
-          {translate('OnEpisodeFileDeleteForUpgrade')}
-        </Label>
-      ) : null}
-
       {supportsOnManualInteractionRequired && onManualInteractionRequired ? (
         <Label kind={kinds.SUCCESS}>
           {translate('OnManualInteractionRequired')}
@@ -143,9 +115,6 @@ function Notification({
       !onHealthIssue &&
       !onHealthRestored &&
       !onApplicationUpdate &&
-      !onSeriesAdd &&
-      !onSeriesDelete &&
-      !onEpisodeFileDelete &&
       !onManualInteractionRequired ? (
         <Label kind={kinds.DISABLED} outline={true}>
           {translate('Disabled')}

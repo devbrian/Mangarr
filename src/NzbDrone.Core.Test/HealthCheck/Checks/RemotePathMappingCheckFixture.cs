@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Common.Disk;
@@ -11,9 +10,6 @@ using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients;
 using NzbDrone.Core.HealthCheck.Checks;
 using NzbDrone.Core.Localization;
-using NzbDrone.Core.MediaFiles;
-using NzbDrone.Core.MediaFiles.Events;
-using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common;
 
@@ -170,101 +166,6 @@ namespace NzbDrone.Core.Test.HealthCheck.Checks
             GivenDocker();
 
             Subject.Check().ShouldBeError(wikiFragment: "docker-bad-remote-path-mapping");
-        }
-
-        [Test]
-        public void should_return_ok_on_episode_imported_event()
-        {
-            GivenFolderExists(_downloadRootPath);
-            var importEvent = new EpisodeImportedEvent(new LocalEpisode(), new EpisodeFile(), new List<DeletedEpisodeFile>(), true, new DownloadClientItem());
-
-            Subject.Check(importEvent).ShouldBeOk();
-        }
-
-        [Test]
-        public void should_return_permissions_error_on_episode_import_failed_event_if_file_exists()
-        {
-            var localEpisode = new LocalEpisode
-            {
-                Path = Path.Combine(_downloadItemPath, "file.mkv")
-            };
-            GivenFileExists(localEpisode.Path);
-
-            var importEvent = new EpisodeImportFailedEvent(new Exception(), localEpisode, true, new DownloadClientItem());
-
-            Subject.Check(importEvent).ShouldBeError(wikiFragment: "permissions-error");
-        }
-
-        [Test]
-        public void should_return_permissions_error_on_episode_import_failed_event_if_folder_exists()
-        {
-            GivenFolderExists(_downloadItemPath);
-
-            var importEvent = new EpisodeImportFailedEvent(null, null, true, _downloadItem);
-
-            Subject.Check(importEvent).ShouldBeError(wikiFragment: "permissions-error");
-        }
-
-        [Test]
-        public void should_return_permissions_error_on_episode_import_failed_event_for_local_client_if_folder_does_not_exist()
-        {
-            var importEvent = new EpisodeImportFailedEvent(null, null, true, _downloadItem);
-
-            Subject.Check(importEvent).ShouldBeError(wikiFragment: "permissions-error");
-        }
-
-        [Test]
-        public void should_return_mapping_error_on_episode_import_failed_event_for_remote_client_if_folder_does_not_exist()
-        {
-            _clientStatus.IsLocalhost = false;
-            var importEvent = new EpisodeImportFailedEvent(null, null, true, _downloadItem);
-
-            Subject.Check(importEvent).ShouldBeError(wikiFragment: "bad-remote-path-mapping");
-        }
-
-        [Test]
-        public void should_return_mapping_error_on_episode_import_failed_event_for_remote_client_if_path_invalid()
-        {
-            _clientStatus.IsLocalhost = false;
-            _downloadItem.OutputPath = new OsPath("an invalid path");
-            var importEvent = new EpisodeImportFailedEvent(null, null, true, _downloadItem);
-
-            Subject.Check(importEvent).ShouldBeError(wikiFragment: "bad-remote-path-mapping");
-        }
-
-        [Test]
-        public void should_return_download_client_error_on_episode_import_failed_event_for_remote_client_if_path_invalid()
-        {
-            _clientStatus.IsLocalhost = true;
-            _downloadItem.OutputPath = new OsPath("an invalid path");
-            var importEvent = new EpisodeImportFailedEvent(null, null, true, _downloadItem);
-
-            Subject.Check(importEvent).ShouldBeError(wikiFragment: "bad-download-client-settings");
-        }
-
-        [Test]
-        public void should_return_docker_mapping_error_on_episode_import_failed_event_inside_docker_if_folder_does_not_exist()
-        {
-            GivenDocker();
-
-            _clientStatus.IsLocalhost = false;
-            var importEvent = new EpisodeImportFailedEvent(null, null, true, _downloadItem);
-
-            Subject.Check(importEvent).ShouldBeError(wikiFragment: "docker-bad-remote-path-mapping");
-        }
-
-        [Test]
-        [TestCaseSource("DownloadClientExceptions")]
-        public void should_return_ok_on_import_failed_event_if_client_throws_downloadclientexception(Exception ex)
-        {
-            _downloadClient.Setup(s => s.GetStatus())
-                .Throws(ex);
-
-            var importEvent = new EpisodeImportFailedEvent(null, null, true, _downloadItem);
-
-            Subject.Check(importEvent).ShouldBeOk();
-
-            ExceptionVerification.ExpectedErrors(0);
         }
     }
 }

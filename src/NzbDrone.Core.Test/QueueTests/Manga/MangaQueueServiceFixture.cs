@@ -84,7 +84,7 @@ namespace NzbDrone.Core.Test.QueueTests.Manga
         public void Handle_only_projects_Http_protocol_TrackedDownloads()
         {
             var manga = MakeTrackedDownload("manga-1", DownloadProtocol.Http, MakeRemoteChapter(7, 42));
-            var tv = MakeTrackedDownload("tv-1", DownloadProtocol.Usenet);
+            var tv = MakeTrackedDownload("tv-1", DownloadProtocol.Unknown);
 
             Subject.Handle(new TrackedDownloadRefreshedEvent(new List<TrackedDownload> { manga, tv }));
 

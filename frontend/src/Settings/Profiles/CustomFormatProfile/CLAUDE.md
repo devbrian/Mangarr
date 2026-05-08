@@ -6,7 +6,7 @@ CustomFormatProfile editor sub-tree — wires the Phase 5 D-07 `CustomFormatProf
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Settings\Profiles\CustomFormatProfile\`
 
-## Sonarr Inheritance
+## Mangarr Inheritance
 
 This sub-tree is the manga sibling of the QualityProfile editor. Every file ports the role-match analog file from `Settings/Profiles/Quality/` with manga-domain divergence at the form-fields layer (formatItems list + min/max score range + upgradeAllowed Toggle replace quality items + cutoff). All files carry the Pattern S2 sibling-divergence header.
 
@@ -73,7 +73,7 @@ The route is additive per D-09 — no existing route is modified.
 - `MinFormatScoreLabel` / `MaxFormatScoreLabel` / `AllowedFormatsCount`
 - `MaximumCustomFormatScore` / `MaximumCustomFormatScoreHelpText`
 - `FormatItems` / `AddFormatItem` / `NoMangaCustomFormatsAvailable`
-- `Default` / `UpgradesAllowed` (existing Sonarr keys reused)
+- `Default` / `UpgradesAllowed` (existing Mangarr keys reused)
 
 ## Phase 8 Cleanup
 
@@ -82,7 +82,7 @@ This sub-tree is manga-canonical and stays. The legacy `Settings/Profiles/Qualit
 ## Cross-References
 
 - [../Translations/CLAUDE.md](../Translations/CLAUDE.md) — sibling sub-tree (TranslationProfile editor)
-- [../Quality/](../Quality/) — Sonarr role-match analog (kept on disk; Phase 8 deletes)
+- [../Quality/](../Quality/) — Mangarr role-match analog (kept on disk; Phase 8 deletes)
 - [../../Settings.tsx](../../Settings.tsx) — left-nav CustomFormatProfiles row added in Phase 7 D-05
 - [../../../App/AppRoutes.tsx](../../../App/AppRoutes.tsx) — `/settings/customformatprofiles` route registered here
 - [../../CLAUDE.md](../../CLAUDE.md) — Settings sub-tree overview + D-05 topology rework

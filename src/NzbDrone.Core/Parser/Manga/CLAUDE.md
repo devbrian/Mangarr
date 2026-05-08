@@ -41,7 +41,7 @@ The parser is the leaf-most computation layer Phase 2 ships — every later phas
 ## Cross-References
 
 - Manga model: `src/NzbDrone.Core/Manga/CLAUDE.md`
-- Sonarr TV analog (untouched until Phase 8): `src/NzbDrone.Core/Parser/CLAUDE.md`
+- Mangarr TV analog (untouched until Phase 8): `src/NzbDrone.Core/Parser/CLAUDE.md`
 - Test fixtures: `src/NzbDrone.Core.Test/Parser/Manga/CLAUDE.md`
 - Phase 2 context: `.planning/phases/02-parser-metadata-sources/02-CONTEXT.md` (D-01..D-13 parser decisions)
 - Phase 2 corpus rationale: `.planning/phases/02-parser-metadata-sources/02-RESEARCH.md`

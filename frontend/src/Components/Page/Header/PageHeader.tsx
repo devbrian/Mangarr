@@ -7,7 +7,8 @@ import { icons } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import PageHeaderActionsMenu from './PageHeaderActionsMenu';
-import SeriesSearchInput from './SeriesSearchInput';
+// Sonarr divergence: Phase 15 Plan 15-12 — SeriesSearchInput deleted in Plan 15-12
+// (TV-only); manga search bar will land in v1.1+ as MangaSearchInput. Header rendering preserved without the search input until then.
 import styles from './PageHeader.css';
 
 function PageHeader() {
@@ -52,7 +53,7 @@ function PageHeader() {
         <Link className={styles.logoLink} to="/">
           <img
             className={styles.logo}
-            src={`${window.Sonarr.urlBase}/Content/Images/logo.svg`}
+            src={`${window.Mangarr.urlBase}/Content/Images/logo.svg`}
             alt="Mangarr"
           />
         </Link>
@@ -67,16 +68,17 @@ function PageHeader() {
         />
       </div>
 
-      <SeriesSearchInput />
-
       <div className={styles.right}>
+        {/* Sonarr divergence: Phase 15 close-out F-A — Donate href preserved as upstream
+            acknowledgment. Mangarr is a fork of Sonarr; this link routes user contributions
+            to the upstream project. Decision documented in DIVERGENCE.md Phase 15 close. */}
         <IconButton
           className={styles.donate}
           name={icons.HEART}
-          aria-label={translate('Donate')}
+          aria-label={translate('DonateToSonarr')}
           to="https://sonarr.tv/donate.html"
           size={14}
-          title={translate('Donate')}
+          title={translate('DonateToSonarr')}
         />
 
         <PageHeaderActionsMenu

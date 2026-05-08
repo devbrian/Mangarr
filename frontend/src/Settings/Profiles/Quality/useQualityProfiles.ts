@@ -1,6 +1,11 @@
+// Sonarr divergence: Phase 15 Plan 15-12 — Quality/Quality import stripped per
+// cascade absorption (Plan 15-03 deleted Quality cascade). The Quality type is
+// stubbed inline so the QualityProfile typings remain self-contained for the
+// settings page; manga uses TranslationProfile + CustomFormatProfile and ignores
+// per-quality items at the domain layer. Phase 8 cleanup: collapse when QualityProfile
+// settings page retires (Phase 5 D-04 deferred).
 import ModelBase from 'App/ModelBase';
 import useApiQuery from 'Helpers/Hooks/useApiQuery';
-import Quality from 'Quality/Quality';
 import {
   useDeleteProvider,
   useManageProviderSettings,
@@ -8,6 +13,20 @@ import {
 } from 'Settings/useProviderSettings';
 import { QualityProfileFormatItem } from 'typings/CustomFormat';
 import translate from 'Utilities/String/translate';
+
+// Stub Quality shape (Plan 15-03 deleted Quality.ts; this minimal shape keeps
+// the QualityProfile settings page typing intact until Phase 5 D-04 ships the
+// manga-shape replacement).
+interface Quality extends ModelBase {
+  name: string;
+  source?: string;
+  resolution?: number;
+  // Sonarr-shape carry-over: legacy QualityProfileItemGroup destructures these
+  // off the Quality object directly (vs the parent QualityProfileQualityItem).
+  minSize?: number | null;
+  maxSize?: number | null;
+  preferredSize?: number | null;
+}
 
 export interface QualityProfileQualityItem {
   quality: Quality;

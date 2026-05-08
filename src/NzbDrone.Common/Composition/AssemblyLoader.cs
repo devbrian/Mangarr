@@ -18,12 +18,15 @@ namespace NzbDrone.Common.Composition
 
         public static IList<Assembly> Load(IList<string> assemblyNames)
         {
+            // Sonarr divergence: Phase 15 Plan 15-10 boot fix — assembly DLL filenames flipped
+            // from Sonarr.* to Mangarr.* per Plan 15-04 csproj rename. Without this fix,
+            // boot fails with FileNotFoundException trying to load Sonarr.Common.dll.
             var toLoad = assemblyNames.ToList();
-            toLoad.Add("Sonarr.Common");
-            toLoad.Add(OsInfo.IsWindows ? "Sonarr.Windows" : "Sonarr.Mono");
+            toLoad.Add("Mangarr.Common");
+            toLoad.Add(OsInfo.IsWindows ? "Mangarr.Windows" : "Mangarr.Mono");
 
             var toRegisterResolver = new List<string> { "System.Data.SQLite" };
-            toRegisterResolver.AddRange(assemblyNames.Intersect(new[] { "Sonarr.Core" }));
+            toRegisterResolver.AddRange(assemblyNames.Intersect(new[] { "Mangarr.Core" }));
             RegisterNativeResolver(toRegisterResolver);
 
             var startupPath = AppDomain.CurrentDomain.BaseDirectory;

@@ -115,8 +115,8 @@ export const useSaveProviderSettings = <T extends ModelBase>(
           getQueryString(queryParams),
         method: id ? 'PUT' : 'POST',
         headers: {
-          'X-Api-Key': window.Sonarr.apiKey,
-          'X-Sonarr-Client': 'Sonarr',
+          'X-Api-Key': window.Mangarr.apiKey,
+          'X-Mangarr-Client': 'Mangarr',
         },
         body: data,
       });
@@ -165,8 +165,8 @@ export const useTestProvider = <T extends ModelBase>(
         path: getQueryPath(`${path}/test`) + getQueryString(queryParams),
         method: 'POST',
         headers: {
-          'X-Api-Key': window.Sonarr.apiKey,
-          'X-Sonarr-Client': 'Sonarr',
+          'X-Api-Key': window.Mangarr.apiKey,
+          'X-Mangarr-Client': 'Mangarr',
         },
         body: data,
       });

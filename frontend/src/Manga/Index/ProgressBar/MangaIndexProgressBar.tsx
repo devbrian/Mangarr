@@ -1,11 +1,39 @@
+// Sonarr divergence: Phase 15 Plan 15-12 — Utilities/Series/getProgressBarKind
+// inlined below per cascade absorption (Plan 15-07 deleted the Utilities/Series/
+// subtree). Behaviour preserved verbatim from Phase 7 Plan 07-04 (status union
+// extended for manga statuses).
 import React from 'react';
 import { useQueueDetailsForSeries } from 'Activity/Queue/Details/QueueDetailsProvider';
 import ProgressBar from 'Components/ProgressBar';
-import { sizes } from 'Helpers/Props';
+import { kinds, sizes } from 'Helpers/Props';
 import { MangaStatus } from 'Manga/Manga';
-import getProgressBarKind from 'Utilities/Series/getProgressBarKind';
 import translate from 'Utilities/String/translate';
 import styles from './MangaIndexProgressBar.css';
+
+function getProgressBarKind(
+  status: string,
+  monitored: boolean,
+  progress: number,
+  isDownloading: boolean
+) {
+  if (isDownloading) {
+    return kinds.PURPLE;
+  }
+
+  if (progress === 100) {
+    return status === 'ended' ||
+      status === 'completed' ||
+      status === 'cancelled'
+      ? kinds.SUCCESS
+      : kinds.PRIMARY;
+  }
+
+  if (monitored) {
+    return kinds.DANGER;
+  }
+
+  return kinds.WARNING;
+}
 
 interface MangaIndexProgressBarProps {
   mangaId: number;

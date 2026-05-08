@@ -1,15 +1,4 @@
-import React from 'react';
-import EpisodeLanguages from 'Episode/EpisodeLanguages';
-import { useEpisodeFile } from './EpisodeFileProvider';
-
-interface EpisodeFileLanguagesProps {
-  episodeFileId: number | undefined;
+// Sonarr divergence: Phase 15 Plan 15-12 — STUB.
+export default function EpisodeFileLanguages(_props: Record<string, unknown>) {
+  return null;
 }
-
-function EpisodeFileLanguages({ episodeFileId }: EpisodeFileLanguagesProps) {
-  const episodeFile = useEpisodeFile(episodeFileId);
-
-  return <EpisodeLanguages languages={episodeFile?.languages ?? []} />;
-}
-
-export default EpisodeFileLanguages;

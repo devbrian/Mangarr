@@ -120,7 +120,7 @@ The bug class was first surfaced in Phase 6 — Plan 06-06 wired `MangaRssSyncCo
 
 ## Common Commands
 
-(See [Sonarr.Api.V5/CLAUDE.md](../../Sonarr.Api.V5/CLAUDE.md) for the user-callable list.)
+(See [Mangarr.Api.V5/CLAUDE.md](../../Mangarr.Api.V5/CLAUDE.md) for the user-callable list.)
 
 `RefreshSeries`, `RescanSeries`, `EpisodeSearch`, `SeasonSearch`, `SeriesSearch`, `RssSync`, `RenameFiles`, `Backup`, `ApplicationUpdate`, `Housekeeping`, `MessagingCleanup`, `CheckHealth`, etc.
 
@@ -139,4 +139,4 @@ All subscribers (`IHandle<X>`) update accordingly.
 - [../Tv/Events/](../Tv/Events/) — Series-specific events
 - [../MediaFiles/Events/](../MediaFiles/Events/) — File-specific events
 - [../../NzbDrone.SignalR/CLAUDE.md](../../NzbDrone.SignalR/CLAUDE.md) — Translates these events to SignalR pushes
-- [../../Sonarr.Api.V5/Commands/](../../Sonarr.Api.V5/Commands/) — REST endpoint for commands
+- [../../Mangarr.Api.V5/Commands/](../../Mangarr.Api.V5/Commands/) — REST endpoint for commands

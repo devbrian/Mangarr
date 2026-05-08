@@ -1,20 +1,19 @@
 using NzbDrone.Core.Parser.Model;
-using NzbDrone.Core.Tv;
 
 namespace NzbDrone.Core.MediaFiles.ChapterArchiving
 {
     /// <summary>
     /// Phase 4 — DTO carrying everything an archiver + metadata writer needs for ONE chapter.
     /// Constructed by <c>ChapterDownloadService</c> (plan 04-03) just before invoking
-    /// <see cref="IChapterArchiver.ArchiveAsync"/>. Phase 8 collapse: <c>Manga</c>+<c>Chapter</c>
-    /// fields type-rename when the domain rename runs; structure stays.
+    /// <see cref="IChapterArchiver.ArchiveAsync"/>.
+    ///
+    /// Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — Manga / Chapter properties
+    /// retyped from TV (Series / Episode) to manga domain types per Plan 15-03 Tv/ DELETE.
     /// </summary>
     public sealed class ChapterArchiveRequest
     {
-        // Phase 8 will rename Series → Manga / Episode → Chapter. Phase 4 uses the existing
-        // TV-shaped property types because the rename is centralized at Phase 8.
-        public Series Manga { get; init; }
-        public Episode Chapter { get; init; }
+        public NzbDrone.Core.Manga.Manga Manga { get; init; }
+        public NzbDrone.Core.Manga.Chapter Chapter { get; init; }
         public ReleaseInfo Release { get; init; }
 
         /// <summary><c>Config.DownloadScratchPath</c>/<c>{ChapterDownloadState.Id}</c>/ — pages live here.</summary>

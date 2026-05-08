@@ -23,7 +23,7 @@ Parallel manga decision-engine pipeline per Phase 5 D-05 — sibling to the TV `
 - **D-08 comparer ordering**: Language rank → CF score → Indexer priority → Age → Size. Indexer priority promoted above age/size per user direction (source-stability matters more than freshness at human-library scale).
 
 ## Manga Adaptation Notes
-This is a NEW manga-side directory mirroring `DecisionEngine/` (TV). Sonarr's TV spec set takes `RemoteEpisode`; manga specs take `RemoteChapter`. The 11-spec set per D-06 covers all release-evaluation concerns:
+This is a NEW manga-side directory mirroring `DecisionEngine/` (TV). Mangarr's TV spec set takes `RemoteEpisode`; manga specs take `RemoteChapter`. The 11-spec set per D-06 covers all release-evaluation concerns:
 - 5 core gates: Monitored Manga / Chapter, ChapterRequested, AlreadyImportedChapter, Blocklist
 - 1 language gate (NEW — no TV analog): LanguageInTranslationProfile (TPROFILE outer enforcer per cf-only-walkthrough.md verdict)
 - 1 CF gate: CustomFormatMinimumScore (CF inner enforcer — reads MinFormatScore + MaxFormatScore from CustomFormatProfile)
@@ -37,5 +37,5 @@ When `Tv/` deletes in Phase 8, this directory collapses into the canonical `Deci
 - [Phase 5 RESEARCH](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-RESEARCH.md) — Pitfall 5 (F-01-class regression mitigation), Pitfall 6 (cross-injection guard)
 - [Phase 5 PATTERNS-MAP](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-PATTERNS.md) — Adaptation Hotspots 1, 3, 6
 - [cf-only-walkthrough.md](../../../../.planning/decisions/cf-only-walkthrough.md) — verdict signoff 2026-05-01
-- [Sonarr DownloadDecisionMaker](../DownloadDecisionMaker.cs)
+- [Mangarr DownloadDecisionMaker](../DownloadDecisionMaker.cs)
 - [DIVERGENCE.md](../../../../../DIVERGENCE.md) — Phase 5 D-05 entry (added in Wave 4 plan 05-07)

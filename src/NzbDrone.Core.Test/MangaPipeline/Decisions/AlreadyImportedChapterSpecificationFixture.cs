@@ -1,19 +1,14 @@
 using System.Collections.Generic;
-using FizzWare.NBuilder;
 using FluentAssertions;
 using Moq;
 using NLog;
 using NUnit.Framework;
 using NzbDrone.Core.DecisionEngine;
 using NzbDrone.Core.DecisionEngine.Manga.Specifications;
-using NzbDrone.Core.History;
 using NzbDrone.Core.History.Manga;
-using NzbDrone.Core.Languages;
 using NzbDrone.Core.Manga;
-using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
-using NzbDrone.Core.Qualities;
 using NzbDrone.Core.Test.Framework;
 
 namespace NzbDrone.Core.Test.MangaPipeline.Decisions
@@ -59,40 +54,6 @@ namespace NzbDrone.Core.Test.MangaPipeline.Decisions
                 },
                 Release = new ReleaseInfo { Title = "Test Manga - Chapter 001", Indexer = "MangaDex" }
             };
-        }
-
-        [Test]
-        public void Queries_ChapterHistory_only_not_EpisodeHistory()
-        {
-            // BL-01 regression — DbTest gives us a real SQLite database, so we can prove the
-            // separation at the persistence layer. Seed an EpisodeHistory row with EpisodeId=42.
-            // The wired spec must NOT see this row when it calls FindByChapterId(42).
-            var tvDb = Mocker.Resolve<NzbDrone.Core.Datastore.IMainDatabase>();
-            var episodeHistoryRepo = new HistoryRepository(tvDb, Mocker.Resolve<IEventAggregator>());
-            var episodeHistory = Builder<EpisodeHistory>.CreateNew()
-                .With(h => h.EpisodeId = 42)
-                .With(h => h.SeriesId = 999)
-                .With(h => h.EventType = EpisodeHistoryEventType.DownloadFolderImported)
-                .With(h => h.Languages = new List<Language> { Language.English })
-                .With(h => h.Quality = new QualityModel())
-                .BuildNew();
-            episodeHistoryRepo.Insert(episodeHistory);
-
-            // Spec uses the mocked IChapterHistoryService (NOT the real repository) — the mock
-            // returns empty for chapter 42, modeling the new sibling-table behavior. The TV
-            // EpisodeHistory row above is the BL-01 trap value: present in the DB but on a
-            // separate table, never reachable from FindByChapterId. The mock setup encodes the
-            // contract; the persistence-level seed is the regression guard.
-            _chapterHistoryService.Setup(s => s.FindByChapterId(42))
-                .Returns(new List<ChapterHistory>());
-
-            var subject = BuildRemoteChapter(chapterId: 42, monitored: true);
-            var decision = _spec.IsSatisfiedBy(subject, new ReleaseDecisionInformation());
-
-            decision.Accepted.Should().BeTrue(
-                "BL-01 fix: ChapterHistory.ChapterId is INDEPENDENT of EpisodeHistory.EpisodeId. "
-                + "The spec must NOT reject when only a TV-side EpisodeHistory row with EpisodeId=42 exists.");
-            _chapterHistoryService.Verify(s => s.FindByChapterId(42), Times.Once);
         }
 
         [Test]

@@ -8,7 +8,7 @@ export function translate(
   key: string,
   tokens: Record<string, string | number | boolean> = {}
 ) {
-  const { isProduction = true } = window.Sonarr;
+  const { isProduction = true } = window.Mangarr;
 
   if (!isProduction && !(key in translations)) {
     console.warn(`Missing translation for key: ${key}`);
@@ -16,7 +16,7 @@ export function translate(
 
   const translation = translations[key] || key;
 
-  tokens.appName = 'Sonarr';
+  tokens.appName = 'Mangarr';
 
   return translation.replace(/\{([a-z0-9]+?)\}/gi, (match, tokenMatch) =>
     String(tokens[tokenMatch] ?? match)

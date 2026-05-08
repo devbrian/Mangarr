@@ -12,17 +12,23 @@ namespace NzbDrone.Common.Extensions
     public static class PathExtensions
     {
         private const string APP_CONFIG_FILE = "config.xml";
-        private const string DB = "sonarr.db";
-        private const string DB_RESTORE = "sonarr.restore";
+
+        // Sonarr divergence: Phase 15 D-08 carry-forward (smoke-15-08-2026-05-08 finding F-B) —
+        // canonical DB file flipped sonarr.db -> mangarr.db. Legacy filename retained as
+        // LEGACY_DB so AppFolderFactory.MigrateAppDataFolder() can detect + rename in-place
+        // for any pre-Phase-15 install. No data loss.
+        private const string DB = "mangarr.db";
+        private const string LEGACY_DB = "sonarr.db";
+        private const string DB_RESTORE = "mangarr.restore";
         private const string LOG_DB = "logs.db";
         private const string NLOG_CONFIG_FILE = "nlog.config";
-        private const string UPDATE_CLIENT_EXE_NAME = "Sonarr.Update";
+        private const string UPDATE_CLIENT_EXE_NAME = "Mangarr.Update";
 
         private static readonly string UPDATE_SANDBOX_FOLDER_NAME = "sonarr_update" + Path.DirectorySeparatorChar;
-        private static readonly string UPDATE_PACKAGE_FOLDER_NAME = "Sonarr" + Path.DirectorySeparatorChar;
+        private static readonly string UPDATE_PACKAGE_FOLDER_NAME = "Mangarr" + Path.DirectorySeparatorChar;
         private static readonly string UPDATE_BACKUP_FOLDER_NAME = "sonarr_backup" + Path.DirectorySeparatorChar;
         private static readonly string UPDATE_BACKUP_APPDATA_FOLDER_NAME = "sonarr_appdata_backup" + Path.DirectorySeparatorChar;
-        private static readonly string UPDATE_CLIENT_FOLDER_NAME = "Sonarr.Update" + Path.DirectorySeparatorChar;
+        private static readonly string UPDATE_CLIENT_FOLDER_NAME = "Mangarr.Update" + Path.DirectorySeparatorChar;
         private static readonly string UPDATE_LOG_FOLDER_NAME = "UpdateLogs" + Path.DirectorySeparatorChar;
 
         public static string CleanFilePath(this string path)
@@ -383,6 +389,13 @@ namespace NzbDrone.Common.Extensions
         public static string GetDatabase(this IAppFolderInfo appFolderInfo)
         {
             return Path.Combine(GetAppDataPath(appFolderInfo), DB);
+        }
+
+        // Sonarr divergence: Phase 15 D-08 — pre-rename DB filename used for in-place rename
+        // detection in AppFolderFactory.MigrateAppDataFolder() (smoke-15-08-2026-05-08 F-B).
+        public static string GetLegacyDatabase(this IAppFolderInfo appFolderInfo)
+        {
+            return Path.Combine(GetAppDataPath(appFolderInfo), LEGACY_DB);
         }
 
         public static string GetDatabaseRestore(this IAppFolderInfo appFolderInfo)

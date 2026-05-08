@@ -232,3 +232,118 @@ The Phase 8 collapse plan above is the single source of truth for the rename-and
 *Last updated: 2026-05-03 (Phase 6 plan 06-10 — appended 8 Phase 6 entries: KomgaNotificationSettings (LibraryId REQUIRED per Pitfall 2), KomgaLibrary DTO, IKomgaProxy + KomgaProxy with X-API-Key auth, KomgaService.Test connectivity probe, KomgaNotification provider implementing ONLY OnChapterImport per D-18 with MediaServerUpdateQueue 5s debounce per LibraryId per Pattern 7, MediaServerUpdateQueue info-only overloads (Rule 3 — existing Series-coupled API doesn't fit manga readers; TV regression zero), Notifications/Komga/CLAUDE.md, CONTEXT.md D-15 correction note appending RESEARCH Q-1 reality (Komga has NO scan-all endpoint))*
 *Last updated: 2026-05-04 (Phase 6 plan 06-11 — appended 6 Phase 6 entries: KavitaNotificationSettings (LibraryId OPTIONAL per D-16 — Kavita has scan-all unlike Komga), KavitaAuthResponse DTO, IKavitaProxy + KavitaProxy with two-step Bearer JWT auth + 30-min ICacheManager cache + 401 reauth-and-retry-once per RESEARCH Pattern 6 + Example 4, KavitaService.Test connectivity probe forcing fresh auth, KavitaNotification provider implementing ONLY OnChapterImport per D-18 with MediaServerUpdateQueue 5s debounce per LibraryId per Pattern 7 + sentinel 0 for scan-all dedup, Notifications/Kavita/CLAUDE.md)*
 *Last updated: 2026-05-04 (Phase 6 plan 06-13 — appended 1 row covering the 4 newly-created parent CLAUDE.md files + 4 extended existing CLAUDE.md files (Phase 6 Manga Siblings cross-reference subsections); added Phase 6 — Closing Notes subsection summarizing the 10 divergence categories and the Phase 8 collapse plan as the single source of truth for the rename-and-delete pass; verification at Phase 6 close documented inline)*
+
+## Phase 15 — Domain Rename + Rebrand (Plan 15-08 Wave 4 close 2026-05-08)
+
+Phase 15 crosses the hard-fork threshold. Domain rename (`Series` → `Manga`, `Episode` → `Chapter`, `Season` → no peer) + brand rename (`Sonarr` → `Mangarr`) + tree restructuring landed atomically across 11 wave-letters. After Phase 15 closes, "Mangarr" is the canonical project name across artifacts.
+
+### Intentional Sonarr-named survivors
+
+The following Sonarr-named artifacts are PRESERVED in the Mangarr tree (these are intentional, not oversights):
+
+1. **`NzbDrone.*` directory + namespace prefix** (per D-06) — the historic in-source layer carries the NzbDrone breadcrumb. csproj filenames + AssemblyName/DLL output rebrand to `Mangarr.*`. Three layers of fork heritage: NzbDrone (in source), Sonarr (rebranded by upstream then deleted), Mangarr (current). Reads as: "Mangarr is the canonical assembly name; NzbDrone is the historic in-source layer." This was a deliberate user choice over (a) restoring csproj names to NzbDrone.* (true-three-tuple-aligned) and (b) sweeping namespaces all the way to Mangarr.* (single canonical name, loses fork-heritage).
+
+2. **`// Sonarr divergence:` inline comment markers** (per D-09 Pattern S2) — every NEW manga-domain file across Phases 2-7 carries this comment. They are reference markers ("this code diverged from upstream Sonarr at point X"), NOT user-facing branding. The upstream IS Sonarr — rebranding to "Mangarr divergence" would be semantically wrong. Comment-block grep for the verbatim string stays useful for upstream-merge research. Plan 15-08 Wave 4 string sweep filter excluded files containing this marker (553 markers preserved verbatim across all file types; 365 in C# alone).
+
+3. **`// TODO: Phase 8` literal markers in `001_mangarr_baseline.cs`** — historical text preserved verbatim even though Phase 15 supersedes Phase 8 in the plan numbering (the markers were named when the cutover phase was numbered 8; literal text retagged to `Phase 15 D-22` attribution per Plan 15-02 but original "Phase 8" text in the comment remains for grep fidelity).
+
+4. **D-27 PRESERVE catalog** — five categories of Sonarr-named refs kept as factual / upstream-coupled / packaging-coupled identifiers:
+   - **(a) Upstream-Sonarr-via-apt test runtime** — `apt.sonarr.tv` repo + `sonarr` apt-package + `sonarrtst` test user in `docker/`; preserved because mono-runtime test isolation requires the upstream apt feed. Defer disposition to Phase 16+ when Mangarr ships its own apt feed (or v1.x deletes the apt-based test path entirely).
+   - **(b) `Sonarr/Sonarr` GitHub repo guards** in 6 workflows (`.github/workflows/*.yml` `if:` clauses gating CI behavior on `github.repository == 'Sonarr/Sonarr'`); preserved because the upstream-sync flow keeps `v5-develop` tracking upstream Sonarr v5. Defer disposition to Phase 16 closing (when repo rename lands) or v1.x upstream-sync-cadence decision.
+   - **(c) Bare `services.sonarr.tv` URL strings** (factual references to the upstream Sonarr cloud service; rebranding would be semantically wrong). The `Cloud/SonarrCloudRequestBuilder.cs` itself was DELETED per D-21, but URL string mentions in code/docs/CI remain. Defer disposition to repo rename (Phase 16 closing).
+   - **(d) Binary-coupled refs in 9 places** — file-system identifiers that couple to the binary `Sonarr.exe` / `Mangarr.exe` rename in Phase 15 D-08 — Plan 15-08 Wave 4 SWEPT this category atomically with the service rename + AppFolderInfo paths.
+   - **(e) Packaging-coupled system identifiers in 15 places** — Inno Setup `sonarr.iss` env-var triplet + product GUIDs + Windows service installer constants + Linux package post-install scripts; documented as Plan 15-09 Wave 5 atomic per Pitfall 7 + L-11 (Inno Setup env-var triplet `build_v5.yml` + `sonarr.iss` + `build.bat` must rename together because Inno Setup pre-processor reads env vars at build time).
+
+5. **`.planning/reference/sonarr-vertical-slices/`** (per D-26) — three v2-deferred features (`import-lists/`, `calendar/`, `notifications-extra/`) preserved as Sonarr vertical-slice references for v1.x/v2 manga peer translation. Per `.gitattributes linguist-detectable=false`, GitHub language stats exclude these files.
+
+6. **`sentry.sonarr.tv` Sentry DSN endpoints in `NzbDroneLogger.cs`** — Sentry DSNs point to upstream Sonarr's Sentry instance. Mangarr does NOT have its own Sentry endpoint; deferred to Phase 16+ infrastructure decision (similar to D-27 (c) services.sonarr.tv class). Plan 15-08 Wave 4 left these unchanged per case-sensitive `\bSonarr\b` regex (`sonarr.tv` is lowercase).
+
+### Hard-fork threshold marker (Phase 15 close)
+
+After Phase 15 closes, Mangarr's solution file is `src/Mangarr.sln`; the canonical assembly names are `Mangarr.Common.dll` / `Mangarr.Core.dll` / `Mangarr.Host.dll` / `Mangarr.Console.dll` / `Mangarr.Api.V5.dll` / `Mangarr.Http.dll` / `Mangarr.SignalR.dll` / `Mangarr.RuntimePatches.dll` / `Mangarr.Mono.dll` / `Mangarr.Windows.dll` / `Mangarr.Update.dll`. The default data dir is `~/.config/Mangarr` (Linux/Mac) or `C:\ProgramData\Mangarr` (Windows). The Windows service is `Mangarr.exe`. The Mangarr application reads from `MANGARR__LOG__CONSOLEFORMAT` env-var prefix (Plan 15-08 Wave 4). Mangarr is no longer "a Sonarr fork that hasn't fully renamed itself"; it has fully crossed the hard-fork threshold.
+
+### Two-layer-NzbDrone-preserved (D-06)
+
+Reads as: "Mangarr is the canonical assembly name; NzbDrone is the historic in-source layer (Sonarr → NzbDrone breadcrumb survives in directory + namespace)." This was a deliberate user choice over (a) restoring csproj names to NzbDrone.* (true-three-tuple-aligned) and (b) sweeping namespaces all the way to Mangarr.* (single canonical name, loses fork-heritage). Reflects an aesthetic + heritage-respect choice. Reference Preservation Policy aligns with this — the fork's debt to Sonarr is acknowledged in tree shape AND in `.planning/reference/sonarr-vertical-slices/` directory of v2-deferred-feature sources for translation.
+
+### Surgical class-prefix renames (Plan 15-08 Wave 4)
+
+The `\bSonarr\b` word-boundary regex in the Wave 4 string sweep does NOT match `Sonarr<UpperCase>` class-prefix identifiers (the `r` and `<UpperCase>` are both word chars so `\b` doesn't match between them). Surgical-rename pass identified and renamed:
+
+- `SonarrStartupException` (file + class + 7 consumers) → `MangarrStartupException`
+- `SonarrErrorPipeline` (file + class + 3 consumers) → `MangarrErrorPipeline` (Phase 14 row 5 surgical-rename + this plan discovered an additional instance beyond the documented `SonarrExe` + `SonarrStartupException` pair)
+- `SonarrExe` private property in `src/ServiceHelpers/{ServiceInstall,ServiceUninstall}/ServiceHelper.cs` → `MangarrExe`
+
+`SonarrCloudRequestBuilder` references remain only inside Pattern S2 comment markers (the `Cloud/SonarrCloudRequestBuilder.cs` file itself was deleted per D-21).
+
+### Phase 15 Plan 15-09 close-out — F-A (Donate href) + F-B (DB filename) decisions
+
+Plan 15-09 close-out absorbed two carry-forward findings from the Plan 15-08 post-rebrand
+smoke (`smoke-15-08-2026-05-08/SMOKE-FINDINGS.md`):
+
+**F-A — Donate link href**: Header "Donate" icon's `to` URL still pointed at
+`https://sonarr.tv/donate.html` after Plan 15-08's `\bSonarr\b` sweep (Pattern S2
+filter excluded the URL string per case-sensitive lowercase). Plan 15-09 explicit
+decision: **PRESERVE the URL as upstream-Sonarr acknowledgment.** Mangarr is a fork
+of Sonarr; routing user contributions to the upstream project's donate page honors
+PROJECT.md design philosophy ("preserve Sonarr's shape wherever it works") and
+Reference Preservation Policy. Implementation: `frontend/src/Components/Page/Header/PageHeader.tsx`
+aria-label + title flipped from `translate('Donate')` to `translate('DonateToSonarr')`
+("Donate to Sonarr (Mangarr's upstream project)") so screen-reader + tooltip clearly
+signal the destination. Inline comment cites this decision. The acknowledgment-page
+link in `frontend/src/System/Status/MoreInfo/MoreInfo.tsx` (visible label: `sonarr.tv/donate`,
+alongside the upstream `#sonarr` IRC channel) was left UNCHANGED — that page is
+already an upstream-acknowledgment context.
+
+**F-B — DB filename**: Plan 15-08 D-08 cutover flipped the AppData FOLDER (`AppFolderInfo.cs`)
+from `~/.config/Sonarr` / `C:\ProgramData\Sonarr` to `~/.config/Mangarr` / `C:\ProgramData\Mangarr`
+but the DB FILE constant (`PathExtensions.DB`) still hardcoded `"sonarr.db"`. Plan 15-09
+fix: const flipped to `"mangarr.db"`; legacy const `LEGACY_DB = "sonarr.db"` retained for
+the in-place migrator; `AppFolderFactory.MigrateAppDataFolder()` prepended with a
+`sonarr.db -> mangarr.db` rename step (runs BEFORE the existing `nzbdrone.db -> {DB}`
+migrator); `BackupService` post-backup-zip cleanup file flipped to `mangarr.db-journal`;
+backup `Restore()` accepts both legacy `sonarr.db` AND canonical `mangarr.db` filenames
+inside zip archives (legacy backup zips still restorable). DB_RESTORE const flipped
+`sonarr.restore -> mangarr.restore` (no other refs).
+
+### Phase 15 Plan 15-09 close-out — fix-forward Sonarr-string sweep
+
+Plan 15-09 mangarr-phase-smoke-test full pipeline app-boot stdout grep surfaced 6
+user-visible Sonarr-string survivors that Wave 4 string sweep (Plan 15-08) missed
+— likely batch-list truncation surfaced in Plan 15-08 SUMMARY (\bSonarr\b sweep
+covered 7000+ files; bash batching via xargs is sensitive to LOC budget). Per D-04
+fix-forward authority + Plan 15-09 explicit close-out scope, the gaps were flipped
+inline:
+
+- `NzbDrone.Host/Bootstrap.cs` — "Starting Sonarr" log + "Sonarr has shut down completely"
+  log + "Please delete the config file and Sonarr will recreate it." exception message
+  + 14 config-section prefixes "Sonarr:" -> "Mangarr:" (these bind env-var prefix
+  MANGARR__ to .NET ConfigurationBuilder keys; if left as "Sonarr:" the env-var
+  override path silently fails)
+- `NzbDrone.Host/Startup.cs` — Swagger Title "Sonarr" -> "Mangarr"; Description
+  "Sonarr API docs..." -> "Mangarr API docs..."; License URL
+  `https://github.com/Sonarr/Sonarr/blob/develop/LICENSE` PRESERVED per D-27 (b)
+  (factual GPL-3.0 inheritance / upstream attribution)
+- `NzbDrone.Core/Notifications/NotificationBase.cs` — 4 branded notification title
+  prefixes "Sonarr - {Import Complete|Health Check Failure|Health Check Restored|
+  Application Updated}" -> "Mangarr - ..."
+- `NzbDrone.Core/Notifications/NotificationService.cs` — UpdateInstalled message
+  "Sonarr updated from..." -> "Mangarr updated from..."
+- `NzbDrone.Test.Common/NzbDroneRunner.cs` — 6 "Sonarr__Postgres__*" env-var names
+  -> "Mangarr__Postgres__*" (test runner now matches production env-var prefix)
+
+### Phase 15 Plan 15-09 close-out — D-28 REG-DUMP hook
+
+Phase 14 R-1e-bundled-5 specced a DryIoc REG-DUMP capture hook in
+`src/NzbDrone.Common/Composition/Extensions.cs` but the hook never landed on Mangarr-v0.
+Plan 15-09 closes the gap: env-var-gated (`MANGARR__REGDUMP=<path>`) one-shot dump
+of `container.GetServiceRegistrations()` in baseline format "REG-DUMP: <iface> ->
+<impl> [<reuse>]". Zero-cost in production (no-op when env var unset). Captured
+artifact at Plan 15-09 close: `regdump-wave-C.txt` (3113 entries; +1114 vs Phase 14
+baseline 1999 — capture-method-delta, not accidental duplicate registration; verified
+via Pattern κ static audit returning 0 violations on Series/Episode/Season interfaces).
+
+---
+*Last updated: 2026-05-08 (Phase 15 plan 15-08 Wave 4 — appended Phase 15 closing section: intentional Sonarr-named survivors (6 categories); hard-fork threshold marker; Two-layer-NzbDrone-preserved rationale (D-06); surgical class-prefix renames record (SonarrStartupException + SonarrErrorPipeline + SonarrExe))*
+
+*Last updated: 2026-05-08 (Phase 15 plan 15-09 Wave 5 close-out — appended F-A (Donate href: PRESERVE as upstream-acknowledgment) + F-B (DB filename: sonarr.db -> mangarr.db + in-place migrator) decisions + fix-forward Sonarr-string sweep (Bootstrap.cs + Startup.cs + NotificationBase.cs + NotificationService.cs + NzbDroneRunner.cs) + D-28 REG-DUMP hook closure)*

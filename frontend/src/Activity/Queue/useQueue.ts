@@ -1,8 +1,8 @@
 // Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType discriminator added — see DIVERGENCE.md.
-// Default 'series' preserves all existing TV call-sites unchanged. Manga callers pass 'manga'
-// (currently the MangaQueue thin wrapper at /manga/activity/queue) which switches the URL to
-// /manga/queue and the React Query key to ['/manga/queue'] so SignalR invalidations namespace
-// cleanly per Plan 07-02 (Pitfall 5 — TV/manga cache MUST NOT collide). Phase 8 collapses.
+// Phase 15 Plan 15-07 Wave 3 (Sub-step F option (a)): default flipped 'series' -> 'manga' since
+// TV is gone post-cutover; the type union 'series' | 'manga' collapsed to 'manga' (preserves the
+// discriminator type for v2 reintroduction). The /queue URL branch is dead code now but the
+// conditional is left in place so v2 can flip the union back without re-deriving the URL switch.
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Filter, FilterBuilderProp } from 'Filters/Filter';
@@ -17,7 +17,7 @@ import findSelectedFilters from 'Utilities/Filter/findSelectedFilters';
 import translate from 'Utilities/String/translate';
 import { useQueueOptions } from './queueOptionsStore';
 
-export type QueueMediaType = 'series' | 'manga';
+export type QueueMediaType = 'manga';
 
 interface BulkQueueData {
   ids: number[];
@@ -81,7 +81,7 @@ export const FILTER_BUILDER: FilterBuilderProp<Queue>[] = [
   },
 ];
 
-const useQueue = (mediaType: QueueMediaType = 'series') => {
+const useQueue = (mediaType: QueueMediaType = 'manga') => {
   const { page, goToPage } = usePage('queue');
   const { pageSize, selectedFilterKey, sortKey, sortDirection } =
     useQueueOptions();

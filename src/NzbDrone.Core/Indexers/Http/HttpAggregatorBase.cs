@@ -7,7 +7,7 @@ using NzbDrone.Common.Http;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.Localization;
-using NzbDrone.Core.Parser;
+using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Indexers.Http
@@ -62,7 +62,7 @@ namespace NzbDrone.Core.Indexers.Http
             IIndexerStatusService indexerStatusService,
             IIndexerSourceStatusService sourceStatusService,
             IConfigService configService,
-            IParsingService parsingService,
+            IMangaParsingService parsingService,
             Logger logger,
             ILocalizationService localizationService)
             : base(httpClient, indexerStatusService, configService, parsingService, logger, localizationService)
@@ -100,7 +100,7 @@ namespace NzbDrone.Core.Indexers.Http
 
         /// <summary>
         /// Honest User-Agent format per D-13: hard-coded <c>"Mangarr/"</c> prefix + assembly version
-        /// (major.minor). Does NOT use <see cref="BuildInfo.AppName"/> which still reads "Sonarr"
+        /// (major.minor). Does NOT use <see cref="BuildInfo.AppName"/> which still reads "Mangarr"
         /// until Phase 8 rebrand.
         /// </summary>
         protected virtual string BuildUserAgent()

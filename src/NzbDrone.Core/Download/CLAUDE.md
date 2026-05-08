@@ -72,7 +72,7 @@ Releases awaiting delay-profile timeout / preferred-protocol cooldown:
 |------|---------|
 | `PendingReleaseService.cs` | Add / process pending |
 | `PendingRelease.cs` | DB entity |
-| `PendingReleasesController.cs` (under `Sonarr.Api.V5`) | UI access |
+| `PendingReleasesController.cs` (under `Mangarr.Api.V5`) | UI access |
 
 ### `Extensions/`
 Shared utilities (`MagnetLink.cs`, `TorrentBitfield.cs`, etc.).

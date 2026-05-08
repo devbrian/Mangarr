@@ -10,3 +10,8 @@ distribution/osx/Sonarr text eol=lf
 # Custom for Visual Studio
 *.cs     diff=csharp
 *.sln    merge=union
+
+# Reference Preservation Policy (Phase 15 D-26): exclude preserved Sonarr vertical slices
+# from GitHub language statistics — these files are read-only reference for v1.x/v2 translation,
+# not part of the active Mangarr codebase.
+.planning/reference/** linguist-detectable=false

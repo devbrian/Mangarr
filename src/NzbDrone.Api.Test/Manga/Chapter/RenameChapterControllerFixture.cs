@@ -1,15 +1,14 @@
 using System;
 using System.Collections.Generic;
 using FluentAssertions;
+using Mangarr.Api.V5.Manga.Chapter;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Test.Common;
-using Sonarr.Api.V5.Manga.Chapter;
-using Sonarr.Http;
-using Sonarr.Http.REST;
-
 namespace NzbDrone.Api.Test.Manga.Chapter
 {
     // Sonarr divergence: NEW manga V5 controller fixture per Phase 13 Plan 13-06 (Wave 4 —
@@ -22,7 +21,7 @@ namespace NzbDrone.Api.Test.Manga.Chapter
     // Phase 6 + Phase 12 V5 controller fixtures.
     //
     // Fixture lives under NzbDrone.Api.Test (NOT NzbDrone.Core.Test) because Sonarr.Core.Test
-    // does not project-reference Sonarr.Api.V5; Sonarr.Api.Test does. Same convention as
+    // does not project-reference Mangarr.Api.V5; Sonarr.Api.Test does. Same convention as
     // every other src/NzbDrone.Api.Test/Manga/**/*Fixture.cs.
     //
     // Per-plan unit-test filter (D-13-12-style): dotnet test --filter

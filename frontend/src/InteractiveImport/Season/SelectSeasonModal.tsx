@@ -1,28 +1,4 @@
-import React from 'react';
-import Modal from 'Components/Modal/Modal';
-import SelectSeasonModalContent from './SelectSeasonModalContent';
-
-interface SelectSeasonModalProps {
-  isOpen: boolean;
-  modalTitle: string;
-  seriesId?: number;
-  onSeasonSelect(seasonNumber: number): void;
-  onModalClose(): void;
+// Sonarr divergence: Phase 15 Plan 15-12 — STUB.
+export default function SelectSeasonModal(_props: Record<string, unknown>) {
+  return null;
 }
-
-function SelectSeasonModal(props: SelectSeasonModalProps) {
-  const { isOpen, modalTitle, seriesId, onSeasonSelect, onModalClose } = props;
-
-  return (
-    <Modal isOpen={isOpen} onModalClose={onModalClose}>
-      <SelectSeasonModalContent
-        modalTitle={modalTitle}
-        seriesId={seriesId}
-        onSeasonSelect={onSeasonSelect}
-        onModalClose={onModalClose}
-      />
-    </Modal>
-  );
-}
-
-export default SelectSeasonModal;

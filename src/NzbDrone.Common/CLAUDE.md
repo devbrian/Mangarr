@@ -68,7 +68,7 @@ Platform-specific overrides live in `NzbDrone.Mono` (Linux/Mac) and `NzbDrone.Wi
 ### Serialization (`Serializer/`)
 | Subdirectory | Purpose |
 |--------------|---------|
-| `Newtonsoft.Json/` | `Json.cs` (Sonarr's main serializer) + converters (`HttpUriConverter`, `UnderscoreStringEnumConverter`, etc.) |
+| `Newtonsoft.Json/` | `Json.cs` (Mangarr's main serializer) + converters (`HttpUriConverter`, `UnderscoreStringEnumConverter`, etc.) |
 | `System.Text.Json/` | `STJson.cs` + converters for HttpUri, TimeSpan, Utc datetime, Version |
 
 ### Threading / Concurrency (`TPL/`)
@@ -98,7 +98,7 @@ Vendored fluent argument-validation library: `Ensure.That(x).IsNotNull()`, etc. 
 | `Crypto/` | `HashProvider`, `HashConverter` |
 | `Exceptions/` | `NzbDroneException` (base), `SonarrStartupException` |
 | `OAuth/` | OAuth 1.0a request signing (used by Twitter etc.) |
-| `Cloud/` | `SonarrCloudRequestBuilder` (talks to Services.Sonarr.tv) |
+| `Cloud/` | `SonarrCloudRequestBuilder` (talks to Services.Mangarr.tv) |
 | `Options/` | Strongly-typed CLI option groups |
 | `Globalization/` | `AdditionalDiacriticsProvider` |
 | `Expansive/` | String template expansion (e.g. `${var}`) |
@@ -159,7 +159,7 @@ IRateLimitService      // Per-key throttling
 
 ## Manga Adaptation Notes
 
-This project is **media-agnostic** — all classes are utilities. **No migration changes needed.** The only Sonarr-specific bits:
+This project is **media-agnostic** — all classes are utilities. **No migration changes needed.** The only Mangarr-specific bits:
 - `Cloud/SonarrCloudRequestBuilder.cs` — talks to `services.sonarr.tv`. If Mangarr ever has its own cloud (for metadata/updates), this would be replaced or generalized.
 - `Exceptions/SonarrStartupException.cs` — purely a name; rename when project rebrands.
 

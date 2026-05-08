@@ -88,7 +88,7 @@ public class MyIndexerSettings : IIndexerSettings
 }
 ```
 
-The settings class is reflected over by `Sonarr.Http/ClientSchema/SchemaBuilder.cs` to render the UI form for adding/editing the indexer.
+The settings class is reflected over by `Mangarr.Http/ClientSchema/SchemaBuilder.cs` to render the UI form for adding/editing the indexer.
 
 ### Request Generator
 ```csharp

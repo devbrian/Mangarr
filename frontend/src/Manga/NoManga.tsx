@@ -13,7 +13,9 @@ import React from 'react';
 import Button from 'Components/Link/Button';
 import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import styles from 'Series/NoSeries.css';
+// Sonarr divergence: Phase 15 Plan 15-12 — Series/NoSeries.css copied to Manga/NoManga.css
+// (Plan 15-07 deleted Series subtree). CSS class names + sizes preserved verbatim.
+import styles from './NoManga.css';
 
 interface NoMangaProps {
   totalItems: number;

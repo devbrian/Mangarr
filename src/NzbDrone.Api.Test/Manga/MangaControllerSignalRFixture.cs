@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using FizzWare.NBuilder;
+using Mangarr.Api.V5.Manga;
+using Mangarr.Http;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Datastore.Events;
@@ -10,9 +12,6 @@ using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
-using Sonarr.Api.V5.Manga;
-using Sonarr.Http;
-
 namespace NzbDrone.Api.Test.Manga
 {
     // Phase 10 Plan 10-05 fixture: covers the 3 new IHandle dispatch paths added to
@@ -22,8 +21,8 @@ namespace NzbDrone.Api.Test.Manga
     // discipline from MangaMediaCoverServiceFixture (Plan 09-13).
     //
     // Fixture lives under NzbDrone.Api.Test rather than NzbDrone.Core.Test (per the
-    // 10-05 plan's nominal path) because Sonarr.Core.Test does not project-reference
-    // Sonarr.Api.V5; Sonarr.Api.Test does. Same Mocker / TestBase<TSubject> behaviour;
+    // 10-05 plan's nominal path) because Mangarr.Core.Test does not project-reference
+    // Mangarr.Api.V5; Mangarr.Api.Test does. Same Mocker / TestBase<TSubject> behaviour;
     // only the project boundary changes. Documented as Rule 3 deviation in the plan
     // SUMMARY.
     //

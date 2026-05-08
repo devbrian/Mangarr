@@ -4,7 +4,7 @@
 
 The **file pipeline** — disk scanning, importing completed downloads, moving/renaming on import, and lifecycle management of `EpisodeFile` entities. The bridge between "downloaded data on disk" and "linked file on a monitored Episode."
 
-For Mangarr: this is where **CBZ/CBR/image-folder** handling will diverge most from Sonarr's video-file handling.
+For Mangarr: this is where **CBZ/CBR/image-folder** handling will diverge most from Mangarr's video-file handling.
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MediaFiles\`
 
@@ -139,7 +139,7 @@ Series folder path comes from `Tv/SeriesPathBuilder.cs`.
 
 ### Concepts to Adapt
 
-| Sonarr | Mangarr | Notes |
+| Mangarr | Mangarr | Notes |
 |--------|---------|-------|
 | `EpisodeFile` | `ChapterFile` | Different metadata: PageCount, ScanlationGroup, FileFormat (CBZ/CBR/Folder/PDF) |
 | `MediaInfo` (codec, resolution, runtime) | `ChapterInfo` (page count, image format, average DPI) | Different probe |

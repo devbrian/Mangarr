@@ -379,7 +379,7 @@ const THIRTY_MINUTES = 30 * 60 * 1000;
 
 // Phase 7 Plan 07-05 — Manga sibling per RESEARCH Lock #14:
 // ChapterSearchPayload + MangaSearchPayload route to /api/v5/manga/release
-// (Phase 6 MangaReleaseController) instead of the inherited Sonarr /release
+// (Phase 6 MangaReleaseController) instead of the inherited Mangarr /release
 // endpoint. TV variants preserved verbatim.
 function getReleasePath(payload: InteractiveSearchPayload): string {
   if ('chapterId' in payload || 'mangaId' in payload) {
@@ -542,7 +542,7 @@ export const useGrabRelease = () => {
 
 // Phase 12 Plan 12-10 — Sub-wave-B-addition (audit row C closure):
 // Manga-shaped grab override body. MangaReleaseResource (backend
-// src/Sonarr.Api.V5/Manga/Release/MangaReleaseResource.cs) carries no
+// src/Mangarr.Api.V5/Manga/Release/MangaReleaseResource.cs) carries no
 // MappedSeriesId / MappedSeasonNumber / MappedEpisodeInfo / Quality /
 // Languages — manga override surface is intentionally minimal.
 interface MangaOverrideRelease {

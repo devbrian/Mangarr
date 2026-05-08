@@ -2,7 +2,7 @@
 
 ## Purpose
 
-External metadata provider integrations — fetch series/episode info from third-party APIs. Sonarr's primary source is **TVDB** via the **SkyHook** proxy (a Sonarr-hosted API that wraps TVDB).
+External metadata provider integrations — fetch series/episode info from third-party APIs. Mangarr's primary source is **TVDB** via the **SkyHook** proxy (a Mangarr-hosted API that wraps TVDB).
 
 For Mangarr this is a **CRITICAL migration target** — TV metadata sources must be replaced with manga sources (MangaDex, AniList, MyAnimeList, MangaUpdates, etc.).
 
@@ -19,7 +19,7 @@ For Mangarr this is a **CRITICAL migration target** — TV metadata sources must
 ## Subdirectories
 
 ### `SkyHook/`
-The **SkyHook** wrapper for TVDB / TheMovieDB. SkyHook is a Sonarr-hosted shim service at `https://skyhook.sonarr.tv/v1/tvdb/...` that normalizes TVDB/TMDB data into Sonarr's format and handles caching.
+The **SkyHook** wrapper for TVDB / TheMovieDB. SkyHook is a Mangarr-hosted shim service at `https://skyhook.sonarr.tv/v1/tvdb/...` that normalizes TVDB/TMDB data into Mangarr's format and handles caching.
 
 | File | Purpose |
 |------|---------|
@@ -30,7 +30,7 @@ The **SkyHook** wrapper for TVDB / TheMovieDB. SkyHook is a Sonarr-hosted shim s
 
 The proxy:
 - Uses `IHttpClient` to call SkyHook
-- Authenticates with Sonarr API key headers
+- Authenticates with Mangarr API key headers
 - Translates API DTOs to domain `Series` + `List<Episode>`
 - Handles caching, rate limiting, error normalization
 
@@ -108,7 +108,7 @@ A **federated source** approach (combine info from multiple sources, with user-c
 
 ### Skyhook Decommissioning
 
-The Sonarr-hosted SkyHook service is TV-only. For Mangarr, either:
+The Mangarr-hosted SkyHook service is TV-only. For Mangarr, either:
 - (a) Talk to MangaDex/AniList **directly** from the client
 - (b) Build a "MangaHook" cloud proxy that normalizes multiple sources
 
@@ -163,7 +163,7 @@ to keep the registries clean.
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview
 - [../Tv/CLAUDE.md](../Tv/CLAUDE.md) — Series/Episode populated from this
 - [../Tv/RefreshSeriesService.cs](../Tv/RefreshSeriesService.cs) — Caller
-- [../../Sonarr.Api.V5/Series/SeriesLookupController.cs](../../Sonarr.Api.V5/Series/SeriesLookupController.cs) — Search-add UX entrypoint
+- [../../Mangarr.Api.V5/Series/SeriesLookupController.cs](../../Mangarr.Api.V5/Series/SeriesLookupController.cs) — Search-add UX entrypoint
 - [../../../frontend/src/AddSeries/CLAUDE.md](../../../frontend/src/AddSeries/CLAUDE.md) — Frontend "Add" flow
 - [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Manga / Chapter domain models consumed by `IProvideMangaInfo` / `ISearchForNewManga`
 - [../Indexers/Http/HttpAggregatorBase.cs](../Indexers/Http/HttpAggregatorBase.cs) — Sibling Phase 1 base; intentional duplication source

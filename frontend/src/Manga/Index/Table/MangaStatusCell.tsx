@@ -58,7 +58,8 @@ function MangaStatusCell({
 
       <Icon
         className={styles.statusIcon}
-        name={statusDetails.icon}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        name={statusDetails.icon as any}
         title={`${statusDetails.title}: ${statusDetails.message}`}
       />
     </Component>

@@ -17,37 +17,26 @@ import { useIsWindows } from 'System/Status/useSystemStatus';
 import { InputChanged } from 'typings/inputs';
 import { SettingsStateChange } from 'typings/Settings/SettingsState';
 import translate from 'Utilities/String/translate';
-// Sonarr divergence: NEW manga sibling import per Phase 7 D-05 — see DIVERGENCE.md.
-// MangaNaming wires Phase 5 Plan 05-06 /api/v5/config/manganaming endpoints.
+// Sonarr divergence: Phase 15 Plan 15-12 fix-forward — TV `<Naming>` import removed.
+// Plan 15-07's frontend cutover was supposed to delete the TV Naming subtree (per the
+// Settings/MediaManagement/Naming/CLAUDE.md "Phase 8 cleanup" note) but the files
+// survived. The TV `<Naming>` component called `/api/v5/settings/naming` which doesn't
+// exist (V3 NamingSettingsController was deleted in Plan 15-06). The 404 caused a
+// `TypeError: Cannot read properties of undefined (reading 'value')` crash that blanked
+// the entire Settings → Media Management page (F-3 from 2026-05-08 smoke test).
+//
+// Manga naming lives at MangaNaming.tsx + /api/v5/config/manganaming (Phase 5 Plan 05-06)
+// and works fine. The TV Naming child-state slot + handler are also dropped.
 import MangaNaming from './Naming/MangaNaming';
-import Naming from './Naming/Naming';
 import AddRootFolder from './RootFolder/AddRootFolder';
 import {
   MediaManagementSettingsModel,
   useManageMediaManagementSettings,
 } from './useMediaManagementSettings';
 
-const episodeTitleRequiredOptions: EnhancedSelectInputValue<string>[] = [
-  {
-    key: 'always',
-    get value() {
-      return translate('Always');
-    },
-  },
-  {
-    key: 'bulkSeasonReleases',
-    get value() {
-      return translate('OnlyForBulkSeasonReleases');
-    },
-  },
-  {
-    key: 'never',
-    get value() {
-      return translate('Never');
-    },
-  },
-];
-
+// Sonarr divergence: Phase 15 Plan 15-12 fix-forward — `episodeTitleRequiredOptions`
+// and `downloadPropersAndRepacksOptions` consts removed alongside their FormGroups
+// (manga backend doesn't expose those TV-only fields).
 const rescanAfterRefreshOptions: EnhancedSelectInputValue<string>[] = [
   {
     key: 'always',
@@ -65,27 +54,6 @@ const rescanAfterRefreshOptions: EnhancedSelectInputValue<string>[] = [
     key: 'never',
     get value() {
       return translate('Never');
-    },
-  },
-];
-
-const downloadPropersAndRepacksOptions: EnhancedSelectInputValue<string>[] = [
-  {
-    key: 'preferAndUpgrade',
-    get value() {
-      return translate('PreferAndUpgrade');
-    },
-  },
-  {
-    key: 'doNotUpgrade',
-    get value() {
-      return translate('DoNotUpgradeAutomatically');
-    },
-  },
-  {
-    key: 'doNotPrefer',
-    get value() {
-      return translate('DoNotPrefer');
     },
   },
 ];
@@ -150,29 +118,18 @@ function MediaManagement() {
     updateSetting,
   } = useManageMediaManagementSettings();
 
-  const [naming, setNaming] = useState<SettingsStateChange>({
-    isSaving: false,
-    hasPendingChanges: false,
-  });
-
-  // Sonarr divergence: NEW manga-naming child-state slot per Phase 7 D-05 — see DIVERGENCE.md.
-  // The page-level Save button dispatches both the TV naming save AND the manga naming save.
+  // Sonarr divergence: Phase 15 Plan 15-12 fix-forward — TV `naming` child-state slot
+  // dropped. Only manga naming remains (manga-naming child-state slot per Phase 7 D-05).
   const [mangaNaming, setMangaNaming] = useState<SettingsStateChange>({
     isSaving: false,
     hasPendingChanges: false,
   });
 
   const saveSettings = useRef<{
-    naming: () => void;
     mangaNaming: () => void;
   }>({
-    naming: () => {},
     mangaNaming: () => {},
   });
-
-  const handleSetNamingSave = useCallback((saveCallback: () => void) => {
-    saveSettings.current.naming = saveCallback;
-  }, []);
 
   const handleSetMangaNamingSave = useCallback(
     (saveCallback: () => void) => {
@@ -183,7 +140,6 @@ function MediaManagement() {
 
   const handleSavePress = useCallback(() => {
     saveMediaManagementSettings();
-    saveSettings.current.naming();
     saveSettings.current.mangaNaming();
   }, [saveMediaManagementSettings]);
 
@@ -200,22 +156,16 @@ function MediaManagement() {
   return (
     <PageContent title={translate('MediaManagementSettings')}>
       <SettingsToolbar
-        isSaving={isSaving || naming.isSaving || mangaNaming.isSaving}
+        isSaving={isSaving || mangaNaming.isSaving}
         hasPendingChanges={
-          naming.hasPendingChanges ||
-          mangaNaming.hasPendingChanges ||
-          hasPendingChanges
+          mangaNaming.hasPendingChanges || hasPendingChanges
         }
         onSavePress={handleSavePress}
       />
 
       <PageContentBody>
-        <Naming
-          setChildSave={handleSetNamingSave}
-          onChildStateChange={setNaming}
-        />
-
-        {/* Sonarr divergence: NEW manga sibling section per Phase 7 D-05 — see DIVERGENCE.md.
+        {/* Sonarr divergence: Phase 7 D-05 manga sibling; Phase 15 Plan 15-12 fix-forward
+            removed the TV `<Naming />` sibling that called the deleted /api/v5/settings/naming.
             Wires Phase 5 Plan 05-06 `/api/v5/config/manganaming` + presets endpoints. */}
         <MangaNaming
           setChildSave={handleSetMangaNamingSave}
@@ -280,23 +230,12 @@ function MediaManagement() {
 
             {showAdvancedSettings ? (
               <FieldSet legend={translate('Importing')}>
-                <FormGroup
-                  advancedSettings={showAdvancedSettings}
-                  isAdvanced={true}
-                  size={sizes.SMALL}
-                >
-                  <FormLabel>{translate('EpisodeTitleRequired')}</FormLabel>
-
-                  <FormInputGroup
-                    type={inputTypes.SELECT}
-                    name="episodeTitleRequired"
-                    helpText={translate('EpisodeTitleRequiredHelpText')}
-                    values={episodeTitleRequiredOptions}
-                    onChange={handleInputChange}
-                    {...settings.episodeTitleRequired}
-                  />
-                </FormGroup>
-
+                {/* Sonarr divergence: Phase 15 Plan 15-12 fix-forward — EpisodeTitleRequired
+                    field removed. Manga backend MediaManagementSettingsResource doesn't
+                    expose this TV-only setting (chapter titles aren't required-or-not in
+                    the same way episode titles are); reading settings.episodeTitleRequired
+                    .value crashed the form. Phase 8 cleanup: re-introduce a manga-shape
+                    equivalent if the chapter-naming flow needs one. */}
                 <FormGroup
                   advancedSettings={showAdvancedSettings}
                   isAdvanced={true}
@@ -526,30 +465,11 @@ function MediaManagement() {
                 />
               </FormGroup>
 
-              <FormGroup
-                advancedSettings={showAdvancedSettings}
-                isAdvanced={true}
-                size={sizes.MEDIUM}
-              >
-                <FormLabel>{translate('DownloadPropersAndRepacks')}</FormLabel>
-
-                <FormInputGroup
-                  type={inputTypes.SELECT}
-                  name="downloadPropersAndRepacks"
-                  helpTexts={[
-                    translate('DownloadPropersAndRepacksHelpText'),
-                    translate('DownloadPropersAndRepacksHelpTextCustomFormat'),
-                  ]}
-                  helpTextWarning={
-                    settings.downloadPropersAndRepacks.value === 'doNotPrefer'
-                      ? translate('DownloadPropersAndRepacksHelpTextWarning')
-                      : undefined
-                  }
-                  values={downloadPropersAndRepacksOptions}
-                  onChange={handleInputChange}
-                  {...settings.downloadPropersAndRepacks}
-                />
-              </FormGroup>
+              {/* Sonarr divergence: Phase 15 Plan 15-12 fix-forward — DownloadPropersAndRepacks
+                  field removed. Manga backend doesn't expose this TV-only setting
+                  (Propers/Repacks are TV-shape concepts; manga uses CustomFormatProfile
+                  for upgrade decisions); reading settings.downloadPropersAndRepacks.value
+                  crashed the form. Phase 8 cleanup: route through CustomFormatProfile UI. */}
 
               <FormGroup
                 advancedSettings={showAdvancedSettings}

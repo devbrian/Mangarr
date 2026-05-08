@@ -82,7 +82,7 @@ public enum DownloadRejectionReason
     LanguageNotInProfile,
 
     // Phase 5 D-07 — CF inner enforcer upper-bound reject reason (CustomFormatMinimumScoreSpecification).
-    // CustomFormatMinimumScore (lower-bound) already exists on this enum (Sonarr precedent).
+    // CustomFormatMinimumScore (lower-bound) already exists on this enum (Mangarr precedent).
     CustomFormatMaximumScore,
 
     // Phase 5 D-06 — manga core gate reject reasons (manga-side siblings to TV SeriesNotMonitored / EpisodeNotMonitored).

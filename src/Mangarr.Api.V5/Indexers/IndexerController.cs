@@ -1,0 +1,28 @@
+using FluentValidation;
+using Mangarr.Api.V5.Provider;
+using Mangarr.Http;
+using NzbDrone.Core.Indexers;
+using NzbDrone.Core.Validation;
+using NzbDrone.SignalR;
+
+namespace Mangarr.Api.V5.Indexers;
+
+[V5ApiController]
+public class IndexerController : ProviderControllerBase<IndexerResource, IndexerBulkResource, IIndexer, IndexerDefinition>
+{
+    public static readonly IndexerResourceMapper ResourceMapper = new();
+    public static readonly IndexerBulkResourceMapper BulkResourceMapper = new();
+
+    public IndexerController(IBroadcastSignalRMessage signalRBroadcaster,
+        IndexerFactory indexerFactory,
+        DownloadClientExistsValidator downloadClientExistsValidator)
+        : base(signalRBroadcaster, indexerFactory, "indexer", ResourceMapper, BulkResourceMapper)
+    {
+        SharedValidator.RuleFor(c => c.Priority).InclusiveBetween(1, 50);
+
+        // Sonarr divergence: Phase 15 D-13 + D-22 — SeasonSearchMaximumSingleEpisodeAge validator
+        // rule removed (TV-only; column + property deleted). Debug session: mangadex-save-fails.
+
+        SharedValidator.RuleFor(c => c.DownloadClientId).SetValidator(downloadClientExistsValidator);
+    }
+}

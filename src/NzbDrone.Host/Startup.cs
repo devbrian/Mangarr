@@ -4,7 +4,17 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+
+// Sonarr divergence: Phase 15 Plan 15-10 — Mangarr.Api.V5/Series/ DELETED (TV-only).
+//   using Mangarr.Api.V5.Series; ← deleted
 using DryIoc;
+using Mangarr.Api.V5.System;
+using Mangarr.Http;
+using Mangarr.Http.Authentication;
+using Mangarr.Http.ClientSchema;
+using Mangarr.Http.ErrorManagement;
+using Mangarr.Http.Frontend;
+using Mangarr.Http.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
@@ -28,14 +38,6 @@ using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Host.AccessControl;
 using NzbDrone.Http.Authentication;
 using NzbDrone.SignalR;
-using Sonarr.Api.V3.System;
-using Sonarr.Api.V5.Series;
-using Sonarr.Http;
-using Sonarr.Http.Authentication;
-using Sonarr.Http.ClientSchema;
-using Sonarr.Http.ErrorManagement;
-using Sonarr.Http.Frontend;
-using Sonarr.Http.Middleware;
 using StackExchange.Profiling;
 using IPNetwork = System.Net.IPNetwork;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
@@ -58,7 +60,7 @@ namespace NzbDrone.Host
                 b.ClearProviders();
                 b.SetMinimumLevel(LogLevel.Trace);
                 b.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
-                b.AddFilter("Sonarr.Http.Authentication.ApiKeyAuthenticationHandler", LogLevel.Information);
+                b.AddFilter("Mangarr.Http.Authentication.ApiKeyAuthenticationHandler", LogLevel.Information);
                 b.AddFilter("Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager", LogLevel.Error);
                 b.AddNLog();
             });
@@ -98,9 +100,10 @@ namespace NzbDrone.Host
                 options.ReturnHttpNotAcceptable = true;
             })
 
-            // Register all controllers from the API and HTTP projects
+            // Register all controllers from the API and HTTP projects.
+            // Sonarr divergence: Phase 15 Plan 15-10 — SeriesLookupController DELETED;
+            // SystemController.Assembly (Mangarr.Api.V5) covers all V5 controllers.
             .AddApplicationPart(typeof(SystemController).Assembly)
-            .AddApplicationPart(typeof(SeriesLookupController).Assembly)
             .AddApplicationPart(typeof(StaticResourceController).Assembly)
             .AddJsonOptions(options =>
             {
@@ -115,25 +118,17 @@ namespace NzbDrone.Host
 
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v3", new OpenApiInfo
-                {
-                    Version = "3.0.0",
-                    Title = "Sonarr",
-                    Description = "Sonarr API docs - The v3 API docs apply to both v3 and v4 versions of Sonarr. Some functionality may only be available in v4 of the Sonarr application.",
-                    License = new OpenApiLicense
-                    {
-                        Name = "GPL-3.0",
-                        Url = new Uri("https://github.com/Sonarr/Sonarr/blob/develop/LICENSE")
-                    }
-                });
-
+                // Phase 15 D-12 - V3 SwaggerDoc registration removed (V3 deleted in Plan 15-06).
                 c.SwaggerDoc("v5", new OpenApiInfo
                 {
                     Version = "5.0.0",
-                    Title = "Sonarr",
-                    Description = "Sonarr API docs - The v5 API docs apply to Sonarr v5 only.",
+                    Title = "Mangarr",
+                    Description = "Mangarr API docs - The v5 API docs apply to Mangarr v1 only.",
                     License = new OpenApiLicense
                     {
+                        // Sonarr divergence: Phase 15 close-out — License URL preserved per
+                        // D-27 (b) (Sonarr/Sonarr GitHub repo guard); GPL-3.0 inheritance is
+                        // factual/legal upstream attribution.
                         Name = "GPL-3.0",
                         Url = new Uri("https://github.com/Sonarr/Sonarr/blob/develop/LICENSE")
                     }
@@ -299,7 +294,7 @@ namespace NzbDrone.Host
                               IRuntimeInfo runtimeInfo,
                               IFirewallAdapter firewallAdapter,
                               IEventAggregator eventAggregator,
-                              SonarrErrorPipeline errorHandler)
+                              MangarrErrorPipeline errorHandler)
         {
             initializeLogger.Initialize();
             appFolderFactory.Register();
@@ -355,7 +350,7 @@ namespace NzbDrone.Host
             app.UseMiddleware<StartingUpMiddleware>();
             app.UseMiddleware<CacheHeaderMiddleware>();
             app.UseMiddleware<IfModifiedMiddleware>();
-            app.UseMiddleware<BufferingMiddleware>(new List<string> { "/api/v3/command", "/api/v5/command" });
+            app.UseMiddleware<BufferingMiddleware>(new List<string> { "/api/v5/command" });
 
             app.UseWebSockets();
             app.UseMiniProfiler();

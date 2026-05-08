@@ -11,13 +11,13 @@ using NzbDrone.Core.Test.Framework;
 namespace NzbDrone.Core.Test.CustomFormatsTests
 {
     // CF-04 verification per Phase 5 PATTERNS-MAP S8 + 05-RESEARCH.md Open Question 3.
-    // Sonarr's CustomFormatResource.MapSpecification (Sonarr.Api.V5/CustomFormats/CustomFormatResource.cs:57-78)
+    // Mangarr's CustomFormatResource.MapSpecification (Mangarr.Api.V5/CustomFormats/CustomFormatResource.cs:57-78)
     // reflects Implementation field via GetType().Name then copies fields via SchemaBuilder.ReadFromSchema.
     // The 4 NEW manga spec types from plan 05-05 flow through unchanged because they implement
     // ICustomFormatSpecification — this fixture proves the lossless round-trip across the same
     // mechanism (reflection-by-name + property-by-name field copy).
     //
-    // NOTE on test boundary: NzbDrone.Core.Test does NOT reference Sonarr.Api.V5 (V5 references Core,
+    // NOTE on test boundary: NzbDrone.Core.Test does NOT reference Mangarr.Api.V5 (V5 references Core,
     // not the other way around). To test the CF-04 invariant without crossing the dependency boundary,
     // this fixture mirrors the CustomFormatResource.MapSpecification ALGORITHM verbatim — same
     // reflection-by-name lookup, same property-by-name field copy. The mirror is a 15-line helper
@@ -44,8 +44,8 @@ namespace NzbDrone.Core.Test.CustomFormatsTests
             };
         }
 
-        // Mirrors Sonarr.Api.V5.CustomFormats.CustomFormatResource.MapSpecification lines 57-78
-        // verbatim. Production uses Sonarr.Http.ClientSchema.SchemaBuilder.ReadFromSchema for the
+        // Mirrors Mangarr.Api.V5.CustomFormats.CustomFormatResource.MapSpecification lines 57-78
+        // verbatim. Production uses Mangarr.Http.ClientSchema.SchemaBuilder.ReadFromSchema for the
         // field copy; this mirror uses direct reflection on the [FieldDefinition]-marked properties
         // since SchemaBuilder requires container init (ILocalizationService) we don't need here.
         private static ICustomFormatSpecification MapSpecificationViaReflection(

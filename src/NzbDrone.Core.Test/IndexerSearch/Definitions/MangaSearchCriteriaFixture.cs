@@ -12,7 +12,7 @@ namespace NzbDrone.Core.Test.IndexerSearch.Definitions
     ///
     /// Locked contract:
     /// - <c>MangaSearchCriteriaBase</c> is a PARALLEL hierarchy — does NOT inherit from
-    ///   <see cref="SearchCriteriaBase"/> (D-06: keep TV Series/SceneTitles fields out of manga
+    ///   "SearchCriteriaBase (deleted with TV cascade in Plan 15-10)" (D-06: keep TV Series/SceneTitles fields out of manga
     ///   code paths).
     /// - <c>ChapterSearchCriteria.ChapterNumber</c> is <see cref="decimal"/> — Phase 2 D-12 widen.
     /// - <c>MangaSearchCriteria.PreferredLanguages</c> is advisory/optional (D-07; null is valid;
@@ -21,14 +21,6 @@ namespace NzbDrone.Core.Test.IndexerSearch.Definitions
     [TestFixture]
     public class MangaSearchCriteriaFixture
     {
-        [Test]
-        public void MangaSearchCriteriaBase_does_not_inherit_from_SearchCriteriaBase()
-        {
-            // D-06: parallel hierarchy — no inheritance, so TV Series / SceneTitles fields stay
-            // out of manga code paths.
-            typeof(MangaSearchCriteriaBase).IsSubclassOf(typeof(SearchCriteriaBase)).Should().BeFalse();
-        }
-
         [Test]
         public void ChapterSearchCriteria_ChapterNumber_is_decimal()
         {

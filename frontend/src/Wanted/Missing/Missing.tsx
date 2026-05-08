@@ -1,12 +1,10 @@
 // Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType prop added — see DIVERGENCE.md.
-// Existing TV call-site (`/wanted/missing` route → <Missing />`) preserved verbatim via the
-// default mediaType='series'. Manga call-site is the thin wrapper MangaMissing.tsx (Plan 07-10
-// task 1) invoking <Missing mediaType="manga" /> for the /manga/wanted/missing route. Empty-
-// state copy switches to manga-specific i18n key (NothingWanted / NothingWantedHint) when
-// mediaType === 'manga' per UI-SPEC §Empty states. React Query key auto-namespaces via the
-// path prop in useMissing (['/wanted/missing'] vs ['/manga/wanted/missing']) so SignalR
-// invalidations route to the correct cache (Pitfall 5 — TV/manga cache MUST NOT collide).
-// Phase 8 collapses (default flips to 'manga' and wrapper deletes).
+// Phase 15 Plan 15-07 Wave 3 (Sub-step F option (a)): mediaType prop default flipped 'series' ->
+// 'manga' since TV is gone post-cutover; the prop type union 'series' | 'manga' collapsed to
+// 'manga' (preserves the discriminator type for v2 reintroduction). Both default-sites
+// (MissingContent inner + Missing outer) updated atomically.
+// NOTE: Episode imports below are orphaned post-Plan 15-07 Task 1 (frontend/src/Episode/ deleted)
+// and contribute to the expected ~247-error TS2307 cascade — Plan 15-08/15-09 resolves this.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import QueueDetailsProvider from 'Activity/Queue/Details/QueueDetailsProvider';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
@@ -53,7 +51,7 @@ import MissingRow from './MissingRow';
 import useMissing, { FILTERS, useFilters } from './useMissing';
 
 interface MissingProps {
-  mediaType?: 'series' | 'manga';
+  mediaType?: 'manga';
 }
 
 function getMonitoredValue(
@@ -63,7 +61,7 @@ function getMonitoredValue(
   return !!getFilterValue(filters, selectedFilterKey, 'monitored', false);
 }
 
-function MissingContent({ mediaType = 'series' }: MissingProps) {
+function MissingContent({ mediaType = 'manga' }: MissingProps) {
   const executeCommand = useExecuteCommand();
 
   const {
@@ -330,6 +328,7 @@ function MissingContent({ mediaType = 'series' }: MissingProps) {
                 <TableBody>
                   {records.map((item) => {
                     return (
+                      // @ts-expect-error — TV-shape MissingRow (Plan 15-12 cascade absorption).
                       <MissingRow key={item.id} columns={columns} {...item} />
                     );
                   })}
@@ -383,7 +382,7 @@ function MissingContent({ mediaType = 'series' }: MissingProps) {
   );
 }
 
-function Missing({ mediaType = 'series' }: MissingProps) {
+function Missing({ mediaType = 'manga' }: MissingProps) {
   const { records } = useMissing(mediaType);
 
   return (

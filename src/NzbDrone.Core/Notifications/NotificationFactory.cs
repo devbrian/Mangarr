@@ -15,10 +15,6 @@ namespace NzbDrone.Core.Notifications
         List<INotification> OnUpgradeEnabled(bool filterBlockedNotifications = true);
         List<INotification> OnImportCompleteEnabled(bool filterBlockedNotifications = true);
         List<INotification> OnRenameEnabled(bool filterBlockedNotifications = true);
-        List<INotification> OnSeriesAddEnabled(bool filterBlockedNotifications = true);
-        List<INotification> OnSeriesDeleteEnabled(bool filterBlockedNotifications = true);
-        List<INotification> OnEpisodeFileDeleteEnabled(bool filterBlockedNotifications = true);
-        List<INotification> OnEpisodeFileDeleteForUpgradeEnabled(bool filterBlockedNotifications = true);
         List<INotification> OnHealthIssueEnabled(bool filterBlockedNotifications = true);
         List<INotification> OnHealthRestoredEnabled(bool filterBlockedNotifications = true);
         List<INotification> OnApplicationUpdateEnabled(bool filterBlockedNotifications = true);
@@ -94,46 +90,6 @@ namespace NzbDrone.Core.Notifications
             }
 
             return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnRename).ToList();
-        }
-
-        public List<INotification> OnSeriesAddEnabled(bool filterBlockedNotifications = true)
-        {
-            if (filterBlockedNotifications)
-            {
-                return FilterBlockedNotifications(GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnSeriesAdd)).ToList();
-            }
-
-            return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnSeriesAdd).ToList();
-        }
-
-        public List<INotification> OnSeriesDeleteEnabled(bool filterBlockedNotifications = true)
-        {
-            if (filterBlockedNotifications)
-            {
-                return FilterBlockedNotifications(GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnSeriesDelete)).ToList();
-            }
-
-            return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnSeriesDelete).ToList();
-        }
-
-        public List<INotification> OnEpisodeFileDeleteEnabled(bool filterBlockedNotifications = true)
-        {
-            if (filterBlockedNotifications)
-            {
-                return FilterBlockedNotifications(GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnEpisodeFileDelete)).ToList();
-            }
-
-            return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnEpisodeFileDelete).ToList();
-        }
-
-        public List<INotification> OnEpisodeFileDeleteForUpgradeEnabled(bool filterBlockedNotifications = true)
-        {
-            if (filterBlockedNotifications)
-            {
-                return FilterBlockedNotifications(GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnEpisodeFileDeleteForUpgrade)).ToList();
-            }
-
-            return GetAvailableProviders().Where(n => ((NotificationDefinition)n.Definition).OnEpisodeFileDeleteForUpgrade).ToList();
         }
 
         public List<INotification> OnHealthIssueEnabled(bool filterBlockedNotifications = true)
@@ -243,19 +199,19 @@ namespace NzbDrone.Core.Notifications
         {
             base.SetProviderCharacteristics(provider, definition);
 
-            definition.SupportsOnGrab = provider.SupportsOnGrab;
-            definition.SupportsOnDownload = provider.SupportsOnDownload;
-            definition.SupportsOnUpgrade = provider.SupportsOnUpgrade;
-            definition.SupportsOnImportComplete = provider.SupportsOnImportComplete;
-            definition.SupportsOnRename = provider.SupportsOnRename;
-            definition.SupportsOnSeriesAdd = provider.SupportsOnSeriesAdd;
-            definition.SupportsOnSeriesDelete = provider.SupportsOnSeriesDelete;
-            definition.SupportsOnEpisodeFileDelete = provider.SupportsOnEpisodeFileDelete;
-            definition.SupportsOnEpisodeFileDeleteForUpgrade = provider.SupportsOnEpisodeFileDeleteForUpgrade;
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-shape
+            // Supports* properties (OnGrab / OnDownload / OnUpgrade / OnImportComplete /
+            // OnRename) stripped per Plan 15-06 W-1/W-2 INotification + NotificationBase
+            // TV-hook trim. Phase 15 follow-up: SeriesAdd / SeriesDelete / EpisodeFileDelete
+            // / EpisodeFileDeleteForUpgrade also stripped from NotificationDefinition POCO
+            // + V5 ConnectionResource + frontend (matching schema-side trim in
+            // 001_mangarr_baseline.cs:96-97).
             definition.SupportsOnHealthIssue = provider.SupportsOnHealthIssue;
             definition.SupportsOnHealthRestored = provider.SupportsOnHealthRestored;
             definition.SupportsOnApplicationUpdate = provider.SupportsOnApplicationUpdate;
-            definition.SupportsOnManualInteractionRequired = provider.SupportsOnManualInteractionRequired;
+
+            // Sonarr divergence: Phase 15 Plan 15-10 — SupportsOnManualInteractionRequired stripped (TV-shape).
+            //   definition.SupportsOnManualInteractionRequired = provider.SupportsOnManualInteractionRequired;
             definition.SupportsOnChapterImport = provider.SupportsOnChapterImport;
             definition.SupportsOnMangaAdd = provider.SupportsOnMangaAdd;
             definition.SupportsOnMangaDelete = provider.SupportsOnMangaDelete;

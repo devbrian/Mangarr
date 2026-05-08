@@ -37,7 +37,7 @@ public class MangaQueueService : IMangaQueueService, IHandle<TrackedDownloadRefr
 }
 ```
 
-The static field is the same anti-pattern Sonarr's TV `QueueService` uses verbatim and has been stable through five major versions. T-06-10 (concurrent-write race) is mitigated by the **single-writer** model: only the `IHandle` path mutates `_queue`. Reads (`GetMangaQueue`, `Find`) defensive-copy via `ToList()` so iteration during a refresh doesn't tear.
+The static field is the same anti-pattern Mangarr's TV `QueueService` uses verbatim and has been stable through five major versions. T-06-10 (concurrent-write race) is mitigated by the **single-writer** model: only the `IHandle` path mutates `_queue`. Reads (`GetMangaQueue`, `Find`) defensive-copy via `ToList()` so iteration during a refresh doesn't tear.
 
 ### Protocol filter — TV / manga co-existence on the same event
 
@@ -90,7 +90,7 @@ private IEnumerable<MangaQueueItem> MapQueueItems(TrackedDownload trackedDownloa
 
 ### TV-vs-manga mapping
 
-| TV (Sonarr) | Manga (Mangarr) | Difference |
+| TV (Mangarr) | Manga (Mangarr) | Difference |
 |-------------|-----------------|------------|
 | `Queue.Series` | `MangaQueueItem.Manga` | Aggregate root rename |
 | `Queue.Episodes : List<Episode>` | `MangaQueueItem.Chapters : List<Chapter>` + `MangaQueueItem.Chapter` (singular per row) | Multi-chapter release projects N rows |

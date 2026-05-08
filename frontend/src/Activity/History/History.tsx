@@ -1,8 +1,7 @@
 // Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType prop added — see DIVERGENCE.md.
-// Existing TV call-site (`/activity/history` route → <History />`) preserved verbatim via the
-// default mediaType='series'. Manga call-site is the thin wrapper MangaHistory.tsx (Plan 07-09
-// task 2) invoking <History mediaType="manga" /> for the /manga/activity/history route. Phase 8
-// collapses.
+// Phase 15 Plan 15-07 Wave 3 (Sub-step F option (a)): mediaType prop default flipped 'series' ->
+// 'manga' since TV is gone post-cutover; the prop type union 'series' | 'manga' collapsed to
+// 'manga' (preserves the discriminator type for v2 reintroduction).
 import React, { useCallback, useEffect, useMemo } from 'react';
 import Alert from 'Components/Alert';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
@@ -39,10 +38,10 @@ import HistoryRow from './HistoryRow';
 import useHistory, { useFilters } from './useHistory';
 
 interface HistoryProps {
-  mediaType?: 'series' | 'manga';
+  mediaType?: 'manga';
 }
 
-function History({ mediaType = 'series' }: HistoryProps) {
+function History({ mediaType = 'manga' }: HistoryProps) {
   const {
     records,
     totalPages,
@@ -205,6 +204,9 @@ function History({ mediaType = 'series' }: HistoryProps) {
               <TableBody>
                 {records.map((item) => {
                   return (
+                    // @ts-expect-error — Sonarr divergence (Plan 15-12): TV-shape
+                    // HistoryRow expects Series fields the manga History records lack.
+                    // The TV-shape page is unreachable at runtime (manga uses MangaHistory).
                     <HistoryRow
                       key={item.id}
                       columns={columns}

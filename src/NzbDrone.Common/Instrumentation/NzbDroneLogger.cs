@@ -129,7 +129,9 @@ namespace NzbDrone.Common.Instrumentation
 
             coloredConsoleTarget.Name = "consoleLogger";
 
-            var logFormat = Enum.TryParse<ConsoleLogFormat>(Environment.GetEnvironmentVariable("SONARR__LOG__CONSOLEFORMAT"), out var formatEnumValue)
+            // Sonarr divergence: Phase 15 D-08 — env-var prefix SONARR__ → MANGARR__ atomic with the
+            // app-data path cutover (Phase 14 Wave 4 commit dd3cc727a precedent).
+            var logFormat = Enum.TryParse<ConsoleLogFormat>(Environment.GetEnvironmentVariable("MANGARR__LOG__CONSOLEFORMAT"), out var formatEnumValue)
                 ? formatEnumValue
                 : ConsoleLogFormat.Standard;
 
@@ -143,9 +145,12 @@ namespace NzbDrone.Common.Instrumentation
 
         private static void RegisterAppFile(IAppFolderInfo appFolderInfo)
         {
-            RegisterAppFile(appFolderInfo, "appFileInfo", "sonarr.txt", 5, LogLevel.Info);
-            RegisterAppFile(appFolderInfo, "appFileDebug", "sonarr.debug.txt", 50, LogLevel.Off);
-            RegisterAppFile(appFolderInfo, "appFileTrace", "sonarr.trace.txt", 50, LogLevel.Off);
+            // Sonarr divergence: Phase 15 D-08 — log file names sonarr.txt → mangarr.txt atomic with
+            // app-data path Sonarr → Mangarr cutover. Pre-v1.0.0 fresh-data-dir rule means no
+            // existing-log-rotation users to migrate.
+            RegisterAppFile(appFolderInfo, "appFileInfo", "mangarr.txt", 5, LogLevel.Info);
+            RegisterAppFile(appFolderInfo, "appFileDebug", "mangarr.debug.txt", 50, LogLevel.Off);
+            RegisterAppFile(appFolderInfo, "appFileTrace", "mangarr.trace.txt", 50, LogLevel.Off);
         }
 
         private static void RegisterAppFile(IAppFolderInfo appFolderInfo, string name, string fileName, int maxArchiveFiles, LogLevel minLogLevel)
@@ -215,7 +220,7 @@ namespace NzbDrone.Common.Instrumentation
                 c.ForLogger("Microsoft.*").WriteToNil(LogLevel.Warn);
                 c.ForLogger("Microsoft.Hosting.Lifetime*").WriteToNil(LogLevel.Info);
                 c.ForLogger("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware").WriteToNil(LogLevel.Fatal);
-                c.ForLogger("Sonarr.Http.Authentication.ApiKeyAuthenticationHandler").WriteToNil(LogLevel.Info);
+                c.ForLogger("Mangarr.Http.Authentication.ApiKeyAuthenticationHandler").WriteToNil(LogLevel.Info);
             });
         }
 

@@ -44,11 +44,13 @@ namespace NzbDrone.Core.CustomFormats
             return IsSatisfiedByWithoutNegate(input);
         }
 
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — input.EpisodeInfo / input.Series
+        // checks stripped per Plan 15-10 CustomFormatInput TV-shape DELETE. AppliesTo=Series above
+        // hides the spec from manga CF UI; for v1.x this spec is dead-bound but compiles.
+        // Original-language-fallback path no longer applies (no Series in input).
         protected override bool IsSatisfiedByWithoutNegate(CustomFormatInput input)
         {
-            var comparedLanguage = input.EpisodeInfo != null && input.Series != null && Value == Language.Original.Id && input.Series.OriginalLanguage != Language.Unknown
-                ? input.Series.OriginalLanguage
-                : (Language)Value;
+            var comparedLanguage = (Language)Value;
 
             if (ExceptLanguage)
             {
@@ -60,9 +62,7 @@ namespace NzbDrone.Core.CustomFormats
 
         private bool IsSatisfiedByWithNegate(CustomFormatInput input)
         {
-            var comparedLanguage = input.EpisodeInfo != null && input.Series != null && Value == Language.Original.Id && input.Series.OriginalLanguage != Language.Unknown
-                ? input.Series.OriginalLanguage
-                : (Language)Value;
+            var comparedLanguage = (Language)Value;
 
             if (ExceptLanguage)
             {

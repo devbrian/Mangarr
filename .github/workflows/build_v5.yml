@@ -21,7 +21,7 @@ concurrency:
 env:
   FRAMEWORK: net10.0
   RAW_BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-  SONARR_MAJOR_VERSION: 5
+  MANGARR_MAJOR_VERSION: 5
   VERSION: 5.0.0
 
 jobs:
@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           echo "framework=${{ env.FRAMEWORK }}" >> "$GITHUB_OUTPUT"
-          echo "major_version=${{ env.SONARR_MAJOR_VERSION }}" >> "$GITHUB_OUTPUT"
+          echo "major_version=${{ env.MANGARR_MAJOR_VERSION }}" >> "$GITHUB_OUTPUT"
           echo "version=${{ env.VERSION }}.$((${{ github.run_number }}))" >> "$GITHUB_OUTPUT"
           echo "branch=${RAW_BRANCH_NAME//\//-}" >> "$GITHUB_OUTPUT"
 
@@ -146,7 +146,7 @@ jobs:
         with:
           os: ${{ matrix.os }}
           artifact: ${{ matrix.artifact }}
-          pattern: Sonarr.*.Test.dll
+          pattern: Mangarr.*.Test.dll
           filter: ${{ matrix.filter }}
 
   unit_test_postgres:
@@ -165,7 +165,7 @@ jobs:
         with:
           os: ubuntu-latest
           artifact: tests-linux-x64
-          pattern: Sonarr.*.Test.dll
+          pattern: Mangarr.*.Test.dll
           filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory!=IntegrationTest&TestCategory!=AutomationTest
           use_postgres: true
           postgres-version: ${{ matrix.postgres-version }}
@@ -202,7 +202,7 @@ jobs:
         with:
           os: ${{ matrix.os }}
           artifact: ${{ matrix.artifact }}
-          pattern: Sonarr.*.Test.dll
+          pattern: Mangarr.*.Test.dll
           filter: ${{ matrix.filter }}
           integration_tests: true
           binary_artifact: ${{ matrix.binary_artifact }}

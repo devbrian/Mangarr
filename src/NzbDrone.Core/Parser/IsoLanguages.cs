@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NzbDrone.Core.Languages;
-using NzbDrone.Core.Organizer;
 
 namespace NzbDrone.Core.Parser
 {
@@ -100,12 +99,10 @@ namespace NzbDrone.Core.Parser
             }
             else if (langCode.Length == 3)
             {
-                // Lookup ISO639-2T code
-                if (FileNameBuilder.Iso639BTMap.TryGetValue(langCode, out var mapped))
-                {
-                    langCode = mapped;
-                }
-
+                // Sonarr divergence: Phase 15 Plan 15-10 — FileNameBuilder.Iso639BTMap stripped
+                // (FileNameBuilder.cs DELETED). The ISO 639-2 B↔T mapping was a Sonarr-only
+                // convenience for parser output normalization; manga code never round-tripped
+                // through it (MangaLanguageParser.ParseLanguage uses a curated keyword map).
                 return All.FirstOrDefault(l => l.ThreeLetterCode == langCode);
             }
 

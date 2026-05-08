@@ -26,7 +26,7 @@ namespace NzbDrone.Core.IndexerSearch.Manga
     // — D-20) and matches against MangaQueueItem.RemoteChapter.Chapters.Id, NOT
     // TV's IQueueService.GetQueue() whose Episodes.Id collides with Chapter.Id.
     //
-    // V5 controller wiring (Sonarr.Api.V5/Manga/Wanted/CutoffChaptersController) +
+    // V5 controller wiring (Mangarr.Api.V5/Manga/Wanted/CutoffChaptersController) +
     // frontend Wanted/CutoffUnmet manga page are deferred to follow-up plans
     // (out of cluster scope per Phase 8 cluster 07-search-grab — backfill is
     // command + handler only).

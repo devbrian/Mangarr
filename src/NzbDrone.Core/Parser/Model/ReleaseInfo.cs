@@ -24,7 +24,12 @@ namespace NzbDrone.Core.Parser.Model
         public int IndexerId { get; set; }
         public string Indexer { get; set; }
         public int IndexerPriority { get; set; }
-        public int SeasonSearchMaximumSingleEpisodeAge { get; set; }
+
+        // Sonarr divergence: Phase 15 D-13 + D-22 — SeasonSearchMaximumSingleEpisodeAge field
+        // removed (TV-only; manga has no Season concept). See debug session mangadex-save-fails
+        // for full cascade context. SeasonPackOnlySpecification (the lone reader) was deleted by
+        // Plan 15-10 IndexerSearch/Definitions cascade absorption.
+
         public DownloadProtocol DownloadProtocol { get; set; }
         public int TvdbId { get; set; }
         public int TvRageId { get; set; }

@@ -11,7 +11,7 @@ namespace NzbDrone.Core.HealthCheck.Checks
     /// Health Check for per-<see cref="Indexers.Http.HttpAggregatorBase{TSettings}.SourceKey"/>
     /// disable state (Phase 3 D-17 / SOURCE-05). When a manga aggregator's
     /// <see cref="IndexerSourceStatus.DisabledTill"/> is in the future, surface a Warning in
-    /// System → Health so the user knows the source is auto-disabled. Reuses Sonarr's
+    /// System → Health so the user knows the source is auto-disabled. Reuses Mangarr's
     /// <see cref="HealthCheckReason.IndexerStatusUnavailable"/> reason code (no new code added —
     /// manga + TV indexer disable both fall under "indexer status unavailable" semantically).
     ///

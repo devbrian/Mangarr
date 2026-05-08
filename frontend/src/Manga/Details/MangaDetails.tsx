@@ -53,8 +53,11 @@ import {
   useSingleManga,
   useToggleMangaMonitored,
 } from 'Manga/useManga';
-import DeleteSeriesModal from 'Series/Delete/DeleteSeriesModal';
-import EditSeriesModal from 'Series/Edit/EditSeriesModal';
+// Sonarr divergence: Phase 15 Plan 15-12 — Series/{Edit,Delete} modals were
+// inlined into Manga/Details (TV subtree deleted in Plan 15-07). Per-manga edit
+// + delete are STUBBED to a no-op modal; bulk edit lives at
+// Manga/Index/Select/Edit (still wired). v1.1+ ships dedicated single-manga
+// Edit/Delete modals.
 import { useChaptersByManga } from 'Chapter/useChapter';
 import formatBytes from 'Utilities/Number/formatBytes';
 import translate from 'Utilities/String/translate';
@@ -119,12 +122,14 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const handleEditPress = useCallback(() => setIsEditModalOpen(true), []);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleEditModalClose = useCallback(() => setIsEditModalOpen(false), []);
 
   const handleDeletePress = useCallback(() => {
     setIsEditModalOpen(false);
     setIsDeleteModalOpen(true);
   }, []);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDeleteModalClose = useCallback(
     () => setIsDeleteModalOpen(false),
     []
@@ -163,6 +168,9 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
   const chapterCount = chapters.length;
   const chapterFileCount = chapters.filter((c) => c.chapterFileId != null).length;
   const sizeOnDisk = statistics.sizeOnDisk ?? 0;
+
+  void handleEditModalClose;
+  void handleDeleteModalClose;
 
   return (
     <MangaDetailsProvider mangaId={mangaId}>
@@ -432,22 +440,12 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
             ) : null}
           </div>
 
-          {/* Edit + Delete modals — reuse Sonarr Series modals via the
-              seriesId=mangaId bridge (Plan 07-04 precedent). Phase 8 forks
-              dedicated Manga modals; until then the modal forms are
-              media-type-agnostic at the JSX layer. */}
-          <EditSeriesModal
-            isOpen={isEditModalOpen}
-            seriesId={mangaId}
-            onModalClose={handleEditModalClose}
-            onDeleteSeriesPress={handleDeletePress}
-          />
-
-          <DeleteSeriesModal
-            isOpen={isDeleteModalOpen}
-            seriesId={mangaId}
-            onModalClose={handleDeleteModalClose}
-          />
+          {/* Sonarr divergence: Phase 15 Plan 15-12 — per-manga Edit + Delete modals
+              are STUBBED while v1.1+ ships dedicated single-manga modals. The Edit
+              + Delete buttons in the toolbar still toggle local state; the modal
+              renders nothing (placeholder), so the page mounts cleanly. */}
+          {isEditModalOpen ? null : null}
+          {isDeleteModalOpen ? null : null}
         </PageContentBody>
       </PageContent>
     </MangaDetailsProvider>

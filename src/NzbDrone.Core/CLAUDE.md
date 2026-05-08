@@ -10,7 +10,7 @@ Almost every change request that isn't strictly a UI tweak or API DTO change tou
 
 ## Top-Level Subdirectories (Quick Reference)
 
-Listed by **migration priority** for the Sonarr → Mangarr conversion.
+Listed by **migration priority** for the Mangarr → Mangarr conversion.
 
 ### CRITICAL — Core Domain (Major Rewrite Required)
 
@@ -214,7 +214,7 @@ See [Messaging/CLAUDE.md](./Messaging/CLAUDE.md).
 | `Profiles/Releases/` | Preferred / required / ignored terms |
 | `Qualities/` | Quality enum, QualityDefinition |
 | `Languages/` | Language enum, IsoLanguages, LanguageParser |
-| `MetadataSource/SkyHook/` | TVDB API wrapper (Sonarr's hosted shim) |
+| `MetadataSource/SkyHook/` | TVDB API wrapper (Mangarr's hosted shim) |
 | `ImportLists/AniList/`, `ImportLists/Custom/` | List sources |
 | `HealthCheck/Checks/` | Individual `XCheck.cs` classes |
 | `Housekeeping/Housekeepers/` | One class per cleanup task |
@@ -390,5 +390,5 @@ Number sequentially after the highest existing migration. Migrations run automat
 - [Profiles/CLAUDE.md](./Profiles/CLAUDE.md) — Quality/Delay/Release profiles
 - [Messaging/CLAUDE.md](./Messaging/CLAUDE.md) — Events & Commands
 - [ImportLists/CLAUDE.md](./ImportLists/CLAUDE.md) — Import lists
-- [../Sonarr.Api.V5/CLAUDE.md](../Sonarr.Api.V5/CLAUDE.md) — API controllers
-- [../Sonarr.Http/CLAUDE.md](../Sonarr.Http/CLAUDE.md) — HTTP infrastructure
+- [../Mangarr.Api.V5/CLAUDE.md](../Mangarr.Api.V5/CLAUDE.md) — API controllers
+- [../Mangarr.Http/CLAUDE.md](../Mangarr.Http/CLAUDE.md) — HTTP infrastructure

@@ -3,7 +3,7 @@ using NzbDrone.Common.Exceptions;
 
 namespace NzbDrone.Core.Datastore
 {
-    public class CorruptDatabaseException : SonarrStartupException
+    public class CorruptDatabaseException : MangarrStartupException
     {
         public CorruptDatabaseException(string message, params object[] args)
             : base(message, args)

@@ -6,7 +6,7 @@ using NzbDrone.Core.Profiles.Translations;
 
 namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
 {
-    // Test semantics note: callers consume the comparer via OrderByDescending (mirror Sonarr's
+    // Test semantics note: callers consume the comparer via OrderByDescending (mirror Mangarr's
     // DownloadDecisionPriorizationService.cs:29). With OrderByDescending(comparer), the item
     // with the HIGHER Compare value sorts FIRST. So "X wins" means Subject.Compare(loser, winner)
     // returns a NEGATIVE value (loser < winner) — winner sorts first under OrderByDescending.
