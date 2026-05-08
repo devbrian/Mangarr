@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 **Mangarr** is a manga/manhwa/manhua library manager and downloader. It monitors manga reader and aggregator websites for new chapters of your favorite titles, automatically downloads, sorts, and organizes them. It can also be configured to automatically upgrade quality when better scans become available.
 
-This project is a **fork/migration of [Sonarr](https://github.com/Sonarr/Sonarr)**, adapting its mature TV-show management infrastructure to manga management. Most file/class names still use Sonarr/TV terminology — the migration is **in progress** and proceeds incrementally.
+This project is a **fork/migration of [Sonarr](https://github.com/Sonarr/Sonarr)**, adapting its mature TV-show management infrastructure to manga management. Most file/class names still use Sonarr/TV terminology — the migration is **in progress** and proceeds incrementally. Phase 15 — Domain Rename + Rebrand — is the active cutover phase (started 2026-05-08); see `.planning/phases/15-domain-rename-rebrand/` for plans.
 
 **Branch model**: `Mangarr-v0` is the long-lived integration branch — **PRs should target `Mangarr-v0`**. The `v5-develop` branch tracks upstream Sonarr v5 and is only used when pulling in upstream changes.
 
