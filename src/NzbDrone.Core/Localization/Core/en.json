@@ -475,6 +475,7 @@
   "Docker": "Docker",
   "DockerUpdater": "Update the docker container to receive the update",
   "Donate": "Donate",
+  "DonateToSonarr": "Donate to Sonarr (Mangarr's upstream project)",
   "Donations": "Donations",
   "DoneEditingGroups": "Done Editing Groups",
   "DoneEditingSizes": "Done Editing Sizes",
