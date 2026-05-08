@@ -43,7 +43,12 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
     queryOptions: { staleTime: 30 * 1000 },
   });
 
-  const { data: blocklist } = useApiQuery<MangaBlocklist[]>({
+  // /api/v5/manga/blocklist returns the paged `Ok<PagingResource<MangaBlocklistResource>>`
+  // shape (page / pageSize / totalRecords / records[]) — NOT a flat array. Reading it as
+  // `MangaBlocklist[]` and calling .some() on the wrapper object throws TypeError and
+  // crashes the entire ChapterStatus component (F-NEW-1 from quick-260507-tff-rerun).
+  // Type as the paged shape and dereference .records.
+  const { data: blocklist } = useApiQuery<{ records?: MangaBlocklist[] }>({
     path: '/manga/blocklist',
     queryOptions: { staleTime: 30 * 1000 },
   });
@@ -61,7 +66,12 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
   // could miss the most recent event for older chapters. Lifting the fetch
   // to a parent component (per the reviewer's suggestion) is a structural
   // refactor deferred to a follow-up plan.
-  const { data: history } = useApiQuery<ChapterHistory[]>({
+  // /api/v5/manga/history returns the paged `Ok<PagingResource<ChapterHistoryResource>>`
+  // shape — same wrapper as blocklist above. Read .records[0] for the most recent
+  // event after the descending-by-date sort. The previous flat-array typing happened
+  // to gracefully degrade to "no failure detected" because `[].records` is undefined
+  // and the optional chain returns undefined, but it silently masked failed downloads.
+  const { data: history } = useApiQuery<{ records?: ChapterHistory[] }>({
     path: '/manga/history',
     queryParams: {
       chapterId: chapter.id,
@@ -80,14 +90,14 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
     );
 
   const isBlocklisted =
-    !!blocklist &&
-    blocklist.some((b) => b.chapterIds?.includes(chapter.id) ?? false);
+    !!blocklist?.records &&
+    blocklist.records.some((b) => b.chapterIds?.includes(chapter.id) ?? false);
 
   // The most recent history event for this chapter — used to detect a failed
   // last attempt. The retry-budget gate (Phase 6 D-13) is not yet exposed on
   // the wire; v1 uses last-event === 'downloadFailed' as the signal. When
   // the budget signal lands, AND the budget into the condition.
-  const lastEvent = history?.[0]?.eventType;
+  const lastEvent = history?.records?.[0]?.eventType;
   const isFailed = lastEvent === 'downloadFailed';
 
   const hasFile = chapter.chapterFileId != null;

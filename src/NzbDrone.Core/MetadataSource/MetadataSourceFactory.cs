@@ -77,5 +77,36 @@ namespace NzbDrone.Core.MetadataSource
                 Update(all);
             }
         }
+
+        // Indexer / DownloadClient / Notification factories don't auto-seed because those
+        // are user-config (the user opts in by adding one). Metadata source is different:
+        // without a primary configured, /api/v5/manga/lookup throws 500 and the entire
+        // Add Manga UX is broken on a fresh DB. Seed the IsPrimary=true DefaultDefinition
+        // so MangaDex (D-16) is the out-of-the-box primary. AniList / MAL stay un-instanced
+        // — their schema presets at /api/v5/metadatasource/schema are how users add them,
+        // and skipping them dodges the UNIQUE(MetadataSources.Name) collision that
+        // ProviderFactory.GetDefaultDefinitions creates by falling back to Name="" for
+        // every provider whose DefaultDefinitions[0].Name doesn't equal GetType().Name
+        // (MetadataSourceBase sets it to the friendly Name property instead). Mirrors
+        // the S4 idempotent-seed pattern in TranslationProfileService.Handle.
+        protected override void InitializeProviders()
+        {
+            if (All().Any())
+            {
+                return;
+            }
+
+            foreach (var provider in _providers)
+            {
+                var primaryDefault = provider.DefaultDefinitions
+                    .OfType<MetadataSourceDefinition>()
+                    .FirstOrDefault(d => d.IsPrimary);
+
+                if (primaryDefault != null)
+                {
+                    Create(primaryDefault);
+                }
+            }
+        }
     }
 }

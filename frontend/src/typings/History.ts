@@ -9,7 +9,12 @@ export type HistoryEventType =
   | 'downloadFailed'
   | 'episodeFileDeleted'
   | 'episodeFileRenamed'
-  | 'downloadIgnored';
+  | 'downloadIgnored'
+  // Manga peers (ChapterHistoryEventType — Phase 6). The TV-only `seriesFolderImported`
+  // / `downloadFolderImported` split has no manga analog; manga only emits a single
+  // `imported` event after CompletedDownloadHandling moves the file.
+  | 'imported'
+  | 'importFailed';
 
 export interface GrabbedHistoryData {
   indexer: string;

@@ -47,7 +47,7 @@ interface SidebarItem {
   }[];
 }
 
-const LINKS: SidebarItem[] = [
+export const links: SidebarItem[] = [
   {
     iconName: icons.SERIES_CONTINUING,
     title: () => translate('Series'),
@@ -121,10 +121,13 @@ const LINKS: SidebarItem[] = [
         title: () => translate('Profiles'),
         to: '/settings/profiles',
       },
-      {
+      // Sonarr divergence: Phase 7 D-05 — Quality nav hidden; route + sub-tree retained per Pitfall 8 grep-fidelity.
+      // Phase 14 D-14-13 — close S-12-01 carry-forward before pre-phase-14-rehearsal tag (Plan 14-00 Task 1).
+      // Phase 15 D-12 deletes both the route + this entry as part of the Quality cascade.
+      ...(false ? [{
         title: () => translate('Quality'),
         to: '/settings/quality',
-      },
+      }] : []),
       {
         title: () => translate('CustomFormats'),
         to: '/settings/customformats',
@@ -238,7 +241,7 @@ function PageSidebar() {
 
   const activeParent = useMemo(() => {
     return (
-      LINKS.find((link) => {
+      links.find((link) => {
         if (link.to && link.to === pathname) {
           return true;
         }
@@ -263,7 +266,7 @@ function PageSidebar() {
         }
 
         return false;
-      })?.to ?? LINKS[0].to
+      })?.to ?? links[0].to
     );
   }, [pathname]);
 
@@ -471,7 +474,7 @@ function PageSidebar() {
         }}
       >
         <div>
-          {LINKS.map((link) => {
+          {links.map((link) => {
             const childWithStatusComponent = link.children?.find((child) => {
               return !!child.statusComponent;
             });

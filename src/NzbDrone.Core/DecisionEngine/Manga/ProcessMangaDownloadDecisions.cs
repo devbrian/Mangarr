@@ -8,7 +8,6 @@ using NzbDrone.Core.Download.Clients;
 using NzbDrone.Core.Download.Pending;
 using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.Exceptions;
-using NzbDrone.Core.Parser.Manga.Model;
 
 namespace NzbDrone.Core.DecisionEngine.Manga
 {
@@ -17,20 +16,21 @@ namespace NzbDrone.Core.DecisionEngine.Manga
     //
     // Closes the manga search→grab regression: ChapterSearchService and MangaSearchService
     // previously counted approved decisions and dropped the result. This service walks ranked
-    // decisions and grabs approved ones via IDownloadService.DownloadReport (using the
-    // RemoteChapter.ToRemoteEpisodeShim() bridge until the Phase 15 unified IDownloadService
-    // lands).
+    // decisions and grabs approved ones via IMangaDownloadService.DownloadReport.
     //
-    // Phase 15 cleanup: collapse with TV ProcessDownloadDecisions when Tv/ deletes; the shim
-    // disappears alongside.
+    // Phase 15 Wave (A) W-4 (2026-05-07): rebound from IDownloadService to IMangaDownloadService
+    // (Wave (A) W-1 / N-1) per .planning/phases/15-domain-rename-rebrand/15-CONTRACTS-AUDIT.md
+    // §18 + files_modified seed list. Drops the RemoteChapter.ToRemoteEpisodeShim() bridge.
+    //
+    // Phase 15 Wave (C) cleanup: collapse with TV ProcessDownloadDecisions when Tv/ deletes.
     public class ProcessMangaDownloadDecisions : IProcessMangaDownloadDecisions
     {
-        private readonly IDownloadService _downloadService;
+        private readonly IMangaDownloadService _downloadService;
         private readonly IMangaPendingReleaseService _pendingReleaseService;
         private readonly MangaDownloadDecisionComparer _comparer;
         private readonly Logger _logger;
 
-        public ProcessMangaDownloadDecisions(IDownloadService downloadService,
+        public ProcessMangaDownloadDecisions(IMangaDownloadService downloadService,
                                              IMangaPendingReleaseService pendingReleaseService,
                                              MangaDownloadDecisionComparer comparer,
                                              Logger logger)
@@ -171,7 +171,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga
             try
             {
                 _logger.Trace("Grabbing manga release '{0}' from Indexer {1}.", remoteChapter, remoteIndexer);
-                await _downloadService.DownloadReport(remoteChapter.ToRemoteEpisodeShim(), downloadClientId);
+                await _downloadService.DownloadReport(remoteChapter, downloadClientId);
                 return ProcessedDecisionResult.Grabbed;
             }
             catch (ReleaseUnavailableException)

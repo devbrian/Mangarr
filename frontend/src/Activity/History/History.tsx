@@ -59,9 +59,18 @@ function History({ mediaType = 'series' }: HistoryProps) {
   const { columns, pageSize, sortKey, sortDirection, selectedFilterKey } =
     useHistoryOptions();
 
+  // Manga history records carry chapterId/mangaId — never an episodeId — so the
+  // legacy `useEpisodes` lookup below is short-circuited in manga mode (F-NEW-2
+  // from quick-260507-tff-rerun: with the lookup disabled, `isEpisodesFetched`
+  // stays false and the `isAllPopulated` gate hid every record on the manga
+  // history page even after Imported + Grabbed events landed).
   const episodeIds = useMemo(() => {
+    if (mediaType === 'manga') {
+      return [];
+    }
+
     return selectUniqueIds<HistoryItem, number>(records, 'episodeId');
-  }, [records]);
+  }, [records, mediaType]);
 
   const {
     isFetching: isEpisodesFetching,
@@ -74,7 +83,13 @@ function History({ mediaType = 'series' }: HistoryProps) {
   const customFilters = useCustomFiltersList('history');
 
   const isFetchingAny = isLoading || isEpisodesFetching;
-  const isAllPopulated = isFetched && (isEpisodesFetched || !records.length);
+  // Manga mode skips the episodes lookup, so `isEpisodesFetched` would stay
+  // false forever and the records (which carry chapterId/mangaId, not
+  // episodeId) would never render. Treat the gate as always-satisfied when
+  // `mediaType==='manga'`.
+  const isAllPopulated =
+    isFetched &&
+    (mediaType === 'manga' || isEpisodesFetched || !records.length);
   const hasError = error || episodesError;
 
   const handleFilterSelect = useCallback(
@@ -190,7 +205,12 @@ function History({ mediaType = 'series' }: HistoryProps) {
               <TableBody>
                 {records.map((item) => {
                   return (
-                    <HistoryRow key={item.id} columns={columns} {...item} />
+                    <HistoryRow
+                      key={item.id}
+                      columns={columns}
+                      mediaType={mediaType}
+                      {...item}
+                    />
                   );
                 })}
               </TableBody>

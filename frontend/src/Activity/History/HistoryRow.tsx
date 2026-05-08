@@ -29,6 +29,13 @@ interface HistoryRowProps {
   id: number;
   episodeId: number;
   seriesId: number;
+  // Manga records carry chapterId / mangaId instead of episodeId / seriesId.
+  // When mediaType='manga' these are populated and the series/episode fields
+  // are absent from the wire shape — the row falls back to the manga-aware
+  // render path below (skips the series/episode early-return + reads the
+  // manga peer hooks per Phase 7 D-10 + Lock #1).
+  chapterId?: number;
+  mangaId?: number;
   languages: Language[];
   quality: QualityModel;
   customFormats?: CustomFormat[];
@@ -42,6 +49,7 @@ interface HistoryRowProps {
   isMarkingAsFailed?: boolean;
   markAsFailedError?: object;
   columns: Column[];
+  mediaType?: 'series' | 'manga';
 }
 
 function HistoryRow(props: HistoryRowProps) {
@@ -60,6 +68,7 @@ function HistoryRow(props: HistoryRowProps) {
     data,
     downloadId,
     columns,
+    mediaType = 'series',
   } = props;
 
   const series = useSingleSeries(seriesId);
@@ -75,7 +84,11 @@ function HistoryRow(props: HistoryRowProps) {
     setIsDetailsModalOpen(false);
   }, [setIsDetailsModalOpen]);
 
-  if (!series || !episode) {
+  // Manga records have no series/episode lookup — F-NEW-2 from quick-260507-tff-rerun.
+  // Skip the early-return so the row's domain-agnostic cells (eventType, sourceTitle,
+  // date, languages, quality, customFormats, actions) render. The series/episode-
+  // specific cells fall through to null below when their lookups are empty.
+  if (mediaType === 'series' && (!series || !episode)) {
     return null;
   }
 
@@ -99,6 +112,13 @@ function HistoryRow(props: HistoryRowProps) {
         }
 
         if (name === 'series.sortTitle') {
+          // Manga records have no series lookup — render an empty cell so the
+          // column doesn't crash. Phase 8 cleanup will fork a manga peer cell
+          // that links to /manga/<titleSlug> instead.
+          if (!series) {
+            return <TableRowCell key={name} />;
+          }
+
           return (
             <TableRowCell key={name}>
               <SeriesTitleLink
@@ -110,6 +130,10 @@ function HistoryRow(props: HistoryRowProps) {
         }
 
         if (name === 'episode') {
+          if (!series || !episode) {
+            return <TableRowCell key={name} />;
+          }
+
           return (
             <TableRowCell key={name}>
               <SeasonEpisodeNumber
@@ -127,6 +151,10 @@ function HistoryRow(props: HistoryRowProps) {
         }
 
         if (name === 'episodes.title') {
+          if (!series || !episode) {
+            return <TableRowCell key={name} />;
+          }
+
           return (
             <TableRowCell key={name}>
               <EpisodeTitleLink

@@ -500,6 +500,37 @@ function SignalRListener() {
       return;
     }
 
+    // Phase 13 Plan 13-08 / 13-09 added MangaQueueDetailsController +
+    // MangaQueueStatusController as RestControllerWithSignalR<,> peers of the TV
+    // QueueDetailsController + QueueStatusController. Without these two handlers
+    // every page load fires console.error('signalR: Unable to find handler …')
+    // (F-06 from quick-260507-tff). Mirror the TV `queue/details` + `queue/status`
+    // shapes at lines 262-285 above.
+    if (name === 'manga/queue/details') {
+      if (version < 5) {
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['/manga/queue/details'] });
+      return;
+    }
+
+    if (name === 'manga/queue/status') {
+      if (version < 5) {
+        return;
+      }
+
+      const statusDetails = queryClient.getQueriesData({
+        queryKey: ['/manga/queue/status'],
+      });
+
+      statusDetails.forEach(([queryKey]) => {
+        queryClient.setQueryData(queryKey, () => body.resource);
+      });
+
+      return;
+    }
+
     // Phase-12 follow-up (F-MISSING-SIGNALR closure, 2026-05-06): upgraded from the
     // Plan 07-02 invalidateQueries shape to the per-row updatePagedItem shape after
     // MangaMissingController (renamed from MissingChaptersController for naming

@@ -24,8 +24,9 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
 {
     // Phase 8 Plan 99-06 — closes the search→grab regression. ProcessMangaDownloadDecisions
     // mirrors TV ProcessDownloadDecisions: walks ranked decisions, grabs approved ones via
-    // IDownloadService.DownloadReport (using RemoteChapter.ToRemoteEpisodeShim()), routes
-    // pending / failed / rejected into the appropriate buckets.
+    // IMangaDownloadService.DownloadReport (Phase 15 Wave (A) W-4 rebind 2026-05-07;
+    // pre-Wave-(A) used the RemoteChapter.ToRemoteEpisodeShim() bridge into IDownloadService),
+    // routes pending / failed / rejected into the appropriate buckets.
     [TestFixture]
     public class ProcessMangaDownloadDecisionsFixture : CoreTest<ProcessMangaDownloadDecisions>
     {
@@ -91,8 +92,8 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
 
             result.Grabbed.Should().BeEmpty();
             result.Rejected.Should().HaveCount(2);
-            Mocker.GetMock<IDownloadService>()
-                .Verify(d => d.DownloadReport(It.IsAny<RemoteEpisode>(), It.IsAny<int?>()), Times.Never);
+            Mocker.GetMock<IMangaDownloadService>()
+                .Verify(d => d.DownloadReport(It.IsAny<RemoteChapter>(), It.IsAny<int?>()), Times.Never);
         }
 
         [Test]
@@ -103,8 +104,8 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             var result = await Subject.ProcessDecisions(decisions);
 
             result.Grabbed.Should().HaveCount(1);
-            Mocker.GetMock<IDownloadService>()
-                .Verify(d => d.DownloadReport(It.IsAny<RemoteEpisode>(), null), Times.Once);
+            Mocker.GetMock<IMangaDownloadService>()
+                .Verify(d => d.DownloadReport(It.IsAny<RemoteChapter>(), null), Times.Once);
         }
 
         [Test]
@@ -120,8 +121,8 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             var result = await Subject.ProcessDecisions(decisions);
 
             result.Grabbed.Should().HaveCount(3);
-            Mocker.GetMock<IDownloadService>()
-                .Verify(d => d.DownloadReport(It.IsAny<RemoteEpisode>(), null), Times.Exactly(3));
+            Mocker.GetMock<IMangaDownloadService>()
+                .Verify(d => d.DownloadReport(It.IsAny<RemoteChapter>(), null), Times.Exactly(3));
         }
 
         [Test]
@@ -145,8 +146,8 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
         {
             var decisions = new List<MangaDownloadDecision> { BuildApproved(30) };
 
-            Mocker.GetMock<IDownloadService>()
-                .Setup(d => d.DownloadReport(It.IsAny<RemoteEpisode>(), It.IsAny<int?>()))
+            Mocker.GetMock<IMangaDownloadService>()
+                .Setup(d => d.DownloadReport(It.IsAny<RemoteChapter>(), It.IsAny<int?>()))
                 .ThrowsAsync(new DownloadClientUnavailableException("client offline"));
 
             var result = await Subject.ProcessDecisions(decisions);
@@ -165,8 +166,8 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
         {
             var decisions = new List<MangaDownloadDecision> { BuildApproved(40) };
 
-            Mocker.GetMock<IDownloadService>()
-                .Setup(d => d.DownloadReport(It.IsAny<RemoteEpisode>(), It.IsAny<int?>()))
+            Mocker.GetMock<IMangaDownloadService>()
+                .Setup(d => d.DownloadReport(It.IsAny<RemoteChapter>(), It.IsAny<int?>()))
                 .ThrowsAsync(new ReleaseUnavailableException(decisions[0].RemoteChapter.Release, "gone"));
 
             var result = await Subject.ProcessDecisions(decisions);
@@ -210,8 +211,8 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             var result = await Subject.ProcessDecision(decision, downloadClientId: 7);
 
             result.Should().Be(ProcessedDecisionResult.Grabbed);
-            Mocker.GetMock<IDownloadService>()
-                .Verify(d => d.DownloadReport(It.IsAny<RemoteEpisode>(), 7), Times.Once);
+            Mocker.GetMock<IMangaDownloadService>()
+                .Verify(d => d.DownloadReport(It.IsAny<RemoteChapter>(), 7), Times.Once);
         }
     }
 }
