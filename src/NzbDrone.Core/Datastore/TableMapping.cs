@@ -17,10 +17,12 @@ using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Download.History;
 using NzbDrone.Core.Download.Pending;
 using NzbDrone.Core.Download.Pending.Manga;
-using NzbDrone.Core.Extras.Metadata;
-using NzbDrone.Core.Extras.Metadata.Files;
-using NzbDrone.Core.Extras.Others;
-using NzbDrone.Core.Extras.Subtitles;
+// Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+// Extras/ subtree DELETED (TV-only feature; manga has no Extras/Subtitles/Metadata-file concept).
+//   using NzbDrone.Core.Extras.Metadata; ← deleted
+//   using NzbDrone.Core.Extras.Metadata.Files; ← deleted
+//   using NzbDrone.Core.Extras.Others; ← deleted
+//   using NzbDrone.Core.Extras.Subtitles; ← deleted
 using NzbDrone.Core.History;
 using NzbDrone.Core.History.Manga;
 using NzbDrone.Core.ImportLists;
@@ -117,9 +119,11 @@ namespace NzbDrone.Core.Datastore
                   .Ignore(i => i.SupportsOnMangaDelete)
                   .Ignore(i => i.SupportsOnMangaRename);
 
-            Mapper.Entity<MetadataDefinition>("Metadata").RegisterModel()
-                  .Ignore(x => x.ImplementationName)
-                  .Ignore(d => d.Tags);
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // MetadataDefinition entity registration stripped (Extras/Metadata/ deleted).
+            //   Mapper.Entity<MetadataDefinition>("Metadata").RegisterModel()
+            //         .Ignore(x => x.ImplementationName)
+            //         .Ignore(d => d.Tags);
 
             // Phase 2 (Plan 02-11) — IMetadataSource ProviderDefinition. Distinct from
             // the Sonarr-inherited Metadata IMetadataConsumer table above (Pitfall 2).
@@ -167,9 +171,11 @@ namespace NzbDrone.Core.Datastore
             Mapper.Entity<Log>("Logs").RegisterModel();
             Mapper.Entity<NamingConfig>("NamingConfig").RegisterModel();
             Mapper.Entity<Blocklist>("Blocklist").RegisterModel();
-            Mapper.Entity<MetadataFile>("MetadataFiles").RegisterModel();
-            Mapper.Entity<SubtitleFile>("SubtitleFiles").RegisterModel();
-            Mapper.Entity<OtherExtraFile>("ExtraFiles").RegisterModel();
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // Extras/* file entity registrations stripped (Extras/ subtree DELETED).
+            //   Mapper.Entity<MetadataFile>("MetadataFiles").RegisterModel();
+            //   Mapper.Entity<SubtitleFile>("SubtitleFiles").RegisterModel();
+            //   Mapper.Entity<OtherExtraFile>("ExtraFiles").RegisterModel();
 
             Mapper.Entity<PendingRelease>("PendingReleases").RegisterModel()
                   .Ignore(e => e.RemoteEpisode);
