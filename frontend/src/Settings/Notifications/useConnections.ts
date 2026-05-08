@@ -26,6 +26,10 @@ export interface NotificationModel extends Provider {
   onManualInteractionRequired: boolean;
   onChapterFileDelete: boolean;
   onChapterFileDeleteForUpgrade: boolean;
+  onChapterImport: boolean;
+  onMangaAdd: boolean;
+  onMangaDelete: boolean;
+  onMangaRename: boolean;
   supportsOnGrab: boolean;
   supportsOnDownload: boolean;
   supportsOnUpgrade: boolean;
@@ -37,6 +41,10 @@ export interface NotificationModel extends Provider {
   supportsOnManualInteractionRequired: boolean;
   supportsOnChapterFileDelete: boolean;
   supportsOnChapterFileDeleteForUpgrade: boolean;
+  supportsOnChapterImport: boolean;
+  supportsOnMangaAdd: boolean;
+  supportsOnMangaDelete: boolean;
+  supportsOnMangaRename: boolean;
   tags: number[];
 }
 
@@ -105,6 +113,10 @@ export const useManageConnection = (
           onChapterFileDelete: schema.supportsOnChapterFileDelete || false,
           onChapterFileDeleteForUpgrade:
             schema.supportsOnChapterFileDeleteForUpgrade || false,
+          onChapterImport: schema.supportsOnChapterImport || false,
+          onMangaAdd: schema.supportsOnMangaAdd || false,
+          onMangaDelete: schema.supportsOnMangaDelete || false,
+          onMangaRename: schema.supportsOnMangaRename || false,
         }
       : ({} as NotificationModel),
     PATH

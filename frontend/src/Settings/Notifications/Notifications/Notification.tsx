@@ -24,6 +24,10 @@ function Notification({
   onManualInteractionRequired,
   onChapterFileDelete,
   onChapterFileDeleteForUpgrade,
+  onChapterImport,
+  onMangaAdd,
+  onMangaDelete,
+  onMangaRename,
   supportsOnGrab,
   supportsOnDownload,
   supportsOnUpgrade,
@@ -35,6 +39,10 @@ function Notification({
   supportsOnManualInteractionRequired,
   supportsOnChapterFileDelete,
   supportsOnChapterFileDeleteForUpgrade,
+  supportsOnChapterImport,
+  supportsOnMangaAdd,
+  supportsOnMangaDelete,
+  supportsOnMangaRename,
   tags,
 }: NotificationModel) {
   const tagList = useTagList();
@@ -123,6 +131,22 @@ function Notification({
         </Label>
       ) : null}
 
+      {supportsOnChapterImport && onChapterImport ? (
+        <Label kind={kinds.SUCCESS}>{translate('OnChapterImport')}</Label>
+      ) : null}
+
+      {supportsOnMangaAdd && onMangaAdd ? (
+        <Label kind={kinds.SUCCESS}>{translate('OnMangaAdd')}</Label>
+      ) : null}
+
+      {supportsOnMangaDelete && onMangaDelete ? (
+        <Label kind={kinds.SUCCESS}>{translate('OnMangaDelete')}</Label>
+      ) : null}
+
+      {supportsOnMangaRename && onMangaRename ? (
+        <Label kind={kinds.SUCCESS}>{translate('OnMangaRename')}</Label>
+      ) : null}
+
       {!onGrab &&
       !onDownload &&
       !onRename &&
@@ -132,7 +156,11 @@ function Notification({
       !onApplicationUpdate &&
       !onManualInteractionRequired &&
       !onChapterFileDelete &&
-      !onChapterFileDeleteForUpgrade ? (
+      !onChapterFileDeleteForUpgrade &&
+      !onChapterImport &&
+      !onMangaAdd &&
+      !onMangaDelete &&
+      !onMangaRename ? (
         <Label kind={kinds.DISABLED} outline={true}>
           {translate('Disabled')}
         </Label>
