@@ -39,6 +39,35 @@ public class MangaResource : RestResource
     public int? TotalChapterCount { get; set; }
     public int? PublicationYear { get; set; }
     public string? PrimaryAuthor { get; set; }
+
+    // Computed at GET time by MangaController.MapResource — drives the UI library
+    // tile's chapter progress bar (`X / Y (Total: …)`). The field set carries
+    // both the canonical chapter-shape names and the verbatim TV-shape aliases
+    // (episodeCount / episodeFileCount) that the inherited Phase 7 MangaIndexPoster
+    // / MangaIndexOverview / MangaIndexRow components still read pre-Phase-8.
+    // F-05 from quick-260507-tff-rerun: the field was missing entirely so the
+    // frontend defaulted episodeCount/episodeFileCount to 0 and showed `0 / 0`
+    // even when chapters had landed on disk.
+    public MangaStatisticsResource? Statistics { get; set; }
+}
+
+public class MangaStatisticsResource
+{
+    public int ChapterCount { get; set; }
+    public int ChapterFileCount { get; set; }
+    public int TotalChapterCount { get; set; }
+    public int MonitoredChapterCount { get; set; }
+    public long SizeOnDisk { get; set; }
+
+    // TV-shape aliases — the Phase 7 MangaIndexPoster + MangaIndexOverview
+    // components inherit verbatim from Series/Index/* and read these names.
+    // Phase 8 collapse will rename consumers to the chapter-shape names and
+    // drop these aliases.
+    public int EpisodeCount { get; set; }
+    public int EpisodeFileCount { get; set; }
+    public int TotalEpisodeCount { get; set; }
+    public int MonitoredEpisodeCount { get; set; }
+    public int SeasonCount { get; set; }
 }
 
 public static class MangaResourceMapper

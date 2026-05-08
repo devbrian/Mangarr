@@ -39,18 +39,24 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
 {
     private readonly IMangaService _mangaService;
     private readonly IAddMangaService _addMangaService;
+    private readonly IChapterService _chapterService;
+    private readonly IChapterFileService _chapterFileService;
     private readonly IMapMangaCoversToLocal _coverMapper;
     private readonly Logger _logger;
 
     public MangaController(IBroadcastSignalRMessage signalRBroadcaster,
                            IMangaService mangaService,
                            IAddMangaService addMangaService,
+                           IChapterService chapterService,
+                           IChapterFileService chapterFileService,
                            IMapMangaCoversToLocal coverMapper,
                            Logger logger)
         : base(signalRBroadcaster)
     {
         _mangaService = mangaService;
         _addMangaService = addMangaService;
+        _chapterService = chapterService;
+        _chapterFileService = chapterFileService;
         _coverMapper = coverMapper;
         _logger = logger;
 
@@ -172,7 +178,61 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
             _coverMapper.ConvertToLocalUrls(manga.Id, resource.Images);
         }
 
+        if (resource != null)
+        {
+            resource.Statistics = ComputeStatistics(manga.Id);
+        }
+
         return resource;
+    }
+
+    // F-05 fix: inline statistics computation. A future plan will replace this
+    // with a SQL-aggregated SeriesStatisticsService analog (per-manga in one
+    // query); for v1 the per-manga chapter list is small and the extra GET-time
+    // round-trip is negligible (typical manga have < 1000 chapters; the chapter
+    // table read is already the bottleneck of the Add Manga flow). The TV-shape
+    // alias fields are populated alongside the chapter-shape canonical fields
+    // because the Phase 7 MangaIndexPoster + MangaIndexOverview components
+    // inherit the Series-tile verbatim and read episodeCount/episodeFileCount
+    // pre-Phase-8 collapse.
+    private MangaStatisticsResource ComputeStatistics(int mangaId)
+    {
+        var chapters = _chapterService.GetChaptersByManga(mangaId) ?? new List<NzbDrone.Core.Manga.Chapter>();
+        var chapterCount = chapters.Count;
+        var chapterFileCount = chapters.Count(c => c.ChapterFileId.HasValue);
+        var monitoredChapterCount = chapters.Count(c => c.Monitored);
+
+        var sizeOnDisk = 0L;
+        var fileIds = chapters
+            .Where(c => c.ChapterFileId.HasValue)
+            .Select(c => c.ChapterFileId!.Value)
+            .Distinct()
+            .ToList();
+        if (fileIds.Count > 0)
+        {
+            try
+            {
+                sizeOnDisk = _chapterFileService.Get(fileIds).Sum(f => f.Size);
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex, "Failed to size chapter files for manga {0}", mangaId);
+            }
+        }
+
+        return new MangaStatisticsResource
+        {
+            ChapterCount = chapterCount,
+            ChapterFileCount = chapterFileCount,
+            TotalChapterCount = chapterCount,
+            MonitoredChapterCount = monitoredChapterCount,
+            SizeOnDisk = sizeOnDisk,
+            EpisodeCount = chapterCount,
+            EpisodeFileCount = chapterFileCount,
+            TotalEpisodeCount = chapterCount,
+            MonitoredEpisodeCount = monitoredChapterCount,
+            SeasonCount = 0,
+        };
     }
 
     [NonAction]
