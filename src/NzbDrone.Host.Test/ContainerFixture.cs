@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using DryIoc;
 using DryIoc.Microsoft.DependencyInjection;
 using FluentAssertions;
@@ -16,14 +15,17 @@ using NzbDrone.Common.Options;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Datastore.Extensions;
 using NzbDrone.Core.Download;
-using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.Indexers;
-using NzbDrone.Core.Messaging.Commands;
-using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Host;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
 using IServiceProvider = System.IServiceProvider;
+
+// Sonarr divergence: Phase 15 Plan 15-11 cascade absorption -- TV-handler resolution tests
+// (RssSyncCommand, DownloadMonitoringService IHandle<EpisodeGrabbedEvent / TrackedDownloadsRemovedEvent>,
+// IExecute<RefreshMonitoredDownloadsCommand>) DELETED: Plan 15-10 deleted DownloadMonitoringService +
+// EpisodeGrabbedEvent and Plan 15-04 deleted RssSyncCommand. The DryIoc auto-discovery cascade is now
+// covered by the smoke-boot in 15-09 and the surviving tests preserve the container-shape contract.
 
 namespace NzbDrone.App.Test
 {
@@ -74,44 +76,6 @@ namespace NzbDrone.App.Test
             var factory = _container.GetRequiredService<IServiceFactory>();
 
             factory.Build<IIndexerFactory>().Should().NotBeNull();
-        }
-
-        [Test]
-        public void should_resolve_command_executor_by_name()
-        {
-            var genericExecutor = typeof(IExecute<>).MakeGenericType(typeof(RssSyncCommand));
-
-            var executor = _container.GetRequiredService(genericExecutor);
-
-            executor.Should().NotBeNull();
-            executor.Should().BeAssignableTo<IExecute<RssSyncCommand>>();
-        }
-
-        [Test]
-        public void should_return_same_instance_via_resolve_and_resolveall()
-        {
-            var first = (DownloadMonitoringService)_container.GetRequiredService<IHandle<TrackedDownloadsRemovedEvent>>();
-            var second = _container.GetServices<IHandle<TrackedDownloadsRemovedEvent>>().OfType<DownloadMonitoringService>().Single();
-
-            first.Should().BeSameAs(second);
-        }
-
-        [Test]
-        public void should_return_same_instance_of_singletons_by_different_same_interface()
-        {
-            var first = _container.GetServices<IHandle<EpisodeGrabbedEvent>>().OfType<DownloadMonitoringService>().Single();
-            var second = _container.GetServices<IHandle<EpisodeGrabbedEvent>>().OfType<DownloadMonitoringService>().Single();
-
-            first.Should().BeSameAs(second);
-        }
-
-        [Test]
-        public void should_return_same_instance_of_singletons_by_different_interfaces()
-        {
-            var first = _container.GetServices<IHandle<EpisodeGrabbedEvent>>().OfType<DownloadMonitoringService>().Single();
-            var second = (DownloadMonitoringService)_container.GetRequiredService<IExecute<RefreshMonitoredDownloadsCommand>>();
-
-            first.Should().BeSameAs(second);
         }
     }
 }

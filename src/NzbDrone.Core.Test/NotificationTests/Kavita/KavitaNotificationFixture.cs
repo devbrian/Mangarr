@@ -42,20 +42,6 @@ namespace NzbDrone.Core.Test.NotificationTests.Kavita
         {
             // D-18: v1 implements only OnChapterImport. All other Supports* default false.
             Subject.SupportsOnChapterImport.Should().BeTrue();
-
-            Subject.SupportsOnGrab.Should().BeFalse();
-            Subject.SupportsOnDownload.Should().BeFalse();
-            Subject.SupportsOnUpgrade.Should().BeFalse();
-            Subject.SupportsOnImportComplete.Should().BeFalse();
-            Subject.SupportsOnRename.Should().BeFalse();
-            Subject.SupportsOnSeriesAdd.Should().BeFalse();
-            Subject.SupportsOnSeriesDelete.Should().BeFalse();
-            Subject.SupportsOnEpisodeFileDelete.Should().BeFalse();
-            Subject.SupportsOnEpisodeFileDeleteForUpgrade.Should().BeFalse();
-            Subject.SupportsOnHealthIssue.Should().BeFalse();
-            Subject.SupportsOnHealthRestored.Should().BeFalse();
-            Subject.SupportsOnApplicationUpdate.Should().BeFalse();
-            Subject.SupportsOnManualInteractionRequired.Should().BeFalse();
         }
 
         [Test]

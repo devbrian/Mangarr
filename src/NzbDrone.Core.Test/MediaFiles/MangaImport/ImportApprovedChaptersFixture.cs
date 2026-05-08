@@ -10,7 +10,6 @@ using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles;
-using NzbDrone.Core.MediaFiles.EpisodeImport;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Organizer.Manga;

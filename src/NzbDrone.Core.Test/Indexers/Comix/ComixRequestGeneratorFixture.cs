@@ -52,13 +52,5 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             url.Should().Contain("/api/v2/manga/");
             url.Should().Contain("/chapters");
         }
-
-        [Test]
-        public void GetSearchRequests_SeasonSearchCriteria_returns_empty_chain()
-        {
-            // D-03: TV criteria → no search requests emitted (no-op fan-out)
-            var chain = Subject.GetSearchRequests(new SeasonSearchCriteria());
-            chain.GetAllTiers().Should().BeEmpty();
-        }
     }
 }

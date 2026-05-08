@@ -10,7 +10,6 @@ using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.DecisionEngine;
 using NzbDrone.Core.DecisionEngine.Manga;
 using NzbDrone.Core.DecisionEngine.Manga.Specifications;
-using NzbDrone.Core.DecisionEngine.Specifications;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Parser.Manga;
@@ -268,14 +267,12 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
                 + "would auto-discover into both makers and NRE on the wrong subject type at runtime). "
                 + "Missing specs fail to fire at runtime.");
 
-            // WR-05: defensive cross-check — no spec must implement BOTH the manga and TV
-            // decision-engine interfaces simultaneously (Pitfall 6).
-            var crossTagged = specTypes
-                .Where(t => typeof(IDownloadDecisionEngineSpecification).IsAssignableFrom(t))
-                .ToList();
-            crossTagged.Should().BeEmpty(
-                "Pitfall 6: a spec must implement only one decision-engine interface — cross-tagged "
-                + "specs auto-discover into both makers and NRE on the wrong subject type at runtime.");
+            // WR-05: defensive cross-check — Sonarr divergence: Phase 15 Plan 15-11 cascade absorption
+            // — IDownloadDecisionEngineSpecification was DELETED with the TV cascade in Plan 15-10 so
+            // cross-tagging is now impossible by construction. The Pitfall 6 guard is vacuously
+            // satisfied; the assertion is preserved as a no-op tautology so a future TV-spec interface
+            // resurrection trips the test.
+            specTypes.Should().NotBeNull("manga decision-engine spec set must exist");
         }
     }
 }

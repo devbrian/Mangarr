@@ -1,15 +1,14 @@
 using System;
 using System.Collections.Generic;
 using FluentAssertions;
+using Mangarr.Api.V5.Manga.Chapter;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Test.Common;
-using Mangarr.Api.V5.Manga.Chapter;
-using Mangarr.Http;
-using Mangarr.Http.REST;
-
 namespace NzbDrone.Api.Test.Manga.Chapter
 {
     // Sonarr divergence: NEW manga V5 controller fixture per Phase 13 Plan 13-06 (Wave 4 —

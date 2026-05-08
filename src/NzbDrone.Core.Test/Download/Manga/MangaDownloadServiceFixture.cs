@@ -82,7 +82,7 @@ namespace NzbDrone.Core.Test.Download.Manga
         public async Task Download_report_should_publish_chapter_grabbed_event()
         {
             var mock = WithHttpClient();
-            mock.Setup(s => s.Download(It.IsAny<RemoteEpisode>(), It.IsAny<IIndexer>()));
+            mock.Setup(s => s.Download(It.IsAny<RemoteChapter>(), It.IsAny<IIndexer>()));
 
             await Subject.DownloadReport(_remoteChapter, null);
 
@@ -93,18 +93,18 @@ namespace NzbDrone.Core.Test.Download.Manga
         public async Task Download_report_should_grab_using_client()
         {
             var mock = WithHttpClient();
-            mock.Setup(s => s.Download(It.IsAny<RemoteEpisode>(), It.IsAny<IIndexer>()));
+            mock.Setup(s => s.Download(It.IsAny<RemoteChapter>(), It.IsAny<IIndexer>()));
 
             await Subject.DownloadReport(_remoteChapter, null);
 
-            mock.Verify(s => s.Download(It.IsAny<RemoteEpisode>(), It.IsAny<IIndexer>()), Times.Once());
+            mock.Verify(s => s.Download(It.IsAny<RemoteChapter>(), It.IsAny<IIndexer>()), Times.Once());
         }
 
         [Test]
         public void Download_report_should_not_publish_event_on_failed_grab()
         {
             var mock = WithHttpClient();
-            mock.Setup(s => s.Download(It.IsAny<RemoteEpisode>(), It.IsAny<IIndexer>()))
+            mock.Setup(s => s.Download(It.IsAny<RemoteChapter>(), It.IsAny<IIndexer>()))
                 .Throws(new WebException());
 
             Assert.ThrowsAsync<DownloadClientUnavailableException>(async () => await Subject.DownloadReport(_remoteChapter, null));
@@ -116,8 +116,8 @@ namespace NzbDrone.Core.Test.Download.Manga
         public void Download_report_should_trigger_indexer_backoff_on_indexer_error()
         {
             var mock = WithHttpClient();
-            mock.Setup(s => s.Download(It.IsAny<RemoteEpisode>(), It.IsAny<IIndexer>()))
-                .Callback<RemoteEpisode, IIndexer>((v, indexer) =>
+            mock.Setup(s => s.Download(It.IsAny<RemoteChapter>(), It.IsAny<IIndexer>()))
+                .Callback<RemoteChapter, IIndexer>((v, indexer) =>
                 {
                     throw new ReleaseDownloadException(v.Release, "Error", new WebException());
                 });
@@ -143,15 +143,15 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             await Subject.DownloadReport(_remoteChapter, null);
 
-            http.Verify(c => c.Download(It.IsAny<RemoteEpisode>(), It.IsAny<IIndexer>()), Times.Once());
+            http.Verify(c => c.Download(It.IsAny<RemoteChapter>(), It.IsAny<IIndexer>()), Times.Once());
         }
 
         [Test]
         public void Should_route_release_unavailable_to_throw_without_indexer_backoff()
         {
             var mock = WithHttpClient();
-            mock.Setup(s => s.Download(It.IsAny<RemoteEpisode>(), It.IsAny<IIndexer>()))
-                .Callback<RemoteEpisode, IIndexer>((v, indexer) =>
+            mock.Setup(s => s.Download(It.IsAny<RemoteChapter>(), It.IsAny<IIndexer>()))
+                .Callback<RemoteChapter, IIndexer>((v, indexer) =>
                 {
                     throw new ReleaseUnavailableException(v.Release, "Error", new WebException());
                 });
@@ -166,7 +166,7 @@ namespace NzbDrone.Core.Test.Download.Manga
         public async Task Specific_download_client_id_should_use_get_path()
         {
             var mock = WithHttpClient();
-            mock.Setup(s => s.Download(It.IsAny<RemoteEpisode>(), It.IsAny<IIndexer>()));
+            mock.Setup(s => s.Download(It.IsAny<RemoteChapter>(), It.IsAny<IIndexer>()));
 
             Mocker.GetMock<IProvideDownloadClient>()
                 .Setup(v => v.Get(7))
@@ -176,7 +176,7 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             Mocker.GetMock<IProvideDownloadClient>()
                 .Verify(v => v.Get(7), Times.Once());
-            mock.Verify(s => s.Download(It.IsAny<RemoteEpisode>(), It.IsAny<IIndexer>()), Times.Once());
+            mock.Verify(s => s.Download(It.IsAny<RemoteChapter>(), It.IsAny<IIndexer>()), Times.Once());
             VerifyEventPublished<ChapterGrabbedEvent>();
         }
     }
