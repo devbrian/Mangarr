@@ -1,28 +1,27 @@
-using System.Net;
-using System.Text;
 using NzbDrone.Common.Http;
 using NzbDrone.Core.IndexerSearch.Definitions;
 
 namespace NzbDrone.Core.Indexers.Comix
 {
     /// <summary>
-    /// Composes HTTP requests to comix.to's <c>/api/v2/...</c> JSON API. Manga-shaped
-    /// overloads (<see cref="GetSearchRequests(MangaSearchCriteria)"/> +
-    /// <see cref="GetSearchRequests(ChapterSearchCriteria)"/>) emit URLs against
-    /// <c>/api/v2/manga/{hash}/chapters</c>; the latest-updates feed targets
-    /// <c>/api/v2/manga?order[chapter_updated_at]=desc</c>. All 7 inherited TV overloads
-    /// return an empty <see cref="IndexerPageableRequestChain"/> per Plan 03-02 Pattern 3
-    /// fan-out (D-03).
+    /// Composes HTTP requests to comix.to's <c>/api/v1/...</c> JSON API.
     ///
     /// <para>
-    /// Hash resolution: comix.to keys per-manga chapter lists by an opaque
-    /// <c>hash_id</c> (e.g. <c>"1mrl"</c>, <c>"0krjl"</c>) rather than the integer
-    /// <c>manga_id</c>. The Phase 2 <c>Manga</c> model carries no <c>ComixHash</c> field;
-    /// for the v1 minimum-viable port, we derive a slug from
-    /// <see cref="Manga.Manga.CleanTitle"/> (or fallback <see cref="Manga.Manga.Title"/>)
-    /// — comix.to historically accepts the title-slug as a chapter-list lookup key. v2
-    /// may add a comix.to metadata source for cross-resolution to the canonical
-    /// <c>hash_id</c> (Phase 2 deferred).
+    /// The Phase 3 plan literal targeted <c>/api/v2/...</c> against a slugified title key
+    /// (e.g. <c>/api/v2/manga/the-forgotten-field/chapters</c>). Live-API verification on
+    /// 2026-05-08 (during the comix-indexer-404 debug session) showed the actual API is
+    /// <c>/api/v1/...</c> and the manga is keyed by an opaque <c>hid</c>
+    /// (e.g. <c>"mr3m0"</c>) — NOT a slug. The <see cref="ComixIndexer"/> resolves the
+    /// hid via a search call before invoking <see cref="GetSearchRequests(MangaSearchCriteria)"/>;
+    /// the resolved value is set on <see cref="ResolvedMangaHash"/> + <see cref="ResolvedMangaSlug"/>.
+    /// </para>
+    ///
+    /// <para>
+    /// Chapter-list URLs additionally require a <c>_=&lt;token&gt;</c> query parameter where
+    /// the token is <see cref="ComixHash.GenerateHash"/> applied to the URL path (without
+    /// the <c>/api/v1</c> prefix). Without this token the endpoint returns 403
+    /// <c>"Missing token."</c>. The token derivation is portrered verbatim from keiyoushi's
+    /// <c>Hash.kt</c>.
     /// </para>
     ///
     /// <para>
@@ -35,13 +34,30 @@ namespace NzbDrone.Core.Indexers.Comix
     {
         public ComixIndexerSettings Settings { get; set; }
 
+        /// <summary>
+        /// Opaque comix.to hid (e.g. "mr3m0") for the manga whose chapter list we're fetching.
+        /// Set by <see cref="ComixIndexer.Fetch(MangaSearchCriteria)"/> after resolving via
+        /// the <c>/api/v1/manga?keyword=&lt;title&gt;</c> search endpoint. Null when no
+        /// matching manga was found — <see cref="GetSearchRequests(MangaSearchCriteria)"/>
+        /// returns an empty chain in that case.
+        /// </summary>
+        public string ResolvedMangaHash { get; set; }
+
+        /// <summary>
+        /// Optional <c>{hid}-{slug}</c> form (e.g. "mr3m0-the-forgotten-field") that comix.to's
+        /// chapter-list endpoint accepts via the <c>mangaSlug=</c> query parameter. keiyoushi
+        /// passes this for forward-compat with their reader-page deep-links; comix.to ignores
+        /// it when absent. Defaults to the bare hid if no resolved slug is set.
+        /// </summary>
+        public string ResolvedMangaSlug { get; set; }
+
         public IndexerPageableRequestChain GetRecentRequests()
         {
-            // Latest-updates feed: /api/v2/manga?order[chapter_updated_at]=desc&limit=50&page=1
+            // Latest-updates feed: /api/v1/manga?order[chapter_updated_at]=desc&limit=50&page=1
             // RESEARCH.md Q-1 recommends order[chapter_updated_at]=desc over views_30d — more
-            // relevant to Wanted polling.
-            var url = $"{Settings.BaseUrl.TrimEnd('/')}/api/v2/manga"
-                    + "?order[chapter_updated_at]=desc"
+            // relevant to Wanted polling. NO token required for this endpoint.
+            var url = $"{Settings.BaseUrl.TrimEnd('/')}/api/v1/manga"
+                    + "?order%5Bchapter_updated_at%5D=desc"
                     + "&limit=50"
                     + "&page=1";
 
@@ -54,17 +70,16 @@ namespace NzbDrone.Core.Indexers.Comix
 
         public IndexerPageableRequestChain GetSearchRequests(MangaSearchCriteria sc)
         {
-            // comix.to expects an opaque hash_id. Manga model has no ComixHash field (v2 work);
-            // use a title-slug fallback. If no usable title, return empty chain so FetchReleases
-            // short-circuits to an empty release list (NOT an exception — manga lacking a comix
-            // mapping is a normal state pre-cross-resolution).
-            var hash = ResolveHashKey(sc?.Manga);
-            if (hash == null)
+            // The hid lookup is performed by ComixIndexer.Fetch() before dispatching — by the
+            // time we land here, ResolvedMangaHash is either populated or null. If null, the
+            // manga has no comix.to mapping (or the search returned no hits) — return an
+            // empty chain so FetchReleases short-circuits to an empty release list.
+            if (string.IsNullOrWhiteSpace(ResolvedMangaHash))
             {
                 return new IndexerPageableRequestChain();
             }
 
-            var url = BuildChapterListUrl(hash);
+            var url = BuildChapterListUrl(ResolvedMangaHash, ResolvedMangaSlug ?? ResolvedMangaHash);
 
             var chain = new IndexerPageableRequestChain();
             var req = new IndexerRequest(url, HttpAccept.Json);
@@ -92,67 +107,39 @@ namespace NzbDrone.Core.Indexers.Comix
 
         // ── Helpers ──────────────────────────────────────────────────────────────────────
 
-        private string BuildChapterListUrl(string hash)
-            => $"{Settings.BaseUrl.TrimEnd('/')}/api/v2/manga/{hash}/chapters"
-             + "?order[number]=desc&limit=100&page=1";
-
         /// <summary>
-        /// Resolve a comix.to lookup key from a <see cref="Manga.Manga"/>. Order:
-        /// <list type="number">
-        /// <item><c>CleanTitle</c> → slug</item>
-        /// <item><c>Title</c> → slug (fallback)</item>
-        /// </list>
-        /// Returns <c>null</c> when no usable title is available — caller should emit an empty
-        /// request chain in that case.
+        /// Build a fully-qualified chapter-list URL with the comix.to anti-bot token.
+        /// Mirrors keiyoushi's <c>chapterListRequest</c>.
         /// </summary>
-        internal static string ResolveHashKey(Manga.Manga manga)
+        internal string BuildChapterListUrl(string hash, string slug, int page = 1)
         {
-            if (manga == null)
-            {
-                return null;
-            }
+            // The token signs the path BEFORE the /api/v1 prefix is appended (i.e. comix.to
+            // computes the token from "/manga/{hid}/chapters" only — verified against the
+            // live JS bundle's request signing helper).
+            var pathForToken = $"/manga/{hash}/chapters";
+            var token = ComixHash.GenerateHash(pathForToken);
 
-            var source = !string.IsNullOrWhiteSpace(manga.CleanTitle) ? manga.CleanTitle : manga.Title;
-            return string.IsNullOrWhiteSpace(source) ? null : Slugify(source);
+            // bracket query params must be URL-encoded so the request line stays valid:
+            // order[number]=desc → order%5Bnumber%5D=desc. comix.to's parser still
+            // un-encodes the brackets on the server.
+            return $"{Settings.BaseUrl.TrimEnd('/')}/api/v1/manga/{hash}/chapters"
+                 + "?order%5Bnumber%5D=desc"
+                 + "&limit=100"
+                 + $"&page={page}"
+                 + $"&_={System.Net.WebUtility.UrlEncode(token)}"
+                 + $"&mangaSlug={System.Net.WebUtility.UrlEncode(slug)}";
         }
 
         /// <summary>
-        /// Naive title-to-slug: lowercase ASCII letters + digits separated by single dashes.
-        /// Mirrors comix.to's slug convention (e.g. "One Piece" → "one-piece"). Non-ASCII is
-        /// dropped silently (comix.to cannot resolve non-Latin titles via slug; the v2
-        /// metadata-source linkage will replace this fallback with canonical hash_id lookup).
+        /// Build the <c>/api/v1/manga?keyword=...</c> search URL used by
+        /// <see cref="ComixIndexer"/> to resolve the manga title to its <c>hid</c>.
         /// </summary>
-        internal static string Slugify(string input)
+        internal string BuildSearchUrl(string keyword)
         {
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                return null;
-            }
-
-            var sb = new StringBuilder(input.Length);
-            var lastWasDash = true; // suppress leading dashes
-            foreach (var raw in input)
-            {
-                var c = char.ToLowerInvariant(raw);
-                if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
-                {
-                    sb.Append(c);
-                    lastWasDash = false;
-                }
-                else if (!lastWasDash)
-                {
-                    sb.Append('-');
-                    lastWasDash = true;
-                }
-            }
-
-            // Trim trailing dash
-            while (sb.Length > 0 && sb[sb.Length - 1] == '-')
-            {
-                sb.Length--;
-            }
-
-            return sb.Length == 0 ? null : WebUtility.UrlEncode(sb.ToString());
+            return $"{Settings.BaseUrl.TrimEnd('/')}/api/v1/manga"
+                 + $"?keyword={System.Net.WebUtility.UrlEncode(keyword ?? string.Empty)}"
+                 + "&limit=10"
+                 + "&page=1";
         }
     }
 }

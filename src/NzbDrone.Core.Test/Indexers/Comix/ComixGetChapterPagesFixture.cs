@@ -61,7 +61,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         private static ReleaseInfo BuildRelease()
             => new ReleaseInfo
             {
-                DownloadUrl = "https://comix.to/api/v2/chapters/12345",
+                DownloadUrl = "https://comix.to/api/v1/chapters/12345/pages",
                 ScanlationGroup = null   // typical for official rows
             };
 

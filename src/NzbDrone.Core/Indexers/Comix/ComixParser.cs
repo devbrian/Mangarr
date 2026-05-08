@@ -8,35 +8,38 @@ using NzbDrone.Core.Parser.Model;
 namespace NzbDrone.Core.Indexers.Comix
 {
     /// <summary>
-    /// JSON response parser for comix.to <c>/api/v2/...</c> endpoints. Auto-detects whether
-    /// the response is a chapter-list (per-manga, with <c>chapter_id</c> rows) or a manga-list
-    /// (latest updates / search, with <c>manga_id</c> + <c>hash_id</c> rows) by probing the
-    /// first item's keys.
+    /// JSON response parser for comix.to <c>/api/v1/...</c> endpoints. Auto-detects whether
+    /// the response is a chapter-list (with <c>number</c> field on items) or a manga-list
+    /// (with <c>hid</c> + <c>title</c> on items) by probing the first item's keys.
+    ///
+    /// <para>
+    /// Live shape verified during the comix-indexer-404 debug session (2026-05-08) — the
+    /// Phase 3 plan literal targeted snake_case under /api/v2/, but comix.to actually serves
+    /// camelCase under /api/v1/.
+    /// </para>
     ///
     /// <para>
     /// Populates two new <see cref="ReleaseInfo"/> fields per Phase 3 D-Q4 / SOURCE-04 (added
     /// in Plan 03-02):
     /// <list type="bullet">
-    /// <item><see cref="ReleaseInfo.ScanlationGroup"/> — from <c>scanlation_group.name</c>
+    /// <item><see cref="ReleaseInfo.ScanlationGroup"/> — from the chapter row's <c>group.name</c>
     ///       when present (null on official chapters).</item>
     /// <item><see cref="ReleaseInfo.TranslatedLanguage"/> — hard-coded <c>"en"</c> per RESEARCH:
-    ///       comix.to is a single-language English-only source; chapter rows do NOT carry a
-    ///       language code.</item>
+    ///       comix.to is a single-language English-only source.</item>
     /// </list>
     /// </para>
     ///
     /// <para>
-    /// Pitfall 7 + Phase 2 D-12: chapter <c>number</c> is decimal — the synthesized fixtures
-    /// use numeric form (e.g. 1099.5, 1096.5) which Newtonsoft maps directly to
-    /// <see cref="decimal"/>. Entries with no number are silently skipped (T-INJ-02 mitigation:
-    /// no exception path).
+    /// Pitfall 7 + Phase 2 D-12: chapter <c>number</c> is decimal — Newtonsoft maps the JSON
+    /// numeric value directly to <see cref="decimal"/>. Entries with no number are silently
+    /// skipped (T-INJ-02 mitigation: no exception path).
     /// </para>
     ///
     /// <para>
     /// <see cref="ReleaseInfo.DownloadUrl"/> is set to the chapter MANIFEST URL
-    /// (<c>https://comix.to/api/v2/chapters/{chapterId}</c>) — NOT a single image URL.
+    /// (<c>https://comix.to/api/v1/chapters/{chapterId}/pages</c>) — NOT a single image URL.
     /// Phase 4's in-process downloader dereferences this manifest to enumerate per-page image
-    /// URLs (T-PHASE-4-MANIFEST-DRIFT mitigated by contract).
+    /// URLs.
     /// </para>
     /// </summary>
     public class ComixParser : IParseIndexerResponse
@@ -54,8 +57,8 @@ namespace NzbDrone.Core.Indexers.Comix
 
             // Probe envelope shape first via JObject so we can route deserialization without
             // catching exceptions. comix.to wraps both endpoints in {status, result:{items[]}};
-            // route on the first item's keys (chapter rows have chapter_id; manga rows have
-            // manga_id + hash_id).
+            // route on the first item's keys (chapter rows have a numeric `number` and an
+            // `id` plus typically a `group`; manga rows have `hid` + `title` + `latestChapter`).
             JObject envelope;
             try
             {
@@ -72,13 +75,18 @@ namespace NzbDrone.Core.Indexers.Comix
                 return releases;
             }
 
-            if (firstItem["chapter_id"] != null)
+            // Chapter rows always carry a numeric `number` and an integer `id` representing
+            // the chapter id. Manga rows carry `hid` + `title` + `latestChapter`.
+            var hasChapterNumber = firstItem["number"] != null && firstItem["number"].Type != JTokenType.Null;
+            var hasMangaTitle = firstItem["latestChapter"] != null || (firstItem["title"] != null && firstItem["hid"] != null && firstItem["number"] == null);
+
+            if (hasChapterNumber)
             {
                 var chapters = JsonConvert.DeserializeObject<ComixChapterListResponse>(content);
                 return ParseChapterList(chapters);
             }
 
-            if (firstItem["manga_id"] != null && firstItem["hash_id"] != null)
+            if (hasMangaTitle)
             {
                 var mangaList = JsonConvert.DeserializeObject<ComixMangaListResponse>(content);
                 return ParseMangaList(mangaList);
@@ -103,38 +111,43 @@ namespace NzbDrone.Core.Indexers.Comix
                 }
 
                 var chapterNum = ch.Number.Value;
-                var publishDate = ch.UpdatedAt.HasValue
-                    ? DateTimeOffset.FromUnixTimeSeconds(ch.UpdatedAt.Value).UtcDateTime
-                    : DateTime.UtcNow;
 
-                var group = ch.ScanlationGroup?.Name;
+                // The live API does not ship a real timestamp on chapter rows (only the
+                // formatted relative-time string "3d"/"4d"/etc. — useless for ordering).
+                // Fall back to UtcNow so PublishDate is non-null; downstream PublishDate
+                // ordering for chapter releases is best-effort only — Phase 5 ranking goes
+                // by Quality + ScanlationGroup priority, not PublishDate.
+                var publishDate = ParseTimestamp(ch.UpdatedAt) ?? ParseTimestamp(ch.PublishedAt) ?? DateTime.UtcNow;
+
+                var group = ch.Group?.Name;
+                var lang = !string.IsNullOrWhiteSpace(ch.Language) ? ch.Language : "en";
 
                 // comix.to chapter rows do NOT carry the manga title (the chapter-list endpoint
                 // is keyed per-manga; the parent manga is implicit). Parser leaves a placeholder;
-                // upstream MangaParsingService.Map enriches with the matched Manga's title (Phase 2
-                // D-08).
-                var titleSb = $"Chapter {chapterNum.ToString("0.###", CultureInfo.InvariantCulture)} [en]";
-                if (!string.IsNullOrWhiteSpace(ch.Name))
+                // upstream MangaParsingService.Map enriches with the matched Manga's title.
+                var title = $"Chapter {chapterNum.ToString("0.###", CultureInfo.InvariantCulture)} [{lang}]";
+                var subtitle = !string.IsNullOrWhiteSpace(ch.Title) ? ch.Title : ch.Name;
+                if (!string.IsNullOrWhiteSpace(subtitle))
                 {
-                    titleSb += $" - {ch.Name}";
+                    title += $" - {subtitle}";
                 }
 
                 if (!string.IsNullOrWhiteSpace(group))
                 {
-                    titleSb += $" [{group}]";
+                    title += $" [{group}]";
                 }
 
                 releases.Add(new ReleaseInfo
                 {
-                    Guid = $"comix-chapter-{ch.ChapterId}",
-                    Title = titleSb,
+                    Guid = $"comix-chapter-{ch.Id}",
+                    Title = title,
                     Size = 0,
-                    DownloadUrl = $"{BaseUrl.TrimEnd('/')}/api/v2/chapters/{ch.ChapterId}",
-                    InfoUrl = $"{BaseUrl.TrimEnd('/')}/manga/",
+                    DownloadUrl = $"{BaseUrl.TrimEnd('/')}/api/v1/chapters/{ch.Id}/pages",
+                    InfoUrl = $"{BaseUrl.TrimEnd('/')}/",
                     PublishDate = publishDate,
                     DownloadProtocol = DownloadProtocol.Http,
-                    ScanlationGroup = group,                          // null on official rows (is_official=1)
-                    TranslatedLanguage = "en"                         // RESEARCH: single-language English-only source
+                    ScanlationGroup = group,                          // null on official rows
+                    TranslatedLanguage = lang                         // per-chapter language from comix.to
                 });
             }
 
@@ -151,27 +164,23 @@ namespace NzbDrone.Core.Indexers.Comix
 
             foreach (var m in response.Result.Items)
             {
-                if (m == null || !m.LatestChapter.HasValue || string.IsNullOrWhiteSpace(m.HashId))
+                if (m == null || !m.LatestChapter.HasValue || string.IsNullOrWhiteSpace(m.Hid))
                 {
                     continue;
                 }
 
                 var latestNum = (decimal)m.LatestChapter.Value;
-                var publishDate = m.ChapterUpdatedAt.HasValue
-                    ? DateTimeOffset.FromUnixTimeSeconds(m.ChapterUpdatedAt.Value).UtcDateTime
-                    : DateTime.UtcNow;
+                var publishDate = ParseTimestamp(m.ChapterUpdatedAt) ?? DateTime.UtcNow;
 
                 releases.Add(new ReleaseInfo
                 {
-                    Guid = $"comix-manga-{m.MangaId}-ch{latestNum.ToString("0.###", CultureInfo.InvariantCulture)}",
+                    Guid = $"comix-manga-{m.Id}-ch{latestNum.ToString("0.###", CultureInfo.InvariantCulture)}",
                     Title = $"{m.Title ?? "Unknown"} - Chapter {latestNum.ToString("0.###", CultureInfo.InvariantCulture)} [en]",
                     Size = 0,
 
-                    // For latest-updates flow, DownloadUrl points at the chapter-list endpoint;
-                    // Phase 6 will fan out to enumerate per-chapter rows (which the
-                    // ParseChapterList branch then handles).
-                    DownloadUrl = $"{BaseUrl.TrimEnd('/')}/api/v2/manga/{m.HashId}/chapters?page=1&order=desc",
-                    InfoUrl = $"{BaseUrl.TrimEnd('/')}/manga/{m.HashId}",
+                    // For latest-updates flow, DownloadUrl points at the chapter-list endpoint.
+                    DownloadUrl = $"{BaseUrl.TrimEnd('/')}/api/v1/manga/{m.Hid}/chapters",
+                    InfoUrl = $"{BaseUrl.TrimEnd('/')}/title/{m.Hid}",
                     PublishDate = publishDate,
                     DownloadProtocol = DownloadProtocol.Http,
                     ScanlationGroup = null,                           // manga-list rows carry no group info
@@ -180,6 +189,32 @@ namespace NzbDrone.Core.Indexers.Comix
             }
 
             return releases;
+        }
+
+        /// <summary>
+        /// Parse comix.to's timestamp shape. The live API returns ISO-8601 strings
+        /// ("2026-05-05T12:34:56.000000Z"); some legacy fixtures used integer unix-epoch seconds.
+        /// Accept both — return UTC <see cref="DateTime"/> on success, null on failure.
+        /// </summary>
+        private static DateTime? ParseTimestamp(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var dt))
+            {
+                return dt;
+            }
+
+            // Legacy unix-epoch fallback.
+            if (long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var epoch))
+            {
+                return DateTimeOffset.FromUnixTimeSeconds(epoch).UtcDateTime;
+            }
+
+            return null;
         }
     }
 }
