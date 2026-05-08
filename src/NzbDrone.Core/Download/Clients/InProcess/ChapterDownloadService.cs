@@ -13,6 +13,7 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Indexers.Http;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Download.Clients.InProcess
@@ -65,14 +66,15 @@ namespace NzbDrone.Core.Download.Clients.InProcess
             _logger = logger;
         }
 
-        public async Task<int> EnqueueAsync(RemoteEpisode remote, IHttpAggregator aggregator, ChapterManifest manifest, InProcessImageDownloadClientSettings settings)
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — RemoteEpisode -> RemoteChapter; canonical manga surface.
+        public async Task<int> EnqueueAsync(RemoteChapter remote, IHttpAggregator aggregator, ChapterManifest manifest, InProcessImageDownloadClientSettings settings)
         {
             // D-08 — insert row at top of Download() — before any HTTP work.
             var scratchRoot = _configService.DownloadScratchPath;
             var row = new ChapterDownloadState
             {
-                MangaId = remote.Series?.Id ?? 0,
-                ChapterId = remote.Episodes?.FirstOrDefault()?.Id ?? 0,
+                MangaId = remote.Manga?.Id ?? 0,
+                ChapterId = remote.Chapters?.FirstOrDefault()?.Id ?? 0,
                 Title = remote.Release?.Title ?? "<unknown>",
                 RemoteChapterJson = JsonConvert.SerializeObject(remote),
                 ManifestJson = JsonConvert.SerializeObject(manifest),
@@ -162,7 +164,8 @@ namespace NzbDrone.Core.Download.Clients.InProcess
             var alreadyOnDisk = ScanExistingPageIndexes(job.Row.ScratchDir);
 
             // Q-6 conservative: trust-the-bytes; future enhancement may size-check.
-            var release = JsonConvert.DeserializeObject<RemoteEpisode>(job.Row.RemoteChapterJson)?.Release ?? new ReleaseInfo();
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — RemoteEpisode -> RemoteChapter for JSON round-trip.
+            var release = JsonConvert.DeserializeObject<RemoteChapter>(job.Row.RemoteChapterJson)?.Release ?? new ReleaseInfo();
 
             var manifestRefetched = false;
             var pagesPerChapter = Math.Max(1, job.PagesPerChapter);

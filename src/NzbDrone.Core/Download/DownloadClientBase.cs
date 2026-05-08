@@ -9,6 +9,7 @@ using NzbDrone.Common.Http;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Localization;
+using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.RemotePathMappings;
 using NzbDrone.Core.ThingiProvider;
@@ -96,7 +97,8 @@ namespace NzbDrone.Core.Download
 
         public abstract DownloadProtocol Protocol { get; }
 
-        public abstract Task<string> Download(RemoteEpisode remoteEpisode, IIndexer indexer);
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-shape Download(RemoteEpisode) stripped; canonical surface is Download(RemoteChapter).
+        public abstract Task<string> Download(RemoteChapter remoteChapter, IIndexer indexer);
         public abstract IEnumerable<DownloadClientItem> GetItems();
 
         public virtual DownloadClientItem GetImportItem(DownloadClientItem item, DownloadClientItem previousImportAttempt)

@@ -13,7 +13,7 @@ using NzbDrone.Core.Http.CloudFlare;
 using NzbDrone.Core.Indexers.Exceptions;
 using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.Localization;
-using NzbDrone.Core.Parser;
+using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Indexers
@@ -35,7 +35,7 @@ namespace NzbDrone.Core.Indexers
         public abstract IIndexerRequestGenerator GetRequestGenerator();
         public abstract IParseIndexerResponse GetParser();
 
-        public HttpIndexerBase(IHttpClient httpClient, IIndexerStatusService indexerStatusService, IConfigService configService, IParsingService parsingService, Logger logger, ILocalizationService localizationService)
+        public HttpIndexerBase(IHttpClient httpClient, IIndexerStatusService indexerStatusService, IConfigService configService, IMangaParsingService parsingService, Logger logger, ILocalizationService localizationService)
             : base(indexerStatusService, configService, parsingService, logger, localizationService)
         {
             _httpClient = httpClient;
@@ -67,79 +67,9 @@ namespace NzbDrone.Core.Indexers
             return FetchReleases(g => g.GetRecentRequests(), true);
         }
 
-        public override Task<IList<ReleaseInfo>> Fetch(SingleEpisodeSearchCriteria searchCriteria)
-        {
-            if (!SupportsSearch)
-            {
-                return Task.FromResult<IList<ReleaseInfo>>(Array.Empty<ReleaseInfo>());
-            }
-
-            return FetchReleases(g => g.GetSearchRequests(searchCriteria));
-        }
-
-        public override Task<IList<ReleaseInfo>> Fetch(SeasonSearchCriteria searchCriteria)
-        {
-            if (!SupportsSearch)
-            {
-                return Task.FromResult<IList<ReleaseInfo>>(Array.Empty<ReleaseInfo>());
-            }
-
-            return FetchReleases(g => g.GetSearchRequests(searchCriteria));
-        }
-
-        public override Task<IList<ReleaseInfo>> Fetch(DailyEpisodeSearchCriteria searchCriteria)
-        {
-            if (!SupportsSearch)
-            {
-                return Task.FromResult<IList<ReleaseInfo>>(Array.Empty<ReleaseInfo>());
-            }
-
-            return FetchReleases(g => g.GetSearchRequests(searchCriteria));
-        }
-
-        public override Task<IList<ReleaseInfo>> Fetch(DailySeasonSearchCriteria searchCriteria)
-        {
-            if (!SupportsSearch)
-            {
-                return Task.FromResult<IList<ReleaseInfo>>(Array.Empty<ReleaseInfo>());
-            }
-
-            return FetchReleases(g => g.GetSearchRequests(searchCriteria));
-        }
-
-        public override Task<IList<ReleaseInfo>> Fetch(AnimeEpisodeSearchCriteria searchCriteria)
-        {
-            if (!SupportsSearch)
-            {
-                return Task.FromResult<IList<ReleaseInfo>>(Array.Empty<ReleaseInfo>());
-            }
-
-            return FetchReleases(g => g.GetSearchRequests(searchCriteria));
-        }
-
-        public override Task<IList<ReleaseInfo>> Fetch(AnimeSeasonSearchCriteria searchCriteria)
-        {
-            if (!SupportsSearch)
-            {
-                return Task.FromResult<IList<ReleaseInfo>>(Array.Empty<ReleaseInfo>());
-            }
-
-            return FetchReleases(g => g.GetSearchRequests(searchCriteria));
-        }
-
-        public override Task<IList<ReleaseInfo>> Fetch(SpecialEpisodeSearchCriteria searchCriteria)
-        {
-            if (!SupportsSearch)
-            {
-                return Task.FromResult<IList<ReleaseInfo>>(Array.Empty<ReleaseInfo>());
-            }
-
-            return FetchReleases(g => g.GetSearchRequests(searchCriteria));
-        }
-
-        // Phase 3 D-01 — manga overloads. Override IndexerBase virtual defaults with the
-        // standard FetchReleases body so HttpAggregatorBase descendants get the same
-        // SupportsSearch + paging behavior as their TV peers.
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-shape Fetch overloads
+        // (Single|Daily|Anime|SpecialEpisodeSearchCriteria + Season|DailySeason|AnimeSeasonSearchCriteria)
+        // stripped per Plan 15-10 IndexerSearch/Definitions DELETE. Manga overloads (below) are canonical.
         public override Task<IList<ReleaseInfo>> Fetch(MangaSearchCriteria searchCriteria)
         {
             if (!SupportsSearch)

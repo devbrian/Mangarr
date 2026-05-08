@@ -9,7 +9,7 @@ using NzbDrone.Common.Cache;
 using NzbDrone.Common.Disk;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Organizer;
-using NzbDrone.Core.Tv;
+using NzbDrone.Core.Manga;
 
 namespace NzbDrone.Core.RootFolders
 {
@@ -27,7 +27,7 @@ namespace NzbDrone.Core.RootFolders
     {
         private readonly IRootFolderRepository _rootFolderRepository;
         private readonly IDiskProvider _diskProvider;
-        private readonly ISeriesRepository _seriesRepository;
+        private readonly IMangaRepository _mangaRepository;
         private readonly INamingConfigService _namingConfigService;
         private readonly Logger _logger;
 
@@ -48,14 +48,14 @@ namespace NzbDrone.Core.RootFolders
 
         public RootFolderService(IRootFolderRepository rootFolderRepository,
                                  IDiskProvider diskProvider,
-                                 ISeriesRepository seriesRepository,
+                                 IMangaRepository mangaRepository,
                                  INamingConfigService namingConfigService,
                                  ICacheManager cacheManager,
                                  Logger logger)
         {
             _rootFolderRepository = rootFolderRepository;
             _diskProvider = diskProvider;
-            _seriesRepository = seriesRepository;
+            _mangaRepository = mangaRepository;
             _namingConfigService = namingConfigService;
             _logger = logger;
 
@@ -72,7 +72,7 @@ namespace NzbDrone.Core.RootFolders
         public List<RootFolder> AllWithUnmappedFolders()
         {
             var rootFolders = _rootFolderRepository.All().ToList();
-            var seriesPaths = _seriesRepository.AllSeriesPaths();
+            var mangaPaths = _mangaRepository.AllMangaPaths();
 
             rootFolders.ForEach(folder =>
             {
@@ -80,7 +80,7 @@ namespace NzbDrone.Core.RootFolders
                 {
                     if (folder.Path.IsPathValid(PathValidationType.CurrentOs))
                     {
-                        GetDetails(folder, seriesPaths, true);
+                        GetDetails(folder, mangaPaths, true);
                     }
                 }
 
@@ -120,9 +120,9 @@ namespace NzbDrone.Core.RootFolders
             }
 
             _rootFolderRepository.Insert(rootFolder);
-            var seriesPaths = _seriesRepository.AllSeriesPaths();
+            var mangaPaths = _mangaRepository.AllMangaPaths();
 
-            GetDetails(rootFolder, seriesPaths, true);
+            GetDetails(rootFolder, mangaPaths, true);
             _cache.Clear();
 
             return rootFolder;
@@ -134,7 +134,7 @@ namespace NzbDrone.Core.RootFolders
             _cache.Clear();
         }
 
-        private List<UnmappedFolder> GetUnmappedFolders(string path, Dictionary<int, string> seriesPaths)
+        private List<UnmappedFolder> GetUnmappedFolders(string path, Dictionary<int, string> mangaPaths)
         {
             _logger.Debug("Generating list of unmapped folders");
 
@@ -151,7 +151,10 @@ namespace NzbDrone.Core.RootFolders
                 return results;
             }
 
-            var subFolderDepth = _namingConfigService.GetConfig().SeriesFolderFormat.Count(f => f == Path.DirectorySeparatorChar);
+            // Sonarr divergence: Phase 15 Plan 15-10 — SeriesFolderFormat property stripped from NamingConfig;
+            // use MangaFolderFormat (manga-shape) for unmapped-folder discovery depth.
+            var folderFormat = _namingConfigService.GetConfig().MangaFolderFormat ?? string.Empty;
+            var subFolderDepth = folderFormat.Count(f => f == Path.DirectorySeparatorChar);
             var possibleSeriesFolders = _diskProvider.GetDirectories(path).ToList();
 
             if (subFolderDepth > 0)
@@ -162,7 +165,7 @@ namespace NzbDrone.Core.RootFolders
                 }
             }
 
-            var unmappedFolders = possibleSeriesFolders.Except(seriesPaths.Select(s => s.Value), PathEqualityComparer.Instance).ToList();
+            var unmappedFolders = possibleSeriesFolders.Except(mangaPaths.Select(s => s.Value), PathEqualityComparer.Instance).ToList();
 
             foreach (var unmappedFolder in unmappedFolders)
             {
@@ -185,9 +188,9 @@ namespace NzbDrone.Core.RootFolders
         public RootFolder Get(int id, bool timeout)
         {
             var rootFolder = _rootFolderRepository.Get(id);
-            var seriesPaths = _seriesRepository.AllSeriesPaths();
+            var mangaPaths = _mangaRepository.AllMangaPaths();
 
-            GetDetails(rootFolder, seriesPaths, timeout);
+            GetDetails(rootFolder, mangaPaths, timeout);
 
             return rootFolder;
         }
@@ -197,7 +200,7 @@ namespace NzbDrone.Core.RootFolders
             return _cache.Get(path, () => GetBestRootFolderPathInternal(path), TimeSpan.FromDays(1));
         }
 
-        private void GetDetails(RootFolder rootFolder, Dictionary<int, string> seriesPaths, bool timeout)
+        private void GetDetails(RootFolder rootFolder, Dictionary<int, string> mangaPaths, bool timeout)
         {
             Task.Run(() =>
             {
@@ -207,7 +210,7 @@ namespace NzbDrone.Core.RootFolders
                     rootFolder.IsEmpty = _diskProvider.FolderEmpty(rootFolder.Path);
                     rootFolder.FreeSpace = _diskProvider.GetAvailableSpace(rootFolder.Path);
                     rootFolder.TotalSpace = _diskProvider.GetTotalSize(rootFolder.Path);
-                    rootFolder.UnmappedFolders = GetUnmappedFolders(rootFolder.Path, seriesPaths);
+                    rootFolder.UnmappedFolders = GetUnmappedFolders(rootFolder.Path, mangaPaths);
                 }
             }).Wait(timeout ? 5000 : -1);
         }

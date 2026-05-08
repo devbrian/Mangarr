@@ -7,7 +7,7 @@ using NzbDrone.Common.Http;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.Localization;
-using NzbDrone.Core.Parser;
+using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Indexers.Http
@@ -62,7 +62,7 @@ namespace NzbDrone.Core.Indexers.Http
             IIndexerStatusService indexerStatusService,
             IIndexerSourceStatusService sourceStatusService,
             IConfigService configService,
-            IParsingService parsingService,
+            IMangaParsingService parsingService,
             Logger logger,
             ILocalizationService localizationService)
             : base(httpClient, indexerStatusService, configService, parsingService, logger, localizationService)

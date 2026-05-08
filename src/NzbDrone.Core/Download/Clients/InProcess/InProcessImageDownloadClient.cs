@@ -53,61 +53,22 @@ namespace NzbDrone.Core.Download.Clients.InProcess
             _orchestrator = orchestrator;
         }
 
-        // Phase 15 Wave (A) W-6 pre-land per
-        // .planning/phases/15-domain-rename-rebrand/15-CONTRACTS-AUDIT.md §22.
-        // Manga-shape overload sits alongside the TV-shape Download(RemoteEpisode, IIndexer).
-        // Phase 15 Wave (C) deletes the TV overload when Tv/ deletes; the manga overload
-        // becomes canonical. Both overloads coexist on Mangarr-v0 — purely additive.
-        //
-        // Routes through the existing TV-shape overload via a local conversion (NOT the
-        // public RemoteChapter.ToRemoteEpisodeShim() static, which Wave (A) W-5 deletes).
-        // The orchestrator's RemoteChapterJson serialization preserves the manga-relevant
-        // fields (Manga.Id → Series.Id, Chapter.Id → Episode.Id) so Phase 4 staging-handoff
-        // path is unaffected.
-        public Task<string> Download(RemoteChapter remoteChapter, IIndexer indexer)
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-shape Download(RemoteEpisode)
+        // and the local-shim conversion stripped; manga-shape Download(RemoteChapter) is canonical.
+        // Pitfall 8 — DI-injected service must be CALLED, not just constructed.
+        public override async Task<string> Download(RemoteChapter remoteChapter, IIndexer indexer)
         {
-            var manga = remoteChapter.Manga;
-            var chapters = remoteChapter.Chapters ?? new List<NzbDrone.Core.Manga.Chapter>();
-
-            var seriesShim = new NzbDrone.Core.Tv.Series { Id = manga?.Id ?? 0 };
-            var episodeShims = chapters
-                .Select(c => new NzbDrone.Core.Tv.Episode { Id = c.Id })
-                .ToList();
-            if (episodeShims.Count == 0)
-            {
-                episodeShims.Add(new NzbDrone.Core.Tv.Episode { Id = 0 });
-            }
-
-            var shim = new RemoteEpisode
-            {
-                Release = remoteChapter.Release,
-                Series = seriesShim,
-                Episodes = episodeShims,
-                CustomFormats = remoteChapter.CustomFormats,
-                CustomFormatScore = remoteChapter.CustomFormatScore
-            };
-
-            return Download(shim, indexer);
-        }
-
-        // Phase 4 thin shim — Phase 8 collapse renames RemoteEpisode → RemoteChapter.
-        public override async Task<string> Download(RemoteEpisode remoteEpisode, IIndexer indexer)
-        {
-            // Pitfall 8 — DI-injected service must be CALLED, not just constructed.
-            // The integration test InProcessImageDownloadClientFixture.Download_invokes_GetChapterPages
-            // asserts this end-to-end (mirrors Phase 3 F-01 fix discipline).
             if (indexer is not IHttpAggregator aggregator)
             {
                 throw new InvalidOperationException(
                     $"In-process downloader requires an HttpAggregatorBase indexer; got {indexer?.GetType().Name ?? "null"}.");
             }
 
-            var manifest = await aggregator.GetChapterPages(remoteEpisode.Release).ConfigureAwait(false);
+            var manifest = await aggregator.GetChapterPages(remoteChapter.Release).ConfigureAwait(false);
 
             // BLOCKER #4 fix: pass the per-instance Settings to the orchestrator so DownloadsPerSource
             // / PagesPerChapter come from THIS client's configured values (DOWNLOAD-02 honored).
-            // DownloadClientBase exposes Settings via the protected Settings property (cast of Definition.Settings).
-            var rowId = await _orchestrator.EnqueueAsync(remoteEpisode, aggregator, manifest, Settings).ConfigureAwait(false);
+            var rowId = await _orchestrator.EnqueueAsync(remoteChapter, aggregator, manifest, Settings).ConfigureAwait(false);
             return rowId.ToString("D");
         }
 

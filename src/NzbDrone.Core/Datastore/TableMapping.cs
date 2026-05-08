@@ -17,7 +17,8 @@ using NzbDrone.Core.DataAugmentation.Scene;
 using NzbDrone.Core.Datastore.Converters;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
-using NzbDrone.Core.Download.History;
+// Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — Download/History/ DELETED (TV-only).
+//   using NzbDrone.Core.Download.History; ← deleted
 using NzbDrone.Core.Download.Pending;
 using NzbDrone.Core.Download.Pending.Manga;
 // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
@@ -245,7 +246,9 @@ namespace NzbDrone.Core.Datastore
 
             Mapper.Entity<CustomFilter>("CustomFilters").RegisterModel();
 
-            Mapper.Entity<DownloadHistory>("DownloadHistory").RegisterModel();
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // DownloadHistory entity registration stripped (Download/History/ DELETED).
+            //   Mapper.Entity<DownloadHistory>("DownloadHistory").RegisterModel();
 
             Mapper.Entity<UpdateHistory>("UpdateHistory").RegisterModel();
             Mapper.Entity<ImportListExclusion>("ImportListExclusions").RegisterModel();
