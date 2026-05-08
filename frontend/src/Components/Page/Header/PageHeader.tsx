@@ -7,7 +7,8 @@ import { icons } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import PageHeaderActionsMenu from './PageHeaderActionsMenu';
-import SeriesSearchInput from './SeriesSearchInput';
+// Sonarr divergence: Phase 15 Plan 15-12 — SeriesSearchInput deleted in Plan 15-12
+// (TV-only); manga search bar will land in v1.1+ as MangaSearchInput. Header rendering preserved without the search input until then.
 import styles from './PageHeader.css';
 
 function PageHeader() {
@@ -66,8 +67,6 @@ function PageHeader() {
           onPress={handleSidebarToggle}
         />
       </div>
-
-      <SeriesSearchInput />
 
       <div className={styles.right}>
         <IconButton

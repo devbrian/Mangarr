@@ -1,9 +1,13 @@
 import ModelBase from 'App/ModelBase';
 import DownloadProtocol from 'DownloadClient/DownloadProtocol';
-import Episode from 'Episode/Episode';
 import Language from 'Language/Language';
-import { QualityModel } from 'Quality/Quality';
 import CustomFormat from 'typings/CustomFormat';
+
+// Sonarr divergence: Phase 15 Plan 15-12 — Episode/Episode + Quality/Quality
+// imports stripped per cascade absorption (Plan 15-07 deleted Episode subtree;
+// Plan 15-03 deleted Quality cascade). `episodes` typed as `unknown[]` and
+// `quality` typed as `unknown` so legacy TV-shape Queue rows compile; manga
+// uses typings/MangaQueueItem.ts instead. Phase 8 cleanup: collapse with MangaQueueItem.
 
 export type QueueTrackedDownloadStatus = 'ok' | 'warning' | 'error';
 
@@ -24,7 +28,7 @@ export interface StatusMessage {
 
 interface Queue extends ModelBase {
   languages: Language[];
-  quality: QualityModel;
+  quality: unknown;
   customFormats: CustomFormat[];
   customFormatScore: number;
   size: number;
@@ -48,7 +52,7 @@ interface Queue extends ModelBase {
   seasonNumbers: number[];
   downloadClientHasPostImportCategory: boolean;
   isFullSeason: boolean;
-  episodes?: Episode[];
+  episodes?: unknown[];
 }
 
 export default Queue;
