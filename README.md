@@ -1,85 +1,81 @@
-# <img width="24px" src="./Logo/256.png" alt="Mangarr"></img> Mangarr
+# Mangarr
 
-[![Translated](https://translate.servarr.com/widget/servarr/sonarr/svg-badge.svg)](https://translate.servarr.com/engage/servarr/)
-[![Backers on Open Collective](https://opencollective.com/Mangarr/backers/badge.svg)](#backers)
-[![Sponsors on Open Collective](https://opencollective.com/Mangarr/sponsors/badge.svg)](#sponsors)
-[![Mega Sponsors on Open Collective](https://opencollective.com/Mangarr/megasponsors/badge.svg)](#mega-sponsors)
+A manga / manhwa / manhua library manager and downloader. Mangarr monitors manga reader and aggregator websites for new chapters of your favorite titles, automatically downloads, sorts, and organizes them. It can also be configured to automatically upgrade quality when better scans become available.
 
-Mangarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new episodes of your favorite shows and will grab, sort and rename them. It can also be configured to automatically upgrade the quality of files already downloaded when a better quality format becomes available.
+Mangarr is a fork of [Sonarr](https://github.com/Sonarr/Sonarr), adapting Sonarr's mature TV-show management infrastructure to manga management.
 
-## Getting Started
+## Status
 
-- [Download/Installation](https://sonarr.tv/#downloads-v3)
-- [FAQ](https://wiki.servarr.com/sonarr/faq)
-- [Wiki](https://wiki.servarr.com/Mangarr)
-- [API Documentation](https://sonarr.tv/docs/api)
-- [Donate](https://sonarr.tv/donate)
+Mangarr is in active development. v1.0 is the first public release; pre-v1.0 schema-mutability semantics apply per [`.planning/decisions/dev-migration-policy.md`](./.planning/decisions/dev-migration-policy.md) (the schema baseline migration `001_mangarr_baseline.cs` is mutable in place until the v1.0.0 tag).
 
-## Support
+## Features (v1)
 
-Note: GitHub Issues are for Bugs and Feature Requests Only
+- Add manga titles from MangaDex / AniList / MyAnimeList
+- Monitor / unmonitor manga and individual chapters
+- Configurable chapter sources (MangaDex, comix.to in v1)
+- In-process downloader (no external client required)
+- CBZ + folder-of-images output formats
+- Custom Formats + TranslationProfile-based release ranking
+- Komga + Kavita rescan notifications on import
+- REST API + SignalR real-time push (`/api/v5/...`)
 
-- [Forums](https://forums.sonarr.tv/)
-- [Discord](https://discord.gg/M6BvZn5)
-- [GitHub - Bugs and Feature Requests Only](https://github.com/Mangarr/Mangarr/issues)
-- [IRC](https://web.libera.chat/?channels=#sonarr)
-- [Reddit](https://www.reddit.com/r/sonarr)
-- [Wiki](https://wiki.servarr.com/sonarr)
+## Prior Art Acknowledgement
 
-## Features
+Three dormant prior-art "Mangarr" GitHub repositories exist; this project is independent and not derived from any of them:
 
-### Current Features
+- [`donderjoekel/Mangarr`](https://github.com/donderjoekel/Mangarr) — archived 2025-04-30
+- [`hyminix/Mangarr`](https://github.com/hyminix/Mangarr)
+- [`tnrd-org/Mangarr`](https://github.com/tnrd-org/Mangarr)
 
-- Support for major platforms: Windows, Linux, macOS, Raspberry Pi, etc.
-- Automatically detects new episodes
-- Can scan your existing library and download any missing episodes
-- Can watch for better quality of the episodes you already have and do an automatic upgrade. _eg. from DVD to Blu-Ray_
-- Automatic failed download handling will try another release if one fails
-- Manual search so you can pick any release or to see why a release was not downloaded automatically
-- Fully configurable episode renaming
-- Full integration with SABnzbd and NZBGet
-- Full integration with Kodi, Plex (notification, library update, metadata)
-- Full support for specials and multi-episode releases
-- And a beautiful UI
+These projects share only the name. This Mangarr is a downstream fork of Sonarr v5 — see [DIVERGENCE.md](./DIVERGENCE.md) for divergence details.
+
+## Documentation
+
+- [PROJECT.md](./.planning/PROJECT.md) — vision + scope + design philosophy
+- [REQUIREMENTS.md](./.planning/REQUIREMENTS.md) — v1 requirements (71 across 19 categories)
+- [ROADMAP.md](./.planning/ROADMAP.md) — phase plan
+- [DIVERGENCE.md](./DIVERGENCE.md) — intentional divergences from upstream Sonarr
+- [CLAUDE.md](./CLAUDE.md) — codebase guide for AI-assisted development
+
+## Building from Source
+
+### Prerequisites
+
+- .NET SDK 10.0.203 (`winget install Microsoft.DotNet.SDK.10 --source winget`)
+- Node.js 20.x or higher
+- Yarn (enable with `corepack enable`)
+
+### Build + Run
+
+```bash
+# 1. Install frontend deps
+yarn install
+
+# 2. Build backend & frontend
+dotnet build src/Mangarr.sln --configuration Debug
+yarn build
+
+# 3. Run
+dotnet run --project src/NzbDrone.Console/Mangarr.Console.csproj
+```
+
+App listens at **http://localhost:8989**.
+
+## Default Data Dir
+
+- Linux / Mac: `~/.config/Mangarr`
+- Windows: `C:\ProgramData\Mangarr`
+
+API key auto-generated on first run; check `<data-dir>/config.xml` or General Settings.
+
+## License
+
+Mangarr inherits Sonarr's GPL-3.0 license. See [LICENSE.md](./LICENSE.md).
 
 ## Contributing
 
-### Development
+See [CONTRIBUTING.md](./CONTRIBUTING.md) and [CLA.md](./CLA.md).
 
-This project exists thanks to all the people who contribute. [Contribute](CONTRIBUTING.md).
+---
 
-<a href="https://github.com/Mangarr/Mangarr/graphs/contributors"><img src="https://opencollective.com/Mangarr/contributors.svg?width=890&button=false" /></a>
-
-### Supporters
-
-This project would not be possible without the support of our users and software providers.
-[**Become a sponsor or backer**](https://opencollective.com/sonarr) to help us out!
-
-#### Mega Sponsors
-
-[![Sponsors](https://opencollective.com/sonarr/tiers/mega-sponsor.svg?width=890)](https://opencollective.com/sonarr/contribute/mega-sponsor-21443/checkout)
-
-#### Sponsors
-
-[![Flexible Sponsors](https://opencollective.com/sonarr/sponsors.svg?width=890)](https://opencollective.com/sonarr/contribute/sponsor-21457/checkout)
-
-#### Backers
-
-[![Backers](https://opencollective.com/sonarr/backers.svg?width=890)](https://opencollective.com/sonarr/contribute/backer-21442/checkout)
-
-#### JetBrains
-
-Thank you to [<img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.png" alt="JetBrains" width="96">](http://www.jetbrains.com/) for providing us with free licenses to their great tools
-
-[<img src="https://resources.jetbrains.com/storage/products/company/brand/logos/TeamCity.png" alt="TeamCity" width="64">](http://www.jetbrains.com/teamcity/)
-
-[<img src="https://resources.jetbrains.com/storage/products/company/brand/logos/ReSharper.png" alt="ReSharper" width="64">](http://www.jetbrains.com/resharper/)
-
-[<img src="https://resources.jetbrains.com/storage/products/company/brand/logos/dotTrace.png" alt="dotTrace" width="64">](http://www.jetbrains.com/dottrace/)
-
-[<img src="https://resources.jetbrains.com/storage/products/company/brand/logos/Rider.png" alt="Rider" width="64">](http://www.jetbrains.com/rider/)
-
-### Licenses
-
-- [GNU GPL v3](http://www.gnu.org/licenses/gpl.html)
-- Copyright 2010-2025
+**Heritage note.** Mangarr is a fork of Sonarr; the codebase preserves the `NzbDrone.*` directory + namespace prefix on the historic projects per the design philosophy *"Preserve Sonarr's shape wherever it works; diverge only where the manga domain forces us."* See [DIVERGENCE.md](./DIVERGENCE.md) for the divergence catalog and [`.planning/PROJECT.md` § Reference Preservation Policy](./.planning/PROJECT.md#reference-preservation-policy) for v2-deferred features preserved as Sonarr vertical-slice references under `.planning/reference/sonarr-vertical-slices/`.
