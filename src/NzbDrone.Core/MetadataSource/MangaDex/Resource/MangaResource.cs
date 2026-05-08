@@ -81,5 +81,12 @@ namespace NzbDrone.Core.MetadataSource.MangaDex.Resource
     {
         public string Name { get; set; }                        // for author / scanlation_group
         public string FileName { get; set; }                    // for cover_art
+
+        // For relationships of type="manga" — MangaDex returns title as a multilingual
+        // dictionary on the relationship's attributes when the request includes
+        // includes[]=manga (e.g. /chapter, /manga/{id}/feed). Without this field the
+        // chapter-feed parser falls back to "Unknown" and downstream Decision Engine
+        // rejects every release with UnknownSeries: Unknown Manga.
+        public Dictionary<string, string> Title { get; set; }
     }
 }

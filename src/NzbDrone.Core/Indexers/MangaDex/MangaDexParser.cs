@@ -76,10 +76,27 @@ namespace NzbDrone.Core.Indexers.MangaDex
                 var group = entry.Relationships?
                     .FirstOrDefault(r => r.Type == "scanlation_group")?.Attributes?.Name;
 
-                // Manga relationship may carry no attributes (depends on includes[]=manga in the request);
-                // we tolerate the null gracefully and fall back to a placeholder title.
+                // Manga relationship returns title as a multilingual dictionary on
+                // attributes.title (e.g. {"en": "Title"}). The shared RelationshipAttributes
+                // DTO covers author / scanlation_group via .Name and cover_art via .FileName;
+                // for type="manga" only .Title is populated, so we read from there. Prefer
+                // English; fall back to the first available locale; final fallback "Unknown"
+                // matches the prior behavior for the no-includes[]=manga case.
                 var mangaRel = entry.Relationships?.FirstOrDefault(r => r.Type == "manga");
-                var mangaTitle = mangaRel?.Attributes?.Name ?? "Unknown";
+                var titleDict = mangaRel?.Attributes?.Title;
+                string mangaTitle;
+                if (titleDict != null && titleDict.TryGetValue("en", out var enTitle) && !string.IsNullOrWhiteSpace(enTitle))
+                {
+                    mangaTitle = enTitle;
+                }
+                else if (titleDict != null && titleDict.Count > 0)
+                {
+                    mangaTitle = titleDict.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? "Unknown";
+                }
+                else
+                {
+                    mangaTitle = "Unknown";
+                }
 
                 var lang = string.IsNullOrWhiteSpace(attrs.TranslatedLanguage) ? "und" : attrs.TranslatedLanguage;
 
