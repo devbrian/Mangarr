@@ -4,7 +4,10 @@ using System.Linq;
 using Dapper;
 using NzbDrone.Common.Reflection;
 using NzbDrone.Core.Authentication;
-using NzbDrone.Core.AutoTagging.Specifications;
+// Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+// AutoTagging/ subtree DELETED (TV-only feature; auto-tagging may be rebuilt
+// against manga shape in v1.x; not part of v1 scope per Phase 5 Out-of-scope).
+//   using NzbDrone.Core.AutoTagging.Specifications; ← deleted
 using NzbDrone.Core.Blocklisting;
 using NzbDrone.Core.Blocklisting.Manga;
 using NzbDrone.Core.Configuration;
@@ -236,7 +239,11 @@ namespace NzbDrone.Core.Datastore
             Mapper.Entity<UpdateHistory>("UpdateHistory").RegisterModel();
             Mapper.Entity<ImportListExclusion>("ImportListExclusions").RegisterModel();
 
-            Mapper.Entity<AutoTagging.AutoTag>("AutoTagging").RegisterModel();
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // AutoTagging entity registration stripped (AutoTagging/ subtree DELETED).
+            // The AutoTagging schema table remains in Migration 001 but is unmapped;
+            // v1.x rebuild may rewire if/when manga auto-tagging lands.
+            //   Mapper.Entity<AutoTagging.AutoTag>("AutoTagging").RegisterModel();
         }
 
         private static void RegisterMappers()
@@ -250,7 +257,9 @@ namespace NzbDrone.Core.Datastore
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<QualityProfileQualityItem>>(new QualityIntConverter()));
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<ProfileFormatItem>>(new CustomFormatIntConverter()));
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<ICustomFormatSpecification>>(new CustomFormatSpecificationListConverter()));
-            SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<IAutoTaggingSpecification>>(new AutoTaggingSpecificationConverter()));
+            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+            // IAutoTaggingSpecification embedded converter stripped (AutoTagging/ DELETED).
+            //   SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<IAutoTaggingSpecification>>(new AutoTaggingSpecificationConverter()));
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<QualityModel>(new QualityIntConverter()));
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<Dictionary<string, string>>());
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<IDictionary<string, string>>());
