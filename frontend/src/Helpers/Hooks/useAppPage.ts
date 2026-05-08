@@ -3,10 +3,17 @@
 // before-render gate is preserved verbatim; the field name 'seriesFetched' /
 // 'seriesError' is kept at the consumer surface so AppContent / PageContentBody
 // don't churn. Phase 8 cleanup: rename the surface fields when AppContent migrates.
+//
+// Sonarr divergence: Phase 15 Plan 15-12 fix-forward — useQualityProfiles +
+// fetchImportLists removed from bootstrap chain. Plan 15-03 deleted Quality
+// cascade (no /api/v5/qualityprofile controller); Plan 15-04 deleted
+// ImportList feature (no /api/v5/importlist controller). Both calls 404'd at
+// bootstrap and gated the page render — UI showed "Failed to load Sonarr".
+// Manga uses TranslationProfile + CustomFormatProfile via dedicated hooks; the
+// useAppPage gate now bootstraps only on still-extant endpoints.
 import { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { createSelector } from 'reselect';
-import AppState from 'App/State/AppState';
 import { useTranslations } from 'App/useTranslations';
 import useCommands from 'Commands/useCommands';
 import useCustomFilters from 'Filters/useCustomFilters';
@@ -14,10 +21,8 @@ import { useInitializeLanguage } from 'Language/useLanguageName';
 import { useLanguages } from 'Language/useLanguages';
 import useManga from 'Manga/useManga';
 import useIndexerFlags from 'Settings/Indexers/useIndexerFlags';
-import { useQualityProfiles } from 'Settings/Profiles/Quality/useQualityProfiles';
 import { useUiSettings } from 'Settings/UI/useUiSettings';
 import { fetchCustomFilters } from 'Store/Actions/customFilterActions';
-import { fetchImportLists } from 'Store/Actions/settingsActions';
 import useSystemStatus from 'System/Status/useSystemStatus';
 import useTags from 'Tags/useTags';
 import { ApiError } from 'Utilities/Fetch/fetchJson';
@@ -30,7 +35,6 @@ const createErrorsSelector = ({
   translationsError,
   uiSettingsError,
   seriesError,
-  qualityProfilesError,
   languagesError,
 }: {
   customFiltersError: ApiError | null;
@@ -40,19 +44,16 @@ const createErrorsSelector = ({
   translationsError: ApiError | null;
   uiSettingsError: ApiError | null;
   seriesError: ApiError | null;
-  qualityProfilesError: ApiError | null;
   languagesError: ApiError | null;
 }) =>
   createSelector(
-    (state: AppState) => state.settings.importLists.error,
-    (importListsError) => {
+    () => null,
+    () => {
       const hasError = !!(
         customFiltersError ||
         seriesError ||
         uiSettingsError ||
-        qualityProfilesError ||
         languagesError ||
-        importListsError ||
         indexerFlagsError ||
         systemStatusError ||
         tagsError ||
@@ -67,9 +68,7 @@ const createErrorsSelector = ({
           customFiltersError,
           tagsError,
           uiSettingsError,
-          qualityProfilesError,
           languagesError,
-          importListsError,
           indexerFlagsError,
           systemStatusError,
           translationsError,
@@ -100,21 +99,13 @@ const useAppPage = () => {
   const { isFetched: isUiSettingsFetched, error: uiSettingsError } =
     useUiSettings();
 
-  const { isFetched: isQualityProfilesFetched, error: qualityProfilesError } =
-    useQualityProfiles();
-
   const { isFetched: isLanguagesFetched, error: languagesError } =
     useLanguages();
 
   const { isFetched: isIndexerFlagsFetched, error: indexerFlagsError } =
     useIndexerFlags();
 
-  const isAppStatePopulated = useSelector(
-    (state: AppState) => state.settings.importLists.isPopulated
-  );
-
   const isPopulated =
-    isAppStatePopulated &&
     isCustomFiltersFetched &&
     isIndexerFlagsFetched &&
     isMangaFetched &&
@@ -122,7 +113,6 @@ const useAppPage = () => {
     isTagsFetched &&
     isTranslationsFetched &&
     isUiSettingsFetched &&
-    isQualityProfilesFetched &&
     isLanguagesFetched;
 
   const { hasError, errors } = useSelector(
@@ -134,7 +124,6 @@ const useAppPage = () => {
       tagsError,
       translationsError,
       uiSettingsError,
-      qualityProfilesError,
       languagesError,
     })
   );
@@ -154,7 +143,6 @@ const useAppPage = () => {
 
   useEffect(() => {
     dispatch(fetchCustomFilters());
-    dispatch(fetchImportLists());
   }, [dispatch]);
 
   return useMemo(() => {

@@ -45,7 +45,13 @@ namespace Mangarr.Http.Frontend
 
             var builder = new StringBuilder();
             builder.AppendLine("{");
-            builder.AppendLine($"  \"apiRoot\": \"{_urlBase}/api/v3\",");
+
+            // Sonarr divergence: Phase 15 Plan 15-12 fix-forward — apiRoot flipped /api/v3 → /api/v5
+            // because Sonarr.Api.V3 was deleted in Plan 15-06 (D-12). Frontend jQuery action
+            // thunks (customFilterActions, qualityProfiles.js, importLists.js) construct URLs as
+            // apiRoot + path; with apiRoot="/api/v3" they all hit deleted endpoints. The newer
+            // TanStack hooks already hardcode /api/v5 in fetchJson.ts.
+            builder.AppendLine($"  \"apiRoot\": \"{_urlBase}/api/v5\",");
             builder.AppendLine($"  \"apiKey\": \"{_apiKey}\",");
             builder.AppendLine($"  \"release\": \"{BuildInfo.Release}\",");
             builder.AppendLine($"  \"version\": \"{BuildInfo.Version.ToString()}\",");
