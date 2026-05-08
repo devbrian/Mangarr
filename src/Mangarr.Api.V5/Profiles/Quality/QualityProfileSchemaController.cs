@@ -1,0 +1,27 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
+using NzbDrone.Core.Profiles.Qualities;
+using Mangarr.Http;
+
+namespace Mangarr.Api.V5.Profiles.Quality
+{
+    [V5ApiController("qualityprofile/schema")]
+    public class QualityProfileSchemaController : Controller
+    {
+        private readonly IQualityProfileService _profileService;
+
+        public QualityProfileSchemaController(IQualityProfileService profileService)
+        {
+            _profileService = profileService;
+        }
+
+        [HttpGet]
+        public Ok<QualityProfileResource> GetSchema()
+        {
+            var qualityProfile = _profileService.GetDefaultProfile(string.Empty);
+
+            return TypedResults.Ok(qualityProfile.ToResource());
+        }
+    }
+}

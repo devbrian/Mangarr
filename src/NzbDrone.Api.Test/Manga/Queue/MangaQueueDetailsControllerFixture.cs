@@ -10,9 +10,9 @@ using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
-using Sonarr.Api.V5.Manga.Queue;
-using Sonarr.Http;
-using Sonarr.Http.REST;
+using Mangarr.Api.V5.Manga.Queue;
+using Mangarr.Http;
+using Mangarr.Http.REST;
 
 namespace NzbDrone.Api.Test.Manga.Queue
 {
@@ -28,10 +28,10 @@ namespace NzbDrone.Api.Test.Manga.Queue
     // round-trip BroadcastResourceChange test).
     //
     // Fixture lives under NzbDrone.Api.Test (NOT NzbDrone.Core.Test) because Sonarr.Core.Test
-    // does not project-reference Sonarr.Api.V5; Sonarr.Api.Test does. Same convention as
+    // does not project-reference Mangarr.Api.V5; Sonarr.Api.Test does. Same convention as
     // src/NzbDrone.Api.Test/Manga/MangaControllerSignalRFixture.cs and
     // src/NzbDrone.Api.Test/Manga/Wanted/MangaCutoffControllerFixture.cs (Plan 10-05 / Plan 12-12
-    // Rule 3 deviation — documented in src/Sonarr.Api.V5/Manga/CLAUDE.md lines 108-111).
+    // Rule 3 deviation — documented in src/Mangarr.Api.V5/Manga/CLAUDE.md lines 108-111).
     //
     // Per-plan unit-test filter (PATTERNS.md S4): `dotnet test --filter
     // "FullyQualifiedName~MangaQueueDetailsController"` must return >= 1 passing test. This

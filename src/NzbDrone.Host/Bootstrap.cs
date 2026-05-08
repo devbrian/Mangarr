@@ -34,14 +34,17 @@ namespace NzbDrone.Host
     {
         private static readonly Logger Logger = NzbDroneLogger.GetLogger(typeof(Bootstrap));
 
+        // Sonarr divergence: Phase 15 D-06 + D-07 - ASSEMBLIES list flipped from Sonarr.* to Mangarr.* (assembly NAMES,
+        // = csproj filename basenames post-Wave-2a/2b rename). Sonarr.Api.V3 entry removed per D-12.
+        // Per archived 08-06 + Phase 14 Wave 2b row 4: Bootstrap.cs is the runtime AssemblyLoader source-of-truth;
+        // its values must match on-disk Mangarr.X.dll filenames or AssemblyLoader fails silently.
         public static readonly List<string> ASSEMBLIES = new()
         {
-            "Sonarr.Host",
-            "Sonarr.Core",
-            "Sonarr.SignalR",
-            "Sonarr.Api.V3",
-            "Sonarr.Api.V5",
-            "Sonarr.Http"
+            "Mangarr.Host",
+            "Mangarr.Core",
+            "Mangarr.SignalR",
+            "Mangarr.Api.V5",
+            "Mangarr.Http"
         };
 
         public static void Start(string[] args, Action<IHostBuilder> trayCallback = null)
