@@ -38,19 +38,11 @@ function Settings() {
           {translate('CustomFormatProfilesSettingsSummary')}
         </div>
 
-        {/* Phase 7 D-05: Quality nav hidden — manga has no resolution concept.
-            Route + component preserved per D-05 additive nuance; Phase 8 deletes Quality/ sub-tree. */}
-        {false && (
-          <>
-            <Link className={styles.link} to="/settings/quality">
-              {translate('Quality')}
-            </Link>
-
-            <div className={styles.summary}>
-              {translate('QualitySettingsSummary')}
-            </div>
-          </>
-        )}
+        {/* Sonarr divergence: Phase 15 D-12 — Quality settings removed entirely; manga uses
+            TranslationProfile + CustomFormatProfile per Phase 5. Phase 7 D-05 hidden via
+            {false && (...)} JSX guard; Phase 15 Plan 15-07 deletes the guard atomically with
+            the PageSidebar.tsx Quality nav spread-guard delete + the AppRoutes.tsx
+            /settings/quality route delete + the frontend/src/Quality/ subtree delete. */}
 
         <Link className={styles.link} to="/settings/customformats">
           {translate('CustomFormats')}

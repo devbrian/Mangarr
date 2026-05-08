@@ -1,8 +1,8 @@
 // Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType prop added — see DIVERGENCE.md.
-// Existing TV call-site (`/activity/blocklist` route → <Blocklist />`) preserved verbatim via the
-// default mediaType='series'. Manga call-site is the thin wrapper MangaBlocklist.tsx (Plan 07-09
-// task 2) invoking <Blocklist mediaType="manga" /> for the /manga/activity/blocklist route. Phase
-// 8 collapses.
+// Phase 15 Plan 15-07 Wave 3 (Sub-step F option (a)): mediaType prop default flipped 'series' ->
+// 'manga' since TV is gone post-cutover; the prop type union 'series' | 'manga' collapsed to
+// 'manga' (preserves the discriminator type for v2 reintroduction). Both default-sites
+// (BlocklistContent inner + Blocklist outer) updated atomically.
 import React, { useCallback, useEffect, useState } from 'react';
 import { setQueueOptions } from 'Activity/Queue/queueOptionsStore';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
@@ -45,10 +45,10 @@ import useBlocklist, {
 } from './useBlocklist';
 
 interface BlocklistProps {
-  mediaType?: 'series' | 'manga';
+  mediaType?: 'manga';
 }
 
-function BlocklistContent({ mediaType = 'series' }: BlocklistProps) {
+function BlocklistContent({ mediaType = 'manga' }: BlocklistProps) {
   const {
     records,
     totalPages,
@@ -284,7 +284,7 @@ function BlocklistContent({ mediaType = 'series' }: BlocklistProps) {
   );
 }
 
-function Blocklist({ mediaType = 'series' }: BlocklistProps) {
+function Blocklist({ mediaType = 'manga' }: BlocklistProps) {
   const { records } = useBlocklist(mediaType);
 
   return (

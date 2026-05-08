@@ -1,21 +1,21 @@
+// Phase 15 Plan 15-07 (Wave 3) cutover — root '/' flipped from SeriesIndex -> MangaIndex
+// per Phase 7 D-09 cutover plan; TV stub routes (/series/:slug, /add/new, /add/import,
+// /serieseditor, /seasonpass, TV /activity/*, TV /wanted/*, /settings/quality) deleted
+// per Phase 14 Wave 3 row 7 cascade-pressure extension. Manga-rooted /manga/* siblings
+// from Phase 7 Plans 07-04..07-10 are now the canonical paths. Legacy /series/:slug URLs
+// hard-404 (per 15-CONTEXT discretion lean: no Sonarr-managing-manga users; no inbound
+// bookmark base; redirect not warranted).
 import React from 'react';
 import { Redirect, Route } from 'react-router-dom';
-import Blocklist from 'Activity/Blocklist/Blocklist';
 import MangaBlocklist from 'Activity/Blocklist/MangaBlocklist';
-import History from 'Activity/History/History';
 import MangaHistory from 'Activity/History/MangaHistory';
 import MangaQueue from 'Activity/Queue/MangaQueue';
-import Queue from 'Activity/Queue/Queue';
 import AddNewManga from 'AddManga/AddNewManga/AddNewManga';
-import AddNewSeries from 'AddSeries/AddNewSeries/AddNewSeries';
-import ImportSeriesPage from 'AddSeries/ImportSeries/ImportSeriesPage';
 import CalendarPage from 'Calendar/CalendarPage';
 import NotFound from 'Components/NotFound';
 import Switch from 'Components/Router/Switch';
 import MangaDetailsPage from 'Manga/Details/MangaDetailsPage';
 import MangaIndex from 'Manga/Index/MangaIndex';
-import SeriesDetailsPage from 'Series/Details/SeriesDetailsPage';
-import SeriesIndex from 'Series/Index/SeriesIndex';
 import CustomFormatSettingsPage from 'Settings/CustomFormats/CustomFormatSettingsPage';
 import DownloadClientSettings from 'Settings/DownloadClients/DownloadClientSettings';
 import GeneralSettings from 'Settings/General/GeneralSettings';
@@ -27,7 +27,6 @@ import MetadataSourceSettings from 'Settings/MetadataSource/MetadataSourceSettin
 import NotificationSettings from 'Settings/Notifications/NotificationSettings';
 import CustomFormatProfileSettings from 'Settings/Profiles/CustomFormatProfile/CustomFormatProfileSettings';
 import Profiles from 'Settings/Profiles/Profiles';
-import Quality from 'Settings/Quality/Quality';
 import Settings from 'Settings/Settings';
 import TagSettings from 'Settings/Tags/TagSettings';
 import UISettings from 'Settings/UI/UISettings';
@@ -38,10 +37,8 @@ import Status from 'System/Status/Status';
 import Tasks from 'System/Tasks/Tasks';
 import Updates from 'System/Updates/Updates';
 import getPathWithUrlBase from 'Utilities/getPathWithUrlBase';
-import CutoffUnmet from 'Wanted/CutoffUnmet/CutoffUnmet';
 import MangaCutoffUnmet from 'Wanted/CutoffUnmet/MangaCutoffUnmet';
 import MangaMissing from 'Wanted/Missing/MangaMissing';
-import Missing from 'Wanted/Missing/Missing';
 
 function RedirectWithUrlBase() {
   return <Redirect to={getPathWithUrlBase('/')} />;
@@ -51,10 +48,13 @@ function AppRoutes() {
   return (
     <Switch>
       {/*
-        Series
+        Manga (Phase 15 Plan 15-07 cutover — root '/' flipped to MangaIndex per Phase 7
+        D-09 + Phase 15 D-09 close-out. TV /series/:slug, /add/new, /add/import,
+        /serieseditor, /seasonpass routes deleted. See .planning/phases/15-domain-rename-
+        rebrand/15-07-PLAN.md.)
       */}
 
-      <Route exact={true} path="/" component={SeriesIndex} />
+      <Route exact={true} path="/" component={MangaIndex} />
 
       {window.Sonarr.urlBase && (
         <Route
@@ -66,24 +66,6 @@ function AppRoutes() {
           render={RedirectWithUrlBase}
         />
       )}
-
-      <Route path="/add/new" component={AddNewSeries} />
-
-      <Route path="/add/import" component={ImportSeriesPage} />
-
-      <Route path="/serieseditor" exact={true} render={RedirectWithUrlBase} />
-
-      <Route path="/seasonpass" exact={true} render={RedirectWithUrlBase} />
-
-      <Route path="/series/:titleSlug" component={SeriesDetailsPage} />
-
-      {/*
-        Manga (Phase 7 Plans 07-04 + 07-05 + 07-06 — additive per D-09; /
-        stays on TV until Phase 8 cutover. See .planning/phases/07-api-v5-
-        frontend-manga-shell/07-04-PLAN.md, 07-05-PLAN.md, 07-06-PLAN.md.)
-      */}
-
-      <Route exact={true} path="/manga" component={MangaIndex} />
 
       {/*
         Phase 7 Plan 07-10 Rule 1 fix — `exact={true}` is REQUIRED to prevent
@@ -109,24 +91,11 @@ function AppRoutes() {
       <Route path="/calendar" component={CalendarPage} />
 
       {/*
-        Activity
-      */}
-
-      <Route path="/activity/history" component={History} />
-
-      <Route path="/activity/queue" component={Queue} />
-
-      <Route path="/activity/blocklist" component={Blocklist} />
-
-      {/*
-        Manga Activity (Phase 7 Plan 07-09 — additive per D-09 + D-10 + Lock #1;
-        existing /activity/{queue,history,blocklist} TV routes UNTOUCHED. Each
-        route renders the existing Activity page with mediaType='manga' via thin
-        wrapper. React Query keys namespace via path prop in the hooks
-        (['/manga/queue'], ['/manga/history'], ['/manga/blocklist']) so SignalR
-        invalidations from Plan 07-02 hit the correct cache without TV cross-
-        contamination. See .planning/phases/07-api-v5-frontend-manga-shell/
-        07-09-PLAN.md.)
+        Manga Activity (Phase 7 Plan 07-09 — additive per D-09 + D-10 + Lock #1.
+        Phase 15 Plan 15-07: TV /activity/{queue,history,blocklist} routes DELETED
+        per Phase 14 Wave 3 row 7 cascade-pressure extension; manga-rooted siblings
+        below are now the canonical paths. See .planning/phases/07-api-v5-frontend-
+        manga-shell/07-09-PLAN.md.)
       */}
 
       <Route path="/manga/activity/queue" component={MangaQueue} />
@@ -136,21 +105,12 @@ function AppRoutes() {
       <Route path="/manga/activity/blocklist" component={MangaBlocklist} />
 
       {/*
-        Wanted
-      */}
-
-      <Route path="/wanted/missing" component={Missing} />
-
-      <Route path="/wanted/cutoffunmet" component={CutoffUnmet} />
-
-      {/*
-        Manga Wanted (Phase 7 Plan 07-10 + Phase 12 Plan 12-08 — additive per D-09 + D-10 + Lock #1;
-        existing /wanted/missing + /wanted/cutoffunmet TV routes UNTOUCHED. Renders the existing
-        Missing + CutoffUnmet pages with mediaType='manga' via thin wrappers. React Query keys
-        namespace via path prop in useMissing/useCutoffUnmet (['/manga/wanted/missing'] +
-        ['/manga/wanted/cutoff']) so SignalR invalidations from Plan 07-02 + Plan 12-08 hit the
-        correct cache without TV cross-contamination. See .planning/phases/07-api-v5-frontend-manga-shell/
-        07-10-PLAN.md + .planning/phases/12-mock-contract-frontend-parity-audit/12-08-PLAN.md.)
+        Manga Wanted (Phase 7 Plan 07-10 + Phase 12 Plan 12-08 — additive per D-09 +
+        D-10 + Lock #1. Phase 15 Plan 15-07: TV /wanted/{missing,cutoffunmet} routes
+        DELETED per Phase 14 Wave 3 row 7 cascade-pressure extension; manga-rooted
+        siblings below are now the canonical paths. See .planning/phases/07-api-v5-
+        frontend-manga-shell/07-10-PLAN.md + .planning/phases/12-mock-contract-
+        frontend-parity-audit/12-08-PLAN.md.)
       */}
 
       <Route path="/manga/wanted/missing" component={MangaMissing} />
@@ -177,7 +137,8 @@ function AppRoutes() {
         component={CustomFormatProfileSettings}
       />
 
-      <Route path="/settings/quality" component={Quality} />
+      {/* Sonarr divergence: Phase 15 D-12 — /settings/quality route DELETED entirely;
+          manga uses TranslationProfile + CustomFormatProfile per Phase 5. */}
 
       <Route
         path="/settings/customformats"
