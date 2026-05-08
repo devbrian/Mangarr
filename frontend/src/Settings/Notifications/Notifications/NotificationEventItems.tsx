@@ -31,6 +31,10 @@ function NotificationEventItems({
     onManualInteractionRequired,
     onChapterFileDelete,
     onChapterFileDeleteForUpgrade,
+    onChapterImport,
+    onMangaAdd,
+    onMangaDelete,
+    onMangaRename,
     supportsOnGrab,
     supportsOnDownload,
     supportsOnUpgrade,
@@ -40,6 +44,10 @@ function NotificationEventItems({
     supportsOnManualInteractionRequired,
     supportsOnChapterFileDelete,
     supportsOnChapterFileDeleteForUpgrade,
+    supportsOnChapterImport,
+    supportsOnMangaAdd,
+    supportsOnMangaDelete,
+    supportsOnMangaRename,
     supportsOnHealthIssue,
     supportsOnHealthRestored,
     includeHealthWarnings,
@@ -186,6 +194,50 @@ function NotificationEventItems({
               helpText={translate('OnChapterFileDeleteForUpgrade')}
               isDisabled={!supportsOnChapterFileDeleteForUpgrade.value}
               {...onChapterFileDeleteForUpgrade}
+              onChange={onInputChange}
+            />
+          </div>
+
+          <div>
+            <FormInputGroup
+              type={inputTypes.CHECK}
+              name="onChapterImport"
+              helpText={translate('OnChapterImport')}
+              isDisabled={!supportsOnChapterImport.value}
+              {...onChapterImport}
+              onChange={onInputChange}
+            />
+          </div>
+
+          <div>
+            <FormInputGroup
+              type={inputTypes.CHECK}
+              name="onMangaAdd"
+              helpText={translate('OnMangaAdd')}
+              isDisabled={!supportsOnMangaAdd.value}
+              {...onMangaAdd}
+              onChange={onInputChange}
+            />
+          </div>
+
+          <div>
+            <FormInputGroup
+              type={inputTypes.CHECK}
+              name="onMangaDelete"
+              helpText={translate('OnMangaDelete')}
+              isDisabled={!supportsOnMangaDelete.value}
+              {...onMangaDelete}
+              onChange={onInputChange}
+            />
+          </div>
+
+          <div>
+            <FormInputGroup
+              type={inputTypes.CHECK}
+              name="onMangaRename"
+              helpText={translate('OnMangaRename')}
+              isDisabled={!supportsOnMangaRename.value}
+              {...onMangaRename}
               onChange={onInputChange}
             />
           </div>

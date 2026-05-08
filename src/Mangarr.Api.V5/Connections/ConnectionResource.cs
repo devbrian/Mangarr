@@ -18,6 +18,10 @@ public class ConnectionResource : ProviderResource<ConnectionResource>
     public bool OnManualInteractionRequired { get; set; }
     public bool OnChapterFileDelete { get; set; }
     public bool OnChapterFileDeleteForUpgrade { get; set; }
+    public bool OnChapterImport { get; set; }
+    public bool OnMangaAdd { get; set; }
+    public bool OnMangaDelete { get; set; }
+    public bool OnMangaRename { get; set; }
     public bool SupportsOnGrab { get; set; }
     public bool SupportsOnDownload { get; set; }
     public bool SupportsOnUpgrade { get; set; }
@@ -29,6 +33,10 @@ public class ConnectionResource : ProviderResource<ConnectionResource>
     public bool SupportsOnManualInteractionRequired { get; set; }
     public bool SupportsOnChapterFileDelete { get; set; }
     public bool SupportsOnChapterFileDeleteForUpgrade { get; set; }
+    public bool SupportsOnChapterImport { get; set; }
+    public bool SupportsOnMangaAdd { get; set; }
+    public bool SupportsOnMangaDelete { get; set; }
+    public bool SupportsOnMangaRename { get; set; }
     public string? TestCommand { get; set; }
 }
 
@@ -50,6 +58,10 @@ public class ConnectionResourceMapper : ProviderResourceMapper<ConnectionResourc
         resource.OnManualInteractionRequired = definition.OnManualInteractionRequired;
         resource.OnChapterFileDelete = definition.OnChapterFileDelete;
         resource.OnChapterFileDeleteForUpgrade = definition.OnChapterFileDeleteForUpgrade;
+        resource.OnChapterImport = definition.OnChapterImport;
+        resource.OnMangaAdd = definition.OnMangaAdd;
+        resource.OnMangaDelete = definition.OnMangaDelete;
+        resource.OnMangaRename = definition.OnMangaRename;
         resource.SupportsOnGrab = definition.SupportsOnGrab;
         resource.SupportsOnDownload = definition.SupportsOnDownload;
         resource.SupportsOnUpgrade = definition.SupportsOnUpgrade;
@@ -61,6 +73,10 @@ public class ConnectionResourceMapper : ProviderResourceMapper<ConnectionResourc
         resource.SupportsOnManualInteractionRequired = definition.SupportsOnManualInteractionRequired;
         resource.SupportsOnChapterFileDelete = definition.SupportsOnChapterFileDelete;
         resource.SupportsOnChapterFileDeleteForUpgrade = definition.SupportsOnChapterFileDeleteForUpgrade;
+        resource.SupportsOnChapterImport = definition.SupportsOnChapterImport;
+        resource.SupportsOnMangaAdd = definition.SupportsOnMangaAdd;
+        resource.SupportsOnMangaDelete = definition.SupportsOnMangaDelete;
+        resource.SupportsOnMangaRename = definition.SupportsOnMangaRename;
 
         return resource;
     }
@@ -81,6 +97,10 @@ public class ConnectionResourceMapper : ProviderResourceMapper<ConnectionResourc
         definition.OnManualInteractionRequired = resource.OnManualInteractionRequired;
         definition.OnChapterFileDelete = resource.OnChapterFileDelete;
         definition.OnChapterFileDeleteForUpgrade = resource.OnChapterFileDeleteForUpgrade;
+        definition.OnChapterImport = resource.OnChapterImport;
+        definition.OnMangaAdd = resource.OnMangaAdd;
+        definition.OnMangaDelete = resource.OnMangaDelete;
+        definition.OnMangaRename = resource.OnMangaRename;
         definition.SupportsOnGrab = resource.SupportsOnGrab;
         definition.SupportsOnDownload = resource.SupportsOnDownload;
         definition.SupportsOnUpgrade = resource.SupportsOnUpgrade;
@@ -92,6 +112,10 @@ public class ConnectionResourceMapper : ProviderResourceMapper<ConnectionResourc
         definition.SupportsOnManualInteractionRequired = resource.SupportsOnManualInteractionRequired;
         definition.SupportsOnChapterFileDelete = resource.SupportsOnChapterFileDelete;
         definition.SupportsOnChapterFileDeleteForUpgrade = resource.SupportsOnChapterFileDeleteForUpgrade;
+        definition.SupportsOnChapterImport = resource.SupportsOnChapterImport;
+        definition.SupportsOnMangaAdd = resource.SupportsOnMangaAdd;
+        definition.SupportsOnMangaDelete = resource.SupportsOnMangaDelete;
+        definition.SupportsOnMangaRename = resource.SupportsOnMangaRename;
 
         return definition;
     }

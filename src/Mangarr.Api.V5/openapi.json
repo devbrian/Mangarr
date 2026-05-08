@@ -6783,6 +6783,18 @@
           "onChapterFileDeleteForUpgrade": {
             "type": "boolean"
           },
+          "onChapterImport": {
+            "type": "boolean"
+          },
+          "onMangaAdd": {
+            "type": "boolean"
+          },
+          "onMangaDelete": {
+            "type": "boolean"
+          },
+          "onMangaRename": {
+            "type": "boolean"
+          },
           "supportsOnGrab": {
             "type": "boolean"
           },
@@ -6814,6 +6826,18 @@
             "type": "boolean"
           },
           "supportsOnChapterFileDeleteForUpgrade": {
+            "type": "boolean"
+          },
+          "supportsOnChapterImport": {
+            "type": "boolean"
+          },
+          "supportsOnMangaAdd": {
+            "type": "boolean"
+          },
+          "supportsOnMangaDelete": {
+            "type": "boolean"
+          },
+          "supportsOnMangaRename": {
             "type": "boolean"
           },
           "testCommand": {
