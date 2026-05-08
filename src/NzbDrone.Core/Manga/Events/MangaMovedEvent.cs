@@ -3,7 +3,7 @@ using NzbDrone.Common.Messaging;
 namespace NzbDrone.Core.Manga.Events
 {
     // POCO event published by MoveMangaService after a successful library-folder
-    // relocation. Mirrors Sonarr's SeriesMovedEvent (Tv/Events/SeriesMovedEvent.cs)
+    // relocation. Mirrors Mangarr's SeriesMovedEvent (Tv/Events/SeriesMovedEvent.cs)
     // verbatim shape — carries the manga plus source/destination paths so subscribers
     // (notification on path change, search recheck) can react.
     //

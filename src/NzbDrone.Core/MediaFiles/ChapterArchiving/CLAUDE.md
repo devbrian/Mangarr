@@ -30,9 +30,9 @@ Phase 4 archiver plugin contract surface (ARCHIVE-05). Strategy seam selecting b
 
 ## Manga Adaptation Notes
 
-- **No Sonarr peer for archivers**: this directory is greenfield. Sonarr handles video files (`MediaFiles/EpisodeImport/`); manga handles archive packaging.
+- **No Mangarr peer for archivers**: this directory is greenfield. Mangarr handles video files (`MediaFiles/EpisodeImport/`); manga handles archive packaging.
 - **Phase 8 collapse**: stays as-is. No TV peer to collapse with.
-- **`IMetadataWriter` is a Phase 4 divergence** from Sonarr's per-`MetadataDefinition` provider pattern (`Extras/`). See `DIVERGENCE.md`.
+- **`IMetadataWriter` is a Phase 4 divergence** from Mangarr's per-`MetadataDefinition` provider pattern (`Extras/`). See `DIVERGENCE.md`.
 
 ## Cross-References
 

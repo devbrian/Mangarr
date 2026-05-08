@@ -27,7 +27,7 @@ Application root — providers (Redux, React Query, Router), routing configurati
 ## Provider Tree (App.tsx)
 
 ```tsx
-<DocumentTitle title={window.Sonarr.instanceName}>
+<DocumentTitle title={window.Mangarr.instanceName}>
   <QueryClientProvider client={queryClient}>            // TanStack React Query
     <Provider store={store}>                             // Redux
       <ConnectedRouter history={history}>               // Connected React Router
@@ -88,7 +88,7 @@ Application root — providers (Redux, React Query, Router), routing configurati
 
 ## Window Globals
 
-`window.Sonarr` is set on bootstrap from `/initialize.json`:
+`window.Mangarr` is set on bootstrap from `/initialize.json`:
 
 ```typescript
 interface SonarrWindow {
@@ -105,15 +105,15 @@ interface SonarrWindow {
 }
 ```
 
-Used throughout the codebase via `window.Sonarr` (no helper hook).
+Used throughout the codebase via `window.Mangarr` (no helper hook).
 
 ## Manga Adaptation Notes
 
 | File | Action |
 |------|--------|
-| `App.tsx` | `window.Sonarr` should eventually become `window.Mangarr`. Keep both during transition. |
+| `App.tsx` | `window.Mangarr` should eventually become `window.Mangarr`. Keep both during transition. |
 | `AppRoutes.tsx` | Add `/manga/...` routes alongside `/series/...` during transition. Eventually drop the latter. |
-| Page titles | Reference "Sonarr" via `instanceName` — update server-side to "Mangarr" by default |
+| Page titles | Reference "Mangarr" via `instanceName` — update server-side to "Mangarr" by default |
 
 ## Cross-References
 

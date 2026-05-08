@@ -32,7 +32,7 @@ For Mangarr, import lists for **MangaDex / AniList manga / MyAnimeList manga** a
 | `AniList/` | AniList API |
 | `Custom/` | User-supplied JSON URL |
 | `Plex/` (if present) | Plex watchlist |
-| `Sonarr/` (if present) | Pull from another Sonarr instance |
+| `Mangarr/` (if present) | Pull from another Mangarr instance |
 | `Trakt/` (often) | Trakt lists |
 | `Imdb/` | IMDB list URL |
 
@@ -95,7 +95,7 @@ For each enabled list:
 - `AniListMangaId : int?`
 - `MalMangaId : int?`
 
-(The Sonarr `Series` model already has `MalIds` and `AniListIds` — extending `ImportListItemInfo` is straightforward.)
+(The Mangarr `Series` model already has `MalIds` and `AniListIds` — extending `ImportListItemInfo` is straightforward.)
 
 ### Auto-Add Workflow
 

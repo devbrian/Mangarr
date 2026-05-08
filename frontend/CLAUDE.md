@@ -71,7 +71,7 @@ frontend/
 
 ```
 index.ts
-  ├─ Fetch /initialize.json → set window.Sonarr (apiKey, urlBase, version, instanceName, branch)
+  ├─ Fetch /initialize.json → set window.Mangarr (apiKey, urlBase, version, instanceName, branch)
   ├─ Set webpack publicPath from urlBase
   └─ import('./bootstrap')
 
@@ -219,7 +219,7 @@ yarn stylelint              # CSS lint
 
 ## Output Directory
 
-`yarn build` writes to **`../_output/UI/`** (consumed by `Sonarr.Http.Frontend.Mappers` to serve the SPA). Asset paths use `window.Sonarr.urlBase` for reverse-proxy compatibility.
+`yarn build` writes to **`../_output/UI/`** (consumed by `Mangarr.Http.Frontend.Mappers` to serve the SPA). Asset paths use `window.Mangarr.urlBase` for reverse-proxy compatibility.
 
 ## Manga Adaptation: High-Level Plan
 
@@ -266,5 +266,5 @@ Listed by approximate priority. Detailed migration notes are in each module's `C
 ## Cross-References
 
 - [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) — Overall architecture
-- [src/Sonarr.Api.V5/CLAUDE.md](../src/Sonarr.Api.V5/CLAUDE.md) — Backend API consumed
+- [src/Mangarr.Api.V5/CLAUDE.md](../src/Mangarr.Api.V5/CLAUDE.md) — Backend API consumed
 - [src/NzbDrone.SignalR/CLAUDE.md](../src/NzbDrone.SignalR/CLAUDE.md) — Real-time push

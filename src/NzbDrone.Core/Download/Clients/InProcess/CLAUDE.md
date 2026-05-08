@@ -26,7 +26,7 @@ Phase 4 in-process `IDownloadClient` — Mangarr's v1 default download client. D
 
 ## Patterns / Conventions
 
-- **`Protocol = DownloadProtocol.Http` (Phase 1 D-04)** — gates the Phase 4 D-10 early-return in `CompletedDownloadService.Check()` so Sonarr's TV-shaped `ImportApprovedEpisodes` does not auto-fire on a manga CBZ.
+- **`Protocol = DownloadProtocol.Http` (Phase 1 D-04)** — gates the Phase 4 D-10 early-return in `CompletedDownloadService.Check()` so Mangarr's TV-shaped `ImportApprovedEpisodes` does not auto-fire on a manga CBZ.
 - **`Channel<T>` per source**: `BoundedChannelFullMode.Wait`; writer runs on a fire-and-forget Task per source so `Download()` returns immediately (Pitfall 5).
 - **Page filenames**: `<PageIndex:D4>.<ext>` — 4-digit zero-padded preserving original ext. Lex sort = page order; reader-compat across Komga / Kavita / Mihon / ComicRack.
 - **Scratch dir per row**: `<Config.DownloadScratchPath>/<row.Id>/<NNNN>.<ext>` — namespaced by row Id (NOT chapter Id) so retries-after-failed produce a fresh scratch dir.
@@ -37,7 +37,7 @@ Phase 4 in-process `IDownloadClient` — Mangarr's v1 default download client. D
 
 - **Cross-volume scratch ↔ library** is supported (Pitfall 6): `Config.DownloadScratchPath` may live on SSD while the eventual library lives on NAS. Phase 4's archive write (`<staging>/<chapter>.cbz.tmp` → `<staging>/<chapter>.cbz`) is ALWAYS same-volume by construction. The cross-volume cost surfaces in Phase 6 import (`ImportApprovedChapters` does the staging → library move; cross-volume cases become copy + delete rather than atomic rename).
 - **Phase 8 collapse**: `Download(RemoteEpisode, IIndexer)` shim renames to `Download(RemoteChapter, IIndexer)`. The TV-shaped overload is a thin shim until then; manga path peels off via `release.IndexerId` lookup of the `IHttpAggregator` plugin.
-- **Sonarr divergence**: extends `DownloadClientBase<TSettings>` directly (NOT `UsenetClientBase` / `TorrentClientBase`). Documented in `DIVERGENCE.md`.
+- **Mangarr divergence**: extends `DownloadClientBase<TSettings>` directly (NOT `UsenetClientBase` / `TorrentClientBase`). Documented in `DIVERGENCE.md`.
 
 ## Cross-References
 

@@ -99,7 +99,7 @@ A single batch can contain duplicate decisions for the same `Chapter.Id` (e.g., 
 
 ## Manga Adaptation Notes
 
-| Sonarr (TV) | Mangarr (manga) |
+| Mangarr (TV) | Mangarr (manga) |
 |-------------|-----------------|
 | `LocalEpisode` | `LocalChapter` (drops Quality/MediaInfo/SubtitleInfo/SceneSource/PossibleExtraFiles) |
 | `IImportDecisionEngineSpecification` | `IMangaImportDecisionEngineSpecification` |

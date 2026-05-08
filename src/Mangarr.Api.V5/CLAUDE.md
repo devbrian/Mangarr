@@ -1,10 +1,10 @@
-# Sonarr.Api.V5
+# Mangarr.Api.V5
 
 ## Purpose
 
 REST API controllers for **API version 5** — the **current primary API** consumed by the React frontend and external integrations (e.g., Plex/Kodi/scripts).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Sonarr.Api.V5\`
+**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Api.V5\`
 
 **File count**: ~149 .cs files (44 controllers across 30 modules).
 
@@ -176,7 +176,7 @@ API key is in General Settings; resettable.
 ## Manga Adaptation Plan
 
 ### Conceptual Renames (when migration moves to Mangarr)
-| Sonarr Controller | Mangarr Controller |
+| Mangarr Controller | Mangarr Controller |
 |-------------------|--------------------|
 | `SeriesController` | `MangaController` |
 | `SeriesLookupController` | `MangaLookupController` |
@@ -201,7 +201,7 @@ For backward compatibility with any external integrations that consume `/api/v5/
 
 ## Phase 6 Manga V5 Sibling Controllers
 
-Phase 6 Plan 06-09 ships 5 manga-side V5 controllers under `/api/v5/manga/` that close the v1 PIPELINE/HISTORY/BLOCK/WANTED requirements. Each is a parallel sibling to a TV V5 controller; **Phase 8 cleanup** will collapse the sibling pairs when `Tv/` deletes (and `Sonarr.Api.V3/` is dropped).
+Phase 6 Plan 06-09 ships 5 manga-side V5 controllers under `/api/v5/manga/` that close the v1 PIPELINE/HISTORY/BLOCK/WANTED requirements. Each is a parallel sibling to a TV V5 controller; **Phase 8 cleanup** will collapse the sibling pairs when `Tv/` deletes (and `Mangarr.Api.V3/` is dropped).
 
 | Sibling | TV Analog | Phase 6 Requirements |
 |---------|-----------|----------------------|
@@ -220,7 +220,7 @@ Phase 6 Plan 06-09 ships 5 manga-side V5 controllers under `/api/v5/manga/` that
 ## Cross-References
 
 - [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) — Architecture
-- [Sonarr.Api.V3/CLAUDE.md](../Sonarr.Api.V3/CLAUDE.md) — Legacy V3 API
-- [Sonarr.Http/CLAUDE.md](../Sonarr.Http/CLAUDE.md) — Base infrastructure
+- [Mangarr.Api.V3/CLAUDE.md](../Mangarr.Api.V3/CLAUDE.md) — Legacy V3 API
+- [Mangarr.Http/CLAUDE.md](../Mangarr.Http/CLAUDE.md) — Base infrastructure
 - [NzbDrone.Core/CLAUDE.md](../NzbDrone.Core/CLAUDE.md) — Domain logic
 - [frontend/CLAUDE.md](../../frontend/CLAUDE.md) — Frontend consuming this API

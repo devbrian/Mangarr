@@ -54,7 +54,7 @@ Plan 06-07 `ImportApprovedChapters` MUST publish `ChapterImportedEvent` AFTER th
 
 ## Manga Adaptation Notes
 
-| Sonarr (TV) | Mangarr (manga) |
+| Mangarr (TV) | Mangarr (manga) |
 |-------------|-----------------|
 | `EpisodeHistory.EpisodeId` | `ChapterHistory.ChapterId` (INDEPENDENT — separate column on a separate table) |
 | `EpisodeHistory.SeriesId` | `ChapterHistory.MangaId` |

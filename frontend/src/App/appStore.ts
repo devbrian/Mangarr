@@ -46,7 +46,7 @@ const useAppStore = create<AppState>()(() => {
 
   return {
     dimensions,
-    version: window.Sonarr.version,
+    version: window.Mangarr.version,
     isUpdated: false,
     isConnected: true,
     isReconnecting: false,
@@ -125,8 +125,8 @@ function pingServerAfterTimeout() {
         method: 'GET',
         signal: abortController.signal,
         headers: {
-          'X-Api-Key': window.Sonarr.apiKey,
-          'X-Sonarr-Client': 'Sonarr',
+          'X-Api-Key': window.Mangarr.apiKey,
+          'X-Mangarr-Client': 'Mangarr',
         },
       });
 

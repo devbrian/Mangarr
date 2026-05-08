@@ -32,7 +32,7 @@ v1 SECONDARY metadata source (D-16). Uses MAL v2 official API with client-ID-onl
 
 ## Manga Adaptation Notes
 - DO NOT modify `src/NzbDrone.Core/ImportLists/MyAnimeList/MyAnimeListSettings.cs` (anime ImportList uses OAuth flow; D-24 explicitly chooses client-ID-only for Phase 2 metadata source)
-- `ClientId` stored in `ProviderDefinition.Settings` JSON blob (plaintext-on-disk; same threat model as Sonarr indexer API keys per RESEARCH §Security Domain)
+- `ClientId` stored in `ProviderDefinition.Settings` JSON blob (plaintext-on-disk; same threat model as Mangarr indexer API keys per RESEARCH §Security Domain)
 
 ## Cross-References
 - Scaffold: `src/NzbDrone.Core/MetadataSource/CLAUDE.md`

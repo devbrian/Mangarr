@@ -77,7 +77,7 @@ namespace NzbDrone.Common.EnvironmentInfo
             {
                 if (OsInfo.IsOsx)
                 {
-                    var userAppDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile, Environment.SpecialFolderOption.DoNotVerify), ".config", "Sonarr");
+                    var userAppDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile, Environment.SpecialFolderOption.DoNotVerify), ".config", "Mangarr");
 
                     if (_diskProvider.FolderExists(userAppDataFolder) && !_diskProvider.FileExists(_appFolderInfo.GetConfigPath()))
                     {

@@ -149,7 +149,7 @@ function MangaIndexOverview(props: MangaIndexOverviewProps) {
             ) : null}
 
             {/* Manga divergence: 'completed' status fills the corner-overlay
-                slot Sonarr uses for 'ended'; 'cancelled' fills the slot used
+                slot Mangarr uses for 'ended'; 'cancelled' fills the slot used
                 for 'deleted'. CSS class names preserved for Phase 8 collapse. */}
             {status === 'completed' ? (
               <div

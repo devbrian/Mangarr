@@ -99,7 +99,7 @@ namespace Mangarr.Http.Extensions
 
         public static string GetSource(this HttpRequest request)
         {
-            if (request.Headers.TryGetValue("X-Sonarr-Client", out var source))
+            if (request.Headers.TryGetValue("X-Mangarr-Client", out var source))
             {
                 return source;
             }

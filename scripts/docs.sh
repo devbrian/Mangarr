@@ -22,14 +22,14 @@ testPackageFolder='_tests'
 rm -rf $outputFolder
 rm -rf $testPackageFolder
 
-slnFile=src/Sonarr.sln
-outputFile=src/Sonarr.Api.V5/openapi.json
+slnFile=src/Mangarr.sln
+outputFile=src/Mangarr.Api.V5/openapi.json
 platform=Posix
 
 if [ "$PLATFORM" = "Windows" ]; then
-  application=Sonarr.Console.dll
+  application=Mangarr.Console.dll
 else
-  application=Sonarr.dll
+  application=Mangarr.dll
 fi
 
 dotnet clean $slnFile -c Debug
@@ -43,7 +43,7 @@ dotnet tool install --version 10.1.7 Swashbuckle.AspNetCore.Cli
 # Remove the openapi.json file so we can check if it was created
 rm $outputFile
 
-dotnet tool run swagger tofile --output ./src/Sonarr.Api.V5/openapi.json "$outputFolder/$FRAMEWORK/$RUNTIME/$application" v5 &
+dotnet tool run swagger tofile --output ./src/Mangarr.Api.V5/openapi.json "$outputFolder/$FRAMEWORK/$RUNTIME/$application" v5 &
 
 sleep 45
 

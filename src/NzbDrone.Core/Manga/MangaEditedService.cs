@@ -14,7 +14,7 @@ namespace NzbDrone.Core.Manga
     // audit gap `single` per audit/no-sibling/SeriesEditedService.md).
     //
     // Phase 8 audit gap-09 (MangaEditedEvent semantic split — landed in MangaService.UpdateManga):
-    //   - Sonarr's SeriesEditedService consumes SeriesEditedEvent (carries Series + OldSeries
+    //   - Mangarr's SeriesEditedService consumes SeriesEditedEvent (carries Series + OldSeries
     //     diff) and pushes RefreshSeriesCommand only when SeriesType changes.
     //   - MangaEditedEvent NOW carries `Manga` + `OldManga` + `ChaptersChanged` (mirrors
     //     SeriesEditedEvent) so this handler can diff the old-vs-new snapshot to gate the
@@ -64,7 +64,7 @@ namespace NzbDrone.Core.Manga
         public void Handle(MangaBulkEditedEvent message)
         {
             // Bulk-edit path: queue a refresh for every edited manga and a rename pass over
-            // the full set. TV's equivalent (SeriesBulkEditedEvent handler in Sonarr) treats
+            // the full set. TV's equivalent (SeriesBulkEditedEvent handler in Mangarr) treats
             // bulk edits as potentially folder-affecting (root folder moves, monitor toggles
             // that may rename) and queues a rename. Without OldManga snapshots we mirror that
             // conservative behavior here.

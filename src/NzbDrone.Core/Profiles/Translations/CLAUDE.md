@@ -19,11 +19,11 @@ Manga translation-language preference entity (TranslationProfile) — the OUTER 
 - Languages persists as JSON column via `StringListConverter<List<string>>` already registered at `TableMapping.cs:233` (Phase 5 PATTERNS-MAP Adaptation Hotspot 8 — no new converter needed)
 - Default-on-first-run seeder per pattern S4: `if (All().Any()) return;` then `Add(new TranslationProfile { Name="English Only", Languages=["en"], AllowLanguagesNotInProfile=false })` and seed `Config.DefaultTranslationProfileId` (per Phase 5 D-11 first-run-UX dependency + Pitfall 8 mitigation)
 - AllowLanguagesNotInProfile defaults to FALSE per Phase 5 D-02 (strict mode — vast majority of users have one language; user direction 2026-05-03)
-- Delete guard per Pitfall 8: raises TranslationProfileInUseException if profile is assigned to any Manga OR is the global default (mirror of `QualityProfileService.Delete` line 65-74). Manga lookup uses `IMangaService.GetAllManga()` (Sonarr's analog is `ISeriesService.GetAllSeries()`).
+- Delete guard per Pitfall 8: raises TranslationProfileInUseException if profile is assigned to any Manga OR is the global default (mirror of `QualityProfileService.Delete` line 65-74). Manga lookup uses `IMangaService.GetAllManga()` (Mangarr's analog is `ISeriesService.GetAllSeries()`).
 - BCP-47 validation in V5 controller uses `NzbDrone.Core.Parser.IsoLanguages.Find(code) != null` rather than the planned `IsBcp47Valid` (which does not exist in this codebase). `Find` accepts 2-letter, 3-letter, and 2-letter-COUNTRY shapes (e.g., `en`, `eng`, `pt-br`).
 
 ## Manga Adaptation Notes
-This is a NEW manga-side directory with no TV analog (Sonarr has no TranslationProfile equivalent). The shape mirrors QualityProfile (sibling profile entity), but the semantics are NEW:
+This is a NEW manga-side directory with no TV analog (Mangarr has no TranslationProfile equivalent). The shape mirrors QualityProfile (sibling profile entity), but the semantics are NEW:
 - Languages : List<string> (BCP-47 ordered list; index = preference rank) instead of Items : List<QualityProfileQualityItem>
 - AllowLanguagesNotInProfile : bool fallback control instead of UpgradeAllowed/Cutoff
 - No FormatItems (CF score thresholds live on the SEPARATE `Profiles/CustomFormats/CustomFormatProfile` entity per Phase 5 D-07 — orthogonal user concerns)

@@ -75,8 +75,8 @@ Background task management:
 ## Manga Adaptation Notes
 
 This module is **fully reusable** for Mangarr. The only change needed is **branding** in the About section:
-- "Sonarr Version" → "Mangarr Version"
-- Footer "Powered by Sonarr" → "Powered by Mangarr"
+- "Mangarr Version" → "Mangarr Version"
+- Footer "Powered by Mangarr" → "Powered by Mangarr"
 - Update links to docs / GitHub repo
 
 The data shapes (system status, health checks, log entries, backups) are entity-agnostic.
@@ -84,7 +84,7 @@ The data shapes (system status, health checks, log entries, backups) are entity-
 ## Cross-References
 
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview
-- [../../../src/Sonarr.Api.V5/System/](../../../src/Sonarr.Api.V5/System/) — Backend system API
+- [../../../src/Mangarr.Api.V5/System/](../../../src/Mangarr.Api.V5/System/) — Backend system API
 - [../../../src/NzbDrone.Core/HealthCheck/](../../../src/NzbDrone.Core/HealthCheck/) — Backend health
 - [../../../src/NzbDrone.Core/Backup/](../../../src/NzbDrone.Core/Backup/) — Backend backups
 - [../../../src/NzbDrone.Core/Update/](../../../src/NzbDrone.Core/Update/) — Backend update

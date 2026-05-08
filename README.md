@@ -1,17 +1,17 @@
-# <img width="24px" src="./Logo/256.png" alt="Sonarr"></img> Sonarr
+# <img width="24px" src="./Logo/256.png" alt="Mangarr"></img> Mangarr
 
 [![Translated](https://translate.servarr.com/widget/servarr/sonarr/svg-badge.svg)](https://translate.servarr.com/engage/servarr/)
-[![Backers on Open Collective](https://opencollective.com/Sonarr/backers/badge.svg)](#backers)
-[![Sponsors on Open Collective](https://opencollective.com/Sonarr/sponsors/badge.svg)](#sponsors)
-[![Mega Sponsors on Open Collective](https://opencollective.com/Sonarr/megasponsors/badge.svg)](#mega-sponsors)
+[![Backers on Open Collective](https://opencollective.com/Mangarr/backers/badge.svg)](#backers)
+[![Sponsors on Open Collective](https://opencollective.com/Mangarr/sponsors/badge.svg)](#sponsors)
+[![Mega Sponsors on Open Collective](https://opencollective.com/Mangarr/megasponsors/badge.svg)](#mega-sponsors)
 
-Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new episodes of your favorite shows and will grab, sort and rename them. It can also be configured to automatically upgrade the quality of files already downloaded when a better quality format becomes available.
+Mangarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new episodes of your favorite shows and will grab, sort and rename them. It can also be configured to automatically upgrade the quality of files already downloaded when a better quality format becomes available.
 
 ## Getting Started
 
 - [Download/Installation](https://sonarr.tv/#downloads-v3)
 - [FAQ](https://wiki.servarr.com/sonarr/faq)
-- [Wiki](https://wiki.servarr.com/Sonarr)
+- [Wiki](https://wiki.servarr.com/Mangarr)
 - [API Documentation](https://sonarr.tv/docs/api)
 - [Donate](https://sonarr.tv/donate)
 
@@ -21,7 +21,7 @@ Note: GitHub Issues are for Bugs and Feature Requests Only
 
 - [Forums](https://forums.sonarr.tv/)
 - [Discord](https://discord.gg/M6BvZn5)
-- [GitHub - Bugs and Feature Requests Only](https://github.com/Sonarr/Sonarr/issues)
+- [GitHub - Bugs and Feature Requests Only](https://github.com/Mangarr/Mangarr/issues)
 - [IRC](https://web.libera.chat/?channels=#sonarr)
 - [Reddit](https://www.reddit.com/r/sonarr)
 - [Wiki](https://wiki.servarr.com/sonarr)
@@ -48,7 +48,7 @@ Note: GitHub Issues are for Bugs and Feature Requests Only
 
 This project exists thanks to all the people who contribute. [Contribute](CONTRIBUTING.md).
 
-<a href="https://github.com/Sonarr/Sonarr/graphs/contributors"><img src="https://opencollective.com/Sonarr/contributors.svg?width=890&button=false" /></a>
+<a href="https://github.com/Mangarr/Mangarr/graphs/contributors"><img src="https://opencollective.com/Mangarr/contributors.svg?width=890&button=false" /></a>
 
 ### Supporters
 

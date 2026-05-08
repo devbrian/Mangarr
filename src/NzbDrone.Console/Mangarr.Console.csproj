@@ -3,10 +3,10 @@
     <OutputType>Exe</OutputType>
     <TargetFrameworks>net10.0</TargetFrameworks>
 
-    <ApplicationIcon>..\NzbDrone.Host\Sonarr.ico</ApplicationIcon>
+    <ApplicationIcon>..\NzbDrone.Host\Mangarr.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup Condition="!$(RuntimeIdentifier.StartsWith('win'))">
-    <AssemblyName>Sonarr</AssemblyName>
+    <AssemblyName>Mangarr</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\NzbDrone.Host\Mangarr.Host.csproj" />

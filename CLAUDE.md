@@ -20,15 +20,15 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 **Mangarr** is a manga/manhwa/manhua library manager and downloader. It monitors manga reader and aggregator websites for new chapters of your favorite titles, automatically downloads, sorts, and organizes them. It can also be configured to automatically upgrade quality when better scans become available.
 
-This project is a **fork/migration of [Sonarr](https://github.com/Sonarr/Sonarr)**, adapting its mature TV-show management infrastructure to manga management. Most file/class names still use Sonarr/TV terminology — the migration is **in progress** and proceeds incrementally. Phase 15 — Domain Rename + Rebrand — is the active cutover phase (started 2026-05-08); see `.planning/phases/15-domain-rename-rebrand/` for plans.
+This project is a **fork/migration of [Mangarr](https://github.com/Mangarr/Mangarr)**, adapting its mature TV-show management infrastructure to manga management. Most file/class names still use Mangarr/TV terminology — the migration is **in progress** and proceeds incrementally. Phase 15 — Domain Rename + Rebrand — is the active cutover phase (started 2026-05-08); see `.planning/phases/15-domain-rename-rebrand/` for plans.
 
-**Branch model**: `Mangarr-v0` is the long-lived integration branch — **PRs should target `Mangarr-v0`**. The `v5-develop` branch tracks upstream Sonarr v5 and is only used when pulling in upstream changes.
+**Branch model**: `Mangarr-v0` is the long-lived integration branch — **PRs should target `Mangarr-v0`**. The `v5-develop` branch tracks upstream Mangarr v5 and is only used when pulling in upstream changes.
 
-## Migration: Sonarr → Mangarr
+## Migration: Mangarr → Mangarr
 
 ### Conceptual Mapping
 
-| Sonarr Concept | Mangarr Concept | Notes |
+| Mangarr Concept | Mangarr Concept | Notes |
 |----------------|-----------------|-------|
 | Series | Manga / Manhwa / Manhua | Core entity (a "title") |
 | Season | Volume *(optional)* | Many manga series do not use volumes |
@@ -40,7 +40,7 @@ This project is a **fork/migration of [Sonarr](https://github.com/Sonarr/Sonarr)
 | Quality (720p/1080p) | Scan quality (raw/translated/official, DPI tiers) | Different quality model |
 | Air Date | Release Date | No "airing" concept |
 
-The Sonarr `Series` model has **already been extended** with `MalIds` and `AniListIds` properties — see [src/NzbDrone.Core/Tv/Series.cs](./src/NzbDrone.Core/Tv/Series.cs) — indicating partial migration work has begun.
+The Mangarr `Series` model has **already been extended** with `MalIds` and `AniListIds` properties — see [src/NzbDrone.Core/Tv/Series.cs](./src/NzbDrone.Core/Tv/Series.cs) — indicating partial migration work has begun.
 
 ### Migration Priority Map
 
@@ -89,11 +89,11 @@ The Sonarr `Series` model has **already been extended** with `MalIds` and `AniLi
 yarn install
 
 # 2. Build backend & frontend
-dotnet build src/Sonarr.sln --configuration Debug
+dotnet build src/Mangarr.sln --configuration Debug
 yarn build
 
 # 3. Run
-dotnet run --project src/NzbDrone.Console/Sonarr.Console.csproj
+dotnet run --project src/NzbDrone.Console/Mangarr.Console.csproj
 ```
 
 App listens at **http://localhost:8989**.
@@ -111,14 +111,14 @@ Mangarr/
 │   ├── NzbDrone.Update/              # Self-update mechanism
 │   ├── NzbDrone.Mono/                # Linux/Mac platform code
 │   ├── NzbDrone.Windows/             # Windows platform code
-│   ├── Sonarr.Http/                  # REST base / middleware / auth (70 files)
-│   ├── Sonarr.Api.V5/                # REST API v5 (149 files, 44 controllers)
-│   ├── Sonarr.Api.V3/                # REST API v3 (legacy, 156 files)
-│   ├── Sonarr.RuntimePatches/        # Runtime monkey-patches
+│   ├── Mangarr.Http/                  # REST base / middleware / auth (70 files)
+│   ├── Mangarr.Api.V5/                # REST API v5 (149 files, 44 controllers)
+│   ├── Mangarr.Api.V3/                # REST API v3 (legacy, 156 files)
+│   ├── Mangarr.RuntimePatches/        # Runtime monkey-patches
 │   ├── ServiceHelpers/               # Service install helpers
 │   ├── Libraries/                    # Vendored binaries
 │   ├── *.Test/ projects              # NUnit test projects
-│   └── Sonarr.sln                    # Solution file
+│   └── Mangarr.sln                    # Solution file
 ├── frontend/                         # React + TypeScript UI
 │   ├── src/                          # 39 top-level dirs (see frontend/CLAUDE.md)
 │   └── build/webpack.config.js       # Webpack config
@@ -145,8 +145,8 @@ Mangarr/
 | Notification providers | [src/NzbDrone.Core/Notifications/](./src/NzbDrone.Core/Notifications/) |
 | Metadata source (TVDB/AniList) | [src/NzbDrone.Core/MetadataSource/](./src/NzbDrone.Core/MetadataSource/) |
 | Database schema | [src/NzbDrone.Core/Datastore/Migration/](./src/NzbDrone.Core/Datastore/Migration/) (224 migrations) |
-| API endpoints (V5) | [src/Sonarr.Api.V5/](./src/Sonarr.Api.V5/) |
-| Auth / middleware / REST base | [src/Sonarr.Http/](./src/Sonarr.Http/) |
+| API endpoints (V5) | [src/Mangarr.Api.V5/](./src/Mangarr.Api.V5/) |
+| Auth / middleware / REST base | [src/Mangarr.Http/](./src/Mangarr.Http/) |
 | App startup / DI registration | [src/NzbDrone.Host/Startup.cs](./src/NzbDrone.Host/Startup.cs), [src/NzbDrone.Host/Bootstrap.cs](./src/NzbDrone.Host/Bootstrap.cs) |
 | React routes | [frontend/src/App/AppRoutes.tsx](./frontend/src/App/AppRoutes.tsx) |
 | Series list page (UI) | [frontend/src/Series/Index/](./frontend/src/Series/Index/) |
@@ -164,7 +164,7 @@ Mangarr/
 
 ## Running Tests
 
-Sonarr/Mangarr uses NUnit. The script at `scripts/test.sh` requires three params:
+Mangarr/Mangarr uses NUnit. The script at `scripts/test.sh` requires three params:
 
 ```bash
 export TEST_DIR="./_tests/net10.0"
@@ -181,7 +181,7 @@ Tests projects: `NzbDrone.Core.Test`, `NzbDrone.Common.Test`, `NzbDrone.Host.Tes
 
 ```bash
 yarn clean && yarn build                                    # Clean + dev build
-dotnet build src/Sonarr.sln --configuration Release         # Release build
+dotnet build src/Mangarr.sln --configuration Release         # Release build
 yarn build --env production                                 # Production frontend bundle
 yarn lint && yarn lint-fix                                  # Lint
 yarn stylelint                                              # CSS lint
@@ -190,9 +190,9 @@ yarn watch                                                  # Webpack watch mode
 
 ## Development Notes
 
-- **Solution file**: `src/Sonarr.sln`
+- **Solution file**: `src/Mangarr.sln`
 - **Database migrations**: Auto-applied on startup. Add new migration in `src/NzbDrone.Core/Datastore/Migration/`. Migrations are sequential (`000_…` → `223_…` currently).
-- **Default data dir**: `C:\ProgramData\Sonarr` (Win) / `~/.config/Sonarr` (Linux/Mac). Logs in `<data>/logs/`.
+- **Default data dir**: `C:\ProgramData\Mangarr` (Win) / `~/.config/Mangarr` (Linux/Mac). Logs in `<data>/logs/`.
 - **Default port**: 8989 (override with `--port=NNNN`).
 - **API key**: Auto-generated on first run; check `<data>/config.xml` or General settings.
 - **API auth**: `X-Api-Key` header OR `?apikey=…` query OR cookie auth for UI.
@@ -212,7 +212,7 @@ yarn watch                                                  # Webpack watch mode
 | Rename/move files | Update cross-references in all affected docs |
 | Change architecture | Update `PROJECT_CONTEXT.md` |
 | Complete Sonarr→Mangarr migration | Mark as completed in relevant docs |
-| Add new API endpoints | Update `src/Sonarr.Api.V5/CLAUDE.md` |
+| Add new API endpoints | Update `src/Mangarr.Api.V5/CLAUDE.md` |
 | Add new domain models | Update `src/NzbDrone.Core/CLAUDE.md` (and create file-specific CLAUDE.md if major) |
 | Add new UI components | Update `frontend/src/Components/CLAUDE.md` |
 | Add a new Specification | Update `src/NzbDrone.Core/DecisionEngine/CLAUDE.md` |
@@ -268,9 +268,9 @@ yarn watch                                                  # Webpack watch mode
 | `Messaging/` | [src/NzbDrone.Core/Messaging/CLAUDE.md](./src/NzbDrone.Core/Messaging/CLAUDE.md) | Events / Commands |
 | `ImportLists/` | [src/NzbDrone.Core/ImportLists/CLAUDE.md](./src/NzbDrone.Core/ImportLists/CLAUDE.md) | External list ingestion |
 | NzbDrone.Common | [src/NzbDrone.Common/CLAUDE.md](./src/NzbDrone.Common/CLAUDE.md) | Shared utilities |
-| Sonarr.Api.V5 | [src/Sonarr.Api.V5/CLAUDE.md](./src/Sonarr.Api.V5/CLAUDE.md) | REST API (current) |
-| Sonarr.Api.V3 | [src/Sonarr.Api.V3/CLAUDE.md](./src/Sonarr.Api.V3/CLAUDE.md) | REST API (legacy) |
-| Sonarr.Http | [src/Sonarr.Http/CLAUDE.md](./src/Sonarr.Http/CLAUDE.md) | HTTP infrastructure |
+| Mangarr.Api.V5 | [src/Mangarr.Api.V5/CLAUDE.md](./src/Mangarr.Api.V5/CLAUDE.md) | REST API (current) |
+| Mangarr.Api.V3 | [src/Mangarr.Api.V3/CLAUDE.md](./src/Mangarr.Api.V3/CLAUDE.md) | REST API (legacy) |
+| Mangarr.Http | [src/Mangarr.Http/CLAUDE.md](./src/Mangarr.Http/CLAUDE.md) | HTTP infrastructure |
 | NzbDrone.Host | [src/NzbDrone.Host/CLAUDE.md](./src/NzbDrone.Host/CLAUDE.md) | App host / DI / startup |
 | NzbDrone.Console | [src/NzbDrone.Console/CLAUDE.md](./src/NzbDrone.Console/CLAUDE.md) | Console entry point |
 | NzbDrone.SignalR | [src/NzbDrone.SignalR/CLAUDE.md](./src/NzbDrone.SignalR/CLAUDE.md) | Real-time hub |
@@ -354,12 +354,12 @@ This project uses **GSD** (`/gsd-*` commands) for structured planning. The singl
 | [.planning/REQUIREMENTS.md](./.planning/REQUIREMENTS.md) | 71 v1 requirements across 19 categories with traceability to phases |
 | [.planning/ROADMAP.md](./.planning/ROADMAP.md) | 9-phase v1 plan (Phase 0 decisions + 8 implementation phases); leaf-first, rename-last |
 | [.planning/STATE.md](./.planning/STATE.md) | Current phase + plan, recent decisions, blockers, session continuity |
-| [.planning/codebase/](./.planning/codebase/) | 7-doc map of inherited Sonarr fork (STACK, ARCHITECTURE, STRUCTURE, CONVENTIONS, TESTING, INTEGRATIONS, CONCERNS) |
+| [.planning/codebase/](./.planning/codebase/) | 7-doc map of inherited Mangarr fork (STACK, ARCHITECTURE, STRUCTURE, CONVENTIONS, TESTING, INTEGRATIONS, CONCERNS) |
 | [.planning/research/](./.planning/research/) | Web-verified domain research: STACK, FEATURES, ARCHITECTURE, PITFALLS, SUMMARY |
 | [.planning/config.json](./.planning/config.json) | GSD workflow preferences (mode, granularity, model profile, agent toggles) |
 
-**Design philosophy** (locked in PROJECT.md): *Preserve Sonarr's shape wherever it works; diverge only where the manga domain forces us.* This drives every gray-area call.
+**Design philosophy** (locked in PROJECT.md): *Preserve Mangarr's shape wherever it works; diverge only where the manga domain forces us.* This drives every gray-area call.
 
 **Per-phase workflow:** `/gsd-discuss-phase N` → `/gsd-plan-phase N` → `/gsd-execute-phase N` → `/gsd-verify-work N` → **sonarr-consistency-audit** → `/gsd-extract-learnings`. Or `/gsd-progress` for the unified situational command.
 
-The **sonarr-consistency-audit** step is mandatory before declaring a phase complete (see [.claude/skills/sonarr-consistency-audit/SKILL.md](./.claude/skills/sonarr-consistency-audit/SKILL.md)). It catches the class of bug where phase code diverges from Sonarr's canonical pattern AND its accompanying tests verify the divergent code — so "tests green" silently masks the divergence. Phase 2's `RefreshMangaCommand` migration-seed-vs-`TaskManager.defaultTasks` issue was the prompt for this skill. Run it on any phase that touches inherited Sonarr code (most do).
+The **sonarr-consistency-audit** step is mandatory before declaring a phase complete (see [.claude/skills/sonarr-consistency-audit/SKILL.md](./.claude/skills/sonarr-consistency-audit/SKILL.md)). It catches the class of bug where phase code diverges from Mangarr's canonical pattern AND its accompanying tests verify the divergent code — so "tests green" silently masks the divergence. Phase 2's `RefreshMangaCommand` migration-seed-vs-`TaskManager.defaultTasks` issue was the prompt for this skill. Run it on any phase that touches inherited Mangarr code (most do).

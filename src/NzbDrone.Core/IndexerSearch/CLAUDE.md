@@ -64,4 +64,4 @@ Phase 8 collapses both filters when `Tv/` deletes.
 - [../DecisionEngine/CLAUDE.md](../DecisionEngine/CLAUDE.md) — `IMakeMangaDownloadDecision.GetSearchDecision` (Phase 5) consumes the fan-out results
 - [../Queue/CLAUDE.md](./../Queue/CLAUDE.md) — `IMangaQueueService` provides BL-01 GUARD queue dedup for manga
 - [../Jobs/](../Jobs/) — `TaskManager.defaultTasks` registers `MangaRssSyncCommand` + `MissingChapterSearchCommand` at runtime per Anti-pattern C compliance
-- [../../Sonarr.Api.V5/CLAUDE.md](../../Sonarr.Api.V5/CLAUDE.md) — `Manga/Release/MangaReleaseController.cs` (Plan 06-09) consumes `IMangaSearchForReleases.ChapterSearch` for the PIPELINE-01 Interactive Search modal
+- [../../Mangarr.Api.V5/CLAUDE.md](../../Mangarr.Api.V5/CLAUDE.md) — `Manga/Release/MangaReleaseController.cs` (Plan 06-09) consumes `IMangaSearchForReleases.ChapterSearch` for the PIPELINE-01 Interactive Search modal

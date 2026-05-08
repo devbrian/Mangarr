@@ -11,7 +11,7 @@ Phase 6 D-11 + D-19 manga sibling of `src/NzbDrone.Core/Blocklisting/` (TV `Bloc
 | File | Purpose |
 |------|---------|
 | `MangaBlocklist.cs` | `ModelBase` entity. D-11 release-identity triple `(SourceKey, ReleaseGuid, SourceTitle)`. Fields: MangaId, ChapterIds : List<int>, SourceTitle, SourceKey, ReleaseGuid, ReleaseInfoJson, Date, Reason, Source. `ChapterIds` round-trips via the global `EmbeddedDocumentConverter<List<int>>` registered in `TableMapping.RegisterMappers`. |
-| `MangaBlocklistAddedEvent.cs` | Event published by `MangaBlocklistService` AFTER `_repository.Insert(...)` returns. **Event-ordering contract for Plan 06-08 AutoRetryOrchestrator**: subscribers see the just-committed row when they query the repository in response. Synchronous fan-out via Sonarr's `IEventAggregator` guarantees ordering. |
+| `MangaBlocklistAddedEvent.cs` | Event published by `MangaBlocklistService` AFTER `_repository.Insert(...)` returns. **Event-ordering contract for Plan 06-08 AutoRetryOrchestrator**: subscribers see the just-committed row when they query the repository in response. Synchronous fan-out via Mangarr's `IEventAggregator` guarantees ordering. |
 | `IMangaBlocklistRepository.cs` + `MangaBlocklistRepository.cs` | `BasicRepository<MangaBlocklist>` Dapper wrapper. Custom queries: `BlocklistedByTitle(int mangaId, string sourceTitle)`, `BlocklistedByReleaseGuid(int mangaId, string releaseGuid)`, `BlocklistedByManga(int mangaId)`, `DeleteForManga(int mangaId)`. Repository narrows by MangaId; service layer applies Pitfall 5 matching. |
 | `IMangaBlocklistService.cs` + `MangaBlocklistService.cs` | Event-driven service. **Anti-Pattern guard**: blocklist rows are NEVER written from inside the repository — always service-layer. Implements `IExecute<ClearMangaBlocklistCommand>` + `IHandle<ChapterDownloadFailedEvent>` (auto-blocklist on terminal failure) + `IHandleAsync<MangaDeletedEvent>` (cascade cleanup). |
 | `ClearMangaBlocklistCommand.cs` | UI button "Clear blocklist" command (manga sibling of `ClearBlocklistCommand`). |
@@ -47,7 +47,7 @@ The matching algorithm is deliberately defensive against the auto-retry-loop haz
 // 1. Insert FIRST — row must be committed before any event handler runs.
 _repository.Insert(blocklist);
 
-// 2. THEN publish the event. Sonarr's IEventAggregator.PublishEvent is synchronous
+// 2. THEN publish the event. Mangarr's IEventAggregator.PublishEvent is synchronous
 //    fan-out, so any subscriber (e.g., AutoRetryOrchestrator) sees the inserted row
 //    when it queries the repository in response.
 _eventAggregator.PublishEvent(new MangaBlocklistAddedEvent(blocklist, message));
@@ -61,7 +61,7 @@ Because `Mapper.Entity<MangaBlocklist>("MangaBlocklist")` is a distinct registra
 
 ## Manga Adaptation Notes
 
-| Sonarr (TV) | Mangarr (manga) |
+| Mangarr (TV) | Mangarr (manga) |
 |-------------|-----------------|
 | `Blocklist.SeriesId` | `MangaBlocklist.MangaId` |
 | `Blocklist.EpisodeIds : List<int>` | `MangaBlocklist.ChapterIds : List<int>` |

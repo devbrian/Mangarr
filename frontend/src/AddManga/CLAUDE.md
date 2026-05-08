@@ -55,5 +55,5 @@ cleanup will collapse the two when `AddSeries/` deletes.
 - [../AddSeries/CLAUDE.md](../AddSeries/CLAUDE.md) — Sibling AddSeries flow (Phase 8 cleanup target).
 - [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Source of `MangaMonitor` / `MangaImage` / `MangaStatus` types.
 - [../Helpers/Hooks/useOptionsStore.ts](../Helpers/Hooks/useOptionsStore.ts) — `createOptionsStore<T>(name, state, options?)` factory.
-- [../../../src/Sonarr.Api.V5/Manga/MangaController.cs](../../../src/Sonarr.Api.V5/Manga/MangaController.cs) — Backend POST `/api/v5/manga` consumer of `AddMangaPayload`.
+- [../../../src/Mangarr.Api.V5/Manga/MangaController.cs](../../../src/Mangarr.Api.V5/Manga/MangaController.cs) — Backend POST `/api/v5/manga` consumer of `AddMangaPayload`.
 - [../../../.planning/phases/07-api-v5-frontend-manga-shell/07-RESEARCH.md](../../../.planning/phases/07-api-v5-frontend-manga-shell/07-RESEARCH.md) — Lock #11 / #12 (form field set), Example 4 (addMangaOptionsStore pattern).

@@ -68,8 +68,8 @@ function MoreInfo() {
           {translate('Source')}
         </DescriptionListItemTitle>
         <DescriptionListItemDescription>
-          <Link to="https://github.com/Sonarr/Sonarr/">
-            github.com/Sonarr/Sonarr
+          <Link to="https://github.com/Mangarr/Mangarr/">
+            github.com/Mangarr/Mangarr
           </Link>
         </DescriptionListItemDescription>
 
@@ -80,8 +80,8 @@ function MoreInfo() {
           <Link to="https://forums.sonarr.tv/">forums.sonarr.tv</Link>
         </DescriptionListItemDescription>
         <DescriptionListItemDescription>
-          <Link to="https://github.com/Sonarr/Sonarr/issues">
-            github.com/Sonarr/Sonarr/issues
+          <Link to="https://github.com/Mangarr/Mangarr/issues">
+            github.com/Mangarr/Mangarr/issues
           </Link>
         </DescriptionListItemDescription>
       </DescriptionList>

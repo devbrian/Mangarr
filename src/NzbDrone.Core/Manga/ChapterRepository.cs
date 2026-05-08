@@ -6,7 +6,7 @@ using NzbDrone.Core.Messaging.Events;
 
 namespace NzbDrone.Core.Manga
 {
-    // Dapper repository for Chapter. Mirrors Sonarr's EpisodeRepository
+    // Dapper repository for Chapter. Mirrors Mangarr's EpisodeRepository
     // (Tv/EpisodeRepository.cs:36-285) shape, slimmed to Phase 2 deliverables —
     // PagedQuery joins / EpisodesWithFiles / EpisodesWhereCutoffUnmet stay in TV land
     // (Phase 4 archiver territory). SetFileId/ClearFileId added in Phase 8 audit (gap-03).

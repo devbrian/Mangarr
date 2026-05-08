@@ -63,7 +63,7 @@ POST /api/v5/manualimport with selected rows → backend imports
 
 This module needs updates per the Series→Manga, Episode→Chapter, Season→Volume rename:
 
-| Sonarr | Manga |
+| Mangarr | Manga |
 |--------|-------|
 | `Series/SelectSeriesModal` | `Manga/SelectMangaModal` |
 | `Episode/SelectEpisodeModal` | `Chapter/SelectChapterModal` |
@@ -76,6 +76,6 @@ The table-with-editable-cells pattern is reusable. The per-cell modals just need
 ## Cross-References
 
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview
-- [../../../src/Sonarr.Api.V5/ManualImport/](../../../src/Sonarr.Api.V5/ManualImport/) — Backend
+- [../../../src/Mangarr.Api.V5/ManualImport/](../../../src/Mangarr.Api.V5/ManualImport/) — Backend
 - [../../../src/NzbDrone.Core/MediaFiles/CLAUDE.md](../../../src/NzbDrone.Core/MediaFiles/CLAUDE.md) — Import logic
 - [../InteractiveSearch/CLAUDE.md](../InteractiveSearch/CLAUDE.md) — Sibling: manual release search

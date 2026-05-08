@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace NzbDrone.Core.Parser.Manga
 {
-    // Scanlation-group extractor. Mirrors Sonarr's anime-style AnimeReleaseGroupRegex
+    // Scanlation-group extractor. Mirrors Mangarr's anime-style AnimeReleaseGroupRegex
     // (Parser/ReleaseGroupParser.cs:14) per 02-CONTEXT.md D-04 — manga and manhwa
     // releases follow the same `^[<group>] ...` convention as anime, so the regex
     // shape is identical.

@@ -6,8 +6,8 @@ namespace NzbDrone.Core.Manga.Events
 {
     // POCO event carrying the delta of a chapter-info refresh: the Manga whose chapter
     // list was synced plus the Added / Updated / Removed chapter collections produced by
-    // the refresh pipeline. Mirrors Sonarr's Tv/Events/EpisodeInfoRefreshedEvent.cs shape
-    // verbatim (precedent: PROJECT.md "Preserve Sonarr's shape wherever it works").
+    // the refresh pipeline. Mirrors Mangarr's Tv/Events/EpisodeInfoRefreshedEvent.cs shape
+    // verbatim (precedent: PROJECT.md "Preserve Mangarr's shape wherever it works").
     //
     // Distinct from sibling ChapterListUpdatedEvent — that event is a SignalR-style
     // "manga changed, re-read from repo" pulse and intentionally omits the delta.

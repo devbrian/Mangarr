@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Database layer — connection management, generic repository, ORM mapping, and **schema migrations** (**1 of them — fresh manga baseline** (Phase 1 reset; the inherited Sonarr 224 were replaced by `001_mangarr_baseline.cs` per Phase 0 D-14 fresh-schema decision)).
+Database layer — connection management, generic repository, ORM mapping, and **schema migrations** (**1 of them — fresh manga baseline** (Phase 1 reset; the inherited Mangarr 224 were replaced by `001_mangarr_baseline.cs` per Phase 0 D-14 fresh-schema decision)).
 
 This directory is **media-agnostic** infrastructure and reusable as-is. Migrations specific to manga schema additions/renames will be added on top.
 
@@ -140,7 +140,7 @@ public class SeriesRepository : BasicRepository<Series>, ISeriesRepository
 
 ### Main DB
 - **SQLite (default)**: `<datafolder>/sonarr.db`
-- **Postgres**: configurable via `<Sonarr><Postgres><Host>` etc. in `config.xml`
+- **Postgres**: configurable via `<Mangarr><Postgres><Host>` etc. in `config.xml`
 
 ### Log DB
 - Always SQLite (or separate Postgres database): `<datafolder>/logs.db`

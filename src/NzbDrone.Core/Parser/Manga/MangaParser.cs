@@ -8,7 +8,7 @@ using NzbDrone.Core.Parser.Manga.Model;
 
 namespace NzbDrone.Core.Parser.Manga
 {
-    // Pure-function manga release-title parser. Sibling to Sonarr's TV-side
+    // Pure-function manga release-title parser. Sibling to Mangarr's TV-side
     // Parser.cs (Parser/Parser.cs:17) per 02-CONTEXT.md D-01..D-06; the TV peer
     // stays untouched until Phase 8.
     //

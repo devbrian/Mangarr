@@ -7,7 +7,7 @@ using NzbDrone.Core.MetadataSource;
 
 namespace Mangarr.Api.V5.Manga;
 
-// META-01 developer-surface lookup endpoint per Plan 02-10. Mirrors Sonarr's
+// META-01 developer-surface lookup endpoint per Plan 02-10. Mirrors Mangarr's
 // SeriesLookupController shape but dispatches via IMetadataSourceFactory.GetPrimary()
 // instead of a single concrete proxy (D-15 dynamic primary). [V5ApiController]
 // attribute carries the admin X-Api-Key requirement per RESEARCH §Security Domain V4.

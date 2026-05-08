@@ -9,7 +9,7 @@ namespace NzbDrone.Core.Test.MediaFiles.MediaInfo.MediaInfoFormatterTests
     [TestFixture]
     public class FormatAudioCodecFixture : TestBase
     {
-        private const string SceneName = "My.Series.S01E01-Sonarr";
+        private const string SceneName = "My.Series.S01E01-Mangarr";
 
         [TestCase("mp2, ,  ", "droned.s01e03.swedish.720p.hdtv.x264-prince", "MP2")]
         [TestCase("vorbis, ,  ", "DB Super HDTV", "Vorbis")]

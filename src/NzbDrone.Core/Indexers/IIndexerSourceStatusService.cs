@@ -28,7 +28,7 @@ namespace NzbDrone.Core.Indexers
     }
 
     /// <summary>
-    /// Per-SourceKey escalation implementation. Reuses Sonarr's
+    /// Per-SourceKey escalation implementation. Reuses Mangarr's
     /// <see cref="EscalationBackOff.Periods"/> 10-level cadence verbatim (D-18 — 0s/1m/5m/15m/30m/1h/3h/6h/12h/24h);
     /// NO manga-specific tuning. Mirrors the inner shape of
     /// <see cref="ProviderStatusServiceBase{TProvider, TModel}"/> but keys on
@@ -47,7 +47,7 @@ namespace NzbDrone.Core.Indexers
         protected readonly IRuntimeInfo _runtimeInfo;
         protected readonly Logger _logger;
 
-        // D-18: Sonarr cadence preserved verbatim. EscalationBackOff.Periods = 10 levels.
+        // D-18: Mangarr cadence preserved verbatim. EscalationBackOff.Periods = 10 levels.
         protected int MaximumEscalationLevel { get; set; } = EscalationBackOff.Periods.Length - 1;
         protected TimeSpan MinimumTimeSinceInitialFailure { get; set; } = TimeSpan.Zero;
         protected TimeSpan MinimumTimeSinceStartup { get; set; } = TimeSpan.FromMinutes(15);

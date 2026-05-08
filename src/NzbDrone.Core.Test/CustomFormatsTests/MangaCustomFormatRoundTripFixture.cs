@@ -11,7 +11,7 @@ using NzbDrone.Core.Test.Framework;
 namespace NzbDrone.Core.Test.CustomFormatsTests
 {
     // CF-04 verification per Phase 5 PATTERNS-MAP S8 + 05-RESEARCH.md Open Question 3.
-    // Sonarr's CustomFormatResource.MapSpecification (Mangarr.Api.V5/CustomFormats/CustomFormatResource.cs:57-78)
+    // Mangarr's CustomFormatResource.MapSpecification (Mangarr.Api.V5/CustomFormats/CustomFormatResource.cs:57-78)
     // reflects Implementation field via GetType().Name then copies fields via SchemaBuilder.ReadFromSchema.
     // The 4 NEW manga spec types from plan 05-05 flow through unchanged because they implement
     // ICustomFormatSpecification — this fixture proves the lossless round-trip across the same

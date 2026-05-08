@@ -79,5 +79,5 @@ Still pending Phase 8 cleanup:
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview
 - [../../../src/NzbDrone.Core/IndexerSearch/](../../../src/NzbDrone.Core/IndexerSearch/) — Backend search criteria
 - [../../../src/NzbDrone.Core/DecisionEngine/CLAUDE.md](../../../src/NzbDrone.Core/DecisionEngine/CLAUDE.md) — Backend that emits rejection reasons
-- [../../../src/Sonarr.Api.V5/Release/](../../../src/Sonarr.Api.V5/Release/) — REST endpoints
+- [../../../src/Mangarr.Api.V5/Release/](../../../src/Mangarr.Api.V5/Release/) — REST endpoints
 - [../InteractiveImport/CLAUDE.md](../InteractiveImport/CLAUDE.md) — Sibling: import existing files manually

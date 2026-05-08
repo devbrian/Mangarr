@@ -14,7 +14,7 @@
 
 ## Overview
 
-**Mangarr** is a manga/manhwa/manhua library manager forked from **Sonarr** (a TV-show automation tool). This document is the architectural deep-dive used to orient any future contributor or AI agent working on the codebase. It complements the high-level [CLAUDE.md](./CLAUDE.md), focusing on data flow, patterns, and design rationale.
+**Mangarr** is a manga/manhwa/manhua library manager forked from **Mangarr** (a TV-show automation tool). This document is the architectural deep-dive used to orient any future contributor or AI agent working on the codebase. It complements the high-level [CLAUDE.md](./CLAUDE.md), focusing on data flow, patterns, and design rationale.
 
 The application is a self-hosted background service exposing a web UI at port 8989, with a comprehensive REST API + SignalR push for real-time UI updates.
 
@@ -40,7 +40,7 @@ The application is a self-hosted background service exposing a web UI at port 89
 
 ```
 Mangarr/
-├── src/                              # Backend C# (Sonarr.sln)
+├── src/                              # Backend C# (Mangarr.sln)
 │   ├── NzbDrone.Common/              # 179 files. Foundational utilities, NO references to other NzbDrone projects
 │   │   ├── Disk/                     # IDiskProvider, OsPath, file ops abstraction
 │   │   ├── Http/                     # HTTP client wrapper, request builder, dispatchers
@@ -101,7 +101,7 @@ Mangarr/
 │   │   ├── MessageHub.cs             # The SignalR Hub class
 │   │   ├── IBroadcastSignalRMessage.cs
 │   │   └── SignalRMessage.cs
-│   ├── Sonarr.Http/                  # 70 files — REST infrastructure
+│   ├── Mangarr.Http/                  # 70 files — REST infrastructure
 │   │   ├── REST/                     # RestController<T>, RestResource, RestControllerWithSignalR
 │   │   ├── Authentication/           # Cookie + ApiKey + Basic
 │   │   ├── Middleware/               # UrlBase / Logging / Cache / Version / Buffering
@@ -110,12 +110,12 @@ Mangarr/
 │   │   ├── ClientSchema/             # Dynamic form schema generation (for plugins)
 │   │   ├── Validation/               # Custom validators
 │   │   └── Ping/                     # /ping health endpoint
-│   ├── Sonarr.Api.V5/                # 149 files — current API; see file CLAUDE.md
-│   ├── Sonarr.Api.V3/                # 156 files — legacy API
+│   ├── Mangarr.Api.V5/                # 149 files — current API; see file CLAUDE.md
+│   ├── Mangarr.Api.V3/                # 156 files — legacy API
 │   ├── NzbDrone.Update/              # Self-update binary
 │   ├── NzbDrone.Mono/                # Linux/Mac specific (DiskProvider)
 │   ├── NzbDrone.Windows/             # Windows specific
-│   ├── Sonarr.RuntimePatches/        # Runtime monkey-patches (third-party shims)
+│   ├── Mangarr.RuntimePatches/        # Runtime monkey-patches (third-party shims)
 │   ├── ServiceHelpers/               # Service install on Windows/macOS
 │   ├── Libraries/                    # Vendored DLLs
 │   └── *.Test/                       # NUnit projects
@@ -139,13 +139,13 @@ Mangarr/
 └──────────────────┬───────────────────────┬────────────────┘
                    │ HTTP REST              │ WebSocket (SignalR)
 ┌──────────────────┴───────────────────────┴────────────────┐
-│              Sonarr.Api.V5 / Sonarr.Api.V3                 │
+│              Mangarr.Api.V5 / Mangarr.Api.V3                 │
 │         REST controllers, Resource (DTO) classes           │
 │  SeriesController → Series → Map → SeriesResource          │
 └──────────────────────┬─────────────────────────────────────┘
                        │
 ┌──────────────────────┴─────────────────────────────────────┐
-│                    Sonarr.Http                              │
+│                    Mangarr.Http                              │
 │  RestController<T> base • Middleware • Auth • Validation   │
 │  Cookie/ApiKey/Basic auth • UrlBase • Caching • Errors     │
 └──────────────────────┬─────────────────────────────────────┘
@@ -305,7 +305,7 @@ public abstract class ProviderBase<TDefinition> : IProvider
 }
 ```
 
-Plugin discovery via reflection in `NzbDrone.Common/Composition/AssemblyLoader.cs`. Settings serialized as JSON in DB. Schema dynamically built for the UI form via `Sonarr.Http/ClientSchema/SchemaBuilder.cs`.
+Plugin discovery via reflection in `NzbDrone.Common/Composition/AssemblyLoader.cs`. Settings serialized as JSON in DB. Schema dynamically built for the UI form via `Mangarr.Http/ClientSchema/SchemaBuilder.cs`.
 
 ### 4. Repository Pattern with Dapper
 
@@ -341,9 +341,9 @@ public class RefreshSeriesCommandExecutor : IExecute<RefreshSeriesCommand>
 
 Frontend issues commands via `POST /api/v5/command`, polls progress, receives completion via SignalR.
 
-## Domain Model Mapping (Sonarr → Mangarr)
+## Domain Model Mapping (Mangarr → Mangarr)
 
-| Sonarr Model | File | Mangarr Concept | Status |
+| Mangarr Model | File | Mangarr Concept | Status |
 |-------------|------|-----------------|--------|
 | `Series` | [src/NzbDrone.Core/Tv/Series.cs](./src/NzbDrone.Core/Tv/Series.cs) | Manga | TVDb/IMDb/TmDB IDs + **MalIds, AniListIds added** |
 | `Season` (embedded) | [src/NzbDrone.Core/Tv/Season.cs](./src/NzbDrone.Core/Tv/Season.cs) | Volume (optional) | Tiny: `{SeasonNumber, Monitored, Images}` |
@@ -369,7 +369,7 @@ The `Series` class extends `ModelBase` and has **40 properties** including (alre
 ## Key Files Reference
 
 ### Backend Entry Points
-- **Solution**: `src/Sonarr.sln`
+- **Solution**: `src/Mangarr.sln`
 - **Console main**: [src/NzbDrone.Console/ConsoleApp.cs](./src/NzbDrone.Console/ConsoleApp.cs)
 - **Bootstrap**: [src/NzbDrone.Host/Bootstrap.cs](./src/NzbDrone.Host/Bootstrap.cs)
 - **ASP.NET Startup (DI + middleware)**: [src/NzbDrone.Host/Startup.cs](./src/NzbDrone.Host/Startup.cs)
@@ -386,10 +386,10 @@ The `Series` class extends `ModelBase` and has **40 properties** including (alre
 - **EventAggregator**: [src/NzbDrone.Core/Messaging/Events/IEventAggregator.cs](./src/NzbDrone.Core/Messaging/Events/IEventAggregator.cs)
 
 ### API Layer
-- **V5 Controllers**: `src/Sonarr.Api.V5/` — 44 controllers
-- **REST base**: [src/Sonarr.Http/REST/RestController.cs](./src/Sonarr.Http/REST/RestController.cs)
-- **Auth**: [src/Sonarr.Http/Authentication/AuthenticationService.cs](./src/Sonarr.Http/Authentication/AuthenticationService.cs)
-- **Error pipeline**: [src/Sonarr.Http/ErrorManagement/SonarrErrorPipeline.cs](./src/Sonarr.Http/ErrorManagement/SonarrErrorPipeline.cs)
+- **V5 Controllers**: `src/Mangarr.Api.V5/` — 44 controllers
+- **REST base**: [src/Mangarr.Http/REST/RestController.cs](./src/Mangarr.Http/REST/RestController.cs)
+- **Auth**: [src/Mangarr.Http/Authentication/AuthenticationService.cs](./src/Mangarr.Http/Authentication/AuthenticationService.cs)
+- **Error pipeline**: [src/Mangarr.Http/ErrorManagement/SonarrErrorPipeline.cs](./src/Mangarr.Http/ErrorManagement/SonarrErrorPipeline.cs)
 
 ### SignalR
 - **Hub**: [src/NzbDrone.SignalR/MessageHub.cs](./src/NzbDrone.SignalR/MessageHub.cs) (class is `MessageHub`, not `SonarrHub`)
@@ -458,7 +458,7 @@ Most new feature work prefers **Zustand + React Query** over Redux. Redux remain
 ### App Provider Tree
 
 ```
-<DocumentTitle title={window.Sonarr.instanceName}>
+<DocumentTitle title={window.Mangarr.instanceName}>
   └─ <QueryClientProvider>           // TanStack React Query
      └─ <Provider store={store}>     // Redux
         └─ <ConnectedRouter history>
@@ -469,7 +469,7 @@ Most new feature work prefers **Zustand + React Query** over Redux. Redux remain
 
 ### Build Output
 
-Webpack builds to `_output/UI/` (not `frontend/dist/`). The C# `Sonarr.Http.Frontend` mappers serve files from there. Asset paths use `window.Sonarr.urlBase` for reverse-proxy compatibility.
+Webpack builds to `_output/UI/` (not `frontend/dist/`). The C# `Mangarr.Http.Frontend` mappers serve files from there. Asset paths use `window.Mangarr.urlBase` for reverse-proxy compatibility.
 
 ## Database
 
@@ -485,7 +485,7 @@ Webpack builds to `_output/UI/` (not `frontend/dist/`). The C# `Sonarr.Http.Fron
 - Migrations run automatically on startup before service registration completes.
 
 ### Switching to Postgres
-Set `Sonarr:Postgres:Host`/Port/User/Password in `config.xml`. Connection-string factory at `src/NzbDrone.Core/Datastore/ConnectionStringFactory.cs`. NOTE: a separate `postgres.runsettings` exists for testing.
+Set `Mangarr:Postgres:Host`/Port/User/Password in `config.xml`. Connection-string factory at `src/NzbDrone.Core/Datastore/ConnectionStringFactory.cs`. NOTE: a separate `postgres.runsettings` exists for testing.
 
 ## Build & Run
 
@@ -494,13 +494,13 @@ Set `Sonarr:Postgres:Host`/Port/User/Password in `config.xml`. Connection-string
 yarn install
 
 # Build backend
-dotnet build src/Sonarr.sln --configuration Debug
+dotnet build src/Mangarr.sln --configuration Debug
 
 # Build frontend
 yarn build
 
 # Run application (full)
-dotnet run --project src/NzbDrone.Console/Sonarr.Console.csproj
+dotnet run --project src/NzbDrone.Console/Mangarr.Console.csproj
 
 # Frontend watch mode (during UI dev)
 yarn watch
@@ -527,8 +527,8 @@ Application: **http://localhost:8989**
 | MetadataSource | [src/NzbDrone.Core/MetadataSource/CLAUDE.md](./src/NzbDrone.Core/MetadataSource/CLAUDE.md) |
 | Datastore | [src/NzbDrone.Core/Datastore/CLAUDE.md](./src/NzbDrone.Core/Datastore/CLAUDE.md) |
 | NzbDrone.Common | [src/NzbDrone.Common/CLAUDE.md](./src/NzbDrone.Common/CLAUDE.md) |
-| Sonarr.Api.V5 | [src/Sonarr.Api.V5/CLAUDE.md](./src/Sonarr.Api.V5/CLAUDE.md) |
-| Sonarr.Http | [src/Sonarr.Http/CLAUDE.md](./src/Sonarr.Http/CLAUDE.md) |
+| Mangarr.Api.V5 | [src/Mangarr.Api.V5/CLAUDE.md](./src/Mangarr.Api.V5/CLAUDE.md) |
+| Mangarr.Http | [src/Mangarr.Http/CLAUDE.md](./src/Mangarr.Http/CLAUDE.md) |
 | NzbDrone.Host | [src/NzbDrone.Host/CLAUDE.md](./src/NzbDrone.Host/CLAUDE.md) |
 | Frontend | [frontend/CLAUDE.md](./frontend/CLAUDE.md) |
 | Frontend App | [frontend/src/App/CLAUDE.md](./frontend/src/App/CLAUDE.md) |

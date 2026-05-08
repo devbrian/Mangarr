@@ -74,7 +74,7 @@ namespace NzbDrone.Core.MetadataSource.MyAnimeList
             ApplyHeaders(req);
 
             // Suppress the IHttpClient 404 throw so we can map it to MangaNotFoundException
-            // (Sonarr's IHttpClient.Get<T> throws HttpException on HasHttpError unless this
+            // (Mangarr's IHttpClient.Get<T> throws HttpException on HasHttpError unless this
             // flag is set — see SkyHookProxy.GetSeriesInfo precedent at line 51).
             req.SuppressHttpError = true;
 

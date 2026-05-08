@@ -3,7 +3,7 @@ using NzbDrone.Common.Messaging;
 
 namespace NzbDrone.Core.Manga.Events
 {
-    // POCO event mirroring Sonarr's SeriesBulkEditedEvent (Tv/Events/SeriesBulkEditedEvent.cs)
+    // POCO event mirroring Mangarr's SeriesBulkEditedEvent (Tv/Events/SeriesBulkEditedEvent.cs)
     // verbatim shape. Carries List<Manga> of bulk-edited entities. Publish wiring deferred
     // to MangaEditedService bulk path (Plan 04-02).
     public class MangaBulkEditedEvent : IEvent

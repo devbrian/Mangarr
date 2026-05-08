@@ -12,7 +12,7 @@ namespace NzbDrone.Core.MetadataSource
     // verbatim (exact -> article-stripped -> close-match -> year-tiebreak -> prefix
     // match -> Levenshtein-with-year-factor) — diverging only where the manga domain
     // forces it: Manga.PublicationYear (nullable) replaces Series.Year. Per
-    // CLAUDE.md "Preserve Sonarr's shape wherever it works; diverge only where the
+    // CLAUDE.md "Preserve Mangarr's shape wherever it works; diverge only where the
     // manga domain forces us."
     public class SearchMangaComparer : IComparer<Manga.Manga>
     {

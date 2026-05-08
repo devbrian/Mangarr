@@ -24,7 +24,7 @@ Phase 4 metadata-writer plugin contract (D-14). Pluggable sibling to `IChapterAr
 
 ## Manga Adaptation Notes
 
-- **Sonarr divergence**: Sonarr writes per-`MetadataDefinition` provider files via `MetadataService` + `IMetadataDefinition`; Mangarr's chapter-archive metadata is pluggable via `IMetadataWriter`. See `DIVERGENCE.md`.
+- **Mangarr divergence**: Mangarr writes per-`MetadataDefinition` provider files via `MetadataService` + `IMetadataDefinition`; Mangarr's chapter-archive metadata is pluggable via `IMetadataWriter`. See `DIVERGENCE.md`.
 
 ## Cross-References
 

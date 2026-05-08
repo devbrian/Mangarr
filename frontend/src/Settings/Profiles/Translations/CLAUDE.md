@@ -6,7 +6,7 @@ TranslationProfile editor sub-tree — wires the Phase 5 `TranslationProfile` en
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Settings\Profiles\Translations\`
 
-## Sonarr Inheritance
+## Mangarr Inheritance
 
 This sub-tree is the manga sibling of `frontend/src/Settings/Profiles/Quality/`. Every file ports the role-match analog file from `Quality/` with manga-domain divergence at the form-fields layer (language-rank list + `isDefault` + `fallback` enum replace quality items + `cutoff` + `upgradeAllowed`). All files carry the Pattern S2 sibling-divergence header.
 
@@ -67,7 +67,7 @@ This sub-tree is manga-canonical and stays. The legacy `Settings/Profiles/Qualit
 ## Cross-References
 
 - [../Profiles.tsx](../Profiles.tsx) — page repurposed in Phase 7 Plan 07-07 to render `<TranslationProfiles />` only
-- [../Quality/](../Quality/) — Sonarr role-match analog (kept on disk; Phase 8 deletes)
+- [../Quality/](../Quality/) — Mangarr role-match analog (kept on disk; Phase 8 deletes)
 - [../../Settings.tsx](../../Settings.tsx) — left-nav Profiles row renamed to "Translation Profiles" in Phase 7 D-05
 - [../../CLAUDE.md](../../CLAUDE.md) — Settings sub-tree overview + D-05 topology rework
 - [../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-07-PLAN.md](../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-07-PLAN.md) — plan body

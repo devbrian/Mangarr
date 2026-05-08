@@ -23,9 +23,9 @@ Custom-Format scoring profile entity (CustomFormatProfile) — the INNER scoring
 - Delete guard per Pitfall 8: raises CustomFormatProfileInUseException if profile is assigned to any Manga OR is the global default
 
 ## Manga Adaptation Notes
-This is a NEW manga-side directory split from Sonarr's QualityProfile per Phase 5 D-07. Three KEY divergences (per Phase 5 PATTERNS-MAP Adaptation Hotspots 4 + 9):
+This is a NEW manga-side directory split from Mangarr's QualityProfile per Phase 5 D-07. Three KEY divergences (per Phase 5 PATTERNS-MAP Adaptation Hotspots 4 + 9):
 
-1. `MaxFormatScore : int?` is **NULLABLE** (Sonarr QualityProfile has no max-score concept; null = no cap)
+1. `MaxFormatScore : int?` is **NULLABLE** (Mangarr QualityProfile has no max-score concept; null = no cap)
 2. `FormatItems` shipped per Open Question 2 (power users want per-profile per-CF score override)
 3. **Drops** UpgradeAllowed/Cutoff/Items/MinUpgradeFormatScore/CutoffFormatScore (TV-quality-specific)
 4. **Drops** Languages list (lives on TranslationProfile per D-07 orthogonal split)
@@ -33,7 +33,7 @@ This is a NEW manga-side directory split from Sonarr's QualityProfile per Phase 
 Phase 5 D-04: REQUIREMENTS.md CF-03 reword deferred to Wave 4 plan 05-07 — adds language: "Min/max score live on `CustomFormatProfile` entity (per Phase 5 D-07); per-Manga FK + global default."
 
 ## Phase 8 Collapse
-When `Tv/` deletes in Phase 8, this directory collapses into the canonical `Profiles/` namespace. The collapse is non-trivial because Sonarr's QualityProfile may also need a parallel collapse — DIVERGENCE.md (Wave 4 plan 05-07) tracks the intent.
+When `Tv/` deletes in Phase 8, this directory collapses into the canonical `Profiles/` namespace. The collapse is non-trivial because Mangarr's QualityProfile may also need a parallel collapse — DIVERGENCE.md (Wave 4 plan 05-07) tracks the intent.
 
 ## Cross-References
 - [Phase 5 CONTEXT](../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md) — D-07, D-11

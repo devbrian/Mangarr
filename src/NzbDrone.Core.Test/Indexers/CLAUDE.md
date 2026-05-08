@@ -23,7 +23,7 @@ Unit fixtures for Phase 3 manga aggregator indexers (MangaDex, comix.to). Siblin
 
 ## Patterns / Conventions
 
-- All fixtures use `CoreTest<TSubject>` + Moq + FluentAssertions per Sonarr precedent (`IndexerTests/NewznabTests/NewznabFixture.cs`).
+- All fixtures use `CoreTest<TSubject>` + Moq + FluentAssertions per Mangarr precedent (`IndexerTests/NewznabTests/NewznabFixture.cs`).
 - JSON fixtures load via `File.ReadAllText("Files/Indexers/{MangaDex,Comix}/...json")`; the `.csproj` `<None Update="Files\**\*.*">` glob copies them to test output.
 - ToS reflection assertions (Pitfall 4) are CRITICAL — adding `[FieldDefinition]` to MangaDex UA override is a ban-risk regression.
 - Tests start RED at Wave 0; flip GREEN as Plans 03-02..03-05 land production code. The Wave 0 commit is INTENTIONALLY a compile-fail for many tests because the production types do not exist yet — this is the "lock the contract before implementation" Nyquist pattern from `03-VALIDATION.md`.
@@ -35,7 +35,7 @@ Unit fixtures for Phase 3 manga aggregator indexers (MangaDex, comix.to). Siblin
 
 ## Cross-References
 
-- Sonarr analog: `src/NzbDrone.Core.Test/IndexerTests/NewznabTests/NewznabFixture.cs`
+- Mangarr analog: `src/NzbDrone.Core.Test/IndexerTests/NewznabTests/NewznabFixture.cs`
 - Phase 2 sibling: `src/NzbDrone.Core.Test/MetadataSource/MangaDex/MangaDexMetadataSourceFixture.cs`
 - Production code (lands in Plans 03-02..03-05): `src/NzbDrone.Core/Indexers/{MangaDex,Comix}/`
 - Validation map: `.planning/phases/03-indexer-contract-aggregator-sources/03-VALIDATION.md`

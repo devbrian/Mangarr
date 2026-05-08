@@ -17,7 +17,7 @@ using NzbDrone.SignalR;
 
 namespace Mangarr.Api.V5.Manga;
 
-// Phase 2 developer-surface CRUD controller per Plan 02-10. Mirrors Sonarr's
+// Phase 2 developer-surface CRUD controller per Plan 02-10. Mirrors Mangarr's
 // SeriesController shape (Mangarr.Api.V5/Series/SeriesController.cs) but slimmed for
 // the Phase 2 manga domain: no path validators (root-folder validation is Phase 7
 // territory), no SeriesStats analog (chapter stats arrive in Phase 6), no scene-mapping

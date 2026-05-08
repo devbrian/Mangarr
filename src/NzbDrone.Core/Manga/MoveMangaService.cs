@@ -11,7 +11,7 @@ using NzbDrone.Core.Organizer.Manga;
 
 namespace NzbDrone.Core.Manga
 {
-    // Manga sibling of Sonarr's MoveSeriesService (Tv/MoveSeriesService.cs).
+    // Manga sibling of Mangarr's MoveSeriesService (Tv/MoveSeriesService.cs).
     // Mirrors the dual-handler pattern verbatim with type swaps:
     //   Series→Manga, ISeriesService→IMangaService, IBuildFileNames→IBuildMangaFileNames,
     //   SeriesMovedEvent→MangaMovedEvent, GetSeriesFolder→GetMangaFolder.
