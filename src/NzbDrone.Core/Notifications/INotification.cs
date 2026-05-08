@@ -3,7 +3,7 @@ using NzbDrone.Core.ThingiProvider;
 
 namespace NzbDrone.Core.Notifications
 {
-    // Sonarr divergence: Phase 15 W-1 (CONTRACTS-AUDIT � Wave A Cluster 2) - TV-only hooks removed:
+    // Sonarr divergence: Phase 15 W-1 (CONTRACTS-AUDIT  Wave A Cluster 2) - TV-only hooks removed:
     // OnGrab, OnDownload, OnRename, OnEpisodeFileDelete, OnSeriesAdd, OnSeriesDelete,
     // OnImportComplete, OnManualInteractionRequired. Manga preserves OnChapterImport,
     // OnMangaAdd/Delete/Rename, OnHealthIssue/Restored, OnApplicationUpdate.
@@ -26,6 +26,12 @@ namespace NzbDrone.Core.Notifications
         void OnMangaDelete(MangaDeleteMessage deleteMessage);
         void OnMangaRename(NzbDrone.Core.Manga.Manga manga, List<NzbDrone.Core.MediaFiles.RenamedChapterFile> renamedFiles);
 
+        // Manga siblings of TV-deleted OnEpisodeFileDelete / OnEpisodeFileDeleteForUpgrade hooks.
+        // Surface-only (no v1 publisher); v1.1+ providers override. Mirrors the OnMangaAdd/Delete/Rename
+        // precedent — surface added now so v1.1+ providers can opt in without churning the contract.
+        void OnChapterFileDelete(ChapterFileDeleteMessage deleteMessage);
+        void OnChapterFileDeleteForUpgrade(ChapterFileDeleteMessage deleteMessage);
+
         void ProcessQueue();
         bool SupportsOnHealthIssue { get; }
         bool SupportsOnHealthRestored { get; }
@@ -34,5 +40,7 @@ namespace NzbDrone.Core.Notifications
         bool SupportsOnMangaAdd { get; }
         bool SupportsOnMangaDelete { get; }
         bool SupportsOnMangaRename { get; }
+        bool SupportsOnChapterFileDelete { get; }
+        bool SupportsOnChapterFileDeleteForUpgrade { get; }
     }
 }

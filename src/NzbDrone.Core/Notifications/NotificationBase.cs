@@ -6,7 +6,7 @@ using NzbDrone.Core.ThingiProvider;
 
 namespace NzbDrone.Core.Notifications
 {
-    // Sonarr divergence: Phase 15 W-2 (CONTRACTS-AUDIT � Wave A Cluster 2) - removed:
+    // Sonarr divergence: Phase 15 W-2 (CONTRACTS-AUDIT  Wave A Cluster 2) - removed:
     //  - Virtual no-op overrides for the 8 TV-only INotification hooks (OnGrab, OnDownload,
     //    OnRename, OnEpisodeFileDelete, OnSeriesAdd, OnSeriesDelete, OnImportComplete,
     //    OnManualInteractionRequired)
@@ -75,6 +75,17 @@ namespace NzbDrone.Core.Notifications
         {
         }
 
+        // Manga siblings of TV-deleted OnEpisodeFileDelete / OnEpisodeFileDeleteForUpgrade hooks.
+        // Virtual no-ops; reflection-backed Supports* default to FALSE; v1.1+ providers override.
+        // Surface-only (no v1 publisher) — see Notifications/ChapterFileDeleteMessage.cs header.
+        public virtual void OnChapterFileDelete(ChapterFileDeleteMessage deleteMessage)
+        {
+        }
+
+        public virtual void OnChapterFileDeleteForUpgrade(ChapterFileDeleteMessage deleteMessage)
+        {
+        }
+
         public virtual void ProcessQueue()
         {
         }
@@ -86,6 +97,8 @@ namespace NzbDrone.Core.Notifications
         public bool SupportsOnMangaAdd => HasConcreteImplementation("OnMangaAdd");
         public bool SupportsOnMangaDelete => HasConcreteImplementation("OnMangaDelete");
         public bool SupportsOnMangaRename => HasConcreteImplementation("OnMangaRename");
+        public bool SupportsOnChapterFileDelete => HasConcreteImplementation("OnChapterFileDelete");
+        public bool SupportsOnChapterFileDeleteForUpgrade => HasConcreteImplementation("OnChapterFileDeleteForUpgrade");
 
         protected TSettings Settings => (TSettings)Definition.Settings;
 

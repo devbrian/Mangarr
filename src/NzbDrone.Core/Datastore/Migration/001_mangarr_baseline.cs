@@ -94,7 +94,8 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("Tags").AsString().Nullable();
 
             // Phase 15 D-22 schema delete (executed by Plan 15-02)
-            // Sonarr divergence: Phase 15 D-22 schema delete — stripped Notifications.OnSeriesAdd / OnSeriesDelete / OnEpisodeFileDelete / OnEpisodeFileDeleteForUpgrade columns (TV-only; manga uses OnMangaAdd / OnMangaDelete / OnChapterImport)
+            // Sonarr divergence: Phase 15 D-22 schema delete — stripped Notifications.OnSeriesAdd / OnSeriesDelete / OnEpisodeFileDelete / OnEpisodeFileDeleteForUpgrade columns (TV-only).
+            // Manga sibling columns added at end: OnMangaAdd / OnMangaDelete / OnMangaRename (Phase 8 Plan 99-08) and OnChapterFileDelete / OnChapterFileDeleteForUpgrade (post-15 surface backfill).
             // Phase 6 D-18 — OnChapterImport added at end (default TRUE so newly-added
             // Komga/Kavita providers fire OnChapterImport without an extra checkbox click;
             // user can still disable per-provider). See DIVERGENCE.md + dev-migration-policy.md.
@@ -117,7 +118,9 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("OnChapterImport").AsBoolean().NotNullable().WithDefaultValue(true)
                 .WithColumn("OnMangaAdd").AsBoolean().NotNullable().WithDefaultValue(true)
                 .WithColumn("OnMangaDelete").AsBoolean().NotNullable().WithDefaultValue(true)
-                .WithColumn("OnMangaRename").AsBoolean().NotNullable().WithDefaultValue(true);
+                .WithColumn("OnMangaRename").AsBoolean().NotNullable().WithDefaultValue(true)
+                .WithColumn("OnChapterFileDelete").AsBoolean().NotNullable().WithDefaultValue(true)
+                .WithColumn("OnChapterFileDeleteForUpgrade").AsBoolean().NotNullable().WithDefaultValue(true);
 
             // Sonarr's Metadata table is the ThingiProvider for IMetadataConsumer
             // (Kodi/Roksbox/Wdtv). CONTEXT.md D-01 'MetadataSources' refers to this

@@ -1663,6 +1663,8 @@
   "NzbgetHistoryItemMessage": "PAR Status: {parStatus} - Unpack Status: {unpackStatus} - Move Status: {moveStatus} - Script Status: {scriptStatus} - Delete Status: {deleteStatus} - Mark Status: {markStatus}",
   "Ok": "Ok",
   "OnApplicationUpdate": "On Application Update",
+  "OnChapterFileDelete": "On Chapter File Delete",
+  "OnChapterFileDeleteForUpgrade": "On Chapter File Delete For Upgrade",
   "OneMinute": "1 Minute",
   "OneSeason": "1 Season",
   "OnFileImport": "On File Import",

@@ -30,6 +30,13 @@ namespace NzbDrone.Core.Notifications
         public bool OnMangaDelete { get; set; } = true;
         public bool OnMangaRename { get; set; } = true;
 
+        // User toggles for OnChapterFileDelete / OnChapterFileDeleteForUpgrade fan-out.
+        // Default TRUE for consistency with the other manga library-state toggles; the
+        // BL-01 first-save scoping in NotificationFactory.SetProviderCharacteristics
+        // narrows the toggle to provider capability so non-overriding providers stay quiet.
+        public bool OnChapterFileDelete { get; set; } = true;
+        public bool OnChapterFileDeleteForUpgrade { get; set; } = true;
+
         [MemberwiseEqualityIgnore]
         public bool SupportsOnGrab { get; set; }
 
@@ -70,7 +77,13 @@ namespace NzbDrone.Core.Notifications
         public bool SupportsOnMangaRename { get; set; }
 
         [MemberwiseEqualityIgnore]
-        public override bool Enable => OnGrab || OnDownload || (OnDownload && OnUpgrade) || OnImportComplete || OnRename || OnHealthIssue || OnHealthRestored || OnApplicationUpdate || OnManualInteractionRequired || OnChapterImport || OnMangaAdd || OnMangaDelete || OnMangaRename;
+        public bool SupportsOnChapterFileDelete { get; set; }
+
+        [MemberwiseEqualityIgnore]
+        public bool SupportsOnChapterFileDeleteForUpgrade { get; set; }
+
+        [MemberwiseEqualityIgnore]
+        public override bool Enable => OnGrab || OnDownload || (OnDownload && OnUpgrade) || OnImportComplete || OnRename || OnHealthIssue || OnHealthRestored || OnApplicationUpdate || OnManualInteractionRequired || OnChapterImport || OnMangaAdd || OnMangaDelete || OnMangaRename || OnChapterFileDelete || OnChapterFileDeleteForUpgrade;
 
         public bool Equals(NotificationDefinition other)
         {

@@ -22,6 +22,8 @@ function Notification({
   onHealthRestored,
   onApplicationUpdate,
   onManualInteractionRequired,
+  onChapterFileDelete,
+  onChapterFileDeleteForUpgrade,
   supportsOnGrab,
   supportsOnDownload,
   supportsOnUpgrade,
@@ -31,6 +33,8 @@ function Notification({
   supportsOnHealthRestored,
   supportsOnApplicationUpdate,
   supportsOnManualInteractionRequired,
+  supportsOnChapterFileDelete,
+  supportsOnChapterFileDeleteForUpgrade,
   tags,
 }: NotificationModel) {
   const tagList = useTagList();
@@ -108,6 +112,17 @@ function Notification({
         </Label>
       ) : null}
 
+      {supportsOnChapterFileDelete && onChapterFileDelete ? (
+        <Label kind={kinds.SUCCESS}>{translate('OnChapterFileDelete')}</Label>
+      ) : null}
+
+      {supportsOnChapterFileDeleteForUpgrade &&
+      onChapterFileDeleteForUpgrade ? (
+        <Label kind={kinds.SUCCESS}>
+          {translate('OnChapterFileDeleteForUpgrade')}
+        </Label>
+      ) : null}
+
       {!onGrab &&
       !onDownload &&
       !onRename &&
@@ -115,7 +130,9 @@ function Notification({
       !onHealthIssue &&
       !onHealthRestored &&
       !onApplicationUpdate &&
-      !onManualInteractionRequired ? (
+      !onManualInteractionRequired &&
+      !onChapterFileDelete &&
+      !onChapterFileDeleteForUpgrade ? (
         <Label kind={kinds.DISABLED} outline={true}>
           {translate('Disabled')}
         </Label>

@@ -111,7 +111,9 @@ namespace NzbDrone.Core.Datastore
                   .Ignore(i => i.SupportsOnChapterImport)
                   .Ignore(i => i.SupportsOnMangaAdd)
                   .Ignore(i => i.SupportsOnMangaDelete)
-                  .Ignore(i => i.SupportsOnMangaRename);
+                  .Ignore(i => i.SupportsOnMangaRename)
+                  .Ignore(i => i.SupportsOnChapterFileDelete)
+                  .Ignore(i => i.SupportsOnChapterFileDeleteForUpgrade);
 
             // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
             // MetadataDefinition entity registration stripped (Extras/Metadata/ deleted).

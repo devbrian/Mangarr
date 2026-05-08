@@ -6777,6 +6777,12 @@
           "onManualInteractionRequired": {
             "type": "boolean"
           },
+          "onChapterFileDelete": {
+            "type": "boolean"
+          },
+          "onChapterFileDeleteForUpgrade": {
+            "type": "boolean"
+          },
           "supportsOnGrab": {
             "type": "boolean"
           },
@@ -6802,6 +6808,12 @@
             "type": "boolean"
           },
           "supportsOnManualInteractionRequired": {
+            "type": "boolean"
+          },
+          "supportsOnChapterFileDelete": {
+            "type": "boolean"
+          },
+          "supportsOnChapterFileDeleteForUpgrade": {
             "type": "boolean"
           },
           "testCommand": {
