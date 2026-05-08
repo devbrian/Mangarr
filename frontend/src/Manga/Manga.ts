@@ -27,7 +27,7 @@
 // Phase 8 cleanup: collapse with Series when Tv/ deletes.
 import ModelBase from 'App/ModelBase';
 import Language from 'Language/Language';
-import Quality from 'Quality/Quality';
+// Sonarr divergence: Phase 15 Plan 15-12 — Quality/Quality import dropped per cascade absorption (Plan 15-03 deleted Quality cascade). Statistics.episodeFileQualities[] is Sonarr carry-over and never populated for manga; widened to unknown[].
 import ReleaseType from 'InteractiveImport/ReleaseType';
 
 export type MangaMonitor =
@@ -81,7 +81,7 @@ export interface Statistics {
   totalEpisodeCount?: number;
   monitoredEpisodeCount?: number;
   seasonCount?: number;
-  episodeFileQualities?: Quality[];
+  episodeFileQualities?: unknown[];
   sizeOnDisk?: number;
 }
 

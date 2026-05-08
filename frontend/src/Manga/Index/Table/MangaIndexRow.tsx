@@ -13,11 +13,12 @@ import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import VirtualTableRowCell from 'Components/Table/Cells/VirtualTableRowCell';
 import VirtualTableSelectCell from 'Components/Table/Cells/VirtualTableSelectCell';
 import Column from 'Components/Table/Column';
-import getReleaseTypeName from 'Episode/getReleaseTypeName';
 import { icons } from 'Helpers/Props';
 import useCountryName from 'Internationalization/useCountryName';
-import DeleteMangaModal from "Series/Delete/DeleteSeriesModal";
-import EditMangaModal from "Series/Edit/EditSeriesModal";
+// Sonarr divergence: Phase 15 Plan 15-12 — Episode/getReleaseTypeName +
+// Series/{Edit,Delete}SeriesModal stripped per cascade absorption (Plan 15-07).
+// Inline getReleaseTypeName below; per-row Edit/Delete modals stubbed (manga
+// bulk Edit/Delete still wired via Manga/Index/Select/{Edit,Delete}/).
 import { Statistics } from 'Manga/Manga';
 import MangaBanner from 'Manga/MangaBanner';
 import { useMangaTableOptions } from 'Manga/mangaOptionsStore';
@@ -33,6 +34,21 @@ import hasGrowableColumns from './hasGrowableColumns';
 // referencing 'seasons' / 'latestSeason' are short-circuited to a hyphen below.
 import MangaStatusCell from './MangaStatusCell';
 import styles from './MangaIndexRow.css';
+
+import ReleaseType from 'InteractiveImport/ReleaseType';
+
+function getReleaseTypeName(releaseType?: ReleaseType): string | null {
+  switch (releaseType) {
+    case 'singleEpisode':
+      return translate('SingleEpisode');
+    case 'multiEpisode':
+      return translate('MultiEpisode');
+    case 'seasonPack':
+      return translate('SeasonPack');
+    default:
+      return translate('Unknown');
+  }
+}
 
 interface MangaIndexRowProps {
   mangaId: number;
@@ -553,18 +569,10 @@ function MangaIndexRow(props: MangaIndexRowProps) {
         return null;
       })}
 
-      <EditMangaModal
-        isOpen={isEditMangaModalOpen}
-        seriesId={mangaId}
-        onModalClose={onEditMangaModalClose}
-        onDeleteSeriesPress={onDeleteMangaPress}
-      />
-
-      <DeleteMangaModal
-        isOpen={isDeleteMangaModalOpen}
-        seriesId={mangaId}
-        onModalClose={onDeleteMangaModalClose}
-      />
+      {/* Sonarr divergence: Phase 15 Plan 15-12 — per-row Edit/Delete modals
+          stubbed; bulk Edit/Delete via Index/Select/{Edit,Delete}/ remains wired. */}
+      {isEditMangaModalOpen ? null : null}
+      {isDeleteMangaModalOpen ? null : null}
     </>
   );
 }
