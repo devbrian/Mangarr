@@ -12,6 +12,12 @@ public class MangaResource : RestResource
     public string? Title { get; set; }
     public string? CleanTitle { get; set; }
     public string? SortTitle { get; set; }
+
+    // URL-safe identifier — the frontend's /manga/:titleSlug route at
+    // MangaDetailsPage.tsx:28-31 + the MangaIndexOverview link at line 114
+    // do `findIndex(m => m.titleSlug === titleSlug)` on the resource list,
+    // so omitting this field makes every detail-page navigation render MIA.
+    public string? TitleSlug { get; set; }
     public string? Status { get; set; }
     public string? ContentRating { get; set; }
     public string? Overview { get; set; }
@@ -50,6 +56,7 @@ public static class MangaResourceMapper
             Title = model.Title,
             CleanTitle = model.CleanTitle,
             SortTitle = model.SortTitle,
+            TitleSlug = model.TitleSlug,
             Status = model.Status,
             ContentRating = model.ContentRating,
             Overview = model.Overview,
@@ -83,6 +90,7 @@ public static class MangaResourceMapper
             Title = resource.Title,
             CleanTitle = resource.CleanTitle,
             SortTitle = resource.SortTitle,
+            TitleSlug = resource.TitleSlug,
             Status = resource.Status,
             ContentRating = resource.ContentRating,
             Overview = resource.Overview,
