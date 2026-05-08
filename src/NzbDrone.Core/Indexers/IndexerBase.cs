@@ -10,7 +10,7 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.Languages;
 using NzbDrone.Core.Localization;
-using NzbDrone.Core.Parser;
+using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.ThingiProvider;
 
@@ -21,7 +21,7 @@ namespace NzbDrone.Core.Indexers
     {
         protected readonly IIndexerStatusService _indexerStatusService;
         protected readonly IConfigService _configService;
-        protected readonly IParsingService _parsingService;
+        protected readonly IMangaParsingService _parsingService;
         protected readonly Logger _logger;
         protected readonly ILocalizationService _localizationService;
 
@@ -33,7 +33,7 @@ namespace NzbDrone.Core.Indexers
         public abstract bool SupportsRss { get; }
         public abstract bool SupportsSearch { get; }
 
-        public IndexerBase(IIndexerStatusService indexerStatusService, IConfigService configService, IParsingService parsingService, Logger logger, ILocalizationService localizationService)
+        public IndexerBase(IIndexerStatusService indexerStatusService, IConfigService configService, IMangaParsingService parsingService, Logger logger, ILocalizationService localizationService)
         {
             _indexerStatusService = indexerStatusService;
             _configService = configService;
@@ -74,22 +74,13 @@ namespace NzbDrone.Core.Indexers
         protected TSettings Settings => (TSettings)Definition.Settings;
 
         public abstract Task<IList<ReleaseInfo>> FetchRecent();
-        public abstract Task<IList<ReleaseInfo>> Fetch(SeasonSearchCriteria searchCriteria);
-        public abstract Task<IList<ReleaseInfo>> Fetch(SingleEpisodeSearchCriteria searchCriteria);
-        public abstract Task<IList<ReleaseInfo>> Fetch(DailyEpisodeSearchCriteria searchCriteria);
-        public abstract Task<IList<ReleaseInfo>> Fetch(DailySeasonSearchCriteria searchCriteria);
-        public abstract Task<IList<ReleaseInfo>> Fetch(AnimeEpisodeSearchCriteria searchCriteria);
-        public abstract Task<IList<ReleaseInfo>> Fetch(AnimeSeasonSearchCriteria searchCriteria);
-        public abstract Task<IList<ReleaseInfo>> Fetch(SpecialEpisodeSearchCriteria searchCriteria);
 
-        // Phase 3 D-01 — manga overloads. VIRTUAL with empty default so TV indexers
-        // (Newznab/Nyaa/Torznab/etc.) compile without modification. HttpAggregatorBase
-        // descendants override these concretely (D-02).
-        public virtual Task<IList<ReleaseInfo>> Fetch(MangaSearchCriteria searchCriteria)
-            => Task.FromResult<IList<ReleaseInfo>>(System.Array.Empty<ReleaseInfo>());
-
-        public virtual Task<IList<ReleaseInfo>> Fetch(ChapterSearchCriteria searchCriteria)
-            => Task.FromResult<IList<ReleaseInfo>>(System.Array.Empty<ReleaseInfo>());
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-shape Fetch overloads
+        // (SeasonSearchCriteria / Single|Daily|Anime|SpecialEpisodeSearchCriteria, etc.)
+        // stripped per Plan 15-10 IndexerSearch/Definitions DELETE. Manga overloads now
+        // canonical (HttpAggregatorBase + descendants override concretely).
+        public abstract Task<IList<ReleaseInfo>> Fetch(MangaSearchCriteria searchCriteria);
+        public abstract Task<IList<ReleaseInfo>> Fetch(ChapterSearchCriteria searchCriteria);
 
         public abstract HttpRequest GetDownloadRequest(string link);
 
@@ -100,8 +91,10 @@ namespace NzbDrone.Core.Indexers
 
             result.ForEach(c =>
             {
-                // Use multi languages from setting if ReleaseInfo languages is empty
-                if (c.Languages.Empty() && settings.MultiLanguages.Any() && Parser.Parser.HasMultipleLanguages(c.Title))
+                // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+                // Parser.Parser.HasMultipleLanguages stripped (Parser/Parser.cs DELETED);
+                // multi-language fallback from settings still applies on empty Languages.
+                if (c.Languages.Empty() && settings.MultiLanguages.Any())
                 {
                     c.Languages = settings.MultiLanguages.Select(i => (Language)i).ToList();
                 }

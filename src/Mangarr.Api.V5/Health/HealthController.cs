@@ -1,3 +1,5 @@
+using Mangarr.Http;
+using Mangarr.Http.REST;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -5,8 +7,6 @@ using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.HealthCheck;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.SignalR;
-using Mangarr.Http;
-using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Health;
 

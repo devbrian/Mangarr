@@ -22,8 +22,7 @@ namespace NzbDrone.Core.HealthCheck.Checks
                 HealthCheckResult.Notice,
                 HealthCheckReason.UpdateAvailable,
                 "Mangarr v1 ships with manual updates only. Check GitHub Releases for new versions.",
-                "#manga-manual-updates"
-            );
+                "#manga-manual-updates");
         }
 
         public override bool CheckOnSchedule => false;

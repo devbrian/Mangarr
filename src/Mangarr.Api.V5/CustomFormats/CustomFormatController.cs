@@ -1,14 +1,14 @@
 using FluentValidation;
 using FluentValidation.Results;
+using Mangarr.Http;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.Validation;
-using Mangarr.Http;
-using Mangarr.Http.REST;
-using Mangarr.Http.REST.Attributes;
 
 namespace Mangarr.Api.V5.CustomFormats;
 

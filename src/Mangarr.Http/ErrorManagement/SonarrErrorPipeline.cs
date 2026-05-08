@@ -2,13 +2,13 @@ using System.Data.SQLite;
 using System.Net;
 using System.Threading.Tasks;
 using FluentValidation;
+using Mangarr.Http.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using NLog;
 using NzbDrone.Common.Serializer;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Exceptions;
-using Mangarr.Http.Exceptions;
 
 namespace Mangarr.Http.ErrorManagement
 {

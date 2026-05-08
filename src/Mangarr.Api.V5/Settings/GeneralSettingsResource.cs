@@ -1,9 +1,9 @@
+using Mangarr.Http.REST;
 using NzbDrone.Common.Http.Proxy;
 using NzbDrone.Core.Authentication;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Security;
 using NzbDrone.Core.Update;
-using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Settings;
 

@@ -1,9 +1,9 @@
 using System.Text.RegularExpressions;
+using Mangarr.Http;
 using NzbDrone.Common.Disk;
 using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
-using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Logs;
 

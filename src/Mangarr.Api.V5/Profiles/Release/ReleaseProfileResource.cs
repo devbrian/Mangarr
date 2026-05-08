@@ -1,5 +1,5 @@
-using NzbDrone.Core.Profiles.Releases;
 using Mangarr.Http.REST;
+using NzbDrone.Core.Profiles.Releases;
 
 namespace Mangarr.Api.V5.Profiles.Release;
 

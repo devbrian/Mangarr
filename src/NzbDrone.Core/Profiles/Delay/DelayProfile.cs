@@ -23,14 +23,12 @@ namespace NzbDrone.Core.Profiles.Delay
             Tags = new HashSet<int>();
         }
 
+        // Sonarr divergence: Phase 15 Plan 15-04 — DownloadProtocol.{Usenet,Torrent} stripped per
+        // Plan 15-04 enum trim (Discretion lean Unknown=0, Http=3). HttpDelay is the only active
+        // protocol delay; Torrent/Usenet delays remain as schema-round-trip columns.
         public int GetProtocolDelay(DownloadProtocol protocol)
         {
-            return protocol switch
-            {
-                DownloadProtocol.Torrent => TorrentDelay,
-                DownloadProtocol.Http => HttpDelay,
-                _ => UsenetDelay
-            };
+            return protocol == DownloadProtocol.Http ? HttpDelay : UsenetDelay;
         }
     }
 }

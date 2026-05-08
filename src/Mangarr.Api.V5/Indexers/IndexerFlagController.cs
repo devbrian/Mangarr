@@ -1,8 +1,8 @@
+using Mangarr.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Parser.Model;
-using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Indexers;
 

@@ -1,12 +1,12 @@
 using FluentValidation;
+using Mangarr.Http;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Organizer;
 using NzbDrone.Core.Organizer.Manga;
-using Mangarr.Http;
-using Mangarr.Http.REST;
-using Mangarr.Http.REST.Attributes;
 
 namespace Mangarr.Api.V5.Config;
 

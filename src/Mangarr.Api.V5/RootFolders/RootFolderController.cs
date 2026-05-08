@@ -1,14 +1,14 @@
 using FluentValidation;
+using Mangarr.Http;
+using Mangarr.Http.Extensions;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.RootFolders;
 using NzbDrone.Core.Validation.Paths;
 using NzbDrone.SignalR;
-using Mangarr.Http;
-using Mangarr.Http.Extensions;
-using Mangarr.Http.REST;
-using Mangarr.Http.REST.Attributes;
 
 namespace Mangarr.Api.V5.RootFolders;
 

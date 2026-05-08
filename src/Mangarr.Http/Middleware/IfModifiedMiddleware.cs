@@ -1,8 +1,8 @@
 using System.Linq;
 using System.Threading.Tasks;
+using Mangarr.Http.Extensions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.StaticFiles;
-using Mangarr.Http.Extensions;
 
 namespace Mangarr.Http.Middleware
 {

@@ -1,5 +1,5 @@
-using NzbDrone.Core.Indexers;
 using Mangarr.Api.V5.Provider;
+using NzbDrone.Core.Indexers;
 
 namespace Mangarr.Api.V5.Indexers;
 

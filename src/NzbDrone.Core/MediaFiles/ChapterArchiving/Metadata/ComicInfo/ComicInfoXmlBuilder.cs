@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Xml.Linq;
-using NzbDrone.Core.Tv;
+using MangaModel = NzbDrone.Core.Manga.Manga;
 
 namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo
 {
@@ -41,22 +41,22 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo
             {
                 Element("Title",           chapter?.Title),
                 Element("Series",          manga?.Title),
+
+                // Sonarr divergence: Phase 15 Plan 15-10 — manga Chapter.ChapterNumber (decimal)
+                // replaces TV EpisodeNumber (int); Chapter.VolumeNumber (int?) replaces SeasonNumber;
+                // Chapter.ReleaseDate replaces AirDateUtc.
                 Element(
                     "Number",
-                    chapter == null ? null : chapter.EpisodeNumber.ToString(CultureInfo.InvariantCulture)),
-
-                // Volume — typically null for manga (most manhwa/manhua don't use volumes per
-                // PROJECT.md). SeasonNumber is the closest TV-shaped analog while the Phase 8
-                // domain rename is pending; emit only when > 0.
+                    chapter == null ? null : chapter.ChapterNumber.ToString(CultureInfo.InvariantCulture)),
                 Element(
                     "Volume",
-                    chapter != null && chapter.SeasonNumber > 0
-                        ? chapter.SeasonNumber.ToString(CultureInfo.InvariantCulture)
+                    chapter != null && chapter.VolumeNumber.HasValue && chapter.VolumeNumber.Value > 0
+                        ? chapter.VolumeNumber.Value.ToString(CultureInfo.InvariantCulture)
                         : null),
                 Element("Summary",         manga?.Overview),
-                Element("Year",            chapter?.AirDateUtc?.Year.ToString(CultureInfo.InvariantCulture)),
-                Element("Month",           chapter?.AirDateUtc?.Month.ToString(CultureInfo.InvariantCulture)),
-                Element("Day",             chapter?.AirDateUtc?.Day.ToString(CultureInfo.InvariantCulture)),
+                Element("Year",            chapter?.ReleaseDate?.Year.ToString(CultureInfo.InvariantCulture)),
+                Element("Month",           chapter?.ReleaseDate?.Month.ToString(CultureInfo.InvariantCulture)),
+                Element("Day",             chapter?.ReleaseDate?.Day.ToString(CultureInfo.InvariantCulture)),
                 Element(
                     "Genre",
                     manga?.Genres != null && manga.Genres.Count > 0
@@ -71,7 +71,9 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo
                 // for manga; rather than ship a wrong URL or AniList stand-in, omit the
                 // element entirely. ComicInfo readers tolerate the absence per v2.0 schema.
                 Element("Web",             ResolveMangaWebUrl(manga)),
-                Element("AgeRating",       AgeRatingMapper.Map(manga?.Certification)),
+
+                // Sonarr divergence: Phase 15 Plan 15-10 — Manga.Certification -> Manga.ContentRating.
+                Element("AgeRating",       AgeRatingMapper.Map(manga?.ContentRating)),
                 Element("Manga",           "YesAndRightToLeft"),                      // canonical manga reading direction
                 Element("ScanInformation", release?.ScanlationGroup),                 // v2.0 — Pitfall 3 fallback (Kavita-safe)
                 Element("Translator",      release?.ScanlationGroup),                 // v2.1 — preferred (Komga 1.10+)
@@ -93,6 +95,7 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo
 
         // <Web> deferred to Phase 5 metadata-source work; v1 returns null so the element is dropped.
         // Verify-grep guards against accidentally reintroducing an ImdbId-shaped placeholder.
-        private static string ResolveMangaWebUrl(Series manga) => null;
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — Series -> MangaModel.
+        private static string ResolveMangaWebUrl(MangaModel manga) => null;
     }
 }

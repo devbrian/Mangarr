@@ -1,3 +1,7 @@
+// Sonarr divergence: Phase 15 Plan 15-10 — V5/Queue/ DELETED; QueueBulkResource relocated to V5/Manga/Queue/.
+using Mangarr.Http;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -5,10 +9,6 @@ using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.SignalR;
-using Mangarr.Api.V5.Queue;
-using Mangarr.Http;
-using Mangarr.Http.REST;
-using Mangarr.Http.REST.Attributes;
 
 namespace Mangarr.Api.V5.Manga.Queue
 {

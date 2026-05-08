@@ -68,13 +68,7 @@ namespace NzbDrone.Core.Indexers.MangaDex
             });
         }
 
-        // ── 7 TV overloads — return empty chain (D-03 fan-out per Plan 03-02 Pattern 3) ────
-        public IndexerPageableRequestChain GetSearchRequests(SingleEpisodeSearchCriteria sc) => new IndexerPageableRequestChain();
-        public IndexerPageableRequestChain GetSearchRequests(SeasonSearchCriteria sc) => new IndexerPageableRequestChain();
-        public IndexerPageableRequestChain GetSearchRequests(DailyEpisodeSearchCriteria sc) => new IndexerPageableRequestChain();
-        public IndexerPageableRequestChain GetSearchRequests(DailySeasonSearchCriteria sc) => new IndexerPageableRequestChain();
-        public IndexerPageableRequestChain GetSearchRequests(AnimeEpisodeSearchCriteria sc) => new IndexerPageableRequestChain();
-        public IndexerPageableRequestChain GetSearchRequests(AnimeSeasonSearchCriteria sc) => new IndexerPageableRequestChain();
-        public IndexerPageableRequestChain GetSearchRequests(SpecialEpisodeSearchCriteria sc) => new IndexerPageableRequestChain();
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-shape GetSearchRequests
+        // overloads stripped per Plan 15-10 IndexerSearch/Definitions DELETE.
     }
 }

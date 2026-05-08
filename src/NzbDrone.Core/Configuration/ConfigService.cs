@@ -9,12 +9,14 @@ using NzbDrone.Common.EnsureThat;
 using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Http.Proxy;
 using NzbDrone.Core.Configuration.Events;
-using NzbDrone.Core.ImportLists;
+
+// Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-only namespace imports stripped:
+//   using NzbDrone.Core.ImportLists; ← deleted (ImportLists/ moved to .planning/reference/ per D-26)
+//   using NzbDrone.Core.MediaFiles.EpisodeImport; ← deleted (subtree DELETED per Plan 15-10 A2)
+//   using NzbDrone.Core.Qualities; ← deleted (Qualities/ DELETED per Plan 15-03)
 using NzbDrone.Core.Languages;
 using NzbDrone.Core.MediaFiles;
-using NzbDrone.Core.MediaFiles.EpisodeImport;
 using NzbDrone.Core.Messaging.Events;
-using NzbDrone.Core.Qualities;
 using NzbDrone.Core.Security;
 
 namespace NzbDrone.Core.Configuration
@@ -134,12 +136,9 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("MinimumAge", value); }
         }
 
-        public ProperDownloadTypes DownloadPropersAndRepacks
-        {
-            get { return GetValueEnum("DownloadPropersAndRepacks", ProperDownloadTypes.PreferAndUpgrade); }
-
-            set { SetValue("DownloadPropersAndRepacks", value); }
-        }
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+        // ProperDownloadTypes (TV-shape Quality cascade) stripped per Plan 15-03 Quality DELETE.
+        //   public ProperDownloadTypes DownloadPropersAndRepacks { ... }
 
         public bool EnableCompletedDownloadHandling
         {
@@ -260,12 +259,9 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("RescanAfterRefresh", value); }
         }
 
-        public EpisodeTitleRequiredType EpisodeTitleRequired
-        {
-            get { return GetValueEnum("EpisodeTitleRequired", EpisodeTitleRequiredType.Always); }
-
-            set { SetValue("EpisodeTitleRequired", value); }
-        }
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+        // EpisodeTitleRequiredType (TV-shape MediaFiles/EpisodeImport) stripped per Plan 15-10 A2.
+        //   public EpisodeTitleRequiredType EpisodeTitleRequired { ... }
 
         public string UserRejectedExtensions
         {
@@ -306,11 +302,9 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("ChownGroup", value); }
         }
 
-        public ListSyncLevelType ListSyncLevel
-        {
-            get { return GetValueEnum("ListSyncLevel", ListSyncLevelType.Disabled); }
-            set { SetValue("ListSyncLevel", value); }
-        }
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+        // ListSyncLevelType (TV-shape ImportLists) stripped per Plan 15-04 ImportLists move (D-26).
+        //   public ListSyncLevelType ListSyncLevel { ... }
 
         public int ListSyncTag
         {

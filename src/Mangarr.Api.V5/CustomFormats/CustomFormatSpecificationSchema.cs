@@ -1,6 +1,6 @@
-using NzbDrone.Core.CustomFormats;
 using Mangarr.Http.ClientSchema;
 using Mangarr.Http.REST;
+using NzbDrone.Core.CustomFormats;
 
 namespace Mangarr.Api.V5.CustomFormats
 {

@@ -1,9 +1,11 @@
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using NLog;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Core.Download;
 using NzbDrone.Core.HealthCheck;
 using NzbDrone.Core.Manga.Events;
+using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.ThingiProvider;

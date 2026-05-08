@@ -6,7 +6,7 @@ using NzbDrone.Core.Messaging.Commands;
 namespace NzbDrone.Core.Manga.Commands
 {
     /// <summary>
-    /// Verbatim manga-side mirror of <see cref="NzbDrone.Core.Tv.Commands.RefreshSeriesCommand"/>
+    /// Verbatim manga-side mirror of Sonarr's <c>RefreshSeriesCommand</c> (DELETED Phase 15)
     /// per D-18. Submitting an empty <see cref="MangaIds"/> list refreshes ALL manga;
     /// submitting one or more IDs refreshes only those targets.
     /// </summary>

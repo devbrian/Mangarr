@@ -1,8 +1,8 @@
 ﻿using System.Net;
 using System.Threading.Tasks;
+using Mangarr.Http.Exceptions;
 using Microsoft.AspNetCore.Http;
 using NzbDrone.Common.Serializer;
-using Mangarr.Http.Exceptions;
 
 namespace Mangarr.Http.ErrorManagement
 {

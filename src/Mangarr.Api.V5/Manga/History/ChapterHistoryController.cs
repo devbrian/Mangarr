@@ -1,3 +1,7 @@
+using Mangarr.Api.V5.Manga.Subresources;
+using Mangarr.Http;
+using Mangarr.Http.Extensions;
+using Mangarr.Http.REST;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -8,10 +12,6 @@ using NzbDrone.Core.History.Manga;
 using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Messaging.Commands;
-using Mangarr.Api.V5.Manga.Subresources;
-using Mangarr.Http;
-using Mangarr.Http.Extensions;
-using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Manga.History
 {

@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Mangarr.Http.Extensions;
+using Mangarr.Http.Frontend.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using NLog;
-using Mangarr.Http.Extensions;
-using Mangarr.Http.Frontend.Mappers;
 
 namespace Mangarr.Http.Frontend
 {

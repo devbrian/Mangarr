@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
 using NzbDrone.Core.Indexers.Http;
-using NzbDrone.Core.Parser.Model;
+using NzbDrone.Core.Parser.Manga.Model;
 
 namespace NzbDrone.Core.Download.Clients.InProcess
 {
@@ -18,6 +18,7 @@ namespace NzbDrone.Core.Download.Clients.InProcess
     /// </summary>
     public interface IChapterDownloadService
     {
-        Task<int> EnqueueAsync(RemoteEpisode remote, IHttpAggregator aggregator, ChapterManifest manifest, InProcessImageDownloadClientSettings settings);
+        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — RemoteEpisode -> RemoteChapter; canonical manga surface.
+        Task<int> EnqueueAsync(RemoteChapter remote, IHttpAggregator aggregator, ChapterManifest manifest, InProcessImageDownloadClientSettings settings);
     }
 }

@@ -4,7 +4,17 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+
+// Sonarr divergence: Phase 15 Plan 15-10 — Mangarr.Api.V5/Series/ DELETED (TV-only).
+//   using Mangarr.Api.V5.Series; ← deleted
 using DryIoc;
+using Mangarr.Api.V5.System;
+using Mangarr.Http;
+using Mangarr.Http.Authentication;
+using Mangarr.Http.ClientSchema;
+using Mangarr.Http.ErrorManagement;
+using Mangarr.Http.Frontend;
+using Mangarr.Http.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
@@ -28,14 +38,6 @@ using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Host.AccessControl;
 using NzbDrone.Http.Authentication;
 using NzbDrone.SignalR;
-using Mangarr.Api.V5.System;
-using Mangarr.Api.V5.Series;
-using Mangarr.Http;
-using Mangarr.Http.Authentication;
-using Mangarr.Http.ClientSchema;
-using Mangarr.Http.ErrorManagement;
-using Mangarr.Http.Frontend;
-using Mangarr.Http.Middleware;
 using StackExchange.Profiling;
 using IPNetwork = System.Net.IPNetwork;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
@@ -98,9 +100,10 @@ namespace NzbDrone.Host
                 options.ReturnHttpNotAcceptable = true;
             })
 
-            // Register all controllers from the API and HTTP projects
+            // Register all controllers from the API and HTTP projects.
+            // Sonarr divergence: Phase 15 Plan 15-10 — SeriesLookupController DELETED;
+            // SystemController.Assembly (Mangarr.Api.V5) covers all V5 controllers.
             .AddApplicationPart(typeof(SystemController).Assembly)
-            .AddApplicationPart(typeof(SeriesLookupController).Assembly)
             .AddApplicationPart(typeof(StaticResourceController).Assembly)
             .AddJsonOptions(options =>
             {

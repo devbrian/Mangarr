@@ -1,13 +1,13 @@
+using Mangarr.Api.V5.Manga.Subresources;
+using Mangarr.Http;
+using Mangarr.Http.Extensions;
+using Mangarr.Http.REST.Attributes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Blocklisting.Manga;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Manga;
-using Mangarr.Api.V5.Manga.Subresources;
-using Mangarr.Http;
-using Mangarr.Http.Extensions;
-using Mangarr.Http.REST.Attributes;
 
 namespace Mangarr.Api.V5.Manga.Blocklist
 {

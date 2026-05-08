@@ -1,5 +1,7 @@
 using FluentValidation;
 using FluentValidation.Results;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -11,8 +13,6 @@ using NzbDrone.Core.ThingiProvider;
 using NzbDrone.Core.ThingiProvider.Events;
 using NzbDrone.Core.Validation;
 using NzbDrone.SignalR;
-using Mangarr.Http.REST;
-using Mangarr.Http.REST.Attributes;
 
 namespace Mangarr.Api.V5.Provider
 {

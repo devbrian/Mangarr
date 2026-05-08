@@ -1,11 +1,11 @@
+using Mangarr.Http;
+using Mangarr.Http.Extensions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Instrumentation;
-using Mangarr.Http;
-using Mangarr.Http.Extensions;
 
 namespace Mangarr.Api.V5.Logs
 {

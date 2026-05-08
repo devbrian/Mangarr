@@ -1,7 +1,7 @@
-using NzbDrone.Common.Reflection;
-using NzbDrone.Core.ThingiProvider;
 using Mangarr.Http.ClientSchema;
 using Mangarr.Http.REST;
+using NzbDrone.Common.Reflection;
+using NzbDrone.Core.ThingiProvider;
 
 namespace Mangarr.Api.V5.Provider
 {

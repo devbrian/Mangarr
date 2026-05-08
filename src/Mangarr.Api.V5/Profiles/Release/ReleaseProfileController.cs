@@ -1,4 +1,7 @@
 using FluentValidation;
+using Mangarr.Http;
+using Mangarr.Http.REST;
+using Mangarr.Http.REST.Attributes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -6,9 +9,6 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Profiles.Releases;
 using NzbDrone.Core.Tags;
-using Mangarr.Http;
-using Mangarr.Http.REST;
-using Mangarr.Http.REST.Attributes;
 
 namespace Mangarr.Api.V5.Profiles.Release;
 

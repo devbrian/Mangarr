@@ -1,14 +1,17 @@
 using System.Collections.Generic;
 using NzbDrone.Core.Languages;
 using NzbDrone.Core.Parser.Model;
-using NzbDrone.Core.Tv;
 
 namespace NzbDrone.Core.CustomFormats
 {
+    // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+    // TV-shape fields (EpisodeInfo / Series / ParsedEpisodeInfo) stripped per
+    // Plan 15-03 Tv/ DELETE + Plan 15-10 Parser/Model TV DELETE.
+    // Manga-side custom-format input lives in MangaCustomFormatInput.cs (peer).
+    // The shared fields below (Size / IndexerFlags / Languages / Filename / ReleaseType)
+    // remain in this base because manga + non-manga (future) inputs share them.
     public class CustomFormatInput
     {
-        public ParsedEpisodeInfo EpisodeInfo { get; set; }
-        public Series Series { get; set; }
         public long Size { get; set; }
         public IndexerFlags IndexerFlags { get; set; }
         public List<Language> Languages { get; set; }
@@ -19,28 +22,5 @@ namespace NzbDrone.Core.CustomFormats
         {
             Languages = new List<Language>();
         }
-
-        // public CustomFormatInput(ParsedEpisodeInfo episodeInfo, Series series)
-        // {
-        //     EpisodeInfo = episodeInfo;
-        //     Series = series;
-        // }
-        //
-        // public CustomFormatInput(ParsedEpisodeInfo episodeInfo, Series series, long size, List<Language> languages)
-        // {
-        //     EpisodeInfo = episodeInfo;
-        //     Series = series;
-        //     Size = size;
-        //     Languages = languages;
-        // }
-        //
-        // public CustomFormatInput(ParsedEpisodeInfo episodeInfo, Series series, long size, List<Language> languages, string filename)
-        // {
-        //     EpisodeInfo = episodeInfo;
-        //     Series = series;
-        //     Size = size;
-        //     Languages = languages;
-        //     Filename = filename;
-        // }
     }
 }

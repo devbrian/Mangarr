@@ -6,7 +6,9 @@ using NzbDrone.Common.Disk;
 using NzbDrone.Common.EnsureThat;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
-using NzbDrone.Core.MediaFiles.EpisodeImport;
+
+// Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — MediaFiles/EpisodeImport/ DELETED.
+//   using NzbDrone.Core.MediaFiles.EpisodeImport; ← deleted
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;

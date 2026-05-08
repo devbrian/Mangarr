@@ -2,44 +2,39 @@ using NzbDrone.Core.Datastore;
 
 namespace NzbDrone.Core.Organizer
 {
+    // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
+    // TV-shaped properties (RenameEpisodes / MultiEpisodeStyle / Standard|Daily|AnimeEpisodeFormat /
+    // SeriesFolderFormat / SeasonFolderFormat) stripped per D-22. Manga columns
+    // (StandardChapterFormat / MangaFolderFormat / RenameChapters) preserved per Phase 5 D-13.
+    // ColonReplacementFormat / CustomColonReplacementFormat / ReplaceIllegalCharacters /
+    // SpecialsFolderFormat / RenameEpisodes columns remain in schema (Migration 001) — the
+    // RenameEpisodes / SpecialsFolderFormat properties retained as ints/strings for schema
+    // round-trip but unused by manga rename pipeline.
     public class NamingConfig : ModelBase
     {
         public static NamingConfig Default => new NamingConfig
         {
             RenameEpisodes = false,
             ReplaceIllegalCharacters = true,
-            ColonReplacementFormat = ColonReplacementFormat.Smart,
+            ColonReplacementFormat = 0,
             CustomColonReplacementFormat = string.Empty,
-            MultiEpisodeStyle = MultiEpisodeStyle.PrefixedRange,
-            StandardEpisodeFormat = "{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Quality Full}",
-            DailyEpisodeFormat = "{Series Title} - {Air-Date} - {Episode Title} {Quality Full}",
-            AnimeEpisodeFormat = "{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Quality Full}",
-            SeriesFolderFormat = "{Series Title}",
-            SeasonFolderFormat = "Season {season}",
             SpecialsFolderFormat = "Specials",
 
             // Phase 5 D-13 + D-16 — Komga preset defaults seeded on first run.
             // Locked by 05-RESEARCH.md Pattern 5 templates + 05-CONTEXT.md item 13.
-            // Wave 3 (plan 05-06) wires the apply-preset dropdown that re-fills these.
             StandardChapterFormat = "{Manga.Title} - Chapter {Chapter.Number:000}",
             MangaFolderFormat = "{Manga.Title}",
             RenameChapters = false
         };
 
+        // Schema-round-trip columns (Migration 001 baseline).
         public bool RenameEpisodes { get; set; }
         public bool ReplaceIllegalCharacters { get; set; }
-        public ColonReplacementFormat ColonReplacementFormat { get; set; }
+        public int ColonReplacementFormat { get; set; }
         public string CustomColonReplacementFormat { get; set; }
-        public MultiEpisodeStyle MultiEpisodeStyle { get; set; }
-        public string StandardEpisodeFormat { get; set; }
-        public string DailyEpisodeFormat { get; set; }
-        public string AnimeEpisodeFormat { get; set; }
-        public string SeriesFolderFormat { get; set; }
-        public string SeasonFolderFormat { get; set; }
         public string SpecialsFolderFormat { get; set; }
 
-        // Phase 5 D-13 — manga columns on existing NamingConfig singleton.
-        // Phase 8 cleanup: drop TV-shaped columns when Tv/ deletes (D-04 invariant: ONE singleton).
+        // Phase 5 D-13 — manga columns on the NamingConfig singleton (D-04 invariant: ONE singleton).
         public string StandardChapterFormat { get; set; }
         public string MangaFolderFormat { get; set; }
         public bool RenameChapters { get; set; }

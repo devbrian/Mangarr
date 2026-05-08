@@ -12,7 +12,7 @@ namespace NzbDrone.Core.Manga
         Manga AddManga(Manga newManga);
 
         /// <summary>
-        /// Bulk add overload mirroring <see cref="NzbDrone.Core.Tv.IAddSeriesService.AddSeries(System.Collections.Generic.List{NzbDrone.Core.Tv.Series}, bool)"/>.
+        /// Bulk add overload mirroring Sonarr's <c>IAddSeriesService.AddSeries(List&lt;Series&gt;, bool)</c> (DELETED Phase 15).
         ///
         /// <para>Phase 8 audit gap-01 (AddSeriesService-vs-AddMangaService.md): used by future
         /// ImportLists pipeline (v2 IMP-01..03) + bulk-add UI flow. Per-item runs the same

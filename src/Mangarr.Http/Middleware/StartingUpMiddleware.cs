@@ -1,9 +1,9 @@
 using System.Text;
 using System.Threading.Tasks;
+using Mangarr.Http.Extensions;
 using Microsoft.AspNetCore.Http;
 using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Serializer;
-using Mangarr.Http.Extensions;
 
 namespace Mangarr.Http.Middleware
 {

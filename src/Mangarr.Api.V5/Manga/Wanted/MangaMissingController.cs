@@ -1,3 +1,8 @@
+using Mangarr.Api.V5.Manga.Chapter;
+using Mangarr.Api.V5.Manga.Subresources;
+using Mangarr.Http;
+using Mangarr.Http.Extensions;
+using Mangarr.Http.REST;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -9,11 +14,6 @@ using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.SignalR;
-using Mangarr.Api.V5.Manga.Chapter;
-using Mangarr.Api.V5.Manga.Subresources;
-using Mangarr.Http;
-using Mangarr.Http.Extensions;
-using Mangarr.Http.REST;
 
 namespace Mangarr.Api.V5.Manga.Wanted
 {

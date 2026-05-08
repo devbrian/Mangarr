@@ -99,7 +99,8 @@ namespace NzbDrone.Core.DecisionEngine.Manga
 
         public List<MangaDownloadDecision> GetRssDecision(List<ReleaseInfo> reports, bool pushedRelease = false)
         {
-            return GetDecisions(reports, new ReleaseDecisionInformation(pushedRelease, (SearchCriteriaBase)null)).ToList();
+            // Sonarr divergence: Phase 15 Plan 15-10 — ReleaseDecisionInformation TV ctor stripped (SearchCriteriaBase DELETED).
+            return GetDecisions(reports, new ReleaseDecisionInformation { PushedRelease = pushedRelease }).ToList();
         }
 
         public List<MangaDownloadDecision> GetSearchDecision(List<ReleaseInfo> reports, MangaSearchCriteriaBase searchCriteria)

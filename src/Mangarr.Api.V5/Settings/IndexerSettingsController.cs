@@ -1,7 +1,7 @@
 using FluentValidation;
-using NzbDrone.Core.Configuration;
 using Mangarr.Http;
 using Mangarr.Http.Validation;
+using NzbDrone.Core.Configuration;
 
 namespace Mangarr.Api.V5.Settings
 {

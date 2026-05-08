@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using NLog;
 using NzbDrone.Common.Cache;
 using NzbDrone.Common.Instrumentation;
@@ -48,17 +46,9 @@ public class CachedIndexerSettingsProvider : ICachedIndexerSettingsProvider, IHa
             return null;
         }
 
-        var settings = new CachedIndexerSettings
-        {
-            FailDownloads = indexerSettings.FailDownloads.Select(f => (FailDownloads)f).ToHashSet()
-        };
-
-        if (indexer.Settings is ITorrentIndexerSettings torrentIndexerSettings)
-        {
-            settings.SeedCriteriaSettings = torrentIndexerSettings.SeedCriteria;
-        }
-
-        return settings;
+        // Sonarr divergence: Phase 15 Plan 15-04 cascade absorption — FailDownloads enum +
+        // ITorrentIndexerSettings.SeedCriteria stripped per Plan 15-04 TV indexers DELETE.
+        return new CachedIndexerSettings();
     }
 
     public void Handle(ProviderUpdatedEvent<IIndexer> message)
@@ -72,8 +62,10 @@ public class CachedIndexerSettingsProvider : ICachedIndexerSettingsProvider, IHa
     }
 }
 
+// Sonarr divergence: Phase 15 Plan 15-04 cascade absorption — FailDownloads enum +
+// SeedCriteriaSettings stripped per Plan 15-04 TV indexers DELETE (Newznab/Nyaa/etc.)
+// + TorrentSeedConfiguration DELETE. Manga uses HTTP-only protocol (no torrent seeding;
+// no Usenet retry shape).
 public class CachedIndexerSettings
 {
-    public HashSet<FailDownloads> FailDownloads { get; set; }
-    public SeedCriteriaSettings SeedCriteriaSettings { get; set; }
 }

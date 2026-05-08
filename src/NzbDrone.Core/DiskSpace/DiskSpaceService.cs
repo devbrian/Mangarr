@@ -6,8 +6,8 @@ using System.Text.RegularExpressions;
 using NLog;
 using NzbDrone.Common.Disk;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Core.Manga;
 using NzbDrone.Core.RootFolders;
-using NzbDrone.Core.Tv;
 
 namespace NzbDrone.Core.DiskSpace
 {
@@ -18,16 +18,16 @@ namespace NzbDrone.Core.DiskSpace
 
     public class DiskSpaceService : IDiskSpaceService
     {
-        private readonly ISeriesService _seriesService;
+        private readonly IMangaService _mangaService;
         private readonly IRootFolderService _rootFolderService;
         private readonly IDiskProvider _diskProvider;
         private readonly Logger _logger;
 
         private static readonly Regex _regexSpecialDrive = new Regex(@"^/var/lib/(docker|rancher|kubelet)(/|$)|^/(boot|etc)(/|$)|/docker(/var)?/aufs(/|$)|/\.timemachine", RegexOptions.Compiled);
 
-        public DiskSpaceService(ISeriesService seriesService, IRootFolderService rootFolderService, IDiskProvider diskProvider, Logger logger)
+        public DiskSpaceService(IMangaService mangaService, IRootFolderService rootFolderService, IDiskProvider diskProvider, Logger logger)
         {
-            _seriesService = seriesService;
+            _mangaService = mangaService;
             _rootFolderService = rootFolderService;
             _diskProvider = diskProvider;
             _logger = logger;
@@ -52,7 +52,7 @@ namespace NzbDrone.Core.DiskSpace
             // Get all series paths and find the correct root folder for each. For each unique root folder path,
             // ensure the path exists and get its path root and return all unique path roots.
 
-            return _seriesService.GetAllSeriesPaths()
+            return _mangaService.GetAllMangaPaths()
                 .Where(s => s.Value.IsPathValid(PathValidationType.CurrentOs))
                 .Select(s => _rootFolderService.GetBestRootFolderPath(s.Value))
                 .Distinct()

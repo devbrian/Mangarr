@@ -1,9 +1,9 @@
+using Mangarr.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Organizer.Manga;
-using Mangarr.Http;
 
 namespace Mangarr.Api.V5.Manga;
 
