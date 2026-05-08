@@ -21,6 +21,11 @@ interface Quality extends ModelBase {
   name: string;
   source?: string;
   resolution?: number;
+  // Sonarr-shape carry-over: legacy QualityProfileItemGroup destructures these
+  // off the Quality object directly (vs the parent QualityProfileQualityItem).
+  minSize?: number | null;
+  maxSize?: number | null;
+  preferredSize?: number | null;
 }
 
 export interface QualityProfileQualityItem {

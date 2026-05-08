@@ -574,6 +574,10 @@ function InteractiveImportModalContentInner(
           const originalItem = originalItems.find((i) => i.id === item.id);
 
           if (isSameEpisodeFile(item, originalItem)) {
+            // Sonarr divergence: Phase 15 Plan 15-12 — EpisodeFile stub does
+            // not carry indexerFlags/releaseType; cast to any so legacy
+            // TV-shape import path still type-checks. Manga uses ChapterFile.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             existingFiles.push({
               id: episodeFileId,
               releaseGroup,
@@ -581,7 +585,7 @@ function InteractiveImportModalContentInner(
               languages,
               indexerFlags,
               releaseType,
-            });
+            } as any);
 
             return;
           }
@@ -748,10 +752,13 @@ function InteractiveImportModalContentInner(
   const handleEpisodesSelect = useCallback(
     (selectedEpisodes: SelectedEpisode[]) => {
       selectedEpisodes.forEach(({ id, episodes }) => {
+        if (id == null) return;
         updateInteractiveImportItem(id, { episodes });
       });
 
-      const selectedIds = selectedEpisodes.map(({ id }) => id);
+      const selectedIds = selectedEpisodes
+        .map(({ id }) => id)
+        .filter((id): id is number => id != null);
       handleReprocessItems(selectedIds);
       setSelectModalOpen(null);
     },

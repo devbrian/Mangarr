@@ -131,6 +131,10 @@ function MangaIndexRow(props: MangaIndexRowProps) {
     [toggleSelected]
   );
 
+  void onEditMangaModalClose;
+  void onDeleteMangaPress;
+  void onDeleteMangaModalClose;
+
   if (!manga) {
     return null;
   }
@@ -488,13 +492,13 @@ function MangaIndexRow(props: MangaIndexRowProps) {
 
         if (name === 'episodeFileQualities') {
           const joinedQualities = episodeFileQualities
-            .map((q) => q.name)
+            .map((q) => (q as { name?: string }).name || '')
             .join(', ');
           const truncatedQualities =
             episodeFileQualities.length > 3
               ? `${episodeFileQualities
                   .slice(0, 3)
-                  .map((q) => q.name)
+                  .map((q) => (q as { name?: string }).name || '')
                   .join(', ')}...`
               : joinedQualities;
 

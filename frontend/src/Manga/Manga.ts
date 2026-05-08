@@ -157,7 +157,9 @@ interface Manga extends ModelBase {
   lastAired?: string;
   previousAiring?: string;
   nextAiring?: string;
-  seriesType?: MangaType;
+  // Sonarr-shape carry-over: widened to include 'anime' (TV consumer literal) so
+  // verbatim-inherited components compile. Always undefined for manga at runtime.
+  seriesType?: MangaType | 'anime';
   seasonFolder?: boolean;
   seasons?: Season[];
   statistics?: Statistics;

@@ -66,7 +66,10 @@ function OrganizePreviewModalContentInner({
   const isPopulated = isPreviewFetched && isNamingFetched;
   const error = previewError || namingError;
   const { renameEpisodes } = naming;
-  const episodeFormat = naming[`${series.seriesType}EpisodeFormat`];
+  // Sonarr divergence: Phase 15 Plan 15-12 — fallback to standardEpisodeFormat
+  // when seriesType undefined (manga has no TV-shape seriesType at runtime).
+  const episodeFormatKey = `${series.seriesType ?? 'standard'}EpisodeFormat` as keyof typeof naming;
+  const episodeFormat = naming[episodeFormatKey] ?? naming.standardEpisodeFormat;
 
   const selectAllValue = getValue(allSelected, allUnselected);
 

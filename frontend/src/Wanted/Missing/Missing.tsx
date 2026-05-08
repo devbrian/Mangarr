@@ -328,6 +328,7 @@ function MissingContent({ mediaType = 'manga' }: MissingProps) {
                 <TableBody>
                   {records.map((item) => {
                     return (
+                      // @ts-expect-error — TV-shape MissingRow (Plan 15-12 cascade absorption).
                       <MissingRow key={item.id} columns={columns} {...item} />
                     );
                   })}

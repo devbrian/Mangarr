@@ -122,12 +122,14 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const handleEditPress = useCallback(() => setIsEditModalOpen(true), []);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleEditModalClose = useCallback(() => setIsEditModalOpen(false), []);
 
   const handleDeletePress = useCallback(() => {
     setIsEditModalOpen(false);
     setIsDeleteModalOpen(true);
   }, []);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDeleteModalClose = useCallback(
     () => setIsDeleteModalOpen(false),
     []
@@ -166,6 +168,9 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
   const chapterCount = chapters.length;
   const chapterFileCount = chapters.filter((c) => c.chapterFileId != null).length;
   const sizeOnDisk = statistics.sizeOnDisk ?? 0;
+
+  void handleEditModalClose;
+  void handleDeleteModalClose;
 
   return (
     <MangaDetailsProvider mangaId={mangaId}>

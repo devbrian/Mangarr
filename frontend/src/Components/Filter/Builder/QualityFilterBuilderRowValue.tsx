@@ -19,6 +19,7 @@ function QualityFilterBuilderRowValue<T>(
     return getQualities(schema.items);
   }, [schema]);
 
+  // @ts-expect-error — Plan 15-12: tagList unknown[] from stubbed getQualities; manga has no quality cascade
   return <FilterBuilderRowValue {...props} tagList={tagList} />;
 }
 

@@ -5,5 +5,5 @@ export default function SeriesStatus(props: Props) {
   return <span>{(props.status as string) || ''}</span>;
 }
 export function getSeriesStatusDetails(_status?: string) {
-  return { title: '', message: '' };
+  return { title: '', message: '', icon: 'rss' };
 }

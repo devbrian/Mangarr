@@ -269,6 +269,7 @@ function QueueContent({ mediaType = 'manga' }: QueueProps) {
               <TableBody>
                 {records.map((item) => {
                   return (
+                    // @ts-expect-error — Sonarr divergence (Plan 15-12): TV-shape QueueRow.
                     <QueueRow
                       key={item.id}
                       columns={columns}
