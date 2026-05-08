@@ -8,7 +8,7 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Configuration.Events;
 
 // using NzbDrone.Core.DataAugmentation.Scene; // Sonarr divergence: Phase 15 D-19 — DataAugmentation/ deleted by Plan 15-04 (UpdateSceneMappingCommand registration stripped)
-using NzbDrone.Core.Download;
+// using NzbDrone.Core.Download; // Sonarr divergence: Phase 15 fix-forward (debug-session refresh-monitored-downloads-di) — RefreshMonitoredDownloadsCommand defaultTasks row stripped (handler was on DownloadMonitoringService.cs deleted by Plan 15-10 per 15-10-SUMMARY:229); class file deleted in same fix; no remaining unqualified Download.* symbols in this file (Clients.InProcess + Manga sub-namespaces still imported below).
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Download.Manga;
 using NzbDrone.Core.HealthCheck;
@@ -76,15 +76,18 @@ namespace NzbDrone.Core.Jobs
             //   typeof(ImportListSyncCommand).FullName ← deleted (ImportListSync MOVED to reference Plan 15-04 per D-26)
             //   typeof(RssSyncCommand).FullName ← deleted Plan 15-03 (preemptive); class itself deleted Plan 15-04 per D-10
             //   typeof(RefreshSeriesCommand).FullName ← deleted Plan 15-03 per D-24
+            //   typeof(RefreshMonitoredDownloadsCommand).FullName ← deleted by debug-session fix-forward
+            //     `refresh-monitored-downloads-di` (per 15-10-SUMMARY:229 recommendation). The
+            //     IExecute<RefreshMonitoredDownloadsCommand> handler lived on DownloadMonitoringService.cs
+            //     which Plan 15-10 deleted (it co-implemented IHandle<EpisodeGrabbedEvent> + IHandle<EpisodeImportedEvent>
+            //     for deleted TV events). The defaultTasks row + the orphan command class
+            //     (NzbDrone.Core.Download/RefreshMonitoredDownloadsCommand.cs) were both stripped here;
+            //     sibling orphans CheckForFinishedDownloadCommand + ProcessMonitoredDownloadsCommand
+            //     deleted in the same fix (handlers on the same deleted DownloadMonitoringService /
+            //     DownloadProcessingService; not in defaultTasks but dead code). Manga peer
+            //     ProcessMangaCompletedCommand (1-min poll) below covers the equivalent reactive path.
             var defaultTasks = new List<ScheduledTask>
                 {
-                    new ScheduledTask
-                    {
-                        Interval = 1,
-                        TypeName = typeof(RefreshMonitoredDownloadsCommand).FullName,
-                        Priority = CommandPriority.High
-                    },
-
                     new ScheduledTask
                     {
                         Interval = 5,
