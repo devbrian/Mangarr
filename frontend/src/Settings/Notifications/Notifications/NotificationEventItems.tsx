@@ -25,10 +25,6 @@ function NotificationEventItems({
     onUpgrade,
     onImportComplete,
     onRename,
-    onSeriesAdd,
-    onSeriesDelete,
-    onEpisodeFileDelete,
-    onEpisodeFileDeleteForUpgrade,
     onHealthIssue,
     onHealthRestored,
     onApplicationUpdate,
@@ -38,10 +34,6 @@ function NotificationEventItems({
     supportsOnUpgrade,
     supportsOnImportComplete,
     supportsOnRename,
-    supportsOnSeriesAdd,
-    supportsOnSeriesDelete,
-    supportsOnEpisodeFileDelete,
-    supportsOnEpisodeFileDeleteForUpgrade,
     supportsOnApplicationUpdate,
     supportsOnManualInteractionRequired,
     supportsOnHealthIssue,
@@ -114,52 +106,6 @@ function NotificationEventItems({
               onChange={onInputChange}
             />
           </div>
-
-          <div>
-            <FormInputGroup
-              type={inputTypes.CHECK}
-              name="onSeriesAdd"
-              helpText={translate('OnSeriesAdd')}
-              isDisabled={!supportsOnSeriesAdd.value}
-              {...onSeriesAdd}
-              onChange={onInputChange}
-            />
-          </div>
-
-          <div>
-            <FormInputGroup
-              type={inputTypes.CHECK}
-              name="onSeriesDelete"
-              helpText={translate('OnSeriesDelete')}
-              isDisabled={!supportsOnSeriesDelete.value}
-              {...onSeriesDelete}
-              onChange={onInputChange}
-            />
-          </div>
-
-          <div>
-            <FormInputGroup
-              type={inputTypes.CHECK}
-              name="onEpisodeFileDelete"
-              helpText={translate('OnEpisodeFileDelete')}
-              isDisabled={!supportsOnEpisodeFileDelete.value}
-              {...onEpisodeFileDelete}
-              onChange={onInputChange}
-            />
-          </div>
-
-          {onEpisodeFileDelete.value && (
-            <div>
-              <FormInputGroup
-                type={inputTypes.CHECK}
-                name="onEpisodeFileDeleteForUpgrade"
-                helpText={translate('OnEpisodeFileDeleteForUpgrade')}
-                isDisabled={!supportsOnEpisodeFileDeleteForUpgrade.value}
-                {...onEpisodeFileDeleteForUpgrade}
-                onChange={onInputChange}
-              />
-            </div>
-          )}
 
           <div>
             <FormInputGroup
