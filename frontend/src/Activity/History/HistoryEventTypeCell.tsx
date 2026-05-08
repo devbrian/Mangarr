@@ -19,6 +19,13 @@ function getIconName(eventType: HistoryEventType, data: HistoryData) {
       return icons.DRIVE;
     case 'downloadFolderImported':
       return icons.DOWNLOADED;
+    // Manga side emits `imported` / `importFailed` (Phase 6 ChapterHistoryEventType)
+    // instead of TV's `downloadFolderImported` (the TV side has both an episode-folder
+    // and a download-folder import path; manga only has the download-folder one).
+    case 'imported':
+      return icons.DOWNLOADED;
+    case 'importFailed':
+      return icons.DOWNLOADING;
     case 'downloadFailed':
       return icons.DOWNLOADING;
     case 'episodeFileDeleted':
@@ -37,6 +44,7 @@ function getIconName(eventType: HistoryEventType, data: HistoryData) {
 function getIconKind(eventType: HistoryEventType) {
   switch (eventType) {
     case 'downloadFailed':
+    case 'importFailed':
       return kinds.DANGER;
     default:
       return kinds.DEFAULT;
@@ -54,6 +62,10 @@ function getTooltip(eventType: HistoryEventType, data: HistoryData) {
       return translate('SeriesFolderImportedTooltip');
     case 'downloadFolderImported':
       return translate('EpisodeImportedTooltip');
+    case 'imported':
+      return translate('EpisodeImportedTooltip');
+    case 'importFailed':
+      return translate('DownloadFailedEpisodeTooltip');
     case 'downloadFailed':
       return translate('DownloadFailedEpisodeTooltip');
     case 'episodeFileDeleted':

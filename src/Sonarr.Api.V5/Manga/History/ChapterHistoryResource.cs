@@ -23,7 +23,15 @@ namespace Sonarr.Api.V5.Manga.History
         public int ChapterId { get; set; }
         public string? SourceTitle { get; set; }
         public DateTime Date { get; set; }
-        public string? EventType { get; set; }
+
+        // Was `string EventType` populated via `EventType.ToString()` — that emits the
+        // PascalCase enum name ("Grabbed", "Imported"), but the frontend `HistoryEventType`
+        // typings and the `HistoryEventTypeCell` switch both consume camelCase ("grabbed",
+        // "imported") through the global StringEnumConverter the rest of the V5 API uses.
+        // Mirror TV's `HistoryResource.EventType` shape (direct enum field) so the global
+        // serializer applies the camelCase-text setting consistently. Surfaced by
+        // quick-260507-tff-rerun2 (history rows showed "Unknown event").
+        public ChapterHistoryEventType EventType { get; set; }
         public Dictionary<string, string>? Data { get; set; }
         public string? DownloadId { get; set; }
         public string? TranslatedLanguage { get; set; }
@@ -51,7 +59,7 @@ namespace Sonarr.Api.V5.Manga.History
                 ChapterId = model.ChapterId,
                 SourceTitle = model.SourceTitle,
                 Date = model.Date,
-                EventType = model.EventType.ToString(),
+                EventType = model.EventType,
                 Data = model.Data,
                 DownloadId = model.DownloadId,
                 TranslatedLanguage = model.TranslatedLanguage,
