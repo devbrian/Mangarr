@@ -10,6 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\NzbDrone.Host\Mangarr.Host.csproj" />
-    <ProjectReference Include="..\Sonarr.RuntimePatches\Sonarr.RuntimePatches.csproj" />
+    <ProjectReference Include="..\Mangarr.RuntimePatches\Mangarr.RuntimePatches.csproj" />
   </ItemGroup>
 </Project>
