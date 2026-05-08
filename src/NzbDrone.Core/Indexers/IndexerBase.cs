@@ -28,7 +28,10 @@ namespace NzbDrone.Core.Indexers
         public abstract string Name { get; }
         public abstract DownloadProtocol Protocol { get; }
         public int Priority { get; set; }
-        public int SeasonSearchMaximumSingleEpisodeAge { get; set; }
+
+        // Sonarr divergence: Phase 15 D-13 + D-22 — SeasonSearchMaximumSingleEpisodeAge property
+        // removed (TV-only; manga has no Season concept). See IndexerDefinition.cs for the full
+        // cascade-gap context (debug session: mangadex-save-fails).
 
         public abstract bool SupportsRss { get; }
         public abstract bool SupportsSearch { get; }
@@ -103,7 +106,9 @@ namespace NzbDrone.Core.Indexers
                 c.Indexer = Definition.Name;
                 c.DownloadProtocol = Protocol;
                 c.IndexerPriority = ((IndexerDefinition)Definition).Priority;
-                c.SeasonSearchMaximumSingleEpisodeAge = ((IndexerDefinition)Definition).SeasonSearchMaximumSingleEpisodeAge;
+
+                // Sonarr divergence: Phase 15 D-13 + D-22 — SeasonSearchMaximumSingleEpisodeAge
+                // assignment stripped (column dropped, property deleted).
             });
 
             return result;

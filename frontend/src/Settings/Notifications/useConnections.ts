@@ -19,10 +19,6 @@ export interface NotificationModel extends Provider {
   onUpgrade: boolean;
   onImportComplete: boolean;
   onRename: boolean;
-  onSeriesAdd: boolean;
-  onSeriesDelete: boolean;
-  onEpisodeFileDelete: boolean;
-  onEpisodeFileDeleteForUpgrade: boolean;
   onHealthIssue: boolean;
   includeHealthWarnings: boolean;
   onHealthRestored: boolean;
@@ -33,10 +29,6 @@ export interface NotificationModel extends Provider {
   supportsOnUpgrade: boolean;
   supportsOnImportComplete: boolean;
   supportsOnRename: boolean;
-  supportsOnSeriesAdd: boolean;
-  supportsOnSeriesDelete: boolean;
-  supportsOnEpisodeFileDelete: boolean;
-  supportsOnEpisodeFileDeleteForUpgrade: boolean;
   supportsOnHealthIssue: boolean;
   supportsOnHealthRestored: boolean;
   supportsOnApplicationUpdate: boolean;
@@ -103,11 +95,6 @@ export const useManageConnection = (
           onUpgrade: schema.supportsOnUpgrade || false,
           onImportComplete: schema.supportsOnImportComplete || false,
           onRename: schema.supportsOnRename || false,
-          onSeriesAdd: schema.supportsOnSeriesAdd || false,
-          onSeriesDelete: schema.supportsOnSeriesDelete || false,
-          onEpisodeFileDelete: schema.supportsOnEpisodeFileDelete || false,
-          onEpisodeFileDeleteForUpgrade:
-            schema.supportsOnEpisodeFileDeleteForUpgrade || false,
           onApplicationUpdate: schema.supportsOnApplicationUpdate || false,
           onManualInteractionRequired:
             schema.supportsOnManualInteractionRequired || false,

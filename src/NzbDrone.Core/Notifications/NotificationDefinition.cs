@@ -13,10 +13,6 @@ namespace NzbDrone.Core.Notifications
         public bool OnUpgrade { get; set; }
         public bool OnImportComplete { get; set; }
         public bool OnRename { get; set; }
-        public bool OnSeriesAdd { get; set; }
-        public bool OnSeriesDelete { get; set; }
-        public bool OnEpisodeFileDelete { get; set; }
-        public bool OnEpisodeFileDeleteForUpgrade { get; set; }
         public bool OnHealthIssue { get; set; }
         public bool IncludeHealthWarnings { get; set; }
         public bool OnHealthRestored { get; set; }
@@ -50,18 +46,6 @@ namespace NzbDrone.Core.Notifications
         public bool SupportsOnImportComplete { get; set; }
 
         [MemberwiseEqualityIgnore]
-        public bool SupportsOnSeriesAdd { get; set; }
-
-        [MemberwiseEqualityIgnore]
-        public bool SupportsOnSeriesDelete { get; set; }
-
-        [MemberwiseEqualityIgnore]
-        public bool SupportsOnEpisodeFileDelete { get; set; }
-
-        [MemberwiseEqualityIgnore]
-        public bool SupportsOnEpisodeFileDeleteForUpgrade { get; set; }
-
-        [MemberwiseEqualityIgnore]
         public bool SupportsOnHealthIssue { get; set; }
 
         [MemberwiseEqualityIgnore]
@@ -86,7 +70,7 @@ namespace NzbDrone.Core.Notifications
         public bool SupportsOnMangaRename { get; set; }
 
         [MemberwiseEqualityIgnore]
-        public override bool Enable => OnGrab || OnDownload || (OnDownload && OnUpgrade) || OnImportComplete || OnRename || OnSeriesAdd || OnSeriesDelete || OnEpisodeFileDelete || (OnEpisodeFileDelete && OnEpisodeFileDeleteForUpgrade) || OnHealthIssue || OnHealthRestored || OnApplicationUpdate || OnManualInteractionRequired || OnChapterImport || OnMangaAdd || OnMangaDelete || OnMangaRename;
+        public override bool Enable => OnGrab || OnDownload || (OnDownload && OnUpgrade) || OnImportComplete || OnRename || OnHealthIssue || OnHealthRestored || OnApplicationUpdate || OnManualInteractionRequired || OnChapterImport || OnMangaAdd || OnMangaDelete || OnMangaRename;
 
         public bool Equals(NotificationDefinition other)
         {

@@ -76,8 +76,7 @@ namespace NzbDrone.Core.Test.ThingiProvider
                         ""EnableInteractiveSearch"" INTEGER,
                         ""Priority"" INTEGER NOT NULL DEFAULT 25,
                         ""DownloadClientId"" INTEGER NOT NULL DEFAULT 0,
-                        ""Tags"" TEXT,
-                        ""SeasonSearchMaximumSingleEpisodeAge"" INTEGER NOT NULL DEFAULT 0
+                        ""Tags"" TEXT
                     );
                     INSERT INTO ""Indexers""
                         (""Name"", ""Implementation"", ""ConfigContract"", ""Settings"",

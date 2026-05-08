@@ -6762,18 +6762,6 @@
           "onRename": {
             "type": "boolean"
           },
-          "onSeriesAdd": {
-            "type": "boolean"
-          },
-          "onSeriesDelete": {
-            "type": "boolean"
-          },
-          "onEpisodeFileDelete": {
-            "type": "boolean"
-          },
-          "onEpisodeFileDeleteForUpgrade": {
-            "type": "boolean"
-          },
           "onHealthIssue": {
             "type": "boolean"
           },
@@ -6802,18 +6790,6 @@
             "type": "boolean"
           },
           "supportsOnRename": {
-            "type": "boolean"
-          },
-          "supportsOnSeriesAdd": {
-            "type": "boolean"
-          },
-          "supportsOnSeriesDelete": {
-            "type": "boolean"
-          },
-          "supportsOnEpisodeFileDelete": {
-            "type": "boolean"
-          },
-          "supportsOnEpisodeFileDeleteForUpgrade": {
             "type": "boolean"
           },
           "supportsOnHealthIssue": {

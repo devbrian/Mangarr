@@ -5,7 +5,6 @@
 .enableAutomaticSearch,
 .enableInteractiveSearch,
 .priority,
-.seasonSearchMaximumSingleEpisodeAge,
 .implementation {
   composes: cell from '~Components/Table/Cells/TableRowCell.css';
 

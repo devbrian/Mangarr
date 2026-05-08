@@ -29,7 +29,11 @@ namespace NzbDrone.Core.Indexers
         public bool EnableInteractiveSearch { get; set; }
         public int DownloadClientId { get; set; }
         public int Priority { get; set; }
-        public int SeasonSearchMaximumSingleEpisodeAge { get; set; }
+
+        // Sonarr divergence: Phase 15 D-13 + D-22 schema delete — SeasonSearchMaximumSingleEpisodeAge
+        // property removed (TV-only; manga has no Season concept). Column dropped from Indexers
+        // table in Plan 15-02; this property removal closes the cascade gap that caused
+        // INSERT to fail with "no such column" (debug session: mangadex-save-fails).
 
         // Phase 6 D-07: per-source RSS sync override. 0 = use global IConfigService.MangaRssSyncInterval.
         // Schema delta in 001_mangarr_baseline.cs (Alter.Table Indexers AddColumn SyncInterval default 0).
