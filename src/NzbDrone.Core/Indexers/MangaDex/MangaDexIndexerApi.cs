@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net;
 using System.Text;
 using NzbDrone.Common.Http;
@@ -85,6 +86,52 @@ namespace NzbDrone.Core.Indexers.MangaDex
             else
             {
                 // Safe default; Phase 5 TranslationProfile is authoritative at decision time.
+                sb.Append("&translatedLanguage[]=en");
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Build a per-chapter point-query URL used by <c>Fetch(ChapterSearchCriteria)</c>.
+        /// Hits MangaDex's <c>/chapter</c> endpoint with simultaneous filtering by
+        /// <c>manga={UUID}</c> + <c>chapter[]={number}</c> + <c>translatedLanguage[]</c>
+        /// — verified against the live OpenAPI spec at
+        /// <c>https://api.mangadex.org/docs/static/api.yaml</c>. Returns only releases that
+        /// match the requested chapter number, eliminating the whole-feed fan-out.
+        ///
+        /// <para>
+        /// Chapter numbers serialize using <see cref="CultureInfo.InvariantCulture"/> with
+        /// the <c>"0.###"</c> format so decimal forms like 12.5 / 1.123 round-trip without
+        /// trailing zeros (matches the upstream <c>chapter</c> field format per Phase 2 D-12).
+        /// </para>
+        /// </summary>
+        public string BuildChapterPointQueryUrl(Guid mangaDexId, decimal chapterNumber, IReadOnlyList<string> preferredLanguages)
+        {
+            var sb = new StringBuilder($"{_baseUrl}/chapter");
+            sb.Append($"?manga={mangaDexId:D}");
+            sb.Append($"&chapter[]={WebUtility.UrlEncode(chapterNumber.ToString("0.###", CultureInfo.InvariantCulture))}");
+            sb.Append("&order[publishAt]=desc");
+            sb.Append("&limit=100");
+            sb.Append("&includes[]=scanlation_group");
+            sb.Append("&includes[]=manga");
+            sb.Append("&contentRating[]=safe");
+            sb.Append("&contentRating[]=suggestive");
+
+            if (preferredLanguages != null && preferredLanguages.Count > 0)
+            {
+                foreach (var lang in preferredLanguages)
+                {
+                    if (string.IsNullOrWhiteSpace(lang))
+                    {
+                        continue;
+                    }
+
+                    sb.Append($"&translatedLanguage[]={WebUtility.UrlEncode(lang)}");
+                }
+            }
+            else
+            {
                 sb.Append("&translatedLanguage[]=en");
             }
 

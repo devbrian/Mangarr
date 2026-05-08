@@ -16,6 +16,8 @@ export interface ReleaseOptions
   > {
   episodeSelectedFilterKey: SelectedFilterKey;
   seasonSelectedFilterKey: SelectedFilterKey;
+  chapterSelectedFilterKey: SelectedFilterKey;
+  mangaSelectedFilterKey: SelectedFilterKey;
   rejectionFilterTags: FilterBuilderTag<string, string>[];
 }
 
@@ -24,6 +26,8 @@ const { useOptions, useOption, getOptions, getOption, setOptions, setOption } =
     return {
       episodeSelectedFilterKey: 'all',
       seasonSelectedFilterKey: 'season-pack',
+      chapterSelectedFilterKey: 'not-rejected',
+      mangaSelectedFilterKey: 'all',
       rejectionFilterTags: [],
       columns: [
         {

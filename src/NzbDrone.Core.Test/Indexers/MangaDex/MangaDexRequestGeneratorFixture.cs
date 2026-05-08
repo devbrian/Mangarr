@@ -53,5 +53,64 @@ namespace NzbDrone.Core.Test.Indexers.MangaDex
             url.Should().Contain("/manga/a1c7c817-4e59-43b7-9365-09675a149a6f/feed");
             url.Should().Contain("limit=500");
         }
+
+        [Test]
+        public void GetSearchRequests_ChapterSearchCriteria_uses_chapter_point_query()
+        {
+            var manga = new Manga.Manga
+            {
+                MangaDexId = Guid.Parse("a1c7c817-4e59-43b7-9365-09675a149a6f")
+            };
+            var chapter = new Manga.Chapter
+            {
+                ChapterNumber = 42m,
+                TranslatedLanguage = "en"
+            };
+            var criteria = new ChapterSearchCriteria
+            {
+                Manga = manga,
+                Chapters = new System.Collections.Generic.List<Manga.Chapter> { chapter }
+            };
+            var chain = Subject.GetSearchRequests(criteria);
+            var url = chain.GetAllTiers().First().First().Url.FullUri;
+
+            url.Should().Contain("/chapter?");
+            url.Should().Contain("manga=a1c7c817-4e59-43b7-9365-09675a149a6f");
+            url.Should().Contain("chapter[]=42");
+            url.Should().NotContain("/feed");
+        }
+
+        [Test]
+        public void GetSearchRequests_ChapterSearchCriteria_with_decimal_chapter_round_trips()
+        {
+            var manga = new Manga.Manga
+            {
+                MangaDexId = Guid.Parse("a1c7c817-4e59-43b7-9365-09675a149a6f")
+            };
+            var chapter = new Manga.Chapter { ChapterNumber = 12.5m };
+            var criteria = new ChapterSearchCriteria
+            {
+                Manga = manga,
+                Chapters = new System.Collections.Generic.List<Manga.Chapter> { chapter }
+            };
+            var chain = Subject.GetSearchRequests(criteria);
+            var url = chain.GetAllTiers().First().First().Url.FullUri;
+
+            url.Should().Contain("chapter[]=12.5");
+        }
+
+        [Test]
+        public void GetSearchRequests_ChapterSearchCriteria_returns_empty_when_no_MangaDexId()
+        {
+            var manga = new Manga.Manga { MangaDexId = null };
+            var chapter = new Manga.Chapter { ChapterNumber = 1m };
+            var criteria = new ChapterSearchCriteria
+            {
+                Manga = manga,
+                Chapters = new System.Collections.Generic.List<Manga.Chapter> { chapter }
+            };
+            var chain = Subject.GetSearchRequests(criteria);
+            chain.GetAllTiers().Should().BeEmpty();
+        }
     }
 }
