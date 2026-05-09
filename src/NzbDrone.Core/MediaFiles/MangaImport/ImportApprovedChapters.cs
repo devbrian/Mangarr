@@ -141,6 +141,16 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
 
                     if (lc.Manga == null || lc.Chapter == null)
                     {
+                        // Issue #30 — surface the unmatched-LocalChapter case at Warn level so
+                        // disk-scan / manual-import flows that silently dropped files (e.g. parser
+                        // language drift vs DB chapter language) don't disappear into a string-only
+                        // result that nobody reads. The result is added to importResults too so
+                        // callers that DO consume the return value still see the rejection.
+                        _logger.Warn(
+                            "Skipping import of {0}: Manga or Chapter could not be resolved on LocalChapter (manga={1}, chapter={2}).",
+                            lc.Path,
+                            lc.Manga?.Title ?? "(null)",
+                            lc.Chapter?.Id.ToString() ?? "(null)");
                         importResults.Add(new MangaImportResult(decision, "Manga or Chapter missing on LocalChapter — cannot import"));
                         continue;
                     }

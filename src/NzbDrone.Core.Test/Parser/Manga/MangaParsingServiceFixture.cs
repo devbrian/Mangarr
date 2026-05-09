@@ -123,5 +123,82 @@ namespace NzbDrone.Core.Test.MangaParserTests
             result.Should().NotBeNull();
             result.ParsedChapterInfo.TranslatedLanguage.Should().Be("en");
         }
+
+        // Issue #30 regression — when neither indexer nor parser supplied a language
+        // (the disk-scan / manual-import case for a CBZ file with no language tag in the
+        // filename), Map should match the chapter by (mangaId, chapterNumber) regardless
+        // of the DB chapter's TranslatedLanguage, instead of strict-matching against the
+        // "und" sentinel and silently failing.
+        [Test]
+        public void Map_falls_back_to_chapter_number_only_when_no_language_signal()
+        {
+            var parsed = new ParsedChapterInfo
+            {
+                ReleaseTitle = "Naruto - Chapter 001",
+                MangaTitle = "Naruto",
+                ChapterNumbers = new[] { 1m },
+                TranslatedLanguage = null,
+            };
+
+            // existingChapters carries a single English chapter — the previous strict-equality
+            // path against "und" silently failed; the fallback path should match by number.
+            var result = Subject.Map(parsed, _manga, _chapters);
+
+            result.Should().NotBeNull();
+            result.Chapters.Should().HaveCount(1);
+            result.Chapters[0].Id.Should().Be(_chapters[0].Id);
+            result.Chapters[0].TranslatedLanguage.Should().Be("en");
+        }
+
+        // Issue #30 regression — when multiple language candidates exist for the same
+        // (mangaId, chapterNumber) and the parser supplied no language, prefer the
+        // chapter whose language ranks earliest in the manga's TranslationProfile.
+        [Test]
+        public void Map_disambiguates_multi_language_candidates_via_TranslationProfile_when_no_language_signal()
+        {
+            _manga.TranslationProfileId = 7;
+
+            var enChapter = Builder<Chapter>
+                .CreateNew()
+                .With(c => c.Id = 101)
+                .With(c => c.MangaId = _manga.Id)
+                .With(c => c.ChapterNumber = 1m)
+                .With(c => c.TranslatedLanguage = "en")
+                .Build();
+            var esChapter = Builder<Chapter>
+                .CreateNew()
+                .With(c => c.Id = 102)
+                .With(c => c.MangaId = _manga.Id)
+                .With(c => c.ChapterNumber = 1m)
+                .With(c => c.TranslatedLanguage = "es")
+                .Build();
+
+            var existing = new List<Chapter> { esChapter, enChapter };
+
+            Mocker.GetMock<NzbDrone.Core.Profiles.Translations.ITranslationProfileService>()
+                .Setup(s => s.Get(7))
+                .Returns(new NzbDrone.Core.Profiles.Translations.TranslationProfile
+                {
+                    Id = 7,
+                    Languages = new List<string> { "en", "es" }
+                });
+
+            var parsed = new ParsedChapterInfo
+            {
+                ReleaseTitle = "Naruto - Chapter 001",
+                MangaTitle = "Naruto",
+                ChapterNumbers = new[] { 1m },
+                TranslatedLanguage = null,
+            };
+
+            var result = Subject.Map(parsed, _manga, existing);
+
+            result.Should().NotBeNull();
+            result.Chapters.Should().HaveCount(1);
+
+            // "en" ranks first in the profile, so the en chapter wins even though es
+            // appeared first in the existingChapters list.
+            result.Chapters[0].Id.Should().Be(enChapter.Id);
+        }
     }
 }
