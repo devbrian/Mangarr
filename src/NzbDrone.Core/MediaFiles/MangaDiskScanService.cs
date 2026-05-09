@@ -172,6 +172,20 @@ namespace NzbDrone.Core.MediaFiles
                 }
             }
 
+            // Issue #30 — surface the unmatched-file case at Warn level. The previous silent
+            // skip downstream of `lc.Chapter == null` (inside ImportApprovedChapters.Import) hid
+            // misnamed CBZ files / language-rank mismatches behind a "Completed scanning"
+            // success log. Now the user sees one Warn line per unresolved file at scan time.
+            foreach (var lc in localChapters.Where(lc => lc.Chapter == null))
+            {
+                _logger.Warn(
+                    "Could not match file '{0}' to any chapter for {1}. " +
+                    "Verify the filename includes a chapter number (e.g. '{1} - Chapter 001.cbz') and " +
+                    "that a corresponding chapter row exists in the database.",
+                    lc.Path,
+                    manga.Title);
+            }
+
             var decisionsStopwatch = Stopwatch.StartNew();
             var decisions = _importDecisionMaker.GetImportDecisions(localChapters, downloadClientItem: null);
             decisionsStopwatch.Stop();
@@ -193,6 +207,17 @@ namespace NzbDrone.Core.MediaFiles
                 var remoteChapter = _parsingService.Map(parsed, manga, existingChapters);
                 var chapter = remoteChapter?.Chapters?.FirstOrDefault();
 
+                // Issue #30 — when the parser couldn't extract a language tag from the
+                // filename but Map resolved a chapter via the language-fallback path, the
+                // matched chapter's language is the authoritative provenance. Back-propagate
+                // it onto the LocalChapter so the downstream ChapterFile row records the
+                // correct TranslatedLanguage instead of null.
+                var resolvedLanguage = parsed?.TranslatedLanguage;
+                if (string.IsNullOrEmpty(resolvedLanguage) && chapter != null)
+                {
+                    resolvedLanguage = chapter.TranslatedLanguage;
+                }
+
                 return new LocalChapter
                 {
                     Path = file,
@@ -201,7 +226,7 @@ namespace NzbDrone.Core.MediaFiles
                     Chapter = chapter,
                     Chapters = remoteChapter?.Chapters ?? new List<Chapter>(),
                     ParsedChapterInfo = parsed,
-                    TranslatedLanguage = parsed?.TranslatedLanguage,
+                    TranslatedLanguage = resolvedLanguage,
                     ScanlationGroup = parsed?.ScanlationGroup,
                     ExistingFile = manga.Path.IsNotNullOrWhiteSpace() && manga.Path.IsParentPath(file)
                 };

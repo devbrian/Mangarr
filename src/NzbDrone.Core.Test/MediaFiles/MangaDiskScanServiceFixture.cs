@@ -191,6 +191,11 @@ namespace NzbDrone.Core.Test.MediaFiles
 
             Mocker.GetMock<IMakeMangaImportDecision>()
                   .Verify(v => v.GetImportDecisions(It.IsAny<List<LocalChapter>>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>()), Times.Once());
+
+            // Issue #30 — Map mock returns null RemoteChapter, so the file ends up unmatched.
+            // The Scan flow now logs a Warn for each unresolved file (instead of silently
+            // dropping it through ImportApprovedChapters); assert that exactly one Warn fires.
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
@@ -268,6 +273,58 @@ namespace NzbDrone.Core.Test.MediaFiles
                   .Verify(v => v.GetManga(_manga.Id), Times.Once());
             Mocker.GetMock<IMangaService>()
                   .Verify(v => v.GetAllManga(), Times.Never());
+        }
+
+        // Issue #30 regression — when MangaParsingService.Map resolves a chapter via the
+        // language-fallback path (file dropped into manga folder with no language tag in the
+        // filename), MangaDiskScanService should:
+        //   1. Build a LocalChapter with non-null Chapter.
+        //   2. Back-propagate the matched chapter's TranslatedLanguage onto the LocalChapter
+        //      (so the downstream ChapterFile row records correct provenance).
+        //   3. Forward the LocalChapter to the import-decision pipeline (no Warn drop).
+        [Test]
+        public void should_back_propagate_matched_chapter_language_when_parser_has_no_language_signal()
+        {
+            GivenMangaFolder();
+            var filePath = Path.Combine(_manga.Path, "Manga Title - Chapter 001.cbz").AsOsAgnostic();
+            GivenFiles(new List<string> { filePath });
+
+            // DB chapter carries the actual language code ("en") — what MangaDex would return.
+            var dbChapter = Builder<Chapter>
+                .CreateNew()
+                .With(c => c.MangaId = _manga.Id)
+                .With(c => c.ChapterNumber = 1m)
+                .With(c => c.TranslatedLanguage = "en")
+                .Build();
+
+            // Map returns the resolved RemoteChapter (simulating the language-fallback hit).
+            Mocker.GetMock<IMangaParsingService>()
+                  .Setup(s => s.Map(It.IsAny<ParsedChapterInfo>(), It.IsAny<Manga>(), It.IsAny<IList<Chapter>>()))
+                  .Returns(new RemoteChapter
+                  {
+                      Manga = _manga,
+                      Chapters = new List<Chapter> { dbChapter }
+                  });
+
+            // Capture the LocalChapters fed into the decision maker so we can assert on them.
+            List<LocalChapter> captured = null;
+            Mocker.GetMock<IMakeMangaImportDecision>()
+                  .Setup(s => s.GetImportDecisions(It.IsAny<List<LocalChapter>>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>()))
+                  .Callback<List<LocalChapter>, NzbDrone.Core.Download.DownloadClientItem>((lcs, _) => captured = lcs)
+                  .Returns(new List<MangaImportDecision>());
+
+            Subject.Scan(_manga);
+
+            captured.Should().NotBeNull();
+            captured.Should().HaveCount(1);
+
+            var lc = captured[0];
+            lc.Chapter.Should().NotBeNull();
+            lc.Chapter.TranslatedLanguage.Should().Be("en");
+
+            // The LocalChapter carries the matched chapter's language even though the parser
+            // extracted none from the filename — this is the back-propagation under test.
+            lc.TranslatedLanguage.Should().Be("en");
         }
     }
 }
