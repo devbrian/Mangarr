@@ -39,6 +39,8 @@ namespace NzbDrone.Core.Test.Datastore.Migration
 
         // ============================================================
         // Test 2 — ChapterNumber DECIMAL(10,2) round-trips lossless (D-09)
+        // Phase 16 STRUCT-01: TranslatedLanguage column dropped from Chapters (lifted to
+        // ChapterReleases). INSERT no longer references the column.
         // ============================================================
         [Test]
         public void should_create_chapters_table_with_decimal_chapter_number()
@@ -46,9 +48,9 @@ namespace NzbDrone.Core.Test.Datastore.Migration
             var db = WithDapperMigrationTestDb();
 
             db.Execute(
-                "INSERT INTO \"Chapters\" (\"MangaId\", \"ChapterNumber\", \"TranslatedLanguage\", \"Monitored\") " +
-                "VALUES (@MangaId, @ChapterNumber, @TranslatedLanguage, @Monitored)",
-                new { MangaId = 1, ChapterNumber = 123.95m, TranslatedLanguage = "en", Monitored = true });
+                "INSERT INTO \"Chapters\" (\"MangaId\", \"ChapterNumber\", \"Monitored\") " +
+                "VALUES (@MangaId, @ChapterNumber, @Monitored)",
+                new { MangaId = 1, ChapterNumber = 123.95m, Monitored = true });
 
             var roundtripped = db.Query<decimal>(
                 "SELECT \"ChapterNumber\" FROM \"Chapters\" WHERE \"MangaId\" = 1").Single();
@@ -93,7 +95,11 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         }
 
         // ============================================================
-        // Test 5 — Five locked composite indexes from Phase 0 D-15 ship Day 1
+        // Test 5 — Phase 0 D-15 composite indexes — updated for Phase 16 STRUCT-01.
+        // Indexes #4 + #5 (the language-keyed Chapters indexes) were replaced by the
+        // composite UNIQUE on (Chapters.MangaId, ChapterNumber); the (MangaId, ChapterNumber, TranslatedLanguage)
+        // 3-col index and the (MangaId, TranslatedLanguage) 2-col index are gone — see
+        // Phase 16 STRUCT-01 + Plan 16-02 schema cutover.
         // ============================================================
         [Test]
         public void should_create_five_locked_composite_indexes()
@@ -123,12 +129,12 @@ namespace NzbDrone.Core.Test.Datastore.Migration
                      System.Text.RegularExpressions.Regex.IsMatch(i.Sql ?? string.Empty, "MangaId.*Date"),
                 "(Blocklist.MangaId, Date DESC) index must exist");
 
-            // 4. (Chapters.MangaId, ChapterNumber, TranslatedLanguage)
+            // 4. Phase 16 STRUCT-01 — composite UNIQUE on (Chapters.MangaId, ChapterNumber).
+            //    Replaces the pre-Phase-16 (MangaId, ChapterNumber, TranslatedLanguage) 3-col +
+            //    (MangaId, TranslatedLanguage) 2-col language-keyed indexes.
             indexes.Should().Contain(
-                i => i.TableName == "Chapters" &&
-                     System.Text.RegularExpressions.Regex.IsMatch(
-                         i.Sql ?? string.Empty, "MangaId.*ChapterNumber.*TranslatedLanguage"),
-                "(Chapters.MangaId, ChapterNumber, TranslatedLanguage) index must exist");
+                i => i.Name == "IX_Chapters_MangaId_ChapterNumber" && i.TableName == "Chapters",
+                "(Chapters.MangaId, ChapterNumber) composite UNIQUE must exist (Phase 16 STRUCT-01)");
         }
 
         // ============================================================
@@ -203,13 +209,18 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         }
 
         // ============================================================
-        // Test 9 — (Chapters.MangaId, TranslatedLanguage) two-column index distinct
-        // from the three-column index (D-15 leftmost-prefix proof). See Pitfall 3 in
-        // 01-RESEARCH.md — this index cannot be served by the leftmost-prefix of #4
-        // because ChapterNumber sits between MangaId and TranslatedLanguage.
+        // Test 9 — Phase 16 STRUCT-01: language-keyed Chapters indexes are GONE.
+        // The pre-Phase-16 (MangaId, TranslatedLanguage) two-column index and the
+        // (MangaId, ChapterNumber, TranslatedLanguage) three-column index were both
+        // dropped when Plan 16-02 lifted the language axis to ChapterRelease. The
+        // canonical Chapter index is now the composite UNIQUE on (MangaId, ChapterNumber).
+        //
+        // Per-language access patterns now go via IChapterReleaseRepository against the
+        // (ChapterId, TranslatedLanguage, ScanlationGroup) UNIQUE on the new ChapterReleases
+        // table — see should_create_chapter_releases_unique_index below.
         // ============================================================
         [Test]
-        public void should_create_chapters_translatedlanguage_index_path()
+        public void should_drop_pre_phase_16_translatedlanguage_chapters_indexes()
         {
             var db = WithDapperMigrationTestDb();
 
@@ -218,16 +229,34 @@ namespace NzbDrone.Core.Test.Datastore.Migration
                 "WHERE type='index' AND tbl_name='Chapters' AND sql IS NOT NULL")
                 .ToList();
 
-            // The two-column (MangaId, TranslatedLanguage) index must exist as its own index
-            // — distinct from the three-column index that includes ChapterNumber between them.
-            chapterIndexes.Should().Contain(
+            chapterIndexes.Should().NotContain(
                 i => System.Text.RegularExpressions.Regex.IsMatch(
-                         i.Sql ?? string.Empty, "MangaId.*TranslatedLanguage") &&
-                     !System.Text.RegularExpressions.Regex.IsMatch(
-                         i.Sql ?? string.Empty, "ChapterNumber"),
-                "(Chapters.MangaId, TranslatedLanguage) two-column index must exist on its own; "
-                + "leftmost-prefix from the three-column index does NOT cover this path "
-                + "because ChapterNumber sits between the two columns.");
+                         i.Sql ?? string.Empty, "TranslatedLanguage"),
+                "language-keyed Chapters indexes were dropped in Phase 16 STRUCT-01 / Plan 16-02");
+        }
+
+        // ============================================================
+        // Phase 16 STRUCT-02 — ChapterReleases table + (ChapterId, TranslatedLanguage,
+        // ScanlationGroup) composite UNIQUE + per-Chapter lookup index.
+        // ============================================================
+        [Test]
+        public void should_create_chapter_releases_unique_index()
+        {
+            var db = WithDapperMigrationTestDb();
+
+            var indexes = db.Query<IndexInfo>(
+                "SELECT name, tbl_name AS TableName, sql FROM sqlite_master " +
+                "WHERE type='index' AND tbl_name='ChapterReleases' AND sql IS NOT NULL")
+                .ToList();
+
+            indexes.Should().Contain(
+                i => i.Name == "IX_ChapterReleases_ChapterId_Lang_Group" &&
+                     System.Text.RegularExpressions.Regex.IsMatch(i.Sql ?? string.Empty, "UNIQUE"),
+                "ChapterReleases natural-key UNIQUE index must exist (Phase 16 STRUCT-02)");
+
+            indexes.Should().Contain(
+                i => i.Name == "IX_ChapterReleases_ChapterId",
+                "ChapterReleases per-Chapter lookup index must exist (Phase 16 STRUCT-02)");
         }
 
         // ============================================================

@@ -1,45 +1,34 @@
 // Sonarr divergence: REWRITTEN per Phase 16 STRUCT-01 + STRUCT-04 — see DIVERGENCE.md.
 // Drops 3-arg Find(int,decimal,string) overload + IsSynthetic round-trip per Pitfalls 3 + STRUCT-03.
 // Adds UNIQUE-violation expected-throw (STRUCT-01) + FirstReleaseDate round-trip (STRUCT-04 / D-02).
-// [Ignore]'d during Wave 0; Plan 16-02 lands the schema + property changes that turn it GREEN.
-//
-// Wave 0 deviation (Rule 3 — Blocking issue): the new BuildChapter helper signature drops
-// TranslatedLanguage/IsSynthetic and adds firstReleaseDate, but Chapter.FirstReleaseDate
-// does not yet exist as a property. Body wrapped in `#if PHASE_16_WAVE_1` (symbol
-// intentionally undefined). The class-level [Ignore] keeps NUnit from invoking any of
-// the still-present-but-stubbed methods, while the #else placeholder preserves all
-// retained test method names for grep-gate visibility.
-#if PHASE_16_WAVE_1
+// Plan 16-02 (Wave 1) landed the schema + property changes that turn this fixture GREEN;
+// the Wave-0 `#if PHASE_16_WAVE_1` guard was removed inline (Plan 16-01 hand-off
+// option (b)).
 using System;
 using System.Linq;
 using FluentAssertions;
+using NUnit.Framework;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Test.Framework;
 using Chapter = NzbDrone.Core.Manga.Chapter;
 using ChapterRepository = NzbDrone.Core.Manga.ChapterRepository;
-#endif
-using NUnit.Framework;
 
 namespace NzbDrone.Core.Test.MangaTests
 {
     // Wave 1 live fixture for IChapterRepository — Phase 16 schema cutover (STRUCT-01 +
-    // STRUCT-04). Plan 16-02 lands Chapter.FirstReleaseDate + the composite UNIQUE
+    // STRUCT-04). Plan 16-02 landed Chapter.FirstReleaseDate + the composite UNIQUE
     // constraint on Chapters(MangaId, ChapterNumber).
     [TestFixture]
-    [Ignore("Wave 1 dependency: Chapter.FirstReleaseDate property + composite UNIQUE land in Plan 16-02")]
     public class ChapterRepositoryFixture
-#if PHASE_16_WAVE_1
         : DbTest<ChapterRepository, Chapter>
-#endif
     {
-#if PHASE_16_WAVE_1
         private Chapter BuildChapter(int mangaId = 1, decimal chapterNumber = 1m, DateTime? firstReleaseDate = null)
         {
             return new Chapter
             {
                 MangaId = mangaId,
                 ChapterNumber = chapterNumber,
-                ChapterType = NzbDrone.Core.Manga.ChapterType.Regular,
+                ChapterType = ChapterType.Regular,
                 Title = $"Chapter {chapterNumber}",
                 FirstReleaseDate = firstReleaseDate,
                 Monitored = true,
@@ -120,45 +109,5 @@ namespace NzbDrone.Core.Test.MangaTests
             Subject.Insert(c);
             Subject.Get(c.Id).FirstReleaseDate.Should().Be(when);
         }
-#else
-        // Wave 0 placeholder: skeleton method names PRESERVED for the Sonarr-consistency-audit
-        // grep gate. [Ignore] at class level means NUnit never invokes any of these.
-
-        [Test]
-        public void Insert_persists_decimal_chapter_number_with_3_decimals()
-        {
-            throw new System.NotImplementedException("Wave 1 stub — Plan 16-02 lands real implementation");
-        }
-
-        [Test]
-        public void GetByMangaId_returns_all_for_manga()
-        {
-            throw new System.NotImplementedException("Wave 1 stub — Plan 16-02 lands real implementation");
-        }
-
-        [Test]
-        public void Update_persists_changes()
-        {
-            throw new System.NotImplementedException("Wave 1 stub — Plan 16-02 lands real implementation");
-        }
-
-        [Test]
-        public void Delete_removes_row()
-        {
-            throw new System.NotImplementedException("Wave 1 stub — Plan 16-02 lands real implementation");
-        }
-
-        [Test]
-        public void Insert_duplicate_MangaId_ChapterNumber_throws_unique_violation()
-        {
-            throw new System.NotImplementedException("Wave 1 stub — Plan 16-02 lands real implementation");
-        }
-
-        [Test]
-        public void Insert_persists_FirstReleaseDate_round_trip()
-        {
-            throw new System.NotImplementedException("Wave 1 stub — Plan 16-02 lands real implementation");
-        }
-#endif
     }
 }
