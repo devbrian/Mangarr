@@ -230,14 +230,19 @@ namespace NzbDrone.Core.Manga
             // Phase 8 cluster-03 cascade: TV's pattern is `series.ApplyChanges(newSeries)`
             // (metadata ← user). Manga's call direction is reversed (newManga ← primaryManga),
             // so since Plan 03-05 expanded ApplyChanges to copy user-owned fields
-            // (RootFolderPath, Path, Tags, Monitored, AddOptions) per audit gap-02, those user
-            // inputs would now get clobbered by the metadata's nulls. Save user inputs across
-            // the call. Phase 9 should restructure PrepareForAdd to use TV's call ordering.
+            // (RootFolderPath, Path, Tags, Monitored, AddOptions, MonitorNewItems,
+            // TranslationProfileId, CustomFormatProfileId) per audit gap-02 + issue #28
+            // backfill, those user inputs would now get clobbered by the metadata's nulls.
+            // Save user inputs across the call. Phase 9 should restructure PrepareForAdd
+            // to use TV's call ordering.
             var userRootFolderPath = newManga.RootFolderPath;
             var userPath = newManga.Path;
             var userTags = newManga.Tags;
             var userMonitored = newManga.Monitored;
             var userAddOptions = newManga.AddOptions;
+            var userMonitorNewItems = newManga.MonitorNewItems;
+            var userTranslationProfileId = newManga.TranslationProfileId;
+            var userCustomFormatProfileId = newManga.CustomFormatProfileId;
 
             newManga.ApplyChanges(primaryManga);
 
@@ -246,6 +251,9 @@ namespace NzbDrone.Core.Manga
             newManga.Tags = userTags ?? newManga.Tags;
             newManga.Monitored = userMonitored;
             newManga.AddOptions = userAddOptions ?? newManga.AddOptions;
+            newManga.MonitorNewItems = userMonitorNewItems;
+            newManga.TranslationProfileId = userTranslationProfileId;
+            newManga.CustomFormatProfileId = userCustomFormatProfileId;
 
             // Carry over the primary IDs returned by GetMangaInfo (incl. any links extracted by
             // MapManga, e.g. MangaDex links.al/mal).
