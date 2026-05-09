@@ -47,17 +47,30 @@ public class ChapterController : RestControllerWithSignalR<ChapterResource, NzbD
                                   IHandle<ChapterUpdatedEvent>
 {
     private readonly IChapterService _chapterService;
+    private readonly IChapterReleaseService _chapterReleaseService;
     private readonly IManageCommandQueue _commandQueueManager;
 
     public ChapterController(IChapterService chapterService,
+                             IChapterReleaseService chapterReleaseService,
                              IManageCommandQueue commandQueueManager,
                              IBroadcastSignalRMessage signalRBroadcaster)
         : base(signalRBroadcaster)
     {
         _chapterService = chapterService;
+        _chapterReleaseService = chapterReleaseService;
         _commandQueueManager = commandQueueManager;
     }
 
+    // Sonarr divergence: Phase 16 STRUCT-08 — N+1-safe `releases: [...]` hydration.
+    // TV ChapterController has no per-release collection because TV's language axis
+    // is on EpisodeFile, not per-release. Manga's per-translation grain demands the
+    // nested collection (Phase 16 STRUCT-02 + CONTEXT D-01).
+    //
+    // Hot-path concern: per-chapter singular release-fetch inside the
+    // chapters.Select(...) loop is REJECTED (RESEARCH §Pitfall N+1).
+    // Both branches bulk-load via a SINGLE service call + GroupBy(ChapterId) in memory,
+    // then per-Chapter resource looks up its releases via O(1) dictionary access.
+    // Pre-merge grep gate on this file: zero matches for the singular per-chapter form.
     [HttpGet]
     [Produces("application/json")]
     public Results<Ok<List<ChapterResource>>, BadRequest> GetChapters(
@@ -66,18 +79,55 @@ public class ChapterController : RestControllerWithSignalR<ChapterResource, NzbD
     {
         if (mangaId.HasValue)
         {
-            return TypedResults.Ok(_chapterService.GetChaptersByManga(mangaId.Value).ToResource());
+            var chapters = _chapterService.GetChaptersByManga(mangaId.Value);
+            var releasesByChapterId = _chapterReleaseService.GetReleasesByMangaId(mangaId.Value)
+                .GroupBy(r => r.ChapterId)
+                .ToDictionary(g => g.Key, g => g.Select(ToReleaseResource).ToList());
+
+            var resources = chapters.Select(c =>
+            {
+                var resource = c.ToResource();
+                resource.Releases = releasesByChapterId.TryGetValue(c.Id, out var list)
+                    ? list
+                    : new List<ChapterReleaseResource>();   // D-04: zero-release returns empty array, not null
+                return resource;
+            }).ToList();
+
+            return TypedResults.Ok(resources);
         }
 
         if (chapterIds is { Count: > 0 })
         {
-            return TypedResults.Ok(_chapterService.GetChapters(chapterIds).ToResource());
+            var chapters = _chapterService.GetChapters(chapterIds);
+            var releasesByChapterId = _chapterReleaseService.GetReleasesByChapterIds(chapterIds)
+                .GroupBy(r => r.ChapterId)
+                .ToDictionary(g => g.Key, g => g.Select(ToReleaseResource).ToList());
+
+            var resources = chapters.Select(c =>
+            {
+                var resource = c.ToResource();
+                resource.Releases = releasesByChapterId.TryGetValue(c.Id, out var list)
+                    ? list
+                    : new List<ChapterReleaseResource>();   // D-04: zero-release returns empty array, not null
+                return resource;
+            }).ToList();
+
+            return TypedResults.Ok(resources);
         }
 
         // T-07-01 mitigation: no parent id and no chapterIds → 400, mirrors
         // EpisodeController.GetEpisodes precedent (RESEARCH §Security V5).
         throw new BadRequestException("mangaId or chapterIds must be provided");
     }
+
+    private static ChapterReleaseResource ToReleaseResource(ChapterRelease r) => new()
+    {
+        Id = r.Id,
+        TranslatedLanguage = r.TranslatedLanguage,
+        ScanlationGroup = r.ScanlationGroup,
+        ReleaseDate = r.ReleaseDate,
+        ExternalId = r.ExternalId,
+    };
 
     protected override ChapterResource? GetResourceById(int id)
     {
