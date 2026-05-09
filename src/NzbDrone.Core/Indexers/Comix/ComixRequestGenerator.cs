@@ -90,16 +90,27 @@ namespace NzbDrone.Core.Indexers.Comix
 
         public IndexerPageableRequestChain GetSearchRequests(ChapterSearchCriteria sc)
         {
-            // Reuse the whole-manga chapter-list; the parser filters by ChapterNumber +
-            // TranslatedLanguage client-side. comix.to does not expose a single-chapter point
-            // query, and reusing the list saves the SourceKey rate budget vs N point-queries —
-            // Phase 4 image-fetch is already on the same bucket and cannot afford the burst.
-            return GetSearchRequests(new MangaSearchCriteria
+            // comix.to's /api/v1/manga/{hid}/chapters endpoint accepts an undocumented
+            // &number={chapterNumber} query parameter that filters the response server-side
+            // to rows matching that chapter. Verified live 2026-05-08 against
+            //   https://comix.to/api/v1/manga/gmyj7/chapters?...&number=1
+            // (6 items returned, all chapter 1) vs the same call without &number= (97 items).
+            // The token derivation pins to the path only ("/manga/{hash}/chapters"), so
+            // adding &number= does NOT invalidate the anti-bot signature. A previous
+            // assumption (Phase 3 RESEARCH) that comix.to lacked a per-chapter filter
+            // turned out to be incorrect.
+            if (string.IsNullOrWhiteSpace(ResolvedMangaHash))
             {
-                Manga = sc?.Manga,
-                Chapters = sc?.Chapters,
-                PreferredLanguages = sc?.PreferredLanguages
-            });
+                return new IndexerPageableRequestChain();
+            }
+
+            var url = BuildChapterListUrl(ResolvedMangaHash, ResolvedMangaSlug ?? ResolvedMangaHash, chapterNumber: sc?.ChapterNumber);
+
+            var chain = new IndexerPageableRequestChain();
+            var req = new IndexerRequest(url, HttpAccept.Json);
+            req.HttpRequest.Headers["Referer"] = $"{Settings.BaseUrl.TrimEnd('/')}/";
+            chain.Add(new[] { req });
+            return chain;
         }
 
         // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-shape GetSearchRequests
@@ -110,8 +121,16 @@ namespace NzbDrone.Core.Indexers.Comix
         /// <summary>
         /// Build a fully-qualified chapter-list URL with the comix.to anti-bot token.
         /// Mirrors keiyoushi's <c>chapterListRequest</c>.
+        ///
+        /// <para>
+        /// When <paramref name="chapterNumber"/> is set, an <c>&amp;number={value}</c> query
+        /// parameter is appended; comix.to filters the response server-side to rows matching
+        /// that chapter. The token derivation pins to the path only, so the filter does not
+        /// invalidate the anti-bot signature. Decimal chapter numbers (e.g., 12.5) round-trip
+        /// via the <c>"0.###"</c> InvariantCulture format.
+        /// </para>
         /// </summary>
-        internal string BuildChapterListUrl(string hash, string slug, int page = 1)
+        internal string BuildChapterListUrl(string hash, string slug, int page = 1, decimal? chapterNumber = null)
         {
             // The token signs the path BEFORE the /api/v1 prefix is appended (i.e. comix.to
             // computes the token from "/manga/{hid}/chapters" only — verified against the
@@ -122,12 +141,19 @@ namespace NzbDrone.Core.Indexers.Comix
             // bracket query params must be URL-encoded so the request line stays valid:
             // order[number]=desc → order%5Bnumber%5D=desc. comix.to's parser still
             // un-encodes the brackets on the server.
-            return $"{Settings.BaseUrl.TrimEnd('/')}/api/v1/manga/{hash}/chapters"
-                 + "?order%5Bnumber%5D=desc"
-                 + "&limit=100"
-                 + $"&page={page}"
-                 + $"&_={System.Net.WebUtility.UrlEncode(token)}"
-                 + $"&mangaSlug={System.Net.WebUtility.UrlEncode(slug)}";
+            var url = $"{Settings.BaseUrl.TrimEnd('/')}/api/v1/manga/{hash}/chapters"
+                    + "?order%5Bnumber%5D=desc"
+                    + "&limit=100"
+                    + $"&page={page}"
+                    + $"&_={System.Net.WebUtility.UrlEncode(token)}"
+                    + $"&mangaSlug={System.Net.WebUtility.UrlEncode(slug)}";
+
+            if (chapterNumber.HasValue && chapterNumber.Value > 0m)
+            {
+                url += $"&number={System.Net.WebUtility.UrlEncode(chapterNumber.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))}";
+            }
+
+            return url;
         }
 
         /// <summary>

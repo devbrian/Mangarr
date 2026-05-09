@@ -91,5 +91,80 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             var u2 = Subject.BuildChapterListUrl("mr3m0", "mr3m0-the-forgotten-field");
             u1.Should().Be(u2);
         }
+
+        [Test]
+        public void GetSearchRequests_ChapterSearchCriteria_appends_number_filter()
+        {
+            // comix.to /api/v1/manga/{hid}/chapters supports an undocumented &number={N}
+            // server-side filter (verified live 2026-05-08). Chapter-scope searches must
+            // append this so the response is bounded to the requested chapter.
+            Subject.ResolvedMangaHash = "mr3m0";
+            Subject.ResolvedMangaSlug = "mr3m0-the-forgotten-field";
+
+            var manga = new Manga.Manga { Title = "The Forgotten Field" };
+            var chapter = new Manga.Chapter { ChapterNumber = 4m, TranslatedLanguage = "en" };
+            var criteria = new ChapterSearchCriteria
+            {
+                Manga = manga,
+                Chapters = new System.Collections.Generic.List<Manga.Chapter> { chapter }
+            };
+
+            var chain = Subject.GetSearchRequests(criteria);
+            chain.GetAllTiers().Should().NotBeEmpty();
+
+            var url = chain.GetAllTiers().First().First().Url.FullUri;
+            url.Should().Contain("/api/v1/manga/mr3m0/chapters");
+            url.Should().Contain("number=4");
+            url.Should().Contain("_=");          // anti-bot token still present
+            url.Should().Contain("mangaSlug=");
+        }
+
+        [Test]
+        public void GetSearchRequests_ChapterSearchCriteria_with_decimal_chapter_round_trips()
+        {
+            Subject.ResolvedMangaHash = "mr3m0";
+            Subject.ResolvedMangaSlug = "mr3m0-the-forgotten-field";
+
+            var manga = new Manga.Manga { Title = "The Forgotten Field" };
+            var chapter = new Manga.Chapter { ChapterNumber = 12.5m };
+            var criteria = new ChapterSearchCriteria
+            {
+                Manga = manga,
+                Chapters = new System.Collections.Generic.List<Manga.Chapter> { chapter }
+            };
+
+            var chain = Subject.GetSearchRequests(criteria);
+            var url = chain.GetAllTiers().First().First().Url.FullUri;
+
+            url.Should().Contain("number=12.5");
+        }
+
+        [Test]
+        public void GetSearchRequests_ChapterSearchCriteria_returns_empty_when_no_resolved_hash()
+        {
+            // ChapterSearchCriteria still requires a resolved hid. ComixIndexer.Fetch() runs
+            // the title→hid lookup before invoking the generator; if that lookup yields no
+            // match, the chain is empty so FetchReleases short-circuits.
+            var manga = new Manga.Manga { Title = "Unmappable Manga" };
+            var chapter = new Manga.Chapter { ChapterNumber = 1m };
+            var criteria = new ChapterSearchCriteria
+            {
+                Manga = manga,
+                Chapters = new System.Collections.Generic.List<Manga.Chapter> { chapter }
+            };
+
+            var chain = Subject.GetSearchRequests(criteria);
+
+            chain.GetAllTiers().Should().BeEmpty();
+        }
+
+        [Test]
+        public void BuildChapterListUrl_without_chapter_number_omits_number_filter()
+        {
+            // Manga (whole-feed) searches must NOT add &number= — they need the full chapter
+            // list. Backwards-compat with the existing MangaSearchCriteria + RSS path.
+            var url = Subject.BuildChapterListUrl("mr3m0", "mr3m0-the-forgotten-field");
+            url.Should().NotContain("&number=");
+        }
     }
 }
