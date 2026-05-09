@@ -85,14 +85,17 @@ namespace Mangarr.Api.V5.Manga.Wanted
     {
         private readonly IChapterService _chapterService;
         private readonly IMangaService _mangaService;
+        private readonly IChapterReleaseService _chapterReleaseService;
 
         public MangaMissingController(IChapterService chapterService,
                                          IMangaService mangaService,
+                                         IChapterReleaseService chapterReleaseService,
                                          IBroadcastSignalRMessage signalRBroadcaster)
             : base(signalRBroadcaster)
         {
             _chapterService = chapterService;
             _mangaService = mangaService;
+            _chapterReleaseService = chapterReleaseService;
         }
 
         [HttpGet]
@@ -127,26 +130,53 @@ namespace Mangarr.Api.V5.Manga.Wanted
                 pagingSpec.FilterExpressions.Add(c => mangaIds.Contains(c.MangaId));
             }
 
-            // TODO(plan-16-04): retarget the languages filter through IChapterReleaseService.
-            // Phase 16 STRUCT-01 lifted TranslatedLanguage off the canonical Chapter; per
-            // STRUCT-06 / STRUCT-09 the Wanted+Missing language gate moves to the ChapterRelease
-            // grain. For the Plan 16-02 boundary GREEN the filter is a no-op stub — Plan 16-04
-            // re-introduces it via a chapter-id pre-filter computed from
-            // IChapterReleaseRepository.GetByChapterIds + language match.
-            _ = languages;
+            // D-04 (zero-release-Missing) note on the unfiltered shape: Chapters with zero
+            // ChapterRelease rows ARE in the missing list — Wanted/Missing alias-flips to
+            // "Chapter without any ChapterRelease rows OR Chapter with releases but no file."
+            // The languages[] filter narrows the set to Chapters with at least one matching
+            // ChapterRelease — zero-release chapters are EXCLUDED when the filter is set
+            // (they have no language to match). Pre-Phase-16 the same gate read
+            // Chapter.TranslatedLanguage; STRUCT-04 lifted that to ChapterRelease.
 
-            // D-04: NO IsSynthetic filter. Synthetic rows are placeholder rows from the
-            // metadata-only-count fallback (Phase 2 D-17) and surface identically to real-feed
-            // rows in the Wanted list. Indexer match upgrades the synthetic row in place per
-            // Phase 2 D-17.
-
-            // ageRating requires a Manga JOIN; apply post-paged in-memory.
+            // ageRating + languages both require a JOIN and apply post-paged in-memory.
             // The result set is bounded by the paging spec (default 10/page) so the
             // in-memory pass cost is negligible. Future Phase 8 collapse may push the
             // filter into the SQL builder.
             var page = pagingSpec.ApplyToPage(
                 spec => _chapterService.ChaptersWithoutFiles(spec),
                 c => MapToResource(c, includeManga));
+
+            // Sonarr divergence: Phase 16 STRUCT-06 — languages[] filter retargets at
+            // ChapterRelease.TranslatedLanguage. Pre-Phase-16 the gate read
+            // Chapter.TranslatedLanguage (canonical-grain) which is dropped per STRUCT-04.
+            // Post-Phase-16 a chapter is "in" the filter if ANY of its ChapterReleases match
+            // any language in the filter (case-insensitive — BCP-47 codes).
+            // N+1-safe via IChapterReleaseService.GetReleasesByChapterIds (single bulk SQL).
+            if (languages != null && languages.Length > 0)
+            {
+                var chapterIdsInPage = page.Records.Select(r => r.Id).ToList();
+                var releasesByChapter = _chapterReleaseService
+                    .GetReleasesByChapterIds(chapterIdsInPage)
+                    .GroupBy(r => r.ChapterId)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.Select(r => r.TranslatedLanguage).ToList());
+
+                var langFilter = new HashSet<string>(languages, StringComparer.OrdinalIgnoreCase);
+
+                page.Records = page.Records
+                    .Where(r =>
+                    {
+                        // D-04: zero-release chapters EXCLUDED when filter is set — no language to match.
+                        if (!releasesByChapter.TryGetValue(r.Id, out var langs))
+                        {
+                            return false;
+                        }
+
+                        return langs.Any(l => l != null && langFilter.Contains(l));
+                    })
+                    .ToList();
+            }
 
             if (!string.IsNullOrWhiteSpace(ageRating))
             {

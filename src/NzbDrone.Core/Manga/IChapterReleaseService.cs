@@ -11,6 +11,11 @@ namespace NzbDrone.Core.Manga
         ChapterRelease GetRelease(int id);
         List<ChapterRelease> GetReleasesByChapter(int chapterId);
         List<ChapterRelease> GetReleasesByMangaId(int mangaId);    // STRUCT-08 N+1 avoidance — controller bulk-load path
+
+        // Sonarr divergence: Phase 16 STRUCT-06 — Wanted/Missing languages[] filter consumes this
+        // when the page spans multiple manga (mangaIds filter unset). Single bulk SQL via
+        // ChapterReleaseRepository.GetByChapterIds — see ChapterReleaseRepository.cs:36.
+        List<ChapterRelease> GetReleasesByChapterIds(List<int> chapterIds);
         void Insert(ChapterRelease release);
         void InsertMany(List<ChapterRelease> releases);
         void Update(ChapterRelease release);

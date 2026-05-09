@@ -48,6 +48,19 @@ namespace NzbDrone.Core.Manga
             return _repo.GetByChapterIds(chapterIds);
         }
 
+        // Sonarr divergence: Phase 16 STRUCT-06 — Wanted/Missing languages[] filter consumes this
+        // when the page spans multiple manga (mangaIds filter unset). Single bulk SQL via the
+        // repo's GetByChapterIds. Empty input short-circuits to empty list (mirrors GetReleasesByMangaId).
+        public List<ChapterRelease> GetReleasesByChapterIds(List<int> chapterIds)
+        {
+            if (chapterIds == null || chapterIds.Count == 0)
+            {
+                return new List<ChapterRelease>();
+            }
+
+            return _repo.GetByChapterIds(chapterIds);
+        }
+
         public void Insert(ChapterRelease release) => _repo.Insert(release);
         public void InsertMany(List<ChapterRelease> releases) => _repo.InsertMany(releases);
         public void Update(ChapterRelease release) => _repo.Update(release);

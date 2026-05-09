@@ -33,6 +33,34 @@ namespace NzbDrone.Core.Test.MangaTests
         }
 
         [Test]
+        public void GetReleasesByChapterIds_delegates_to_repo_bulk()
+        {
+            // Sonarr divergence: Phase 16 STRUCT-06 — N+1-safe bulk path consumed by
+            // MangaMissingController's languages[] filter. Single repo call; empty input
+            // short-circuits to empty list (mirrors GetReleasesByMangaId guard).
+            var ids = new List<int> { 1, 2, 3 };
+            var releases = new List<NzbDrone.Core.Manga.ChapterRelease>
+            {
+                new() { Id = 10, ChapterId = 1, TranslatedLanguage = "en" },
+                new() { Id = 11, ChapterId = 2, TranslatedLanguage = "es" },
+            };
+            Mocker.GetMock<NzbDrone.Core.Manga.IChapterReleaseRepository>()
+                .Setup(r => r.GetByChapterIds(ids)).Returns(releases);
+
+            Subject.GetReleasesByChapterIds(ids).Should().BeEquivalentTo(releases);
+        }
+
+        [Test]
+        public void GetReleasesByChapterIds_with_empty_input_short_circuits_without_repo_call()
+        {
+            // Empty-input guard: avoid an unnecessary SQL roundtrip when the page is empty.
+            Subject.GetReleasesByChapterIds(new List<int>()).Should().BeEmpty();
+
+            Mocker.GetMock<NzbDrone.Core.Manga.IChapterReleaseRepository>()
+                .Verify(r => r.GetByChapterIds(It.IsAny<List<int>>()), Times.Never);
+        }
+
+        [Test]
         public void HandleAsync_MangaDeletedEvent_cascade_deletes_releases_via_chapterIds()
         {
             // Mirrors ChapterService.HandleAsync(MangaDeletedEvent) shape at ChapterService.cs:293-297.
