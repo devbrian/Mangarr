@@ -13,8 +13,12 @@ namespace Mangarr.Api.V5.Manga.Chapter;
 //     (PROJECT.md Volumes/Seasons Out-of-Scope; EpisodeFile-subresource hydration is
 //     deferred until a real consumer needs it).
 //   * Rename Series→Manga, Episode→Chapter.
-//   * Add TranslatedLanguage (BCP-47), ScanlationGroup, IsSynthetic, ChapterType (string
-//     enum projection), VolumeNumber (display-only — no Volumes table).
+//   * Phase 16 STRUCT-08: TranslatedLanguage / ScanlationGroup / IsSynthetic / ReleaseDate
+//     are LIFTED to ChapterRelease (per-language data lives there now). The
+//     `releases: [...]` collection that surfaces them on the wire lands in Plan 16-05.
+//     For Plan 16-02 boundary GREEN they are simply absent from this resource.
+//   * Adds FirstReleaseDate (D-02 — Sonarr-mirror of Episode.AirDateUtc; chapter-publish date).
+//   * Keeps ChapterType (string enum projection), VolumeNumber (display-only — no Volumes table).
 //   * ChapterNumber is decimal (DECIMAL(10,3) per Phase 2 D-12 widen — supports 1.5,
 //     1.123, etc.).
 //
@@ -36,11 +40,12 @@ public class ChapterResource : RestResource
     public decimal? AbsoluteChapterNumber { get; set; }
     public int? VolumeNumber { get; set; }              // display-only — no Volumes table.
     public string? Title { get; set; }
-    public string? TranslatedLanguage { get; set; }     // BCP-47; "und" for synthetic
-    public string? ScanlationGroup { get; set; }
     public string? ChapterType { get; set; }            // Regular / Special / Oneshot / Extra
-    public bool IsSynthetic { get; set; }
-    public DateTime? ReleaseDate { get; set; }
+
+    // Phase 16 D-02 — Sonarr-mirror of Episode.AirDateUtc; chapter-publish date.
+    // TODO(plan-16-05): add `releases: [...]` collection per STRUCT-08 — per-language
+    // ChapterRelease projection lifted off the canonical Chapter row.
+    public DateTime? FirstReleaseDate { get; set; }
     public bool Monitored { get; set; }
     public bool HasFile => ChapterFileId.HasValue;
     public string? ExternalId { get; set; }
@@ -65,11 +70,8 @@ public static class ChapterResourceMapper
         AbsoluteChapterNumber = model.AbsoluteChapterNumber,
         VolumeNumber = model.VolumeNumber,
         Title = model.Title,
-        TranslatedLanguage = model.TranslatedLanguage,
-        ScanlationGroup = model.ScanlationGroup,
         ChapterType = model.ChapterType.ToString(),
-        IsSynthetic = model.IsSynthetic,
-        ReleaseDate = model.ReleaseDate,
+        FirstReleaseDate = model.FirstReleaseDate,
         Monitored = model.Monitored,
         ExternalId = model.ExternalId,
     };

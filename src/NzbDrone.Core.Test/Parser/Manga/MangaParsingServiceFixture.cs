@@ -35,7 +35,6 @@ namespace NzbDrone.Core.Test.MangaParserTests
                     .CreateNew()
                     .With(c => c.MangaId = _manga.Id)
                     .With(c => c.ChapterNumber = 1m)
-                    .With(c => c.TranslatedLanguage = "en")
                     .Build(),
             };
         }
@@ -43,6 +42,7 @@ namespace NzbDrone.Core.Test.MangaParserTests
         [Test]
         public void Map_resolves_existing_chapter_via_FindByMangaAndNumber()
         {
+            // Phase 16 STRUCT-01: 3-arg FindByMangaAndNumber collapsed to 2-arg.
             var parsed = new ParsedChapterInfo
             {
                 ReleaseTitle = "[Group] Naruto - Ch.1 [EN]",
@@ -52,7 +52,7 @@ namespace NzbDrone.Core.Test.MangaParserTests
             };
 
             Mocker.GetMock<IChapterService>()
-                .Setup(s => s.FindByMangaAndNumber(_manga.Id, 1m, "en"))
+                .Setup(s => s.FindByMangaAndNumber(_manga.Id, 1m))
                 .Returns(_chapters[0]);
 
             var result = Subject.Map(parsed, _manga, _chapters);
@@ -92,7 +92,7 @@ namespace NzbDrone.Core.Test.MangaParserTests
             };
 
             Mocker.GetMock<IChapterService>()
-                .Setup(s => s.FindByMangaAndNumber(_manga.Id, 1m, "es"))
+                .Setup(s => s.FindByMangaAndNumber(_manga.Id, 1m))
                 .Returns(_chapters[0]);
 
             var result = Subject.Map(parsed, _manga, _chapters);
@@ -115,7 +115,7 @@ namespace NzbDrone.Core.Test.MangaParserTests
             };
 
             Mocker.GetMock<IChapterService>()
-                .Setup(s => s.FindByMangaAndNumber(_manga.Id, 1m, "en"))
+                .Setup(s => s.FindByMangaAndNumber(_manga.Id, 1m))
                 .Returns(_chapters[0]);
 
             var result = Subject.Map(parsed, _manga, _chapters);
@@ -126,9 +126,10 @@ namespace NzbDrone.Core.Test.MangaParserTests
 
         // Issue #30 regression — when neither indexer nor parser supplied a language
         // (the disk-scan / manual-import case for a CBZ file with no language tag in the
-        // filename), Map should match the chapter by (mangaId, chapterNumber) regardless
-        // of the DB chapter's TranslatedLanguage, instead of strict-matching against the
-        // "und" sentinel and silently failing.
+        // filename), Map should match the chapter by (mangaId, chapterNumber).
+        //
+        // Phase 16 STRUCT-01 simplifies this: canonical Chapter is now language-free, so
+        // the `_chapters[0].TranslatedLanguage.Should().Be("en")` post-condition is gone.
         [Test]
         public void Map_falls_back_to_chapter_number_only_when_no_language_signal()
         {
@@ -140,65 +141,25 @@ namespace NzbDrone.Core.Test.MangaParserTests
                 TranslatedLanguage = null,
             };
 
-            // existingChapters carries a single English chapter — the previous strict-equality
-            // path against "und" silently failed; the fallback path should match by number.
+            // existingChapters carries one canonical Chapter at number 1; Map matches by number.
             var result = Subject.Map(parsed, _manga, _chapters);
 
             result.Should().NotBeNull();
             result.Chapters.Should().HaveCount(1);
             result.Chapters[0].Id.Should().Be(_chapters[0].Id);
-            result.Chapters[0].TranslatedLanguage.Should().Be("en");
         }
 
-        // Issue #30 regression — when multiple language candidates exist for the same
-        // (mangaId, chapterNumber) and the parser supplied no language, prefer the
-        // chapter whose language ranks earliest in the manga's TranslationProfile.
+        // TODO(plan-16-03): re-introduce the multi-language disambiguation test against the
+        // ChapterRelease grain. Phase 16 STRUCT-01 removed the per-Chapter TranslatedLanguage,
+        // so the existing test scenario (multiple Chapter rows differing only by language) is
+        // no longer a valid DB shape — the canonical Chapter is now UNIQUE on
+        // (MangaId, ChapterNumber). The Wave 2 disambiguation runs against
+        // IChapterReleaseService.GetReleasesByChapter against the (lang, group)-keyed table.
         [Test]
+        [Ignore("Wave 2 dependency — Plan 16-03 reintroduces disambiguation against the ChapterRelease grain (per STRUCT-05)")]
         public void Map_disambiguates_multi_language_candidates_via_TranslationProfile_when_no_language_signal()
         {
-            _manga.TranslationProfileId = 7;
-
-            var enChapter = Builder<Chapter>
-                .CreateNew()
-                .With(c => c.Id = 101)
-                .With(c => c.MangaId = _manga.Id)
-                .With(c => c.ChapterNumber = 1m)
-                .With(c => c.TranslatedLanguage = "en")
-                .Build();
-            var esChapter = Builder<Chapter>
-                .CreateNew()
-                .With(c => c.Id = 102)
-                .With(c => c.MangaId = _manga.Id)
-                .With(c => c.ChapterNumber = 1m)
-                .With(c => c.TranslatedLanguage = "es")
-                .Build();
-
-            var existing = new List<Chapter> { esChapter, enChapter };
-
-            Mocker.GetMock<NzbDrone.Core.Profiles.Translations.ITranslationProfileService>()
-                .Setup(s => s.Get(7))
-                .Returns(new NzbDrone.Core.Profiles.Translations.TranslationProfile
-                {
-                    Id = 7,
-                    Languages = new List<string> { "en", "es" }
-                });
-
-            var parsed = new ParsedChapterInfo
-            {
-                ReleaseTitle = "Naruto - Chapter 001",
-                MangaTitle = "Naruto",
-                ChapterNumbers = new[] { 1m },
-                TranslatedLanguage = null,
-            };
-
-            var result = Subject.Map(parsed, _manga, existing);
-
-            result.Should().NotBeNull();
-            result.Chapters.Should().HaveCount(1);
-
-            // "en" ranks first in the profile, so the en chapter wins even though es
-            // appeared first in the existingChapters list.
-            result.Chapters[0].Id.Should().Be(enChapter.Id);
+            // Plan 16-03 will re-implement this test against IChapterReleaseService.
         }
     }
 }

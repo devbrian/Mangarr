@@ -5,25 +5,25 @@ namespace NzbDrone.Core.Manga
 {
     // Repository contract for Chapter row. Mirrors Mangarr's IEpisodeRepository
     // (Tv/EpisodeRepository.cs:13-34) shape, with manga-domain divergence:
-    //   * Find takes (mangaId, decimal chapterNumber, string translatedLanguage) —
-    //     the Phase 1 composite index key (D-09 + 02-CONTEXT D-12 widen).
+    //   * Find takes (mangaId, decimal chapterNumber) — Phase 16 STRUCT-01 collapsed
+    //     the language axis (canonical Chapter is now language-free at the
+    //     (MangaId, ChapterNumber) grain; per-language data is on ChapterRelease).
     //   * GetByMangaId mirrors GetEpisodes(int seriesId).
-    //   * GetSyntheticByMangaId surfaces Chapter.IsSynthetic rows for the Phase 3
-    //     indexer fill-in pipeline (D-17).
     //   * SetFileId/ClearFileId added in Phase 8 audit (gap-03) — mirrors TV's
     //     EpisodeRepository (Tv/EpisodeRepository.cs:195-212) for the Phase 4/6
     //     import + archive pipelines (PIPELINE-04).
     public interface IChapterRepository : IBasicRepository<Chapter>
     {
-        Chapter Find(int mangaId, decimal chapterNumber, string translatedLanguage);
+        // Sonarr divergence: Phase 16 STRUCT-01 — 3-arg Find(int, decimal, string) collapsed
+        // to 2-arg Find(int, decimal) because the language axis is gone from the canonical
+        // Chapter grain. Per-language lookups go via IChapterReleaseRepository.Find.
+        Chapter Find(int mangaId, decimal chapterNumber);
         List<Chapter> GetByMangaId(int mangaId);
 
         // Phase 8 audit (EpisodeRepository-vs-ChapterRepository.md gap-01) — sibling of TV's
         // `IEpisodeRepository.GetEpisodesBySeriesIds(List<int> seriesIds)`. Bulk get-by-multiple-parent-IDs
         // for batch operations (e.g. multi-manga wanted-search, multi-manga rescan).
         List<Chapter> GetChaptersByMangaIds(List<int> mangaIds);
-
-        List<Chapter> GetSyntheticByMangaId(int mangaId);
 
         // Phase 8 audit (EpisodeRepository-vs-ChapterRepository.md gap-02) — sibling of TV's
         // `IEpisodeRepository.GetEpisodeByFileId(int fileId)`. Returns all chapters that reference a

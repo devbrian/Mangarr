@@ -20,11 +20,13 @@ namespace NzbDrone.Core.Manga
             _logger = logger;
         }
 
-        public Chapter Find(int mangaId, decimal chapterNumber, string translatedLanguage)
+        // Sonarr divergence: Phase 16 STRUCT-01 — 3-arg Find collapsed to 2-arg.
+        // Language axis lifted to ChapterRelease per STRUCT-02; canonical Chapter is now
+        // unique on (MangaId, ChapterNumber) at the SQL layer.
+        public Chapter Find(int mangaId, decimal chapterNumber)
         {
             return Query(c => c.MangaId == mangaId
-                              && c.ChapterNumber == chapterNumber
-                              && c.TranslatedLanguage == translatedLanguage)
+                              && c.ChapterNumber == chapterNumber)
                 .SingleOrDefault();
         }
 
@@ -39,11 +41,6 @@ namespace NzbDrone.Core.Manga
             // EpisodeRepository.GetEpisodesBySeriesIds (line 80-83). Bulk get-by-multiple-parent-IDs
             // for batch operations across multiple mangas.
             return Query(c => mangaIds.Contains(c.MangaId)).ToList();
-        }
-
-        public List<Chapter> GetSyntheticByMangaId(int mangaId)
-        {
-            return Query(c => c.MangaId == mangaId && c.IsSynthetic).ToList();
         }
 
         public List<Chapter> GetChapterByFileId(int fileId)

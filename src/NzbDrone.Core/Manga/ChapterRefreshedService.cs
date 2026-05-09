@@ -83,9 +83,10 @@ namespace NzbDrone.Core.Manga
                 return;
             }
 
+            // Sonarr divergence: Phase 16 D-02 — chapter.ReleaseDate -> chapter.FirstReleaseDate.
             var previouslyReleased = message.Added.Where(a =>
-                    a.ReleaseDate.HasValue &&
-                    a.ReleaseDate.Value.Between(DateTime.UtcNow.AddDays(-14), DateTime.UtcNow.AddDays(1)) &&
+                    a.FirstReleaseDate.HasValue &&
+                    a.FirstReleaseDate.Value.Between(DateTime.UtcNow.AddDays(-14), DateTime.UtcNow.AddDays(1)) &&
                     a.Monitored)
                 .Select(c => c.Id)
                 .ToList();

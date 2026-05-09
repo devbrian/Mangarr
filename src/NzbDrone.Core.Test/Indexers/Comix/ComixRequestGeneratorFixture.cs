@@ -102,7 +102,9 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             Subject.ResolvedMangaSlug = "mr3m0-the-forgotten-field";
 
             var manga = new Manga.Manga { Title = "The Forgotten Field" };
-            var chapter = new Manga.Chapter { ChapterNumber = 4m, TranslatedLanguage = "en" };
+
+            // Phase 16 STRUCT-01: TranslatedLanguage lifted off Chapter (now on ChapterRelease).
+            var chapter = new Manga.Chapter { ChapterNumber = 4m };
             var criteria = new ChapterSearchCriteria
             {
                 Manga = manga,

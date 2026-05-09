@@ -54,9 +54,12 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo
                         ? chapter.VolumeNumber.Value.ToString(CultureInfo.InvariantCulture)
                         : null),
                 Element("Summary",         manga?.Overview),
-                Element("Year",            chapter?.ReleaseDate?.Year.ToString(CultureInfo.InvariantCulture)),
-                Element("Month",           chapter?.ReleaseDate?.Month.ToString(CultureInfo.InvariantCulture)),
-                Element("Day",             chapter?.ReleaseDate?.Day.ToString(CultureInfo.InvariantCulture)),
+
+                // Phase 16 D-02 — chapter.ReleaseDate -> chapter.FirstReleaseDate.
+                // Sonarr-mirror of Episode.AirDateUtc; the upstream chapter-publish date.
+                Element("Year",            chapter?.FirstReleaseDate?.Year.ToString(CultureInfo.InvariantCulture)),
+                Element("Month",           chapter?.FirstReleaseDate?.Month.ToString(CultureInfo.InvariantCulture)),
+                Element("Day",             chapter?.FirstReleaseDate?.Day.ToString(CultureInfo.InvariantCulture)),
                 Element(
                     "Genre",
                     manga?.Genres != null && manga.Genres.Count > 0

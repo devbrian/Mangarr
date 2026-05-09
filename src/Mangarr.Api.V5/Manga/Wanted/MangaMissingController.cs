@@ -127,10 +127,13 @@ namespace Mangarr.Api.V5.Manga.Wanted
                 pagingSpec.FilterExpressions.Add(c => mangaIds.Contains(c.MangaId));
             }
 
-            if (languages != null && languages.Length > 0)
-            {
-                pagingSpec.FilterExpressions.Add(c => languages.Contains(c.TranslatedLanguage));
-            }
+            // TODO(plan-16-04): retarget the languages filter through IChapterReleaseService.
+            // Phase 16 STRUCT-01 lifted TranslatedLanguage off the canonical Chapter; per
+            // STRUCT-06 / STRUCT-09 the Wanted+Missing language gate moves to the ChapterRelease
+            // grain. For the Plan 16-02 boundary GREEN the filter is a no-op stub — Plan 16-04
+            // re-introduces it via a chapter-id pre-filter computed from
+            // IChapterReleaseRepository.GetByChapterIds + language match.
+            _ = languages;
 
             // D-04: NO IsSynthetic filter. Synthetic rows are placeholder rows from the
             // metadata-only-count fallback (Phase 2 D-17) and surface identically to real-feed

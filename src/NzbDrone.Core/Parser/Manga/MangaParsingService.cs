@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using NLog;
@@ -148,45 +147,19 @@ namespace NzbDrone.Core.Parser.Manga
 
             if (parsedChapterInfo?.ChapterNumbers != null)
             {
-                // D-10 in action — read whatever language parsedInfo carries.
-                // Indexers overwrite this BEFORE Map; parser fallback flows when
-                // they don't.
-                //
-                // Issue #30 — `noLanguageSignal` distinguishes the "no information
-                // at all" case from the explicit-undefined case. When NEITHER
-                // indexer NOR parser supplied a language, fall back to a
-                // chapter-number-only match so files dropped into a manga
-                // folder without language tags still match real DB chapters
-                // (which carry actual codes like "en" from the metadata source).
-                // When a language IS supplied (including the explicit "und"
-                // sentinel from a synthetic-chapter feed), keep strict equality
-                // semantics so multi-language libraries don't accidentally pick
-                // a wrong-language chapter.
-                var noLanguageSignal = string.IsNullOrEmpty(parsedChapterInfo.TranslatedLanguage);
-                var lang = noLanguageSignal
-                    ? UndefinedLanguage
-                    : parsedChapterInfo.TranslatedLanguage;
-
+                // TODO(plan-16-03): re-introduce per-translation disambiguation via
+                // IChapterReleaseService.GetReleasesByChapter once Wave 2 lands the navigation.
+                // Plan 16-02 stub: canonical Chapter is now language-free at the
+                // (MangaId, ChapterNumber) grain (Phase 16 STRUCT-01), so Map collapses to
+                // lookup-by-(MangaId, ChapterNumber). Language matching moves to the
+                // ChapterRelease layer in Plan 16-03.
                 foreach (var num in parsedChapterInfo.ChapterNumbers)
                 {
-                    Chapter ch = null;
+                    var ch = existingChapters?.FirstOrDefault(c =>
+                        c.MangaId == manga.Id
+                        && c.ChapterNumber == num);
 
-                    if (noLanguageSignal)
-                    {
-                        ch = ResolveByNumberOnly(manga, existingChapters, num);
-                    }
-                    else
-                    {
-                        // Prefer the pre-loaded existingChapters (avoids per-chapter
-                        // DB hits in batch pipelines); fall back to the repository
-                        // when a parsed number is not in the pre-loaded set.
-                        ch = existingChapters?.FirstOrDefault(c =>
-                            c.MangaId == manga.Id
-                            && c.ChapterNumber == num
-                            && c.TranslatedLanguage == lang);
-
-                        ch ??= _chapterService.FindByMangaAndNumber(manga.Id, num, lang);
-                    }
+                    ch ??= _chapterService.FindByMangaAndNumber(manga.Id, num);
 
                     if (ch != null)
                     {
@@ -203,89 +176,12 @@ namespace NzbDrone.Core.Parser.Manga
             };
         }
 
-        // Issue #30 helper — chapter-number-only resolver used when neither indexer
-        // nor parser supplied a language. Walks pre-loaded existingChapters first,
-        // disambiguating multi-language matches via the manga's TranslationProfile
-        // preferred-language order (lower index = better). Falls back to "und"
-        // chapters (synthetic feed) when no preferred-language match exists, then
-        // any chapter for the (mangaId, chapterNumber) pair.
-        private Chapter ResolveByNumberOnly(NzbDrone.Core.Manga.Manga manga, IList<Chapter> existingChapters, decimal num)
-        {
-            var candidates = (existingChapters ?? new List<Chapter>())
-                .Where(c => c.MangaId == manga.Id && c.ChapterNumber == num)
-                .ToList();
-
-            if (candidates.Count == 0)
-            {
-                // existingChapters wasn't pre-loaded or didn't include this chapter.
-                // Fall back to a single un-langed repository lookup using the manga's
-                // preferred language (rank 0). When that yields nothing, try "und"
-                // (synthetic-chapter sentinel). This keeps the worst case at two DB
-                // hits and matches the "best-effort identity" intent of disk-scan /
-                // manual-import flows.
-                var preferred = ResolvePreferredLanguage(manga);
-                if (!string.IsNullOrEmpty(preferred))
-                {
-                    var hit = _chapterService.FindByMangaAndNumber(manga.Id, num, preferred);
-                    if (hit != null)
-                    {
-                        return hit;
-                    }
-                }
-
-                return _chapterService.FindByMangaAndNumber(manga.Id, num, UndefinedLanguage);
-            }
-
-            if (candidates.Count == 1)
-            {
-                return candidates[0];
-            }
-
-            // Multi-language candidates — disambiguate by the manga's TranslationProfile
-            // preference order. Chapters whose language is not in the profile fall to
-            // the back of the queue. Stable tiebreaker: original order from the
-            // existingChapters list.
-            var profile = ResolveTranslationProfile(manga);
-            return candidates
-                .OrderBy(c => GetLanguageRank(c.TranslatedLanguage, profile))
-                .First();
-        }
-
-        private TranslationProfile ResolveTranslationProfile(NzbDrone.Core.Manga.Manga manga)
-        {
-            var profileId = manga.TranslationProfileId ?? _configService.DefaultTranslationProfileId;
-            if (profileId == null || profileId.Value <= 0)
-            {
-                return null;
-            }
-
-            try
-            {
-                return _translationProfileService.Get(profileId.Value);
-            }
-            catch (Exception ex)
-            {
-                _logger.Trace(ex, "MangaParsingService.Map: TranslationProfile lookup failed for id {0}", profileId.Value);
-                return null;
-            }
-        }
-
-        private string ResolvePreferredLanguage(NzbDrone.Core.Manga.Manga manga)
-        {
-            var profile = ResolveTranslationProfile(manga);
-            return profile?.Languages?.FirstOrDefault();
-        }
-
-        private static int GetLanguageRank(string language, TranslationProfile profile)
-        {
-            if (profile?.Languages == null || string.IsNullOrEmpty(language))
-            {
-                return int.MaxValue;
-            }
-
-            var idx = profile.Languages.FindIndex(l =>
-                string.Equals(l, language, StringComparison.OrdinalIgnoreCase));
-            return idx < 0 ? int.MaxValue : idx;
-        }
+        // TODO(plan-16-03): re-introduce chapter-number-only resolver helpers once Wave 2
+        // wires per-translation disambiguation against IChapterReleaseService.
+        // Phase 16 STRUCT-01 collapsed the language axis from canonical Chapter — the
+        // multi-candidate disambiguation is moot until Plan 16-03 lands the per-language
+        // ChapterRelease layer. ResolveByNumberOnly / ResolvePreferredLanguage /
+        // ResolveTranslationProfile / GetLanguageRank all removed; consumers moved to the
+        // simpler (MangaId, ChapterNumber) lookup path.
     }
 }

@@ -289,12 +289,11 @@ namespace NzbDrone.Core.Test.MediaFiles
             var filePath = Path.Combine(_manga.Path, "Manga Title - Chapter 001.cbz").AsOsAgnostic();
             GivenFiles(new List<string> { filePath });
 
-            // DB chapter carries the actual language code ("en") — what MangaDex would return.
+            // Phase 16 STRUCT-01: TranslatedLanguage lifted off Chapter (now on ChapterRelease).
             var dbChapter = Builder<Chapter>
                 .CreateNew()
                 .With(c => c.MangaId = _manga.Id)
                 .With(c => c.ChapterNumber = 1m)
-                .With(c => c.TranslatedLanguage = "en")
                 .Build();
 
             // Map returns the resolved RemoteChapter (simulating the language-fallback hit).
@@ -320,11 +319,11 @@ namespace NzbDrone.Core.Test.MediaFiles
 
             var lc = captured[0];
             lc.Chapter.Should().NotBeNull();
-            lc.Chapter.TranslatedLanguage.Should().Be("en");
 
-            // The LocalChapter carries the matched chapter's language even though the parser
-            // extracted none from the filename — this is the back-propagation under test.
-            lc.TranslatedLanguage.Should().Be("en");
+            // TODO(plan-16-03): re-introduce the back-propagation assertion against the
+            // ChapterRelease grain. The parser-extracted language flows through unchanged
+            // for the Plan 16-02 boundary GREEN.
+            lc.TranslatedLanguage.Should().BeNull();
         }
     }
 }

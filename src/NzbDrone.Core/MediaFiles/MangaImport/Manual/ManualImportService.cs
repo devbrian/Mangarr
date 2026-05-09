@@ -388,15 +388,12 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
 
             var chapter = remoteChapter?.Chapters?.FirstOrDefault();
 
-            // Issue #30 — when the parser couldn't extract a language tag from the filename
-            // but Map resolved a chapter via the language-fallback path, the matched chapter's
-            // language is the authoritative provenance. Back-propagate it so the downstream
-            // ChapterFile row records the correct TranslatedLanguage instead of null.
+            // Issue #30 — when the parser couldn't extract a language tag from the filename,
+            // fall back to the parser's signal. Phase 16 STRUCT-01 removed the per-Chapter
+            // TranslatedLanguage axis (lifted to ChapterRelease).
+            // TODO(plan-16-03): re-introduce the back-propagation against
+            // IChapterReleaseService.GetReleasesByChapter once Wave 2 wires it.
             var resolvedLanguage = parsed?.TranslatedLanguage;
-            if (string.IsNullOrEmpty(resolvedLanguage) && chapter != null)
-            {
-                resolvedLanguage = chapter.TranslatedLanguage;
-            }
 
             return new LocalChapter
             {

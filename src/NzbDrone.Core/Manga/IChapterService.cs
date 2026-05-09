@@ -5,16 +5,19 @@ namespace NzbDrone.Core.Manga
 {
     // Service contract for Chapter row. Mirrors Sonarr's IEpisodeService
     // (Tv/EpisodeService.cs:15-42) shape, with manga-domain divergence:
-    //   * FindEpisode(seriesId, season, episodeNumber) → FindByMangaAndNumber(
-    //     mangaId, decimal chapterNumber, string translatedLanguage) — D-03 contract
-    //     consumed by MangaParsingService.Map (Plan 02-04)
+    //   * FindByMangaAndNumber(mangaId, decimal chapterNumber) — Phase 16 STRUCT-01
+    //     dropped the language arg; canonical Chapter is now language-free.
     //   * Drop EpisodeFile-related methods (Phase 4 archive-layer territory)
     //   * Drop Paging / EpisodeBetweenDates (Phase 7 UI territory)
     public interface IChapterService
     {
         Chapter GetChapter(int id);
         List<Chapter> GetChapters(IEnumerable<int> ids);
-        Chapter FindByMangaAndNumber(int mangaId, decimal chapterNumber, string translatedLanguage);
+
+        // Sonarr divergence: Phase 16 STRUCT-01 — 3-arg form (with translatedLanguage)
+        // dropped because the language axis is gone from the canonical Chapter grain.
+        // Per-language lookups go via IChapterReleaseService.GetReleasesByChapter.
+        Chapter FindByMangaAndNumber(int mangaId, decimal chapterNumber);
         List<Chapter> GetChaptersByManga(int mangaId);
 
         // Phase 8 audit (EpisodeService-vs-ChapterService.md gap-10) — bulk overload, sibling of TV's
@@ -22,8 +25,6 @@ namespace NzbDrone.Core.Manga
         // Pass-through to `IChapterRepository.GetChaptersByMangaIds`. Used by ImportLists, bulk
         // operations, and multi-manga health-check / wanted-search flows.
         List<Chapter> GetChaptersByManga(List<int> mangaIds);
-
-        List<Chapter> GetSyntheticChaptersByManga(int mangaId);
 
         // Phase 6 D-09 — Missing/Wanted feed: monitored Chapters that have no ChapterFile imported.
         // Manga.Monitored filtering is applied at the consumer layer (Plan 06-06

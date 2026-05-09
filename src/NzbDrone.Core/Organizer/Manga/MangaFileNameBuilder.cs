@@ -198,17 +198,18 @@ namespace NzbDrone.Core.Organizer.Manga
 
                 case "scanlationgroup":
                 case "scanlation.group":
-                    // Indexer-supplied wins (Phase 2 D-10) — read from ReleaseInfo first, fall back
-                    // to the parser's per-chapter ScanlationGroup field.
-                    return !string.IsNullOrWhiteSpace(release?.ScanlationGroup)
-                        ? release.ScanlationGroup
-                        : chapters?.FirstOrDefault()?.ScanlationGroup;
+                    // Phase 16 STRUCT-01: ScanlationGroup lifted to ChapterRelease (per-translation
+                    // data). For naming we read from the indexer's ReleaseInfo only — the
+                    // canonical Chapter row no longer carries scanlation-group metadata.
+                    // TODO(plan-16-03): re-add ChapterRelease fallback once Wave 2 wires the
+                    // selected-release context onto the naming input.
+                    return release?.ScanlationGroup;
 
                 case "language":
-                    // Indexer-supplied TranslatedLanguage (BCP-47); fall back to chapter row.
-                    return !string.IsNullOrWhiteSpace(release?.TranslatedLanguage)
-                        ? release.TranslatedLanguage
-                        : chapters?.FirstOrDefault()?.TranslatedLanguage;
+                    // Phase 16 STRUCT-01: TranslatedLanguage lifted to ChapterRelease — same
+                    // shape as scanlation group above; release-only token until Plan 16-03
+                    // restores the per-release context.
+                    return release?.TranslatedLanguage;
 
                 case "source":
                     // Indexer attribution — D-17 SourceKey. ReleaseInfo.Indexer carries the

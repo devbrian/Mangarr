@@ -27,16 +27,23 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
                 .Returns(new List<NzbDrone.Core.Manga.Chapter>());
         }
 
+        // Phase 16 STRUCT-03: IsSynthetic property removed from Chapter (synthetic-ness now
+        // derives from "0 ChapterRelease rows"). The `synthetic` arg is preserved on this
+        // factory so the existing `D-04: synthetic + real chapters surface alike` test
+        // contract is documented; it's a no-op until Plan 16-03 reintroduces the
+        // ChapterRelease.Count == 0 derivation.
         private NzbDrone.Core.Manga.Chapter Ch(int id, int mangaId, bool synthetic = false, bool monitored = true)
-            => new()
+        {
+            _ = synthetic;
+            return new()
             {
                 Id = id,
                 MangaId = mangaId,
                 ChapterNumber = id,
                 Monitored = monitored,
-                IsSynthetic = synthetic,
                 ChapterFileId = null
             };
+        }
 
         [Test]
         public void Execute_with_null_MangaId_walks_AllMissingMonitoredChapters_and_pushes_one_command_per_manga()

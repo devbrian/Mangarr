@@ -28,7 +28,6 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
                     Id = id,
                     MangaId = 7,
                     ChapterNumber = id,
-                    TranslatedLanguage = "en",
                     Monitored = true
                 });
 

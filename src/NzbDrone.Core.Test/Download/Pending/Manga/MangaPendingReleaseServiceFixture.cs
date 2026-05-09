@@ -64,12 +64,12 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
                 .With(c => c.MangaId = _manga.Id)
                 .Build()
                 .ToList();
+
+            // Phase 16 STRUCT-01: TranslatedLanguage lifted off Chapter (now on ChapterRelease).
             _chapters[0].Id = 100;
             _chapters[0].ChapterNumber = 1m;
-            _chapters[0].TranslatedLanguage = "en";
             _chapters[1].Id = 200;
             _chapters[1].ChapterNumber = 2m;
-            _chapters[1].TranslatedLanguage = "en";
 
             _approvedDecision = BuildDecision(_chapters[0], approved: true);
             _rejectedDecision = BuildDecision(_chapters[1], approved: false);
@@ -153,7 +153,11 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
                 ReleaseTitle = release.Title,
                 MangaTitle = _manga.Title,
                 ChapterNumbers = new[] { chapter.ChapterNumber },
-                TranslatedLanguage = chapter.TranslatedLanguage,
+
+                // Phase 16 STRUCT-01: per-translation language is on ChapterRelease, not Chapter.
+                // For test fixture purposes use a fixed sentinel; Plan 16-03 reintroduces
+                // ChapterRelease-grain language flow.
+                TranslatedLanguage = "en",
             };
 
             var remoteChapter = new RemoteChapter
@@ -188,7 +192,9 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
                     ReleaseTitle = $"Test Manga - Chapter {chapter.ChapterNumber}",
                     MangaTitle = _manga.Title,
                     ChapterNumbers = new[] { chapter.ChapterNumber },
-                    TranslatedLanguage = chapter.TranslatedLanguage,
+
+                    // Phase 16 STRUCT-01: language axis lifted off Chapter (now on ChapterRelease).
+                    TranslatedLanguage = "en",
                 },
                 Release = new ReleaseInfo
                 {

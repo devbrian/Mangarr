@@ -240,16 +240,20 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             var group = entry.Relationships?
                 .FirstOrDefault(r => r.Type == "scanlation_group")?.Attributes?.Name;
 
+            // TODO(plan-16-03): Split into (ChapterEnsureInputs canonical, ChapterReleaseFeedRow release) tuple per STRUCT-05.
+            // Phase 16 D-02 stub — Wave 2 splits this into a tuple per STRUCT-05/07.
+            // Per-translation data (TranslatedLanguage, ScanlationGroup, ReleaseDate) flows via
+            // the Wave-2 ChapterReleaseFeedRow projection; for the Plan 16-02 boundary GREEN we
+            // discard `group` and the per-translation language and only populate canonical
+            // Chapter fields. Plan 16-03 rewrites this method.
+            _ = group; // silence "variable assigned but never used" — Wave 2 consumes it.
             return new Chapter
             {
                 ChapterNumber = chapterNumber,
                 VolumeNumber = volume,
                 Title = attrs?.Title,
-                TranslatedLanguage = attrs?.TranslatedLanguage ?? "und",
-                ScanlationGroup = group,
                 ChapterType = ChapterType.Regular,
-                IsSynthetic = false,
-                ReleaseDate = attrs?.PublishAt,
+                FirstReleaseDate = attrs?.PublishAt,    // Phase 16 D-02 — chapter-publish date denormalized stored col
                 ExternalId = entry.Id,
                 Monitored = true,
             };

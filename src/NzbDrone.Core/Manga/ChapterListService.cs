@@ -8,9 +8,17 @@ using NzbDrone.Core.Parser.Manga;
 namespace NzbDrone.Core.Manga
 {
     /// <summary>
-    /// Implements D-17 chapter-list synthesis fallback. Mirrors the precedent shape from
-    /// RESEARCH §Code Examples Pattern 7. Wires into Plan 02-03's <see cref="IChapterRepository"/>
-    /// and publishes <see cref="ChapterListUpdatedEvent"/> after successful sync.
+    /// Phase 16 D-04 + STRUCT-05 INTERIM stub. Plan 16-03 splits this into
+    /// <c>EnsureChapter</c> + <c>SyncChapterReleases</c> per the Sonarr-mirror two-step
+    /// pattern; for the Plan 16-02 build-green-at-the-boundary contract this body has been
+    /// REWRITTEN to operate on the new canonical Chapter grain (one row per
+    /// (MangaId, ChapterNumber); language data lifted to ChapterRelease).
+    ///
+    /// Sonarr divergence: TODO(plan-16-03) — replace with the EnsureChapter +
+    /// SyncChapterReleases split per STRUCT-05. Strategy 1 / 2 / 3 contracts preserved;
+    /// the per-language fan-out is gone (per-translation rows are NOT inserted here in
+    /// Plan 16-02; Plan 16-03 reintroduces them via SyncChapterReleases against
+    /// IChapterReleaseRepository).
     /// </summary>
     public class ChapterListService : IChapterListService
     {
@@ -32,71 +40,23 @@ namespace NzbDrone.Core.Manga
             var existing = _chapterRepo.GetByMangaId(manga.Id);
 
             // STRATEGY 1 (D-17.1): MangaDex linked → real-feed rows are source of truth.
+            // Phase 16 collapse: incoming rows are now canonical (one per ChapterNumber).
+            // Plan 16-02 stub: dedupe by ChapterNumber and insert any new canonical rows.
+            // Plan 16-03 reintroduces the per-translation upsert via SyncChapterReleases.
             if (manga.MangaDexId.HasValue && incoming != null && incoming.Any())
             {
-                // BL-05 FIX: previous code grouped incoming by ChapterNumber alone and
-                // kept only `g.First()` — silently dropping every other translation /
-                // scanlation-group entry at the same number. MangaDex's /manga/{id}/feed
-                // returns one entry per (chapter, language, group) triple, so a single
-                // chapter typically has 5-20 incoming rows. Grouping by
-                // (ChapterNumber, TranslatedLanguage) preserves multilingual entries.
-                //
-                // Synthetic-row upgrade contract: synthetic rows carry "und" and
-                // represent the "chapter N exists" slot. We upgrade each synthetic IN
-                // PLACE using ANY incoming row that matches its ChapterNumber (the first
-                // one wins — typically English when present, else whatever the source
-                // returned first). The remaining incoming rows for the same number get
-                // INSERTED below as new translation rows. Without this fix the synthetic
-                // stayed pinned at "und" forever (since its (N,"und") key never matched
-                // any incoming (N,"en") key).
-                var existingKeys = existing
-                    .Select(e => (e.ChapterNumber, e.TranslatedLanguage))
-                    .ToHashSet();
-                var consumedIncoming = new HashSet<Chapter>();
+                var existingNumbers = existing.Select(e => e.ChapterNumber).ToHashSet();
 
-                var incomingByNumber = incoming
-                    .GroupBy(c => c.ChapterNumber)
-                    .ToDictionary(g => g.Key, g => g.ToList());
-
-                foreach (var ex in existing.Where(e => e.IsSynthetic))
+                foreach (var c in incoming.GroupBy(x => x.ChapterNumber).Select(g => g.First()))
                 {
-                    if (incomingByNumber.TryGetValue(ex.ChapterNumber, out var realList) && realList.Count > 0)
-                    {
-                        var real = realList[0];
-                        real.Id = ex.Id;
-                        real.MangaId = manga.Id;
-                        real.IsSynthetic = false;
-                        _chapterRepo.Update(real);
-                        consumedIncoming.Add(real);
-
-                        // Refresh existingKeys so the bulk-insert pass below does not
-                        // try to re-insert the row we just upgraded in place.
-                        existingKeys.Add((real.ChapterNumber, real.TranslatedLanguage));
-
-                        // Orphan synthetic rows kept until Phase 5 cleanup logic per D-17 trailing note.
-                    }
-                }
-
-                // Insert all remaining incoming chapters that are not already represented
-                // by an (existing OR just-upgraded) row at the same
-                // (ChapterNumber, TranslatedLanguage) key. This preserves every language
-                // / group variant the source returned.
-                foreach (var c in incoming)
-                {
-                    if (consumedIncoming.Contains(c))
-                    {
-                        continue;
-                    }
-
-                    if (existingKeys.Contains((c.ChapterNumber, c.TranslatedLanguage)))
+                    if (existingNumbers.Contains(c.ChapterNumber))
                     {
                         continue;
                     }
 
                     c.MangaId = manga.Id;
-                    c.IsSynthetic = false;
                     _chapterRepo.Insert(c);
-                    existingKeys.Add((c.ChapterNumber, c.TranslatedLanguage));
+                    existingNumbers.Add(c.ChapterNumber);
                 }
 
                 _eventAggregator.PublishEvent(new ChapterListUpdatedEvent(manga));
@@ -104,6 +64,8 @@ namespace NzbDrone.Core.Manga
             }
 
             // STRATEGY 2 (D-17.2): MangaDex NOT linked AND primary returned chapter-count > 0 → synthesize.
+            // Phase 16 D-04: zero-release Chapters render as Missing — no IsSynthetic flag stored;
+            // synthetic-ness now derives from "0 ChapterRelease rows".
             if (!manga.MangaDexId.HasValue && manga.TotalChapterCount.HasValue && manga.TotalChapterCount > 0)
             {
                 if (existing.Any())
@@ -122,11 +84,6 @@ namespace NzbDrone.Core.Manga
                         ChapterNumber = n,
                         Title = null,
                         ChapterType = ChapterType.Regular,
-                        IsSynthetic = true,
-
-                        // PER RESEARCH §Open Question 3: BCP-47 "und" sentinel — preserves NotNullable column.
-                        TranslatedLanguage = "und",
-                        ScanlationGroup = null,
                         Monitored = true,
                     });
                 }

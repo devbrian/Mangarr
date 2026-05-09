@@ -44,6 +44,14 @@ namespace NzbDrone.Core.Test.OrganizerTests.Manga
 
         private List<NzbDrone.Core.Manga.Chapter> SingleChapter(decimal number, string title = null, string lang = null, string scanGroup = null)
         {
+            // Phase 16 STRUCT-01: TranslatedLanguage / ScanlationGroup lifted off Chapter
+            // (now on ChapterRelease). Token resolution reads from ReleaseInfo (filename
+            // builder consumes release-side fields per the production code stub in Plan 16-02).
+            // The lang / scanGroup args are kept for caller compatibility but unused here;
+            // tests that assert {Language} or {ScanlationGroup} tokens populate the ReleaseInfo
+            // fixture directly.
+            _ = lang;
+            _ = scanGroup;
             return new List<NzbDrone.Core.Manga.Chapter>
             {
                 new NzbDrone.Core.Manga.Chapter
@@ -52,8 +60,6 @@ namespace NzbDrone.Core.Test.OrganizerTests.Manga
                     MangaId = 1,
                     ChapterNumber = number,
                     Title = title,
-                    TranslatedLanguage = lang,
-                    ScanlationGroup = scanGroup
                 }
             };
         }

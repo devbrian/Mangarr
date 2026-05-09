@@ -91,8 +91,7 @@ namespace Mangarr.Api.V5.Manga.Queue
                     Id = model.Chapter.Id,
                     MangaId = model.Chapter.MangaId,
                     ChapterNumber = model.Chapter.ChapterNumber,
-                    Title = model.Chapter.Title,
-                    TranslatedLanguage = model.Chapter.TranslatedLanguage
+                    Title = model.Chapter.Title
                 }
             };
         }
