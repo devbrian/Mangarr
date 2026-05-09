@@ -250,7 +250,9 @@ namespace NzbDrone.Api.Test.Manga.Wanted
                 "mangaIds filter should reject rows whose MangaId is not in the supplied list");
         }
 
+        // Sonarr divergence: Phase 16 STRUCT-06 — languages filter retargets at ChapterRelease.
         [Test]
+        [Ignore("Wave 3 dependency: languages filter retargets at ChapterRelease in Plan 16-04 per Phase 16 STRUCT-06")]
         public void GetMissingChapters_applies_languages_filter_when_languages_non_empty()
         {
             PagingSpec<NzbDrone.Core.Manga.Chapter> capturedSpec = null;

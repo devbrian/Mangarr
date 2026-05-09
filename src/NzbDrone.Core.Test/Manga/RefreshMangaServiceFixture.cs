@@ -407,6 +407,22 @@ namespace NzbDrone.Core.Test.MangaTests
             captured.Tags.Should().BeEquivalentTo(new[] { 7 }, "user-set Tags must survive (existing invariant)");
         }
 
+        // Sonarr divergence: Phase 16 STRUCT-07 idempotency contract — see DIVERGENCE.md.
+        [Test]
+        [Ignore("Wave 2/3 dependency: split EnsureChapter+SyncChapterReleases lands Plan 16-03; RefreshMangaCommand re-target lands Plan 16-03")]
+        public void Refresh_twice_produces_identical_state()
+        {
+            // Phase 16 STRUCT-07 idempotency contract (D-01 stale retention).
+            // Arrange: stub IMetadataSource to return a fixed feed with N unique chapter numbers + M total feed rows.
+            // Act: invoke Subject twice in succession.
+            // Assert:
+            //   - chapter count after run 1 == chapter count after run 2 == N
+            //   - release count after run 1 == release count after run 2 == M
+            //   - row IDs unchanged across runs (no churn)
+            //   - no exceptions raised (UNIQUE constraints not tripped)
+            Assert.Inconclusive("Wave 2/3 dependency");
+        }
+
         // ---- Stub providers ----
         // Test stubs: type-derived from MangaDexMetadataSource / AniListMetadataSource /
         // MyAnimeListMetadataSource so the RefreshMangaService.Execute switch routes by

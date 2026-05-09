@@ -191,5 +191,29 @@ namespace NzbDrone.Api.Test.Manga.Chapter
                     CommandTrigger.Manual),
                 Times.Once);
         }
+
+        // Sonarr divergence: Phase 16 STRUCT-08 — releases: [...] N+1-safe wire shape.
+        [Test]
+        [Ignore("Wave 4 dependency: ChapterResource.Releases lands Plan 16-05")]
+        public void GetChapters_with_mangaId_attaches_releases_collection_to_each_resource()
+        {
+            // STRUCT-08 acceptance: sum(resources.releases.length) == feed-row count.
+            // Arrange: 3 chapters with 2/3/0 releases (mix tests D-04 zero-release case).
+            // Act: Subject.GetChapters(mangaId, ...)
+            // Assert: each ChapterResource.Releases is hydrated; sum == 5 (2+3+0).
+            Assert.Inconclusive("Wave 4");
+        }
+
+        [Test]
+        [Ignore("Wave 4 dependency: N+1 RED FLAG guard")]
+        public void GetChapters_does_not_call_GetReleasesByChapter_per_chapter_in_loop()
+        {
+            // N+1 RED FLAG (per RESEARCH §Pitfall "Adding releases via N+1"):
+            // Mocker.GetMock<IChapterReleaseService>()
+            //   .Verify(s => s.GetReleasesByMangaId(It.IsAny<int>()), Times.Once);
+            // Mocker.GetMock<IChapterReleaseService>()
+            //   .Verify(s => s.GetReleasesByChapter(It.IsAny<int>()), Times.Never);
+            Assert.Inconclusive("Wave 4");
+        }
     }
 }
