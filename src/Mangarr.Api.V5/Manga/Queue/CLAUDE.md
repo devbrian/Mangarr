@@ -161,10 +161,12 @@ expects. Phase 15 D-15-XX type unification will introduce a unified
   - `MangaQueueSubresource` → collapses with `QueueSubresource`
   - `RemoteChapter.ToRemoteEpisodeShim()` call site disappears alongside the unified
     `IDownloadService.DownloadReport(RemoteChapter, int?)` overload.
-- **Frontend re-pointing (deferred):** Several frontend hooks still reference TV queue
-  paths (`useQueueStatus.ts:15` calls `/queue/status`; `QueueDetailsProvider.tsx:31`
-  calls `/queue/details`). Re-pointing to the manga peers is a separate plan per
-  D-13-16 additive-only mandate.
+- **Frontend re-pointing (partial — 2026-05-09):** `QueueDetailsProvider.tsx` was repointed
+  onto `/manga/queue/details` by the home-404s-queue-qualityprofile fix; filter params
+  mapped (`seriesId`→`mangaId`, `episodeIds`→`chapterIds`); the legacy `all=true`
+  discriminator dropped (manga endpoint returns the full queue with no filter); helper
+  hooks (`useQueueDetailsForSeries` etc.) fall back to manga-shape fields. Still deferred:
+  `useQueueStatus.ts:15` (`/queue/status`) — separate plan per D-13-16 additive-only mandate.
 
 ## Test fixture location
 
