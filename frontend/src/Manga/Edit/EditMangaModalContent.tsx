@@ -21,24 +21,16 @@
 //     MangaDetails is its own modal (Plan 15-12 second deferred item) and
 //     will be wired in a sibling fix-forward PR.
 //
-// === v1.1 minimum-viable scope (2026-05-08) ===
-// The fields exposed below are intentionally a subset of the editable surface
-// AddNewMangaModalContent ships, because the backend persistence path is not
-// yet in place for the others:
+// === Editable field set (Issue #28 — 2026-05-09) ===
+// All five fields below round-trip end-to-end through MangaResource +
+// Manga.ApplyChanges. PR #27 originally shipped just Monitored + Tags because
+// MonitorNewItems / TranslationProfileId / CustomFormatProfileId were not yet
+// on the wire. Issue #28 closed those backend gaps; this modal now exposes
+// the full editable surface that the bulk-edit modal also exposes (minus the
+// NoChange semantics that only multi-select needs).
 //
-//   * `Monitored`            — Manga.ApplyChanges line 116 copies it. ✓
-//   * `Tags`                 — Manga.ApplyChanges line 115 copies it. ✓
-//   * `MonitorNewItems`      — NOT on MangaResource and NOT in Manga.cs.
-//                              Deferred until the resource + ApplyChanges land.
-//   * `TranslationProfileId` — On Manga.cs line 37 but NOT exposed on
-//                              MangaResource and NOT copied by ApplyChanges.
-//                              Deferred until both extensions land.
-//   * `CustomFormatProfileId`— Same as TranslationProfileId.
-//   * `Path` / RootFolder    — Deferred (no RootFolderModal).
-//
-// Re-add fields as the backend MangaResource + Manga.ApplyChanges grow. The
-// Sonarr-side EditSeriesModalContent (commit 0521a6c39) is the structural
-// reference — drop in a FormGroup per field once the persistence side ships.
+// Path / RootFolder remains deferred — RootFolderModal + MoveSeriesModal
+// have not been re-shipped post-Plan-15-07.
 //
 // Phase 8 cleanup: this file IS the manga canonical now (Tv/ subtree gone).
 import React, { useCallback, useEffect, useMemo } from 'react';
@@ -46,6 +38,7 @@ import Form from 'Components/Form/Form';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
+import { EnhancedSelectInputValue } from 'Components/Form/Select/EnhancedSelectInput';
 import Button from 'Components/Link/Button';
 import SpinnerErrorButton from 'Components/Link/SpinnerErrorButton';
 import ModalBody from 'Components/Modal/ModalBody';
@@ -53,10 +46,11 @@ import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import { getValidationFailures } from 'Helpers/Hooks/useApiMutation';
+import useApiQuery from 'Helpers/Hooks/useApiQuery';
 import { usePendingChangesStore } from 'Helpers/Hooks/usePendingChangesStore';
 import usePrevious from 'Helpers/Hooks/usePrevious';
 import { inputTypes, sizes } from 'Helpers/Props';
-import Manga from 'Manga/Manga';
+import Manga, { MonitorNewItems } from 'Manga/Manga';
 import { useSaveManga, useSingleManga } from 'Manga/useManga';
 import selectSettings from 'Store/Selectors/selectSettings';
 import { InputChanged } from 'typings/inputs';
@@ -68,13 +62,40 @@ export interface EditMangaModalContentProps {
   onModalClose: () => void;
 }
 
-// Editable subset of the Manga record. Only fields the backend actually
-// persists today are listed here (see file header "v1.1 minimum-viable
-// scope" note). Other Manga fields ride through unchanged in the PUT
-// payload via spread of `manga` in handleSavePress.
+// Editable subset of the Manga record. Fields here MUST round-trip through
+// MangaResource + Manga.ApplyChanges; verify on the backend before extending.
 interface EditableMangaFields {
   monitored: boolean;
+  monitorNewItems: MonitorNewItems;
+  translationProfileId: number;
+  customFormatProfileId: number;
   tags: number[];
+}
+
+// 2-value MangaMonitorNewItems mirror — keys match the C# enum value names so
+// JSON round-trip lands on the right enum value at the controller layer.
+// Sonarr precedent: MonitorNewItemsSelectInput.tsx (which reads from a stub
+// monitorNewItemsOptions array). For the single-manga modal we render a plain
+// SELECT input bound to this 2-entry list — no NoChange / Mixed extras
+// (those only matter for the bulk-edit case).
+const monitorNewItemsValues: EnhancedSelectInputValue<string>[] = [
+  {
+    key: 'all',
+    get value() {
+      return translate('MonitorAllChapters');
+    },
+  },
+  {
+    key: 'none',
+    get value() {
+      return translate('MonitorNone');
+    },
+  },
+];
+
+interface ProfileResource {
+  id: number;
+  name?: string;
 }
 
 // Inner form component: runs only when `manga` is defined (the wrapper
@@ -95,9 +116,45 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
   const { saveManga, isSaving, saveError } = useSaveManga(manga.id, false);
   const wasSaving = usePrevious(isSaving);
 
+  // Profile dropdowns reuse the Phase 5 V5 list endpoints. Mirrors the
+  // AddNewMangaModalContent pattern — same useApiQuery + EnhancedSelectInputValue
+  // mapping. Defer enabling until the modal is open (it always is when this
+  // component renders); no debounce needed.
+  const { data: translationProfilesData } = useApiQuery<ProfileResource[]>({
+    path: '/translationprofile',
+  });
+  const { data: customFormatProfilesData } = useApiQuery<ProfileResource[]>({
+    path: '/customformatprofile',
+  });
+
+  const translationProfileValues = useMemo<
+    EnhancedSelectInputValue<number>[]
+  >(() => {
+    return (translationProfilesData ?? []).map((profile) => ({
+      key: profile.id,
+      value: profile.name ?? `Translation Profile ${profile.id}`,
+    }));
+  }, [translationProfilesData]);
+
+  const customFormatProfileValues = useMemo<
+    EnhancedSelectInputValue<number>[]
+  >(() => {
+    return (customFormatProfilesData ?? []).map((profile) => ({
+      key: profile.id,
+      value: profile.name ?? `Custom Format Profile ${profile.id}`,
+    }));
+  }, [customFormatProfilesData]);
+
   const initial = useMemo<EditableMangaFields>(
     () => ({
       monitored: manga.monitored,
+      // Default to 'all' for legacy rows where the backend default landed
+      // before MonitorNewItems was on the wire.
+      monitorNewItems: manga.monitorNewItems ?? 'all',
+      // 0 means "fall back to Config.DefaultTranslationProfileId / Config.
+      // DefaultCustomFormatProfileId" (Phase 5 D-11 default-seeded entities).
+      translationProfileId: manga.translationProfileId ?? 0,
+      customFormatProfileId: manga.customFormatProfileId ?? 0,
       tags: manga.tags,
     }),
     [manga]
@@ -110,7 +167,13 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
     };
   }, [initial, pendingChanges, saveError]);
 
-  const { monitored, tags } = settings;
+  const {
+    monitored,
+    monitorNewItems,
+    translationProfileId,
+    customFormatProfileId,
+    tags,
+  } = settings;
 
   const handleInputChange = useCallback(
     ({ name, value }: InputChanged) => {
@@ -150,6 +213,43 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
               name="monitored"
               helpText={translate('MonitoredEpisodesHelpText')}
               {...monitored}
+              onChange={handleInputChange}
+            />
+          </FormGroup>
+
+          <FormGroup size={sizes.MEDIUM}>
+            <FormLabel>{translate('MonitorNewItems')}</FormLabel>
+
+            <FormInputGroup
+              type={inputTypes.SELECT}
+              name="monitorNewItems"
+              values={monitorNewItemsValues}
+              helpText={translate('MonitorNewItemsHelpText')}
+              {...monitorNewItems}
+              onChange={handleInputChange}
+            />
+          </FormGroup>
+
+          <FormGroup size={sizes.MEDIUM}>
+            <FormLabel>{translate('TranslationProfile')}</FormLabel>
+
+            <FormInputGroup
+              type={inputTypes.SELECT}
+              name="translationProfileId"
+              values={translationProfileValues}
+              {...translationProfileId}
+              onChange={handleInputChange}
+            />
+          </FormGroup>
+
+          <FormGroup size={sizes.MEDIUM}>
+            <FormLabel>{translate('CustomFormatProfile')}</FormLabel>
+
+            <FormInputGroup
+              type={inputTypes.SELECT}
+              name="customFormatProfileId"
+              values={customFormatProfileValues}
+              {...customFormatProfileId}
               onChange={handleInputChange}
             />
           </FormGroup>

@@ -184,19 +184,26 @@ namespace NzbDrone.Core.Manga
                     var chapters = tuple.Item2;
 
                     // Manga.ApplyChanges copies user-mutable fields (Monitored,
-                    // RootFolderPath, Tags, AddOptions) per gap-02; on a metadata-fetch
-                    // path mangaInfo carries default values for those fields (the source
-                    // doesn't know the user's choice), so without preserving the user's
-                    // values across the call we silently flip Monitored to false on every
-                    // refresh. AddMangaService.PrepareForAdd uses the same dance at
-                    // lines 236-248. Phase 9 should restructure ApplyChanges to drop the
-                    // user-field copy entirely (TV's Series.ApplyChanges-from-metadata
-                    // path doesn't have this problem because RefreshSeriesService doesn't
-                    // call ApplyChanges — it manually copies metadata-only fields).
+                    // RootFolderPath, Tags, AddOptions, MonitorNewItems,
+                    // TranslationProfileId, CustomFormatProfileId) per gap-02; on a
+                    // metadata-fetch path mangaInfo carries default values for those
+                    // fields (the source doesn't know the user's choice), so without
+                    // preserving the user's values across the call we silently flip them
+                    // back to defaults on every refresh — and MangaEditedService queues
+                    // a refresh after every UI single-edit, so without this preservation
+                    // every Save round-trip clobbers itself. AddMangaService.PrepareForAdd
+                    // uses the same dance at lines 236-248. Phase 9 should restructure
+                    // ApplyChanges to drop the user-field copy entirely (TV's
+                    // Series.ApplyChanges-from-metadata path doesn't have this problem
+                    // because RefreshSeriesService doesn't call ApplyChanges — it manually
+                    // copies metadata-only fields).
                     var userMonitored = existing.Monitored;
                     var userRootFolderPath = existing.RootFolderPath;
                     var userTags = existing.Tags;
                     var userAddOptions = existing.AddOptions;
+                    var userMonitorNewItems = existing.MonitorNewItems;
+                    var userTranslationProfileId = existing.TranslationProfileId;
+                    var userCustomFormatProfileId = existing.CustomFormatProfileId;
 
                     existing.ApplyChanges(mangaInfo);
 
@@ -204,6 +211,9 @@ namespace NzbDrone.Core.Manga
                     existing.RootFolderPath = userRootFolderPath ?? existing.RootFolderPath;
                     existing.Tags = userTags ?? existing.Tags;
                     existing.AddOptions = userAddOptions ?? existing.AddOptions;
+                    existing.MonitorNewItems = userMonitorNewItems;
+                    existing.TranslationProfileId = userTranslationProfileId;
+                    existing.CustomFormatProfileId = userCustomFormatProfileId;
 
                     // gap-06: mirror RefreshSeriesService.RefreshSeriesInfo
                     // (Tv/RefreshSeriesService.cs:116-124) — normalize Manga.Path to

@@ -337,6 +337,76 @@ namespace NzbDrone.Core.Test.MangaTests
             ExceptionVerification.ExpectedWarns(1);
         }
 
+        [Test]
+        public void Execute_preserves_user_mutable_fields_across_refresh()
+        {
+            // issue #28 regression — the metadata-fetch path constructs a fresh Manga
+            // from the source response (defaults for MonitorNewItems / TranslationProfileId
+            // / CustomFormatProfileId). Without explicit preservation, ApplyChanges
+            // clobbers the user's choice on every refresh — and MangaEditedService
+            // queues a refresh after every UI single-edit, so without this guard every
+            // Save round-trip silently undoes itself.
+            var existing = new Manga.Manga
+            {
+                Id = 1,
+                Title = "M",
+                MangaDexId = Guid.NewGuid(),
+                Path = TestMangaPath,
+                Monitored = true,
+                MonitorNewItems = MangaMonitorNewItems.None,
+                TranslationProfileId = 99,
+                CustomFormatProfileId = 42,
+                Tags = new HashSet<int> { 7 },
+                RootFolderPath = TestMangaPath,
+            };
+
+            // The stub returns a DIFFERENT instance carrying metadata defaults
+            // (MonitorNewItems = All / TranslationProfileId = null / etc.) — this
+            // mirrors what real metadata sources hand back: they don't know the
+            // user's choices.
+            var fromMetadata = new Manga.Manga
+            {
+                Id = 1,
+                Title = "M (from source)",
+                MangaDexId = existing.MangaDexId,
+                Path = TestMangaPath,
+                Monitored = false,
+                MonitorNewItems = MangaMonitorNewItems.All,
+                TranslationProfileId = null,
+                CustomFormatProfileId = null,
+                Tags = new HashSet<int>(),
+                RootFolderPath = null,
+            };
+
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(existing);
+
+            var stub = new StubMangaDexProvider(fromMetadata);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Manga.Manga captured = null;
+            Mocker.GetMock<IMangaService>()
+                  .Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>()))
+                  .Callback<Manga.Manga, bool>((m, _) => captured = m)
+                  .Returns(existing);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            captured.Should().NotBeNull("UpdateManga must be invoked on the refresh path");
+            captured.MonitorNewItems.Should().Be(MangaMonitorNewItems.None,
+                "user-set MonitorNewItems must survive the metadata-fetch ApplyChanges");
+            captured.TranslationProfileId.Should().Be(99,
+                "user-set TranslationProfileId must survive the metadata-fetch ApplyChanges");
+            captured.CustomFormatProfileId.Should().Be(42,
+                "user-set CustomFormatProfileId must survive the metadata-fetch ApplyChanges");
+
+            // Sanity: the existing preservation block already covered these — assert
+            // we did not regress them while extending the block.
+            captured.Monitored.Should().BeTrue("user-set Monitored must survive (existing invariant)");
+            captured.Tags.Should().BeEquivalentTo(new[] { 7 }, "user-set Tags must survive (existing invariant)");
+        }
+
         // ---- Stub providers ----
         // Test stubs: type-derived from MangaDexMetadataSource / AniListMetadataSource /
         // MyAnimeListMetadataSource so the RefreshMangaService.Execute switch routes by

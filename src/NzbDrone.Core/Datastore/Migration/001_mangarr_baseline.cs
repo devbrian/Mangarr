@@ -522,6 +522,7 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("PrimaryAuthor").AsString().Nullable()          // folded from 002 (D-21 multi-axis confirm)
                 .WithColumn("TranslationProfileId").AsInt32().Nullable()    // Phase 5 D-01 — null = fall back to Config.DefaultTranslationProfileId
                 .WithColumn("CustomFormatProfileId").AsInt32().Nullable()   // Phase 5 D-07 — null = fall back to Config.DefaultCustomFormatProfileId
+                .WithColumn("MonitorNewItems").AsInt32().NotNullable().WithDefaultValue(0) // Issue #28 — MangaMonitorNewItems enum (All=0, None=1); per-Manga "auto-monitor new items on subsequent refresh / RSS" flag; mirrors Sonarr migration 200 + Series.MonitorNewItems
                 .WithColumn("AddOptions").AsString().Nullable();            // Phase 8 audit gap-03 — JSON column (AddMangaOptions IEmbeddedDocument); mirrors Series.AddOptions shape at line 219.
 
             Create.TableForModel("Chapters")
