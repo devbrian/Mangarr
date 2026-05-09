@@ -109,15 +109,22 @@ namespace Mangarr.Api.V5.Manga.Wanted
         {
             var includeManga = includeSubresources?.Contains(MangaMissingSubresource.Manga) ?? false;
 
+            // Sonarr divergence: Phase 16 STRUCT-04 — Chapter.ReleaseDate was lifted to
+            // ChapterRelease.ReleaseDate (per-translation upload time) and replaced with
+            // Chapter.FirstReleaseDate (Sonarr-mirror of Episode.AirDateUtc — the upstream
+            // chapter-publish date). The server-side allowed-sort-key set + default sort key
+            // accept the new column name. Frontend continues to send `?sortKey=releaseDate`
+            // until Plan 16-06 retires that reference; "releaseDate" falls outside the allowed
+            // set so the controller defaults to "firstReleaseDate" (matches the SQL column).
             var pagingResource = new PagingResource<ChapterResource>(paging);
             var pagingSpec = pagingResource.MapToPagingSpec<ChapterResource, NzbDrone.Core.Manga.Chapter>(
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    "releaseDate",
+                    "firstReleaseDate",
                     "chapterNumber",
                     "title"
                 },
-                "releaseDate",
+                "firstReleaseDate",
                 SortDirection.Ascending);
 
             if (monitored)
