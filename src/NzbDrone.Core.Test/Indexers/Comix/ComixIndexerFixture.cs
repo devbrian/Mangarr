@@ -65,5 +65,54 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             headers.Should().ContainKey("Referer");
             headers["Referer"].Should().Be("https://comix.to/");
         }
+
+        [Test]
+        public void EnrichTitlesWithMangaName_prefixes_chapter_titles_lacking_manga_name()
+        {
+            // ComixParser.ParseChapterList emits titles like "Chapter 4 [en] [Group]" — the
+            // chapter-list endpoint is keyed per-manga so the parent title is implicit. Without
+            // a manga-name prefix, MangaParser.ParseChapterTitle can't extract a usable
+            // MangaTitle and downstream lookup fails with "Unknown Manga".
+            var releases = new System.Collections.Generic.List<ReleaseInfo>
+            {
+                new ReleaseInfo { Title = "Chapter 4 [en] [Thunderscans]" },
+                new ReleaseInfo { Title = "Chapter 12.5 [en] [Asura Scans]" },
+            };
+
+            var enriched = ComixIndexer.EnrichTitlesWithMangaName(releases, "The Forgotten Field");
+
+            enriched[0].Title.Should().Be("The Forgotten Field - Chapter 4 [en] [Thunderscans]");
+            enriched[1].Title.Should().Be("The Forgotten Field - Chapter 12.5 [en] [Asura Scans]");
+        }
+
+        [Test]
+        public void EnrichTitlesWithMangaName_skips_titles_already_carrying_manga_name()
+        {
+            // ParseMangaList path already prefixes the title (e.g., latest-updates feed). Don't
+            // double-prefix when the manga name is already present.
+            var releases = new System.Collections.Generic.List<ReleaseInfo>
+            {
+                new ReleaseInfo { Title = "The Forgotten Field - Chapter 7 [en]" },
+            };
+
+            var enriched = ComixIndexer.EnrichTitlesWithMangaName(releases, "The Forgotten Field");
+
+            enriched[0].Title.Should().Be("The Forgotten Field - Chapter 7 [en]");
+        }
+
+        [Test]
+        public void EnrichTitlesWithMangaName_no_op_when_manga_title_blank()
+        {
+            // Defensive: if the criteria carries no manga title (shouldn't happen post-Phase 6,
+            // but keep the helper safe), leave the releases untouched.
+            var releases = new System.Collections.Generic.List<ReleaseInfo>
+            {
+                new ReleaseInfo { Title = "Chapter 4 [en] [Group]" },
+            };
+
+            var enriched = ComixIndexer.EnrichTitlesWithMangaName(releases, null);
+
+            enriched[0].Title.Should().Be("Chapter 4 [en] [Group]");
+        }
     }
 }
