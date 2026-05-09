@@ -135,7 +135,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
     mangaIds: [mangaId],
   });
   const isSearching = useCommandExecuting(CommandNames.MangaSearch, {
-    mangaId,
+    mangaIds: [mangaId],
   });
 
   const handleRefreshPress = useCallback(() => {
@@ -146,9 +146,13 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
   }, [executeCommand, mangaId]);
 
   const handleSearchPress = useCallback(() => {
+    // MangaSearchCommand binds to `MangaIds: List<int>` (plural) per Phase 6 D-06
+    // bulk-dispatch shape; a singular `mangaId` payload silently no-ops in
+    // MangaSearchService.Execute ("MangaSearchCommand received with no MangaIds;
+    // nothing to search"). The command status reports as "completed" — misleading.
     executeCommand({
       name: CommandNames.MangaSearch,
-      mangaId,
+      mangaIds: [mangaId],
     });
   }, [executeCommand, mangaId]);
 
