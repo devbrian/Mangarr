@@ -37,6 +37,28 @@ namespace NzbDrone.Common.Composition.Extensions
             var knownTypes = new KnownTypes(assemblies.SelectMany(x => x.GetTypes()).ToList());
             container.RegisterInstance(knownTypes);
 
+            // === BEGIN PHASE 16 REG-DUMP P-14-DRY (REMOVE BEFORE PLAN 16-07 CLOSE-OUT MERGE) ===
+            // Phase 16 D-28-style REG-DUMP capture per Phase 15 Plan 15-01 carry-over.
+            // Emits each DryIoc registration as an NLog Debug-level "REG-DUMP:" log line at app boot.
+            // Scrape via:
+            //   grep '^.*REG-DUMP:' "$logFile" | sed 's/^[^|]*|[^|]*|[^|]*|REG-DUMP: /REG-DUMP: /' | sort -u > regdump.txt
+            // DELETE THIS BLOCK BEFORE THE PHASE 16 CLOSE-OUT MERGE (Plan 16-07).
+            // NOTE: the existing Phase 15 D-28 env-var-gated block below also emits REG-DUMP
+            // lines (one-shot to a file when MANGARR__REGDUMP=<path> is set). Both paths produce
+            // identical "REG-DUMP: <iface> -> <impl> [<reuse>]" line shape; either may be used to
+            // capture the Plan 16-01 pre-baseline. The env-var path is preferred for clean
+            // line-level output (no NLog timestamp prefix). Plan 16-07 removes both blocks.
+            var regDumpLogger = NLog.LogManager.GetLogger("RegDump");
+            foreach (var reg in container.GetServiceRegistrations())
+            {
+                var serviceType = reg.ServiceType?.FullName ?? "<null>";
+                var implType = reg.ImplementationType?.FullName ?? "<factory>";
+                var reuse = reg.Factory?.Reuse?.GetType().Name ?? "<default>";
+                regDumpLogger.Debug($"REG-DUMP: {serviceType} -> {implType} [{reuse}]");
+            }
+
+            // === END PHASE 16 REG-DUMP P-14-DRY ===
+
             // Sonarr divergence: Phase 15 D-28 — REG-DUMP capture hook for the per-wave REG-DUMP
             // contract (Phase 14 dress-rehearsal baseline at 1999 entries; expected delta -200 to -500
             // post-Phase-15 TV-only deletions). Activated by env var MANGARR__REGDUMP=<path>; one-shot
