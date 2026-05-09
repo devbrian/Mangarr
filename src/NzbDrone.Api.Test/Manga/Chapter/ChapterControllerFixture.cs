@@ -38,6 +38,18 @@ namespace NzbDrone.Api.Test.Manga.Chapter
             // The fixture only exercises endpoint methods (no Handle calls), so a default
             // Mock<> with IsConnected=false is sufficient — broadcasts short-circuit.
             Mocker.SetConstant<IBroadcastSignalRMessage>(new Mock<IBroadcastSignalRMessage>().Object);
+
+            // Phase 16 STRUCT-08: ChapterController.GetChapters now hydrates
+            // ChapterResource.Releases via IChapterReleaseService.GetReleasesByMangaId /
+            // GetReleasesByChapterIds. Default to empty release lists so pre-existing
+            // tests that don't care about releases continue to pass; tests that exercise
+            // the Releases hydration path override these defaults.
+            Mocker.GetMock<IChapterReleaseService>()
+                .Setup(s => s.GetReleasesByMangaId(It.IsAny<int>()))
+                .Returns(new List<ChapterRelease>());
+            Mocker.GetMock<IChapterReleaseService>()
+                .Setup(s => s.GetReleasesByChapterIds(It.IsAny<List<int>>()))
+                .Returns(new List<ChapterRelease>());
         }
 
         [Test]
@@ -192,28 +204,76 @@ namespace NzbDrone.Api.Test.Manga.Chapter
                 Times.Once);
         }
 
-        // Sonarr divergence: Phase 16 STRUCT-08 — releases: [...] N+1-safe wire shape.
+        // Sonarr divergence: Phase 16 STRUCT-08 — releases: [...] N+1-safe wire shape verification.
         [Test]
-        [Ignore("Wave 4 dependency: ChapterResource.Releases lands Plan 16-05")]
         public void GetChapters_with_mangaId_attaches_releases_collection_to_each_resource()
         {
             // STRUCT-08 acceptance: sum(resources.releases.length) == feed-row count.
             // Arrange: 3 chapters with 2/3/0 releases (mix tests D-04 zero-release case).
-            // Act: Subject.GetChapters(mangaId, ...)
-            // Assert: each ChapterResource.Releases is hydrated; sum == 5 (2+3+0).
-            Assert.Inconclusive("Wave 4");
+            const int mangaId = 99;
+            var chapters = new List<NzbDrone.Core.Manga.Chapter>
+            {
+                new() { Id = 1, MangaId = mangaId, ChapterNumber = 1m, Monitored = true, ChapterType = ChapterType.Regular },
+                new() { Id = 2, MangaId = mangaId, ChapterNumber = 2m, Monitored = true, ChapterType = ChapterType.Regular },
+                new() { Id = 3, MangaId = mangaId, ChapterNumber = 3m, Monitored = true, ChapterType = ChapterType.Regular },
+            };
+            Mocker.GetMock<IChapterService>()
+                .Setup(s => s.GetChaptersByManga(mangaId))
+                .Returns(chapters);
+            Mocker.GetMock<IChapterReleaseService>()
+                .Setup(s => s.GetReleasesByMangaId(mangaId))
+                .Returns(new List<ChapterRelease>
+                {
+                    // Chapter 1: 2 releases
+                    new() { Id = 10, ChapterId = 1, TranslatedLanguage = "en", ScanlationGroup = "MangaPlus" },
+                    new() { Id = 11, ChapterId = 1, TranslatedLanguage = "es", ScanlationGroup = "MangaPlus" },
+
+                    // Chapter 2: 3 releases
+                    new() { Id = 20, ChapterId = 2, TranslatedLanguage = "en", ScanlationGroup = "MangaPlus" },
+                    new() { Id = 21, ChapterId = 2, TranslatedLanguage = "es", ScanlationGroup = "MangaPlus" },
+                    new() { Id = 22, ChapterId = 2, TranslatedLanguage = "ja", ScanlationGroup = "Asura" },
+
+                    // Chapter 3: 0 releases (D-04)
+                });
+
+            var result = Subject.GetChapters(mangaId, new List<int>());
+
+            result.Result.Should().BeOfType<Ok<List<ChapterResource>>>();
+            var resources = ((Ok<List<ChapterResource>>)result.Result).Value!;
+
+            resources.Should().HaveCount(3);
+            resources.Sum(r => r.Releases.Count).Should().Be(5);    // 2 + 3 + 0
+            resources.Single(r => r.Id == 1).Releases.Select(rel => rel.Id).Should().BeEquivalentTo(new[] { 10, 11 });
+            resources.Single(r => r.Id == 2).Releases.Should().HaveCount(3);
+
+            // D-04: zero-release chapter returns empty array (NOT null)
+            resources.Single(r => r.Id == 3).Releases.Should().NotBeNull().And.BeEmpty();
         }
 
         [Test]
-        [Ignore("Wave 4 dependency: N+1 RED FLAG guard")]
         public void GetChapters_does_not_call_GetReleasesByChapter_per_chapter_in_loop()
         {
-            // N+1 RED FLAG (per RESEARCH §Pitfall "Adding releases via N+1"):
-            // Mocker.GetMock<IChapterReleaseService>()
-            //   .Verify(s => s.GetReleasesByMangaId(It.IsAny<int>()), Times.Once);
-            // Mocker.GetMock<IChapterReleaseService>()
-            //   .Verify(s => s.GetReleasesByChapter(It.IsAny<int>()), Times.Never);
-            Assert.Inconclusive("Wave 4");
+            // N+1 RED FLAG guard (per RESEARCH §Pitfall "Adding releases via N+1"):
+            // bulk-load via GetReleasesByMangaId ONCE; never per-chapter.
+            const int mangaId = 99;
+            Mocker.GetMock<IChapterService>()
+                .Setup(s => s.GetChaptersByManga(mangaId))
+                .Returns(new List<NzbDrone.Core.Manga.Chapter>
+                {
+                    new() { Id = 1, MangaId = mangaId, ChapterNumber = 1m, ChapterType = ChapterType.Regular },
+                    new() { Id = 2, MangaId = mangaId, ChapterNumber = 2m, ChapterType = ChapterType.Regular },
+                    new() { Id = 3, MangaId = mangaId, ChapterNumber = 3m, ChapterType = ChapterType.Regular },
+                });
+            Mocker.GetMock<IChapterReleaseService>()
+                .Setup(s => s.GetReleasesByMangaId(mangaId))
+                .Returns(new List<ChapterRelease>());
+
+            Subject.GetChapters(mangaId, new List<int>());
+
+            Mocker.GetMock<IChapterReleaseService>()
+                .Verify(s => s.GetReleasesByMangaId(mangaId), Times.Once);
+            Mocker.GetMock<IChapterReleaseService>()
+                .Verify(s => s.GetReleasesByChapter(It.IsAny<int>()), Times.Never);
         }
     }
 }
