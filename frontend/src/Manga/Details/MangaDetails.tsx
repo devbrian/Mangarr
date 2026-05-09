@@ -54,12 +54,14 @@ import {
   useSingleManga,
   useToggleMangaMonitored,
 } from 'Manga/useManga';
-// Sonarr divergence: Phase 15 Plan 15-12 — Series/Edit modal was inlined as a
-// stub when the TV subtree was deleted in Plan 15-07. The dedicated
-// single-manga Edit modal under Manga/Edit/ now ships the deferred
-// "v1.1+ Edit" path (fix(manga-edit-button-no-op)). The Delete modal remains
-// stubbed below; a sibling fix-forward PR will wire it.
+// Sonarr divergence: Phase 15 Plan 15-12 — Series/Edit + Series/Delete modals
+// were inlined as stubs when the TV subtree was deleted in Plan 15-07. The
+// dedicated single-manga modals under Manga/Edit/ + Manga/Delete/ now ship
+// the deferred "v1.1+ Edit" path (fix(manga-edit-button-no-op), PR #27) and
+// the "v1.1+ Delete" path (fix(manga-delete-button-no-op), this PR). Both
+// Plan 15-12 stubs are now retired.
 import EditMangaModal from 'Manga/Edit/EditMangaModal';
+import DeleteMangaModal from 'Manga/Delete/DeleteMangaModal';
 import { useChaptersByManga } from 'Chapter/useChapter';
 import formatBytes from 'Utilities/Number/formatBytes';
 import translate from 'Utilities/String/translate';
@@ -171,7 +173,6 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
     setIsEditModalOpen(false);
     setIsDeleteModalOpen(true);
   }, []);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDeleteModalClose = useCallback(
     () => setIsDeleteModalOpen(false),
     []
@@ -210,8 +211,6 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
   const chapterCount = chapters.length;
   const chapterFileCount = chapters.filter((c) => c.chapterFileId != null).length;
   const sizeOnDisk = statistics.sizeOnDisk ?? 0;
-
-  void handleDeleteModalClose;
 
   return (
     <MangaDetailsProvider mangaId={mangaId}>
@@ -478,15 +477,24 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
             ) : null}
           </div>
 
-          {/* fix(manga-edit-button-no-op): per-manga Edit modal now wired
-              (was Phase 15 Plan 15-12 stub `null : null`). Delete modal
-              remains stubbed until its sibling fix-forward PR. */}
+          {/* fix(manga-edit-button-no-op): per-manga Edit modal wired in
+              PR #27 (was Phase 15 Plan 15-12 stub `null : null`).
+              fix(manga-delete-button-no-op): per-manga Delete modal wired
+              here (was the second Plan 15-12 stub `null : null`). On
+              successful delete, useDeleteManga.onSuccess filters the manga
+              out of the ['/manga'] React Query cache and
+              MangaDetailsPage.tsx's redirect-on-vanish effect navigates the
+              user back to /manga organically — no explicit history.push. */}
           <EditMangaModal
             isOpen={isEditModalOpen}
             mangaId={mangaId}
             onModalClose={handleEditModalClose}
           />
-          {isDeleteModalOpen ? null : null}
+          <DeleteMangaModal
+            isOpen={isDeleteModalOpen}
+            mangaId={mangaId}
+            onModalClose={handleDeleteModalClose}
+          />
         </PageContentBody>
       </PageContent>
     </MangaDetailsProvider>

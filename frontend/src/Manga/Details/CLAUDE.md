@@ -48,10 +48,12 @@ Seasons" Out-of-Scope).
 - **Chapters tab is FLAT** — UI-SPEC §Anti-pattern 5 + PROJECT.md "Volumes /
   Seasons" Out-of-Scope. Do NOT introduce season grouping here. The flat
   shape is locked.
-- **Edit + Delete modals reuse Sonarr Series modals** (`Series/Edit/EditSeriesModal`
-  + `Series/Delete/DeleteSeriesModal`) via `seriesId={mangaId}` — Plan 07-04
-  documented this for the Index page; Plan 07-05 inherits the convention.
-  Phase 8 forks dedicated manga modals.
+- **Edit + Delete modals are dedicated manga siblings** under
+  `Manga/Edit/` (PR #27 — `fix(manga-edit-button-no-op)`) and
+  `Manga/Delete/` (`fix(manga-delete-button-no-op)`). Both replaced the
+  Phase 15 Plan 15-12 stubs (`{isEditModalOpen ? null : null}` /
+  `{isDeleteModalOpen ? null : null}`). Earlier `seriesId={mangaId}` bridge
+  notes are obsolete.
 - **Files / History tabs are v1 placeholders** — Plan 07-08 (Files tab) and
   Plan 07-09 (History wrapper) wire the real content. v1 placeholders use
   `kinds.INFO` Alerts so users see the surface without faking data.

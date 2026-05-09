@@ -1,0 +1,38 @@
+.pathContainer {
+  display: flex;
+  align-items: center;
+}
+
+.path {
+  margin-left: 5px;
+  color: var(--dangerColor);
+  font-weight: bold;
+  word-break: break-all;
+}
+
+.statistics {
+  margin-top: 5px;
+  margin-left: 5px;
+  color: var(--warningColor);
+}
+
+.message {
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.deleteFilesMessage {
+  margin-top: 20px;
+  color: var(--warningColor);
+}
+
+.modalFooter {
+  composes: modalFooter from '~Components/Modal/ModalFooter.css';
+
+  justify-content: space-between;
+}
+
+.modalFooterButtons {
+  display: flex;
+  gap: 10px;
+}
