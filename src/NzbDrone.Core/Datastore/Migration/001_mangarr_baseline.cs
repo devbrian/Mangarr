@@ -457,10 +457,12 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("Release").AsString().Nullable()
                 .WithColumn("Data").AsString().Nullable();
 
-            Create.TableForModel("UpdateHistory")
-                .WithColumn("Date").AsDateTime().NotNullable()
-                .WithColumn("Version").AsString().NotNullable()
-                .WithColumn("EventType").AsInt32().NotNullable();
+            // Sonarr divergence: 2026-05-08 fix-forward — `UpdateHistory` table
+            // creation moved to LogDbUpgrade() below. The repository
+            // (UpdateHistoryRepository) is constructed against ILogDatabase, so the
+            // table must live in logs.db, not the main DB. Previously the table was
+            // (incorrectly) created here in MainDbUpgrade() — see debug note
+            // .planning/debug/update-history-table-missing.md.
 
             Create.TableForModel("ImportListExclusions")
                 .WithColumn("TvdbId").AsInt32().Unique()
@@ -696,6 +698,17 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("Exception").AsString().Nullable()
                 .WithColumn("ExceptionType").AsString().Nullable()
                 .WithColumn("Level").AsString();
+
+            // UpdateHistory lives in logs.db because UpdateHistoryRepository
+            // takes ILogDatabase. Sonarr's upstream baseline creates it here
+            // (Sonarr's 200_log_database migration); the Phase 15 schema
+            // consolidation initially placed it in MainDbUpgrade by mistake —
+            // restored to LogDbUpgrade 2026-05-08. See debug note
+            // .planning/debug/update-history-table-missing.md.
+            Create.TableForModel("UpdateHistory")
+                .WithColumn("Date").AsDateTime().NotNullable()
+                .WithColumn("Version").AsString().NotNullable()
+                .WithColumn("EventType").AsInt32().NotNullable();
         }
     }
 }
