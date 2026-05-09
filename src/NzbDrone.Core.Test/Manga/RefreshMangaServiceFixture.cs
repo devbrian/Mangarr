@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -16,6 +17,7 @@ using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
 using NzbDrone.Core.MetadataSource.MangaDex;
 using NzbDrone.Core.MetadataSource.MyAnimeList;
+using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common;
 
@@ -49,7 +51,7 @@ namespace NzbDrone.Core.Test.MangaTests
                   .Returns(_primaryDef);
 
             // Phase 8 cluster-01 cascade: production now snapshots chapters via
-            // IChapterService.GetChaptersByManga before/after SyncChapters to compute
+            // IChapterService.GetChaptersByManga before/after the chapter-sync pass to compute
             // ChapterInfoRefreshedEvent deltas (gap-08-01-08). Default to empty so
             // existing fixtures don't NRE on .ToDictionary() — tests that assert on
             // the delta override this per-test.
@@ -180,13 +182,15 @@ namespace NzbDrone.Core.Test.MangaTests
 
             Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
 
-            // RefreshMangaService publishes MangaUpdatedEvent directly; ChapterListService
-            // publishes ChapterListUpdatedEvent (when manga has no MangaDex link with chapters,
-            // strategy 3 logs warn — so check that chapter-list service was at least called).
+            // Phase 16 STRUCT-07 + Pitfall 4: RefreshMangaService publishes MangaUpdatedEvent
+            // exactly once and ChapterListUpdatedEvent exactly once per refresh, AFTER both
+            // EnsureChapter + SyncChapterReleases passes complete. With an empty feed (stub
+            // returns empty tuple stream) the foreach is a no-op but the trailing event still
+            // fires.
             Mocker.GetMock<IEventAggregator>()
                   .Verify(e => e.PublishEvent(It.IsAny<MangaUpdatedEvent>()), Times.Once());
-            Mocker.GetMock<IChapterListService>()
-                  .Verify(c => c.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<List<Chapter>>()), Times.Once());
+            Mocker.GetMock<IEventAggregator>()
+                  .Verify(e => e.PublishEvent(It.IsAny<ChapterListUpdatedEvent>()), Times.Once());
         }
 
         // WR-07 regression: when a refresh of one manga throws a non-MangaNotFound
@@ -409,18 +413,124 @@ namespace NzbDrone.Core.Test.MangaTests
 
         // Sonarr divergence: Phase 16 STRUCT-07 idempotency contract — see DIVERGENCE.md.
         [Test]
-        [Ignore("Wave 2/3 dependency: split EnsureChapter+SyncChapterReleases lands Plan 16-03; RefreshMangaCommand re-target lands Plan 16-03")]
         public void Refresh_twice_produces_identical_state()
         {
             // Phase 16 STRUCT-07 idempotency contract (D-01 stale retention).
-            // Arrange: stub IMetadataSource to return a fixed feed with N unique chapter numbers + M total feed rows.
-            // Act: invoke Subject twice in succession.
-            // Assert:
-            //   - chapter count after run 1 == chapter count after run 2 == N
-            //   - release count after run 1 == release count after run 2 == M
-            //   - row IDs unchanged across runs (no churn)
-            //   - no exceptions raised (UNIQUE constraints not tripped)
-            Assert.Inconclusive("Wave 2/3 dependency");
+            // 3 unique chapter numbers + 5 total release rows: chapters 1+2 each have 2
+            // translations; chapter 3 has 1.
+            var fixedFeed = new List<(decimal, ChapterEnsureInputs, List<ChapterReleaseFeedRow>)>
+            {
+                (1m,
+                    new ChapterEnsureInputs("Ch1", null, null, ChapterType.Regular, DateTime.UtcNow, "ext-1"),
+                    new List<ChapterReleaseFeedRow>
+                    {
+                        new("en", "Group-A", DateTime.UtcNow, "rel-1-en"),
+                        new("es", "Group-A", DateTime.UtcNow, "rel-1-es"),
+                    }),
+                (2m,
+                    new ChapterEnsureInputs("Ch2", null, null, ChapterType.Regular, DateTime.UtcNow, "ext-2"),
+                    new List<ChapterReleaseFeedRow>
+                    {
+                        new("en", "Group-A", DateTime.UtcNow, "rel-2-en"),
+                        new("ja", "Group-B", DateTime.UtcNow, "rel-2-ja"),
+                    }),
+                (3m,
+                    new ChapterEnsureInputs("Ch3", null, null, ChapterType.Regular, DateTime.UtcNow, "ext-3"),
+                    new List<ChapterReleaseFeedRow>
+                    {
+                        new("en", "Group-A", DateTime.UtcNow, "rel-3-en"),
+                    }),
+            };
+
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
+            Mocker.GetMock<IMangaService>().Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>())).Returns(manga);
+
+            var stub = new StubMangaDexProvider(manga) { FeedTuples = fixedFeed };
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            // Track EnsureChapter / SyncChapterReleases calls per run.
+            var ensureCalls = new List<(int MangaId, decimal ChapterNumber)>();
+            var syncCalls = new List<(int ChapterId, int ReleaseCount)>();
+
+            // Stub EnsureChapter to return a deterministic Chapter with stable Id keyed by
+            // chapter number — re-runs return the SAME id (idempotency contract).
+            Mocker.GetMock<IChapterListService>()
+                  .Setup(c => c.EnsureChapter(It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<ChapterEnsureInputs>()))
+                  .Returns<int, decimal, ChapterEnsureInputs>((mid, num, inputs) =>
+                  {
+                      ensureCalls.Add((mid, num));
+                      return new Chapter { Id = (int)num * 10, MangaId = mid, ChapterNumber = num };
+                  });
+
+            Mocker.GetMock<IChapterListService>()
+                  .Setup(c => c.SyncChapterReleases(It.IsAny<int>(), It.IsAny<IList<ChapterReleaseFeedRow>>()))
+                  .Callback<int, IList<ChapterReleaseFeedRow>>((cid, rows) =>
+                      syncCalls.Add((cid, rows.Count)));
+
+            // Run 1
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+            var run1Ensure = ensureCalls.ToList();
+            var run1Sync = syncCalls.ToList();
+
+            ensureCalls.Clear();
+            syncCalls.Clear();
+
+            // Run 2 (same feed)
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+            var run2Ensure = ensureCalls.ToList();
+            var run2Sync = syncCalls.ToList();
+
+            // Idempotency: same chapter-number set (3) hit on both runs, same release counts (5).
+            run1Ensure.Should().HaveCount(3);
+            run2Ensure.Should().HaveCount(3);
+            run2Ensure.Select(c => c.ChapterNumber).Should().BeEquivalentTo(run1Ensure.Select(c => c.ChapterNumber));
+
+            run1Sync.Sum(s => s.ReleaseCount).Should().Be(5);
+            run2Sync.Sum(s => s.ReleaseCount).Should().Be(5);
+
+            // Pitfall 4: ChapterListUpdatedEvent fired exactly twice (once per refresh).
+            Mocker.GetMock<IEventAggregator>()
+                  .Verify(e => e.PublishEvent(It.IsAny<ChapterListUpdatedEvent>()), Times.Exactly(2));
+        }
+
+        [Test]
+        public void Execute_invokes_EnsureChapter_per_canonical_and_SyncChapterReleases_per_chapter()
+        {
+            // Phase 16 STRUCT-07: exactly one EnsureChapter call per canonical chapter number,
+            // exactly one SyncChapterReleases call per canonical chapter (NOT per release).
+            var feed = new List<(decimal, ChapterEnsureInputs, List<ChapterReleaseFeedRow>)>
+            {
+                (1m, new ChapterEnsureInputs("Ch1", null, null, ChapterType.Regular, null, "e1"),
+                    new List<ChapterReleaseFeedRow>
+                    {
+                        new("en", "g", null, "r1"), new("es", "g", null, "r2"),
+                    }),
+                (2m, new ChapterEnsureInputs("Ch2", null, null, ChapterType.Regular, null, "e2"),
+                    new List<ChapterReleaseFeedRow> { new("en", "g", null, "r3") }),
+            };
+
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
+            Mocker.GetMock<IMangaService>().Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>())).Returns(manga);
+
+            var stub = new StubMangaDexProvider(manga) { FeedTuples = feed };
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Mocker.GetMock<IChapterListService>()
+                  .Setup(c => c.EnsureChapter(It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<ChapterEnsureInputs>()))
+                  .Returns<int, decimal, ChapterEnsureInputs>((mid, num, inputs) => new Chapter { Id = (int)num, ChapterNumber = num });
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            Mocker.GetMock<IChapterListService>()
+                  .Verify(c => c.EnsureChapter(1, It.IsAny<decimal>(), It.IsAny<ChapterEnsureInputs>()), Times.Exactly(2));
+            Mocker.GetMock<IChapterListService>()
+                  .Verify(c => c.SyncChapterReleases(It.IsAny<int>(), It.IsAny<IList<ChapterReleaseFeedRow>>()), Times.Exactly(2));
         }
 
         // ---- Stub providers ----
@@ -448,11 +558,14 @@ namespace NzbDrone.Core.Test.MangaTests
                 Definition = new MetadataSourceDefinition { Id = 1, Name = "MangaDex", IsPrimary = true };
             }
 
-            public override Tuple<Manga.Manga, List<Chapter>> GetMangaInfo(string sourceId)
+            public override Tuple<Manga.Manga, IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)>>
+                GetMangaInfo(string sourceId)
             {
                 GetMangaInfoCalls.Add(sourceId);
-                return Tuple.Create(_result, new List<Chapter>());
+                return Tuple.Create(_result, FeedTuples ?? Enumerable.Empty<(decimal, ChapterEnsureInputs, List<ChapterReleaseFeedRow>)>());
             }
+
+            public IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)> FeedTuples { get; set; }
         }
 
         private class StubAniListProvider : AniListMetadataSource
@@ -467,11 +580,14 @@ namespace NzbDrone.Core.Test.MangaTests
                 Definition = new MetadataSourceDefinition { Id = 2, Name = "AniList", IsPrimary = false };
             }
 
-            public override Tuple<Manga.Manga, List<Chapter>> GetMangaInfo(string sourceId)
+            public override Tuple<Manga.Manga, IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)>>
+                GetMangaInfo(string sourceId)
             {
                 GetMangaInfoCalls.Add(sourceId);
-                return Tuple.Create(_result, new List<Chapter>());
+                return Tuple.Create(_result, FeedTuples ?? Enumerable.Empty<(decimal, ChapterEnsureInputs, List<ChapterReleaseFeedRow>)>());
             }
+
+            public IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)> FeedTuples { get; set; }
         }
 
         private class StubMalProvider : MyAnimeListMetadataSource
@@ -486,11 +602,14 @@ namespace NzbDrone.Core.Test.MangaTests
                 Definition = new MetadataSourceDefinition { Id = 3, Name = "MyAnimeList", IsPrimary = false };
             }
 
-            public override Tuple<Manga.Manga, List<Chapter>> GetMangaInfo(string sourceId)
+            public override Tuple<Manga.Manga, IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)>>
+                GetMangaInfo(string sourceId)
             {
                 GetMangaInfoCalls.Add(sourceId);
-                return Tuple.Create(_result, new List<Chapter>());
+                return Tuple.Create(_result, FeedTuples ?? Enumerable.Empty<(decimal, ChapterEnsureInputs, List<ChapterReleaseFeedRow>)>());
             }
+
+            public IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)> FeedTuples { get; set; }
         }
 
         // WR-07 helper: throws an arbitrary exception for the first sourceId, then
@@ -510,7 +629,8 @@ namespace NzbDrone.Core.Test.MangaTests
                 Definition = new MetadataSourceDefinition { Id = 1, Name = "MangaDex", IsPrimary = true };
             }
 
-            public override Tuple<Manga.Manga, List<Chapter>> GetMangaInfo(string sourceId)
+            public override Tuple<Manga.Manga, IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)>>
+                GetMangaInfo(string sourceId)
             {
                 GetMangaInfoCalls.Add(sourceId);
                 if (sourceId == _throwOn)
@@ -518,7 +638,8 @@ namespace NzbDrone.Core.Test.MangaTests
                     throw new InvalidOperationException("simulated upstream 503");
                 }
 
-                return Tuple.Create(_successResult, new List<Chapter>());
+                return Tuple.Create(_successResult,
+                    Enumerable.Empty<(decimal, ChapterEnsureInputs, List<ChapterReleaseFeedRow>)>());
             }
         }
     }

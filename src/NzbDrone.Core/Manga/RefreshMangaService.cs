@@ -181,7 +181,12 @@ namespace NzbDrone.Core.Manga
                 {
                     var tuple = primary.GetMangaInfo(sourceId);
                     var mangaInfo = tuple.Item1;
-                    var chapters = tuple.Item2;
+
+                    // Phase 16 STRUCT-05 + STRUCT-07: chapter feed is now a tuple stream —
+                    // one element per canonical chapter (Chapter row) with N per-translation
+                    // releases (ChapterRelease rows). Materialize once so we can iterate twice
+                    // (FK assignment requires the canonical row Id BEFORE pushing releases).
+                    var chapterTuples = tuple.Item2.ToList();
 
                     // Manga.ApplyChanges copies user-mutable fields (Monitored,
                     // RootFolderPath, Tags, AddOptions, MonitorNewItems,
@@ -232,7 +237,7 @@ namespace NzbDrone.Core.Manga
 
                     // gap-11: suppress UpdateManga's event publish so the trailing
                     // PublishEvent below is the SOLE MangaUpdatedEvent per refresh,
-                    // emitted AFTER SyncChapters runs. Mirrors TV
+                    // emitted AFTER chapter sync completes. Mirrors TV
                     // RefreshSeriesService.RefreshSeriesInfo's UpdateSeries(publishUpdatedEvent:false)
                     // → RefreshEpisodeInfo → PublishEvent(SeriesUpdatedEvent) ordering
                     // (Pitfall 4 invariant: DB write FIRST, event LAST).
@@ -240,21 +245,34 @@ namespace NzbDrone.Core.Manga
 
                     // Phase 8 backfill (audit gap: no-sibling/EpisodeRefreshedService.md +
                     // RefreshSeriesService-vs-RefreshMangaService.md gap-10 reclassified):
-                    // snapshot the chapter set BEFORE SyncChapters so we can compute the
-                    // (added/updated/removed) delta for ChapterInfoRefreshedEvent. Mirrors
+                    // snapshot the chapter set BEFORE the chapter-sync pass so we can compute
+                    // the (added/updated/removed) delta for ChapterInfoRefreshedEvent. Mirrors
                     // RefreshEpisodeService.RefreshEpisodeInfo (Tv/RefreshEpisodeService.cs:131)
                     // which publishes EpisodeInfoRefreshedEvent with the equivalent delta.
                     //
-                    // SyncChapters does not return a delta (its public surface predates this
-                    // requirement), so we snapshot+diff here. The diff key is ChapterId — rows
-                    // whose ID exists in both snapshots count as "updated" (SyncChapters may
-                    // have flipped IsSynthetic and other fields in place); IDs only present
-                    // post-sync are "added"; IDs only present pre-sync are "removed".
+                    // The chapter-sync pass does not return a delta (its public surface predates
+                    // this requirement), so we snapshot+diff here. The diff key is ChapterId —
+                    // rows whose ID exists in both snapshots count as "updated" (EnsureChapter
+                    // may have updated mutable fields in place); IDs only present post-sync are
+                    // "added"; IDs only present pre-sync are "removed". Per CONTEXT D-01 stale
+                    // ChapterRelease rows stay — but Chapter rows themselves are not pruned by
+                    // EnsureChapter (which only ever Inserts or Updates), so removed will be
+                    // empty unless a separate deletion path runs.
                     var beforeIds = _chapterService.GetChaptersByManga(existing.Id)
                         .ToDictionary(c => c.Id);
 
-                    // D-17: chapter-list synthesis fallback when MangaDex not linked.
-                    _chapterListService.SyncChapters(existing, chapters);
+                    // Phase 16 STRUCT-07: split into per-canonical EnsureChapter +
+                    // per-chapter SyncChapterReleases. Sonarr divergence: mirror of
+                    // TV's RefreshEpisodeService two-pass (canonical row + per-release).
+                    // Per CONTEXT D-01: SyncChapterReleases is upsert-on-natural-key —
+                    // stale releases retained.
+                    // Per CONTEXT D-04: EnsureChapter creates real canonical rows even
+                    // with 0 releases (zero-release Chapter renders as Missing).
+                    foreach (var (chapterNumber, canonicalInputs, releaseRows) in chapterTuples)
+                    {
+                        var chapter = _chapterListService.EnsureChapter(existing.Id, chapterNumber, canonicalInputs);
+                        _chapterListService.SyncChapterReleases(chapter.Id, releaseRows);
+                    }
 
                     var afterChapters = _chapterService.GetChaptersByManga(existing.Id);
                     var added = afterChapters.Where(c => !beforeIds.ContainsKey(c.Id)).ToList();
@@ -262,6 +280,11 @@ namespace NzbDrone.Core.Manga
                     var removed = beforeIds.Values.Where(c => afterChapters.All(a => a.Id != c.Id)).ToList();
 
                     _eventAggregator.PublishEvent(new ChapterInfoRefreshedEvent(existing, added, updated, removed));
+
+                    // Pitfall 4: SINGLE ChapterListUpdatedEvent emit AFTER both passes complete.
+                    // Existing consumer contract preserved (one event per refresh; SignalR
+                    // fan-out unchanged).
+                    _eventAggregator.PublishEvent(new ChapterListUpdatedEvent(existing));
 
                     _eventAggregator.PublishEvent(new MangaUpdatedEvent(existing));
 
