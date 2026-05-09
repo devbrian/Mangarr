@@ -1,100 +1,128 @@
 using System.Collections.Generic;
 using System.Linq;
 using NLog;
-using NzbDrone.Core.Manga.Events;
-using NzbDrone.Core.Messaging.Events;
-using NzbDrone.Core.Parser.Manga;
 
 namespace NzbDrone.Core.Manga
 {
-    /// <summary>
-    /// Phase 16 D-04 + STRUCT-05 INTERIM stub. Plan 16-03 splits this into
-    /// <c>EnsureChapter</c> + <c>SyncChapterReleases</c> per the Sonarr-mirror two-step
-    /// pattern; for the Plan 16-02 build-green-at-the-boundary contract this body has been
-    /// REWRITTEN to operate on the new canonical Chapter grain (one row per
-    /// (MangaId, ChapterNumber); language data lifted to ChapterRelease).
-    ///
-    /// Sonarr divergence: TODO(plan-16-03) — replace with the EnsureChapter +
-    /// SyncChapterReleases split per STRUCT-05. Strategy 1 / 2 / 3 contracts preserved;
-    /// the per-language fan-out is gone (per-translation rows are NOT inserted here in
-    /// Plan 16-02; Plan 16-03 reintroduces them via SyncChapterReleases against
-    /// IChapterReleaseRepository).
-    /// </summary>
-    public class ChapterListService : IChapterListService
+    // Sonarr divergence: REWRITTEN per Phase 16 STRUCT-05 — see DIVERGENCE.md.
+    // Pre-Phase-16 SyncChapters body had 3 strategies (MangaDex-linked, count-based synthesis, empty)
+    // with a BL-05 in-place synthetic-upgrade loop. Post-Phase-16 the synthetic concept is gone
+    // (STRUCT-03), zero-release Chapters render as Missing (D-04), and stale ChapterReleases are
+    // retained on re-sync (D-01). The new two-method split mirrors Sonarr's RefreshEpisodeService
+    // two-pass: canonical row upsert + per-release upsert. Single ChapterListUpdatedEvent emit
+    // moves to the orchestrating caller (RefreshMangaService — Plan 16-03 Task 2) per Pitfall 4.
+    //
+    // Idempotency proof:
+    //   (a) EnsureChapter upserts on (MangaId, ChapterNumber) — UNIQUE index forbids dups.
+    //   (b) SyncChapterReleases upserts on (ChapterId, TranslatedLanguage, ScanlationGroup) — UNIQUE forbids dups.
+    //   (c) No DELETE branch — input set never shrinks.
+    //   (d) Re-running RefreshMangaCommand produces identical (Chapter, ChapterRelease) state.
+    //   (e) Failure mode: any algorithmic regression that violates a natural key fails LOUD via
+    //       UNIQUE-violation thrown at INSERT time (caught by Plan 16-02 acceptance tests).
+    public sealed class ChapterListService : IChapterListService
     {
         private readonly IChapterRepository _chapterRepo;
-        private readonly IEventAggregator _eventAggregator;
+        private readonly IChapterReleaseRepository _releaseRepo;
         private readonly Logger _logger;
 
         public ChapterListService(IChapterRepository chapterRepo,
-                                  IEventAggregator eventAggregator,
+                                  IChapterReleaseRepository releaseRepo,
                                   Logger logger)
         {
             _chapterRepo = chapterRepo;
-            _eventAggregator = eventAggregator;
+            _releaseRepo = releaseRepo;
             _logger = logger;
         }
 
-        public void SyncChapters(Manga manga, List<Chapter> incoming)
+        public Chapter EnsureChapter(int mangaId, decimal chapterNumber, ChapterEnsureInputs inputs)
         {
-            var existing = _chapterRepo.GetByMangaId(manga.Id);
-
-            // STRATEGY 1 (D-17.1): MangaDex linked → real-feed rows are source of truth.
-            // Phase 16 collapse: incoming rows are now canonical (one per ChapterNumber).
-            // Plan 16-02 stub: dedupe by ChapterNumber and insert any new canonical rows.
-            // Plan 16-03 reintroduces the per-translation upsert via SyncChapterReleases.
-            if (manga.MangaDexId.HasValue && incoming != null && incoming.Any())
+            // D-04: always creates a real canonical Chapter row.
+            // Idempotent on (MangaId, ChapterNumber) — UNIQUE index from Plan 16-02 enforces.
+            var existing = _chapterRepo.Find(mangaId, chapterNumber);
+            if (existing == null)
             {
-                var existingNumbers = existing.Select(e => e.ChapterNumber).ToHashSet();
-
-                foreach (var c in incoming.GroupBy(x => x.ChapterNumber).Select(g => g.First()))
+                var chapter = new Chapter
                 {
-                    if (existingNumbers.Contains(c.ChapterNumber))
-                    {
-                        continue;
-                    }
+                    MangaId = mangaId,
+                    ChapterNumber = chapterNumber,
+                    AbsoluteChapterNumber = inputs.AbsoluteChapterNumber,
+                    VolumeNumber = inputs.VolumeNumber,
+                    ChapterType = inputs.ChapterType,
+                    Title = inputs.Title,
+                    FirstReleaseDate = inputs.FirstReleaseDate,
+                    ExternalId = inputs.ExternalId,
+                    Monitored = true,
+                };
+                _chapterRepo.Insert(chapter);
+                return chapter;
+            }
 
-                    c.MangaId = manga.Id;
-                    _chapterRepo.Insert(c);
-                    existingNumbers.Add(c.ChapterNumber);
-                }
+            // Update mutable fields (last-write-wins on canonical fields per Pitfall 3 expectation).
+            // Null-coalesce so a missing input field does NOT clobber a previously-set canonical value.
+            existing.Title = inputs.Title ?? existing.Title;
+            existing.AbsoluteChapterNumber = inputs.AbsoluteChapterNumber ?? existing.AbsoluteChapterNumber;
+            existing.VolumeNumber = inputs.VolumeNumber ?? existing.VolumeNumber;
+            existing.ChapterType = inputs.ChapterType;
+            existing.FirstReleaseDate = inputs.FirstReleaseDate ?? existing.FirstReleaseDate;
+            existing.ExternalId = inputs.ExternalId ?? existing.ExternalId;
+            _chapterRepo.Update(existing);
+            return existing;
+        }
 
-                _eventAggregator.PublishEvent(new ChapterListUpdatedEvent(manga));
+        public void SyncChapterReleases(int chapterId, IList<ChapterReleaseFeedRow> feedRows)
+        {
+            // D-01: upsert-on-natural-key, NEVER DELETE missing. Sonarr-mirror of Episode retention.
+            // The natural key is (ChapterId, TranslatedLanguage, ScanlationGroup) — UNIQUE index from
+            // Plan 16-02 enforces. No DELETE branch — input set never shrinks.
+            // Pitfall 4: this method does NOT publish ChapterListUpdatedEvent — caller does.
+            if (feedRows == null || feedRows.Count == 0)
+            {
                 return;
             }
 
-            // STRATEGY 2 (D-17.2): MangaDex NOT linked AND primary returned chapter-count > 0 → synthesize.
-            // Phase 16 D-04: zero-release Chapters render as Missing — no IsSynthetic flag stored;
-            // synthetic-ness now derives from "0 ChapterRelease rows".
-            if (!manga.MangaDexId.HasValue && manga.TotalChapterCount.HasValue && manga.TotalChapterCount > 0)
-            {
-                if (existing.Any())
-                {
-                    _logger.Trace("ChapterList: {0} already synthesized ({1} rows); skipping resynthesis",
-                        manga.Title,
-                        existing.Count);
-                    return;
-                }
+            var existing = _releaseRepo.GetByChapterId(chapterId);
 
-                for (var n = 1; n <= manga.TotalChapterCount.Value; n++)
+            // Index existing rows by natural key for O(1) lookups (avoids N+1 inside the loop).
+            var existingByKey = existing
+                .ToDictionary(r => (r.TranslatedLanguage, r.ScanlationGroup));
+
+            var inserts = new List<ChapterRelease>();
+            var updates = new List<ChapterRelease>();
+
+            foreach (var row in feedRows)
+            {
+                var key = (row.TranslatedLanguage, row.ScanlationGroup);
+                if (existingByKey.TryGetValue(key, out var match))
                 {
-                    _chapterRepo.Insert(new Chapter
+                    // Update mutable fields. Null-coalesce so a missing field does NOT clobber.
+                    match.ReleaseDate = row.ReleaseDate ?? match.ReleaseDate;
+                    match.ExternalId = row.ExternalId ?? match.ExternalId;
+                    updates.Add(match);
+                }
+                else
+                {
+                    inserts.Add(new ChapterRelease
                     {
-                        MangaId = manga.Id,
-                        ChapterNumber = n,
-                        Title = null,
-                        ChapterType = ChapterType.Regular,
-                        Monitored = true,
+                        ChapterId = chapterId,
+                        TranslatedLanguage = row.TranslatedLanguage,
+                        ScanlationGroup = row.ScanlationGroup,
+                        ReleaseDate = row.ReleaseDate,
+                        ExternalId = row.ExternalId,
                     });
                 }
-
-                _eventAggregator.PublishEvent(new ChapterListUpdatedEvent(manga));
-                return;
             }
 
-            // STRATEGY 3 (D-17.3): chapter-count null → empty + warning (MissingChapterListHealthCheck fires).
-            _logger.Warn("Manga {0} has no MangaDex link and no chapter-count from primary — empty chapter list",
-                manga.Title);
+            if (inserts.Count > 0)
+            {
+                _releaseRepo.InsertMany(inserts);
+            }
+
+            if (updates.Count > 0)
+            {
+                _releaseRepo.UpdateMany(updates);
+            }
+
+            // NO DELETE branch — D-01 stale retention contract.
         }
     }
 }

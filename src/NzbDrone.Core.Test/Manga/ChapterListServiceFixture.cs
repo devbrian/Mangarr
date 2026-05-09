@@ -8,66 +8,153 @@
 // (STRUCT-01); zero-release Chapter renders as Missing per D-04. See Plan 2 fixture
 // history if you need the deleted method names.
 //
-// ADDED skeleton tests (Plan 16-03 / Wave 2 fills bodies):
-//   - EnsureChapter_idempotent_re_run_produces_same_row_count_and_ids
-//   - EnsureChapter_creates_canonical_row_with_FirstReleaseDate_from_inputs
-//   - SyncChapterReleases_inserts_new_natural_keys
-//   - SyncChapterReleases_keeps_missing_rows                       (D-01)
-//   - SyncChapterReleases_does_not_publish_event                   (Pitfall 4)
+// Plan 16-03 lands the production-side EnsureChapter+SyncChapterReleases split, at
+// which point the [Ignore] markers from Plan 16-01 were removed and these tests went live.
+using System;
+using System.Collections.Generic;
+using FluentAssertions;
+using Moq;
 using NUnit.Framework;
+using NzbDrone.Core.Manga;
+using NzbDrone.Core.Manga.Events;
+using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Parser.Manga;
+using NzbDrone.Core.Test.Framework;
 
 namespace NzbDrone.Core.Test.MangaTests
 {
     // Wave 0 fixture for the post-Phase-16 split ChapterListService API
-    // (EnsureChapter + SyncChapterReleases). Plan 16-03 lands the production-side split,
-    // at which point the [Ignore] markers on individual tests are removed.
+    // (EnsureChapter + SyncChapterReleases). Bodied in Plan 16-03.
     [TestFixture]
-    public class ChapterListServiceFixture
+    public class ChapterListServiceFixture : CoreTest<ChapterListService>
     {
         [Test]
-        [Ignore("Wave 2 dependency: EnsureChapter API lands in Plan 16-03")]
         public void EnsureChapter_idempotent_re_run_produces_same_row_count_and_ids()
         {
             // STRUCT-05 idempotency contract: two consecutive EnsureChapter calls with
             // identical input produce the same row count and the same row Ids (no churn).
-            Assert.Inconclusive("Wave 2");
+
+            // First call: Find returns null → INSERT.
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.Find(1, 5m))
+                .Returns((Chapter)null);
+
+            Chapter inserted = null;
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.Insert(It.IsAny<Chapter>()))
+                .Callback<Chapter>(c =>
+                {
+                    c.Id = 42;
+                    inserted = c;
+                });
+
+            var inputs = new ChapterEnsureInputs("Ch5", null, null, ChapterType.Regular, DateTime.UtcNow, "ext-5");
+            var c1 = Subject.EnsureChapter(1, 5m, inputs);
+            c1.Id.Should().Be(42);
+
+            // Second call: Find returns the inserted row → UPDATE, NOT Insert.
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.Find(1, 5m))
+                .Returns(inserted);
+
+            var c2 = Subject.EnsureChapter(1, 5m, inputs);
+            c2.Id.Should().Be(42);
+
+            Mocker.GetMock<IChapterRepository>().Verify(r => r.Insert(It.IsAny<Chapter>()), Times.Once);
+            Mocker.GetMock<IChapterRepository>().Verify(r => r.Update(It.IsAny<Chapter>()), Times.AtLeastOnce);
         }
 
         [Test]
-        [Ignore("Wave 2 dependency: EnsureChapter reads FirstReleaseDate from inputs per D-02")]
         public void EnsureChapter_creates_canonical_row_with_FirstReleaseDate_from_inputs()
         {
             // D-02: EnsureChapter populates Chapter.FirstReleaseDate from the upstream
             // metadata source's chapter.publishedAt — independent of any specific
             // translation's upload time.
-            Assert.Inconclusive("Wave 2");
+            var when = new DateTime(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc);
+
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.Find(1, 5m))
+                .Returns((Chapter)null);
+
+            Chapter captured = null;
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.Insert(It.IsAny<Chapter>()))
+                .Callback<Chapter>(c =>
+                {
+                    c.Id = 1;
+                    captured = c;
+                });
+
+            Subject.EnsureChapter(1, 5m, new ChapterEnsureInputs("Ch5", null, null, ChapterType.Regular, when, "ext-5"));
+
+            captured.Should().NotBeNull();
+            captured.FirstReleaseDate.Should().Be(when);
         }
 
         [Test]
-        [Ignore("Wave 2 dependency: SyncChapterReleases upsert-on-natural-key per D-01")]
         public void SyncChapterReleases_inserts_new_natural_keys()
         {
             // STRUCT-05: SyncChapterReleases is upsert-on-natural-key
             // (ChapterId, TranslatedLanguage, ScanlationGroup). New keys → INSERT.
-            Assert.Inconclusive("Wave 2");
+            Mocker.GetMock<IChapterReleaseRepository>()
+                .Setup(r => r.GetByChapterId(7))
+                .Returns(new List<ChapterRelease>());
+
+            Subject.SyncChapterReleases(7, new List<ChapterReleaseFeedRow>
+            {
+                new("en", "MangaPlus", DateTime.UtcNow, "ext-en"),
+                new("es", "MangaPlus", DateTime.UtcNow, "ext-es"),
+            });
+
+            Mocker.GetMock<IChapterReleaseRepository>()
+                .Verify(r => r.InsertMany(It.Is<List<ChapterRelease>>(list => list.Count == 2)), Times.Once);
         }
 
         [Test]
-        [Ignore("Wave 2 dependency: D-01 stale-release retention — no DELETE-missing branch")]
         public void SyncChapterReleases_keeps_missing_rows()
         {
             // D-01: stale ChapterRelease rows STAY when the upstream feed no longer
             // lists them. Mirrors Sonarr's Episode handling — never DELETE missing.
-            Assert.Inconclusive("Wave 2");
+            // Existing rows: en + es. New feed: only en. Expect: NO DELETE — es row stays.
+            var existing = new List<ChapterRelease>
+            {
+                new() { Id = 1, ChapterId = 7, TranslatedLanguage = "en", ScanlationGroup = "MangaPlus" },
+                new() { Id = 2, ChapterId = 7, TranslatedLanguage = "es", ScanlationGroup = "MangaPlus" },
+            };
+            Mocker.GetMock<IChapterReleaseRepository>()
+                .Setup(r => r.GetByChapterId(7))
+                .Returns(existing);
+
+            Subject.SyncChapterReleases(7, new List<ChapterReleaseFeedRow>
+            {
+                new("en", "MangaPlus", DateTime.UtcNow, "ext-en"),
+            });
+
+            // D-01 contract: NEVER DELETE on stale.
+            Mocker.GetMock<IChapterReleaseRepository>()
+                .Verify(r => r.Delete(It.IsAny<ChapterRelease>()), Times.Never);
+            Mocker.GetMock<IChapterReleaseRepository>()
+                .Verify(r => r.DeleteMany(It.IsAny<List<ChapterRelease>>()), Times.Never);
+            Mocker.GetMock<IChapterReleaseRepository>()
+                .Verify(r => r.DeleteMany(It.IsAny<System.Collections.Generic.IEnumerable<int>>()), Times.Never);
         }
 
         [Test]
-        [Ignore("Wave 2 dependency: Pitfall 4 — single-event invariant lives in RefreshMangaService, not ChapterListService")]
         public void SyncChapterReleases_does_not_publish_event()
         {
             // Pitfall 4: only RefreshMangaService publishes the post-sync event;
             // SyncChapterReleases must NOT publish ChapterListUpdatedEvent itself.
-            Assert.Inconclusive("Wave 2");
+            Mocker.GetMock<IChapterReleaseRepository>()
+                .Setup(r => r.GetByChapterId(7))
+                .Returns(new List<ChapterRelease>());
+
+            Subject.SyncChapterReleases(7, new List<ChapterReleaseFeedRow>
+            {
+                new("en", "MangaPlus", DateTime.UtcNow, "ext-en"),
+            });
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterListUpdatedEvent>()), Times.Never);
         }
     }
 }
