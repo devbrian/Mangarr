@@ -14,11 +14,17 @@ import VirtualTableRowCell from 'Components/Table/Cells/VirtualTableRowCell';
 import VirtualTableSelectCell from 'Components/Table/Cells/VirtualTableSelectCell';
 import Column from 'Components/Table/Column';
 import { icons } from 'Helpers/Props';
+import ReleaseType from 'InteractiveImport/ReleaseType';
 import useCountryName from 'Internationalization/useCountryName';
-// Sonarr divergence: Phase 15 Plan 15-12 — Episode/getReleaseTypeName +
-// Series/{Edit,Delete}SeriesModal stripped per cascade absorption (Plan 15-07).
-// Inline getReleaseTypeName below; per-row Edit/Delete modals stubbed (manga
-// bulk Edit/Delete still wired via Manga/Index/Select/{Edit,Delete}/).
+// fix(home-card-edit-button-no-op): replaced the Phase 15 Plan 15-12
+// `null : null` per-row Edit modal stub with the real per-manga
+// `Manga/Edit/EditMangaModal` shipped in PR #27. Sonarr-consistency-audit:
+// mirrors canonical `SeriesIndexRow.js` modal-mount shape modulo
+// `seriesId` → `mangaId`. The per-row action cell has no Delete button
+// (only Refresh + optional Search + Edit), so the `DeleteSeriesModal`
+// mount and `onDeleteSeriesPress` chain are not wired here — they were
+// dead under the stub and remain out-of-scope for this fix-forward PR.
+import EditMangaModal from 'Manga/Edit/EditMangaModal';
 import { Statistics } from 'Manga/Manga';
 import MangaBanner from 'Manga/MangaBanner';
 import { useMangaTableOptions } from 'Manga/mangaOptionsStore';
@@ -34,8 +40,6 @@ import hasGrowableColumns from './hasGrowableColumns';
 // referencing 'seasons' / 'latestSeason' are short-circuited to a hyphen below.
 import MangaStatusCell from './MangaStatusCell';
 import styles from './MangaIndexRow.css';
-
-import ReleaseType from 'InteractiveImport/ReleaseType';
 
 function getReleaseTypeName(releaseType?: ReleaseType): string | null {
   switch (releaseType) {
@@ -73,7 +77,6 @@ function MangaIndexRow(props: MangaIndexRowProps) {
   const executeCommand = useExecuteCommand();
   const [hasBannerError, setHasBannerError] = useState(false);
   const [isEditMangaModalOpen, setIsEditMangaModalOpen] = useState(false);
-  const [isDeleteMangaModalOpen, setIsDeleteMangaModalOpen] = useState(false);
   const { getIsSelected, toggleSelected } = useSelect();
   const originalCountryName = useCountryName(manga?.originalCountry);
 
@@ -111,15 +114,6 @@ function MangaIndexRow(props: MangaIndexRowProps) {
     setIsEditMangaModalOpen(false);
   }, [setIsEditMangaModalOpen]);
 
-  const onDeleteMangaPress = useCallback(() => {
-    setIsEditMangaModalOpen(false);
-    setIsDeleteMangaModalOpen(true);
-  }, [setIsDeleteMangaModalOpen]);
-
-  const onDeleteMangaModalClose = useCallback(() => {
-    setIsDeleteMangaModalOpen(false);
-  }, [setIsDeleteMangaModalOpen]);
-
   const checkInputCallback = useCallback(() => {
     // Mock handler to satisfy `onChange` being required for `CheckInput`.
   }, []);
@@ -134,10 +128,6 @@ function MangaIndexRow(props: MangaIndexRowProps) {
     },
     [toggleSelected]
   );
-
-  void onEditMangaModalClose;
-  void onDeleteMangaPress;
-  void onDeleteMangaModalClose;
 
   if (!manga) {
     return null;
@@ -331,7 +321,7 @@ function MangaIndexRow(props: MangaIndexRowProps) {
           // a user with TV cookies could land it here so we keep the branch.
           return (
             <VirtualTableRowCell key={name} className={styles[name]}>
-              {'—'}
+              —
             </VirtualTableRowCell>
           );
         }
@@ -352,7 +342,8 @@ function MangaIndexRow(props: MangaIndexRowProps) {
         if (name === 'episodeProgress') {
           return (
             <VirtualTableRowCell key={name} className={styles[name]}>
-              <MangaIndexProgressBar mangaId={mangaId}
+              <MangaIndexProgressBar
+                mangaId={mangaId}
                 monitored={monitored}
                 status={status}
                 episodeCount={episodeCount}
@@ -375,7 +366,8 @@ function MangaIndexRow(props: MangaIndexRowProps) {
 
           return (
             <VirtualTableRowCell key={name} className={styles[name]}>
-              <MangaIndexProgressBar mangaId={mangaId}
+              <MangaIndexProgressBar
+                mangaId={mangaId}
                 seasonNumber={latestSeason.seasonNumber}
                 monitored={monitored}
                 status={status}
@@ -577,10 +569,11 @@ function MangaIndexRow(props: MangaIndexRowProps) {
         return null;
       })}
 
-      {/* Sonarr divergence: Phase 15 Plan 15-12 — per-row Edit/Delete modals
-          stubbed; bulk Edit/Delete via Index/Select/{Edit,Delete}/ remains wired. */}
-      {isEditMangaModalOpen ? null : null}
-      {isDeleteMangaModalOpen ? null : null}
+      <EditMangaModal
+        isOpen={isEditMangaModalOpen}
+        mangaId={mangaId}
+        onModalClose={onEditMangaModalClose}
+      />
     </>
   );
 }
