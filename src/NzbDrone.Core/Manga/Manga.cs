@@ -69,6 +69,13 @@ namespace NzbDrone.Core.Manga
         public string RootFolderPath { get; set; }
         public bool Monitored { get; set; }
 
+        // Issue #28: per-Manga "should new items appearing on subsequent refresh / RSS
+        // be auto-monitored?" flag. Mirrors Sonarr's Series.MonitorNewItems
+        // (NewItemMonitorTypes enum at Tv/MonitoringOptions.cs in commit ade40b72b).
+        // Default 0 == All. Persisted as int column on the Manga table; surfaced on
+        // MangaResource and exposed in the single-Manga Edit modal alongside Monitored.
+        public MangaMonitorNewItems MonitorNewItems { get; set; }
+
         // Lifecycle.
         public DateTime Added { get; set; }
         public DateTime? LastInfoSync { get; set; }
@@ -115,6 +122,15 @@ namespace NzbDrone.Core.Manga
             Tags = other.Tags;
             Monitored = other.Monitored;
             RootFolderPath = other.RootFolderPath;
+
+            // Issue #28 backfill — three editable fields previously deferred from
+            // PR #27's single-Manga Edit modal scope. MonitorNewItems mirrors Sonarr's
+            // Series.ApplyChanges line 75 (commit ade40b72b); TranslationProfileId +
+            // CustomFormatProfileId mirror Sonarr's Series.QualityProfileId copy at
+            // line 76 (one FK was split into two per Phase 5 D-01 + D-07).
+            MonitorNewItems = other.MonitorNewItems;
+            TranslationProfileId = other.TranslationProfileId;
+            CustomFormatProfileId = other.CustomFormatProfileId;
 
             // Phase 8 audit gap-03 backfill — mirrors Series.ApplyChanges line 85.
             AddOptions = other.AddOptions;

@@ -27,6 +27,17 @@ public class MangaResource : RestResource
     public string? Path { get; set; }
     public string? RootFolderPath { get; set; }
     public bool Monitored { get; set; }
+
+    // Issue #28: three fields deferred from PR #27's single-Manga Edit modal because
+    // they were not round-tripping end-to-end. All three now flow through ToResource /
+    // ToModel + Manga.ApplyChanges so the Edit modal can persist them via PUT.
+    //   * MonitorNewItems — mirrors Sonarr's SeriesResource.MonitorNewItems (commit ade40b72b).
+    //   * TranslationProfileId / CustomFormatProfileId — already on the core Manga model
+    //     since Phase 5 D-01 + D-07 but were not surfaced on the wire pre-#28.
+    public MangaMonitorNewItems MonitorNewItems { get; set; }
+    public int? TranslationProfileId { get; set; }
+    public int? CustomFormatProfileId { get; set; }
+
     public DateTime Added { get; set; }
     public DateTime? LastInfoSync { get; set; }
     public HashSet<int>? Tags { get; set; }
@@ -123,6 +134,9 @@ public static class MangaResourceMapper
             Path = model.Path,
             RootFolderPath = model.RootFolderPath,
             Monitored = model.Monitored,
+            MonitorNewItems = model.MonitorNewItems,
+            TranslationProfileId = model.TranslationProfileId,
+            CustomFormatProfileId = model.CustomFormatProfileId,
             Added = model.Added,
             LastInfoSync = model.LastInfoSync,
             Tags = model.Tags,
@@ -165,6 +179,9 @@ public static class MangaResourceMapper
             Path = resource.Path,
             RootFolderPath = resource.RootFolderPath,
             Monitored = resource.Monitored,
+            MonitorNewItems = resource.MonitorNewItems,
+            TranslationProfileId = resource.TranslationProfileId,
+            CustomFormatProfileId = resource.CustomFormatProfileId,
             Added = resource.Added,
             LastInfoSync = resource.LastInfoSync,
             Tags = resource.Tags ?? new HashSet<int>(),

@@ -26,7 +26,7 @@ and downstream Activity / Wanted consumers (Plans 07-09 / 07-10).
 | `MangaGenres.tsx` | Genre label + tooltip overflow component (mirror of `Series/SeriesGenres.tsx`). |
 | `Index/` | The 3-mode (Posters / Overview / Table) library page (UI-03). See [Index/CLAUDE.md](./Index/CLAUDE.md). |
 | `Details/` | Manga details page (Overview / Chapters / Files / History / Search tabs). See [Details/CLAUDE.md](./Details/CLAUDE.md). |
-| `Edit/` | Single-manga Edit modal (PR #27 — `fix(manga-edit-button-no-op)`). Wired into the Edit toolbar button on `Details/MangaDetails.tsx`. |
+| `Edit/` | Single-manga Edit modal (PR #27 — `fix(manga-edit-button-no-op)`; extended for Issue #28 to expose `MonitorNewItems` + `TranslationProfileId` + `CustomFormatProfileId` alongside `Monitored` + `Tags`). Wired into the Edit toolbar button on `Details/MangaDetails.tsx`. |
 | `Delete/` | Single-manga Delete modal (`fix(manga-delete-button-no-op)`). Wired into the Delete toolbar button on `Details/MangaDetails.tsx`. See [Delete/CLAUDE.md](./Delete/CLAUDE.md). |
 
 ## Patterns / Conventions
