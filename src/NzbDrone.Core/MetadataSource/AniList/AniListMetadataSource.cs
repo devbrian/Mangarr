@@ -41,7 +41,8 @@ namespace NzbDrone.Core.MetadataSource.AniList
 
         public override bool DefaultIsPrimary => false;     // D-16 — secondary fallback
 
-        public override Tuple<Manga.Manga, List<Chapter>> GetMangaInfo(string sourceId)
+        public override Tuple<Manga.Manga, IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)>>
+            GetMangaInfo(string sourceId)
         {
             if (!int.TryParse(sourceId, out var anilistId))
             {
@@ -51,10 +52,13 @@ namespace NzbDrone.Core.MetadataSource.AniList
             var media = QueryMediaById(anilistId)
                 ?? throw new MangaNotFoundException(sourceId);
 
-            // AniList exposes NO per-chapter feed in v1; return EMPTY chapter list. The
-            // synthesis fallback (D-17) populates rows from media.Chapters total-count when
-            // MangaDex is not cross-resolved.
-            return Tuple.Create(MapManga(media), new List<Chapter>());
+            // AniList exposes NO per-chapter feed in v1; return EMPTY tuple stream. Phase 16
+            // STRUCT-05 + STRUCT-07: shape conforms to the canonical/release tuple stream;
+            // when AniList is the active primary the post-Phase-16 RefreshMangaService creates
+            // zero canonical Chapters, which renders the manga as fully-Missing (D-04). MangaDex
+            // remains the v1 default primary (D-16) so this path is the dormant fallback.
+            return Tuple.Create(MapManga(media),
+                Enumerable.Empty<(decimal, ChapterEnsureInputs, List<ChapterReleaseFeedRow>)>());
         }
 
         public override List<Manga.Manga> SearchForNewManga(string title)
