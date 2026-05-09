@@ -4,9 +4,13 @@ using System.IO;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
+using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Manga.Commands;
 using NzbDrone.Core.Manga.Events;
+using NzbDrone.Core.MediaFiles;
+using NzbDrone.Core.MediaFiles.Events;
+using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
@@ -52,6 +56,16 @@ namespace NzbDrone.Core.Test.MangaTests
             Mocker.GetMock<IChapterService>()
                   .Setup(c => c.GetChaptersByManga(It.IsAny<int>()))
                   .Returns(new List<Chapter>());
+
+            // gap-12 (refresh-also-scan-disk): production now reads
+            // IConfigService.RescanAfterRefresh inside the per-manga loop. Default
+            // the mock to RescanAfterRefreshType.Always so the disk-scan chain
+            // exercises on every test (matches the production default in
+            // ConfigService.RescanAfterRefresh getter). Tests that assert on
+            // skip-paths override this per-test.
+            Mocker.GetMock<IConfigService>()
+                  .Setup(c => c.RescanAfterRefresh)
+                  .Returns(RescanAfterRefreshType.Always);
         }
 
         // Phase 8 cluster-01 cascade: production now normalizes Manga.Path on every
@@ -198,6 +212,128 @@ namespace NzbDrone.Core.Test.MangaTests
             // Both ids were attempted; the failure on id=1 logged a Warn and the
             // loop moved on to id=2.
             stub.GetMangaInfoCalls.Should().HaveCount(2);
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
+        // ---- gap-12 (refresh-also-scan-disk) regression coverage ----
+        // After successful metadata refresh, RefreshMangaService.Execute must invoke
+        // IMangaDiskScanService.Scan(manga) — mirroring the now-deleted Sonarr
+        // RefreshSeriesService.RescanSeries chain. Gating on IConfigService.RescanAfterRefresh
+        // mirrors TV verbatim.
+
+        [Test]
+        public void Execute_calls_disk_scan_after_successful_metadata_refresh()
+        {
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
+            Mocker.GetMock<IMangaService>().Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>())).Returns(manga);
+
+            var stub = new StubMangaDexProvider(manga);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            // Default RescanAfterRefresh = Always (set in [SetUp]) — disk scan must fire.
+            Mocker.GetMock<IMangaDiskScanService>()
+                  .Verify(s => s.Scan(It.Is<Manga.Manga>(m => m.Id == manga.Id)), Times.Once());
+        }
+
+        [Test]
+        public void Execute_skips_disk_scan_when_RescanAfterRefresh_is_Never()
+        {
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
+            Mocker.GetMock<IMangaService>().Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>())).Returns(manga);
+            Mocker.GetMock<IConfigService>().Setup(c => c.RescanAfterRefresh).Returns(RescanAfterRefreshType.Never);
+
+            var stub = new StubMangaDexProvider(manga);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            Mocker.GetMock<IMangaDiskScanService>()
+                  .Verify(s => s.Scan(It.IsAny<Manga.Manga>()), Times.Never());
+            Mocker.GetMock<IEventAggregator>()
+                  .Verify(e => e.PublishEvent(It.Is<MangaScanSkippedEvent>(
+                              x => x.Reason == MangaScanSkippedReason.NeverRescanAfterRefresh)),
+                          Times.Once());
+        }
+
+        [Test]
+        public void Execute_skips_disk_scan_when_RescanAfterRefresh_is_AfterManual_and_trigger_is_scheduled()
+        {
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
+            Mocker.GetMock<IMangaService>().Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>())).Returns(manga);
+            Mocker.GetMock<IConfigService>().Setup(c => c.RescanAfterRefresh).Returns(RescanAfterRefreshType.AfterManual);
+
+            var stub = new StubMangaDexProvider(manga);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            // explicit-IDs branch with non-manual trigger reproduces the scheduled path.
+            var cmd = new RefreshMangaCommand(new List<int> { 1 }) { Trigger = CommandTrigger.Scheduled };
+            Subject.Execute(cmd);
+
+            Mocker.GetMock<IMangaDiskScanService>()
+                  .Verify(s => s.Scan(It.IsAny<Manga.Manga>()), Times.Never());
+            Mocker.GetMock<IEventAggregator>()
+                  .Verify(e => e.PublishEvent(It.Is<MangaScanSkippedEvent>(
+                              x => x.Reason == MangaScanSkippedReason.RescanAfterManualRefreshOnly)),
+                          Times.Once());
+        }
+
+        [Test]
+        public void Execute_force_scans_when_IsNewManga_even_if_RescanAfterRefresh_is_Never()
+        {
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
+            Mocker.GetMock<IMangaService>().Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>())).Returns(manga);
+            Mocker.GetMock<IConfigService>().Setup(c => c.RescanAfterRefresh).Returns(RescanAfterRefreshType.Never);
+
+            var stub = new StubMangaDexProvider(manga);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            // IsNewManga = true → force-scan regardless of config (post-add lifecycle).
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }, isNewManga: true));
+
+            Mocker.GetMock<IMangaDiskScanService>()
+                  .Verify(s => s.Scan(It.Is<Manga.Manga>(m => m.Id == manga.Id)), Times.Once());
+        }
+
+        [Test]
+        public void Execute_still_calls_disk_scan_when_metadata_refresh_throws()
+        {
+            // gap-12 invariant: even when metadata refresh fails (one bad manga in the
+            // batch), the disk-scan side must still run for that manga so local file
+            // changes get reconciled. Mirrors TV RefreshSeriesService catch-block calling
+            // RescanSeries(...) before continuing the loop.
+            var mangaA = new Manga.Manga { Id = 1, Title = "A", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            var mangaB = new Manga.Manga { Id = 2, Title = "B", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(mangaA);
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(2)).Returns(mangaB);
+
+            var stub = new ThrowOnFirstStubMangaDexProvider(throwOn: mangaA.MangaDexId.Value.ToString(),
+                                                            successResult: mangaB);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1, 2 }));
+
+            // Both A (failure path) and B (success path) must have had disk scans triggered.
+            Mocker.GetMock<IMangaDiskScanService>()
+                  .Verify(s => s.Scan(It.Is<Manga.Manga>(m => m.Id == 1)), Times.Once());
+            Mocker.GetMock<IMangaDiskScanService>()
+                  .Verify(s => s.Scan(It.Is<Manga.Manga>(m => m.Id == 2)), Times.Once());
             ExceptionVerification.ExpectedWarns(1);
         }
 

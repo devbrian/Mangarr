@@ -3,8 +3,11 @@ using System.IO;
 using System.Linq;
 using NLog;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Manga.Commands;
 using NzbDrone.Core.Manga.Events;
+using NzbDrone.Core.MediaFiles;
+using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.MetadataSource;
@@ -28,6 +31,8 @@ namespace NzbDrone.Core.Manga
         private readonly IChapterService _chapterService;
         private readonly IChapterListService _chapterListService;
         private readonly IShouldRefreshManga _shouldRefreshManga;
+        private readonly IMangaDiskScanService _diskScanService;
+        private readonly IConfigService _configService;
         private readonly IEventAggregator _eventAggregator;
         private readonly ICommandResultReporter _commandResultReporter;
         private readonly Logger _logger;
@@ -37,6 +42,8 @@ namespace NzbDrone.Core.Manga
                                    IChapterService chapterService,
                                    IChapterListService chapterListService,
                                    IShouldRefreshManga shouldRefreshManga,
+                                   IMangaDiskScanService diskScanService,
+                                   IConfigService configService,
                                    IEventAggregator eventAggregator,
                                    ICommandResultReporter commandResultReporter,
                                    Logger logger)
@@ -46,9 +53,55 @@ namespace NzbDrone.Core.Manga
             _chapterService = chapterService;
             _chapterListService = chapterListService;
             _shouldRefreshManga = shouldRefreshManga;
+            _diskScanService = diskScanService;
+            _configService = configService;
             _eventAggregator = eventAggregator;
             _commandResultReporter = commandResultReporter;
             _logger = logger;
+        }
+
+        // gap-12 (refresh-also-scan-disk): mirrors Tv/RefreshSeriesService.RescanSeries
+        // (deleted in commit 7794a184c, but historically the canonical Sonarr pattern).
+        // After metadata refresh succeeds, the same Refresh trigger ALSO walks the manga's
+        // root folder and imports any orphan files into the DB — single user click, both
+        // sides reconciled. Gating mirrors TV verbatim:
+        //   * isNew → force-rescan regardless of config (post-add lifecycle expects scan).
+        //   * RescanAfterRefreshType.Never → skip; publish MangaScanSkippedEvent.
+        //   * RescanAfterRefreshType.AfterManual + scheduled trigger → skip; publish event.
+        //   * Otherwise (Always, OR AfterManual+Manual) → invoke disk scan.
+        // Catch-all around _diskScanService.Scan because one bad disk-scan must NOT abort
+        // the surrounding manga refresh batch (WR-07-style invariant).
+        private void RescanManga(Manga manga, bool isNew, CommandTrigger trigger)
+        {
+            var rescanAfterRefresh = _configService.RescanAfterRefresh;
+
+            if (isNew)
+            {
+                _logger.Trace("Forcing rescan of {0}. Reason: New manga", manga);
+            }
+            else if (rescanAfterRefresh == RescanAfterRefreshType.Never)
+            {
+                _logger.Trace("Skipping rescan of {0}. Reason: never rescan after refresh", manga);
+                _eventAggregator.PublishEvent(new MangaScanSkippedEvent(manga, MangaScanSkippedReason.NeverRescanAfterRefresh));
+
+                return;
+            }
+            else if (rescanAfterRefresh == RescanAfterRefreshType.AfterManual && trigger != CommandTrigger.Manual)
+            {
+                _logger.Trace("Skipping rescan of {0}. Reason: not after automatic scans", manga);
+                _eventAggregator.PublishEvent(new MangaScanSkippedEvent(manga, MangaScanSkippedReason.RescanAfterManualRefreshOnly));
+
+                return;
+            }
+
+            try
+            {
+                _diskScanService.Scan(manga);
+            }
+            catch (Exception e)
+            {
+                _logger.Error(e, "Couldn't rescan manga {0}", manga);
+            }
         }
 
         public void Execute(RefreshMangaCommand message)
@@ -201,6 +254,14 @@ namespace NzbDrone.Core.Manga
                     _eventAggregator.PublishEvent(new ChapterInfoRefreshedEvent(existing, added, updated, removed));
 
                     _eventAggregator.PublishEvent(new MangaUpdatedEvent(existing));
+
+                    // gap-12 (refresh-also-scan-disk): synchronously rescan the manga's
+                    // root folder so manually-placed CBZ/CBR files get reconciled into
+                    // the DB on the SAME user click. Single click does both — mirror of
+                    // Tv/RefreshSeriesService.Execute calling RescanSeries(...) per id.
+                    // Placed AFTER the MangaUpdatedEvent so subscribers see the metadata
+                    // update first, then the file-side update via MangaScannedEvent.
+                    RescanManga(existing, message.IsNewManga, message.Trigger);
                 }
                 catch (MangaNotFoundException) when (!message.IsNewManga)
                 {
@@ -230,6 +291,15 @@ namespace NzbDrone.Core.Manga
                         _eventAggregator.PublishEvent(new MangaUpdatedEvent(existing));
                     }
 
+                    // gap-12 (refresh-also-scan-disk): TV verbatim — even when metadata
+                    // refresh hits SeriesNotFound, RefreshSeriesService still calls
+                    // RescanSeries before the catch returns. Manga-side rescan must run
+                    // here too so a deleted-at-source manga can still surface local file
+                    // changes (e.g., user moved scans into the folder before discovering
+                    // upstream removal). Mirrors Tv/RefreshSeriesService.cs:235 ordering
+                    // — RescanSeries runs INSIDE the SeriesNotFoundException catch.
+                    RescanManga(existing, message.IsNewManga, message.Trigger);
+
                     // gap-09: mirror RefreshSeriesService.Execute (Tv/RefreshSeriesService.cs:235)
                     // — flag the command result Indeterminate so a partial-success batch is
                     // not falsely marked Completed by the command queue / health check.
@@ -244,6 +314,14 @@ namespace NzbDrone.Core.Manga
                     // blowing up the whole loop; without this catch the previous
                     // implementation did the opposite.
                     _logger.Warn(ex, "Refresh failed for manga {0}; skipping and continuing", existing.Title);
+
+                    // gap-12 (refresh-also-scan-disk): TV verbatim — even on the catch-all
+                    // failure path, RefreshSeriesService still calls RescanSeries before
+                    // continuing the loop. Manga-side mirrors that ordering — a transient
+                    // upstream failure (HTTP 503, JSON error) must not block the local
+                    // file reconciliation, since the disk-scan is independent of the
+                    // metadata fetch and may itself succeed.
+                    RescanManga(existing, message.IsNewManga, message.Trigger);
 
                     // gap-09: mirror RefreshSeriesService.Execute (Tv/RefreshSeriesService.cs:245)
                     // — flag the command result Indeterminate so a partial-success batch is
