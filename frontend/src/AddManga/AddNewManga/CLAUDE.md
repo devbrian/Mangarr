@@ -64,7 +64,6 @@ copy bundle). Until then, `translate()` falls back to the key string.
 - `AddNewMangaError` (lookup error heading)
 - `AddNewMangaRootFolderHelpText` (Root Folder helper, with `{folder}` placeholder)
 - `AddNewMangaSearchForMissingChapters` (toggle label)
-- `AddNewMangaSearchForMissingChaptersHelpText` (toggle helper)
 - `AddMangaWithTitle` (submit button, with `{title}` placeholder)
 - `MangaSearchPreEmpty` / `MangaSearchPreEmptyHint` (empty state)
 - `MangaSearchNoMatchesFound` / `MangaSearchNoMatchesFoundHint` (no-results state)

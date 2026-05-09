@@ -326,9 +326,6 @@ function AddNewMangaModalContent({
               containerClassName={styles.searchInputContainer}
               className={styles.searchInput}
               name="searchForMissingChapters"
-              helpText={translate(
-                'AddNewMangaSearchForMissingChaptersHelpText'
-              )}
               onChange={handleInputChange}
               {...searchForMissingChapters}
             />
