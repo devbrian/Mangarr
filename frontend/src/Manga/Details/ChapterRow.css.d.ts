@@ -2,9 +2,7 @@
 // Please do not change this file!
 interface CssExports {
   'chapterNumber': string;
-  'language': string;
   'monitored': string;
-  'scanlationGroup': string;
   'status': string;
   'title': string;
 }
