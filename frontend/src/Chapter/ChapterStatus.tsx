@@ -149,11 +149,17 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
   }
 
   if (chapter.monitored) {
+    // Sonarr divergence: Phase 16 D-04 — zero-release Chapters render as "Missing".
+    // Same precedence slot as the existing "wanted" state (monitored AND no file);
+    // pill text alias-flips on releases.length === 0. 6-state precedence preserved
+    // (Pitfall 5 + Open Question 4): failed > blocklisted > have-file > queued >
+    // wanted/missing > unmonitored. NO 7th state.
+    const titleKey = chapter.releases.length === 0 ? 'Missing' : 'Wanted';
     return (
       <Icon
         name={icons.MONITORED}
         kind={kinds.WARNING}
-        title={translate('Wanted')}
+        title={translate(titleKey)}
       />
     );
   }
