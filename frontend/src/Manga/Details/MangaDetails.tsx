@@ -54,11 +54,12 @@ import {
   useSingleManga,
   useToggleMangaMonitored,
 } from 'Manga/useManga';
-// Sonarr divergence: Phase 15 Plan 15-12 — Series/{Edit,Delete} modals were
-// inlined into Manga/Details (TV subtree deleted in Plan 15-07). Per-manga edit
-// + delete are STUBBED to a no-op modal; bulk edit lives at
-// Manga/Index/Select/Edit (still wired). v1.1+ ships dedicated single-manga
-// Edit/Delete modals.
+// Sonarr divergence: Phase 15 Plan 15-12 — Series/Edit modal was inlined as a
+// stub when the TV subtree was deleted in Plan 15-07. The dedicated
+// single-manga Edit modal under Manga/Edit/ now ships the deferred
+// "v1.1+ Edit" path (fix(manga-edit-button-no-op)). The Delete modal remains
+// stubbed below; a sibling fix-forward PR will wire it.
+import EditMangaModal from 'Manga/Edit/EditMangaModal';
 import { useChaptersByManga } from 'Chapter/useChapter';
 import formatBytes from 'Utilities/Number/formatBytes';
 import translate from 'Utilities/String/translate';
@@ -161,8 +162,10 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
   }, []);
 
   const handleEditPress = useCallback(() => setIsEditModalOpen(true), []);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleEditModalClose = useCallback(() => setIsEditModalOpen(false), []);
+  const handleEditModalClose = useCallback(
+    () => setIsEditModalOpen(false),
+    []
+  );
 
   const handleDeletePress = useCallback(() => {
     setIsEditModalOpen(false);
@@ -208,7 +211,6 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
   const chapterFileCount = chapters.filter((c) => c.chapterFileId != null).length;
   const sizeOnDisk = statistics.sizeOnDisk ?? 0;
 
-  void handleEditModalClose;
   void handleDeleteModalClose;
 
   return (
@@ -476,11 +478,14 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
             ) : null}
           </div>
 
-          {/* Sonarr divergence: Phase 15 Plan 15-12 — per-manga Edit + Delete modals
-              are STUBBED while v1.1+ ships dedicated single-manga modals. The Edit
-              + Delete buttons in the toolbar still toggle local state; the modal
-              renders nothing (placeholder), so the page mounts cleanly. */}
-          {isEditModalOpen ? null : null}
+          {/* fix(manga-edit-button-no-op): per-manga Edit modal now wired
+              (was Phase 15 Plan 15-12 stub `null : null`). Delete modal
+              remains stubbed until its sibling fix-forward PR. */}
+          <EditMangaModal
+            isOpen={isEditModalOpen}
+            mangaId={mangaId}
+            onModalClose={handleEditModalClose}
+          />
           {isDeleteModalOpen ? null : null}
         </PageContentBody>
       </PageContent>
