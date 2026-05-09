@@ -9,14 +9,11 @@ import TableRow from 'Components/Table/TableRow';
 import Popover from 'Components/Tooltip/Popover';
 import Tooltip from 'Components/Tooltip/Tooltip';
 import EpisodeFormats from 'Episode/EpisodeFormats';
-import EpisodeLanguages from 'Episode/EpisodeLanguages';
-import EpisodeQuality from 'Episode/EpisodeQuality';
 import IndexerFlags from 'Episode/IndexerFlags';
 import { icons, kinds, tooltipPositions } from 'Helpers/Props';
 import { useUiSettingsValues } from 'Settings/UI/useUiSettings';
 import formatDateTime from 'Utilities/Date/formatDateTime';
 import formatAge from 'Utilities/Number/formatAge';
-import formatBytes from 'Utilities/Number/formatBytes';
 import formatCustomFormatScore from 'Utilities/Number/formatCustomFormatScore';
 import translate from 'Utilities/String/translate';
 import InteractiveSearchPayload from './InteractiveSearchPayload';
@@ -28,7 +25,6 @@ import InteractiveSearchPayload from './InteractiveSearchPayload';
 // per D-12-18.
 import MangaOverrideMatchModal from './OverrideMatch/Manga/MangaOverrideMatchModal';
 import OverrideMatchModal from './OverrideMatch/OverrideMatchModal';
-import Peers from './Peers';
 import ReleaseSceneIndicator from './ReleaseSceneIndicator';
 import { Release, useGrabMangaRelease, useGrabRelease } from './useReleases';
 import styles from './InteractiveSearchRow.css';
@@ -101,6 +97,8 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
     episodeRequested,
     downloadAllowed,
     searchPayload,
+    translatedLanguage,
+    scanlationGroup,
   } = props;
 
   const { rejections = [] } = decision;
@@ -122,9 +120,6 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
     title,
     infoUrl,
     indexer,
-    size,
-    seeders,
-    leechers,
     protocol,
   } = release;
 
@@ -290,21 +285,9 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
         ) : null}
       </TableRowCell>
 
-      <TableRowCell className={styles.size}>{formatBytes(size)}</TableRowCell>
+      <TableRowCell>{translatedLanguage?.toUpperCase() ?? ''}</TableRowCell>
 
-      <TableRowCell className={styles.peers}>
-        {protocol === 'torrent' ? (
-          <Peers seeders={seeders} leechers={leechers} />
-        ) : null}
-      </TableRowCell>
-
-      <TableRowCell className={styles.languages}>
-        <EpisodeLanguages languages={languages} />
-      </TableRowCell>
-
-      <TableRowCell className={styles.quality}>
-        <EpisodeQuality quality={quality} showRevision={true} />
-      </TableRowCell>
+      <TableRowCell>{scanlationGroup ?? ''}</TableRowCell>
 
       <TableRowCell className={styles.customFormatScore}>
         <Tooltip

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Newtonsoft.Json;
 using NLog;
 using NzbDrone.Common.Disk;
 using NzbDrone.Core.Download.Clients.InProcess;
@@ -11,6 +12,7 @@ using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Download.Manga
@@ -146,6 +148,26 @@ namespace NzbDrone.Core.Download.Manga
             }
 
             // ── 4. Build LocalChapter aggregate ─────────────────────────────────────────
+            // Recover the original RemoteChapter (and its provenance ReleaseInfo) from the
+            // ChapterDownloadState row written at grab time by ChapterDownloadService.EnqueueAsync
+            // (RemoteChapterJson = JsonConvert.SerializeObject(remote)). The state row IS the
+            // canonical source of truth for in-flight chapter downloads — its lifecycle
+            // (Created at grab → Deleted at import success in step 7 below) exactly matches
+            // the data flow we need. Without this, ImportApprovedChapters writes ChapterFile
+            // rows with empty TranslatedLanguage + ScanlationGroup, and the same fields appear
+            // blank on the History "imported" row + the Files tab — even though the grab path
+            // had them on the live RemoteChapter.
+            //
+            // Why state row not history: history is an audit log written AFTER grab succeeds;
+            // state is the authoritative in-flight record. State survives history-retention
+            // cleanup, is immune to "two grab events on the same chapter" race ordering, and
+            // already carries the full RemoteChapter (not just the 5-field subset history
+            // happens to copy). On deserialize failure (corrupt JSON / older row shape) we
+            // fall back to an empty ReleaseInfo — better to import with blank metadata than
+            // to fail the import entirely.
+            var state = _stateRepo.FindByMangaAndChapter(manga.Id, chapter.Id);
+            var grabbedRelease = TryRecoverGrabbedRelease(state);
+
             var localChapter = new LocalChapter
             {
                 Path = stagingPath,
@@ -153,7 +175,9 @@ namespace NzbDrone.Core.Download.Manga
                 Manga = manga,
                 Chapter = chapter,
                 Chapters = new List<Chapter> { chapter },
-                Release = new ReleaseInfo()
+                TranslatedLanguage = grabbedRelease?.TranslatedLanguage,
+                ScanlationGroup = grabbedRelease?.ScanlationGroup,
+                Release = grabbedRelease ?? new ReleaseInfo()
             };
 
             // ── 5. Run manga import-spec set via decision maker ─────────────────────────
@@ -212,6 +236,37 @@ namespace NzbDrone.Core.Download.Manga
             catch
             {
                 return 0;
+            }
+        }
+
+        /// <summary>
+        /// Deserialize the grab-time RemoteChapter from the in-flight state row and return its
+        /// Release. Used to propagate provenance metadata (TranslatedLanguage, ScanlationGroup,
+        /// SourceTitle, etc.) from the grab into the resulting ChapterFile via LocalChapter.
+        /// Returns null if the state row is missing, the JSON is empty/corrupt, or the Release
+        /// pointer is null — caller falls back to an empty ReleaseInfo so a recoverable import
+        /// proceeds with blank metadata rather than failing the entire import.
+        /// </summary>
+        private ReleaseInfo TryRecoverGrabbedRelease(ChapterDownloadState state)
+        {
+            if (state == null || string.IsNullOrWhiteSpace(state.RemoteChapterJson))
+            {
+                return null;
+            }
+
+            try
+            {
+                var remote = JsonConvert.DeserializeObject<RemoteChapter>(state.RemoteChapterJson);
+                return remote?.Release;
+            }
+            catch (JsonException ex)
+            {
+                _logger.Warn(
+                    ex,
+                    "Could not deserialize RemoteChapterJson for chapter {0} (state row id {1}); importing without provenance metadata",
+                    state.ChapterId,
+                    state.Id);
+                return null;
             }
         }
     }
