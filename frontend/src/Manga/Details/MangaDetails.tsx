@@ -31,6 +31,8 @@
 //
 // Phase 8 cleanup: collapse with SeriesDetails when Tv/ deletes.
 import React, { useCallback, useMemo, useState } from 'react';
+import CommandNames from 'Commands/CommandNames';
+import { useCommandExecuting, useExecuteCommand } from 'Commands/useCommands';
 import Icon from 'Components/Icon';
 import Label from 'Components/Label';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
@@ -122,6 +124,42 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
+  // Toolbar command dispatch — Refresh + SearchManga buttons.
+  // History toolbar button activates the in-page History tab (Plan 07-09 sibling
+  // already shipped in PR #21 — reuses MangaDetailsHistory.tsx). Per-row analogs
+  // live in MangaIndexRow.onRefreshPress / onSearchPress; canonical command name
+  // + payload shapes mirror that file (CommandNames.RefreshManga uses
+  // `mangaIds: [id]` array; CommandNames.MangaSearch uses singular `mangaId`).
+  const executeCommand = useExecuteCommand();
+  const isRefreshing = useCommandExecuting(CommandNames.RefreshManga, {
+    mangaIds: [mangaId],
+  });
+  const isSearching = useCommandExecuting(CommandNames.MangaSearch, {
+    mangaIds: [mangaId],
+  });
+
+  const handleRefreshPress = useCallback(() => {
+    executeCommand({
+      name: CommandNames.RefreshManga,
+      mangaIds: [mangaId],
+    });
+  }, [executeCommand, mangaId]);
+
+  const handleSearchPress = useCallback(() => {
+    // MangaSearchCommand binds to `MangaIds: List<int>` (plural) per Phase 6 D-06
+    // bulk-dispatch shape; a singular `mangaId` payload silently no-ops in
+    // MangaSearchService.Execute ("MangaSearchCommand received with no MangaIds;
+    // nothing to search"). The command status reports as "completed" — misleading.
+    executeCommand({
+      name: CommandNames.MangaSearch,
+      mangaIds: [mangaId],
+    });
+  }, [executeCommand, mangaId]);
+
+  const handleHistoryPress = useCallback(() => {
+    setActiveTab('history');
+  }, []);
+
   const handleEditPress = useCallback(() => setIsEditModalOpen(true), []);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleEditModalClose = useCallback(() => setIsEditModalOpen(false), []);
@@ -183,12 +221,16 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
               iconName={icons.REFRESH}
               spinningName={icons.REFRESH}
               title={translate('RefreshAndScanTooltip')}
+              isSpinning={isRefreshing}
+              onPress={handleRefreshPress}
             />
 
             <PageToolbarButton
               label={translate('SearchManga')}
               iconName={icons.SEARCH}
               isDisabled={!monitored || chapterCount === 0}
+              isSpinning={isSearching}
+              onPress={handleSearchPress}
             />
 
             <PageToolbarSeparator />
@@ -209,6 +251,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
               label={translate('History')}
               iconName={icons.HISTORY}
               isDisabled={chapterCount === 0}
+              onPress={handleHistoryPress}
             />
           </PageToolbarSection>
         </PageToolbar>
