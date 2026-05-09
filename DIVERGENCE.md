@@ -343,7 +343,48 @@ artifact at Plan 15-09 close: `regdump-wave-C.txt` (3113 entries; +1114 vs Phase
 baseline 1999 — capture-method-delta, not accidental duplicate registration; verified
 via Pattern κ static audit returning 0 violations on Series/Episode/Season interfaces).
 
+
+### Default-seeded indexers + download client on fresh DB (zero-config first-run UX)
+
+Sonarr does NOT auto-seed indexers, download clients, or notifications — users opt in
+by manually adding each one. Mangarr DIVERGES for v1: a fresh DB ships with three
+pre-seeded provider rows so a user can add a manga and trigger a search/download
+immediately without configuring anything.
+
+| Provider | Implementation | Name | Default values |
+|----------|---------------|------|----------------|
+| Indexer | `MangaDexIndexer` | "MangaDex" | `BaseUrl=https://api.mangadex.org`, `SourceKey=mangadex`, `RateSeconds=1.5`, `EnableRss=true`, `EnableAutomaticSearch=true`, `EnableInteractiveSearch=true` |
+| Indexer | `ComixIndexer` | "Comix" | `BaseUrl=https://comix.to`, `SourceKey=comix.to`, `RateSeconds=0.2`, `EnableRss=true`, `EnableAutomaticSearch=true`, `EnableInteractiveSearch=true` |
+| Download Client | `InProcessImageDownloadClient` | "Mangarr In-Process Downloader" | `DownloadsPerSource=2`, `PagesPerChapter=4`, `RetentionDays=7`, `Enable=true`, `Priority=1` |
+
+**Where the seed lives:** `IndexerFactory.InitializeProviders()` +
+`DownloadClientFactory.InitializeProviders()` overrides — the same canonical
+`IHandle<ApplicationStartedEvent>` -> `InitializeProviders()` extension point that
+`MetadataSourceFactory` already uses to seed MangaDex as the default primary
+metadata source. Inherits `ProviderFactory<TProvider, TProviderDefinition>`'s base
+`Handle(ApplicationStartedEvent)` which calls `InitializeProviders()` after
+`RemoveMissingImplementations()`.
+
+**Idempotency:** `if (All().Any()) return;` short-circuit (the S4 pattern from
+`TranslationProfileService.Handle(ApplicationStartedEvent)`). A user who deletes a
+seeded row will NOT see it recreated on the next start — the user-override-respect
+contract is sacred. The seed only fires when the entire table is empty, not "if my
+specific seeded row is missing".
+
+**Rationale:** PROJECT.md design philosophy locks in *"preserve Sonarr's shape
+wherever it works; diverge only where the manga domain forces us"*. The v1 UX lock
+forces this divergence: without seeded providers, `/settings/downloadclients` and
+`/settings/indexers` are empty on a fresh DB and the user has no signal which
+Implementation to pick from the long list in the Add modal. The bundled in-process
+downloader has zero external dependencies, so seeding it is risk-free; MangaDex is
+the BEDROCK metadata source already (Phase 3 D-19) so seeding the matching indexer
+keeps the source slate aligned end-to-end. Comix is the reference port #1 (Phase 3
+plan 03-05) — seeding it gives the user a second source out of the box for
+diversification.
+
 ---
 *Last updated: 2026-05-08 (Phase 15 plan 15-08 Wave 4 — appended Phase 15 closing section: intentional Sonarr-named survivors (6 categories); hard-fork threshold marker; Two-layer-NzbDrone-preserved rationale (D-06); surgical class-prefix renames record (SonarrStartupException + SonarrErrorPipeline + SonarrExe))*
 
 *Last updated: 2026-05-08 (Phase 15 plan 15-09 Wave 5 close-out — appended F-A (Donate href: PRESERVE as upstream-acknowledgment) + F-B (DB filename: sonarr.db -> mangarr.db + in-place migrator) decisions + fix-forward Sonarr-string sweep (Bootstrap.cs + Startup.cs + NotificationBase.cs + NotificationService.cs + NzbDroneRunner.cs) + D-28 REG-DUMP hook closure)*
+
+*Last updated: 2026-05-09 (post-Phase-15 fresh-DB-UX divergence — IndexerFactory + DownloadClientFactory InitializeProviders overrides seed MangaDex + Comix indexers + Mangarr In-Process Downloader on empty DB; idempotent S4-pattern; mirrors MetadataSourceFactory precedent)*

@@ -4,6 +4,8 @@ using System.Linq;
 using FluentValidation.Results;
 using NLog;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Core.Indexers.Comix;
+using NzbDrone.Core.Indexers.MangaDex;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.ThingiProvider;
 
@@ -20,6 +22,20 @@ namespace NzbDrone.Core.Indexers
 
     public class IndexerFactory : ProviderFactory<IIndexer, IndexerDefinition>, IIndexerFactory
     {
+        // Sonarr divergence: zero-config first-run UX (PROJECT.md v1 lock).
+        // Sonarr does NOT auto-seed indexers — users opt in by adding one. Mangarr DOES,
+        // because v1 ships with a known-good source slate (MangaDex BEDROCK + Comix
+        // reference port #1 per Phase 3 D-19 — MangaFire descoped to v2). Without these
+        // pre-seeded, /settings/indexers is empty on a fresh DB and the user has no
+        // signal which Implementation to pick. Seed mirrors MetadataSourceFactory's
+        // S4-pattern InitializeProviders override (idempotent on restart;
+        // sibling-divergence rationale documented in DIVERGENCE.md Phase 15 entries).
+        private static readonly string[] SeededIndexerImplementations =
+        {
+            nameof(MangaDexIndexer),
+            nameof(ComixIndexer)
+        };
+
         private readonly IIndexerRepository _indexerRepository;
         private readonly IIndexerStatusService _indexerStatusService;
         private readonly Logger _logger;
@@ -156,6 +172,51 @@ namespace NzbDrone.Core.Indexers
             }
 
             return result;
+        }
+
+        // Sonarr divergence: zero-config first-run UX (see SeededIndexerImplementations
+        // comment above). Mirrors MetadataSourceFactory.InitializeProviders idempotent
+        // S4-pattern (TranslationProfileService.Handle is the canonical seed precedent).
+        // We seed ONLY when the table is empty — a user who deletes a seeded row will
+        // not see it re-created on next start. We resolve each provider via the injected
+        // IEnumerable<IIndexer> (auto-discovered by ThingiProvider reflection) and call
+        // its DefaultDefinitions to source default Settings; we then override the Name
+        // to the user-facing IIndexer.Name (vs IndexerBase.DefaultDefinitions's
+        // GetType().Name) so the row label matches what the Add-Indexer modal shows.
+        protected override void InitializeProviders()
+        {
+            if (All().Any())
+            {
+                return;
+            }
+
+            foreach (var implementationName in SeededIndexerImplementations)
+            {
+                var provider = _providers.FirstOrDefault(p => p.GetType().Name == implementationName);
+
+                if (provider == null)
+                {
+                    _logger.Warn("Skipping seed of {0} — provider implementation not registered (was the binary built without it?).", implementationName);
+                    continue;
+                }
+
+                var defaultDefinition = provider.DefaultDefinitions
+                    .OfType<IndexerDefinition>()
+                    .FirstOrDefault();
+
+                if (defaultDefinition == null)
+                {
+                    _logger.Warn("Skipping seed of {0} — provider exposes no IndexerDefinition in DefaultDefinitions.", implementationName);
+                    continue;
+                }
+
+                // Use the user-facing friendly name (provider.Name) as the row label —
+                // matches the Add-Indexer modal Implementation name shown to users.
+                defaultDefinition.Name = provider.Name;
+
+                _logger.Info("Seeding default indexer: {0} ({1})", defaultDefinition.Name, defaultDefinition.Implementation);
+                Create(defaultDefinition);
+            }
         }
     }
 }
