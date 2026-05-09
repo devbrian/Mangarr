@@ -31,7 +31,6 @@ import { sizes } from 'Helpers/Props';
 import InteractiveSearch from 'InteractiveSearch/InteractiveSearch';
 import translate from 'Utilities/String/translate';
 import ChapterNumber from './ChapterNumber';
-import LanguageBadge from './LanguageBadge';
 import { useSingleChapter } from './useChapter';
 
 export interface ChapterDetailsModalProps {
@@ -67,11 +66,11 @@ function ChapterDetailsModal({
                 showVolumeNumber={chapter.volumeNumber != null}
               />
               {chapter.title || chapterTitle ? ` — ${chapter.title || chapterTitle}` : null}
-              {chapter.translatedLanguage ? (
-                <span style={{ marginLeft: 8 }}>
-                  <LanguageBadge language={chapter.translatedLanguage} />
-                </span>
-              ) : null}
+              {/* Sonarr divergence: Phase 16 D-03 + STRUCT-09 — language badge dropped */}
+              {/* from modal header. Canonical Chapter is language-free post-Phase-16; */}
+              {/* per-translation breadth lives on chapter.releases[] and surfaces via */}
+              {/* the deferred expand-to-see-translations affordance (Phase 16 SPEC.md */}
+              {/* Out of scope). */}
             </span>
           ) : (
             chapterTitle ?? translate('Chapter')
