@@ -249,9 +249,56 @@ namespace NzbDrone.Core.MediaFiles
             }
         }
 
+        // Bug fix delete-files-not-removed (Issue #33, 2026-05-09): honor
+        // MangaDeletedEvent.DeleteFiles by removing the manga's root folder from disk
+        // when the user opted in via the Delete modal's "Delete Manga Folder" checkbox.
+        // Prior behavior: only the ChapterFile DB rows were cascade-deleted — the
+        // on-disk manga folder (and any orphan files inside it: covers, sentinels,
+        // raw scanlations the user dropped in manually) survived the delete. Symptom
+        // documented at .planning/debug/delete-files-not-removed.md.
+        //
+        // Mirrors Sonarr's TV-side MediaFileService.HandleAsync(SeriesDeletedEvent)
+        // pattern: when DeleteFiles == true, route the folder through
+        // IRecycleBinProvider.DeleteFolder (which honors the user's RecycleBin config —
+        // moves to recycle bin if configured, hard-deletes otherwise).
+        //
+        // Ordering: folder delete FIRST, DB cascade SECOND. The folder-delete try/catch
+        // logs and SWALLOWS exceptions so the DB cascade still runs — the controller has
+        // already committed the manga delete and we must not leave orphan ChapterFile
+        // rows pointing at a manga that no longer exists in the DB. Better to surface a
+        // partial cleanup (folder still on disk, DB rows gone) than a half-deleted state
+        // (DB rows lingering after manga delete) which would break every UI list query.
+        //
+        // FolderExists guard before DeleteFolder — IRecycleBinProvider does not
+        // pre-check existence; calling it on a missing path triggers TransferFolder /
+        // DiskProvider.DeleteFolder paths that throw. Manga.Path can be null/missing
+        // legitimately (a manga added without a root folder selected, or a manga whose
+        // root folder was removed out-of-band) — log + skip in those cases.
         public void HandleAsync(MangaDeletedEvent message)
         {
-            // Cascade delete chapter files when the parent manga is removed.
+            // Step 1: honor DeleteFiles by removing the manga's root folder.
+            if (message.DeleteFiles && !string.IsNullOrWhiteSpace(message.Manga.Path))
+            {
+                try
+                {
+                    if (_diskProvider.FolderExists(message.Manga.Path))
+                    {
+                        _logger.Info("Deleting manga folder: {0}", message.Manga.Path);
+                        _recycleBinProvider.DeleteFolder(message.Manga.Path);
+                    }
+                    else
+                    {
+                        _logger.Debug("Manga folder does not exist on disk, skipping delete: {0}", message.Manga.Path);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn(ex, "Unable to delete manga folder: {0}", message.Manga.Path);
+                }
+            }
+
+            // Step 2: cascade-delete the ChapterFile DB rows. ALWAYS runs (even if the
+            // recycle step above threw and was swallowed) — see ordering rationale above.
             // Mirrors TV's MediaFileService.HandleAsync(SeriesDeletedEvent).
             _chapterFileRepository.DeleteForManga(message.Manga.Id);
         }
