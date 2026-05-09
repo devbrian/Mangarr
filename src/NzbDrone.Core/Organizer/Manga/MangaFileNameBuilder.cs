@@ -36,11 +36,15 @@ namespace NzbDrone.Core.Organizer.Manga
         private static readonly Regex TrimSeparatorsRegex = new Regex(@"[- ._]+$", RegexOptions.Compiled);
 
         private readonly INamingConfigService _namingConfigService;
+        private readonly NzbDrone.Core.Manga.IChapterReleaseService _chapterReleaseService;
         private readonly Logger _logger;
 
-        public MangaFileNameBuilder(INamingConfigService namingConfigService, Logger logger)
+        public MangaFileNameBuilder(INamingConfigService namingConfigService,
+                                    NzbDrone.Core.Manga.IChapterReleaseService chapterReleaseService,
+                                    Logger logger)
         {
             _namingConfigService = namingConfigService;
+            _chapterReleaseService = chapterReleaseService;
             _logger = logger;
         }
 
@@ -198,18 +202,19 @@ namespace NzbDrone.Core.Organizer.Manga
 
                 case "scanlationgroup":
                 case "scanlation.group":
-                    // Phase 16 STRUCT-01: ScanlationGroup lifted to ChapterRelease (per-translation
-                    // data). For naming we read from the indexer's ReleaseInfo only — the
-                    // canonical Chapter row no longer carries scanlation-group metadata.
-                    // TODO(plan-16-03): re-add ChapterRelease fallback once Wave 2 wires the
-                    // selected-release context onto the naming input.
-                    return release?.ScanlationGroup;
+                    // Phase 16 STRUCT-04: ScanlationGroup lifted to ChapterRelease (per-translation
+                    // data). Indexer's ReleaseInfo wins (Phase 3 indexer pipeline carries the
+                    // selected-release context); on a rename / disk-import path with no release,
+                    // fall back to the matched Chapter's first ChapterRelease scanlation group.
+                    return release?.ScanlationGroup
+                        ?? GetFirstReleaseScanlationGroup(chapters);
 
                 case "language":
-                    // Phase 16 STRUCT-01: TranslatedLanguage lifted to ChapterRelease — same
-                    // shape as scanlation group above; release-only token until Plan 16-03
-                    // restores the per-release context.
-                    return release?.TranslatedLanguage;
+                    // Phase 16 STRUCT-04: TranslatedLanguage lifted to ChapterRelease — same
+                    // shape as scanlation group above; release-info wins, fall back to the
+                    // matched Chapter's first ChapterRelease language for rename/disk-import.
+                    return release?.TranslatedLanguage
+                        ?? GetFirstReleaseLanguage(chapters);
 
                 case "source":
                     // Indexer attribution — D-17 SourceKey. ReleaseInfo.Indexer carries the
@@ -303,6 +308,33 @@ namespace NzbDrone.Core.Organizer.Manga
             }
 
             return result.TrimStart(' ', '.').TrimEnd(' ');
+        }
+
+        // Phase 16 STRUCT-04 Plan 16-03 fallback helpers — when the {ScanlationGroup} /
+        // {Language} tokens are evaluated without a populated release context (e.g.,
+        // rename/disk-import path), resolve from the matched Chapter's first ChapterRelease.
+        // This preserves the pre-Phase-16 user expectation (rename a CBZ on disk and the
+        // language token still populates) on the new (canonical, releases) shape.
+        private string GetFirstReleaseScanlationGroup(List<NzbDrone.Core.Manga.Chapter> chapters)
+        {
+            var chapterId = chapters?.FirstOrDefault()?.Id ?? 0;
+            if (chapterId == 0)
+            {
+                return null;
+            }
+
+            return _chapterReleaseService.GetReleasesByChapter(chapterId).FirstOrDefault()?.ScanlationGroup;
+        }
+
+        private string GetFirstReleaseLanguage(List<NzbDrone.Core.Manga.Chapter> chapters)
+        {
+            var chapterId = chapters?.FirstOrDefault()?.Id ?? 0;
+            if (chapterId == 0)
+            {
+                return null;
+            }
+
+            return _chapterReleaseService.GetReleasesByChapter(chapterId).FirstOrDefault()?.TranslatedLanguage;
         }
     }
 }

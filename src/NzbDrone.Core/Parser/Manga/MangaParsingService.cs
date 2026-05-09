@@ -66,12 +66,13 @@ namespace NzbDrone.Core.Parser.Manga
 
     public class MangaParsingService : IMangaParsingService
     {
-        // BCP-47 sentinel used when the parsed release carries no language
-        // marker AND the indexer did not supply one. "und" = undefined per
-        // RFC 5646 / ISO 639-2 — surfaced into Chapter.TranslatedLanguage where
-        // synthetic chapter rows already use the same sentinel (Phase 1 baseline
-        // and Plan 02-03 ChapterRepository).
-        private const string UndefinedLanguage = "und";
+        // Note: the BCP-47 "und" sentinel that previously lived here as an
+        // UndefinedLanguage const moved to MangaDexMetadataSource.MapChapter when
+        // Phase 16 STRUCT-04 lifted language from Chapter to ChapterRelease. The
+        // per-release "und" sentinel is now applied at the projection seam where
+        // the metadata source builds ChapterReleaseFeedRow. Per-translation matching
+        // against parsedChapterInfo.TranslatedLanguage moves to the DecisionEngine
+        // layer (Plan 16-04 retarget consumes ChapterRelease).
 
         private readonly IMangaService _mangaService;
         private readonly IChapterService _chapterService;
@@ -147,12 +148,15 @@ namespace NzbDrone.Core.Parser.Manga
 
             if (parsedChapterInfo?.ChapterNumbers != null)
             {
-                // TODO(plan-16-03): re-introduce per-translation disambiguation via
-                // IChapterReleaseService.GetReleasesByChapter once Wave 2 lands the navigation.
-                // Plan 16-02 stub: canonical Chapter is now language-free at the
-                // (MangaId, ChapterNumber) grain (Phase 16 STRUCT-01), so Map collapses to
-                // lookup-by-(MangaId, ChapterNumber). Language matching moves to the
-                // ChapterRelease layer in Plan 16-03.
+                // Phase 16 STRUCT-01: canonical Chapter is language-free at the
+                // (MangaId, ChapterNumber) grain. Map resolves to the canonical row;
+                // per-translation matching (parsedChapterInfo.TranslatedLanguage against
+                // ChapterRelease.TranslatedLanguage) moves to the DecisionEngine layer
+                // where the indexer's ReleaseInfo carries the language code. The
+                // RemoteChapter.Chapters list returned here is the canonical set; the
+                // DecisionEngine specifications consume IChapterReleaseService to score
+                // per-translation upgrade candidates (Plan 16-04 retargets the cutoff
+                // + upgrade specs at the ChapterRelease grain).
                 foreach (var num in parsedChapterInfo.ChapterNumbers)
                 {
                     var ch = existingChapters?.FirstOrDefault(c =>
@@ -176,12 +180,12 @@ namespace NzbDrone.Core.Parser.Manga
             };
         }
 
-        // TODO(plan-16-03): re-introduce chapter-number-only resolver helpers once Wave 2
-        // wires per-translation disambiguation against IChapterReleaseService.
-        // Phase 16 STRUCT-01 collapsed the language axis from canonical Chapter — the
-        // multi-candidate disambiguation is moot until Plan 16-03 lands the per-language
-        // ChapterRelease layer. ResolveByNumberOnly / ResolvePreferredLanguage /
-        // ResolveTranslationProfile / GetLanguageRank all removed; consumers moved to the
-        // simpler (MangaId, ChapterNumber) lookup path.
+        // Phase 16 STRUCT-01 + STRUCT-04 cleanup: the pre-Phase-16
+        // ResolveByNumberOnly / ResolvePreferredLanguage / ResolveTranslationProfile
+        // / GetLanguageRank helpers are gone (consumers moved to the simpler
+        // (MangaId, ChapterNumber) lookup above). The Phase 8 multi-language
+        // disambiguation lives in the DecisionEngine specs (Plan 16-04 retarget) —
+        // the indexer's ReleaseInfo carries the language code; the spec scores
+        // the candidate ChapterRelease against the manga's TranslationProfile.
     }
 }

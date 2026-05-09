@@ -305,6 +305,21 @@ namespace NzbDrone.Core.Test.MediaFiles
                       Chapters = new List<Chapter> { dbChapter }
                   });
 
+            // Phase 16 STRUCT-04 + Plan 16-03: language back-propagation now reads from
+            // IChapterReleaseService.GetReleasesByChapter against the matched Chapter id.
+            // Stub a single ChapterRelease at "en"/Group-X so the fallback resolves.
+            Mocker.GetMock<NzbDrone.Core.Manga.IChapterReleaseService>()
+                  .Setup(s => s.GetReleasesByChapter(dbChapter.Id))
+                  .Returns(new List<NzbDrone.Core.Manga.ChapterRelease>
+                  {
+                      new()
+                      {
+                          ChapterId = dbChapter.Id,
+                          TranslatedLanguage = "en",
+                          ScanlationGroup = "Group-X",
+                      },
+                  });
+
             // Capture the LocalChapters fed into the decision maker so we can assert on them.
             List<LocalChapter> captured = null;
             Mocker.GetMock<IMakeMangaImportDecision>()
@@ -320,10 +335,11 @@ namespace NzbDrone.Core.Test.MediaFiles
             var lc = captured[0];
             lc.Chapter.Should().NotBeNull();
 
-            // TODO(plan-16-03): re-introduce the back-propagation assertion against the
-            // ChapterRelease grain. The parser-extracted language flows through unchanged
-            // for the Plan 16-02 boundary GREEN.
-            lc.TranslatedLanguage.Should().BeNull();
+            // Phase 16 STRUCT-04 + Plan 16-03: when the parser extracted no language tag
+            // from the filename, MangaDiskScanService falls back to the matched Chapter's
+            // first ChapterRelease.TranslatedLanguage — Issue #30 back-propagation
+            // re-introduced against the ChapterRelease grain.
+            lc.TranslatedLanguage.Should().Be("en");
         }
     }
 }

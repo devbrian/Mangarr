@@ -149,17 +149,19 @@ namespace NzbDrone.Core.Test.MangaParserTests
             result.Chapters[0].Id.Should().Be(_chapters[0].Id);
         }
 
-        // TODO(plan-16-03): re-introduce the multi-language disambiguation test against the
-        // ChapterRelease grain. Phase 16 STRUCT-01 removed the per-Chapter TranslatedLanguage,
-        // so the existing test scenario (multiple Chapter rows differing only by language) is
-        // no longer a valid DB shape — the canonical Chapter is now UNIQUE on
-        // (MangaId, ChapterNumber). The Wave 2 disambiguation runs against
-        // IChapterReleaseService.GetReleasesByChapter against the (lang, group)-keyed table.
+        // Phase 16 STRUCT-01 made the canonical Chapter UNIQUE on (MangaId, ChapterNumber);
+        // multiple Chapter rows differing only by language are no longer a valid DB shape.
+        // The pre-Phase-16 multi-language disambiguation moved to the DecisionEngine layer
+        // where the indexer's ReleaseInfo carries the language code and the spec scores
+        // the candidate ChapterRelease against the manga's TranslationProfile (Plan 16-04
+        // retargets the Wanted/Cutoff specs at the ChapterRelease grain). This test is
+        // therefore [Ignore]'d at the MangaParsingService layer; the equivalent coverage
+        // lives in DecisionEngineSpecificationFixture (Plan 16-04 introduces).
         [Test]
-        [Ignore("Wave 2 dependency — Plan 16-03 reintroduces disambiguation against the ChapterRelease grain (per STRUCT-05)")]
+        [Ignore("Phase 16 STRUCT-01 + Plan 16-04 retarget — disambiguation moved out of MangaParsingService into DecisionEngine specs")]
         public void Map_disambiguates_multi_language_candidates_via_TranslationProfile_when_no_language_signal()
         {
-            // Plan 16-03 will re-implement this test against IChapterReleaseService.
+            // Coverage moved to DecisionEngine spec fixtures (Plan 16-04).
         }
     }
 }
