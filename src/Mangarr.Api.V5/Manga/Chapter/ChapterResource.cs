@@ -13,11 +13,16 @@ namespace Mangarr.Api.V5.Manga.Chapter;
 //     (PROJECT.md Volumes/Seasons Out-of-Scope; EpisodeFile-subresource hydration is
 //     deferred until a real consumer needs it).
 //   * Rename Series→Manga, Episode→Chapter.
-//   * Phase 16 STRUCT-08: TranslatedLanguage / ScanlationGroup / IsSynthetic / ReleaseDate
-//     are LIFTED to ChapterRelease (per-language data lives there now). The
-//     `releases: [...]` collection that surfaces them on the wire lands in Plan 16-05.
-//     For Plan 16-02 boundary GREEN they are simply absent from this resource.
+//   * Phase 16 STRUCT-08 (REWRITTEN per Plan 16-05): pre-Phase-16 ChapterResource
+//     carried 4 per-language fields (TranslatedLanguage, ScanlationGroup, IsSynthetic,
+//     ReleaseDate) directly on the canonical resource because the underlying Chapter row
+//     was per-(MangaId, ChapterNumber, TranslatedLanguage, ScanlationGroup). Post-Phase-16,
+//     Chapter is canonical at (MangaId, ChapterNumber); per-language data lives on the new
+//     Releases nested collection (one ChapterReleaseResource per ChapterRelease row).
+//     Mirrors RemoteEpisode's per-release pattern at the wire boundary.
 //   * Adds FirstReleaseDate (D-02 — Sonarr-mirror of Episode.AirDateUtc; chapter-publish date).
+//   * Adds Releases (STRUCT-08 — per-canonical-chapter ChapterRelease projection;
+//     hydrated by ChapterController via N+1-safe bulk load + GroupBy in memory).
 //   * Keeps ChapterType (string enum projection), VolumeNumber (display-only — no Volumes table).
 //   * ChapterNumber is decimal (DECIMAL(10,3) per Phase 2 D-12 widen — supports 1.5,
 //     1.123, etc.).
@@ -43,8 +48,7 @@ public class ChapterResource : RestResource
     public string? ChapterType { get; set; }            // Regular / Special / Oneshot / Extra
 
     // Phase 16 D-02 — Sonarr-mirror of Episode.AirDateUtc; chapter-publish date.
-    // TODO(plan-16-05): add `releases: [...]` collection per STRUCT-08 — per-language
-    // ChapterRelease projection lifted off the canonical Chapter row.
+    // Distinct from ChapterReleaseResource.ReleaseDate (per-translation upload time).
     public DateTime? FirstReleaseDate { get; set; }
     public bool Monitored { get; set; }
     public bool HasFile => ChapterFileId.HasValue;
@@ -57,6 +61,15 @@ public class ChapterResource : RestResource
     // `CutoffSubresource.Series` enum-array pattern). Null by default to preserve
     // existing ChapterController callers' wire shape.
     public MangaSubresource? Manga { get; set; }
+
+    // Phase 16 STRUCT-08 — per-canonical-chapter releases collection.
+    // Hydrated by ChapterController.GetChapters via N+1-safe bulk load + GroupBy in memory
+    // (single IChapterReleaseService.GetReleasesByMangaId / GetReleasesByChapterIds call
+    // per request, then GroupBy(ChapterId) → ToDictionary; per-Chapter resource lookup is O(1)).
+    // Empty list (NOT null) when the canonical Chapter has 0 ChapterRelease rows — the
+    // D-04 alias-flip "Wanted/Missing = no ChapterRelease rows OR releases-without-file".
+    // camelCase keys (`releases: [...]`) per Newtonsoft.Json default contract resolver convention.
+    public List<ChapterReleaseResource> Releases { get; set; } = new();
 }
 
 public static class ChapterResourceMapper
@@ -74,6 +87,9 @@ public static class ChapterResourceMapper
         FirstReleaseDate = model.FirstReleaseDate,
         Monitored = model.Monitored,
         ExternalId = model.ExternalId,
+
+        // Note: Releases is left as the empty default list `new()`; ChapterController
+        // hydrates per-resource after a SINGLE bulk fetch (RESEARCH §Pitfall N+1).
     };
 
     public static List<ChapterResource> ToResource(this IEnumerable<NzbDrone.Core.Manga.Chapter> models)
