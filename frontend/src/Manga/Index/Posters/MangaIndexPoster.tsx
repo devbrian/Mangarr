@@ -8,8 +8,15 @@ import Link from 'Components/Link/Link';
 import SpinnerIconButton from 'Components/Link/SpinnerIconButton';
 import SeriesTagList from 'Components/SeriesTagList';
 import { icons } from 'Helpers/Props';
-import DeleteMangaModal from "Series/Delete/DeleteSeriesModal";
-import EditMangaModal from "Series/Edit/EditSeriesModal";
+// fix(home-card-edit-button-no-op): swap stub `Series/Edit/EditSeriesModal`
+// (Phase 15 Plan 15-12 `() => null`) for the real per-manga Edit modal
+// shipped in PR #27. Sonarr-consistency-audit: mirrors the canonical
+// `SeriesIndexPoster.js` (git 909af6c87) modal-mount shape 1:1 modulo
+// `seriesId` → `mangaId`. The card overlay has no Delete button (only
+// Refresh + optional Search + Edit), so the `DeleteSeriesModal` mount and
+// `onDeleteSeriesPress` chain are dropped — they were dead in the stub
+// version and would still be dead in the real version.
+import EditMangaModal from 'Manga/Edit/EditMangaModal';
 import MangaIndexProgressBar from 'Manga/Index/ProgressBar/MangaIndexProgressBar';
 import MangaIndexPosterSelect from 'Manga/Index/Select/MangaIndexPosterSelect';
 import { Statistics } from 'Manga/Manga';
@@ -52,7 +59,6 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
   const executeCommand = useExecuteCommand();
   const [hasPosterError, setHasPosterError] = useState(false);
   const [isEditMangaModalOpen, setIsEditMangaModalOpen] = useState(false);
-  const [isDeleteMangaModalOpen, setIsDeleteMangaModalOpen] = useState(false);
 
   const onRefreshPress = useCallback(() => {
     executeCommand({
@@ -83,15 +89,6 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
   const onEditMangaModalClose = useCallback(() => {
     setIsEditMangaModalOpen(false);
   }, [setIsEditMangaModalOpen]);
-
-  const onDeleteMangaPress = useCallback(() => {
-    setIsEditMangaModalOpen(false);
-    setIsDeleteMangaModalOpen(true);
-  }, [setIsDeleteMangaModalOpen]);
-
-  const onDeleteMangaModalClose = useCallback(() => {
-    setIsDeleteMangaModalOpen(false);
-  }, [setIsDeleteMangaModalOpen]);
 
   if (!manga) {
     return null;
@@ -202,7 +199,8 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
         </Link>
       </div>
 
-      <MangaIndexProgressBar mangaId={mangaId}
+      <MangaIndexProgressBar
+        mangaId={mangaId}
         monitored={monitored}
         status={status}
         episodeCount={episodeCount}
@@ -281,15 +279,8 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
 
       <EditMangaModal
         isOpen={isEditMangaModalOpen}
-        seriesId={mangaId}
+        mangaId={mangaId}
         onModalClose={onEditMangaModalClose}
-        onDeleteSeriesPress={onDeleteMangaPress}
-      />
-
-      <DeleteMangaModal
-        isOpen={isDeleteMangaModalOpen}
-        seriesId={mangaId}
-        onModalClose={onDeleteMangaModalClose}
       />
     </div>
   );
