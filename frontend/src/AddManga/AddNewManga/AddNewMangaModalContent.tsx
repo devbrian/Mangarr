@@ -35,6 +35,7 @@ import Form from 'Components/Form/Form';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
+import { EnhancedSelectInputValue } from 'Components/Form/Select/EnhancedSelectInput';
 import Icon from 'Components/Icon';
 import SpinnerButton from 'Components/Link/SpinnerButton';
 import ModalBody from 'Components/Modal/ModalBody';
@@ -42,13 +43,12 @@ import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import Popover from 'Components/Tooltip/Popover';
-import useApiQuery from 'Helpers/Hooks/useApiQuery';
 import { getValidationFailures } from 'Helpers/Hooks/useApiMutation';
+import useApiQuery from 'Helpers/Hooks/useApiQuery';
 import { icons, inputTypes, kinds, tooltipPositions } from 'Helpers/Props';
 import MangaPoster from 'Manga/MangaPoster';
 import selectSettings from 'Store/Selectors/selectSettings';
 import { useIsWindows } from 'System/Status/useSystemStatus';
-import { EnhancedSelectInputValue } from 'Components/Form/Select/EnhancedSelectInput';
 import { InputChanged } from 'typings/inputs';
 import translate from 'Utilities/String/translate';
 import { useAddManga } from './useAddManga';
@@ -163,6 +163,13 @@ function AddNewMangaModalContent({
   );
 
   const handleAddMangaPress = useCallback(() => {
+    // Bug fix new-manga-default-monitored (2026-05-08): send `monitored: true`
+    // explicitly + nest the per-Chapter Monitor cascade fields under `addOptions`
+    // so they survive backend MangaResource → Manga.AddOptions deserialization.
+    // Without these, the backend MangaScannedHandler bypasses
+    // SetChapterMonitoredStatus entirely and Manga.Monitored persists as false.
+    // Backend MangaController.AddManga also defaults Monitored=true unless
+    // AddOptions.Monitor=None — sending true from the UI is defense in depth.
     addManga({
       title: manga.title,
       titleSlug: manga.titleSlug,
@@ -170,7 +177,12 @@ function AddNewMangaModalContent({
       aniListId: manga.aniListId,
       malId: manga.malId,
       rootFolderPath: rootFolderPath.value,
+      monitored: monitor.value !== 'none',
       monitor: monitor.value,
+      addOptions: {
+        monitor: monitor.value,
+        searchForMissingChapters: searchForMissingChapters.value,
+      },
       translationProfileId: translationProfileId.value,
       customFormatProfileId: customFormatProfileId.value,
       tags: tags.value,

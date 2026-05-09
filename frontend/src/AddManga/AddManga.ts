@@ -31,12 +31,39 @@ export interface AddMangaResult {
   isExcluded?: boolean;
 }
 
+// Bug fix new-manga-default-monitored (2026-05-08): wire-shape mirror of
+// backend `AddMangaOptionsResource` (Mangarr.Api.V5/Manga/MangaResource.cs).
+// Carries the post-add per-Chapter Monitor cascade choices through the AddManga
+// POST so MangaScannedHandler.SetChapterMonitoredStatus runs on the new manga.
+// Without this nested field on the wire, the backend MangaResource silently
+// dropped the flat `monitor` / `searchForMissingChapters` keys at JSON
+// deserialization → Manga.AddOptions = null → SetChapterMonitoredStatus
+// bypass at MangaScannedHandler.cs:65-71.
+export interface AddMangaOptionsPayload {
+  monitor: MangaMonitor;
+  searchForMissingChapters: boolean;
+  searchForCutoffUnmetChapters?: boolean;
+  ignoreChaptersWithFiles?: boolean;
+  ignoreChaptersWithoutFiles?: boolean;
+}
+
 export interface AddMangaPayload {
   // POST /api/v5/manga body shape
   title: string;
   titleSlug?: string;
   rootFolderPath: string;
+  // Bug fix new-manga-default-monitored (2026-05-08): explicitly send
+  // `monitored: true` on Add so backend MangaResource.Monitored is true
+  // before AddMangaService.PrepareForAdd runs (the backend MangaController
+  // also defaults Monitored=true unless AddOptions.Monitor=None — defense
+  // in depth: send explicit truthy from the UI side too).
+  monitored: boolean;
   monitor: MangaMonitor;
+  // Bug fix new-manga-default-monitored (2026-05-08): nested addOptions object
+  // mirrors the backend `AddMangaOptionsResource` so MangaResourceMapper.ToModel
+  // can populate Manga.AddOptions. Without it the per-Chapter monitor cascade
+  // never runs.
+  addOptions: AddMangaOptionsPayload;
   translationProfileId: number;
   customFormatProfileId: number;
   tags: number[];

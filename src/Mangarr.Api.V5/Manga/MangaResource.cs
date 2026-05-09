@@ -1,4 +1,5 @@
 using Mangarr.Http.REST;
+using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaCover;
 
 namespace Mangarr.Api.V5.Manga;
@@ -40,6 +41,19 @@ public class MangaResource : RestResource
     public int? PublicationYear { get; set; }
     public string? PrimaryAuthor { get; set; }
 
+    // Bug fix new-manga-default-monitored (2026-05-08): carry the user's post-add
+    // Monitor + Search* choices through to NzbDrone.Core.Manga.Manga.AddOptions
+    // so MangaScannedHandler can apply the per-Chapter monitor cascade. Without
+    // this field on the wire, the frontend AddNewMangaModal's `monitor` /
+    // `searchForMissingChapters` keys were silently dropped at JSON deserialization
+    // → AddOptions == null → MangaScannedHandler bypassed SetChapterMonitoredStatus
+    // entirely, so newly-added manga had ALL chapters unmonitored regardless of
+    // the user's Monitor=All choice. Mirrors Sonarr's SeriesResource.AddOptions
+    // (TV pattern: Series.AddOptions populated at AddSeries POST → SeriesScannedHandler
+    // applies per-Episode monitor flags). Round-tripped on GET so PUT-as-resource-mirror
+    // semantics survive.
+    public AddMangaOptionsResource? AddOptions { get; set; }
+
     // Computed at GET time by MangaController.MapResource — drives the UI library
     // tile's chapter progress bar (`X / Y (Total: …)`). The field set carries
     // both the canonical chapter-shape names and the verbatim TV-shape aliases
@@ -68,6 +82,21 @@ public class MangaStatisticsResource
     public int TotalEpisodeCount { get; set; }
     public int MonitoredEpisodeCount { get; set; }
     public int SeasonCount { get; set; }
+}
+
+// Bug fix new-manga-default-monitored (2026-05-08): wire-shape mirror of
+// `NzbDrone.Core.Manga.AddMangaOptions` (the IEmbeddedDocument persisted on Manga).
+// Carries the post-add Monitor cascade choices through the AddManga POST.
+// Mirrors Sonarr's TV-side AddSeriesOptionsResource shape; manga sibling
+// preserves the IgnoreChaptersWith*Files flags for v2 ImportLists pre-pop
+// support but does not surface them in the v1 Add Manga UI.
+public class AddMangaOptionsResource
+{
+    public MangaMonitor Monitor { get; set; }
+    public bool SearchForMissingChapters { get; set; }
+    public bool SearchForCutoffUnmetChapters { get; set; }
+    public bool IgnoreChaptersWithFiles { get; set; }
+    public bool IgnoreChaptersWithoutFiles { get; set; }
 }
 
 public static class MangaResourceMapper
@@ -103,6 +132,14 @@ public static class MangaResourceMapper
             TotalChapterCount = model.TotalChapterCount,
             PublicationYear = model.PublicationYear,
             PrimaryAuthor = model.PrimaryAuthor,
+            AddOptions = model.AddOptions == null ? null : new AddMangaOptionsResource
+            {
+                Monitor = model.AddOptions.Monitor,
+                SearchForMissingChapters = model.AddOptions.SearchForMissingChapters,
+                SearchForCutoffUnmetChapters = model.AddOptions.SearchForCutoffUnmetChapters,
+                IgnoreChaptersWithFiles = model.AddOptions.IgnoreChaptersWithFiles,
+                IgnoreChaptersWithoutFiles = model.AddOptions.IgnoreChaptersWithoutFiles,
+            },
         };
     }
 
@@ -137,6 +174,14 @@ public static class MangaResourceMapper
             TotalChapterCount = resource.TotalChapterCount,
             PublicationYear = resource.PublicationYear,
             PrimaryAuthor = resource.PrimaryAuthor,
+            AddOptions = resource.AddOptions == null ? null : new AddMangaOptions
+            {
+                Monitor = resource.AddOptions.Monitor,
+                SearchForMissingChapters = resource.AddOptions.SearchForMissingChapters,
+                SearchForCutoffUnmetChapters = resource.AddOptions.SearchForCutoffUnmetChapters,
+                IgnoreChaptersWithFiles = resource.AddOptions.IgnoreChaptersWithFiles,
+                IgnoreChaptersWithoutFiles = resource.AddOptions.IgnoreChaptersWithoutFiles,
+            },
         };
     }
 }

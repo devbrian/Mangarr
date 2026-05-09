@@ -111,6 +111,24 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         try
         {
             var manga = resource.ToModel();
+
+            // Bug fix new-manga-default-monitored (2026-05-08): default Monitored=true
+            // for Add Manga unless the user explicitly chose Monitor=None on the dialog.
+            // Without this default, newly-added manga always land with Monitored=false
+            // because (a) the frontend AddMangaPayload omits the `monitored` key
+            // (5-value MangaMonitor on the form drives chapter-level monitoring, not
+            // manga-level Monitored) and (b) MangaResource.Monitored therefore receives
+            // the C# bool default (false) on JSON deserialization. Mirrors the SHAPE
+            // of Sonarr's TV-side Add flow where Series.Monitored arrives true on
+            // every Add (the inverted symmetric of AddMangaService.PrepareForAdd's
+            // gap-05 block at AddMangaService.cs:298-301 which only forces FALSE on
+            // Monitor=None — that block stays as the explicit-opt-out gate; this
+            // controller default is the implicit-opt-in default that pairs with it).
+            if (manga != null)
+            {
+                manga.Monitored = manga.AddOptions?.Monitor != MangaMonitor.None;
+            }
+
             var added = _addMangaService.AddManga(manga!);
 
             // Hand-construct the 201 instead of TypedCreated(int) — the union here
