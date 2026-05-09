@@ -67,39 +67,79 @@ namespace Mangarr.Api.V5.Manga.Release
 
         [HttpGet]
         [Produces("application/json")]
-        public async Task<Results<Ok<List<MangaReleaseResource>>, BadRequest>> GetReleases(int chapterId)
+        public async Task<Results<Ok<List<MangaReleaseResource>>, BadRequest>> GetReleases(int? chapterId, int? mangaId)
         {
             // PIPELINE-01 Interactive Search — fans out to all enabled manga indexers via
-            // IMangaSearchForReleases.ChapterSearch (Plan 06-06), runs Phase 5
-            // MangaDownloadDecisionMaker, and returns the ranked list (Approved + Rejected)
-            // for the React modal to render.
+            // IMangaSearchForReleases (Plan 06-06), runs Phase 5 MangaDownloadDecisionMaker,
+            // and returns the ranked list (Approved + Rejected) for the React modal to render.
+            //
+            // Two scopes supported (mirrors TV ReleaseController's ?episodeId vs ?seriesId&seasonNumber):
+            //   ?chapterId={id}  — single-chapter search; ChapterSearchCriteria
+            //   ?mangaId={id}    — whole-manga search; MangaSearchCriteria across the manga's chapters
+            //
+            // Phase 7 D-10 frontend (`MangaDetails.tsx` Search tab) wires `<InteractiveSearch
+            // type="manga" searchPayload={{ mangaId }} />`, which routes through
+            // `useReleases.getReleasePath` to GET `/api/v5/manga/release?mangaId=<id>`. The
+            // mangaId branch was missing in Phase 6 Plan 06-09 (only chapterId shipped) — the
+            // Search tab silently returned BadRequest "Chapter not found" before this overload.
             try
             {
-                var chapter = _chapterService.GetChapter(chapterId);
-                if (chapter == null)
+                if (chapterId.HasValue)
                 {
-                    throw new NzbDroneClientException(HttpStatusCode.BadRequest, "Chapter not found");
+                    var chapter = _chapterService.GetChapter(chapterId.Value);
+                    if (chapter == null)
+                    {
+                        throw new NzbDroneClientException(HttpStatusCode.BadRequest, "Chapter not found");
+                    }
+
+                    var manga = _mangaService.GetManga(chapter.MangaId);
+                    if (manga == null)
+                    {
+                        throw new NzbDroneClientException(HttpStatusCode.BadRequest, "Manga not found");
+                    }
+
+                    var criteria = new ChapterSearchCriteria
+                    {
+                        Manga = manga,
+                        Chapters = new List<NzbDrone.Core.Manga.Chapter> { chapter },
+                        UserInvokedSearch = true,
+                        InteractiveSearch = true,
+                        MonitoredChaptersOnly = false
+                    };
+
+                    var decisions = await _releaseSearchService.ChapterSearch(criteria);
+                    return TypedResults.Ok(MapDecisions(decisions));
                 }
 
-                var manga = _mangaService.GetManga(chapter.MangaId);
-                if (manga == null)
+                if (mangaId.HasValue)
                 {
-                    throw new NzbDroneClientException(HttpStatusCode.BadRequest, "Manga not found");
+                    var manga = _mangaService.GetManga(mangaId.Value);
+                    if (manga == null)
+                    {
+                        throw new NzbDroneClientException(HttpStatusCode.BadRequest, "Manga not found");
+                    }
+
+                    var chapters = _chapterService.GetChaptersByManga(mangaId.Value) ?? new List<NzbDrone.Core.Manga.Chapter>();
+
+                    var criteria = new MangaSearchCriteria
+                    {
+                        Manga = manga,
+                        Chapters = chapters,
+                        UserInvokedSearch = true,
+                        InteractiveSearch = true,
+
+                        // User-invoked whole-manga search: include every chapter the indexer can
+                        // fetch (not just monitored). The Decision Engine still rejects rows that
+                        // don't match a monitored chapter under normal RSS sync; for an interactive
+                        // search the user's intent is "show me everything that exists for this manga".
+                        MonitoredChaptersOnly = false
+                    };
+
+                    var decisions = await _releaseSearchService.MangaSearch(criteria);
+                    return TypedResults.Ok(MapDecisions(decisions));
                 }
 
-                var criteria = new ChapterSearchCriteria
-                {
-                    Manga = manga,
-                    Chapters = new List<NzbDrone.Core.Manga.Chapter> { chapter },
-                    UserInvokedSearch = true,
-                    InteractiveSearch = true,
-                    MonitoredChaptersOnly = false
-                };
-
-                var decisions = await _releaseSearchService.ChapterSearch(criteria);
-
-                var resources = MapDecisions(decisions);
-                return TypedResults.Ok(resources);
+                throw new NzbDroneClientException(HttpStatusCode.BadRequest, "chapterId or mangaId must be provided");
             }
             catch (SearchFailedException ex)
             {

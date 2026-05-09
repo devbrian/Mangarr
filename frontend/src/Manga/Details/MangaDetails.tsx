@@ -31,7 +31,6 @@
 //
 // Phase 8 cleanup: collapse with SeriesDetails when Tv/ deletes.
 import React, { useCallback, useMemo, useState } from 'react';
-import Alert from 'Components/Alert';
 import Icon from 'Components/Icon';
 import Label from 'Components/Label';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
@@ -63,6 +62,8 @@ import formatBytes from 'Utilities/Number/formatBytes';
 import translate from 'Utilities/String/translate';
 import MangaAlternateTitles from './MangaAlternateTitles';
 import MangaDetailsChapters from './MangaDetailsChapters';
+import MangaDetailsFiles from './MangaDetailsFiles';
+import MangaDetailsHistory from './MangaDetailsHistory';
 import MangaDetailsLinks from './MangaDetailsLinks';
 import MangaDetailsProvider from './MangaDetailsProvider';
 import MangaProgressLabel from './MangaProgressLabel';
@@ -412,19 +413,11 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
               ) : null}
 
               {activeTab === 'files' ? (
-                <Alert kind={kinds.INFO}>
-                  {/* Plan 07-08 wires the Files tab proper. v1 placeholder
-                      keeps the surface present without faking data. */}
-                  {translate('NoChapterFilesYet')}
-                </Alert>
+                <MangaDetailsFiles mangaId={mangaId} />
               ) : null}
 
               {activeTab === 'history' ? (
-                <Alert kind={kinds.INFO}>
-                  {/* Plan 07-09 wires the per-manga history view. v1 placeholder
-                      avoids surfacing pre-Plan-09 stale data. */}
-                  {translate('NoHistoryForThisManga')}
-                </Alert>
+                <MangaDetailsHistory mangaId={mangaId} />
               ) : null}
 
               {activeTab === 'search' ? (
