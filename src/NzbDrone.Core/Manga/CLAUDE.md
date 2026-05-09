@@ -22,14 +22,15 @@ This directory is the **manga-side parallel** of `src/NzbDrone.Core/Tv/`. Both c
 | File | Purpose |
 |------|---------|
 | `IMangaService.cs` + `MangaService.cs` | CRUD + finders. Publishes `MangaAddedEvent` / `MangaUpdatedEvent` / `MangaDeletedEvent` on mutations. Constructor injects `IMangaRepository` + `IEventAggregator` + `Logger`. |
-| `IChapterService.cs` + `ChapterService.cs` | CRUD + `FindByMangaAndNumber(int, decimal, string)` — D-03 contract consumed by `MangaParsingService.Map` (Plan 02-04). Slimmed vs. `Tv/EpisodeService` — no `IHandle<EpisodeFileDeletedEvent>`, no `IHandleAsync<SeriesScannedEvent>` (Phase 4+ territory). |
+| `IChapterService.cs` + `ChapterService.cs` | CRUD + `FindByMangaAndNumber(int, decimal)` — Phase 16 STRUCT-01 dropped the `string translatedLanguage` arg (canonical Chapter is language-free). Per-language lookups go via `IChapterReleaseService.GetReleasesByChapter`. |
 
 ### Repository Layer (Plan 02-03 deliverable — this plan)
 
 | File | Purpose |
 |------|---------|
 | `IMangaRepository.cs` + `MangaRepository.cs` | Dapper repo (`BasicRepository<Manga>`). Inherits Phase 1 D-15 Polly retry automatically. `FindByMangaDexId(Guid)` / `FindByMalId(int)` / `FindByAniListId(int)` — diverges from `Tv/SeriesRepository.FindByTvdbId` (manga has singular IDs). |
-| `IChapterRepository.cs` + `ChapterRepository.cs` | Dapper repo (`BasicRepository<Chapter>`). `Find(mangaId, chapterNumber, translatedLanguage)` mirrors the Phase 1 composite-index key. `GetSyntheticByMangaId` surfaces D-17 placeholder rows for the Phase 3 indexer fill-in pipeline. |
+| `IChapterRepository.cs` + `ChapterRepository.cs` | Dapper repo (`BasicRepository<Chapter>`). `Find(int mangaId, decimal chapterNumber)` matches the Phase 16 STRUCT-01 (MangaId, ChapterNumber) UNIQUE key — language axis is gone (lifted to `ChapterRelease`). `GetSyntheticByMangaId` removed (STRUCT-03 — synthetic concept gone; `chapter.Releases.Count == 0` derives from D-04). |
+| `IChapterReleaseRepository.cs` + `ChapterReleaseRepository.cs` | Phase 16 STRUCT-02 sibling repo for the `ChapterRelease` per-language translation table. `Find(chapterId, lang, group)` matches the natural-key UNIQUE; `GetByChapterIds(...)` is the N+1-safe bulk path consumed by `IChapterReleaseService.GetReleasesByMangaId` for ChapterController per-Manga lookups. |
 
 ### Events (Plan 02-03 deliverable — this plan; under `Events/`)
 
@@ -38,7 +39,7 @@ This directory is the **manga-side parallel** of `src/NzbDrone.Core/Tv/`. Both c
 | `Events/MangaAddedEvent.cs` | `IEvent` published after Insert. Mirrors `Tv/Events/SeriesAddedEvent.cs` verbatim shape. |
 | `Events/MangaUpdatedEvent.cs` | `IEvent` published after Update (when `publishUpdatedEvent = true`). |
 | `Events/MangaDeletedEvent.cs` | `IEvent` published after Delete. Carries `DeleteFiles` flag. |
-| `Events/ChapterListUpdatedEvent.cs` | `IEvent` published after `ChapterListService.SyncChapters` (Plan 02-09). Consumers re-read from `IChapterRepository` — the event does NOT carry the delta. |
+| `Events/ChapterListUpdatedEvent.cs` | `IEvent` published by `RefreshMangaService` AFTER both passes of the Phase 16 STRUCT-07 two-pass (`EnsureChapter` + `SyncChapterReleases`) complete — Pitfall 4 single-emit invariant. Consumers re-read from `IChapterRepository` / `IChapterReleaseRepository` — the event does NOT carry the delta. |
 
 ## Patterns / Conventions
 

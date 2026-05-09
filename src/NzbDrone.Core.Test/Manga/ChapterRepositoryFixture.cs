@@ -109,5 +109,26 @@ namespace NzbDrone.Core.Test.MangaTests
             Subject.Insert(c);
             Subject.Get(c.Id).FirstReleaseDate.Should().Be(when);
         }
+
+        // STRUCT-04 release-grain-agnostic guard: Plan 16-03 Task 4 reflection check.
+        // ChaptersWhereCutoffUnmet at ChapterRepository.cs:88-139 already filters by
+        // Manga.TranslationProfileId / CustomFormatProfileId — never reads
+        // Chapter.TranslatedLanguage. Living-documentation guard: confirm the
+        // post-Phase-16 Chapter has NO TranslatedLanguage property at all (any future
+        // accidental reintroduction would silently re-couple the cutoff query to the
+        // pre-Phase-16 grain).
+        [Test]
+        public void Chapter_does_not_carry_TranslatedLanguage_after_Phase_16()
+        {
+            // STRUCT-04 removes Chapter.TranslatedLanguage. Any reflection access
+            // returns null. Compile-time guard wouldn't surface a regression silently
+            // (a re-added property would compile clean) — runtime guard via reflection
+            // catches the regression even if no code reads the field directly.
+            typeof(Chapter)
+                .GetProperty("TranslatedLanguage")
+                .Should().BeNull(
+                    "Phase 16 STRUCT-04 lifted language to ChapterRelease; "
+                    + "Chapter must remain language-free at the (MangaId, ChapterNumber) grain");
+        }
     }
 }
