@@ -136,6 +136,202 @@ namespace NzbDrone.Core.Test.MetadataSource.MangaDex
             results[0].Title.Should().Be("Naruto");
         }
 
+        // Bug fix regression (search-titles-romanized, 2026-05-09): when MangaDex
+        // ships `attributes.title` with ONLY a romanized key (`ko-ro` for Korean,
+        // `ja-ro` for Japanese) and the official English title lives under
+        // `attributes.altTitles[].en`, the search-result mapping MUST prefer the
+        // English alt-title over the romanization. Without this, the AddManga UI
+        // shows e.g. "Na Honjaman Level Up: Ragnarok" instead of "Solo Leveling:
+        // Ragnarok" for MangaDex id ade0306c-f4b6-4890-9edb-1ddf04df2039.
+        [Test]
+        public void Search_prefers_english_altTitle_over_romanized_canonical_title()
+        {
+            // Shape mirrors the live MangaDex response for
+            // ade0306c-f4b6-4890-9edb-1ddf04df2039 (Solo Leveling: Ragnarok).
+            var listResource = new MangaListResource
+            {
+                Data = new List<MangaDataItem>
+                {
+                    new MangaDataItem
+                    {
+                        Id = "ade0306c-f4b6-4890-9edb-1ddf04df2039",
+                        Type = "manga",
+                        Attributes = new MangaAttributes
+                        {
+                            Title = new Dictionary<string, string>
+                            {
+                                { "ko-ro", "Na Honjaman Level Up: Ragnarok" },
+                            },
+                            AltTitles = new List<Dictionary<string, string>>
+                            {
+                                new Dictionary<string, string> { { "ko", "나 혼자만 레벨업 : 라그나로크" } },
+                                new Dictionary<string, string> { { "pt-br", "Upando Sozinho: Ragnarok" } },
+                                new Dictionary<string, string> { { "en", "Solo Leveling: Ragnarok" } },
+                                new Dictionary<string, string> { { "vi", "Tôi Thăng Cấp" } },
+                            },
+                        },
+                    },
+                },
+            };
+            SetupSearchMock(listResource);
+
+            var results = Subject.SearchForNewManga("solo leveling");
+
+            results.Should().HaveCount(1);
+            results[0].Title.Should().Be("Solo Leveling: Ragnarok");
+        }
+
+        // When multiple `en` entries exist in altTitles, the FIRST one wins —
+        // MangaDex maintainers list the canonical English title first by
+        // convention; subsequent `en` entries are alternate spellings or fan
+        // translations. Shape mirrors the live response for
+        // 32d76d19-8a05-4db0-9fc2-e0b0648fe9d0 (Solo Leveling) — first `en` is
+        // "Solo Leveling", second `en` is "I level up alone".
+        [Test]
+        public void Search_prefers_first_english_altTitle_when_multiple_en_entries_exist()
+        {
+            var listResource = new MangaListResource
+            {
+                Data = new List<MangaDataItem>
+                {
+                    new MangaDataItem
+                    {
+                        Id = "32d76d19-8a05-4db0-9fc2-e0b0648fe9d0",
+                        Type = "manga",
+                        Attributes = new MangaAttributes
+                        {
+                            Title = new Dictionary<string, string>
+                            {
+                                { "ko-ro", "Na Honjaman Level-Up" },
+                            },
+                            AltTitles = new List<Dictionary<string, string>>
+                            {
+                                new Dictionary<string, string> { { "ko", "나 혼자만 레벨업" } },
+                                new Dictionary<string, string> { { "en", "Solo Leveling" } },
+                                new Dictionary<string, string> { { "ko-ro", "Na Honjaman Lebel-eob" } },
+                                new Dictionary<string, string> { { "en", "I level up alone" } },
+                            },
+                        },
+                    },
+                },
+            };
+            SetupSearchMock(listResource);
+
+            var results = Subject.SearchForNewManga("solo leveling");
+
+            results[0].Title.Should().Be("Solo Leveling");
+        }
+
+        // Canonical title["en"] still wins outright when present — the previous
+        // happy path (English-canonical-title) must not regress. Many existing
+        // English-original manga (e.g. "Naruto", "Bleach") rely on this path.
+        [Test]
+        public void Search_prefers_canonical_english_title_over_altTitles()
+        {
+            var listResource = new MangaListResource
+            {
+                Data = new List<MangaDataItem>
+                {
+                    new MangaDataItem
+                    {
+                        Id = "cccccccc-cccc-cccc-cccc-cccccccccccc",
+                        Type = "manga",
+                        Attributes = new MangaAttributes
+                        {
+                            Title = new Dictionary<string, string>
+                            {
+                                { "en", "One Piece" },
+                                { "ja", "ワンピース" },
+                            },
+                            AltTitles = new List<Dictionary<string, string>>
+                            {
+                                new Dictionary<string, string> { { "en", "Wan Piisu (Wrong)" } },
+                            },
+                        },
+                    },
+                },
+            };
+            SetupSearchMock(listResource);
+
+            var results = Subject.SearchForNewManga("one piece");
+
+            results[0].Title.Should().Be("One Piece");
+        }
+
+        // Final-fallback path: when neither title["en"] NOR any altTitles[].en
+        // exists, fall through to the first non-empty value of `title` (i.e.
+        // the romanized form). Better than null. Mirrors the pre-fix behavior
+        // for records that genuinely have no English entry anywhere.
+        [Test]
+        public void Search_falls_back_to_first_title_value_when_no_english_anywhere()
+        {
+            var listResource = new MangaListResource
+            {
+                Data = new List<MangaDataItem>
+                {
+                    new MangaDataItem
+                    {
+                        Id = "dddddddd-dddd-dddd-dddd-dddddddddddd",
+                        Type = "manga",
+                        Attributes = new MangaAttributes
+                        {
+                            Title = new Dictionary<string, string>
+                            {
+                                { "ja-ro", "Aru Manga" },
+                            },
+                            AltTitles = new List<Dictionary<string, string>>
+                            {
+                                new Dictionary<string, string> { { "ja", "ある漫画" } },
+                            },
+                        },
+                    },
+                },
+            };
+            SetupSearchMock(listResource);
+
+            var results = Subject.SearchForNewManga("aru manga");
+
+            results[0].Title.Should().Be("Aru Manga");
+        }
+
+        // Edge case: empty `en` value in canonical title with a populated `en`
+        // entry in altTitles — the empty canonical must not win over the
+        // non-empty alt. Mirrors the WR-06 "empty en" gotcha that the
+        // pre-existing PreferredString already guards against, applied to the
+        // new altTitles dimension.
+        [Test]
+        public void Search_skips_empty_canonical_en_and_uses_altTitle_en()
+        {
+            var listResource = new MangaListResource
+            {
+                Data = new List<MangaDataItem>
+                {
+                    new MangaDataItem
+                    {
+                        Id = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+                        Type = "manga",
+                        Attributes = new MangaAttributes
+                        {
+                            Title = new Dictionary<string, string>
+                            {
+                                { "en", "" },
+                                { "ko-ro", "Romanized" },
+                            },
+                            AltTitles = new List<Dictionary<string, string>>
+                            {
+                                new Dictionary<string, string> { { "en", "English Official" } },
+                            },
+                        },
+                    },
+                },
+            };
+            SetupSearchMock(listResource);
+
+            var results = Subject.SearchForNewManga("anything");
+
+            results[0].Title.Should().Be("English Official");
+        }
+
         [Test]
         public void GetMangaInfo_throws_MangaNotFoundException_on_404()
         {

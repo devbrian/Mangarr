@@ -144,7 +144,15 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             var manga = new NzbDrone.Core.Manga.Manga
             {
                 MangaDexId = Guid.TryParse(item.Id, out var g) ? g : (Guid?)null,
-                Title = PreferredTitle(attrs.Title),
+
+                // Bug fix (search-titles-romanized, 2026-05-09): consult
+                // attrs.AltTitles in addition to attrs.Title when picking the
+                // display title. For Korean/Japanese works MangaDex routinely
+                // ships attrs.Title with ONLY a romanized key (`ko-ro`/`ja-ro`)
+                // and the official English title lives in attrs.AltTitles.
+                // Without this, search results show "Na Honjaman Level Up:
+                // Ragnarok" instead of "Solo Leveling: Ragnarok".
+                Title = SelectPreferredTitle(attrs.Title, attrs.AltTitles),
 
                 // WR-06 fix: prefer "en" only when it's non-empty; otherwise fall
                 // through to the first non-empty value in the dictionary. MangaDex
@@ -247,12 +255,70 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             };
         }
 
-        private static string PreferredTitle(Dictionary<string, string> titles)
+        /// <summary>
+        /// Pick the best display title for a manga, consulting both the canonical
+        /// <c>attributes.title</c> dictionary AND the <c>attributes.altTitles</c>
+        /// list. Bug fix for "search results show romanized Korean/Japanese titles
+        /// instead of English official titles" (search-titles-romanized, 2026-05-09).
+        ///
+        /// <para>Ordered preference:</para>
+        /// <list type="number">
+        ///   <item><description><c>title["en"]</c> when non-empty (the common path —
+        ///     MangaDex's canonical English title).</description></item>
+        ///   <item><description>The FIRST non-empty <c>"en"</c> entry in
+        ///     <c>altTitles</c>. MangaDex maintainers list the official English
+        ///     title first by convention; subsequent <c>en</c> entries are
+        ///     alternate spellings or fan translations.</description></item>
+        ///   <item><description>The first non-empty value of <c>title</c> as a last
+        ///     resort (typically a romanization like <c>ko-ro</c> / <c>ja-ro</c>
+        ///     for Korean/Japanese works) — preserves the pre-fix behavior for
+        ///     records that have no English entry anywhere.</description></item>
+        /// </list>
+        ///
+        /// <para>Returns <c>null</c> if neither dictionary nor list yields a usable
+        /// string.</para>
+        /// </summary>
+        private static string SelectPreferredTitle(
+            Dictionary<string, string> title,
+            List<Dictionary<string, string>> altTitles)
         {
-            // WR-06 mirror: prefer "en" only when non-empty; otherwise fall through
-            // to the first non-empty value. Same MangaDex empty-en gotcha as on
-            // Description.
-            return PreferredString(titles, "en");
+            // 1. canonical title["en"] wins outright.
+            if (title != null
+                && title.TryGetValue("en", out var canonicalEn)
+                && !string.IsNullOrWhiteSpace(canonicalEn))
+            {
+                return canonicalEn;
+            }
+
+            // 2. First English entry in altTitles. List order is API-meaningful
+            //    (maintainers list the official English title first) so we walk
+            //    in declared order and take the first non-empty `en` value.
+            if (altTitles != null)
+            {
+                foreach (var alt in altTitles)
+                {
+                    if (alt != null
+                        && alt.TryGetValue("en", out var altEn)
+                        && !string.IsNullOrWhiteSpace(altEn))
+                    {
+                        return altEn;
+                    }
+                }
+            }
+
+            // 3. Fallback: first non-empty value of the canonical title dict
+            //    (typically the romanized form for Korean/Japanese works that
+            //    have no English entry anywhere — better than null).
+            if (title != null && title.Count > 0)
+            {
+                var firstNonEmpty = title.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+                if (firstNonEmpty != null)
+                {
+                    return firstNonEmpty;
+                }
+            }
+
+            return null;
         }
 
         private static string PreferredString(Dictionary<string, string> bag, string preferredKey)
