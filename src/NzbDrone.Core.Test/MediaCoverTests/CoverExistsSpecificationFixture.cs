@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -33,6 +33,12 @@ namespace NzbDrone.Core.Test.MediaCoverTests
             Mocker.GetMock<IDiskProvider>().Setup(c => c.GetFileSize(It.IsAny<string>())).Returns(bytes);
         }
 
+        private void GivenHeadResponseStatus(HttpStatusCode statusCode)
+        {
+            _httpResponse = new HttpResponse(null, new HttpHeader(), "", statusCode);
+            Mocker.GetMock<IHttpClient>().Setup(c => c.Head(It.IsAny<HttpRequest>())).Returns(_httpResponse);
+        }
+
         [Test]
         public void should_return_false_if_file_not_exists()
         {
@@ -61,6 +67,57 @@ namespace NzbDrone.Core.Test.MediaCoverTests
         {
             GivenExistingFileSize(100);
             Subject.AlreadyExists("http://url", "c:\\file.exe").Should().BeFalse();
+        }
+
+        // Regression: MangaDex's uploads.mangadex.org and other image CDNs return 405
+        // MethodNotAllowed on HEAD. The spec must treat that as "cannot validate cache —
+        // assume stale" and return false so the caller redownloads via GET, instead of
+        // letting HttpClient throw HttpException out of AlreadyExists.
+        [Test]
+        public void should_return_false_when_HEAD_returns_405_method_not_allowed()
+        {
+            GivenExistingFileSize(100);
+            GivenHeadResponseStatus(HttpStatusCode.MethodNotAllowed);
+
+            Subject.AlreadyExists("https://uploads.mangadex.org/covers/x/y.jpg", "c:\\file.jpg").Should().BeFalse();
+        }
+
+        [Test]
+        public void should_return_false_when_HEAD_returns_403_forbidden()
+        {
+            GivenExistingFileSize(100);
+            GivenHeadResponseStatus(HttpStatusCode.Forbidden);
+
+            Subject.AlreadyExists("http://cdn.example/file.jpg", "c:\\file.jpg").Should().BeFalse();
+        }
+
+        [Test]
+        public void should_return_false_when_HEAD_returns_404_not_found()
+        {
+            GivenExistingFileSize(100);
+            GivenHeadResponseStatus(HttpStatusCode.NotFound);
+
+            Subject.AlreadyExists("http://cdn.example/missing.jpg", "c:\\file.jpg").Should().BeFalse();
+        }
+
+        // The HEAD request must opt in to suppression for the CDN-rejection codes — without
+        // SuppressHttpErrorStatusCodes set, HttpClient.ExecuteAsync would throw on those
+        // statuses (HttpClient.cs:118) and AlreadyExists would never get a chance to handle
+        // the response.
+        [Test]
+        public void should_pass_HEAD_with_suppressed_status_codes_for_HEAD_hostile_CDNs()
+        {
+            GivenExistingFileSize(100);
+
+            Subject.AlreadyExists("http://url", "c:\\file.exe");
+
+            Mocker.GetMock<IHttpClient>()
+                .Verify(c => c.Head(It.Is<HttpRequest>(r =>
+                    r.SuppressHttpErrorStatusCodes != null &&
+                    System.Linq.Enumerable.Contains(r.SuppressHttpErrorStatusCodes, HttpStatusCode.MethodNotAllowed) &&
+                    System.Linq.Enumerable.Contains(r.SuppressHttpErrorStatusCodes, HttpStatusCode.Forbidden) &&
+                    System.Linq.Enumerable.Contains(r.SuppressHttpErrorStatusCodes, HttpStatusCode.NotFound))),
+                    Times.Once);
         }
     }
 }
