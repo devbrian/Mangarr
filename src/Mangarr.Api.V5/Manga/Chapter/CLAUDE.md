@@ -18,8 +18,9 @@ other manga endpoint (`/api/v5/manga`, `/api/v5/manga/lookup`, `/api/v5/manga/li
 
 | File | Purpose |
 |------|---------|
-| `ChapterController.cs` | GET / PUT / POST endpoints. Bare `[V5ApiController]` auto-derives the SignalR resource name `chapter` from `ChapterResource.ResourceName` (Pitfall 2 + Lock #6). |
-| `ChapterResource.cs` | DTO + `ChapterResourceMapper.ToResource` extension (single + IEnumerable). |
+| `ChapterController.cs` | GET / PUT / POST endpoints. Bare `[V5ApiController]` auto-derives the SignalR resource name `chapter` from `ChapterResource.ResourceName` (Pitfall 2 + Lock #6). N+1-safe hydration via `IChapterReleaseService.GetReleasesByMangaId` (single bulk call) + GroupBy in memory (Phase 16 STRUCT-08). |
+| `ChapterResource.cs` | DTO + `ChapterResourceMapper.ToResource` extension (single + IEnumerable). Post-Phase-16 wire shape: drops 4 fields (`translatedLanguage`, `scanlationGroup`, `isSynthetic`, `releaseDate`); adds `firstReleaseDate?: ISO8601` (D-02) + `releases: ChapterReleaseResource[]` (per-translation collection per STRUCT-08). |
+| `ChapterReleaseResource.cs` | NEW per-translation wire-shape (Phase 16 STRUCT-08). Carries `Id` + `TranslatedLanguage` + `ScanlationGroup` + `ReleaseDate` + `ExternalId`. Mirrors the `ChapterRelease` entity shape verbatim through `Newtonsoft.Json` camelCase round-trip (consumed by `frontend/src/Chapter/ChapterRelease.ts`). |
 | `ChaptersMonitoredResource.cs` | Bulk `PUT /monitor` body shape: `{ ChapterIds: List<int>, Monitored: bool }`. |
 
 ## Endpoints
@@ -66,9 +67,33 @@ Manga sibling diverges from `EpisodeController`:
   React detail page reads chapter + manga separately and assembles client-side).
 - POST `{id}/search` endpoint is NEW (no `EpisodeController` peer) — D-07 ships this
   alongside the GET/PUT shape.
-- `ChapterResource` adds `TranslatedLanguage` (BCP-47), `ScanlationGroup`, `IsSynthetic`,
-  `ChapterType` (string projection of the enum), `VolumeNumber` (display-only — no
-  Volumes table).
+- `ChapterResource` (post-Phase-16) carries `ChapterType` (string projection of the
+  enum), `VolumeNumber` (display-only — no Volumes table), `FirstReleaseDate?`
+  (D-02 — Sonarr-mirror of `Episode.AirDateUtc`), and `Releases: ChapterReleaseResource[]`
+  (per-translation grain per STRUCT-08). The pre-Phase-16 shape carried
+  `TranslatedLanguage` (BCP-47) + `ScanlationGroup` + `IsSynthetic` + `ReleaseDate`
+  directly; those 4 fields lifted to `ChapterReleaseResource` (TranslatedLanguage +
+  ScanlationGroup + ReleaseDate) or were removed (IsSynthetic).
+
+## Phase 16 wire shape (post-2026-05-09)
+
+`GET /api/v5/chapter?mangaId={id}` returns one `ChapterResource` per canonical chapter. Each carries:
+- `firstReleaseDate?: ISO8601` (D-02 — upstream chapter-publish date; Sonarr-mirror of `Episode.AirDateUtc`)
+- `releases: ChapterReleaseResource[]` (STRUCT-08 — per-translation grain)
+
+The 4 dropped fields (`translatedLanguage`, `scanlationGroup`, `isSynthetic`, `releaseDate`) are gone from the canonical resource. Per-translation data lives in the nested `releases` collection.
+
+**Sum-of-releases invariant:** for a manga with N canonical chapters and M total feed-row count, `GET /api/v5/chapter?mangaId={id}` returns N `ChapterResource` items where `sum(item.releases.length for item in items) == M`. This is the structural acceptance contract for STRUCT-08 (verified by live smoke at Plan 16-06 close: 68 canonical chapters / 0 duplicates / sum=194 against Solo Leveling: Ragnarok feed).
+
+**N+1-avoidance pattern (STRUCT-08 acceptance):**
+- `GetChapters(mangaId)` calls `IChapterReleaseService.GetReleasesByMangaId(mangaId)` ONCE.
+- `GetChapters(chapterIds=[...])` calls `IChapterReleaseService.GetReleasesByChapterIds(...)` ONCE.
+- Group by `ChapterId` in memory; attach to per-resource `Releases` field via dictionary lookup.
+- NEVER call `GetReleasesByChapter(c.Id)` inside the per-chapter loop.
+
+**N+1 RED FLAG guard:** `ChapterControllerFixture.GetChapters_does_not_call_GetReleasesByChapter_per_chapter_in_loop` asserts `IChapterReleaseService.GetReleasesByMangaId` called exactly once and `GetReleasesByChapter` called never (Phase 16 STRUCT-08 acceptance).
+
+**Zero-release Chapter (D-04):** `releases: []` (empty array, NEVER null). Wire-boundary alias-flip: a chapter with zero releases is a real canonical row that the frontend renders as "Missing" (Sonarr-mirror of Episode + AirDateUtc + no EpisodeFile). The `ChapterRelease` collection is allocated empty rather than null so `releases.length === 0` is the canonical client-side check.
 
 ## Phase 13 — API V5 surface backfill
 

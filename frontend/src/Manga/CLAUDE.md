@@ -51,6 +51,23 @@ and downstream Activity / Wanted consumers (Plans 07-09 / 07-10).
 - **Sibling-divergence comments (Pattern S2)** — every file here carries the
   `// Sonarr divergence: NEW manga sibling per Phase 7 D-NN — see DIVERGENCE.md.` header.
 
+## Phase 16 chapter list (post-2026-05-09)
+
+The chapter table renders **one row per canonical Chapter** (Phase 16 STRUCT-09 + D-03):
+
+- **Column count: 8 → 5.** `MangaDetailsChapters.tsx` `DEFAULT_COLUMNS` drops 3 entries (`translatedLanguage`, `scanlationGroup`, `releaseDate`); 3 corresponding `getSortValue` cases removed; 3 `ChapterRow.tsx` cell branches removed; 2 dead CSS classes (`.language` + `.scanlationGroup`) deleted; `ChapterRow.css.d.ts` regenerated.
+- **5 surviving columns:** `monitored`, `chapterNumber`, `title`, `status`, `actions`.
+- **Status pill carries aggregate state** (Phase 16 D-04 + Pitfall 5):
+  - **File:** chapter has been downloaded (`chapterFileId != null`).
+  - **Available:** `releases.length > 0 && chapterFileId == null`.
+  - **Missing:** `releases.length === 0` (D-04 — Sonarr-mirror of Episode + AirDateUtc + no EpisodeFile pattern).
+  - **Future-dated:** `firstReleaseDate > today` (unaired-future style; matches existing `ChapterMonitoredService:80` filter).
+- **6-state precedence preserved** (Pitfall 5 — failed > blocklisted > have-file > queued > wanted/missing > unmonitored). Wanted/Missing are aliases at the same precedence slot, NOT a 7th state. The alias-flip is text-only: `chapter.releases.length === 0 ? 'Missing' : 'Wanted'` at line 158 of `frontend/src/Chapter/ChapterStatus.tsx`.
+
+**Wire shape consumed:** Frontend `Chapter.ts` mirrors API V5 `ChapterResource` post-Phase-16 — drops 4 per-language fields (`translatedLanguage`, `scanlationGroup`, `isSynthetic`, `releaseDate`); adds `firstReleaseDate?: string` (D-02) + `releases: ChapterRelease[]` (STRUCT-08). NEW `frontend/src/Chapter/ChapterRelease.ts` mirrors `ChapterReleaseResource.cs` (5 properties: `id`, `translatedLanguage`, `scanlationGroup?`, `releaseDate?`, `externalId?`).
+
+**Out of scope for Phase 16:** Expand-to-see-translations affordance. The data shape (`releases: [...]`) lands; the UI does not. A future polish phase will add the per-row expand control to render each `ChapterRelease` with its language flag + scanlation group + release date + grab button. Per Phase 16 SPEC.md "Out of scope: expand-to-see-translations UX in the chapter table — the data shape lands, but the affordance does not."
+
 ## Manga Adaptation Notes
 
 This directory IS the manga adaptation of `frontend/src/Series/`. Phase 8 cutover
