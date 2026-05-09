@@ -102,7 +102,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 return Array.Empty<ReleaseInfo>();
             }
 
-            return await FetchReleases(g =>
+            var releases = await FetchReleases(g =>
             {
                 if (g is ComixRequestGenerator crg)
                 {
@@ -112,6 +112,8 @@ namespace NzbDrone.Core.Indexers.Comix
 
                 return g.GetSearchRequests(searchCriteria);
             });
+
+            return EnrichTitlesWithMangaName(releases, searchCriteria?.Manga?.Title);
         }
 
         public override async Task<IList<ReleaseInfo>> Fetch(ChapterSearchCriteria searchCriteria)
@@ -128,7 +130,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 return Array.Empty<ReleaseInfo>();
             }
 
-            return await FetchReleases(g =>
+            var releases = await FetchReleases(g =>
             {
                 if (g is ComixRequestGenerator crg)
                 {
@@ -138,6 +140,45 @@ namespace NzbDrone.Core.Indexers.Comix
 
                 return g.GetSearchRequests(searchCriteria);
             });
+
+            return EnrichTitlesWithMangaName(releases, searchCriteria?.Manga?.Title);
+        }
+
+        /// <summary>
+        /// comix.to's <c>/api/v1/manga/{hid}/chapters</c> endpoint returns chapter rows that
+        /// do NOT carry the parent manga's title (the endpoint is keyed per-manga, so the
+        /// title is implicit). MangaDownloadDecisionMaker extracts the manga title FROM the
+        /// release title via <c>MangaParser.ParseChapterTitle</c> before resolving it against
+        /// the database; without the manga name in the title, every release rejects with
+        /// "Unknown Manga". Prefix the indexer-supplied manga title here — at the indexer
+        /// layer where we still have the search criteria — so downstream parsing succeeds.
+        /// Concurrency-safe: post-fetch transform on the returned list, no shared state.
+        /// </summary>
+        internal static IList<ReleaseInfo> EnrichTitlesWithMangaName(IList<ReleaseInfo> releases, string mangaTitle)
+        {
+            if (releases == null || string.IsNullOrWhiteSpace(mangaTitle))
+            {
+                return releases;
+            }
+
+            foreach (var r in releases)
+            {
+                if (r == null || string.IsNullOrWhiteSpace(r.Title))
+                {
+                    continue;
+                }
+
+                // Skip if the manga name is already present (e.g., manga-list path
+                // ParseMangaList already prefixes via $"{m.Title} - Chapter ...").
+                if (r.Title.StartsWith(mangaTitle, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                r.Title = $"{mangaTitle} - {r.Title}";
+            }
+
+            return releases;
         }
 
         /// <summary>

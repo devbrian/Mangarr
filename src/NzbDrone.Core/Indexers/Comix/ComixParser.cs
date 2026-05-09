@@ -123,8 +123,10 @@ namespace NzbDrone.Core.Indexers.Comix
                 var lang = !string.IsNullOrWhiteSpace(ch.Language) ? ch.Language : "en";
 
                 // comix.to chapter rows do NOT carry the manga title (the chapter-list endpoint
-                // is keyed per-manga; the parent manga is implicit). Parser leaves a placeholder;
-                // upstream MangaParsingService.Map enriches with the matched Manga's title.
+                // is keyed per-manga; the parent manga is implicit). The indexer's Fetch
+                // override (ComixIndexer.EnrichTitlesWithMangaName) prefixes the manga title
+                // post-parse — keeping the parser format-pure while ensuring downstream
+                // MangaParser.ParseChapterTitle can extract a usable MangaTitle for DB lookup.
                 var title = $"Chapter {chapterNum.ToString("0.###", CultureInfo.InvariantCulture)} [{lang}]";
                 var subtitle = !string.IsNullOrWhiteSpace(ch.Title) ? ch.Title : ch.Name;
                 if (!string.IsNullOrWhiteSpace(subtitle))
