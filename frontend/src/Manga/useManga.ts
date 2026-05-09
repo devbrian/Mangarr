@@ -476,11 +476,17 @@ interface SaveMangaEditorPayload {
   tags?: number[];
 }
 
-export const useSaveManga = (moveFiles?: boolean) => {
+// fix(manga-edit-button-no-op): consistency — route by id so the URL matches
+// the resource being updated (`/manga/{id}`). The MangaController route
+// template is `{id:int?}` so PUT /api/v5/manga and PUT /api/v5/manga/{id}
+// both map to UpdateManga; this hook now takes mangaId as the first arg so
+// the request URL is unambiguous, matching the conventions of
+// useToggleMangaMonitored + useDeleteManga.
+export const useSaveManga = (mangaId: number, moveFiles?: boolean) => {
   const queryClient = useQueryClient();
 
   const { mutate, isPending, error } = useApiMutation<Manga, SaveMangaPayload>({
-    path: '/manga',
+    path: `/manga/${mangaId}`,
     queryParams: {
       moveFiles,
     },
