@@ -5,6 +5,7 @@ using System.Linq;
 using NLog;
 using NzbDrone.Common.Disk;
 using NzbDrone.Core.Download.Clients.InProcess;
+using NzbDrone.Core.History.Manga;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
@@ -55,6 +56,7 @@ namespace NzbDrone.Core.Download.Manga
         private readonly IChapterFileService _chapterFileService;
         private readonly IMangaService _mangaService;
         private readonly IChapterService _chapterService;
+        private readonly IChapterHistoryService _chapterHistoryService;
         private readonly IDiskProvider _diskProvider;
         private readonly Logger _logger;
 
@@ -65,6 +67,7 @@ namespace NzbDrone.Core.Download.Manga
             IChapterFileService chapterFileService,
             IMangaService mangaService,
             IChapterService chapterService,
+            IChapterHistoryService chapterHistoryService,
             IDiskProvider diskProvider,
             Logger logger)
         {
@@ -74,6 +77,7 @@ namespace NzbDrone.Core.Download.Manga
             _chapterFileService = chapterFileService;
             _mangaService = mangaService;
             _chapterService = chapterService;
+            _chapterHistoryService = chapterHistoryService;
             _diskProvider = diskProvider;
             _logger = logger;
         }
@@ -146,6 +150,18 @@ namespace NzbDrone.Core.Download.Manga
             }
 
             // ── 4. Build LocalChapter aggregate ─────────────────────────────────────────
+            // Hydrate provenance metadata from the most recent grabbed-history row for this
+            // chapter. Without this, ImportApprovedChapters writes a ChapterFile with empty
+            // TranslatedLanguage + ScanlationGroup, and the same fields appear blank on the
+            // History tab's "imported" row + the Files tab — even though the grab row had
+            // them. The grabbed-history row is the canonical place to look (Plan 06-03's
+            // ChapterHistoryService.Handle(ChapterGrabbedEvent) writes it from the
+            // RemoteChapter.Release at grab time).
+            var grabbedHistory = _chapterHistoryService.FindByChapterId(chapter.Id)
+                .Where(h => h.EventType == ChapterHistoryEventType.Grabbed)
+                .OrderByDescending(h => h.Date)
+                .FirstOrDefault();
+
             var localChapter = new LocalChapter
             {
                 Path = stagingPath,
@@ -153,7 +169,16 @@ namespace NzbDrone.Core.Download.Manga
                 Manga = manga,
                 Chapter = chapter,
                 Chapters = new List<Chapter> { chapter },
-                Release = new ReleaseInfo()
+                TranslatedLanguage = grabbedHistory?.TranslatedLanguage,
+                ScanlationGroup = grabbedHistory?.ScanlationGroup,
+                Release = new ReleaseInfo
+                {
+                    Title = grabbedHistory?.SourceTitle,
+                    Indexer = grabbedHistory?.SourceKey,
+                    Guid = grabbedHistory?.ReleaseGuid,
+                    TranslatedLanguage = grabbedHistory?.TranslatedLanguage,
+                    ScanlationGroup = grabbedHistory?.ScanlationGroup
+                }
             };
 
             // ── 5. Run manga import-spec set via decision maker ─────────────────────────

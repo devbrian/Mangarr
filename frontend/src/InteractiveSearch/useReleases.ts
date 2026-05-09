@@ -57,6 +57,13 @@ export interface Release extends ModelBase {
   customFormatScore: number;
   indexerFlags: number;
   sceneMapping?: AlternateTitle;
+  // Manga top-level fields (Phase 6 Plan 06-09 — MangaReleaseResource).
+  // Replaces Size / Peers / Languages / Quality columns on the Search row, which
+  // are TV-only (manga has no quality model per Phase 5 D-04, no peer counts on
+  // HTTP-protocol releases, and a single BCP-47 TranslatedLanguage instead of
+  // an array).
+  scanlationGroup?: string;
+  translatedLanguage?: string;
 }
 
 export interface ParsedInfo {
