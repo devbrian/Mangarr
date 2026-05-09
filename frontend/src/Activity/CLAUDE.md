@@ -20,7 +20,7 @@ Live view of active downloads from the configured download clients.
 | `Queue.tsx` | Page (accepts `mediaType?: 'series' \| 'manga'` prop — Phase 7 D-10) |
 | `MangaQueue.tsx` | Phase 7 thin wrapper rendering `<Queue mediaType="manga" />` (Plan 07-09) |
 | `QueueRow.tsx` | One queue item |
-| `QueueDetails.tsx`, `Details/QueueDetailsProvider.tsx` | Details inline / modal |
+| `QueueDetails.tsx`, `Details/QueueDetailsProvider.tsx` | Details inline / modal. `QueueDetailsProvider` repointed (2026-05-09) from the deleted TV `/queue/details` route onto `/manga/queue/details` (Phase 13 Plan 13-08 `MangaQueueDetailsController`); filter params mapped from TV shape (`seriesId` / `episodeIds`) to manga shape (`mangaId` / `chapterIds`); the legacy `all=true` discriminator dropped (manga endpoint returns the full queue with no filter). Helper hooks (`useQueueDetailsForSeries` / `useQueueItemForEpisode` / `useIsDownloadingEpisodes`) fall back to manga-shape fields when TV-shape ones are absent. React Query key now matches the `SignalRListener.tsx:357-364` `manga/queue/details` invalidation handler. |
 | `QueueStatus.tsx`, `QueueStatusCell.tsx` | Status badge |
 | `EpisodeCellContent.tsx`, `EpisodeTitleCellContent.tsx` | Per-episode rendering |
 | `ProtocolLabel.tsx` | Usenet/Torrent badge |
