@@ -10,8 +10,9 @@ using Timer = System.Timers.Timer;
 namespace NzbDrone.Core.Indexers.Comix
 {
     // Sonarr divergence: no Sonarr peer. Phase 17 introduces a runtime JS-execution-context
-    // signer for comix.to (replaces the static ComixHash port broken 2026-05-10 by upstream
-    // key rotation + response-body encryption — see .planning/debug/comix-invalid-token-403.md).
+    // signer for comix.to (replaces the static keiyoushi Hash.kt port broken 2026-05-10 by
+    // upstream key rotation + response-body encryption — see
+    // .planning/debug/comix-invalid-token-403.md).
     // Mangarr-only seam; Pattern S2 / sonarr-consistency-audit Pattern ι allowlist coverage.
 
     /// <summary>
