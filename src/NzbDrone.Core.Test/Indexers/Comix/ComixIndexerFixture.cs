@@ -1,5 +1,7 @@
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Comix;
@@ -34,6 +36,16 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                     SourceKey = "comix.to"
                 }
             };
+
+            // Phase 17 D-16: Mock<IComixSigner> returning canned decoded JSON shape so
+            // ComixIndexer.Fetch + ComixRequestGenerator.GetSearchRequests don't need a
+            // live Chromium in unit tests. Wave 1 Plan 17-02 wires _signer through the
+            // ComixIndexer constructor — this Mock prevents MissingDependencyException
+            // when AutoMoqer resolves Subject after the new ctor signature lands.
+            const string CannedManga = "{\"result\":{\"items\":[]}}";
+            Mocker.GetMock<IComixSigner>()
+                  .Setup(s => s.ProxyFetchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .ReturnsAsync(CannedManga);
         }
 
         [Test]
