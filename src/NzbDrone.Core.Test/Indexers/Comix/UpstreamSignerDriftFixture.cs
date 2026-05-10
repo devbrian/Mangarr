@@ -30,6 +30,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
     {
         private string _upstreamExcerpt;
         private string _signerSource;
+        private string _parserSource;
 
         [SetUp]
         public void Setup()
@@ -46,17 +47,26 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // ComixPuppeteerSigner.cs lives in NzbDrone.Core. The Wave 0 fixture climbed
             // a fixed number of `..`s from `_tests/net10.0/`, which breaks in worktree
             // layouts (the repo root may not be 2-or-4 levels up from the test dir).
-            // Walk parent directories until we find `src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs`.
-            _signerSource = ReadSignerSource(TestContext.CurrentContext.TestDirectory);
+            // Walk parent directories until we find the canonical path.
+            _signerSource = ReadCoreSource(
+                TestContext.CurrentContext.TestDirectory,
+                "src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs");
+
+            // Phase 17.2 Plan 02: also load ComixParser.cs so the GAP-17-E
+            // pages-endpoint regression guard can grep against the DownloadUrl
+            // construction site (where the survey-winner shape `/chapters/{id}`
+            // is enforced by dropping the legacy `/pages` suffix).
+            _parserSource = ReadCoreSource(
+                TestContext.CurrentContext.TestDirectory,
+                "src/NzbDrone.Core/Indexers/Comix/ComixParser.cs");
         }
 
-        private static string ReadSignerSource(string startDir)
+        private static string ReadCoreSource(string startDir, string relative)
         {
-            const string Relative = "src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs";
             var dir = new DirectoryInfo(startDir);
             while (dir != null)
             {
-                var candidate = Path.Combine(dir.FullName, Relative.Replace('/', Path.DirectorySeparatorChar));
+                var candidate = Path.Combine(dir.FullName, relative.Replace('/', Path.DirectorySeparatorChar));
                 if (File.Exists(candidate))
                 {
                     return File.ReadAllText(candidate);
@@ -66,18 +76,46 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             }
 
             throw new FileNotFoundException(
-                $"Could not locate ComixPuppeteerSigner.cs by walking up from '{startDir}'.");
+                $"Could not locate '{relative}' by walking up from '{startDir}'.");
         }
 
+        // Backwards-compat shim: the original `ReadSignerSource` helper signature is
+        // preserved so any external caller (none today) doesn't break. Internally
+        // delegates to ReadCoreSource with the canonical signer-source path.
+        private static string ReadSignerSource(string startDir)
+            => ReadCoreSource(startDir, "src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs");
+
         [Test]
-        public void PROBE_JS_should_reference_vmf_namespace_prefix_per_upstream()
+        public void PROBE_JS_should_reference_vm_namespace_family_per_upstream_post_phase_17_2_rotation_diagnosis()
         {
+            // WR-GC-03 (Phase 17.2): the original prefix-pin asserted the literal `vmf_`
+            // namespace but comix.to has rotated through `vmX_<hex>` (observed live
+            // 2026-05-10 during Phase 17.2 Plan 17.2-01 settle work) and again to
+            // `vmZ_<hex>` (observed live 2026-05-10 during Plan 17.2-02 pages-endpoint
+            // survey — see 17.2-PAGES-ENDPOINT-SURVEY.md). The behavioural detection in
+            // PROBE_JS (signer = ≥40-char base64url + installer = response-interceptor
+            // capture, gated to same namespace per GAP-17-C / Plan 17-07) is the safety
+            // envelope; the namespace prefix itself is incidental and rotates per deploy
+            // per upstream Signer.kt:28 ("Names rotate per deploy; behaviour does not").
+            //
+            // Option A (preferred — relax the prefix-pin to a regex covering the vm
+            // family broadly): preserves the upstream-drift signal (assertion still fires
+            // if upstream drops the vm family entirely) without coupling to a specific
+            // post-rotation letter. The companion `_upstreamExcerpt` assertion preserves
+            // the historical Signer.kt commit-time `vmf_` reference verbatim — that
+            // excerpt is the SHA-pinned snapshot of upstream at port time, NOT a
+            // floating reference, so it stays as-is.
             _upstreamExcerpt.Should().Contain("vmf_",
-                "upstream Signer.kt is expected to use the vmf_* window-namespace prefix; " +
-                "if upstream drifted, capture a fresh excerpt at port-time");
-            _signerSource.Should().Contain("vmf_",
-                "ComixPuppeteerSigner.PROBE_JS must reference vmf_* per upstream — " +
-                "if planner removed it, executor must verify against fresh upstream capture");
+                "upstream Signer.kt at port-time SHA used the vmf_* window-namespace prefix; " +
+                "if upstream drifts AND the SHA is refreshed, this assertion documents the " +
+                "expected delta — capture a fresh excerpt at re-port time");
+            _signerSource.Should().MatchRegex(
+                @"vm[A-Za-z0-9]_(?:\*|<hex>|[a-z0-9])",
+                "WR-GC-03 (Phase 17.2): production code uses any-namespace probe-walk per " +
+                "Plan 17-07 (GAP-17-C same-namespace gate) + Plan 17.2 (rotation-tolerant " +
+                "naming). Source must reference the vm[A-Za-z0-9]_<hex> namespace family " +
+                "(vmf_/vmX_/vmZ_/...) somewhere — the comment block above PROBE_JS " +
+                "documents the rotation evidence per Phase 17.2 Plan 17.2-02 survey.");
         }
 
         [Test]
@@ -181,6 +219,49 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // we lose the pinning contract — this assertion catches that.
             _upstreamExcerpt.Should().Contain("Upstream commit SHA:",
                 "Resources/upstream-signer.txt MUST carry a verbatim 'Upstream commit SHA:' header line");
+        }
+
+        [Test]
+        public void Pages_endpoint_apiPath_must_match_phase_17_2_survey_winner()
+        {
+            // Phase 17.2 GAP-17-E: pages-endpoint shape was /chapters/{id}/pages
+            // -> /chapters/{id} per 17.2-PAGES-ENDPOINT-SURVEY.md (winner verdict
+            // 2026-05-10 live survey: bundle's signer allowlist rejects all
+            // /chapters/{id}/<suffix> shapes; the bare /chapters/{id} endpoint is
+            // signer-accepted AND server-200, with the chapter-detail body now
+            // embedding `pages: { baseUrl, items[{width,height,url}] }` directly).
+            //
+            // Regression guard: assert ComixParser.cs's chapter DownloadUrl
+            // construction targets the survey-winner shape (/api/v1/chapters/{id}
+            // — no /pages suffix) AND carries the Phase 17.2 GAP-17-E annotation
+            // marker so future maintainers don't accidentally revert to the
+            // /pages suffix (which the signer's input-shape allowlist now
+            // rejects).
+            //
+            // The guard reads ComixParser.cs source via the `_parserSource`
+            // field (parameterized walk-up pattern), NOT ComixPuppeteerSigner.cs
+            // — the apiPath construction lives upstream of the signer call.
+            _parserSource.Should().Contain("Phase 17.2 GAP-17-E",
+                "Phase 17.2 GAP-17-E annotation block must remain alongside the chapter " +
+                "DownloadUrl construction in ComixParser.cs so the survey-winner shape " +
+                "rationale isn't lost in future refactors. See 17.2-PAGES-ENDPOINT-SURVEY.md.");
+
+            // The DownloadUrl construction must NOT include the legacy /pages suffix.
+            // If the literal `/chapters/{ch.Id}/pages` reappears, the signer rejects
+            // the path-shape and the live ProxyFetchPages fixture goes red.
+            _parserSource.Should().NotMatchRegex(
+                @"DownloadUrl\s*=\s*\$""[^""]*?/api/v1/chapters/\{ch\.Id\}/pages""",
+                "Pages-endpoint DownloadUrl MUST NOT carry the legacy /pages suffix per " +
+                "17.2-PAGES-ENDPOINT-SURVEY.md — the bundle's signer allowlist rejects " +
+                "all /chapters/{id}/<suffix> shapes since 2026-05-10. Use " +
+                "/api/v1/chapters/{ch.Id} (no /pages) — the chapter-detail endpoint " +
+                "embeds the pages list directly under `pages.{baseUrl, items}`.");
+
+            _parserSource.Should().MatchRegex(
+                @"DownloadUrl\s*=\s*\$""[^""]*?/api/v1/chapters/\{ch\.Id\}""",
+                "Pages-endpoint DownloadUrl construction must reference the survey-winner " +
+                "shape `/api/v1/chapters/{ch.Id}` (no /pages suffix) — see " +
+                "17.2-PAGES-ENDPOINT-SURVEY.md § Winner verdict.");
         }
 
         [Test]
