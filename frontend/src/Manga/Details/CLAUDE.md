@@ -19,7 +19,8 @@ Seasons" Out-of-Scope, UI-SPEC §Anti-pattern 5).
 | `MangaDetailsPage.tsx` | Page route component. Resolves `:titleSlug` → manga via `useManga()` and renders `<MangaDetails mangaId>` or `<NotFound>`. Mirrors `SeriesDetailsPage.tsx` verbatim with manga renames + redirects to `/manga` (not `/`) when the manga is deleted out from under the page. |
 | `MangaDetails.tsx` | Hero card + tab navigation + tab body dispatch. Hero header: cover (138 px), title (weight 300), monitor toggle, metadata strip (path / size / TranslationProfile / status / links / tags / chapter progress). Tabs: Overview, Chapters, Files (placeholder), History (placeholder — Plan 07-09), Search. Edit + Delete modals reuse `Series/Edit/EditSeriesModal` + `Series/Delete/DeleteSeriesModal` via `seriesId=mangaId` (Plan 07-04 precedent — Phase 8 forks dedicated manga modals). |
 | `MangaDetails.css` + `.css.d.ts` | CSS Modules — verbatim port of `SeriesDetails.css` (cover 250 / 368, title weight 300 / 50 px, gap 35 px, etc.) plus tab-button styles for the inline RESEARCH-A4 fallback (no `Components/Tab/` in the codebase). |
-| `MangaDetailsProvider.tsx` | Context provider passthrough. v1 ships as a passthrough; future plans will wire chapter-file context + manga-queue-details context here without forcing a render-tree refactor on consumers. |
+| `MangaDetailsProvider.tsx` | Page-scoped context provider wrapping the entire `MangaDetails` body. Issue #51 (per-chapter `/manga/history?chapterId=X` N+1) fix: fires ONE `usePagedApiQuery` against `/api/v5/manga/history?mangaIds={id}&sortKey=date&sortDirection=descending&pageSize=250`, buckets the descending-by-date records by `chapterId` into `Map<number, ChapterHistory[]>`, and exposes them via `MangaChapterHistoryContext`. ChapterStatus consumes this context instead of firing its own per-row query. (Future plans wire chapter-file context + manga-queue-details context onto the same provider.) |
+| `MangaChapterHistoryContext.ts` | Context + `useLastChapterHistoryEvent(chapterId)` hook returning the most-recent `ChapterHistory` record for a given chapter — issue #51 fix. Reads from the bucketed map populated by `MangaDetailsProvider`. Returns `undefined` when the manga has no history for that chapter or before the provider's first fetch resolves. |
 | `MangaDetailsLinks.tsx` + `.css` + `.css.d.ts` | External-source link badges. MangaDex / AniList / MyAnimeList — replaces TVDB / TVMaze / IMDB / TMDB. Read from singular `mangaDexId` / `aniListId` / `malId` per Phase 2 02-CONTEXT (manga is 1:1 across sources in v1). |
 | `MangaAlternateTitles.tsx` + `.css` + `.css.d.ts` | Verbatim port of `SeriesAlternateTitles` — `<ul>` with comment-suffix render shape. |
 | `MangaProgressLabel.tsx` | `chapterFileCount / chapterCount` Label with kind-by-progress branching (success / warning / danger). v1 omits the queue-details overlay (Plan 07-09 wires it). |
@@ -38,6 +39,12 @@ files (Lock #11) are:
 
 These season-related files have no manga analog (PROJECT.md "Volumes /
 Seasons" Out-of-Scope).
+
+Issue #51 fix added 1 net-new file (`MangaChapterHistoryContext.ts`); it has
+no Series analog because Sonarr's `EpisodeStatus` reads `episode.grabbed`
+directly off the backend Episode model (no per-episode history fetch needed),
+while manga has no equivalent backend-pushed `grabbed`/`lastFailed` field
+on `Chapter`.
 
 ## Patterns / Conventions
 
@@ -66,6 +73,14 @@ Seasons" Out-of-Scope).
   `Settings/Profiles/Translations/TranslationProfileName.tsx`, the Manga
   Details metadata strip resolves the profile name via a local `useApiQuery`
   against `/api/v5/translationprofile`.
+- **ChapterStatus reads chapter-history via parent context — NEVER fires its
+  own `chapterId`-filtered query.** Issue #51 lifted the per-row history
+  fetch into `MangaDetailsProvider`. Restoring a `useApiQuery({ path:
+  '/manga/history', queryParams: { chapterId } })` call inside `ChapterStatus`
+  would re-introduce the N+1 fan-out (1 HTTP request per visible chapter row).
+  Sonarr-canonical mirror: matches the `QueueDetailsProvider` →
+  `useQueueItemForEpisode(episodeId)` parent-provider pattern in upstream
+  `Series/Details/SeriesDetailsProvider.tsx` + `Episode/EpisodeStatus.tsx`.
 - **Sibling-divergence comments (Pattern S2)** — every `.tsx` / `.ts` file
   here carries the `// Sonarr divergence: ...` header naming the role-match
   analog and the Phase 8 cleanup target.
@@ -76,12 +91,15 @@ This directory IS the manga adaptation of `frontend/src/Series/Details/`.
 Phase 8 cleanup will collapse the two when `Series/Details/` deletes.
 
 The 8 omitted Series files are season-related and have no manga analog
-(PROJECT.md Volumes/Seasons Out-of-Scope). Two new files have NO Series
+(PROJECT.md Volumes/Seasons Out-of-Scope). Three new files have NO Series
 analog:
 - `MangaDetailsChapters.tsx` — flat sortable Chapters tab body (Series uses
   collapsible season cards via `SeriesDetailsSeason.tsx`).
 - The inline tab-navigation buttons in `MangaDetails.tsx` — Series renders
   a non-tabbed page.
+- `MangaChapterHistoryContext.ts` — issue #51 N+1 fix; Sonarr `EpisodeStatus`
+  doesn't need per-episode history because `Episode.grabbed` is backend-pushed
+  on the Episode model itself (manga `Chapter` carries no equivalent flag).
 
 ## Cross-References
 

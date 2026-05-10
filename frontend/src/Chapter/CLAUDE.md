@@ -15,7 +15,7 @@ cache contract from Plan 07-02 SignalR handlers.
 |------|---------|
 | `Chapter.ts` | `Chapter` interface (extends `ModelBase`) + `ChapterType` literal (`'Regular' \| 'Special' \| 'Oneshot' \| 'Extra'`). Mirrors `ChapterResource.cs` field-for-field. **(Plan 07-03)** |
 | `useChapter.ts` | React Query hooks: `useChaptersByManga(mangaId)` (GET `/api/v5/chapter?mangaId=`), `useSingleChapter(id)` (GET `/api/v5/chapter/{id}`), `useToggleChapterMonitored(chapter)` (PUT `/api/v5/chapter/{id}` with full body), `useBulkToggleChaptersMonitored()` (PUT `/api/v5/chapter/monitor` with `{ ChapterIds, Monitored }` body). All bound to the Plan 07-02 SignalR cache key contract: list reads land at `['/chapter']` / `['/chapter', { mangaId }]`. **(Plan 07-05)** |
-| `ChapterStatus.tsx` | 6-state status icon — Lock #4 set: `failed > blocklisted > have-file > queued > wanted > unmonitored` (precedence). Reads from `chapter.chapterFileId` + the Plan 07-02 SignalR caches `['/manga/queue']` / `['/manga/blocklist']` / `['/manga/history']`. SignalR-pushed updates re-render this within ~1 s of backend events. **(Plan 07-05)** |
+| `ChapterStatus.tsx` | 6-state status icon — Lock #4 set: `failed > blocklisted > have-file > queued > wanted > unmonitored` (precedence). Reads from `chapter.chapterFileId` + the Plan 07-02 SignalR caches `['/manga/queue']` / `['/manga/blocklist']` for queue/blocklist state, AND from `MangaChapterHistoryContext` (issue #51 fix — parent-fetched whole-manga history bucketed by chapterId via `MangaDetailsProvider`) for the `failed` state. SignalR-pushed updates re-render this within ~1 s of backend events. **NEVER fires its own `chapterId`-filtered `/manga/history` query** — restoring per-row history fetching would re-introduce issue #51's N+1 fan-out. **(Plan 07-05; issue #51 follow-up 2026-05-10)** |
 | `LanguageBadge.tsx` + `.css` + `.css.d.ts` | Pill-shaped BCP-47 badge (UI-SPEC §Translation language badge). Background flips to `themeBlue` accent when chapter language matches the user's #1-ranked language on the default Translation Profile (Phase 5 D-01). Phase 11 rebrands `themeBlue` from Sonarr cyan to manga pink (`#f06292`); accent flip lands automatically. **(Plan 07-05)** |
 | `ChapterNumber.tsx` | Decimal-aware chapter-number formatter — integer-shorthand for whole numbers; trimmed-decimal for fractional values (`1.5` not `1.500`). Optional `volumeNumber` rendered as `Vol. N ` prefix when `showVolumeNumber={true}`. Volumes are display-only — no Volumes table per PROJECT.md "Volumes/Seasons" Out-of-Scope. **(Plan 07-05)** |
 | `ChapterTitleLink.tsx` | `<Link>` wrapper that opens `ChapterDetailsModal` on press. **(Plan 07-05)** |
@@ -48,6 +48,15 @@ cache contract from Plan 07-02 SignalR handlers.
 - **Status-precedence order** in `ChapterStatus.tsx`:
   `failed > blocklisted > have-file > queued > wanted > unmonitored`
   (Lock #4). Wrong precedence breaks the UI-04 chapter-row icon meaning.
+- **No per-row `chapterId`-filtered queries inside `ChapterStatus`** — issue #51
+  lifted the `lastEvent === 'downloadFailed'` lookup into
+  `Manga/Details/MangaDetailsProvider` (one whole-manga `/manga/history?mangaIds=<id>`
+  fetch, bucketed by chapterId, exposed via `useLastChapterHistoryEvent` from
+  `Manga/Details/MangaChapterHistoryContext`). Sonarr-canonical mirror: matches
+  `Activity/Queue/Details/QueueDetailsProvider` → `useQueueItemForEpisode`
+  parent-provider pattern in upstream `Episode/EpisodeStatus.tsx`. Restoring a
+  `useApiQuery({ path: '/manga/history', queryParams: { chapterId } })` call
+  inside `ChapterStatus` would re-introduce N HTTP requests per chapter row.
 - **Sibling-divergence comments (Pattern S2)** — every `.tsx` / `.ts` / `.css`
   file in this directory carries a `// Sonarr divergence: ...` header naming
   the role-match analog and the Phase 8 cleanup target.
@@ -69,7 +78,7 @@ is the canonical Mangarr default; Phase 8 keeps it.
 
 - [../Episode/CLAUDE.md](../Episode/CLAUDE.md) — Sibling Episode feature (Phase 8 cleanup target).
 - [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Sibling manga type.
-- [../Manga/Details/CLAUDE.md](../Manga/Details/CLAUDE.md) — Manga details page (Plan 07-05) — primary consumer of ChapterRow + ChapterStatus + ChapterSearchCell + LanguageBadge + ChapterNumber.
+- [../Manga/Details/CLAUDE.md](../Manga/Details/CLAUDE.md) — Manga details page (Plan 07-05) — primary consumer of ChapterRow + ChapterStatus + ChapterSearchCell + LanguageBadge + ChapterNumber. Hosts `MangaDetailsProvider` + `MangaChapterHistoryContext` (issue #51 N+1 fix).
 - [../InteractiveSearch/CLAUDE.md](../InteractiveSearch/CLAUDE.md) — `InteractiveSearch` component invoked by ChapterDetailsModal + ChapterSearchCell with `type="chapter" searchPayload={{ chapterId }}`.
 - [../../../src/Sonarr.Api.V5/Manga/Chapter/ChapterResource.cs](../../../src/Sonarr.Api.V5/Manga/Chapter/ChapterResource.cs) — Backend resource shape this type mirrors (Phase 7 Plan 07-01).
 - [../../../src/Sonarr.Api.V5/Manga/Chapter/CLAUDE.md](../../../src/Sonarr.Api.V5/Manga/Chapter/CLAUDE.md) — Backend Chapter API surface.
