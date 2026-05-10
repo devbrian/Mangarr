@@ -38,7 +38,7 @@ namespace Mangarr.Api.V5.Manga.Wanted
     // ChapterControllerWithSignalR base class exists in v1 — verified via Grep 2026-05-06).
     //
     // WANTED-01..03: paged list of monitored chapters that have no ChapterFile imported,
-    // filterable by mangaIds + languages + ageRating.
+    // filterable by mangaIds + ageRating.
     //
     // Manga sibling preserves: [V5ApiController] route attribute (literal string per Plan 07-02
     // URL-shaped key contract); PagingRequestResource shape; monitored filter; FilterExpressions
@@ -48,10 +48,7 @@ namespace Mangarr.Api.V5.Manga.Wanted
     //   * Inject IChapterService (paged ChaptersWithoutFiles overload added by Plan 06-09)
     //     + IMangaService (for ageRating filter join + Manga subresource hydration).
     //   * Drop EpisodesWithoutFiles + includeSpecials (manga has no specials concept).
-    //   * Add mangaIds + languages + ageRating filters per WANTED-03.
-    //   * D-04 honored: IsSynthetic=true rows are surfaced identically to IsSynthetic=false
-    //     rows by default. No `WHERE IsSynthetic = false` filter is applied. A future
-    //     `excludeSynthetic` query param could opt-in to the filter; v1 default is INCLUDE.
+    //   * Add mangaIds + ageRating filters per WANTED-03.
     //   * ageRating filter is post-paged (in-memory) because it requires a JOIN to Manga
     //     and the v1 ChapterRepository.ChaptersWithoutFiles does not JOIN. Acceptable for
     //     Phase 6 — the result set is bounded by the paging spec (default 10/page).
@@ -59,6 +56,12 @@ namespace Mangarr.Api.V5.Manga.Wanted
     //     ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent (NOT plain
     //     Controller). F-MISSING-SIGNALR follow-up (2026-05-06) — mirrors the F-CUTOFF-SIGNALR
     //     closure for cross-controller consistency between the two manga V5 wanted endpoints.
+    //
+    // Phase 16.1 revert (Wave 2): the Phase 16 D-04 per-translation filter parameter and
+    // its sibling-service ctor dependency were REMOVED. Wanted/Missing reverts to the
+    // Sonarr-canonical predicate `monitored && ChapterFileId == null` (mirrors
+    // `Episode.Monitored && EpisodeFileId == 0`). Manga-domain translation preference belongs
+    // in QualityProfile / ReleaseProfile via preferred terms, not a controller-level filter.
     //
     // SignalR emission contract (mirrors TV EpisodeControllerWithSignalR shape verbatim):
     //   * `manga/wanted/missing` resource name auto-derives from
@@ -85,17 +88,14 @@ namespace Mangarr.Api.V5.Manga.Wanted
     {
         private readonly IChapterService _chapterService;
         private readonly IMangaService _mangaService;
-        private readonly IChapterReleaseService _chapterReleaseService;
 
         public MangaMissingController(IChapterService chapterService,
                                          IMangaService mangaService,
-                                         IChapterReleaseService chapterReleaseService,
                                          IBroadcastSignalRMessage signalRBroadcaster)
             : base(signalRBroadcaster)
         {
             _chapterService = chapterService;
             _mangaService = mangaService;
-            _chapterReleaseService = chapterReleaseService;
         }
 
         [HttpGet]
@@ -103,19 +103,13 @@ namespace Mangarr.Api.V5.Manga.Wanted
         public Ok<PagingResource<ChapterResource>> GetMissingChapters([FromQuery] PagingRequestResource paging,
                                                                       bool monitored = true,
                                                                       [FromQuery] int[]? mangaIds = null,
-                                                                      [FromQuery] string[]? languages = null,
                                                                       [FromQuery] string? ageRating = null,
                                                                       [FromQuery] MangaMissingSubresource[]? includeSubresources = null)
         {
             var includeManga = includeSubresources?.Contains(MangaMissingSubresource.Manga) ?? false;
 
-            // Sonarr divergence: Phase 16 STRUCT-04 — Chapter.ReleaseDate was lifted to
-            // ChapterRelease.ReleaseDate (per-translation upload time) and replaced with
-            // Chapter.FirstReleaseDate (Sonarr-mirror of Episode.AirDateUtc — the upstream
-            // chapter-publish date). The server-side allowed-sort-key set + default sort key
-            // accept the new column name. Frontend continues to send `?sortKey=releaseDate`
-            // until Plan 16-06 retires that reference; "releaseDate" falls outside the allowed
-            // set so the controller defaults to "firstReleaseDate" (matches the SQL column).
+            // Sonarr-canonical sort keys: firstReleaseDate (Sonarr-mirror of Episode.AirDateUtc),
+            // chapterNumber, title. Frontend sends `?sortKey=firstReleaseDate` directly.
             var pagingResource = new PagingResource<ChapterResource>(paging);
             var pagingSpec = pagingResource.MapToPagingSpec<ChapterResource, NzbDrone.Core.Manga.Chapter>(
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -137,53 +131,12 @@ namespace Mangarr.Api.V5.Manga.Wanted
                 pagingSpec.FilterExpressions.Add(c => mangaIds.Contains(c.MangaId));
             }
 
-            // D-04 (zero-release-Missing) note on the unfiltered shape: Chapters with zero
-            // ChapterRelease rows ARE in the missing list — Wanted/Missing alias-flips to
-            // "Chapter without any ChapterRelease rows OR Chapter with releases but no file."
-            // The languages[] filter narrows the set to Chapters with at least one matching
-            // ChapterRelease — zero-release chapters are EXCLUDED when the filter is set
-            // (they have no language to match). Pre-Phase-16 the same gate read
-            // Chapter.TranslatedLanguage; STRUCT-04 lifted that to ChapterRelease.
-
-            // ageRating + languages both require a JOIN and apply post-paged in-memory.
-            // The result set is bounded by the paging spec (default 10/page) so the
-            // in-memory pass cost is negligible. Future Phase 8 collapse may push the
-            // filter into the SQL builder.
+            // ageRating requires a JOIN and applies post-paged in-memory. The result set is
+            // bounded by the paging spec (default 10/page) so the in-memory pass cost is
+            // negligible. Future Phase 8 collapse may push the filter into the SQL builder.
             var page = pagingSpec.ApplyToPage(
                 spec => _chapterService.ChaptersWithoutFiles(spec),
                 c => MapToResource(c, includeManga));
-
-            // Sonarr divergence: Phase 16 STRUCT-06 — languages[] filter retargets at
-            // ChapterRelease.TranslatedLanguage. Pre-Phase-16 the gate read
-            // Chapter.TranslatedLanguage (canonical-grain) which is dropped per STRUCT-04.
-            // Post-Phase-16 a chapter is "in" the filter if ANY of its ChapterReleases match
-            // any language in the filter (case-insensitive — BCP-47 codes).
-            // N+1-safe via IChapterReleaseService.GetReleasesByChapterIds (single bulk SQL).
-            if (languages != null && languages.Length > 0)
-            {
-                var chapterIdsInPage = page.Records.Select(r => r.Id).ToList();
-                var releasesByChapter = _chapterReleaseService
-                    .GetReleasesByChapterIds(chapterIdsInPage)
-                    .GroupBy(r => r.ChapterId)
-                    .ToDictionary(
-                        g => g.Key,
-                        g => g.Select(r => r.TranslatedLanguage).ToList());
-
-                var langFilter = new HashSet<string>(languages, StringComparer.OrdinalIgnoreCase);
-
-                page.Records = page.Records
-                    .Where(r =>
-                    {
-                        // D-04: zero-release chapters EXCLUDED when filter is set — no language to match.
-                        if (!releasesByChapter.TryGetValue(r.Id, out var langs))
-                        {
-                            return false;
-                        }
-
-                        return langs.Any(l => l != null && langFilter.Contains(l));
-                    })
-                    .ToList();
-            }
 
             if (!string.IsNullOrWhiteSpace(ageRating))
             {
