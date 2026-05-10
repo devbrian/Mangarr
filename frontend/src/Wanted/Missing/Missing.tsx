@@ -5,6 +5,13 @@
 // (MissingContent inner + Missing outer) updated atomically.
 // NOTE: Episode imports below are orphaned post-Plan 15-07 Task 1 (frontend/src/Episode/ deleted)
 // and contribute to the expected ~247-error TS2307 cascade — Plan 15-08/15-09 resolves this.
+//
+// Debug session wanted-missing-zero-rows (GH issue #48, 2026-05-10): MissingRow
+// rewritten to consume Chapter shape (was reading Series subresource the manga
+// backend never hydrates → empty tbody). The `@ts-expect-error` directive on
+// the spread previously needed because MissingRow expected TV props; now
+// MissingRowProps extends Chapter, and Episode (the records type) extends
+// Chapter, so the spread type-checks cleanly without the directive.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import QueueDetailsProvider from 'Activity/Queue/Details/QueueDetailsProvider';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
@@ -328,7 +335,6 @@ function MissingContent({ mediaType = 'manga' }: MissingProps) {
                 <TableBody>
                   {records.map((item) => {
                     return (
-                      // @ts-expect-error — TV-shape MissingRow (Plan 15-12 cascade absorption).
                       <MissingRow key={item.id} columns={columns} {...item} />
                     );
                   })}

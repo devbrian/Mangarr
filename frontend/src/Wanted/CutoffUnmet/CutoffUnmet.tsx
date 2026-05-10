@@ -8,6 +8,11 @@
 // TS2307 cascade — Plan 15-08/15-09 resolves this.
 //
 // Closest analog: frontend/src/Wanted/Missing/Missing.tsx (Plan 07-10) — same pattern.
+//
+// Debug session wanted-missing-zero-rows (GH issue #48 sibling impact, 2026-05-10):
+// CutoffUnmetRow rewritten to consume Chapter shape; the `@ts-expect-error` directive on
+// the spread is no longer needed because CutoffUnmetRowProps extends Chapter and Episode
+// (the records type) extends Chapter — the spread type-checks cleanly without the directive.
 import React, {
   PropsWithChildren,
   useCallback,
@@ -311,7 +316,6 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
                 <TableBody>
                   {records.map((item) => {
                     return (
-                      // @ts-expect-error — TV-shape CutoffUnmetRow (Plan 15-12).
                       <CutoffUnmetRow
                         key={item.id}
                         columns={columns}
