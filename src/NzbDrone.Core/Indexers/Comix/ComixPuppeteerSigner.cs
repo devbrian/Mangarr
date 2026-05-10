@@ -310,7 +310,17 @@ namespace NzbDrone.Core.Indexers.Comix
         private readonly Logger _logger;
 
         private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
-        private bool _disposed;
+
+        // WR-08 mitigation (revision iteration 2): `volatile` so cross-thread reads of
+        // _disposed in ProxyFetchAsync / EvaluateProxyFetchAsync / OnIdleElapsed observe
+        // the Dispose-side write without unbounded delay. Without volatile, the .NET
+        // memory model gives atomic bool reads but not visibility guarantees across
+        // cores — a Dispose on Thread A may not be observed by an in-flight ProxyFetch
+        // on Thread B for an unbounded interval, allowing the lazy-reprobe to spin a
+        // new Chromium child after the public Dispose path already executed.
+        // (For the CR-04 / CR-05 race-safety logic to be tight, this read must be
+        // immediate.)
+        private volatile bool _disposed;
 
         // _probeFailureCount tracks the n-count surfaced in the D-15 probe-failure Warn
         // line. Reset to 0 on a successful probe; incremented on each probe throw.
@@ -395,11 +405,30 @@ namespace NzbDrone.Core.Indexers.Comix
                 catch (Exception evalEx) when (
                     !(evalEx is ObjectDisposedException) && !(evalEx is OperationCanceledException))
                 {
+                    // CR-04 mitigation (revision iteration 2): if Dispose ran concurrently
+                    // (drain timeout fired and Dispose nulled fields under us → EvaluateAsync
+                    // threw an NRE / closed-browser exception that landed in this catch),
+                    // bail OUT of the lazy-reprobe instead of relaunching a NEW Chromium
+                    // child that nothing will ever Dispose again. _disposed is set BEFORE
+                    // Dispose touches the gate, so the racing-Dispose path observes
+                    // _disposed = true here.
+                    if (_disposed)
+                    {
+                        throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+                    }
+
                     _logger.Warn(
                         "Comix signer: stale page detected (EvaluateAsync threw); relaunching and retrying once.");
                     try
                     {
                         await TeardownBrowserAsync().ConfigureAwait(false);
+                        if (_disposed)
+                        {
+                            // CR-04 mitigation: re-check between teardown and relaunch —
+                            // Dispose can have run during the await on TeardownBrowserAsync.
+                            throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+                        }
+
                         await LaunchAndProbeAsync(ct).ConfigureAwait(false);
                         return await EvaluateProxyFetchAsync(apiPath, ct).ConfigureAwait(false);
                     }
