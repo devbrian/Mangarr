@@ -97,7 +97,7 @@ Settings pages are largely **architecture-stable** — provider plugin model mea
 | `CustomFormats/` | Specs adapt (page count, scanlation group, etc.) |
 | `Indexers/` | Just list the new manga indexers (auto from backend) |
 | `Metadata/` | Metadata writers (NFO, banner.jpg) — adapt to manga-specific files |
-| `MetadataSource/` | New — choose primary manga source (MangaDex / AniList / MAL) |
+| `MetadataSource/` | Full ThingiProvider list page (debug-session 2026-05-10, GH #49) — Add/Edit/Delete + D-15 `Set as Primary` button mirroring `Settings/Notifications/Notifications/` shape |
 | `MediaManagement/` | Naming tokens change (chapter/volume rather than season/episode) |
 | `Notifications/` | List unchanged; per-provider message text changes |
 | Others (UI, Tags, General) | Reusable as-is |
