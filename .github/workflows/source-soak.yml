@@ -30,7 +30,11 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Build Mangarr Core
-        run: dotnet build src/NzbDrone.Core/Sonarr.Core.csproj --configuration Release --nologo
+        # WR-09 mitigation: csproj was renamed Sonarr.Core.csproj → Mangarr.Core.csproj
+        # during the Sonarr→Mangarr migration. The workflow's stale path failed every
+        # daily soak at the build step, masking Phase 17 live-Comix smoke results
+        # downstream.
+        run: dotnet build src/NzbDrone.Core/Mangarr.Core.csproj --configuration Release --nologo
 
       - name: Run soak harness
         id: soak
