@@ -90,6 +90,18 @@ namespace NzbDrone.Core.Indexers.Comix
                 "^/[A-Za-z0-9_\\-/]+(\\?[A-Za-z0-9_\\-/=&%.]*)?$",
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
+        // WR-02 mitigation (revision iteration 2): defense-in-depth allowlist on the
+        // probe-captured signerExpr/installerExpr strings BEFORE they are interpolated
+        // into the in-page JS template. JS object property names CAN technically be
+        // arbitrary strings; bundlers in practice emit alphanumeric keys (`vmf_<hex>`
+        // namespace + identifier-shaped function name). Anything outside that shape is
+        // either an upstream rotation we don't recognize OR an MITM rewrite — reject
+        // either way and surface as a probe failure (D-15 RecordFailure path).
+        private static readonly System.Text.RegularExpressions.Regex SignerExprAllowlistRegex =
+            new System.Text.RegularExpressions.Regex(
+                @"^vmf_[A-Za-z0-9_$]{1,128}\.[A-Za-z0-9_$]{1,128}$",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
         // ── Test-overridable seams (D-12 / fixture overrides) ────────────────────────
 
         /// <summary>
@@ -145,6 +157,18 @@ namespace NzbDrone.Core.Indexers.Comix
                         "Comix signer: probe failed; window.vmf_* signer/installer fns not found.");
                 }
 
+                // WR-02 mitigation: defense-in-depth allowlist on the probe-captured
+                // expressions. The strings are interpolated unescaped into
+                // EvaluateProxyFetchAsync's JS template; an MITM-rewritten or
+                // upstream-rotated key shape outside our identifier whitelist must NOT
+                // reach that interpolation. Reject as a probe failure (D-15 path).
+                if (!SignerExprAllowlistRegex.IsMatch(probe.SignerExpr)
+                    || !SignerExprAllowlistRegex.IsMatch(probe.InstallerExpr))
+                {
+                    throw new InvalidOperationException(
+                        "Comix signer: probe captured signer/installer expression(s) outside the identifier allowlist; rejecting as drift or MITM.");
+                }
+
                 _signerExpr = probe.SignerExpr;
                 _installerExpr = probe.InstallerExpr;
                 _probeFailureCount = 0;
@@ -166,26 +190,84 @@ namespace NzbDrone.Core.Indexers.Comix
 
         protected virtual async Task<string> EvaluateProxyFetchAsync(string apiPath, CancellationToken ct)
         {
-            // Build the in-page JS template using the cached signerExpr/installerExpr —
-            // names rotate per comix.to deploy (D-14) so we cannot hardcode them; the
-            // probe captured them once per page-load. JsString escapes the apiPath value
+            // CR-05 mitigation (revision iteration 2): snapshot fields under the gate before
+            // any await against the page so a concurrent Dispose-after-drain-timeout that
+            // nulls _page / _signerExpr / _installerExpr cannot NRE us mid-evaluate. The
+            // gate's own contract enforces single-writer; the snapshot guards the read-
+            // before-await window. We additionally re-check _disposed (set by Dispose
+            // BEFORE it touches the gate) so a racing dispose bails cleanly with
+            // ObjectDisposedException instead of an NRE bubbling up the lazy-reprobe catch.
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+            }
+
+            var page = _page;
+            var signerExpr = _signerExpr;
+            var installerExpr = _installerExpr;
+            if (page == null || string.IsNullOrEmpty(signerExpr) || string.IsNullOrEmpty(installerExpr))
+            {
+                throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+            }
+
+            // CR-01 + CR-02 mitigation (revision iteration 2): mirror upstream Signer.kt
+            // proxyFetch shape verbatim (Resources/upstream-signer.txt:76-117).
+            //  - Capture BOTH request + response interceptors registered by installer().
+            //  - Sign extractSignablePath(apiPath) — apiPath.split('?')[0] (CR-02 fix:
+            //    upstream signs the path WITHOUT the query string per
+            //    Resources/upstream-signer.txt:124-125).
+            //  - Append the token to the full apiPath (with query string preserved).
+            //  - On encrypted-body shape (`'e' in raw && captured.res`), build a fakeResp
+            //    and await captured.res(fakeResp) to obtain decoded.data; wrap as
+            //    `{result: <decoded>}` matching upstream bodyOut shape (CR-01 fix).
+            //
+            // Cached signerExpr / installerExpr are validated by an alphanumeric-only
+            // allowlist regex at probe time (WR-02 mitigation in LaunchAndProbeAsync) so
+            // the substitution below is JS-injection-safe even if a future comix.to
+            // deploy emits a hostile object key. JsString escapes the apiPath value
             // (T-17-02-02 mitigation: JS-injection-safe single-quote string substitution).
             var jsTemplate = $@"
               (async () => {{
-                const signer = {_signerExpr};
-                const installer = {_installerExpr};
-                const axios = {{ interceptors: {{ response: {{ use: () => {{}} }}, request: {{ use: () => {{}} }} }} }};
-                installer(axios);
+                const captured = {{ req: null, res: null }};
+                const fakeAxios = {{
+                  interceptors: {{
+                    request:  {{ use: function(fn) {{ captured.req = fn; }} }},
+                    response: {{ use: function(fn) {{ captured.res = fn; }} }}
+                  }},
+                  defaults: {{ headers: {{ common: {{}} }}, transformRequest: [], transformResponse: [] }}
+                }};
+                const signer = {signerExpr};
+                const installer = {installerExpr};
+                installer(fakeAxios);
+
                 const apiPath = {JsString(apiPath)};
-                const token = signer(apiPath);
-                const sep = apiPath.includes('?') ? '&' : '?';
+                const signablePath = apiPath.split('?')[0];
+                const token = signer(signablePath);
+                const sep = apiPath.indexOf('?') === -1 ? '?' : '&';
                 const url = '/api/v1' + apiPath + sep + '_=' + encodeURIComponent(token);
-                const resp = await fetch(url, {{ credentials: 'include' }});
-                const body = await resp.text();
-                return window.__decryptedBody__ || body;
+                const resp = await fetch(url, {{
+                  credentials: 'include',
+                  headers: {{ 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }}
+                }});
+                const text = await resp.text();
+                let raw;
+                try {{ raw = JSON.parse(text); }} catch (_e) {{ raw = null; }}
+                if (raw && typeof raw === 'object' && 'e' in raw && captured.res) {{
+                  const fakeResp = {{
+                    data: raw,
+                    status: resp.status,
+                    statusText: resp.statusText,
+                    headers: Object.fromEntries([...resp.headers.entries()]),
+                    config: {{ url: url, method: 'get', baseURL: '/api/v1' }},
+                    request: {{}}
+                  }};
+                  const decoded = await captured.res(fakeResp);
+                  return JSON.stringify({{ result: decoded && decoded.data }});
+                }}
+                return text;
               }})();";
 
-            return await _page.EvaluateExpressionAsync<string>(jsTemplate).ConfigureAwait(false);
+            return await page.EvaluateExpressionAsync<string>(jsTemplate).ConfigureAwait(false);
         }
 
         // T-17-02-02 mitigation: single-quote string substitution helper. Escapes \ and '

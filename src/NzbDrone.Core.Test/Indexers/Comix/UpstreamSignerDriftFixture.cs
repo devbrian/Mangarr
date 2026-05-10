@@ -91,6 +91,74 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         }
 
         [Test]
+        public void Port_must_capture_response_interceptor_not_no_op_it()
+        {
+            // CR-01 regression guard (revision iteration 2): the Wave 1 implementation
+            // initially wired `interceptors.response.use(() => {})` — a no-op that
+            // silently dropped the upstream-registered decrypt function. The above
+            // substring assertion ("interceptors" present) was too weak to catch this.
+            //
+            // The corrected port mirrors upstream's `use: function(fn) { captured.res = fn; }`
+            // shape (Resources/upstream-signer.txt:84). Assert the SHAPE — a `captured`
+            // variable is closed over, AND the response.use callback BODY assigns into
+            // captured.res (not an empty body).
+            _signerSource.Should().Contain("captured",
+                "EvaluateProxyFetchAsync template must close over a `captured` object holding " +
+                "the request + response interceptors registered by installer() — per " +
+                "upstream Signer.kt:80-84. A `() => {}` no-op silently drops the decrypt fn.");
+            _signerSource.Should().Contain("captured.res",
+                "EvaluateProxyFetchAsync template must assign the response interceptor into " +
+                "`captured.res` so the decrypt function can be invoked on encrypted bodies.");
+
+            // Note: the production source's JS template lives inside a `$@""` interpolated
+            // verbatim string — literal braces are doubled (`{{` and `}}`). Match against
+            // the doubled-brace shape that actually appears in the .cs file.
+            _signerSource.Should().MatchRegex(
+                @"response\s*:\s*\{\{\s*use\s*:\s*function\s*\(\s*fn\s*\)\s*\{\{\s*captured\.res\s*=\s*fn\s*;",
+                "EvaluateProxyFetchAsync's fake-axios `interceptors.response.use` MUST capture " +
+                "the registered fn into a closure variable, NOT be a `() => {}` no-op. The no-op " +
+                "shape silently drops the upstream decrypt function and ships encrypted bodies.");
+        }
+
+        [Test]
+        public void Port_must_invoke_captured_response_interceptor_on_encrypted_body()
+        {
+            // CR-01 regression guard: capturing `captured.res` is necessary but not
+            // sufficient — the template must also INVOKE it on the encrypted-body shape.
+            // Upstream's shape: detect `'e' in raw && captured.res`, build a fakeResp,
+            // `await captured.res(fakeResp)`, return `decoded.data` (Resources/upstream-signer.txt:101-110).
+            _signerSource.Should().Contain("'e' in raw",
+                "EvaluateProxyFetchAsync must detect the encrypted-body envelope (`{e: ...}`) " +
+                "before invoking the captured response interceptor — per upstream Signer.kt:101.");
+            _signerSource.Should().Contain("captured.res(",
+                "EvaluateProxyFetchAsync must INVOKE the captured response interceptor on the " +
+                "encrypted body — not just capture-and-discard. Upstream calls `await captured.res(fakeResp)`.");
+        }
+
+        [Test]
+        public void Port_must_sign_path_without_query_string()
+        {
+            // CR-02 regression guard (revision iteration 2): the Wave 1 implementation
+            // initially called `signer(apiPath)` — passing the FULL path including the
+            // chapter-list `?order[number]=desc&limit=...&mangaSlug=...` query string.
+            // Per Resources/upstream-signer.txt:124-125, upstream signs
+            // `apiPath.substringBefore('?')` — the path WITHOUT the query string.
+            //
+            // Mismatched signer input → wrong token → comix.to backend rejects every
+            // chapter-list request with 403. The "interceptors substring present"
+            // assertion above did not catch this; this regex enforces the query-strip.
+            _signerSource.Should().MatchRegex(
+                @"signablePath\s*=\s*apiPath\.split\('\?'\)\[0\]",
+                "EvaluateProxyFetchAsync's JS template must strip the query string from apiPath " +
+                "before passing it to signer() — per upstream Signer.kt:124-125 " +
+                "(`apiPath.substringBefore('?')`). Signing the full path-with-query produces a " +
+                "token comix.to rejects.");
+            _signerSource.Should().Contain("signer(signablePath)",
+                "EvaluateProxyFetchAsync must pass the query-stripped `signablePath` (NOT the raw " +
+                "apiPath) into the upstream signer function.");
+        }
+
+        [Test]
         public void Planned_decryptedBody_shim_should_match_upstream_response_handling()
         {
             // The window.__decryptedBody__ shim is the planner's best-effort port. If
