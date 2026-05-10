@@ -1,0 +1,153 @@
+# keiyoushi extensions-source / Signer.kt — captured 2026-05-10
+# Upstream commit SHA: 9ceeab04a7950173bb73a4e5b6f29cef5ded1457
+# Upstream path: src/en/comix/src/eu/kanade/tachiyomi/extension/en/comix/Signer.kt
+# License: Apache 2.0
+# See THIRD-PARTY-NOTICES.md (Plan 17-04 Task 3) for the canonical attribution entry.
+#
+# Phase 17 W-4 (revision iteration 1): Chromium-free drift falsifier reference.
+# UpstreamSignerDriftFixture.cs reads this file at test-runtime and asserts that
+# Wave 1's PROBE_JS const + EvaluateProxyFetchAsync template + decryption shim
+# in ComixPuppeteerSigner.cs reference the same vmf_/interceptor/response.data
+# substrings shown below. If upstream rotates SHAPE (not just keys), this drift
+# falsifier fails — the executor knows to re-port BEFORE the more expensive
+# live test in Wave 3.
+#
+# ── PROBE_JS-equivalent excerpt (Signer.kt lines 343-388) ──
+#
+# Walks `window.vmf_*` namespaces and identifies two functions:
+#  - `sig`:  signer — `fn(path) -> ≥40-char base64url token`
+#  - `inst`: axios installer — `fn(axiosInstance)` registers a request
+#            interceptor that signs URLs *and* a response interceptor
+#            that decrypts `{e:"..."}` bodies.
+
+private val PROBE_JS = """
+    (function() {
+        try {
+            var probe = '$PROBE_PATH';
+            var re = /^[A-Za-z0-9_-]{40,200}${'$'}/;
+            var sig = '', inst = '';
+            var keys = Object.keys(window);
+            for (var i = 0; i < keys.length; i++) {
+                var topName = keys[i];
+                if (topName.indexOf('vmf_') !== 0) continue;
+                var ns = window[topName];
+                if (!ns || typeof ns !== 'object') continue;
+                var fnames = Object.keys(ns);
+                for (var j = 0; j < fnames.length; j++) {
+                    var fn = ns[fnames[j]];
+                    if (typeof fn !== 'function') continue;
+                    var ref = 'window.' + topName + '.' + fnames[j];
+                    if (!sig) {
+                        try {
+                            var out = fn(probe);
+                            if (typeof out === 'string' && out !== probe && re.test(out)) {
+                                sig = ref;
+                            }
+                        } catch (e) {}
+                    }
+                    if (!inst) {
+                        try {
+                            var got = false;
+                            var fakeAxios = {
+                                interceptors: {
+                                    request:  { use: function() {} },
+                                    response: { use: function() { got = true; } }
+                                },
+                                defaults: { headers: { common: {} }, transformRequest: [], transformResponse: [] }
+                            };
+                            fn(fakeAxios);
+                            if (got) inst = ref;
+                        } catch (e) {}
+                    }
+                }
+            }
+            if (sig && inst) return 'sig=' + sig + ';inst=' + inst;
+        } catch (e) {}
+        return '';
+    })()
+""".trimIndent()
+
+# ── proxyFetch JS body excerpt (Signer.kt lines 132-185) ──
+#
+# Mirrors the keiyoushi proxyFetch shape: install fake axios to capture the
+# response interceptor, sign + fetch, run response through interceptor for
+# decryption, wrap as `{result: <decoded>}`.
+
+val js = """
+    (async function() {
+        var __t = $tokenLiteral;
+        try {
+            var captured = { req: null, res: null };
+            var fakeAxios = {
+                interceptors: {
+                    request:  { use: function(fn){ captured.req = fn; } },
+                    response: { use: function(fn){ captured.res = fn; } }
+                },
+                defaults: { headers: { common: {} }, transformRequest: [], transformResponse: [] }
+            };
+            $installer(fakeAxios);
+
+            var sig = $signer($signerArg);
+            var p = $pathLiteral;
+            var sep = p.indexOf('?') === -1 ? '?' : '&';
+            var url = p + sep + '_=' + encodeURIComponent(sig);
+            var resp = await fetch(url, {
+                credentials: 'include',
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            var text = await resp.text();
+            ...
+            var bodyOut;
+            if (raw && typeof raw === 'object' && 'e' in raw && captured.res) {
+                var fakeResp = {
+                    data: raw,
+                    status: resp.status,
+                    statusText: resp.statusText,
+                    headers: Object.fromEntries([...resp.headers.entries()]),
+                    config: { url: url, method: 'get', baseURL: '/api/v1' },
+                    request: {}
+                };
+                var decoded = await captured.res(fakeResp);
+                bodyOut = JSON.stringify({ result: decoded && decoded.data });
+            } else if (raw && typeof raw === 'object' && 'result' in raw) {
+                bodyOut = text;
+            } else {
+                bodyOut = JSON.stringify({ result: raw });
+            }
+
+# ── extractSignablePath helper (Signer.kt lines 325-329) ──
+#
+# The signer takes the API path BEFORE the `/api/v1` prefix and WITHOUT query
+# parameters. A request URL of `/api/v1/manga/g2rk/chapters?page=1` therefore
+# signs `/manga/g2rk/chapters`.
+
+private fun extractSignablePath(apiPath: String): String =
+    apiPath.substringBefore('?').removePrefix("/api/v1")
+
+# ── object Signer header constants (Signer.kt lines 65-83) ──
+#
+# Kept as a stable shape reference: signerExpr / installerExpr are cached after
+# probe; PROBE_PATH is the canary. ComixPuppeteerSigner.cs port mirrors these
+# const names where possible (per RESEARCH N-6 line-for-line).
+
+object Signer {
+    private const val BASE_URL = "https://comix.to/"
+    private const val PROBE_PATH = "/manga/g2rk/chapters"
+    private const val LOAD_TIMEOUT_S = 25L
+    private const val FETCH_TIMEOUT_S = 25L
+    private const val PROBE_INTERVAL_MS = 250L
+    @Volatile private var signerExpr: String? = null
+    @Volatile private var installerExpr: String? = null
+}
+
+# ── Drift signal substrings the fixture asserts on ──
+#
+# These three substrings are the stable upstream contract we expect Wave 1's
+# C# port to mirror. If upstream rotates ANY of these, the fixture fails:
+#
+#   1. `vmf_`               — namespace prefix of the per-deploy obfuscated VM
+#   2. `interceptors`       — axios shape; response.use captures the decryptor
+#   3. `response.data`      — decoded payload accessor (returned from interceptor)
+#
+# The fixture additionally checks for the `__decryptedBody__` shim name OR the
+# `response.data` fallback — Wave 1's C# port may use either name.

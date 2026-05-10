@@ -1,5 +1,7 @@
 using System.Linq;
+using System.Threading;
 using FluentAssertions;
+using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Indexers.Comix;
 using NzbDrone.Core.IndexerSearch.Definitions;
@@ -32,6 +34,16 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 BaseUrl = "https://comix.to",
                 SourceKey = "comix.to"
             };
+
+            // Phase 17 D-16 + B-4 alignment (revision iteration 1): register
+            // Mock<IComixSigner> in SetUp so Wave 1's ComixRequestGenerator.Signer
+            // settable-property edit (Plan 17-02 Task 2c) does NOT break the pre-existing
+            // BuildChapterListUrl assertions. The pre-existing `&_=` token-presence
+            // assertions deletion happens in Wave 1 Task 2c, NOT in Wave 0.
+            const string CannedToken = "{\"result\":{\"items\":[]}}";
+            Mocker.GetMock<IComixSigner>()
+                  .Setup(s => s.ProxyFetchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .ReturnsAsync(CannedToken);
         }
 
         [Test]

@@ -2,7 +2,7 @@
 PLATFORM=$1
 TYPE=$2
 COVERAGE=$3
-WHERE="Category!=ManualTest"
+WHERE="Category!=ManualTest&Category!=LiveComix"
 TEST_PATTERN="*Test.dll"
 FILES=( "Mangarr.Api.Test.dll" "Mangarr.Automation.Test.dll" "Mangarr.Common.Test.dll" "Mangarr.Core.Test.dll" "Mangarr.Host.Test.dll" "Mangarr.Integration.Test.dll" "Mangarr.Libraries.Test.dll" "Mangarr.Mono.Test.dll" "Mangarr.Update.Test.dll" "Mangarr.Windows.Test.dll" )
 ASSMEBLIES=""

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
@@ -56,6 +57,20 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                       var raw = new HttpResponse(req, headers, _pagesJson, HttpStatusCode.OK);
                       return Task.FromResult(new HttpResponse<ComixChapterPagesResponse>(raw));
                   });
+
+            // Phase 17 D-16: Mock<IComixSigner> returning canned chapter-pages JSON shape.
+            // Wave 1 Plan 17-02 Task 2 swaps ComixIndexer.GetChapterPages from
+            // _httpClient.GetAsync to _signer.ProxyFetchAsync (per RESEARCH N-3 — the
+            // /api/v1/chapters/{id}/pages endpoint requires the signer too). This Mock
+            // primes both the current (HTTP) and post-Wave-1 (signer) code paths so the
+            // pre-existing assertions in this fixture survive the Wave 1 ctor change.
+            const string CannedChapterPages = "{\"result\":{\"images\":[" +
+                "{\"url\":\"https://cdn.comix.to/img/1.jpg\"}," +
+                "{\"url\":\"https://cdn.comix.to/img/2.jpg\"}," +
+                "{\"url\":\"https://cdn.comix.to/img/3.jpg\"}]}}";
+            Mocker.GetMock<IComixSigner>()
+                  .Setup(s => s.ProxyFetchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .ReturnsAsync(CannedChapterPages);
         }
 
         private static ReleaseInfo BuildRelease()
