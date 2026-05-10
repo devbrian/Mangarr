@@ -8,10 +8,11 @@ namespace NzbDrone.Core.Manga
     // at the (MangaId, ChapterNumber) grain — language-free per Phase 16 STRUCT-01.
     //   * ChapterNumber is decimal (DECIMAL(10,3) per Phase 2 D-12 widen).
     //   * VolumeNumber is display-only — no Volumes table.
-    //   * FirstReleaseDate (Phase 16 D-02) is the upstream chapter-publish date —
-    //     Sonarr-mirror of Episode.AirDateUtc. Distinct from ChapterRelease.ReleaseDate
-    //     (per-translation upload time).
-    //   * Per-language data lives on the ChapterRelease sibling (Phase 16 STRUCT-02).
+    //   * FirstReleaseDate (Phase 16 D-02 — survived Phase 16.1 revert) is the
+    //     upstream chapter-publish date — Sonarr-mirror of Episode.AirDateUtc.
+    //   * Per-translation data (language + scanlation-group) lives on ChapterFile
+    //     post-import (ChapterFile.TranslatedLanguage + ChapterFile.ScanlationGroup;
+    //     Phase 6 PIPELINE-04 + Phase 16.1 D-04 — Sonarr-canonical pattern).
     public class Chapter : ModelBase, IComparable
     {
         public int MangaId { get; set; }
@@ -24,10 +25,9 @@ namespace NzbDrone.Core.Manga
 
         public string Title { get; set; }
 
-        // Phase 16 D-02: Sonarr-mirror of Episode.AirDateUtc.
-        // Populated by EnsureChapter from the upstream metadata source's chapter-publish date
-        // (e.g., MangaDex attrs.PublishAt). NOT derived from ChapterRelease.ReleaseDate
-        // (which is per-translation upload time — a distinct concept).
+        // Phase 16 D-02 (survived Phase 16.1 revert): Sonarr-mirror of Episode.AirDateUtc.
+        // Populated by ChapterListService.SyncChapters (Phase 16.1 single-pass) from the
+        // upstream metadata source's chapter-publish date (e.g., MangaDex attrs.PublishAt).
         public DateTime? FirstReleaseDate { get; set; }
 
         public bool Monitored { get; set; }

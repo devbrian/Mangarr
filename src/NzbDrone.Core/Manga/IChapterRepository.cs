@@ -7,7 +7,9 @@ namespace NzbDrone.Core.Manga
     // (Tv/EpisodeRepository.cs:13-34) shape, with manga-domain divergence:
     //   * Find takes (mangaId, decimal chapterNumber) — Phase 16 STRUCT-01 collapsed
     //     the language axis (canonical Chapter is now language-free at the
-    //     (MangaId, ChapterNumber) grain; per-language data is on ChapterRelease).
+    //     (MangaId, ChapterNumber) grain; per-translation data lives on
+    //     ChapterFile.TranslatedLanguage + ChapterFile.ScanlationGroup post-import per
+    //     Phase 6 PIPELINE-04 + Phase 16.1 D-04 — Sonarr-canonical pattern).
     //   * GetByMangaId mirrors GetEpisodes(int seriesId).
     //   * SetFileId/ClearFileId added in Phase 8 audit (gap-03) — mirrors TV's
     //     EpisodeRepository (Tv/EpisodeRepository.cs:195-212) for the Phase 4/6
@@ -16,7 +18,8 @@ namespace NzbDrone.Core.Manga
     {
         // Sonarr divergence: Phase 16 STRUCT-01 — 3-arg Find(int, decimal, string) collapsed
         // to 2-arg Find(int, decimal) because the language axis is gone from the canonical
-        // Chapter grain. Per-language lookups go via IChapterReleaseRepository.Find.
+        // Chapter grain. Per-translation lookups go via IChapterFileService.GetFilesByChapter
+        // reading ChapterFile.TranslatedLanguage + ChapterFile.ScanlationGroup (Phase 16.1).
         Chapter Find(int mangaId, decimal chapterNumber);
         List<Chapter> GetByMangaId(int mangaId);
 

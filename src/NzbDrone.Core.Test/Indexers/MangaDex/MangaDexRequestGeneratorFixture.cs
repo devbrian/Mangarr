@@ -62,7 +62,8 @@ namespace NzbDrone.Core.Test.Indexers.MangaDex
                 MangaDexId = Guid.Parse("a1c7c817-4e59-43b7-9365-09675a149a6f")
             };
 
-            // Phase 16 STRUCT-01: TranslatedLanguage is on ChapterRelease, not Chapter.
+            // Phase 16 STRUCT-01 + Phase 16.1: canonical Chapter is language-free; per-translation
+            // language flows via ParsedChapterInfo (parser grain) / ChapterFile (file grain).
             var chapter = new Manga.Chapter
             {
                 ChapterNumber = 42m,

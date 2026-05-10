@@ -127,7 +127,8 @@ namespace NzbDrone.Core.Test.MangaTests
             typeof(Chapter)
                 .GetProperty("TranslatedLanguage")
                 .Should().BeNull(
-                    "Phase 16 STRUCT-04 lifted language to ChapterRelease; "
+                    "Phase 16 STRUCT-04 dropped language from Chapter (Phase 16.1 routes "
+                    + "per-translation axes through ChapterFile per Sonarr-canonical pattern); "
                     + "Chapter must remain language-free at the (MangaId, ChapterNumber) grain");
         }
     }

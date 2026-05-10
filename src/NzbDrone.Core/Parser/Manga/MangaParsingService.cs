@@ -146,15 +146,14 @@ namespace NzbDrone.Core.Parser.Manga
 
             if (parsedChapterInfo?.ChapterNumbers != null)
             {
-                // Phase 16 STRUCT-01: canonical Chapter is language-free at the
-                // (MangaId, ChapterNumber) grain. Map resolves to the canonical row;
+                // Phase 16 STRUCT-01 + Phase 16.1: canonical Chapter is language-free at
+                // the (MangaId, ChapterNumber) grain. Map resolves to the canonical row;
                 // per-translation matching (parsedChapterInfo.TranslatedLanguage against
-                // ChapterRelease.TranslatedLanguage) moves to the DecisionEngine layer
-                // where the indexer's ReleaseInfo carries the language code. The
-                // RemoteChapter.Chapters list returned here is the canonical set; the
-                // DecisionEngine specifications consume IChapterReleaseService to score
-                // per-translation upgrade candidates (Plan 16-04 retargets the cutoff
-                // + upgrade specs at the ChapterRelease grain).
+                // RemoteChapter.Release.TranslatedLanguage at indexer-projection grain
+                // and against ChapterFile.TranslatedLanguage at file-import grain) lives
+                // in the DecisionEngine specifications (Phase 16.1 — Sonarr-canonical
+                // pattern; specs target RemoteChapter.Release.TranslatedLanguage, NOT
+                // a persistent per-translation entity).
                 foreach (var num in parsedChapterInfo.ChapterNumbers)
                 {
                     var ch = existingChapters?.FirstOrDefault(c =>
@@ -181,9 +180,9 @@ namespace NzbDrone.Core.Parser.Manga
         // Phase 16 STRUCT-01 + STRUCT-04 cleanup: the pre-Phase-16
         // ResolveByNumberOnly / ResolvePreferredLanguage / ResolveTranslationProfile
         // / GetLanguageRank helpers are gone (consumers moved to the simpler
-        // (MangaId, ChapterNumber) lookup above). The Phase 8 multi-language
-        // disambiguation lives in the DecisionEngine specs (Plan 16-04 retarget) —
-        // the indexer's ReleaseInfo carries the language code; the spec scores
-        // the candidate ChapterRelease against the manga's TranslationProfile.
+        // (MangaId, ChapterNumber) lookup above). The multi-language disambiguation
+        // lives in the DecisionEngine specs (Phase 16.1 Sonarr-canonical pattern) —
+        // the indexer's ReleaseInfo carries the language code; the spec scores the
+        // candidate release against the manga's TranslationProfile.
     }
 }
