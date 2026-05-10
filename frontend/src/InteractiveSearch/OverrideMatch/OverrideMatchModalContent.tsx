@@ -268,7 +268,7 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
 
           <DescriptionListItem
             className={styles.item}
-            title={translate('Episodes')}
+            title={translate('Chapters')}
             data={
               <OverrideMatchData
                 value={episodeInfo}

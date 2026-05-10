@@ -32,12 +32,12 @@ const { useOptions, useOption, setOptions, setOption, setSort } =
         },
         {
           name: 'episode',
-          label: () => translate('Episode'),
+          label: () => translate('Chapter'),
           isVisible: true,
         },
         {
           name: 'episodes.title',
-          label: () => translate('EpisodeTitle'),
+          label: () => translate('ChapterTitle'),
           isVisible: true,
         },
         {

@@ -106,7 +106,7 @@ function MangaIndexSortMenu(props: MangaIndexSortMenuProps) {
           sortDirection={sortDirection}
           onPress={onSortSelect}
         >
-          {translate('Seasons')}
+          {translate('Volumes')}
         </SortMenuItem>
 
         <SortMenuItem
@@ -115,7 +115,7 @@ function MangaIndexSortMenu(props: MangaIndexSortMenuProps) {
           sortDirection={sortDirection}
           onPress={onSortSelect}
         >
-          {translate('Episodes')}
+          {translate('Chapters')}
         </SortMenuItem>
 
         <SortMenuItem
@@ -124,7 +124,7 @@ function MangaIndexSortMenu(props: MangaIndexSortMenuProps) {
           sortDirection={sortDirection}
           onPress={onSortSelect}
         >
-          {translate('EpisodeCount')}
+          {translate('ChapterCount')}
         </SortMenuItem>
 
         <SortMenuItem
