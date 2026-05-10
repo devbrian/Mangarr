@@ -1,15 +1,15 @@
-// Sonarr divergence: REWRITTEN per Phase 16 STRUCT-09 + D-03 — see DIVERGENCE.md.
+// Sonarr divergence: NEW manga sibling per Phase 7 D-03 — see DIVERGENCE.md.
 // Role-match analog: NO direct analog — Sonarr's `Series/Details/SeriesDetailsSeason`
 // nests episodes under collapsible season cards; Phase 7 D-03 + PROJECT.md
 // "Volumes/Seasons" Out-of-Scope mandates a FLAT sortable table for chapters.
 // Closest precedent: `frontend/src/Wanted/Missing/Missing.tsx` (sortable flat
 // table with per-row monitor + search affordances).
 //
-// Pre-Phase-16: 8 columns including 3 per-language ones (translatedLanguage,
-// scanlationGroup, releaseDate). Post-Phase-16: 5 columns (monitored, chapterNumber,
-// title, status, actions) — translation breadth deferred to a future expand-to-see-
-// translations affordance (OUT OF SCOPE for Phase 16 per SPEC.md). Status pill carries
-// aggregate state per D-03 + D-04.
+// Column layout: 5 columns (monitored, chapterNumber, title, status, actions).
+// Canonical Chapter row is language-free; per-translation breadth is not
+// surfaced in the chapters table (manga-domain decision — translation
+// preference belongs in QualityProfile/ReleaseProfile via preferred terms,
+// not a per-row column).
 //
 // Manga sibling preserves: Table + TableBody + TableHeader render shape;
 // react-query-driven data flow.
@@ -19,8 +19,7 @@
 //     hard-no anti-pattern (UI-SPEC §Anti-pattern 5).
 //   * Client-side sort/filter (no server pagination per RESEARCH Open
 //     Question 2 lean) over the manga-specific columns: monitored, chapter
-//     number, title, status, actions (Phase 16 STRUCT-09 — language column
-//     dropped per D-03; canonical Chapter row is language-free).
+//     number, title, status, actions.
 //
 // Phase 8 cleanup: nothing to collapse — this stays.
 import React, { useMemo, useState } from 'react';
