@@ -58,30 +58,43 @@ namespace NzbDrone.Core.Indexers.Comix
         // names to identifier shape before they're interpolated into the in-page JS
         // template, so any non-bundle namespace that accidentally passes the
         // behaviour test is still rejected at the validation gate.
+        //
+        // GAP-17-C fix (Plan 17-07 Task 1): same-namespace gating — signer + installer
+        // MUST be discovered in the same `Object.keys(window)` outer-loop iteration. The
+        // earlier shape allowed cross-namespace pairs (signer from `ns_A`, installer from
+        // `ns_B`) which could produce mismatched function pairs from different bundles.
+        // The fix moves the `signerExpr`/`installerExpr` capture into per-namespace
+        // locals (`nsSigner` / `nsInstaller`); only when BOTH fire in the same iteration
+        // do they get committed to the outer `outerSignerExpr` / `outerInstallerExpr`
+        // and the walk terminates. Partial captures from non-pairing namespaces are
+        // dropped before moving on. See ComixSignerProbeSameNamespaceFixture for the
+        // Chromium-free regression guard locking this contract.
         private const string PROBE_JS = @"
           (() => {
             const probe = (probePath) => {
-              let signerExpr = null, installerExpr = null;
+              let outerSignerExpr = null, outerInstallerExpr = null;
               for (const ns of Object.keys(window)) {
                 const obj = window[ns];
                 if (!obj || typeof obj !== 'object') continue;
                 let fns;
                 try { fns = Object.keys(obj); } catch (_e) { continue; }
                 if (fns.length === 0 || fns.length > 200) continue;
+
+                let nsSigner = null, nsInstaller = null;
                 for (const fn of fns) {
-                  if (signerExpr === null) {
+                  if (nsSigner === null) {
                     try {
                       const out = obj[fn](probePath);
                       if (typeof out === 'string'
                           && out !== probePath
                           && out.length >= 40
                           && /^[A-Za-z0-9_-]+$/.test(out)) {
-                        signerExpr = ns + '.' + fn;
+                        nsSigner = ns + '.' + fn;
                         continue;
                       }
                     } catch (_e) {}
                   }
-                  if (installerExpr === null) {
+                  if (nsInstaller === null) {
                     try {
                       let got = false;
                       const fakeAxios = {
@@ -92,18 +105,35 @@ namespace NzbDrone.Core.Indexers.Comix
                         defaults: { headers: { common: {} }, transformRequest: [], transformResponse: [] },
                       };
                       obj[fn](fakeAxios);
-                      if (got) installerExpr = ns + '.' + fn;
+                      if (got) nsInstaller = ns + '.' + fn;
                     } catch (_e) {}
                   }
-                  if (signerExpr !== null && installerExpr !== null) break;
+                  if (nsSigner !== null && nsInstaller !== null) break;
                 }
-                if (signerExpr !== null && installerExpr !== null) break;
+                // Same-namespace gate (GAP-17-C): ONLY commit the pair when BOTH locals
+                // fire in this `ns` iteration. Otherwise drop nsSigner / nsInstaller and
+                // continue to the next namespace — partial captures must NOT cross the
+                // outer-loop boundary.
+                if (nsSigner !== null && nsInstaller !== null) {
+                  outerSignerExpr = nsSigner;
+                  outerInstallerExpr = nsInstaller;
+                  break;
+                }
               }
-              return { signerExpr: signerExpr, installerExpr: installerExpr };
+              return { signerExpr: outerSignerExpr, installerExpr: outerInstallerExpr };
             };
             return probe('/manga/__probe__/chapters');
           })();
         ";
+
+        /// <summary>
+        /// Plan 17-07 Task 1 test seam: exposes the PROBE_JS const to the
+        /// <see cref="T:NzbDrone.Core.Test.Indexers.Comix.ComixSignerProbeSameNamespaceFixture"/>
+        /// Chromium-free fixture so the same-namespace contract can be verified by
+        /// file-text grep without a real browser. NOT called from production code.
+        /// </summary>
+        // Sonarr divergence: test-only accessor; Mangarr-only signer seam (Pattern ι allowlist).
+        internal static string GetProbeJsForTest() => PROBE_JS;
 
         // ── Static readonly fields ───────────────────────────────────────────────────
         // W-2 (revision iteration 1): drain timeout for in-flight requests on Dispose.
