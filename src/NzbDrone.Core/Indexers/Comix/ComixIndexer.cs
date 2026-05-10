@@ -167,6 +167,16 @@ namespace NzbDrone.Core.Indexers.Comix
                 {
                     json = await _signer.ProxyFetchAsync(apiPath).ConfigureAwait(false);
                 }
+                catch (OperationCanceledException)
+                {
+                    // WR-04 mitigation (revision iteration 2): rethrow user-initiated
+                    // cancellation (shutdown, scheduler cancel) — do NOT swallow it as a
+                    // "skipped path" because cancellation is structural, not a per-path
+                    // failure. Wrapping it as a per-path skip lets a shutdown silently
+                    // produce a partial release list while masking the cancellation root
+                    // cause from the orchestrator.
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     _logger.Warn(ex, "Comix: signer dispatch failed for '{0}'; skipping path.", apiPath);
@@ -217,7 +227,27 @@ namespace NzbDrone.Core.Indexers.Comix
 
                 // Skip if the manga name is already present (e.g., manga-list path
                 // ParseMangaList already prefixes via $"{m.Title} - Chapter ...").
-                if (r.Title.StartsWith(mangaTitle, StringComparison.OrdinalIgnoreCase))
+                //
+                // WR-05 mitigation (revision iteration 2): require a word-boundary
+                // separator after the manga-title prefix so e.g. mangaTitle "Test"
+                // does not silently absorb a release titled "Tested - Chapter 1"
+                // (which would belong to a DIFFERENT manga). A bare StartsWith match
+                // is a false-positive class that masks the bug downstream because
+                // the chapter then lacks its true manga prefix and rejects with
+                // "Unknown Manga" in MangaDownloadDecisionMaker.
+                if (r.Title.Length > mangaTitle.Length
+                    && r.Title.StartsWith(mangaTitle, StringComparison.OrdinalIgnoreCase)
+                    && (r.Title[mangaTitle.Length] == ' '
+                        || r.Title[mangaTitle.Length] == '-'
+                        || r.Title[mangaTitle.Length] == ':'
+                        || r.Title[mangaTitle.Length] == '_'))
+                {
+                    continue;
+                }
+
+                // Exact match (case-insensitive) is also already-prefixed.
+                if (r.Title.Length == mangaTitle.Length
+                    && r.Title.Equals(mangaTitle, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -286,6 +316,12 @@ namespace NzbDrone.Core.Indexers.Comix
 
                 return envelope.Result.Items[0]?.Hid;
             }
+            catch (OperationCanceledException)
+            {
+                // WR-04 mitigation (revision iteration 2): cancellation is structural —
+                // never silently translate it into a "no manga found" return.
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.Debug(ex, "Comix: title-to-hid resolution failed for '{0}'.", keyword);
@@ -323,8 +359,32 @@ namespace NzbDrone.Core.Indexers.Comix
             }
 
             var json = await _signer.ProxyFetchAsync(apiPath).ConfigureAwait(false);
+
+            // CR-06 mitigation (revision iteration 2): the signer can legitimately
+            // return null OR an empty/whitespace string (network 5xx swallowed at the
+            // signer layer; comix.to returning an empty body for a stale chapter ID;
+            // decryption-shim returning the raw envelope un-decoded if the response
+            // shape changed). JsonConvert.DeserializeObject<>(null) returns null;
+            // DeserializeObject<>("") throws JsonReaderException. Either way the
+            // subsequent `resource.Pages` would NRE (or wrap a serializer exception
+            // the Phase 4 download pipeline doesn't expect). Mirror DispatchSignerPathsAsync's
+            // empty-payload posture: short-circuit with an empty manifest. The download
+            // pipeline interprets `Pages.Count == 0` as "nothing to fetch" and surfaces
+            // a Health Check warning rather than crashing.
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                _logger.Warn("Comix: GetChapterPages received empty signer payload for '{0}'; returning empty manifest.", apiPath);
+                return new ChapterManifest
+                {
+                    Pages = Array.Empty<ChapterPage>(),
+                    ScanlationGroup = release.ScanlationGroup,
+                    TotalCount = 0,
+                    ExpiresAt = null
+                };
+            }
+
             var resource = JsonConvert.DeserializeObject<ComixChapterPagesResponse>(json);
-            var pageUrls = resource.Pages;
+            var pageUrls = resource?.Pages ?? new List<string>();
             var pages = new List<ChapterPage>(pageUrls.Count);
             for (var i = 0; i < pageUrls.Count; i++)
             {
