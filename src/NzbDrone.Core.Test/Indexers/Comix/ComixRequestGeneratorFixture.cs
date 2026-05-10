@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using FluentAssertions;
@@ -12,16 +13,21 @@ namespace NzbDrone.Core.Test.Indexers.Comix
     /// <summary>
     /// Fixture for <see cref="ComixRequestGenerator"/>.
     ///
-    /// Coverage:
-    /// - URL composition for /api/v1/manga (FetchRecent / latest_updates ordering)
-    /// - URL composition for /api/v1/manga/{hid}/chapters (per-manga chapter list)
-    ///   includes the keiyoushi <c>_=</c> anti-bot token
-    /// - Search request returns an empty chain when no <see cref="ComixRequestGenerator.ResolvedMangaHash"/>
-    ///   is set (the indexer resolves title→hid before invoking the generator)
+    /// <para>
+    /// Phase 17 (Plan 17-02 Task 2c per revision iteration 1, B-4): pre-existing
+    /// <c>&amp;_=</c> token-presence assertions DELETED + REPLACED with
+    /// <see cref="ComixRequestGenerator.ResolvedSignerPaths"/> assertions per Path A
+    /// (signer-returns-decoded-JSON; URL-with-token composition is dead). Structural
+    /// assertions on <c>order%5Bnumber%5D=desc</c> / <c>limit=100</c> / <c>&amp;number=</c>
+    /// chapter-filter / etc. are PRESERVED — they apply to the path string returned by
+    /// <see cref="ComixRequestGenerator.BuildChapterListPath"/> just as they did to the
+    /// pre-Phase-17 URL.
+    /// </para>
     ///
-    /// Updated 2026-05-08 (comix-indexer-404 debug session): pivoted from
-    /// /api/v2/manga/{slug}/chapters to /api/v1/manga/{hid}/chapters with hash token,
-    /// matching keiyoushi's current Comix.kt + the live API verified during the bug investigation.
+    /// <para>
+    /// Audit trail for the Path A rewrite (deleted / renamed / replaced tests) lives in
+    /// <c>17-02-SUMMARY.md</c> handoff (Task 2c step 1).
+    /// </para>
     /// </summary>
     [TestFixture]
     public class ComixRequestGeneratorFixture : CoreTest<ComixRequestGenerator>
@@ -35,11 +41,10 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 SourceKey = "comix.to"
             };
 
-            // Phase 17 D-16 + B-4 alignment (revision iteration 1): register
-            // Mock<IComixSigner> in SetUp so Wave 1's ComixRequestGenerator.Signer
-            // settable-property edit (Plan 17-02 Task 2c) does NOT break the pre-existing
-            // BuildChapterListUrl assertions. The pre-existing `&_=` token-presence
-            // assertions deletion happens in Wave 1 Task 2c, NOT in Wave 0.
+            // Phase 17 D-16: Mock<IComixSigner> registered for any test that resolves
+            // ComixRequestGenerator via Mocker.Resolve — keeps consumers happy if they
+            // exercise Subject.Signer indirectly. (Direct callers of GetSearchRequests
+            // don't reach the signer; ComixIndexer.Fetch dispatches it from outside.)
             const string CannedToken = "{\"result\":{\"items\":[]}}";
             Mocker.GetMock<IComixSigner>()
                   .Setup(s => s.ProxyFetchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -63,7 +68,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             // ComixIndexer.Fetch() resolves Manga.Title -> hid via /api/v1/manga?keyword=...
             // before invoking the request generator. Without ResolvedMangaHash set, the
-            // generator emits an empty chain so FetchReleases short-circuits.
+            // generator emits an empty chain so dispatch short-circuits.
             var manga = new Manga.Manga { Title = "One Piece" };
             var criteria = new MangaSearchCriteria { Manga = manga };
 
@@ -73,8 +78,12 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         }
 
         [Test]
-        public void GetSearchRequests_with_resolved_hash_targets_v1_chapters_with_token()
+        public void GetSearchRequests_with_resolved_hash_populates_ResolvedSignerPaths_with_chapter_list_path()
         {
+            // Phase 17 Path A — replaces the pre-Phase-17 URL-with-token assertion. The
+            // chain itself is empty now (ComixIndexer.Fetch reads ResolvedSignerPaths and
+            // dispatches via _signer.ProxyFetchAsync); structural assertions move to the
+            // ResolvedSignerPaths[0] string.
             Subject.ResolvedMangaHash = "mr3m0";
             Subject.ResolvedMangaSlug = "mr3m0-the-forgotten-field";
 
@@ -83,25 +92,16 @@ namespace NzbDrone.Core.Test.Indexers.Comix
 
             var chain = Subject.GetSearchRequests(criteria);
 
-            chain.GetAllTiers().Should().NotBeEmpty();
-            var url = chain.GetAllTiers().First().First().Url.FullUri;
-            url.Should().Contain("/api/v1/manga/mr3m0/chapters");
-            url.Should().Contain("order%5Bnumber%5D=desc");
-            url.Should().Contain("limit=100");
-            url.Should().Contain("page=1");
-            url.Should().Contain("_=");          // anti-bot token query param required by comix.to
-            url.Should().Contain("mangaSlug=");
-        }
+            chain.GetAllTiers().Should().BeEmpty(
+                "Phase 17 Path A: ComixIndexer.Fetch reads ResolvedSignerPaths instead of dispatching IndexerRequests");
 
-        [Test]
-        public void BuildChapterListUrl_token_is_deterministic_for_same_path()
-        {
-            // The hash token derives from the URL path — same path -> same token. This makes
-            // unit tests reproducible across runs. (We intentionally do NOT pin the EXACT
-            // token value here because that would couple the test to ComixHash internals.)
-            var u1 = Subject.BuildChapterListUrl("mr3m0", "mr3m0-the-forgotten-field");
-            var u2 = Subject.BuildChapterListUrl("mr3m0", "mr3m0-the-forgotten-field");
-            u1.Should().Be(u2);
+            Subject.ResolvedSignerPaths.Should().ContainSingle()
+                   .Which.Should().StartWith("/manga/mr3m0/chapters")
+                   .And.NotContain("&_=", "Phase 17 Path A: token query param removed; signer applies inside page context")
+                   .And.Contain("order%5Bnumber%5D=desc")
+                   .And.Contain("limit=100")
+                   .And.Contain("page=1")
+                   .And.Contain("mangaSlug=");
         }
 
         [Test]
@@ -109,29 +109,26 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             // comix.to /api/v1/manga/{hid}/chapters supports an undocumented &number={N}
             // server-side filter (verified live 2026-05-08). Chapter-scope searches must
-            // append this so the response is bounded to the requested chapter.
+            // append this so the response is bounded to the requested chapter. Phase 17:
+            // assertion shifts from URL to ResolvedSignerPaths[0] per Path A.
             Subject.ResolvedMangaHash = "mr3m0";
             Subject.ResolvedMangaSlug = "mr3m0-the-forgotten-field";
 
             var manga = new Manga.Manga { Title = "The Forgotten Field" };
-
-            // Phase 16 STRUCT-01 + Phase 16.1: canonical Chapter is language-free; per-translation
-            // language flows via ParsedChapterInfo (parser grain) / ChapterFile (file grain).
             var chapter = new Manga.Chapter { ChapterNumber = 4m };
             var criteria = new ChapterSearchCriteria
             {
                 Manga = manga,
-                Chapters = new System.Collections.Generic.List<Manga.Chapter> { chapter }
+                Chapters = new List<Manga.Chapter> { chapter }
             };
 
-            var chain = Subject.GetSearchRequests(criteria);
-            chain.GetAllTiers().Should().NotBeEmpty();
+            Subject.GetSearchRequests(criteria);
 
-            var url = chain.GetAllTiers().First().First().Url.FullUri;
-            url.Should().Contain("/api/v1/manga/mr3m0/chapters");
-            url.Should().Contain("number=4");
-            url.Should().Contain("_=");          // anti-bot token still present
-            url.Should().Contain("mangaSlug=");
+            Subject.ResolvedSignerPaths.Should().ContainSingle()
+                   .Which.Should().StartWith("/manga/mr3m0/chapters")
+                   .And.Contain("number=4")
+                   .And.NotContain("&_=", "Phase 17 Path A: token query param removed")
+                   .And.Contain("mangaSlug=");
         }
 
         [Test]
@@ -145,13 +142,12 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             var criteria = new ChapterSearchCriteria
             {
                 Manga = manga,
-                Chapters = new System.Collections.Generic.List<Manga.Chapter> { chapter }
+                Chapters = new List<Manga.Chapter> { chapter }
             };
 
-            var chain = Subject.GetSearchRequests(criteria);
-            var url = chain.GetAllTiers().First().First().Url.FullUri;
+            Subject.GetSearchRequests(criteria);
 
-            url.Should().Contain("number=12.5");
+            Subject.ResolvedSignerPaths.Single().Should().Contain("number=12.5");
         }
 
         [Test]
@@ -159,27 +155,30 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             // ChapterSearchCriteria still requires a resolved hid. ComixIndexer.Fetch() runs
             // the title→hid lookup before invoking the generator; if that lookup yields no
-            // match, the chain is empty so FetchReleases short-circuits.
+            // match, the chain is empty so dispatch short-circuits.
             var manga = new Manga.Manga { Title = "Unmappable Manga" };
             var chapter = new Manga.Chapter { ChapterNumber = 1m };
             var criteria = new ChapterSearchCriteria
             {
                 Manga = manga,
-                Chapters = new System.Collections.Generic.List<Manga.Chapter> { chapter }
+                Chapters = new List<Manga.Chapter> { chapter }
             };
 
             var chain = Subject.GetSearchRequests(criteria);
 
             chain.GetAllTiers().Should().BeEmpty();
+            Subject.ResolvedSignerPaths.Should().BeEmpty(
+                "no resolved hid → no signer paths populated");
         }
 
         [Test]
-        public void BuildChapterListUrl_without_chapter_number_omits_number_filter()
+        public void BuildChapterListPath_without_chapter_number_omits_number_filter()
         {
-            // Manga (whole-feed) searches must NOT add &number= — they need the full chapter
-            // list. Backwards-compat with the existing MangaSearchCriteria + RSS path.
-            var url = Subject.BuildChapterListUrl("mr3m0", "mr3m0-the-forgotten-field");
-            url.Should().NotContain("&number=");
+            // Manga (whole-feed) searches must NOT add &number= — they need the full
+            // chapter list. Backwards-compat with the existing MangaSearchCriteria path.
+            var path = Subject.BuildChapterListPath("mr3m0", "mr3m0-the-forgotten-field");
+            path.Should().NotContain("&number=");
+            path.Should().NotContain("&_=", "Phase 17 Path A: token query param removed");
         }
     }
 }
