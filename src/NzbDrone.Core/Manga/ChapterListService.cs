@@ -4,125 +4,99 @@ using NLog;
 
 namespace NzbDrone.Core.Manga
 {
-    // Sonarr divergence: REWRITTEN per Phase 16 STRUCT-05 — see DIVERGENCE.md.
-    // Pre-Phase-16 SyncChapters body had 3 strategies (MangaDex-linked, count-based synthesis, empty)
-    // with a BL-05 in-place synthetic-upgrade loop. Post-Phase-16 the synthetic concept is gone
-    // (STRUCT-03), zero-release Chapters render as Missing (D-04), and stale ChapterReleases are
-    // retained on re-sync (D-01). The new two-method split mirrors Sonarr's RefreshEpisodeService
-    // two-pass: canonical row upsert + per-release upsert. Single ChapterListUpdatedEvent emit
-    // moves to the orchestrating caller (RefreshMangaService — Plan 16-03 Task 2) per Pitfall 4.
+    // Phase 16.1 Wave 3 (REVERT-03): single-pass SyncChapters reverted from the Phase 16
+    // two-method split. Mirrors Sonarr's RefreshEpisodeService.RefreshEpisodeInfo upsert
+    // pattern at the canonical (MangaId, ChapterNumber) grain. Per-translation language
+    // and scanlation-group axes live on ChapterFile after import (Phase 6 PIPELINE-04:
+    // ChapterFile.TranslatedLanguage + ChapterFile.ScanlationGroup), NOT on a sibling
+    // persistent layer.
     //
-    // Idempotency proof:
-    //   (a) EnsureChapter upserts on (MangaId, ChapterNumber) — UNIQUE index forbids dups.
-    //   (b) SyncChapterReleases upserts on (ChapterId, TranslatedLanguage, ScanlationGroup) — UNIQUE forbids dups.
-    //   (c) No DELETE branch — input set never shrinks.
-    //   (d) Re-running RefreshMangaCommand produces identical (Chapter, ChapterRelease) state.
-    //   (e) Failure mode: any algorithmic regression that violates a natural key fails LOUD via
-    //       UNIQUE-violation thrown at INSERT time (caught by Plan 16-02 acceptance tests).
+    // Idempotency:
+    //   (a) Upsert is keyed on (MangaId, ChapterNumber) — UNIQUE index from Plan 16-02
+    //       enforces. Re-running RefreshMangaCommand produces identical Chapter state.
+    //   (b) Inputs are dedup'd on ChapterNumber via DistinctBy BEFORE the upsert pass —
+    //       BL-05 multi-translation regression safety net (mirror of Sonarr's
+    //       DistinctBy(new { SeasonNumber, EpisodeNumber }) precedent).
+    //   (c) Failure mode: any natural-key violation fails LOUD via UNIQUE-violation thrown
+    //       at INSERT time.
+    //
+    // STALE-HANDLING DECISION (LOCKED per Phase 16.1 CONTEXT.md additional_context Pitfall #4
+    // + PATTERNS.md Pitfall 6): NO DELETE of stale chapters. Pre-Phase-16 behavior retained;
+    // Sonarr's RefreshEpisodeService DOES delete stale, but SPEC scope is "revert," not
+    // "Sonarr-canonicalize stale-handling." Defer to a future phase if needed.
     public sealed class ChapterListService : IChapterListService
     {
         private readonly IChapterRepository _chapterRepo;
-        private readonly IChapterReleaseRepository _releaseRepo;
         private readonly Logger _logger;
 
-        public ChapterListService(IChapterRepository chapterRepo,
-                                  IChapterReleaseRepository releaseRepo,
-                                  Logger logger)
+        public ChapterListService(IChapterRepository chapterRepo, Logger logger)
         {
             _chapterRepo = chapterRepo;
-            _releaseRepo = releaseRepo;
             _logger = logger;
         }
 
-        public Chapter EnsureChapter(int mangaId, decimal chapterNumber, ChapterEnsureInputs inputs)
+        public void SyncChapters(Manga manga, IEnumerable<Chapter> remoteChapters)
         {
-            // D-04: always creates a real canonical Chapter row.
-            // Idempotent on (MangaId, ChapterNumber) — UNIQUE index from Plan 16-02 enforces.
-            var existing = _chapterRepo.Find(mangaId, chapterNumber);
-            if (existing == null)
-            {
-                var chapter = new Chapter
-                {
-                    MangaId = mangaId,
-                    ChapterNumber = chapterNumber,
-                    AbsoluteChapterNumber = inputs.AbsoluteChapterNumber,
-                    VolumeNumber = inputs.VolumeNumber,
-                    ChapterType = inputs.ChapterType,
-                    Title = inputs.Title,
-                    FirstReleaseDate = inputs.FirstReleaseDate,
-                    ExternalId = inputs.ExternalId,
-                    Monitored = true,
-                };
-                _chapterRepo.Insert(chapter);
-                return chapter;
-            }
-
-            // Update mutable fields (last-write-wins on canonical fields per Pitfall 3 expectation).
-            // Null-coalesce so a missing input field does NOT clobber a previously-set canonical value.
-            existing.Title = inputs.Title ?? existing.Title;
-            existing.AbsoluteChapterNumber = inputs.AbsoluteChapterNumber ?? existing.AbsoluteChapterNumber;
-            existing.VolumeNumber = inputs.VolumeNumber ?? existing.VolumeNumber;
-            existing.ChapterType = inputs.ChapterType;
-            existing.FirstReleaseDate = inputs.FirstReleaseDate ?? existing.FirstReleaseDate;
-            existing.ExternalId = inputs.ExternalId ?? existing.ExternalId;
-            _chapterRepo.Update(existing);
-            return existing;
-        }
-
-        public void SyncChapterReleases(int chapterId, IList<ChapterReleaseFeedRow> feedRows)
-        {
-            // D-01: upsert-on-natural-key, NEVER DELETE missing. Sonarr-mirror of Episode retention.
-            // The natural key is (ChapterId, TranslatedLanguage, ScanlationGroup) — UNIQUE index from
-            // Plan 16-02 enforces. No DELETE branch — input set never shrinks.
-            // Pitfall 4: this method does NOT publish ChapterListUpdatedEvent — caller does.
-            if (feedRows == null || feedRows.Count == 0)
+            if (remoteChapters == null)
             {
                 return;
             }
 
-            var existing = _releaseRepo.GetByChapterId(chapterId);
+            // BL-05 multi-translation dedup safety net: collapse duplicate remote entries on
+            // the canonical natural key BEFORE the upsert. Mirror of Sonarr's
+            // DistinctBy(new { SeasonNumber, EpisodeNumber }) precedent.
+            var dupeFree = remoteChapters
+                .DistinctBy(c => c.ChapterNumber)
+                .ToList();
 
-            // Index existing rows by natural key for O(1) lookups (avoids N+1 inside the loop).
-            var existingByKey = existing
-                .ToDictionary(r => (r.TranslatedLanguage, r.ScanlationGroup));
-
-            var inserts = new List<ChapterRelease>();
-            var updates = new List<ChapterRelease>();
-
-            foreach (var row in feedRows)
+            if (dupeFree.Count == 0)
             {
-                var key = (row.TranslatedLanguage, row.ScanlationGroup);
-                if (existingByKey.TryGetValue(key, out var match))
+                return;
+            }
+
+            var existing = _chapterRepo.GetByMangaId(manga.Id);
+            var existingByNumber = existing.ToDictionary(c => c.ChapterNumber);
+
+            var toInsert = new List<Chapter>();
+            var toUpdate = new List<Chapter>();
+
+            foreach (var remote in dupeFree)
+            {
+                if (existingByNumber.TryGetValue(remote.ChapterNumber, out var match))
                 {
-                    // Update mutable fields. Null-coalesce so a missing field does NOT clobber.
-                    match.ReleaseDate = row.ReleaseDate ?? match.ReleaseDate;
-                    match.ExternalId = row.ExternalId ?? match.ExternalId;
-                    updates.Add(match);
+                    // Update-in-place: copy mutable fields with null-coalesce so a missing
+                    // input field does NOT clobber a previously-set canonical value.
+                    // Monitored is intentionally NOT touched on update — Sonarr precedent:
+                    // Monitored is set on insert, then user-controlled afterwards.
+                    match.Title = remote.Title ?? match.Title;
+                    match.AbsoluteChapterNumber = remote.AbsoluteChapterNumber ?? match.AbsoluteChapterNumber;
+                    match.VolumeNumber = remote.VolumeNumber ?? match.VolumeNumber;
+                    match.ChapterType = remote.ChapterType;
+                    match.FirstReleaseDate = remote.FirstReleaseDate ?? match.FirstReleaseDate;
+                    match.ExternalId = remote.ExternalId ?? match.ExternalId;
+                    toUpdate.Add(match);
                 }
                 else
                 {
-                    inserts.Add(new ChapterRelease
-                    {
-                        ChapterId = chapterId,
-                        TranslatedLanguage = row.TranslatedLanguage,
-                        ScanlationGroup = row.ScanlationGroup,
-                        ReleaseDate = row.ReleaseDate,
-                        ExternalId = row.ExternalId,
-                    });
+                    remote.MangaId = manga.Id;
+
+                    // Monitored = true comes from MangaDexMetadataSource.MapChapter (Sonarr
+                    // precedent: new chapters monitored by default).
+                    toInsert.Add(remote);
                 }
             }
 
-            if (inserts.Count > 0)
+            if (toInsert.Count > 0)
             {
-                _releaseRepo.InsertMany(inserts);
+                _chapterRepo.InsertMany(toInsert);
             }
 
-            if (updates.Count > 0)
+            if (toUpdate.Count > 0)
             {
-                _releaseRepo.UpdateMany(updates);
+                _chapterRepo.UpdateMany(toUpdate);
             }
 
-            // NO DELETE branch — D-01 stale retention contract.
+            // NO DELETE branch — locked stale-handling decision (see file header).
         }
     }
 }

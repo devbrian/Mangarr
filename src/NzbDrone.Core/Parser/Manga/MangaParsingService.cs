@@ -66,13 +66,11 @@ namespace NzbDrone.Core.Parser.Manga
 
     public class MangaParsingService : IMangaParsingService
     {
-        // Note: the BCP-47 "und" sentinel that previously lived here as an
-        // UndefinedLanguage const moved to MangaDexMetadataSource.MapChapter when
-        // Phase 16 STRUCT-04 lifted language from Chapter to ChapterRelease. The
-        // per-release "und" sentinel is now applied at the projection seam where
-        // the metadata source builds ChapterReleaseFeedRow. Per-translation matching
-        // against parsedChapterInfo.TranslatedLanguage moves to the DecisionEngine
-        // layer (Plan 16-04 retarget consumes ChapterRelease).
+        // Note: per-translation language data lives at indexer-projection grain
+        // (RemoteChapter.Release.TranslatedLanguage) and at file-import grain
+        // (ChapterFile.TranslatedLanguage — Phase 6 PIPELINE-04). The DecisionEngine
+        // specs target the indexer projection; ChapterFile carries the post-import
+        // per-translation axis. The canonical Chapter row has no language axis.
 
         private readonly IMangaService _mangaService;
         private readonly IChapterService _chapterService;
