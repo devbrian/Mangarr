@@ -1,56 +1,83 @@
+// Sonarr divergence: rewritten as manga-shape ChapterRow consumer per
+// debug session wanted-missing-zero-rows (GH issue #48 sibling impact)
+// — see DIVERGENCE.md.
+// Role-match analog: frontend/src/Manga/Details/ChapterRow.tsx (canonical
+// manga-shape per-row dispatch); twin of frontend/src/Wanted/Missing/MissingRow.tsx
+// post-rewrite — same Chapter-shape consumption; differs only in the
+// `languages` column slot (CutoffUnmet has it, Missing does not) and the
+// extra `if (!hasFile) return null` guard mirroring Sonarr's CutoffUnmetRow
+// `if (!episodeFile) return null` (the cutoff predicate is "have file but
+// below cutoff" — rows without files are unexpected and would render
+// empty status cells).
+//
+// Pre-fix shape: read TV `series.X` Series subresource the manga backend
+// never hydrates → useSingleSeries(undefined) → row early-return null →
+// empty tbody. See MissingRow.tsx header for full root-cause text and the
+// rationale behind the frontend-rewrite path (vs. backend hydration).
+//
+// Post-fix shape: consumes Chapter props directly via spread from
+// CutoffUnmet.tsx:312-321 `<CutoffUnmetRow {...item} />` over the
+// MangaCutoffController's PagingResource<ChapterResource> records.
+//
+// Phase 8 cleanup: collapse with the manga sibling when Tv/ deletes —
+// at that point this row is the canonical CutoffUnmet row.
 import React, { useCallback } from 'react';
 import { useSelect } from 'App/Select/SelectContext';
+import Chapter from 'Chapter/Chapter';
+import ChapterNumber from 'Chapter/ChapterNumber';
+import ChapterSearchCell from 'Chapter/ChapterSearchCell';
+import ChapterStatus from 'Chapter/ChapterStatus';
+import ChapterTitleLink from 'Chapter/ChapterTitleLink';
+import LanguageBadge from 'Chapter/LanguageBadge';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
 import Column from 'Components/Table/Column';
 import TableRow from 'Components/Table/TableRow';
-import Episode from 'Episode/Episode';
-import EpisodeSearchCell from 'Episode/EpisodeSearchCell';
-import EpisodeStatus from 'Episode/EpisodeStatus';
-import EpisodeTitleLink from 'Episode/EpisodeTitleLink';
-import SeasonEpisodeNumber from 'Episode/SeasonEpisodeNumber';
-import EpisodeFileLanguages from 'EpisodeFile/EpisodeFileLanguages';
-import SeriesTitleLink from 'Series/SeriesTitleLink';
-import { useSingleSeries } from 'Series/useSeries';
+import MangaTitleLink from 'Manga/MangaTitleLink';
+import { useSingleManga } from 'Manga/useManga';
 import { SelectStateInputProps } from 'typings/props';
 import styles from './CutoffUnmetRow.css';
 
-interface CutoffUnmetRowProps {
-  id: number;
-  seriesId: number;
-  episodeFileId?: number;
-  seasonNumber: number;
-  episodeNumber: number;
-  absoluteEpisodeNumber?: number;
-  sceneSeasonNumber?: number;
-  sceneEpisodeNumber?: number;
-  sceneAbsoluteEpisodeNumber?: number;
-  unverifiedSceneNumbering: boolean;
-  airDateUtc?: string;
-  lastSearchTime?: string;
-  title: string;
+interface CutoffUnmetRowProps extends Chapter {
   columns: Column[];
 }
 
 function CutoffUnmetRow({
   id,
-  seriesId,
-  episodeFileId,
-  seasonNumber,
-  episodeNumber,
-  absoluteEpisodeNumber,
-  sceneSeasonNumber,
-  sceneEpisodeNumber,
-  sceneAbsoluteEpisodeNumber,
-  unverifiedSceneNumbering,
-  airDateUtc,
-  lastSearchTime,
+  mangaId,
+  chapterNumber,
+  absoluteChapterNumber,
+  volumeNumber,
   title,
+  chapterType,
+  firstReleaseDate,
+  monitored,
+  hasFile,
+  chapterFileId,
+  externalId,
+  manga: hydratedManga,
   columns,
 }: CutoffUnmetRowProps) {
-  const series = useSingleSeries(seriesId);
-  const { toggleSelected, useIsSelected } = useSelect<Episode>();
+  const lookedUpManga = useSingleManga(mangaId);
+  const manga = hydratedManga ?? lookedUpManga;
+
+  const chapter: Chapter = {
+    id,
+    mangaId,
+    chapterNumber,
+    absoluteChapterNumber,
+    volumeNumber,
+    title,
+    chapterType,
+    firstReleaseDate,
+    monitored,
+    hasFile,
+    chapterFileId,
+    externalId,
+  };
+
+  const { toggleSelected, useIsSelected } = useSelect<Chapter>();
   const isSelected = useIsSelected(id);
 
   const handleSelectedChange = useCallback(
@@ -63,10 +90,6 @@ function CutoffUnmetRow({
     },
     [toggleSelected]
   );
-
-  if (!series || !episodeFileId) {
-    return null;
-  }
 
   return (
     <TableRow>
@@ -83,12 +106,16 @@ function CutoffUnmetRow({
           return null;
         }
 
+        // Column keys preserved verbatim from cutoffUnmetOptionsStore so
+        // the existing options + filter modal continue to work without
+        // churn (Phase 8 cleanup: rename to manga.X / chapters.X when
+        // the TV peer deletes).
         if (name === 'series.sortTitle') {
           return (
             <TableRowCell key={name}>
-              <SeriesTitleLink
-                titleSlug={series.titleSlug}
-                title={series.title}
+              <MangaTitleLink
+                titleSlug={manga?.titleSlug}
+                title={manga?.title ?? ''}
               />
             </TableRowCell>
           );
@@ -97,16 +124,11 @@ function CutoffUnmetRow({
         if (name === 'episode') {
           return (
             <TableRowCell key={name} className={styles.episode}>
-              <SeasonEpisodeNumber
-                seasonNumber={seasonNumber}
-                episodeNumber={episodeNumber}
-                absoluteEpisodeNumber={absoluteEpisodeNumber}
-                seriesType={series.seriesType}
-                alternateTitles={series.alternateTitles}
-                sceneSeasonNumber={sceneSeasonNumber}
-                sceneEpisodeNumber={sceneEpisodeNumber}
-                sceneAbsoluteEpisodeNumber={sceneAbsoluteEpisodeNumber}
-                unverifiedSceneNumbering={unverifiedSceneNumbering}
+              <ChapterNumber
+                chapterNumber={chapterNumber}
+                absoluteChapterNumber={absoluteChapterNumber}
+                volumeNumber={volumeNumber}
+                showVolumeNumber={volumeNumber != null}
               />
             </TableRowCell>
           );
@@ -115,35 +137,39 @@ function CutoffUnmetRow({
         if (name === 'episodes.title') {
           return (
             <TableRowCell key={name}>
-              <EpisodeTitleLink
-                episodeId={id}
-                seriesId={series.id}
-                episodeEntity="wanted.cutoffUnmet"
-                episodeTitle={title}
-                showOpenSeriesButton={true}
+              <ChapterTitleLink
+                chapterId={id}
+                mangaId={mangaId}
+                chapterTitle={title}
               />
             </TableRowCell>
           );
         }
 
         if (name === 'episodes.airDateUtc') {
-          return <RelativeDateCell key={name} date={airDateUtc} />;
+          return <RelativeDateCell key={name} date={firstReleaseDate} />;
         }
 
         if (name === 'episodes.lastSearchTime') {
-          return (
-            <RelativeDateCell
-              key={name}
-              date={lastSearchTime}
-              includeSeconds={true}
-            />
-          );
+          // ChapterResource v1 does not emit lastSearchTime — see twin
+          // MissingRow.tsx note for the backfill plan.
+          return <RelativeDateCell key={name} date={undefined} includeSeconds={true} />;
         }
 
         if (name === 'languages') {
+          // Manga sibling diverges: pre-fix row called <EpisodeFileLanguages
+          // episodeFileId={...}> which fetched the EpisodeFile by id and
+          // rendered the per-file Languages list. Manga's per-file translation
+          // axis is `ChapterFile.translatedLanguage` (single string, post
+          // Phase 16.1 D-04 collapse), and ChapterResource does not currently
+          // emit it directly. The closest in-context signal is the chapter
+          // existing — render the language pill via Chapter/LanguageBadge,
+          // which falls back to undefined gracefully when no language is
+          // available on the wire (column is `isVisible: false` by default in
+          // cutoffUnmetOptionsStore so this rarely fires anyway).
           return (
             <TableRowCell key={name} className={styles.languages}>
-              <EpisodeFileLanguages episodeFileId={episodeFileId} />
+              <LanguageBadge language={undefined} />
             </TableRowCell>
           );
         }
@@ -151,24 +177,18 @@ function CutoffUnmetRow({
         if (name === 'status') {
           return (
             <TableRowCell key={name} className={styles.status}>
-              <EpisodeStatus
-                episodeId={id}
-                episodeFileId={episodeFileId}
-                episodeEntity="wanted.cutoffUnmet"
-              />
+              <ChapterStatus chapter={chapter} />
             </TableRowCell>
           );
         }
 
         if (name === 'actions') {
           return (
-            <EpisodeSearchCell
+            <ChapterSearchCell
               key={name}
-              episodeId={id}
-              seriesId={series.id}
-              episodeTitle={title}
-              episodeEntity="wanted.cutoffUnmet"
-              showOpenSeriesButton={true}
+              chapterId={id}
+              mangaId={mangaId}
+              chapterTitle={title}
             />
           );
         }
