@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Core.Indexers.Comix;
@@ -91,6 +93,76 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         public void Probe_accepts_same_namespace_pair_when_evaluated()
         {
             // Intentionally empty — Ignored per Plan 17-07 Task 2 step 1.
+        }
+
+        // Phase 17.2 D-1 (Mitigation A): settle the page execution context after PROBE_JS
+        // so subsequent EvaluateExpressionAsync calls in EvaluateProxyFetchAsync hit a stable
+        // context, not one mid-Runtime.executionContextDestroyed from PROBE_JS's pushState
+        // side-effect (see 17-08-LIVE-VERIFICATION-EVIDENCE.md Finding 3, 17-LEARNINGS.md L-1/S-2).
+        // Chromium-free regression guard: greps ComixPuppeteerSigner.cs source via the parent-walk
+        // pattern from UpstreamSignerDriftFixture.ReadSignerSource — asserts a settle call appears
+        // between the PROBE_JS evaluate line and the validation block, AND that the
+        // "Phase 17.2 D-1" annotation marker is present so future maintainers don't
+        // "simplify" the settle step away.
+        [Test]
+        public void Probe_must_settle_after_PROBE_JS_before_EvaluateProxyFetchAsync()
+        {
+            var src = ReadSignerSource(TestContext.CurrentContext.TestDirectory);
+
+            src.Should().Contain(
+                "Phase 17.2 D-1",
+                "Phase 17.2 D-1 (Mitigation A): the annotation block above the new settle await " +
+                "MUST remain so future maintainers don't 'simplify' it back to a bare " +
+                "PROBE_JS-then-evaluate flow. The annotation cross-references " +
+                "17-08-LIVE-VERIFICATION-EVIDENCE.md Finding 3 + 17-LEARNINGS.md L-1/S-2.");
+
+            var probeIdx = src.IndexOf(
+                "EvaluateExpressionAsync<ProbeResult>(PROBE_JS)",
+                StringComparison.Ordinal);
+            var validateIdx = src.IndexOf("if (probe == null", StringComparison.Ordinal);
+
+            probeIdx.Should().BeGreaterThan(0,
+                "PROBE_JS evaluate call must exist in LaunchAndProbeAsync — if this fails, " +
+                "the file no longer contains the canonical PROBE_JS dispatch.");
+            validateIdx.Should().BeGreaterThan(probeIdx,
+                "the probe-result validation block (`if (probe == null ...)`) must follow " +
+                "the PROBE_JS evaluate call — if this fails, LaunchAndProbeAsync has been " +
+                "restructured in a way the regression guard does not recognize.");
+
+            var betweenSlice = src.Substring(probeIdx, validateIdx - probeIdx);
+            betweenSlice.Should().MatchRegex(
+                @"WaitForNavigationAsync|WaitForNetworkIdleAsync|EvaluateExpressionAsync<bool>",
+                "Phase 17.2 D-1 Mitigation A: a settle step (WaitForNavigationAsync / " +
+                "WaitForNetworkIdleAsync / polling EvaluateExpressionAsync<bool>) MUST appear " +
+                "between the PROBE_JS evaluate and the probe-result validation block, so the " +
+                "next EvaluateExpressionAsync call (in EvaluateProxyFetchAsync) hits a stable " +
+                "execution context — NOT one mid-Runtime.executionContextDestroyed from " +
+                "PROBE_JS's pushState side-effect. See 17-08-LIVE-VERIFICATION-EVIDENCE.md " +
+                "Finding 3 + 17-LEARNINGS.md L-1/S-2 for the falsification record.");
+        }
+
+        // Re-uses the parent-walk pattern from UpstreamSignerDriftFixture lines 53-70 verbatim
+        // — climbs `dir.Parent` until `src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs`
+        // exists at any ancestor. Worktree-aware (L-9 from 17-LEARNINGS.md): worktree branches
+        // place the test dir at a different depth than the canonical checkout, so a fixed-depth
+        // climb breaks under .claude/worktrees/agent-* layouts.
+        private static string ReadSignerSource(string startDir)
+        {
+            const string Relative = "src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs";
+            var dir = new DirectoryInfo(startDir);
+            while (dir != null)
+            {
+                var candidate = Path.Combine(dir.FullName, Relative.Replace('/', Path.DirectorySeparatorChar));
+                if (File.Exists(candidate))
+                {
+                    return File.ReadAllText(candidate);
+                }
+
+                dir = dir.Parent;
+            }
+
+            throw new FileNotFoundException(
+                $"Could not locate ComixPuppeteerSigner.cs by walking up from '{startDir}'.");
         }
     }
 }
