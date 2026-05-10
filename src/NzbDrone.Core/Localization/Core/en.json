@@ -1232,7 +1232,7 @@
   "MangaNaming": "Manga Naming",
   "MangaNamingPresetHelpText": "Select a reader-compatible preset (Komga, Kavita, ComicRack) or Custom to enter your own format strings.",
   "MangaNamingSettingsLoadError": "Couldn't load manga naming settings. Check your connection and try again.",
-  "MangaProgressBarText": "{episodeFileCount} / {episodeCount} (Total: {totalEpisodeCount}, Downloading: {downloadingCount})",
+  "MangaProgressBarText": "{chapterFileCount} / {chapterCount} (Total: {totalChapterCount}, Downloading: {downloadingCount})",
   "Mangarr": "Mangarr",
   "MangaSearch": "Manga Search",
   "MangaSearchNoMatchesFound": "No matches found",
