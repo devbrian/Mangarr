@@ -12,14 +12,12 @@ using NzbDrone.Core.Test.Framework;
 namespace NzbDrone.Core.Test.Indexers.Comix
 {
     /// <summary>
-    /// Phase 17 Wave 0 RED fixture — interface/shape contract for the runtime signer.
-    /// Reflection-based: does NOT instantiate <c>ComixPuppeteerSigner</c> directly so the
-    /// fixture compiles before Wave 1 lands the concrete class. Wave 1 (Plan 17-02 Task 1b)
-    /// un-Ignores after authoring <c>ComixPuppeteerSigner.cs</c>; tests then run the
-    /// reflection assertions against the loaded type.
+    /// Phase 17 Wave 1 fixture — interface/shape contract for the runtime signer.
+    /// Reflection-based: keeps Wave 0's compile-without-concrete-type contract intact,
+    /// and at runtime asserts the concrete <c>ComixPuppeteerSigner</c> exists and
+    /// matches the expected shape (Plan 17-02 Task 1a output).
     /// </summary>
     [TestFixture]
-    [Ignore("WAVE-1-DEP: requires ComixPuppeteerSigner concrete impl from Plan 17-02 Task 1b")]
     public class ComixSignerContractFixture : CoreTest
     {
         private static Type ResolveConcreteType()
@@ -35,7 +33,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             var t = ResolveConcreteType();
             t.Should().NotBeNull(
-                "Plan 17-02 Task 1b lands NzbDrone.Core.Indexers.Comix.ComixPuppeteerSigner; " +
+                "Plan 17-02 Task 1a lands NzbDrone.Core.Indexers.Comix.ComixPuppeteerSigner; " +
                 "absence here means Wave 1 did not ship the concrete impl.");
         }
 

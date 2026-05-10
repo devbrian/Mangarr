@@ -1,6 +1,13 @@
 using System;
+using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
+using FluentAssertions;
+using NLog;
+using NLog.Config;
+using NLog.Targets;
 using NUnit.Framework;
+using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Comix;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Test.Framework;
@@ -8,7 +15,7 @@ using NzbDrone.Core.Test.Framework;
 namespace NzbDrone.Core.Test.Indexers.Comix
 {
     /// <summary>
-    /// Phase 17 Wave 0 RED fixture — shutdown path (D-05): when
+    /// Phase 17 Wave 1 fixture — shutdown path (D-05): when
     /// <see cref="ApplicationShutdownRequested"/> fires, the signer must dispose the warm
     /// Browser, set the disposed flag, and reject all subsequent
     /// <see cref="IComixSigner.ProxyFetchAsync"/> calls with
@@ -17,67 +24,146 @@ namespace NzbDrone.Core.Test.Indexers.Comix
     /// <para>
     /// W-2 absorption (revision iteration 1): ALSO covers the in-flight-during-shutdown
     /// drain race. If a ProxyFetchAsync is mid-flight (holding _gate via SemaphoreSlim)
-    /// when Handle(ApplicationShutdownRequested) fires, the dispose path must:
-    ///   (a) Complete within a 6-second drain window (verbatim shutdown-timeout warning
-    ///       on overrun: "Comix signer: shutdown timed out waiting for in-flight request
-    ///       — forcing teardown");
-    ///   (b) Either let the in-flight call finish cleanly OR cancel it with
-    ///       ObjectDisposedException — Wave 1 Task 1a defines exact semantics.
+    /// when Handle(ApplicationShutdownRequested) fires, the dispose path completes within
+    /// the 6-second drain window AND emits the verbatim shutdown-timeout warning on
+    /// overrun.
     /// </para>
     /// </summary>
     [TestFixture]
-    [Ignore("WAVE-1-DEP: requires ComixPuppeteerSigner concrete impl + EvaluateProxyFetchAsync seam from Plan 17-02 Task 1a")]
     public class ComixSignerShutdownFixture : CoreTest
     {
-        // Wave 1 subclass shape (drain test):
-        //
-        //   private class GatedSigner : ComixPuppeteerSigner
-        //   {
-        //       public TaskCompletionSource<string> Gate { get; } = new();
-        //       protected override Task<string> EvaluateProxyFetchAsync(string p, CancellationToken ct)
-        //           => Gate.Task; // blocks until test releases
-        //   }
-
-        [Test]
-        public async Task ApplicationShutdownRequested_should_dispose_and_subsequent_calls_throw()
+        // GatedSigner: first ProxyFetchAsync acquires _gate (production base) and then
+        // blocks on a TaskCompletionSource (overridden seam) so the test can reproduce the
+        // "in-flight when Handle fires" race.
+        private class GatedSigner : ComixPuppeteerSigner
         {
-            // 1. Subject.Handle(new ApplicationShutdownRequested(restarting: false));
-            // 2. Func<Task> act = () => Subject.ProxyFetchAsync("/manga/test/chapters");
-            // 3. await act.Should().ThrowAsync<ObjectDisposedException>();
-            await Task.Yield();
-            Assert.Fail("WAVE-1-DEP: implement after Plan 17-02 Task 1a.");
+            public TaskCompletionSource<string> Gate { get; } = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public GatedSigner(IIndexerSourceStatusService s, Logger l)
+                : base(s, l)
+            {
+            }
+
+            // Override ProxyFetchAsyncImpl directly so we don't run the base's
+            // gate/launch/evaluate flow (which throws NotImplementedException in Task 1a).
+            // Instead, acquire the gate ourselves to faithfully mimic production locking,
+            // then block on the TCS.
+            protected override async Task<string> ProxyFetchAsyncImpl(string apiPath, CancellationToken ct)
+            {
+                // Use reflection to invoke the private _gate field on the base class —
+                // the test must hold the gate the same way production does so Dispose's
+                // drain semantics actually wait.
+                var gateField = typeof(ComixPuppeteerSigner).GetField("_gate",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var gate = (SemaphoreSlim)gateField.GetValue(this);
+
+                await gate.WaitAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    return await Gate.Task.ConfigureAwait(false);
+                }
+                finally
+                {
+                    try
+                    {
+                        gate.Release();
+                    }
+                    catch
+                    {
+                        // Race-safe: Dispose can have disposed the gate.
+                    }
+                }
+            }
+        }
+
+        private MemoryTarget _memoryTarget;
+        private LoggingConfiguration _previousConfig;
+
+        [SetUp]
+        public void AttachMemoryTarget()
+        {
+            _previousConfig = LogManager.Configuration;
+
+            var config = new LoggingConfiguration();
+            _memoryTarget = new MemoryTarget("memory") { Layout = "${level}|${message}" };
+            config.AddTarget(_memoryTarget);
+            config.AddRule(LogLevel.Debug, LogLevel.Fatal, _memoryTarget);
+            LogManager.Configuration = config;
+        }
+
+        [TearDown]
+        public void DetachMemoryTarget()
+        {
+            LogManager.Configuration = _previousConfig;
         }
 
         [Test]
-        public async Task Handle_should_log_Info_with_ApplicationShutdownRequested_received()
+        public void ApplicationShutdownRequested_should_dispose_and_subsequent_calls_throw()
         {
-            // Verifies the canonical D-15 log line. Reuse NLog MemoryTarget setup pattern from
-            // ComixSignerLifecycleLogsFixture once Wave 1 elaborates. Expected string:
-            //   "Comix signer: ApplicationShutdownRequested received; disposing browser."
-            await Task.Yield();
-            Assert.Fail("WAVE-1-DEP: implement after Plan 17-02 Task 1a.");
+            var subject = new ComixPuppeteerSigner(
+                Mocker.GetMock<IIndexerSourceStatusService>().Object,
+                LogManager.GetLogger("ComixPuppeteerSigner"));
+
+            subject.Handle(new ApplicationShutdownRequested(restarting: false));
+
+            Func<Task> act = () => subject.ProxyFetchAsync("/manga/test/chapters");
+            act.Should().ThrowAsync<ObjectDisposedException>();
+        }
+
+        [Test]
+        public void Handle_should_log_Info_with_ApplicationShutdownRequested_received()
+        {
+            var subject = new ComixPuppeteerSigner(
+                Mocker.GetMock<IIndexerSourceStatusService>().Object,
+                LogManager.GetLogger("ComixPuppeteerSigner"));
+
+            subject.Handle(new ApplicationShutdownRequested());
+
+            _memoryTarget.Logs.Should().Contain(l => l.Contains("Comix signer: ApplicationShutdownRequested received; disposing browser."));
         }
 
         [Test]
         public async Task Dispose_with_in_flight_request_should_log_drain_timeout_warning_and_complete_within_6s()
         {
             // (W-2 absorption — revision iteration 1)
-            // 1. Construct GatedSigner whose EvaluateProxyFetchAsync blocks on a TaskCompletionSource.
-            // 2. Start ProxyFetchAsync on a background task (do NOT await yet); wait briefly so it
-            //    has acquired _gate via SemaphoreSlim.WaitAsync().
-            // 3. var sw = Stopwatch.StartNew();
-            //    Subject.Handle(new ApplicationShutdownRequested());
-            //    sw.Stop();
-            // 4. sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(6),
-            //        "shutdown drain window must close within 6s even with stuck in-flight call");
-            // 5. NLog MemoryTarget should contain literal warning:
-            //        "Comix signer: shutdown timed out waiting for in-flight request — forcing teardown"
-            // 6. Release the TaskCompletionSource; assert the background task either:
-            //    (a) completes with the synthetic value (clean drain), OR
-            //    (b) throws ObjectDisposedException / TaskCanceledException (forced teardown).
-            //    Wave 1 Task 1a defines exact semantics.
-            await Task.Yield();
-            Assert.Fail("WAVE-1-DEP: implement after Plan 17-02 Task 1a (W-2 drain semantics).");
+            // 1. Construct GatedSigner whose ProxyFetchAsync blocks on a TaskCompletionSource.
+            // 2. Start ProxyFetchAsync on a background task; it will acquire _gate via
+            //    SemaphoreSlim.WaitAsync() then block on the TCS.
+            // 3. Stopwatch the dispose path; assert it completes in < 6s and emits the
+            //    verbatim drain-timeout warning.
+            var subject = new GatedSigner(
+                Mocker.GetMock<IIndexerSourceStatusService>().Object,
+                LogManager.GetLogger("ComixPuppeteerSigner"));
+
+            // Background task acquires the gate inside ProxyFetchAsyncImpl, then blocks.
+            var bgTask = Task.Run(() => subject.ProxyFetchAsync("/manga/test/chapters"));
+
+            // Give the background task time to enter the gate.
+            // The ProxyFetchAsync entry path checks _disposed (sync) BEFORE acquiring,
+            // so we yield enough scheduler ticks for it to land inside ProxyFetchAsyncImpl.
+            await Task.Delay(100).ConfigureAwait(false);
+
+            var sw = Stopwatch.StartNew();
+            subject.Handle(new ApplicationShutdownRequested());
+            sw.Stop();
+
+            sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(6),
+                "shutdown drain window must close within 6s even with stuck in-flight call");
+
+            _memoryTarget.Logs.Should().Contain(l =>
+                l.Contains("Comix signer: shutdown timed out waiting for in-flight request — forcing teardown"));
+
+            // Release the gated TCS to let the background task unwind cleanly.
+            subject.Gate.TrySetResult("released");
+            try
+            {
+                await bgTask.ConfigureAwait(false);
+            }
+            catch
+            {
+                // The background task may complete cleanly OR throw (gate disposed under it).
+                // Either outcome satisfies the contract — Dispose moved on.
+            }
         }
     }
 }

@@ -26,7 +26,6 @@ namespace NzbDrone.Core.Test.Indexers.Comix
     /// </para>
     /// </summary>
     [TestFixture]
-    [Ignore("WAVE-1-DEP: requires ComixPuppeteerSigner.cs from Plan 17-02 Task 1b")]
     public class UpstreamSignerDriftFixture : CoreTest
     {
         private string _upstreamExcerpt;
@@ -44,21 +43,30 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 "upstream-signer.txt");
             _upstreamExcerpt = File.ReadAllText(resourcePath);
 
-            // ComixPuppeteerSigner.cs lives in NzbDrone.Core; walk back from the test
-            // assembly's _tests/net10.0/ output directory to find the source tree.
-            // Wave 1 Task 1b authors this file.
-            var signerPath = Path.GetFullPath(Path.Combine(
-                TestContext.CurrentContext.TestDirectory,
-                "..",
-                "..",
-                "..",
-                "..",
-                "src",
-                "NzbDrone.Core",
-                "Indexers",
-                "Comix",
-                "ComixPuppeteerSigner.cs"));
-            _signerSource = File.ReadAllText(signerPath);
+            // ComixPuppeteerSigner.cs lives in NzbDrone.Core. The Wave 0 fixture climbed
+            // a fixed number of `..`s from `_tests/net10.0/`, which breaks in worktree
+            // layouts (the repo root may not be 2-or-4 levels up from the test dir).
+            // Walk parent directories until we find `src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs`.
+            _signerSource = ReadSignerSource(TestContext.CurrentContext.TestDirectory);
+        }
+
+        private static string ReadSignerSource(string startDir)
+        {
+            const string Relative = "src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs";
+            var dir = new DirectoryInfo(startDir);
+            while (dir != null)
+            {
+                var candidate = Path.Combine(dir.FullName, Relative.Replace('/', Path.DirectorySeparatorChar));
+                if (File.Exists(candidate))
+                {
+                    return File.ReadAllText(candidate);
+                }
+
+                dir = dir.Parent;
+            }
+
+            throw new FileNotFoundException(
+                $"Could not locate ComixPuppeteerSigner.cs by walking up from '{startDir}'.");
         }
 
         [Test]

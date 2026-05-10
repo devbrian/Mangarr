@@ -1,11 +1,9 @@
 using System.IO;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
-using NzbDrone.Common.Http;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Comix;
 using NzbDrone.Core.Parser.Model;
@@ -14,27 +12,37 @@ using NzbDrone.Core.Test.Framework;
 namespace NzbDrone.Core.Test.Indexers.Comix
 {
     /// <summary>
-    /// Phase 4 plan 04-02 Task 2 — verifies <see cref="ComixIndexer.GetChapterPages"/> assembles
-    /// per-page descriptors from the synthesized <c>/api/v2/chapters/{id}</c> response shape
-    /// (loads <c>Files/Phase4/comix_chapter_pages.json</c>; live capture blocked by Cloudflare
-    /// per Phase 3 LEARNINGS — synthesized fixture contract per SOURCE-PROBE-fixtures.md).
+    /// Phase 4 plan 04-02 Task 2 (Phase 17 D-08 update) — verifies
+    /// <see cref="ComixIndexer.GetChapterPages"/> assembles per-page descriptors from
+    /// the synthesized <c>/api/v1/chapters/{id}/pages</c> response shape.
     ///
     /// <para>
-    /// Pitfall 1 / F-01 class regression guard: every captured request MUST have
-    /// <c>RateLimitKey="comix.to"</c>. Comix-specific contract: ExpiresAt == null because
-    /// comix.to URLs are durable; D-03 re-fetch is a never-fired safety net.
+    /// Phase 17 (Plan 17-02 Task 2c per revision iteration 1, B-4): the manifest endpoint
+    /// (<c>/api/v1/chapters/{id}/pages</c>) is signed per RESEARCH N-3, so the fixture
+    /// asserts on the signer dispatch rather than the legacy IHttpClient request shape.
+    /// Per-image CDN GETs (cdn.comix.to/.../*.jpg) stay UNCHANGED — those tests live in
+    /// the Phase 4 ChapterPageFetcher fixtures, not here.
+    /// </para>
+    ///
+    /// <para>
+    /// Pre-Phase-17 assertions DELETED (the manifest endpoint no longer goes through
+    /// IHttpClient): <c>RateLimitKey_set_to_comix_to_SourceKey</c>,
+    /// <c>Honest_UserAgent_applied</c>, <c>Referer_header_set_to_comix_base_url</c>.
+    /// Replaced by <c>Signer_dispatched_with_path_only_for_chapter_id</c> which checks the
+    /// signer received the right path-only string (the signer applies its own in-page
+    /// Referer/UA via the warm Chromium session it owns).
     /// </para>
     /// </summary>
     [TestFixture]
     public class ComixGetChapterPagesFixture : CoreTest<ComixIndexer>
     {
-        private HttpRequest _capturedRequest;
         private string _pagesJson;
+        private string _capturedSignerPath;
 
         [SetUp]
         public void Setup()
         {
-            _capturedRequest = null;
+            _capturedSignerPath = null;
             _pagesJson = File.ReadAllText("Files/Phase4/comix_chapter_pages.json");
 
             Subject.Definition = new IndexerDefinition
@@ -48,29 +56,16 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 }
             };
 
-            Mocker.GetMock<IHttpClient>()
-                  .Setup(c => c.GetAsync<ComixChapterPagesResponse>(It.IsAny<HttpRequest>()))
-                  .Returns<HttpRequest>(req =>
-                  {
-                      _capturedRequest = req;
-                      var headers = new HttpHeader { ContentType = "application/json" };
-                      var raw = new HttpResponse(req, headers, _pagesJson, HttpStatusCode.OK);
-                      return Task.FromResult(new HttpResponse<ComixChapterPagesResponse>(raw));
-                  });
-
-            // Phase 17 D-16: Mock<IComixSigner> returning canned chapter-pages JSON shape.
-            // Wave 1 Plan 17-02 Task 2 swaps ComixIndexer.GetChapterPages from
-            // _httpClient.GetAsync to _signer.ProxyFetchAsync (per RESEARCH N-3 — the
-            // /api/v1/chapters/{id}/pages endpoint requires the signer too). This Mock
-            // primes both the current (HTTP) and post-Wave-1 (signer) code paths so the
-            // pre-existing assertions in this fixture survive the Wave 1 ctor change.
-            const string CannedChapterPages = "{\"result\":{\"images\":[" +
-                "{\"url\":\"https://cdn.comix.to/img/1.jpg\"}," +
-                "{\"url\":\"https://cdn.comix.to/img/2.jpg\"}," +
-                "{\"url\":\"https://cdn.comix.to/img/3.jpg\"}]}}";
+            // Phase 17 D-08: GetChapterPages now dispatches via _signer.ProxyFetchAsync.
+            // Capture the path the signer was called with so the dispatch test can assert
+            // on it directly.
             Mocker.GetMock<IComixSigner>()
                   .Setup(s => s.ProxyFetchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                  .ReturnsAsync(CannedChapterPages);
+                  .Returns<string, CancellationToken>((path, _) =>
+                  {
+                      _capturedSignerPath = path;
+                      return Task.FromResult(_pagesJson);
+                  });
         }
 
         private static ReleaseInfo BuildRelease()
@@ -81,29 +76,14 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             };
 
         [Test]
-        public async Task RateLimitKey_set_to_comix_to_SourceKey()
+        public async Task Signer_dispatched_with_path_only_for_chapter_id()
         {
+            // Phase 17 D-08: signer receives the API path WITHOUT the /api/v1 prefix
+            // (the in-page proxyFetch JS reapplies that prefix).
             await Subject.GetChapterPages(BuildRelease());
 
-            _capturedRequest.Should().NotBeNull();
-            _capturedRequest.RateLimitKey.Should().Be("comix.to");
-        }
-
-        [Test]
-        public async Task Honest_UserAgent_applied()
-        {
-            await Subject.GetChapterPages(BuildRelease());
-
-            _capturedRequest.Headers["User-Agent"].Should().StartWith("Mangarr/");
-        }
-
-        [Test]
-        public async Task Referer_header_set_to_comix_base_url()
-        {
-            // Phase 3 D-Comix Cloudflare Pitfall — keiyoushi mandates Referer.
-            await Subject.GetChapterPages(BuildRelease());
-
-            _capturedRequest.Headers["Referer"].Should().Be("https://comix.to/");
+            _capturedSignerPath.Should().Be("/chapters/12345/pages",
+                "GetChapterPages strips the /api/v1 prefix before signing");
         }
 
         [Test]

@@ -15,7 +15,8 @@ namespace NzbDrone.Core.Indexers.Comix
     //   /api/v1/manga?keyword=...   -> { "status":"ok", "result":{ "items":[ ... ], "lastPage":N } }
     //   /api/v1/manga/{hid}         -> { "status":"ok", "result": { ...detail... } }
     //   /api/v1/manga/{hid}/chapters -> { "status":"ok", "result":{ "items":[ ... ], "lastPage":N } }
-    //                                   (requires _=<ComixHash.GenerateHash(path)> + mangaSlug=<hid>-<slug> query params)
+    //                                   (Phase 17: dispatched via IComixSigner.ProxyFetchAsync;
+    //                                   the signer applies the comix.to anti-bot token in-page.)
     //
     // Newtonsoft.Json is forgiving on missing fields; if the live API later diverges,
     // update [JsonProperty] attribute names without contract churn.
