@@ -54,3 +54,43 @@ solver) ships and unblocks WebView-required sources.
 
 When MangaFire ships in v2, this section will be populated with the upstream source path,
 commit SHA at port time, ported file location, and modifications list per methodology §4.
+
+## PuppeteerSharp
+
+**Project:** PuppeteerSharp — .NET port of Node Puppeteer
+**Version:** 24.42.0 (resolved 2026-05-10 per Phase 17 plan-time)
+**NuGet:** https://www.nuget.org/packages/PuppeteerSharp
+**Source:** https://github.com/hardkoded/puppeteer-sharp
+**License:** MIT
+**Mangarr usage:** Phase 17 Comix runtime signer (`src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs`) drives an embedded headless Chromium child via DevTools Protocol to mirror keiyoushi `Signer.kt` (port broken 2026-05-10 by upstream key rotation + response-body encryption — see `.planning/debug/comix-invalid-token-403.md`).
+**Modifications:** none (NuGet dep; no source-port modifications).
+
+MIT license boilerplate: see https://opensource.org/licenses/MIT.
+
+## Chromium
+
+**Project:** Chromium open-source web browser
+**Version:** PuppeteerSharp-pinned revision (resolved at BrowserFetcher download time — see Phase 17 Dockerfile `tools/ChromiumPrefetch/`)
+**Source:** https://www.chromium.org/chromium-projects/
+**License:** BSD-3-Clause
+**Mangarr usage:** Phase 17 — bundled Chromium binary baked at `/opt/mangarr-chromium` in the v1 Mangarr Docker image (D-01, D-03 — single image, fixed image-layer path). Spawned lazily by `ComixPuppeteerSigner` on first comix.to request; idle-teardown after 10 minutes.
+**Modifications:** none (binary distribution from PuppeteerSharp's BrowserFetcher).
+
+BSD-3-Clause license: see https://opensource.org/licenses/BSD-3-Clause.
+
+## Comix Signer (keiyoushi Signer.kt)
+
+**Upstream source path:** `keiyoushi/extensions-source/src/en/comix/src/eu/kanade/tachiyomi/extension/en/comix/Signer.kt`
+**Upstream commit SHA at port time:** `9ceeab04a7950173bb73a4e5b6f29cef5ded1457` (captured 2026-05-10 via `gh api repos/keiyoushi/extensions-source/commits/main --jq '.sha'` — same SHA as `src/NzbDrone.Core.Test/Indexers/Comix/Resources/upstream-signer.txt`)
+**Mangarr ported file:** `src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs`
+**License:** Apache 2.0
+**Modifications:**
+- Translated from Kotlin (Android `WebView` + `JsBridge` shape) to C# (PuppeteerSharp `IBrowser` + DevTools Protocol).
+- Single-process `IComixSigner` singleton replacing the upstream's per-source `Signer` companion-object pattern; lifecycle wired to `IHandle<ApplicationShutdownRequested>` for clean teardown.
+- Behaviour-based namespace probing (`window.vmf_*` walker) ported verbatim from upstream PROBE_JS at `Signer.kt:370-410`.
+- Idle-teardown timer added (D-12 — TimeSpan.FromMinutes(10) hardcoded const for v1.0); upstream Android WebView lacks a comparable shape (lifecycle managed by Android's Activity).
+- .NET-side serialization via `SemaphoreSlim(1,1)` mirrors upstream's single-thread WebView posture.
+- Lazy reprobe-on-EvaluateAsync-error layered on top of upstream's probe-once posture (Phase 17 B-2 path (a) revision — D-09 deferral retired).
+
+**Apache 2.0 license boilerplate:** See <https://www.apache.org/licenses/LICENSE-2.0>.
+The full Apache-2.0 license text is not inlined here; reference link satisfies §4(a) per discretion of the porter (no NOTICE file in upstream).

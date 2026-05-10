@@ -30,7 +30,11 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Build Mangarr Core
-        run: dotnet build src/NzbDrone.Core/Sonarr.Core.csproj --configuration Release --nologo
+        # WR-09 mitigation: csproj was renamed Sonarr.Core.csproj → Mangarr.Core.csproj
+        # during the Sonarr→Mangarr migration. The workflow's stale path failed every
+        # daily soak at the build step, masking Phase 17 live-Comix smoke results
+        # downstream.
+        run: dotnet build src/NzbDrone.Core/Mangarr.Core.csproj --configuration Release --nologo
 
       - name: Run soak harness
         id: soak
@@ -57,3 +61,38 @@ jobs:
           dotnet run --project scripts/soak/SoakThresholdChecker.csproj --configuration Release -- \
             --window 7 --threshold 0.05 \
             --probe-dir .planning/phases/03-indexer-contract-aggregator-sources/
+
+      # ── Phase 17 D-19 — daily-soak drift detection for the Comix runtime signer ──
+      # Per .planning/phases/17-comix-runtime-signer-port-puppeteersharp/17-CONTEXT.md.
+      # Extends the existing per-source soak schedule to run the live-Chromium
+      # integration fixture; surfaces probe-failure rate spikes after a comix.to
+      # deploy. NO new workflow file, NO new cron — drift detection rides the
+      # existing schedule. Steps land INSIDE jobs.soak.steps array per Plan 17-04
+      # Task 2 (revision iteration 1, B-1: explicit structural targeting).
+      #
+      # Gated on schedule-trigger to keep PR runs fast.
+      - name: Pre-fetch Chromium (Phase 17 live signer test)
+        if: github.event_name == 'schedule'
+        run: |
+          dotnet run --project tools/ChromiumPrefetch/ChromiumPrefetch.csproj \
+            --configuration Release \
+            -- --output-dir $RUNNER_TEMP/mangarr-chromium
+
+      - name: Run live Comix signer smoke
+        if: github.event_name == 'schedule'
+        env:
+          PUPPETEER_CACHE_DIR: ${{ runner.temp }}/mangarr-chromium
+        run: |
+          dotnet test src/Mangarr.Comix.Live.Test/Mangarr.Comix.Live.Test.csproj \
+            --configuration Release \
+            --filter "Category=LiveComix" \
+            --logger "trx;LogFileName=live-comix.trx" \
+            || (echo "::warning::Phase 17 live-Comix smoke FAILED — comix.to may have rotated; investigate keiyoushi commit log for fresh Signer.kt updates" && exit 1)
+
+      - name: Upload live-Comix test results
+        if: github.event_name == 'schedule' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-comix-trx-${{ github.run_id }}
+          path: '**/live-comix.trx'
+          if-no-files-found: ignore

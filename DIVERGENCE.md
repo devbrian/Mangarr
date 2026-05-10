@@ -427,3 +427,36 @@ diversification.
 
 ---
 *Last updated: 2026-05-10 (Phase 16.1 plan 16.1-05 — DELETED prior Phase 16 ChapterRelease entry per CONTEXT.md D-10 user-locked decision: DIVERGENCE.md is a snapshot of CURRENT divergences, not a history-of-decisions log; obsolete `ChapterRelease` entry removed because the sibling table no longer exists. NEW ScanlationGroup-as-canonical-release-group entry ADDED documenting the surviving Phase 16.1 divergence — `ChapterFile.ScanlationGroup` is the manga-domain field name for Sonarr's `EpisodeFile.ReleaseGroup` slot. Historical record of the Phase 16 attempt-and-correction lives in 16.1-SUMMARY.md + 16-PHASE-8-REAUDIT.md + 16.1-PHASE-8-REAUDIT-DELTA.md + the preserved 44 Phase 16 commits.)*
+
+## Phase 17 — Comix Runtime Signer Port (PuppeteerSharp) (2026-05-10)
+
+**Status:** Active (Phase 17 close-out; landed 2026-05-10).
+
+**Trigger:** comix.to rotated anti-bot signing keys + began encrypting response bodies on 2026-05-09; the static `ComixHash.cs` keiyoushi `Hash.kt` port (Phase 3 D-13 baseline) became structurally unviable post-rotation. New keys + algorithm live inside obfuscated VM bytecode that cannot run outside a real browser; response bodies carry an `x-enc: 1` header and decrypt only inside the page context. See `.planning/debug/comix-invalid-token-403.md` for the full root-cause + decision-record.
+
+**Scope:** Phase 17 reverses Phase 3 D-13 (no browser-automation) for the Comix-only signer seam. comix.to's 2026-05-09 upstream rotation moved keys + algorithm + response decryption into obfuscated VM bytecode that cannot run outside a real browser. **Single-source scope: MangaDex stays browser-free.** Future indexer ports should default to plain `IHttpClient` + parsed-content extraction; `IComixSigner`-style runtime browser hooks are NOT a generalized pattern.
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `src/NzbDrone.Core/Indexers/Comix/IComixSigner.cs` + `ComixPuppeteerSigner.cs` + `Mangarr.Core.csproj` PuppeteerSharp ref + `distribution/docker-build/Dockerfile` Chromium bake | new | Phase 17 | Reverses Phase 3 D-13 ("no browser automation") for the Comix-only signer seam. comix.to's 2026-05-09 upstream rotation moved keys + algorithm + response decryption into obfuscated VM bytecode that cannot run outside a real browser — see `.planning/debug/comix-invalid-token-403.md`. Single-source scope: MangaDex stays browser-free. PuppeteerSharp 24.42.0 + bundled Chromium baked into the v1 Docker image (D-01 amends Phase 17 SC#7 + Phase 99 SC#1 — single image, no two-tag scheme). |
+| `src/NzbDrone.Core/Indexers/Comix/ComixHash.cs` | delete | Phase 17 | Static 5-round RC4 + per-byte mutation port of keiyoushi `Hash.kt`; replaced outright by the runtime `IComixSigner` per Phase 17 D-05. `ComixHashFixture.cs` deleted in the same wave. Zero production-code references remain (`grep -rn "ComixHash" src/` returns 0). |
+
+**Architecture:**
+- `IComixSigner` is a process singleton (DryIoc `Reuse.Singleton` auto-discovery via the existing `RegisterMany` convention) owning the embedded Chromium lifecycle.
+- `ComixPuppeteerSigner` is the only impl; uses PuppeteerSharp 24.42.0; lazy-spawn warm page on first request; idle teardown after 10 min (D-12); clean shutdown via `IHandle<ApplicationShutdownRequested>` with W-2 5-second drain on Dispose.
+- Behaviour-based PROBE_JS port from keiyoushi `Signer.kt:370-410` — signer + installer fns detected by behaviour, NOT by name (names rotate per comix.to deploy per upstream `Signer.kt:28`).
+- `SemaphoreSlim(1,1)` serializes per-request `EvaluateAsync` (D-06).
+- B-2 path (a) lazy reprobe on EvaluateAsync error (D-09 deferral retired in Wave 1).
+
+**Distribution:**
+- D-01 amends Phase 17 SC#7 + Phase 99 SC#1 — single Mangarr Docker image with PuppeteerSharp + bundled Chromium baked in by default; NO two-tag scheme; NO sidecar pattern. The ~150MB Chromium cost is paid universally for distribution simplicity; the lazy-init runtime cost is preserved.
+- Chromium baked at `/opt/mangarr-chromium` (D-03 — fixed image-layer path, NOT under `/config`).
+
+**Cross-references:**
+- `.planning/phases/17-comix-runtime-signer-port-puppeteersharp/17-CONTEXT.md` — phase decisions D-01..D-19.
+- `.planning/phases/17-comix-runtime-signer-port-puppeteersharp/17-RESEARCH.md` — N-2/N-3/N-5 verdicts.
+- `THIRD-PARTY-NOTICES.md` — PuppeteerSharp (MIT) + Chromium (BSD-3-Clause) + Comix Signer (keiyoushi `Signer.kt` Apache-2.0) attribution entries; the pre-existing 2026-05-08 Comix Hash.kt entry stays as historical record.
+- `src/NzbDrone.Core/Indexers/Comix/CLAUDE.md` — Phase 17 invariants section (signer architecture, callsite coverage, failure escalation, test strategy).
+
+---
+*Last updated: 2026-05-10 (Phase 17 plan 17-04 Wave 3 close-out — added Phase 17 entry documenting the Comix-only browser-automation reversal of Phase 3 D-13. Scope-limit explicit so future devs don't generalize: MangaDex stays browser-free; `IComixSigner` is a manga-side single-source pattern, NOT a Sonarr-substrate addition.)*

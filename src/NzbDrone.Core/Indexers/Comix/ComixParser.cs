@@ -36,10 +36,21 @@ namespace NzbDrone.Core.Indexers.Comix
     /// </para>
     ///
     /// <para>
-    /// <see cref="ReleaseInfo.DownloadUrl"/> is set to the chapter MANIFEST URL
-    /// (<c>https://comix.to/api/v1/chapters/{chapterId}/pages</c>) — NOT a single image URL.
-    /// Phase 4's in-process downloader dereferences this manifest to enumerate per-page image
-    /// URLs.
+    /// <see cref="ReleaseInfo.DownloadUrl"/> is set to the chapter DETAIL URL
+    /// (<c>https://comix.to/api/v1/chapters/{chapterId}</c>) — NOT a single image URL.
+    /// Phase 4's in-process downloader dereferences this and enumerates per-page image URLs
+    /// from the embedded <c>pages.{baseUrl, items[]}</c> shape.
+    /// </para>
+    ///
+    /// <para>
+    /// Phase 17.2 GAP-17-E (2026-05-10): the legacy shape was
+    /// <c>https://comix.to/api/v1/chapters/{chapterId}/pages</c> — a separate
+    /// pages-list endpoint that comix.to retired alongside response-body encryption + per-deploy
+    /// signer rotation. The bundle's signer allowlist now rejects all
+    /// <c>/chapters/{id}/&lt;suffix&gt;</c> shapes; the chapter-detail body itself embeds
+    /// the page list under <c>pages.{baseUrl, items[{width,height,url}]}</c>. See
+    /// <c>.planning/phases/17.2-comix-signer-driver-layer-fix/17.2-PAGES-ENDPOINT-SURVEY.md</c>
+    /// for the full live-survey evidence + winner verdict.
     /// </para>
     /// </summary>
     public class ComixParser : IParseIndexerResponse
@@ -144,7 +155,19 @@ namespace NzbDrone.Core.Indexers.Comix
                     Guid = $"comix-chapter-{ch.Id}",
                     Title = title,
                     Size = 0,
-                    DownloadUrl = $"{BaseUrl.TrimEnd('/')}/api/v1/chapters/{ch.Id}/pages",
+
+                    // Phase 17.2 GAP-17-E (2026-05-10): pages-endpoint shape was
+                    // /api/v1/chapters/{ch.Id}/pages — bundle's signer allowlist now
+                    // rejects all /chapters/{id}/<suffix> shapes; the bare chapter
+                    // detail endpoint /api/v1/chapters/{ch.Id} returns 200 + an
+                    // encrypted body that decodes to the chapter detail INCLUDING
+                    // an embedded pages list under `pages.{baseUrl, items[]}`. See
+                    // .planning/phases/17.2-comix-signer-driver-layer-fix/17.2-PAGES-ENDPOINT-SURVEY.md
+                    // for survey evidence + winner verdict. ComixIndexer.GetChapterPages
+                    // strips the /api/v1 prefix and delegates to IComixSigner.ProxyFetchAsync;
+                    // the resulting body is then deserialized via ComixChapterPagesResponse
+                    // (the new chapter-detail-rooted shape, not the legacy pages-list shape).
+                    DownloadUrl = $"{BaseUrl.TrimEnd('/')}/api/v1/chapters/{ch.Id}",
                     InfoUrl = $"{BaseUrl.TrimEnd('/')}/",
                     PublishDate = publishDate,
                     DownloadProtocol = DownloadProtocol.Http,

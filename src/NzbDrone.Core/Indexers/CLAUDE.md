@@ -201,3 +201,7 @@ Update `IIndexerRequestGenerator` to accept them (alongside existing TV criteria
 - [../Download/CLAUDE.md](../Download/CLAUDE.md) — Receives approved releases
 - [../IndexerSearch/](../IndexerSearch/) — Search criteria definitions
 - [../ThingiProvider/](../ThingiProvider/) — Provider plugin base
+
+### Phase 17 — IComixSigner is manga-only (NOT a generalized pattern)
+
+Phase 17 introduced `IComixSigner` (`src/NzbDrone.Core/Indexers/Comix/IComixSigner.cs`) as a runtime browser-driven signing seam for the comix.to indexer. This is a forced single-source divergence — comix.to encrypts response bodies + rotates anti-bot signer-fn names per deploy, so .NET-side signing is structurally unviable. **The pattern does NOT generalize** — MangaDex (the v1 primary chapter source) stays browser-free; future indexer ports should default to plain `IHttpClient` + parsed-content extraction, NOT to `IComixSigner`-style runtime browser hooks. See `Comix/CLAUDE.md` "Phase 17 Invariants" for full architecture; see `DIVERGENCE.md` Phase 17 entry for divergence provenance.
