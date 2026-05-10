@@ -59,3 +59,34 @@ Port of `keiyoushi/extensions-source/src/en/comix/Comix.kt` (Apache-2.0; PR #116
 | T-API-DRIFT | Wave 0 SYNTHESIZED fixtures (per `SOURCE-PROBE-fixtures.md`) load via `File.ReadAllText`; failures surface DTO field-name divergence at test-time. Daily soak workflow (Plan 03-06) catches post-merge live-API drift. |
 | T-SCRAPER-ROT | aggregator scraper rot 30-90 day half-life (Pitfall 1); soak threshold <5% failure% over 7-day window (D-15/D-16). |
 | T-NULL-DEREF | Null-safe access throughout `ComixParser` (`?.`, fallback dates, group=null on official rows); empty fields handled gracefully. |
+
+## Phase 17 Invariants — Comix Runtime Signer Port (PuppeteerSharp)
+
+**Trigger:** comix.to rotated anti-bot signing keys + began encrypting response bodies on 2026-05-09; the static `ComixHash.cs` port (Phase 3 D-13 baseline) was structurally unviable post-rotation. See `.planning/debug/comix-invalid-token-403.md` for the root-cause + decision provenance.
+
+**Architecture:**
+- `IComixSigner` (process singleton via DryIoc `Reuse.Singleton` auto-discovery) owns the embedded headless Chromium lifecycle.
+- `ComixPuppeteerSigner` is the only impl; uses PuppeteerSharp 24.42.0 + bundled Chromium baked at `/opt/mangarr-chromium` (D-03).
+- Lazy-spawn warm page on first request; idle teardown after 10 minutes (D-12 hardcoded const); clean shutdown via `IHandle<ApplicationShutdownRequested>` with W-2 drain semantics (5-second `_gate.Wait` before `_gate.Dispose`).
+- Behaviour-based PROBE_JS port from keiyoushi `Signer.kt:370-410` — signer + installer fns detected by behaviour, NOT by name (names rotate per comix.to deploy).
+- `SemaphoreSlim(1,1)` serializes per-request `EvaluateAsync` (D-06).
+- **Lazy reprobe on EvaluateAsync error** (Phase 17 B-2 path (a) — D-09 deferral retired): stale-page failure relaunches once before falling through to RecordFailure.
+- `IComixSigner.ProxyFetchAsync` returns the DECODED JSON body (Q-2 / N-2 verdict — response decryption happens inside the page context).
+
+**Callsite coverage (D-08 verdict per RESEARCH N-3):**
+- `ComixIndexer.Fetch(MangaSearchCriteria)` → `_signer.ProxyFetchAsync("/manga/{hid}/chapters")`.
+- `ComixIndexer.Fetch(ChapterSearchCriteria)` → `_signer.ProxyFetchAsync(...)` (mirrors MangaSearchCriteria pattern).
+- `ComixIndexer.GetChapterPages(release)` → `_signer.ProxyFetchAsync("/chapters/{id}/pages")`.
+- Per-image GETs against `cdn.comix.to/.../*.jpg` STAY on plain `IHttpClient`.
+
+**Deleted:** `ComixHash.cs` + `ComixHashFixture.cs` (replaced by the runtime signer).
+
+**Failure escalation:** Probe failures + `Browser.LaunchAsync` failures + lazy-reprobe second-throw all flow through `IIndexerSourceStatusService.RecordFailure("comix.to")` (D-10 + D-11 + B-2 path (a)). Existing 4-level escalation surfaces an `IndexerSourceFailureCheck` Health Check warning at the 3-consecutive threshold.
+
+**Test strategy:**
+- Unit: `Mock<IComixSigner>` (D-16) returns canned JSON; existing fixtures (`ComixIndexerFixture`, `ComixGetChapterPagesFixture`, `ComixRequestGeneratorFixture`) extend with the mock SetUp.
+- 8 NEW signer-impl fixtures (Contract, FailSoft, IdleTeardown, Shutdown, LifecycleLogs, **LazyReprobe**, **DryIocResolution**, **UpstreamSignerDrift** — last 3 added in revision iteration 1) live at `src/NzbDrone.Core.Test/Indexers/Comix/`.
+- Live-Chromium: `src/Mangarr.Comix.Live.Test/ComixSignerLiveFixture.cs` with `[LiveComix]` category — excluded from standard runs; manual run on the executor's box; CI never runs.
+- Drift detection: `.github/workflows/source-soak.yml` extended (D-19) — Plan 03-06 daily-soak runs the live-Comix smoke on schedule (steps INSIDE `jobs.soak.steps:` array per B-1).
+
+**Sonarr-divergence markers** (Pattern S2 / sonarr-consistency-audit Pattern ι allowlist coverage): on `IComixSigner.cs`, `ComixPuppeteerSigner.cs`, and `ComixIndexer.cs` GetChapterPages signer-route line.

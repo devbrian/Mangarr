@@ -68,6 +68,12 @@ App listens at **http://localhost:8989**.
 
 API key auto-generated on first run; check `<data-dir>/config.xml` or General Settings.
 
+### Comix indexer (optional)
+
+The Comix (`comix.to`) indexer is included by default. It uses an embedded headless Chromium browser to handle comix.to's anti-bot signing — **no manual setup is required**. Chromium is bundled into the official Mangarr Docker image at `/opt/mangarr-chromium` (~150MB image-size addition; lazy-spawn at runtime — Chromium only starts after the first Comix request, idle-teardown after 10 minutes).
+
+For development outside Docker, run `dotnet run --project tools/ChromiumPrefetch/ChromiumPrefetch.csproj -- --output-dir ~/.cache/mangarr-chromium` once and set `PUPPETEER_CACHE_DIR=~/.cache/mangarr-chromium` before launching Mangarr.
+
 ## License
 
 Mangarr inherits Sonarr's GPL-3.0 license. See [LICENSE.md](./LICENSE.md).
