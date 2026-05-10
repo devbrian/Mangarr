@@ -46,7 +46,10 @@ namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving.Metadata
                 {
                     Title = "Chapter 132",
                     ChapterNumber = chapterNumber,
-                    ReleaseDate = airDateUtc ?? new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+
+                    // Phase 16 D-02: Chapter.ReleaseDate -> Chapter.FirstReleaseDate
+                    // (Sonarr-mirror of Episode.AirDateUtc).
+                    FirstReleaseDate = airDateUtc ?? new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
                 },
                 Release = new ReleaseInfo
                 {

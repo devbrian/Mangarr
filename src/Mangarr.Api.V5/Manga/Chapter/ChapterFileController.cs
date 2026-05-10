@@ -50,7 +50,7 @@ namespace Mangarr.Api.V5.Manga.Chapter;
 //     QualityModel? Quality / CustomFormatScore / QualityCutoffNotMet fields per
 //     Phase 5 D-05; CF + Translation Profile cutoff lives on MangaCutoffController).
 //   * NO PUT (single-row) endpoint — TV's `SetQuality` flips Quality / SceneName /
-//     ReleaseGroup; manga has no Quality field and ReleaseGroup edits arrive via the
+//     ReleaseGroup; manga has no Quality field and ScanlationGroup edits arrive via the
 //     editor flow rather than the file controller. RestPutById omitted; if a future
 //     consumer needs per-file metadata edits, add `[RestPutById]` SetMetadata mirroring
 //     the TV shape.

@@ -76,8 +76,10 @@ namespace NzbDrone.Core.Manga
 
                 case MangaMonitor.Future:
                     _logger.Debug("[{0}] Monitoring future chapters", manga.Title);
+
+                    // Sonarr divergence: Phase 16 D-02 — chapter.ReleaseDate -> chapter.FirstReleaseDate.
                     ToggleChaptersMonitoredState(chapters,
-                        c => !c.ReleaseDate.HasValue || c.ReleaseDate.Value > DateTime.UtcNow);
+                        c => !c.FirstReleaseDate.HasValue || c.FirstReleaseDate.Value > DateTime.UtcNow);
                     break;
 
                 case MangaMonitor.Missing:

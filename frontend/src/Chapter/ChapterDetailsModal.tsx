@@ -31,7 +31,6 @@ import { sizes } from 'Helpers/Props';
 import InteractiveSearch from 'InteractiveSearch/InteractiveSearch';
 import translate from 'Utilities/String/translate';
 import ChapterNumber from './ChapterNumber';
-import LanguageBadge from './LanguageBadge';
 import { useSingleChapter } from './useChapter';
 
 export interface ChapterDetailsModalProps {
@@ -67,11 +66,6 @@ function ChapterDetailsModal({
                 showVolumeNumber={chapter.volumeNumber != null}
               />
               {chapter.title || chapterTitle ? ` — ${chapter.title || chapterTitle}` : null}
-              {chapter.translatedLanguage ? (
-                <span style={{ marginLeft: 8 }}>
-                  <LanguageBadge language={chapter.translatedLanguage} />
-                </span>
-              ) : null}
             </span>
           ) : (
             chapterTitle ?? translate('Chapter')

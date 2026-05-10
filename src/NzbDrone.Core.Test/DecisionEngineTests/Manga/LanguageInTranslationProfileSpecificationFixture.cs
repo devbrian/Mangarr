@@ -88,5 +88,57 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             result.Accepted.Should().BeFalse();
             result.Reason.Should().Be(DownloadRejectionReason.LanguageNotInProfile);
         }
+
+        // Phase 16.1 Wave 3 (REVERT-03): the spec already operated at the release-grain
+        // (`subject.Release?.TranslatedLanguage` — a `ReleaseInfo` field, the indexer-time
+        // projection produced by RemoteChapter.Release). The Phase 16 persistent
+        // per-translation row layer was reverted, but this spec was a verify-only no-op
+        // throughout (Pitfall #2 in the Phase 16.1 PATTERNS.md). Tests below are the
+        // structural reflection-guard + a multi-candidate ranking case for the indexer
+        // projection. Sibling guard in MangaDownloadDecisionComparerFixture mirrors this shape.
+
+        [Test]
+        public void Spec_does_not_reference_Chapter_TranslatedLanguage()
+        {
+            // Living-documentation guard: Chapter has no TranslatedLanguage property (the
+            // language axis lives on the indexer projection RemoteChapter.Release, NOT on
+            // the canonical Chapter entity). Any spec read from Chapter.TranslatedLanguage
+            // would fail to compile; this test exists as a structural guard that the spec
+            // remains release-grain.
+            typeof(NzbDrone.Core.Manga.Chapter)
+                .GetProperty("TranslatedLanguage").Should().BeNull();
+        }
+
+        [Test]
+        public void Multi_release_candidate_with_preferred_language_is_accepted()
+        {
+            // Ranking specs operate at release-grain. Build a RemoteChapter whose Release
+            // carries a preferred language; assert IsSatisfiedBy returns Accept. Swapping
+            // the candidate's RemoteChapter.Release.TranslatedLanguage flips the verdict
+            // purely by that axis — no Chapter-grain change required.
+            Mocker.GetMock<ITranslationProfileService>()
+                  .Setup(s => s.Get(7))
+                  .Returns(BuildTranslationProfile(7, new[] { "en", "es" }, allowOthers: false));
+
+            var rc = BuildRemoteChapter(releaseLanguage: "en", translationProfileId: 7);
+            var result = Subject.IsSatisfiedBy(rc, new ReleaseDecisionInformation());
+            result.Accepted.Should().BeTrue();
+        }
+
+        [Test]
+        public void Multi_release_candidate_with_unsupported_language_is_rejected()
+        {
+            // Sibling case to the preferred-language test above — same canonical chapter,
+            // different RemoteChapter.Release.TranslatedLanguage, opposite verdict.
+            // Confirms the spec's language axis is release-grain (indexer projection).
+            Mocker.GetMock<ITranslationProfileService>()
+                  .Setup(s => s.Get(7))
+                  .Returns(BuildTranslationProfile(7, new[] { "en", "es" }, allowOthers: false));
+
+            var rc = BuildRemoteChapter(releaseLanguage: "ja", translationProfileId: 7);
+            var result = Subject.IsSatisfiedBy(rc, new ReleaseDecisionInformation());
+            result.Accepted.Should().BeFalse();
+            result.Reason.Should().Be(DownloadRejectionReason.LanguageNotInProfile);
+        }
     }
 }

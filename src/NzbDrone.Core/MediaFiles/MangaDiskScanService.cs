@@ -207,16 +207,17 @@ namespace NzbDrone.Core.MediaFiles
                 var remoteChapter = _parsingService.Map(parsed, manga, existingChapters);
                 var chapter = remoteChapter?.Chapters?.FirstOrDefault();
 
-                // Issue #30 — when the parser couldn't extract a language tag from the
-                // filename but Map resolved a chapter via the language-fallback path, the
-                // matched chapter's language is the authoritative provenance. Back-propagate
-                // it onto the LocalChapter so the downstream ChapterFile row records the
-                // correct TranslatedLanguage instead of null.
-                var resolvedLanguage = parsed?.TranslatedLanguage;
-                if (string.IsNullOrEmpty(resolvedLanguage) && chapter != null)
-                {
-                    resolvedLanguage = chapter.TranslatedLanguage;
-                }
+                // Issue #30 — when neither the parser nor the indexer supplies a language
+                // tag (e.g., a CBZ file dropped into the manga's library folder named
+                // `<Title> - Chapter NNN.cbz` with no language marker), back-propagate
+                // from the matched Chapter's existing ChapterFile.TranslatedLanguage
+                // (Phase 16.1 — TranslatedLanguage is canonical on ChapterFile per D-06).
+                // When parser DOES supply a language, it wins (consistent with
+                // MangaParsingService D-10 contract).
+                var resolvedLanguage = parsed?.TranslatedLanguage
+                    ?? (chapter != null
+                        ? _chapterFileService.GetFilesByChapter(chapter.Id).FirstOrDefault()?.TranslatedLanguage
+                        : null);
 
                 return new LocalChapter
                 {

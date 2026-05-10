@@ -18,9 +18,10 @@ namespace Mangarr.Api.V5.Manga.Chapter;
 //     (TV-only — no scene-release naming, no torrent indexer flags, no video MediaInfo
 //     for image archives).
 //   * Replace with manga-domain provenance fields per ChapterFile model
-//     (src/NzbDrone.Core/MediaFiles/ChapterFile.cs:11-43): MangaId / ChapterId /
+//     (src/NzbDrone.Core/MediaFiles/ChapterFile.cs): MangaId / ChapterId /
 //     RelativePath / Path / Size / DateAdded / TranslatedLanguage (BCP-47) /
-//     ScanlationGroup / ReleaseGroup.
+//     ScanlationGroup. Phase 16.1 D-04 + D-06: ReleaseGroup absorbed into ScanlationGroup —
+//     wire field is `scanlationGroup` (no `releaseGroup`) per D-05.
 //
 // SignalR resource auto-derivation note: bare [V5ApiController] on the controller falls
 // back to `new TResource().ResourceName.Trim('/')` per RestControllerWithSignalR.cs:23-33,
@@ -40,7 +41,6 @@ public class ChapterFileResource : RestResource
     public DateTime DateAdded { get; set; }
     public string? TranslatedLanguage { get; set; }
     public string? ScanlationGroup { get; set; }
-    public string? ReleaseGroup { get; set; }
 }
 
 public static class ChapterFileResourceMapper
@@ -62,8 +62,7 @@ public static class ChapterFileResourceMapper
             Size = model.Size,
             DateAdded = model.DateAdded,
             TranslatedLanguage = model.TranslatedLanguage,
-            ScanlationGroup = model.ScanlationGroup,
-            ReleaseGroup = model.ReleaseGroup
+            ScanlationGroup = model.ScanlationGroup
         };
     }
 

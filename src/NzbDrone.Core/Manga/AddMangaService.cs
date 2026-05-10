@@ -73,15 +73,21 @@ namespace NzbDrone.Core.Manga
                 throw new ArgumentNullException(nameof(newManga));
             }
 
-            var primaryTuple = PrepareForAdd(newManga);
-            var primaryChapters = primaryTuple.Item2;
+            PrepareForAdd(newManga);
 
             // 5. Persist + publish (MangaService.AddManga publishes MangaAddedEvent).
             var added = _mangaService.AddManga(newManga);
 
-            // 6. Synthesize / sync chapters per D-17.
-            _chapterListService.SyncChapters(added, primaryChapters);
-
+            // 6. Phase 16.1 (post-revert): chapter-list synthesis is performed by
+            //    RefreshMangaService through a single-pass IChapterListService.SyncChapters
+            //    (mirrors Sonarr's IRefreshEpisodeService.RefreshEpisodeInfo). No inline
+            //    synthesis step here. The initial RefreshMangaCommand fires via
+            //    MangaAddedHandler subscribing to the published MangaAddedEvent — the
+            //    Refresh path lands the canonical Chapter rows on the Sonarr-canonical
+            //    (MangaId, ChapterNumber) grain. Per-translation data lands on ChapterFile
+            //    post-import (Phase 6 PIPELINE-04 + Phase 16.1 D-04 — Sonarr-canonical
+            //    pattern; mirrors EpisodeFile.Languages placement).
+            //
             // 7. Initial RefreshMangaCommand (IsNewManga=true) is dispatched by
             //    MangaAddedHandler via the published MangaAddedEvent (Phase 8 audit
             //    gap-01 — Mangarr's SeriesAddedHandler pattern restored; no inline push).
@@ -198,11 +204,17 @@ namespace NzbDrone.Core.Manga
         }
 
         // Extract of the single-add prep pipeline (steps 1-4 + path/AddOptions/validator)
-        // shared by AddManga(Manga) and the bulk AddManga(List<Manga>, bool) overload. Returns
-        // the (primaryManga, primaryChapters) tuple from the primary metadata fetch so
-        // single-add can hand the chapters to ChapterListService.SyncChapters; bulk path
-        // discards the chapter list (per-item refresh fires via MangaAddedHandler).
-        private Tuple<Manga, List<Chapter>> PrepareForAdd(Manga newManga)
+        // shared by AddManga(Manga) and the bulk AddManga(List<Manga>, bool) overload.
+        //
+        // Phase 16.1 (post-revert): chapter-list synthesis is no longer performed inline
+        // at add time. The per-item RefreshMangaCommand fires via MangaAddedHandler
+        // subscribing to MangaAddedEvent and lands the canonical Chapter rows through a
+        // single-pass IChapterListService.SyncChapters (mirrors Sonarr's
+        // IRefreshEpisodeService.RefreshEpisodeInfo). Per-translation data lands on
+        // ChapterFile post-import (Phase 16.1 D-04 — Sonarr-canonical pattern). Returning
+        // Manga only (was a (Manga, List<Chapter>) tuple pre-Phase-16) keeps the call site
+        // honest about what we use.
+        private Manga PrepareForAdd(Manga newManga)
         {
             // 1. Reject duplicates by any populated cross-source ID.
             if (newManga.MangaDexId.HasValue && _mangaService.FindByMangaDexId(newManga.MangaDexId.Value) != null)
@@ -320,7 +332,7 @@ namespace NzbDrone.Core.Manga
                 throw new ValidationException(validationResult.Errors);
             }
 
-            return primaryTuple;
+            return primaryManga;
         }
 
         private static string ResolveSourceIdForPrimary(Manga manga, IProvideMangaInfo primary)

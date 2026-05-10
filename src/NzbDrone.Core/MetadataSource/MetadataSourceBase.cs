@@ -64,8 +64,12 @@ namespace NzbDrone.Core.MetadataSource
         public TSettings Settings => (TSettings)Definition.Settings;
 
         // --- IProvideMangaInfo split contract ---
-
-        public abstract Tuple<Manga.Manga, List<Chapter>> GetMangaInfo(string sourceId);
+        //
+        // Phase 16.1 Wave 3 (REVERT-03): flat IEnumerable<Chapter> shape — Sonarr-canonical
+        // mirror of IProvideSeriesInfo.GetSeriesInfo returning Tuple<Series, IEnumerable<Episode>>.
+        // RefreshMangaService consumes the result via single-pass ChapterListService.SyncChapters
+        // (mirror of Sonarr's RefreshEpisodeService.RefreshEpisodeInfo).
+        public abstract Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId);
 
         // --- ISearchForNewManga split contract ---
 

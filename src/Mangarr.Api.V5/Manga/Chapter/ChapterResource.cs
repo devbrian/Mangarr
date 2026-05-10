@@ -13,8 +13,9 @@ namespace Mangarr.Api.V5.Manga.Chapter;
 //     (PROJECT.md Volumes/Seasons Out-of-Scope; EpisodeFile-subresource hydration is
 //     deferred until a real consumer needs it).
 //   * Rename Series→Manga, Episode→Chapter.
-//   * Add TranslatedLanguage (BCP-47), ScanlationGroup, IsSynthetic, ChapterType (string
-//     enum projection), VolumeNumber (display-only — no Volumes table).
+//   * Adds FirstReleaseDate (Sonarr-mirror of Episode.AirDateUtc — chapter-publish date;
+//     survives the Phase 16.1 revert per CONTEXT.md user decision).
+//   * Keeps ChapterType (string enum projection), VolumeNumber (display-only — no Volumes table).
 //   * ChapterNumber is decimal (DECIMAL(10,3) per Phase 2 D-12 widen — supports 1.5,
 //     1.123, etc.).
 //
@@ -27,6 +28,14 @@ namespace Mangarr.Api.V5.Manga.Chapter;
 // includeSubresources` query contains `Manga` (TV-mirroring enum-array shape;
 // see `MangaMissingSubresource` / `MangaCutoffSubresource`).
 //
+// Phase 16.1 revert (Wave 2): the per-canonical-chapter releases nested collection
+// added by Phase 16 STRUCT-08 was REMOVED, along with its sibling resource type.
+// Per-translation language and packager axes route through `ChapterFile`
+// (TranslatedLanguage + ScanlationGroup) — the Sonarr-canonical resolution path that
+// Phase 16 over-engineered around. Wanted/Missing now derives from
+// `monitored && ChapterFileId == null` (Sonarr-mirror of
+// `Episode.Monitored && EpisodeFileId == 0`).
+//
 // Phase 8 cleanup: collapse with EpisodeResource when Tv/ deletes.
 public class ChapterResource : RestResource
 {
@@ -36,11 +45,10 @@ public class ChapterResource : RestResource
     public decimal? AbsoluteChapterNumber { get; set; }
     public int? VolumeNumber { get; set; }              // display-only — no Volumes table.
     public string? Title { get; set; }
-    public string? TranslatedLanguage { get; set; }     // BCP-47; "und" for synthetic
-    public string? ScanlationGroup { get; set; }
     public string? ChapterType { get; set; }            // Regular / Special / Oneshot / Extra
-    public bool IsSynthetic { get; set; }
-    public DateTime? ReleaseDate { get; set; }
+
+    // Sonarr-mirror of Episode.AirDateUtc; chapter-publish date.
+    public DateTime? FirstReleaseDate { get; set; }
     public bool Monitored { get; set; }
     public bool HasFile => ChapterFileId.HasValue;
     public string? ExternalId { get; set; }
@@ -65,11 +73,8 @@ public static class ChapterResourceMapper
         AbsoluteChapterNumber = model.AbsoluteChapterNumber,
         VolumeNumber = model.VolumeNumber,
         Title = model.Title,
-        TranslatedLanguage = model.TranslatedLanguage,
-        ScanlationGroup = model.ScanlationGroup,
         ChapterType = model.ChapterType.ToString(),
-        IsSynthetic = model.IsSynthetic,
-        ReleaseDate = model.ReleaseDate,
+        FirstReleaseDate = model.FirstReleaseDate,
         Monitored = model.Monitored,
         ExternalId = model.ExternalId,
     };

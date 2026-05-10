@@ -41,7 +41,7 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
                 Manga = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Test Manga" },
                 Chapters = new List<NzbDrone.Core.Manga.Chapter>
                 {
-                    new NzbDrone.Core.Manga.Chapter { Id = 100, MangaId = 7, ChapterNumber = 1m, TranslatedLanguage = "en" }
+                    new NzbDrone.Core.Manga.Chapter { Id = 100, MangaId = 7, ChapterNumber = 1m }
                 }
             };
 

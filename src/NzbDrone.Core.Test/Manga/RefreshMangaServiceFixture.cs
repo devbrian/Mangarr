@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -16,12 +17,18 @@ using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
 using NzbDrone.Core.MetadataSource.MangaDex;
 using NzbDrone.Core.MetadataSource.MyAnimeList;
+using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.MangaTests
 {
-    // Wave 0 fixture for RefreshMangaService — META-04. Plan 02-09 GREEN.
+    // Phase 16.1 Wave 3 (REVERT-03): RefreshMangaService fixture reverted by behavior
+    // (NOT git restore per CONTEXT.md D-12) from the Phase 16 tuple-feed assertions.
+    // Tests now exercise the Sonarr-canonical single-pass SyncChapters call shape.
+    // Orthogonal improvements preserved verbatim: gap-12 disk-scan tests, gap-08-01-08
+    // chapter snapshot dictionary, gap-12 catch-block disk-scan, user-mutable
+    // preservation (issue #28), WR-07 batch-tolerance, WR-08 missing-source-id Warn.
     [TestFixture]
     public class RefreshMangaServiceFixture : CoreTest<RefreshMangaService>
     {
@@ -49,7 +56,7 @@ namespace NzbDrone.Core.Test.MangaTests
                   .Returns(_primaryDef);
 
             // Phase 8 cluster-01 cascade: production now snapshots chapters via
-            // IChapterService.GetChaptersByManga before/after SyncChapters to compute
+            // IChapterService.GetChaptersByManga before/after the chapter-sync pass to compute
             // ChapterInfoRefreshedEvent deltas (gap-08-01-08). Default to empty so
             // existing fixtures don't NRE on .ToDictionary() — tests that assert on
             // the delta override this per-test.
@@ -180,13 +187,15 @@ namespace NzbDrone.Core.Test.MangaTests
 
             Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
 
-            // RefreshMangaService publishes MangaUpdatedEvent directly; ChapterListService
-            // publishes ChapterListUpdatedEvent (when manga has no MangaDex link with chapters,
-            // strategy 3 logs warn — so check that chapter-list service was at least called).
+            // Phase 16.1 Wave 3 (REVERT-03) + Pitfall 4: RefreshMangaService publishes
+            // MangaUpdatedEvent exactly once and ChapterListUpdatedEvent exactly once per
+            // refresh, AFTER the SyncChapters call completes. With an empty feed (stub
+            // returns empty IEnumerable<Chapter>) SyncChapters is a no-op but the trailing
+            // event still fires.
             Mocker.GetMock<IEventAggregator>()
                   .Verify(e => e.PublishEvent(It.IsAny<MangaUpdatedEvent>()), Times.Once());
-            Mocker.GetMock<IChapterListService>()
-                  .Verify(c => c.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<List<Chapter>>()), Times.Once());
+            Mocker.GetMock<IEventAggregator>()
+                  .Verify(e => e.PublishEvent(It.IsAny<ChapterListUpdatedEvent>()), Times.Once());
         }
 
         // WR-07 regression: when a refresh of one manga throws a non-MangaNotFound
@@ -407,6 +416,73 @@ namespace NzbDrone.Core.Test.MangaTests
             captured.Tags.Should().BeEquivalentTo(new[] { 7 }, "user-set Tags must survive (existing invariant)");
         }
 
+        // Phase 16.1 Wave 3 (REVERT-03): single-pass SyncChapters call shape.
+        [Test]
+        public void Execute_invokes_SyncChapters_once_per_refresh_with_remote_chapter_list()
+        {
+            // RefreshMangaService must pass the IEnumerable<Chapter> from the metadata source
+            // straight through to ChapterListService.SyncChapters — exactly one call per
+            // refresh, with the same manga + chapter list.
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
+            Mocker.GetMock<IMangaService>().Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>())).Returns(manga);
+
+            var feed = new List<Chapter>
+            {
+                new() { ChapterNumber = 1m, Title = "Ch1", ChapterType = ChapterType.Regular, Monitored = true },
+                new() { ChapterNumber = 2m, Title = "Ch2", ChapterType = ChapterType.Regular, Monitored = true },
+            };
+            var stub = new StubMangaDexProvider(manga) { Chapters = feed };
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            Mocker.GetMock<IChapterListService>()
+                  .Verify(c => c.SyncChapters(It.Is<Manga.Manga>(m => m.Id == 1),
+                                              It.IsAny<IEnumerable<Chapter>>()),
+                          Times.Once());
+        }
+
+        [Test]
+        public void Execute_publishes_ChapterListUpdatedEvent_after_SyncChapters_per_Pitfall_4()
+        {
+            // Pitfall 4: SyncChapters (DB write) FIRST, then ChapterListUpdatedEvent emit.
+            // Sequence enforced by call-order assertions on the mocks.
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
+            Mocker.GetMock<IMangaService>().Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>())).Returns(manga);
+
+            var stub = new StubMangaDexProvider(manga)
+            {
+                Chapters = new List<Chapter>
+                {
+                    new() { ChapterNumber = 1m, Title = "Ch1", ChapterType = ChapterType.Regular },
+                },
+            };
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            var sequence = new List<string>();
+            Mocker.GetMock<IChapterListService>()
+                  .Setup(c => c.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>()))
+                  .Callback(() => sequence.Add("sync"));
+            Mocker.GetMock<IEventAggregator>()
+                  .Setup(e => e.PublishEvent(It.IsAny<ChapterListUpdatedEvent>()))
+                  .Callback(() => sequence.Add("event"));
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            // sync must come BEFORE event (Pitfall 4 — DB write FIRST, event LAST).
+            var syncIdx = sequence.IndexOf("sync");
+            var eventIdx = sequence.IndexOf("event");
+            syncIdx.Should().BeGreaterThanOrEqualTo(0, "sync should have fired");
+            eventIdx.Should().BeGreaterThanOrEqualTo(0, "event should have fired");
+            syncIdx.Should().BeLessThan(eventIdx, "Pitfall 4: DB write FIRST, event LAST");
+        }
+
         // ---- Stub providers ----
         // Test stubs: type-derived from MangaDexMetadataSource / AniListMetadataSource /
         // MyAnimeListMetadataSource so the RefreshMangaService.Execute switch routes by
@@ -432,11 +508,13 @@ namespace NzbDrone.Core.Test.MangaTests
                 Definition = new MetadataSourceDefinition { Id = 1, Name = "MangaDex", IsPrimary = true };
             }
 
-            public override Tuple<Manga.Manga, List<Chapter>> GetMangaInfo(string sourceId)
+            public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)
             {
                 GetMangaInfoCalls.Add(sourceId);
-                return Tuple.Create(_result, new List<Chapter>());
+                return Tuple.Create(_result, (IEnumerable<Chapter>)(Chapters ?? Enumerable.Empty<Chapter>()));
             }
+
+            public IEnumerable<Chapter> Chapters { get; set; }
         }
 
         private class StubAniListProvider : AniListMetadataSource
@@ -451,11 +529,13 @@ namespace NzbDrone.Core.Test.MangaTests
                 Definition = new MetadataSourceDefinition { Id = 2, Name = "AniList", IsPrimary = false };
             }
 
-            public override Tuple<Manga.Manga, List<Chapter>> GetMangaInfo(string sourceId)
+            public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)
             {
                 GetMangaInfoCalls.Add(sourceId);
-                return Tuple.Create(_result, new List<Chapter>());
+                return Tuple.Create(_result, (IEnumerable<Chapter>)(Chapters ?? Enumerable.Empty<Chapter>()));
             }
+
+            public IEnumerable<Chapter> Chapters { get; set; }
         }
 
         private class StubMalProvider : MyAnimeListMetadataSource
@@ -470,11 +550,13 @@ namespace NzbDrone.Core.Test.MangaTests
                 Definition = new MetadataSourceDefinition { Id = 3, Name = "MyAnimeList", IsPrimary = false };
             }
 
-            public override Tuple<Manga.Manga, List<Chapter>> GetMangaInfo(string sourceId)
+            public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)
             {
                 GetMangaInfoCalls.Add(sourceId);
-                return Tuple.Create(_result, new List<Chapter>());
+                return Tuple.Create(_result, (IEnumerable<Chapter>)(Chapters ?? Enumerable.Empty<Chapter>()));
             }
+
+            public IEnumerable<Chapter> Chapters { get; set; }
         }
 
         // WR-07 helper: throws an arbitrary exception for the first sourceId, then
@@ -494,7 +576,7 @@ namespace NzbDrone.Core.Test.MangaTests
                 Definition = new MetadataSourceDefinition { Id = 1, Name = "MangaDex", IsPrimary = true };
             }
 
-            public override Tuple<Manga.Manga, List<Chapter>> GetMangaInfo(string sourceId)
+            public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)
             {
                 GetMangaInfoCalls.Add(sourceId);
                 if (sourceId == _throwOn)
@@ -502,7 +584,7 @@ namespace NzbDrone.Core.Test.MangaTests
                     throw new InvalidOperationException("simulated upstream 503");
                 }
 
-                return Tuple.Create(_successResult, new List<Chapter>());
+                return Tuple.Create(_successResult, Enumerable.Empty<Chapter>());
             }
         }
     }

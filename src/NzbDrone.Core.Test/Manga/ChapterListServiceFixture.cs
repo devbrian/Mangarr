@@ -1,6 +1,11 @@
+// Phase 16.1 Wave 3 (REVERT-03): single-pass SyncChapters fixture. Reverted by
+// behavior (NOT git restore per CONTEXT.md D-12) from the Phase 16 two-pass
+// fixture assertions. Tests cover the upsert pattern (Insert + Update; NO DELETE —
+// locked stale-handling decision per Phase 16.1 CONTEXT.md additional_context
+// Pitfall #4 + PATTERNS.md Pitfall 6) plus the (MangaId, ChapterNumber) DistinctBy
+// idempotency safety net.
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -9,256 +14,248 @@ using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Test.Framework;
-using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.MangaTests
 {
-    // Wave 0 fixture for ChapterListService — D-17 three-strategy synthesis. GREEN
-    // following Plan 02-09.
-    //
-    // BCP-47 sentinel reminder: synthetic chapter rows MUST set TranslatedLanguage = "und"
-    // per RESEARCH §Open Question 3 (NOT null — null breaks query planner index utilization
-    // on SQLite and confuses the ChapterListUpdatedEvent consumer set).
     [TestFixture]
     public class ChapterListServiceFixture : CoreTest<ChapterListService>
     {
-        private List<Chapter> _existing;
-        private List<Chapter> _inserted;
+        private Manga.Manga _manga;
 
         [SetUp]
         public void Setup()
         {
-            _existing = new List<Chapter>();
-            _inserted = new List<Chapter>();
+            _manga = new Manga.Manga { Id = 1, Title = "M" };
 
+            // Default: empty existing-chapters set.
             Mocker.GetMock<IChapterRepository>()
-                  .Setup(r => r.GetByMangaId(It.IsAny<int>()))
-                  .Returns(() => _existing);
-
-            Mocker.GetMock<IChapterRepository>()
-                  .Setup(r => r.Insert(It.IsAny<Chapter>()))
-                  .Callback<Chapter>(c => _inserted.Add(c))
-                  .Returns<Chapter>(c => c);
-
-            Mocker.GetMock<IChapterRepository>()
-                  .Setup(r => r.Update(It.IsAny<Chapter>()))
-                  .Returns<Chapter>(c => c);
+                .Setup(r => r.GetByMangaId(1))
+                .Returns(new List<Chapter>());
         }
 
-        // Strategy 1 (MangaDex linked): replace pre-existing IsSynthetic=true rows in place
-        // by chapter number, flipping IsSynthetic=false; preserve row Id.
         [Test]
-        public void Strategy1_MangaDex_linked_replaces_synthetic_rows_in_place_by_chapter_number()
+        public void SyncChapters_inserts_new_canonical_rows_for_missing_chapter_numbers()
         {
-            var manga = new Manga.Manga
+            // No existing rows + 2 remote chapters → 2 inserts via InsertMany.
+            var remote = new List<Chapter>
             {
-                Id = 7,
-                Title = "Naruto",
-                MangaDexId = Guid.NewGuid(),
+                new() { ChapterNumber = 1m, Title = "Ch1", Monitored = true, ChapterType = ChapterType.Regular },
+                new() { ChapterNumber = 2m, Title = "Ch2", Monitored = true, ChapterType = ChapterType.Regular },
             };
 
-            _existing.Add(new Chapter
-            {
-                Id = 99,
-                MangaId = 7,
-                ChapterNumber = 1m,
-                IsSynthetic = true,
-                TranslatedLanguage = "und",
-            });
+            Subject.SyncChapters(_manga, remote);
 
-            var incoming = new List<Chapter>
+            Mocker.GetMock<IChapterRepository>()
+                .Verify(r => r.InsertMany(It.Is<IList<Chapter>>(list => list.Count == 2)), Times.Once);
+            Mocker.GetMock<IChapterRepository>()
+                .Verify(r => r.UpdateMany(It.IsAny<IList<Chapter>>()), Times.Never);
+        }
+
+        [Test]
+        public void SyncChapters_assigns_MangaId_on_inserted_rows()
+        {
+            // Inserted Chapter must carry the manga.Id from the manga argument.
+            var remote = new List<Chapter>
             {
-                new()
+                new() { ChapterNumber = 5m, Title = "Ch5", Monitored = true, ChapterType = ChapterType.Regular },
+            };
+
+            IList<Chapter> captured = null;
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.InsertMany(It.IsAny<IList<Chapter>>()))
+                .Callback<IList<Chapter>>(list => captured = list);
+
+            Subject.SyncChapters(_manga, remote);
+
+            captured.Should().NotBeNull();
+            captured.Should().HaveCount(1);
+            captured[0].MangaId.Should().Be(1);
+        }
+
+        [Test]
+        public void SyncChapters_updates_existing_canonical_rows_in_place()
+        {
+            // Existing chapter → UPDATE not INSERT. Mutable fields copied with null-coalesce.
+            var existing = new Chapter
+            {
+                Id = 42,
+                MangaId = 1,
+                ChapterNumber = 5m,
+                Title = "Original Title",
+                Monitored = true,
+                ChapterType = ChapterType.Regular,
+            };
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.GetByMangaId(1))
+                .Returns(new List<Chapter> { existing });
+
+            var when = new DateTime(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc);
+            var remote = new List<Chapter>
+            {
+                new() { ChapterNumber = 5m, Title = "Updated Title", FirstReleaseDate = when, ChapterType = ChapterType.Regular },
+            };
+
+            Subject.SyncChapters(_manga, remote);
+
+            Mocker.GetMock<IChapterRepository>()
+                .Verify(r => r.InsertMany(It.IsAny<IList<Chapter>>()), Times.Never);
+            Mocker.GetMock<IChapterRepository>()
+                .Verify(
+                    r => r.UpdateMany(It.Is<IList<Chapter>>(list =>
+                        list.Count == 1 &&
+                        list[0].Id == 42 &&
+                        list[0].Title == "Updated Title" &&
+                        list[0].FirstReleaseDate == when)),
+                    Times.Once);
+        }
+
+        [Test]
+        public void SyncChapters_does_not_clobber_existing_field_when_remote_is_null()
+        {
+            // Null-coalesce protects against losing data when the metadata source omits a field.
+            var existing = new Chapter
+            {
+                Id = 42,
+                MangaId = 1,
+                ChapterNumber = 5m,
+                Title = "Original",
+                ChapterType = ChapterType.Regular,
+            };
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.GetByMangaId(1))
+                .Returns(new List<Chapter> { existing });
+
+            var remote = new List<Chapter>
+            {
+                new() { ChapterNumber = 5m, Title = null, ChapterType = ChapterType.Regular },
+            };
+
+            IList<Chapter> captured = null;
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.UpdateMany(It.IsAny<IList<Chapter>>()))
+                .Callback<IList<Chapter>>(list => captured = list);
+
+            Subject.SyncChapters(_manga, remote);
+
+            captured.Should().NotBeNull();
+            captured[0].Title.Should().Be("Original");
+        }
+
+        [Test]
+        public void SyncChapters_does_not_DELETE_stale_chapters()
+        {
+            // Locked stale-handling decision (Phase 16.1 PATTERNS.md Pitfall 6 +
+            // CONTEXT.md additional_context Pitfall #4): NO DELETE branch in SyncChapters.
+            // Existing chapters NOT in the remote feed must not be deleted.
+            var existing1 = new Chapter { Id = 41, MangaId = 1, ChapterNumber = 1m, ChapterType = ChapterType.Regular };
+            var existing2 = new Chapter { Id = 42, MangaId = 1, ChapterNumber = 2m, ChapterType = ChapterType.Regular };
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.GetByMangaId(1))
+                .Returns(new List<Chapter> { existing1, existing2 });
+
+            // Remote feed contains only chapter 1; chapter 2 has gone stale.
+            var remote = new List<Chapter>
+            {
+                new() { ChapterNumber = 1m, Title = "Ch1", ChapterType = ChapterType.Regular },
+            };
+
+            Subject.SyncChapters(_manga, remote);
+
+            Mocker.GetMock<IChapterRepository>()
+                .Verify(r => r.Delete(It.IsAny<Chapter>()), Times.Never);
+            Mocker.GetMock<IChapterRepository>()
+                .Verify(r => r.Delete(It.IsAny<int>()), Times.Never);
+            Mocker.GetMock<IChapterRepository>()
+                .Verify(r => r.DeleteMany(It.IsAny<IEnumerable<int>>()), Times.Never);
+            Mocker.GetMock<IChapterRepository>()
+                .Verify(r => r.DeleteMany(It.IsAny<List<Chapter>>()), Times.Never);
+        }
+
+        [Test]
+        public void SyncChapters_dedups_remote_entries_on_canonical_natural_key()
+        {
+            // BL-05 multi-translation regression safety net: if the upstream feed yields
+            // two entries with the same chapter number (e.g., one per translation grain
+            // before MangaDexMetadataSource.MapChapters dedup), DistinctBy(ChapterNumber)
+            // collapses them BEFORE the upsert pass — only ONE Insert call regardless.
+            var remote = new List<Chapter>
+            {
+                new() { ChapterNumber = 5m, Title = "First", ChapterType = ChapterType.Regular },
+                new() { ChapterNumber = 5m, Title = "Second", ChapterType = ChapterType.Regular },
+            };
+
+            Subject.SyncChapters(_manga, remote);
+
+            Mocker.GetMock<IChapterRepository>()
+                .Verify(r => r.InsertMany(It.Is<IList<Chapter>>(list => list.Count == 1)), Times.Once);
+        }
+
+        [Test]
+        public void SyncChapters_does_not_publish_event()
+        {
+            // Pitfall 4: only RefreshMangaService publishes the post-sync ChapterListUpdatedEvent;
+            // SyncChapters must NOT publish it itself.
+            var remote = new List<Chapter>
+            {
+                new() { ChapterNumber = 1m, Title = "Ch1", ChapterType = ChapterType.Regular },
+            };
+
+            Subject.SyncChapters(_manga, remote);
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterListUpdatedEvent>()), Times.Never);
+        }
+
+        [Test]
+        public void SyncChapters_with_null_remote_is_a_noop()
+        {
+            // Defensive: null IEnumerable<Chapter> from the metadata source must not crash.
+            Subject.SyncChapters(_manga, null);
+
+            Mocker.GetMock<IChapterRepository>()
+                .Verify(r => r.InsertMany(It.IsAny<IList<Chapter>>()), Times.Never);
+            Mocker.GetMock<IChapterRepository>()
+                .Verify(r => r.UpdateMany(It.IsAny<IList<Chapter>>()), Times.Never);
+        }
+
+        [Test]
+        public void SyncChapters_idempotent_re_run_produces_same_db_state()
+        {
+            // Idempotency contract: identical remote feed across two runs must produce
+            // identical DB state (no churn). First call: empty existing → INSERT.
+            // Second call: now-existing → UPDATE only.
+            var remote = new List<Chapter>
+            {
+                new() { ChapterNumber = 1m, Title = "Ch1", ChapterType = ChapterType.Regular },
+            };
+
+            // Run 1: nothing exists → insert.
+            var insertedFirst = false;
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.InsertMany(It.IsAny<IList<Chapter>>()))
+                .Callback<IList<Chapter>>(list =>
                 {
-                    ChapterNumber = 1m,
-                    Title = "Real Title",
-                    TranslatedLanguage = "en",
-                    IsSynthetic = false,
-                },
-            };
+                    insertedFirst = true;
+                    list[0].Id = 7;
+                });
 
-            Subject.SyncChapters(manga, incoming);
+            Subject.SyncChapters(_manga, remote);
+            insertedFirst.Should().BeTrue();
 
-            // The synthetic row was updated in place: Id preserved, IsSynthetic flipped false.
+            // Run 2: existing row matches → update only.
             Mocker.GetMock<IChapterRepository>()
-                  .Verify(r => r.Update(It.Is<Chapter>(c => c.Id == 99 && !c.IsSynthetic && c.MangaId == 7)),
-                          Times.Once());
+                .Setup(r => r.GetByMangaId(1))
+                .Returns(new List<Chapter>
+                {
+                    new() { Id = 7, MangaId = 1, ChapterNumber = 1m, Title = "Ch1", ChapterType = ChapterType.Regular },
+                });
 
-            Mocker.GetMock<IEventAggregator>()
-                  .Verify(e => e.PublishEvent(It.IsAny<ChapterListUpdatedEvent>()), Times.Once());
-        }
+            Subject.SyncChapters(_manga, remote);
 
-        // BL-05 regression: Strategy 1 must NOT collapse multiple incoming rows that
-        // share a ChapterNumber but differ in TranslatedLanguage. Two incoming rows for
-        // ChapterNumber 1 (en + es) MUST both end up in the repository.
-        [Test]
-        public void Strategy1_keeps_both_rows_when_incoming_share_number_but_differ_in_language()
-        {
-            var manga = new Manga.Manga
-            {
-                Id = 11,
-                Title = "Naruto",
-                MangaDexId = Guid.NewGuid(),
-            };
-
-            var incoming = new List<Chapter>
-            {
-                new() { ChapterNumber = 1m, Title = "EN title", TranslatedLanguage = "en", IsSynthetic = false },
-                new() { ChapterNumber = 1m, Title = "ES title", TranslatedLanguage = "es", IsSynthetic = false },
-            };
-
-            Subject.SyncChapters(manga, incoming);
-
-            // Pre-fix bug: only the first language survived the dictionary collapse.
-            // Post-fix: both rows are inserted (no existing rows present, so each
-            // (1m, lang) pair becomes a fresh insert).
-            _inserted.Should().HaveCount(2);
-            _inserted.Select(c => c.TranslatedLanguage).Should().BeEquivalentTo(new[] { "en", "es" });
-        }
-
-        // BL-05 regression: when a synthetic row exists at ChapterNumber 1 (TranslatedLanguage="und")
-        // and the incoming feed has two rows at ChapterNumber 1 (en + es), the synthetic gets
-        // upgraded in place to ONE language (the first incoming) AND the OTHER language gets
-        // inserted as a new row. Pre-fix the synthetic stayed pinned at "und" forever because
-        // its (1m, "und") key never matched any incoming (1m, "en") / (1m, "es") key.
-        [Test]
-        public void Strategy1_upgrades_synthetic_in_place_and_inserts_remaining_languages()
-        {
-            var manga = new Manga.Manga
-            {
-                Id = 12,
-                Title = "OnePiece",
-                MangaDexId = Guid.NewGuid(),
-            };
-
-            _existing.Add(new Chapter
-            {
-                Id = 500,
-                MangaId = 12,
-                ChapterNumber = 1m,
-                IsSynthetic = true,
-                TranslatedLanguage = "und",
-            });
-
-            var incoming = new List<Chapter>
-            {
-                new() { ChapterNumber = 1m, TranslatedLanguage = "en", IsSynthetic = false },
-                new() { ChapterNumber = 1m, TranslatedLanguage = "es", IsSynthetic = false },
-            };
-
-            Subject.SyncChapters(manga, incoming);
-
-            // Synthetic upgraded in place: Update called once with Id=500, IsSynthetic=false.
             Mocker.GetMock<IChapterRepository>()
-                  .Verify(r => r.Update(It.Is<Chapter>(c => c.Id == 500 && !c.IsSynthetic && c.MangaId == 12)),
-                          Times.Once());
-
-            // The OTHER language was inserted as a new row (the consumed-incoming guard
-            // prevents the upgraded row from being re-inserted).
-            _inserted.Should().HaveCount(1);
-            _inserted[0].TranslatedLanguage.Should().NotBe("und");
-        }
-
-        [Test]
-        public void Strategy1_MangaDex_linked_inserts_new_chapters_not_previously_present()
-        {
-            var manga = new Manga.Manga
-            {
-                Id = 8,
-                Title = "OnePiece",
-                MangaDexId = Guid.NewGuid(),
-            };
-
-            // No existing chapters yet.
-            var incoming = new List<Chapter>
-            {
-                new() { ChapterNumber = 1m, TranslatedLanguage = "en", IsSynthetic = false },
-                new() { ChapterNumber = 2m, TranslatedLanguage = "en", IsSynthetic = false },
-            };
-
-            Subject.SyncChapters(manga, incoming);
-
-            _inserted.Should().HaveCount(2);
-            _inserted.Should().OnlyContain(c => c.MangaId == 8 && !c.IsSynthetic);
-        }
-
-        // Strategy 2 (no MangaDex link, primary returned total chapter count): synthesize
-        // N rows with TranslatedLanguage = "und" sentinel.
-        [Test]
-        public void Strategy2_no_MangaDex_link_synthesizes_N_rows_with_und_sentinel()
-        {
-            var manga = new Manga.Manga
-            {
-                Id = 13,
-                Title = "AniListOnly",
-                MangaDexId = null,
-                TotalChapterCount = 5,
-            };
-
-            Subject.SyncChapters(manga, new List<Chapter>());
-
-            _inserted.Should().HaveCount(5);
-            _inserted.Should().OnlyContain(c => c.IsSynthetic);
-            _inserted.Should().OnlyContain(c => c.TranslatedLanguage == "und");
-            _inserted.Should().OnlyContain(c => c.MangaId == 13);
-            _inserted.Select(c => c.ChapterNumber).Should().BeEquivalentTo(new[] { 1m, 2m, 3m, 4m, 5m });
-            _inserted.Should().OnlyContain(c => c.ChapterType == ChapterType.Regular);
-        }
-
-        [Test]
-        public void Strategy2_already_synthesized_does_not_resynthesize()
-        {
-            var manga = new Manga.Manga
-            {
-                Id = 14,
-                Title = "AlreadySynth",
-                MangaDexId = null,
-                TotalChapterCount = 5,
-            };
-
-            // Pre-populate with one synthetic row to simulate prior synthesis.
-            _existing.Add(new Chapter
-            {
-                Id = 1,
-                MangaId = 14,
-                ChapterNumber = 1m,
-                IsSynthetic = true,
-                TranslatedLanguage = "und",
-            });
-
-            Subject.SyncChapters(manga, new List<Chapter>());
-
-            _inserted.Should().BeEmpty("synthesis must be idempotent — no new rows when chapters already exist");
-        }
-
-        // Strategy 3: primary returns null total → log warning + return empty list.
-        [Test]
-        public void Strategy3_null_chapter_count_logs_warning_and_returns_empty()
-        {
-            var manga = new Manga.Manga
-            {
-                Id = 21,
-                Title = "Mysterious",
-                MangaDexId = null,
-                TotalChapterCount = null,
-            };
-
-            Subject.SyncChapters(manga, new List<Chapter>());
-
-            _inserted.Should().BeEmpty();
-
-            // No event published when there is nothing to sync.
-            Mocker.GetMock<IEventAggregator>()
-                  .Verify(e => e.PublishEvent(It.IsAny<ChapterListUpdatedEvent>()), Times.Never());
-
-            // Warning log assertion: the test framework's TestLogger is consumed silently;
-            // we rely on the empty inserted list + no event as the observable contract.
-
-            // Production ChapterListService.cs:99 emits exactly ONE _logger.Warn for the
-            // Strategy 3 path by design (per D-17.3). The framework's tear-down "no
-            // unexpected warns" assertion otherwise fails this test (per 02-VERIFICATION.md
-            // anti-patterns row).
-            ExceptionVerification.ExpectedWarns(1);
+                .Verify(r => r.InsertMany(It.IsAny<IList<Chapter>>()), Times.Once);
+            Mocker.GetMock<IChapterRepository>()
+                .Verify(r => r.UpdateMany(It.IsAny<IList<Chapter>>()), Times.AtLeastOnce);
         }
     }
 }

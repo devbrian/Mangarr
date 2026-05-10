@@ -12,9 +12,15 @@ namespace NzbDrone.Core.IndexerSearch.Definitions
     public class ChapterSearchCriteria : MangaSearchCriteriaBase
     {
         public decimal ChapterNumber => Chapters?.FirstOrDefault()?.ChapterNumber ?? 0m;
-        public string TranslatedLanguage => Chapters?.FirstOrDefault()?.TranslatedLanguage;
 
+        // Sonarr divergence: Phase 16 STRUCT-01 + Phase 16.1 — canonical Chapter is
+        // language-free at the (MangaId, ChapterNumber) grain. Per-translation data lives
+        // on ChapterFile.TranslatedLanguage post-import (Phase 6 PIPELINE-04 + Phase 16.1
+        // D-04 — Sonarr-canonical pattern). Search-time language preference already flows
+        // via MangaSearchCriteriaBase.PreferredLanguages (advisory; Phase 5
+        // TranslationProfile is authoritative). The redundant per-Chapter computed
+        // property is removed.
         public override string ToString()
-            => $"[{Manga?.Title} : Ch.{ChapterNumber:0.###} {TranslatedLanguage}]";
+            => $"[{Manga?.Title} : Ch.{ChapterNumber:0.###}]";
     }
 }

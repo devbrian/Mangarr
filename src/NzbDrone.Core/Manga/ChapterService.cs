@@ -53,9 +53,10 @@ namespace NzbDrone.Core.Manga
             return _chapterRepository.Get(ids).ToList();
         }
 
-        public Chapter FindByMangaAndNumber(int mangaId, decimal chapterNumber, string translatedLanguage)
+        // Sonarr divergence: Phase 16 STRUCT-01 — language arg dropped from the signature.
+        public Chapter FindByMangaAndNumber(int mangaId, decimal chapterNumber)
         {
-            return _chapterRepository.Find(mangaId, chapterNumber, translatedLanguage);
+            return _chapterRepository.Find(mangaId, chapterNumber);
         }
 
         public List<Chapter> GetChaptersByManga(int mangaId)
@@ -70,11 +71,6 @@ namespace NzbDrone.Core.Manga
             // wrapping IEpisodeRepository.GetEpisodesBySeriesIds. Manga sibling wraps the
             // existing IChapterRepository.GetChaptersByMangaIds.
             return _chapterRepository.GetChaptersByMangaIds(mangaIds);
-        }
-
-        public List<Chapter> GetSyntheticChaptersByManga(int mangaId)
-        {
-            return _chapterRepository.GetSyntheticByMangaId(mangaId);
         }
 
         public List<Chapter> AllMissingMonitoredChapters()

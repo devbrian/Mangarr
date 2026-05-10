@@ -289,12 +289,11 @@ namespace NzbDrone.Core.Test.MediaFiles
             var filePath = Path.Combine(_manga.Path, "Manga Title - Chapter 001.cbz").AsOsAgnostic();
             GivenFiles(new List<string> { filePath });
 
-            // DB chapter carries the actual language code ("en") — what MangaDex would return.
+            // Phase 16.1 D-06: TranslatedLanguage is canonical on ChapterFile (post-import).
             var dbChapter = Builder<Chapter>
                 .CreateNew()
                 .With(c => c.MangaId = _manga.Id)
                 .With(c => c.ChapterNumber = 1m)
-                .With(c => c.TranslatedLanguage = "en")
                 .Build();
 
             // Map returns the resolved RemoteChapter (simulating the language-fallback hit).
@@ -304,6 +303,22 @@ namespace NzbDrone.Core.Test.MediaFiles
                   {
                       Manga = _manga,
                       Chapters = new List<Chapter> { dbChapter }
+                  });
+
+            // Phase 16.1 D-06: language back-propagation now reads from
+            // IChapterFileService.GetFilesByChapter against the matched Chapter id
+            // (TranslatedLanguage is canonical on ChapterFile post-import).
+            // Stub a single ChapterFile at "en"/Group-X so the fallback resolves.
+            Mocker.GetMock<IChapterFileService>()
+                  .Setup(s => s.GetFilesByChapter(dbChapter.Id))
+                  .Returns(new List<ChapterFile>
+                  {
+                      new()
+                      {
+                          ChapterId = dbChapter.Id,
+                          TranslatedLanguage = "en",
+                          ScanlationGroup = "Group-X",
+                      },
                   });
 
             // Capture the LocalChapters fed into the decision maker so we can assert on them.
@@ -320,10 +335,11 @@ namespace NzbDrone.Core.Test.MediaFiles
 
             var lc = captured[0];
             lc.Chapter.Should().NotBeNull();
-            lc.Chapter.TranslatedLanguage.Should().Be("en");
 
-            // The LocalChapter carries the matched chapter's language even though the parser
-            // extracted none from the filename — this is the back-propagation under test.
+            // Phase 16.1 D-06: when the parser extracted no language tag from the
+            // filename, MangaDiskScanService falls back to the matched Chapter's
+            // first ChapterFile.TranslatedLanguage — Issue #30 back-propagation
+            // retargeted against the canonical ChapterFile grain.
             lc.TranslatedLanguage.Should().Be("en");
         }
     }

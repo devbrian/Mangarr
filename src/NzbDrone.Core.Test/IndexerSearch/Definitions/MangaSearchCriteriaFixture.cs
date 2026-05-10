@@ -25,17 +25,20 @@ namespace NzbDrone.Core.Test.IndexerSearch.Definitions
         public void ChapterSearchCriteria_ChapterNumber_is_decimal()
         {
             // Phase 2 D-12: ChapterNumber widened to DECIMAL(10,3); manga supports 12.5, 123.5
+            // Phase 16 STRUCT-01 + Phase 16.1: canonical Chapter is language-free; per-translation
+            // language data lives on ChapterFile (Phase 16.1 Sonarr-canonical pattern). The
+            // redundant ChapterSearchCriteria.TranslatedLanguage computed property is gone;
+            // per-language preference flows via MangaSearchCriteriaBase.PreferredLanguages.
             var sc = new ChapterSearchCriteria
             {
                 Manga = new Manga.Manga { Title = "One Piece" },
                 Chapters = new List<Chapter>
                 {
-                    new Chapter { ChapterNumber = 12.5m, TranslatedLanguage = "en" }
+                    new Chapter { ChapterNumber = 12.5m }
                 }
             };
 
             sc.ChapterNumber.Should().Be(12.5m);
-            sc.TranslatedLanguage.Should().Be("en");
         }
 
         [Test]

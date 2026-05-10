@@ -5,17 +5,14 @@ using NzbDrone.Core.Parser.Manga;
 namespace NzbDrone.Core.Manga
 {
     // Chapter row. Mirrors Sonarr's Tv/Episode.cs shape (precedent: 02-PATTERNS Group 8)
-    // adapted for the manga domain per 02-CONTEXT.md D-09:
-    //   * ChapterNumber is decimal (DECIMAL(10,3) post-Phase-2 widen — D-12) to support
-    //     scanlation-group filename conventions like 1.123.
-    //   * VolumeNumber is display-only — no Volumes table exists (PROJECT.md
-    //     "Volumes / Seasons" Out-of-Scope row).
-    //   * IsSynthetic flags placeholder rows that ChapterListService creates when
-    //     MangaDex is not cross-resolved AND the primary returns total-chapter-count
-    //     (D-17). Phase 3 indexers fill in fields and flip the flag false on real-feed
-    //     match.
-    //   * TranslatedLanguage is BCP-47; synthetic rows write "und" sentinel (RESEARCH
-    //     §Open Question 3).
+    // at the (MangaId, ChapterNumber) grain — language-free per Phase 16 STRUCT-01.
+    //   * ChapterNumber is decimal (DECIMAL(10,3) per Phase 2 D-12 widen).
+    //   * VolumeNumber is display-only — no Volumes table.
+    //   * FirstReleaseDate (Phase 16 D-02 — survived Phase 16.1 revert) is the
+    //     upstream chapter-publish date — Sonarr-mirror of Episode.AirDateUtc.
+    //   * Per-translation data (language + scanlation-group) lives on ChapterFile
+    //     post-import (ChapterFile.TranslatedLanguage + ChapterFile.ScanlationGroup;
+    //     Phase 6 PIPELINE-04 + Phase 16.1 D-04 — Sonarr-canonical pattern).
     public class Chapter : ModelBase, IComparable
     {
         public int MangaId { get; set; }
@@ -27,10 +24,12 @@ namespace NzbDrone.Core.Manga
         public ChapterType ChapterType { get; set; }
 
         public string Title { get; set; }
-        public string TranslatedLanguage { get; set; }        // BCP-47; "und" for synthetic
-        public string ScanlationGroup { get; set; }
-        public bool IsSynthetic { get; set; }                 // D-17 marker
-        public DateTime? ReleaseDate { get; set; }
+
+        // Phase 16 D-02 (survived Phase 16.1 revert): Sonarr-mirror of Episode.AirDateUtc.
+        // Populated by ChapterListService.SyncChapters (Phase 16.1 single-pass) from the
+        // upstream metadata source's chapter-publish date (e.g., MangaDex attrs.PublishAt).
+        public DateTime? FirstReleaseDate { get; set; }
+
         public bool Monitored { get; set; }
         public string ExternalId { get; set; }
 

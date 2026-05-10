@@ -153,8 +153,7 @@ namespace Mangarr.Api.V5.Manga.History
                         Id = chapter.Id,
                         MangaId = chapter.MangaId,
                         ChapterNumber = chapter.ChapterNumber,
-                        Title = chapter.Title,
-                        TranslatedLanguage = chapter.TranslatedLanguage
+                        Title = chapter.Title
                     };
                 }
             }

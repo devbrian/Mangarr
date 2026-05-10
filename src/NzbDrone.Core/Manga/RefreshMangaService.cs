@@ -181,7 +181,11 @@ namespace NzbDrone.Core.Manga
                 {
                     var tuple = primary.GetMangaInfo(sourceId);
                     var mangaInfo = tuple.Item1;
-                    var chapters = tuple.Item2;
+
+                    // Phase 16.1 Wave 3 (REVERT-03): chapter feed is the Sonarr-canonical
+                    // IEnumerable<Chapter> shape. Materialize once for the snapshot/diff
+                    // delta computation below + the SyncChapters call.
+                    var remoteChapters = tuple.Item2.ToList();
 
                     // Manga.ApplyChanges copies user-mutable fields (Monitored,
                     // RootFolderPath, Tags, AddOptions, MonitorNewItems,
@@ -232,7 +236,7 @@ namespace NzbDrone.Core.Manga
 
                     // gap-11: suppress UpdateManga's event publish so the trailing
                     // PublishEvent below is the SOLE MangaUpdatedEvent per refresh,
-                    // emitted AFTER SyncChapters runs. Mirrors TV
+                    // emitted AFTER chapter sync completes. Mirrors TV
                     // RefreshSeriesService.RefreshSeriesInfo's UpdateSeries(publishUpdatedEvent:false)
                     // → RefreshEpisodeInfo → PublishEvent(SeriesUpdatedEvent) ordering
                     // (Pitfall 4 invariant: DB write FIRST, event LAST).
@@ -240,21 +244,24 @@ namespace NzbDrone.Core.Manga
 
                     // Phase 8 backfill (audit gap: no-sibling/EpisodeRefreshedService.md +
                     // RefreshSeriesService-vs-RefreshMangaService.md gap-10 reclassified):
-                    // snapshot the chapter set BEFORE SyncChapters so we can compute the
-                    // (added/updated/removed) delta for ChapterInfoRefreshedEvent. Mirrors
+                    // snapshot the chapter set BEFORE the chapter-sync pass so we can compute
+                    // the (added/updated/removed) delta for ChapterInfoRefreshedEvent. Mirrors
                     // RefreshEpisodeService.RefreshEpisodeInfo (Tv/RefreshEpisodeService.cs:131)
                     // which publishes EpisodeInfoRefreshedEvent with the equivalent delta.
                     //
-                    // SyncChapters does not return a delta (its public surface predates this
-                    // requirement), so we snapshot+diff here. The diff key is ChapterId — rows
-                    // whose ID exists in both snapshots count as "updated" (SyncChapters may
-                    // have flipped IsSynthetic and other fields in place); IDs only present
-                    // post-sync are "added"; IDs only present pre-sync are "removed".
+                    // The chapter-sync pass does not return a delta (its public surface predates
+                    // this requirement), so we snapshot+diff here. The diff key is ChapterId —
+                    // rows whose ID exists in both snapshots count as "updated" (SyncChapters
+                    // may have updated mutable fields in place); IDs only present post-sync are
+                    // "added"; IDs only present pre-sync are "removed". Per Phase 16.1 Wave 3
+                    // locked stale-handling decision SyncChapters does NOT delete stale Chapter
+                    // rows, so removed will be empty unless a separate deletion path runs.
                     var beforeIds = _chapterService.GetChaptersByManga(existing.Id)
                         .ToDictionary(c => c.Id);
 
-                    // D-17: chapter-list synthesis fallback when MangaDex not linked.
-                    _chapterListService.SyncChapters(existing, chapters);
+                    // Phase 16.1 Wave 3 (REVERT-03): single SyncChapters call per refresh.
+                    // Mirror of Sonarr's RefreshEpisodeService.RefreshEpisodeInfo.
+                    _chapterListService.SyncChapters(existing, remoteChapters);
 
                     var afterChapters = _chapterService.GetChaptersByManga(existing.Id);
                     var added = afterChapters.Where(c => !beforeIds.ContainsKey(c.Id)).ToList();
@@ -262,6 +269,11 @@ namespace NzbDrone.Core.Manga
                     var removed = beforeIds.Values.Where(c => afterChapters.All(a => a.Id != c.Id)).ToList();
 
                     _eventAggregator.PublishEvent(new ChapterInfoRefreshedEvent(existing, added, updated, removed));
+
+                    // Pitfall 4: SINGLE ChapterListUpdatedEvent emit AFTER both passes complete.
+                    // Existing consumer contract preserved (one event per refresh; SignalR
+                    // fan-out unchanged).
+                    _eventAggregator.PublishEvent(new ChapterListUpdatedEvent(existing));
 
                     _eventAggregator.PublishEvent(new MangaUpdatedEvent(existing));
 

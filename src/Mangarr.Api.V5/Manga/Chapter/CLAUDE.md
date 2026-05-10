@@ -18,8 +18,8 @@ other manga endpoint (`/api/v5/manga`, `/api/v5/manga/lookup`, `/api/v5/manga/li
 
 | File | Purpose |
 |------|---------|
-| `ChapterController.cs` | GET / PUT / POST endpoints. Bare `[V5ApiController]` auto-derives the SignalR resource name `chapter` from `ChapterResource.ResourceName` (Pitfall 2 + Lock #6). |
-| `ChapterResource.cs` | DTO + `ChapterResourceMapper.ToResource` extension (single + IEnumerable). |
+| `ChapterController.cs` | GET / PUT / POST endpoints. Bare `[V5ApiController]` auto-derives the SignalR resource name `chapter` from `ChapterResource.ResourceName` (Pitfall 2 + Lock #6). Post-Phase-16.1: single primary service ctor dep (`IChapterService`); direct-map `chapters.ToResource()` extension (mirrors Sonarr's `EpisodeController` shape); no N+1 hydration block, no sibling-service dependency, no per-chapter loop calls. |
+| `ChapterResource.cs` | DTO + `ChapterResourceMapper.ToResource` extension (single + IEnumerable). Post-Phase-16.1 wire shape: keeps `firstReleaseDate?: ISO8601` (Sonarr-mirror of `Episode.AirDateUtc` per Phase 16 D-02 — survived the revert); does NOT carry a `releases[]` collection (Phase 16.1 REVERT-04 dropped Phase 16's per-translation collection projection). The pre-Phase-16 fields (`translatedLanguage`, `scanlationGroup`, `isSynthetic`, `releaseDate`) remain dropped — Phase 16.1 SPEC Out of Scope confirms `IsSynthetic` stays gone. |
 | `ChaptersMonitoredResource.cs` | Bulk `PUT /monitor` body shape: `{ ChapterIds: List<int>, Monitored: bool }`. |
 
 ## Endpoints
@@ -66,9 +66,38 @@ Manga sibling diverges from `EpisodeController`:
   React detail page reads chapter + manga separately and assembles client-side).
 - POST `{id}/search` endpoint is NEW (no `EpisodeController` peer) — D-07 ships this
   alongside the GET/PUT shape.
-- `ChapterResource` adds `TranslatedLanguage` (BCP-47), `ScanlationGroup`, `IsSynthetic`,
-  `ChapterType` (string projection of the enum), `VolumeNumber` (display-only — no
-  Volumes table).
+- `ChapterResource` (post-Phase-16.1) carries `ChapterType` (string projection of the
+  enum), `VolumeNumber` (display-only — no Volumes table), and `FirstReleaseDate?`
+  (Phase 16 D-02 — Sonarr-mirror of `Episode.AirDateUtc`; survived the Phase 16.1 revert).
+  The Phase 16-introduced `releases: ChapterReleaseResource[]` collection was DROPPED in
+  Phase 16.1 REVERT-04 (no Sonarr analog; per-translation axes live on `ChapterFile`
+  post-import per Phase 6 PIPELINE-04). The pre-Phase-16 fields
+  (`TranslatedLanguage` / `ScanlationGroup` / `IsSynthetic` / `ReleaseDate`) remain dropped
+  — `IsSynthetic` stays gone (Phase 16.1 SPEC Out of Scope confirms); per-translation
+  language + scanlation-group live on `ChapterFile.TranslatedLanguage` + `ChapterFile.ScanlationGroup`.
+
+## Phase 16.1 wire shape (post-2026-05-10 revert)
+
+`GET /api/v5/chapter?mangaId={id}` returns one `ChapterResource` per canonical chapter. Each carries:
+- `firstReleaseDate?: ISO8601` (Phase 16 D-02 — upstream chapter-publish date; Sonarr-mirror of `Episode.AirDateUtc`; survived the Phase 16.1 revert per SPEC Out of Scope)
+
+The Phase 16-introduced `releases: ChapterReleaseResource[]` collection was DROPPED in Phase 16.1 REVERT-04 (no Sonarr analog at the chapter grain). The pre-Phase-16 fields (`translatedLanguage`, `scanlationGroup`, `isSynthetic`, `releaseDate`) remain dropped from the canonical resource. Per-translation data (language + scanlation-group) lives on `ChapterFileResource.translatedLanguage` + `ChapterFileResource.scanlationGroup` (Phase 6 PIPELINE-04 + Phase 16.1 D-04 ReleaseGroup→ScanlationGroup rename).
+
+**Direct-map pattern (Phase 16.1 REVERT-04 acceptance):**
+- `GetChapters(mangaId)` calls `_chapterService.GetChaptersByMangaId(mangaId)` then `chapters.ToResource()` direct-map (mirrors Sonarr's `EpisodeController.GetEpisodes` shape).
+- No sibling-service ctor dependency; no N+1-avoidance bulk-load + GroupBy hydration block; no `ToReleaseResource` helper.
+- `T-07-01 BadRequestException` safety preserved verbatim (GET with neither `mangaId` nor `chapterIds` → 400 BadRequest).
+
+**Wanted/Missing semantic (Phase 16.1 REVERT-05):** Sonarr-canonical `monitored && ChapterFileId == null` mirrors `Episode.Monitored && EpisodeFileId == 0`. Frontend `ChapterStatus.tsx` predicate is `monitored && !hasFile`; pill text is the literal `'Missing'` (max Sonarr parity).
+
+## ChapterFileResource (Phase 16.1 D-04 collapse)
+
+The `ChapterFile` entity carries 2 group-axis fields after Phase 16.1 D-04 (Phase 6 PIPELINE-04 originally landed 3; the redundant `ReleaseGroup` field collapsed into `ScanlationGroup` as the canonical "release group" axis for manga):
+
+- `translatedLanguage` — BCP-47 string (e.g., `"en"`, `"ja"`)
+- `scanlationGroup` — string (D-05 wire-side rename from prior `releaseGroup` field; canonical for manga; D-06 `// Sonarr divergence:` marker on the C# property)
+
+Together these mirror Sonarr's `EpisodeFile.Languages` + `EpisodeFile.ReleaseGroup` slot pair. The renamed wire field name (`scanlationGroup` instead of `releaseGroup`) makes the manga-domain semantic explicit — see DIVERGENCE.md "ChapterFile.ScanlationGroup is the canonical release-group axis for manga" entry.
 
 ## Phase 13 — API V5 surface backfill
 

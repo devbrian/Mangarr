@@ -5,6 +5,12 @@
 // Closest precedent: `frontend/src/Wanted/Missing/Missing.tsx` (sortable flat
 // table with per-row monitor + search affordances).
 //
+// Column layout: 5 columns (monitored, chapterNumber, title, status, actions).
+// Canonical Chapter row is language-free; per-translation breadth is not
+// surfaced in the chapters table (manga-domain decision — translation
+// preference belongs in QualityProfile/ReleaseProfile via preferred terms,
+// not a per-row column).
+//
 // Manga sibling preserves: Table + TableBody + TableHeader render shape;
 // react-query-driven data flow.
 // Manga sibling diverges from SeriesDetailsSeason:
@@ -13,8 +19,7 @@
 //     hard-no anti-pattern (UI-SPEC §Anti-pattern 5).
 //   * Client-side sort/filter (no server pagination per RESEARCH Open
 //     Question 2 lean) over the manga-specific columns: monitored, chapter
-//     number, title, language, scanlation group, release date, status,
-//     actions.
+//     number, title, status, actions.
 //
 // Phase 8 cleanup: nothing to collapse — this stays.
 import React, { useMemo, useState } from 'react';
@@ -55,24 +60,6 @@ const DEFAULT_COLUMNS: Column[] = [
     isSortable: true,
   },
   {
-    name: 'translatedLanguage',
-    label: () => translate('TranslatedLanguage'),
-    isVisible: true,
-    isSortable: true,
-  },
-  {
-    name: 'scanlationGroup',
-    label: () => translate('ScanlationGroup'),
-    isVisible: true,
-    isSortable: true,
-  },
-  {
-    name: 'releaseDate',
-    label: () => translate('ReleaseDate'),
-    isVisible: true,
-    isSortable: true,
-  },
-  {
     name: 'status',
     label: () => translate('Status'),
     isVisible: true,
@@ -94,12 +81,6 @@ function getSortValue(chapter: Chapter, sortKey: string): unknown {
       return chapter.chapterNumber;
     case 'title':
       return chapter.title?.toLowerCase() ?? '';
-    case 'translatedLanguage':
-      return chapter.translatedLanguage?.toLowerCase() ?? '';
-    case 'scanlationGroup':
-      return chapter.scanlationGroup?.toLowerCase() ?? '';
-    case 'releaseDate':
-      return chapter.releaseDate ?? '';
     case 'status':
       // Bucket the status into a stable sort key matching the Lock #4
       // precedence ordering (lower = higher in the list).

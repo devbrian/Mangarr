@@ -44,6 +44,15 @@ namespace NzbDrone.Core.Test.OrganizerTests.Manga
 
         private List<NzbDrone.Core.Manga.Chapter> SingleChapter(decimal number, string title = null, string lang = null, string scanGroup = null)
         {
+            // Phase 16 STRUCT-01 + Phase 16.1: TranslatedLanguage / ScanlationGroup are
+            // language/group axes on ChapterFile (post-import) per the Sonarr-canonical
+            // pattern (mirrors EpisodeFile.Languages + EpisodeFile.ReleaseGroup placement).
+            // Token resolution reads from ReleaseInfo at filename-builder time. The lang /
+            // scanGroup args are kept for caller compatibility but unused here; tests that
+            // assert {Language} or {ScanlationGroup} tokens populate the ReleaseInfo
+            // fixture directly.
+            _ = lang;
+            _ = scanGroup;
             return new List<NzbDrone.Core.Manga.Chapter>
             {
                 new NzbDrone.Core.Manga.Chapter
@@ -52,8 +61,6 @@ namespace NzbDrone.Core.Test.OrganizerTests.Manga
                     MangaId = 1,
                     ChapterNumber = number,
                     Title = title,
-                    TranslatedLanguage = lang,
-                    ScanlationGroup = scanGroup
                 }
             };
         }

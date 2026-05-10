@@ -5,7 +5,6 @@ using System.Linq;
 using FluentValidation.Results;
 using NLog;
 using NzbDrone.Common.Http;
-using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaCover;
 using NzbDrone.Core.MetadataSource.MangaDex.Resource;
 using NzbDrone.Core.Parser.Manga;
@@ -64,7 +63,8 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
         private MangaDexApi Api =>
             _api ??= new MangaDexApi(_httpClient, Settings.BaseUrl, ResolveUserAgent, SourceKey);
 
-        public override Tuple<NzbDrone.Core.Manga.Manga, List<Chapter>> GetMangaInfo(string sourceId)
+        public override Tuple<NzbDrone.Core.Manga.Manga, IEnumerable<NzbDrone.Core.Manga.Chapter>>
+            GetMangaInfo(string sourceId)
         {
             if (!Guid.TryParse(sourceId, out var guid))
             {
@@ -76,7 +76,12 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
 
             var manga = MapManga(item);
             var feedEntries = Api.GetFeed(guid);
-            var chapters = feedEntries.Select(MapChapter).ToList();
+
+            // Phase 16.1 Wave 3 (REVERT-03): project the flat feed into a Sonarr-canonical
+            // IEnumerable<Chapter>. MapChapters dedups multiple per-translation feed entries
+            // by canonical ChapterNumber via GroupBy + Last() (BL-05 multi-translation
+            // dedup safety — mirror of Sonarr's DistinctBy(new { SeasonNumber, EpisodeNumber })).
+            var chapters = MapChapters(feedEntries);
             return Tuple.Create(manga, chapters);
         }
 
@@ -222,7 +227,19 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             return manga;
         }
 
-        private static Chapter MapChapter(ChapterFeedEntry entry)
+        // Phase 16.1 Wave 3 (REVERT-03): each MangaDex feed entry maps to a single
+        // canonical Chapter — Sonarr-canonical (mirror of SkyHookProxy.MapEpisode where each
+        // feed entry produces one Episode row). The Phase 16 per-translation side-channel
+        // tuple-stream projection (canonical payload + per-release feed-row) is collapsed.
+        //
+        // attrs.PublishAt populates Chapter.FirstReleaseDate — Sonarr-mirror of
+        // Episode.AirDateUtc (Phase 16 D-02 survives the revert).
+        //
+        // attrs.TranslatedLanguage and the scanlation_group relationship are NOT projected
+        // here — those per-release axes live on ChapterFile after import (Phase 6
+        // PIPELINE-04 axis: ChapterFile.TranslatedLanguage + ChapterFile.ScanlationGroup),
+        // not on the metadata-feed projection.
+        private static NzbDrone.Core.Manga.Chapter MapChapter(ChapterFeedEntry entry)
         {
             var attrs = entry.Attributes;
             var chapterNumber = 0m;
@@ -237,22 +254,41 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
                 volume = v;
             }
 
-            var group = entry.Relationships?
-                .FirstOrDefault(r => r.Type == "scanlation_group")?.Attributes?.Name;
-
-            return new Chapter
+            return new NzbDrone.Core.Manga.Chapter
             {
                 ChapterNumber = chapterNumber,
                 VolumeNumber = volume,
                 Title = attrs?.Title,
-                TranslatedLanguage = attrs?.TranslatedLanguage ?? "und",
-                ScanlationGroup = group,
                 ChapterType = ChapterType.Regular,
-                IsSynthetic = false,
-                ReleaseDate = attrs?.PublishAt,
+                FirstReleaseDate = attrs?.PublishAt,    // Sonarr-mirror of Episode.AirDateUtc (D-02 chapter-publish date)
                 ExternalId = entry.Id,
-                Monitored = true,
+                Monitored = true,                       // Sonarr precedent: new chapters monitored by default
             };
+        }
+
+        // Phase 16.1 Wave 3 (REVERT-03): flat IEnumerable<Chapter> projection — Sonarr-canonical
+        // mirror of SkyHookProxy's per-feed-entry → Episode mapping with a DistinctBy precedent
+        // for dedup at the natural key.
+        //
+        // BL-05 multi-translation regression safety: GroupBy + Last() collapses multiple
+        // per-translation feed entries (the MangaDex feed yields one entry per (chapter, language,
+        // group) tuple) to one canonical Chapter. Mirror of Sonarr's
+        // DistinctBy(new { m.SeasonNumber, m.EpisodeNumber }) precedent at the canonical natural
+        // key. Last-write-wins on the canonical mutable fields (Title / VolumeNumber /
+        // FirstReleaseDate); the per-translation language and scanlation-group axes are NOT in
+        // the canonical Chapter and live on ChapterFile after import.
+        public static IEnumerable<NzbDrone.Core.Manga.Chapter> MapChapters(IEnumerable<ChapterFeedEntry> entries)
+        {
+            if (entries == null)
+            {
+                return new List<NzbDrone.Core.Manga.Chapter>();
+            }
+
+            return entries
+                .Select(MapChapter)
+                .GroupBy(c => c.ChapterNumber)
+                .Select(g => g.Last())     // BL-05 dedup safety — last canonical write wins
+                .ToList();
         }
 
         /// <summary>

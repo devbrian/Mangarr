@@ -69,9 +69,9 @@ namespace Mangarr.Api.V5.Manga.Wanted
     //
     // Manga sibling diverges from MangaMissingController:
     //   * Inject IChapterCutoffService (not IChapterService) — different paged query.
-    //   * Drop the languages[] + ageRating filters (cutoff is profile-driven; languages + ageRating
-    //     are upstream of the cutoff calculation per ChapterCutoffService:63-103). Keep monitored +
-    //     mangaIds[] + includeSubresources.
+    //   * Drop the ageRating filter (cutoff is profile-driven; ageRating is upstream of the
+    //     cutoff calculation per ChapterCutoffService:63-103). Keep monitored + mangaIds[] +
+    //     includeSubresources.
     //   * Drop the post-paged in-memory ageRating filter (no ageRating query in this endpoint).
     //   * Extends RestControllerWithSignalR<ChapterResource, Chapter> + subscribes to
     //     ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent (NOT plain
@@ -134,15 +134,17 @@ namespace Mangarr.Api.V5.Manga.Wanted
         {
             var includeManga = includeSubresources?.Contains(MangaCutoffSubresource.Manga) ?? false;
 
+            // Sonarr-canonical sort keys: firstReleaseDate (Sonarr-mirror of Episode.AirDateUtc),
+            // chapterNumber, title. Frontend sends `?sortKey=firstReleaseDate` directly.
             var pagingResource = new PagingResource<ChapterResource>(paging);
             var pagingSpec = pagingResource.MapToPagingSpec<ChapterResource, NzbDrone.Core.Manga.Chapter>(
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    "releaseDate",
+                    "firstReleaseDate",
                     "chapterNumber",
                     "title"
                 },
-                "releaseDate",
+                "firstReleaseDate",
                 SortDirection.Ascending);
 
             if (monitored)

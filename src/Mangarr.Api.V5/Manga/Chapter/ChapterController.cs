@@ -41,6 +41,12 @@ namespace Mangarr.Api.V5.Manga.Chapter;
 //   * Every HTTP method carries [Produces("application/json")] (Pitfall 4 — guarantees
 //     OpenAPI v5 doc generation surfaces the response shape).
 //
+// Phase 16.1 revert (Wave 2): the Phase 16 STRUCT-08 N+1-safe `releases: [...]`
+// hydration — and its sibling-service ctor dependency — were REMOVED. The
+// GetChapters action now direct-maps via `chapters.ToResource()` exactly like Sonarr's
+// EpisodeController. Per-translation language and packager axes route through the
+// existing `ChapterFile` translation-axis fields shipped in Phase 6.
+//
 // Phase 8 cleanup: collapse with EpisodeController when Tv/ deletes.
 [V5ApiController]
 public class ChapterController : RestControllerWithSignalR<ChapterResource, NzbDrone.Core.Manga.Chapter>,
@@ -66,12 +72,14 @@ public class ChapterController : RestControllerWithSignalR<ChapterResource, NzbD
     {
         if (mangaId.HasValue)
         {
-            return TypedResults.Ok(_chapterService.GetChaptersByManga(mangaId.Value).ToResource());
+            var chapters = _chapterService.GetChaptersByManga(mangaId.Value);
+            return TypedResults.Ok(chapters.ToResource());
         }
 
         if (chapterIds is { Count: > 0 })
         {
-            return TypedResults.Ok(_chapterService.GetChapters(chapterIds).ToResource());
+            var chapters = _chapterService.GetChapters(chapterIds);
+            return TypedResults.Ok(chapters.ToResource());
         }
 
         // T-07-01 mitigation: no parent id and no chapterIds → 400, mirrors

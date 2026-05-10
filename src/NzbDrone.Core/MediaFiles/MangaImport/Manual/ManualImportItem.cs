@@ -13,9 +13,9 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
     //   * SeasonNumber dropped (manga has no seasons per LocalChapter).
     //   * Episodes (List<Episode>) → Chapters (List<Chapter>).
     //   * EpisodeFileId → ChapterFileId.
-    //   * QualityModel + List<Language> + ReleaseGroup dropped (Phase 5 D-04: manga has no
-    //     QualityModel) and replaced by TranslatedLanguage + ScanlationGroup (mirrors
-    //     LocalChapter shape).
+    //   * QualityModel + List<Language> + ReleaseGroup absorbed into ScanlationGroup
+    //     (Phase 16.1 D-04 + D-06 — scanlation groups ARE the release groups for manga;
+    //     ReleaseGroup originally dropped Phase 5 D-04, mirrors LocalChapter shape).
     //   * Rejections IEnumerable<ImportRejection> → IEnumerable<MangaImportRejection>.
     //
     // Phase 8 cleanup: collapse with TV ManualImportItem when Tv/ deletes.

@@ -35,7 +35,6 @@ interface ChapterFile {
   dateAdded: string;
   translatedLanguage?: string;
   scanlationGroup?: string;
-  releaseGroup?: string;
 }
 
 const COLUMNS: Column[] = [

@@ -20,6 +20,11 @@ namespace NzbDrone.Api.Test.Manga.Chapter
     // Mocker.SetConstant pattern that Phase 6 controller-adjacent fixtures established
     // (e.g. ChapterServiceFixture).
     //
+    // Phase 16.1 revert (Wave 2): the Phase 16 STRUCT-08 `releases: [...]` hydration tests
+    // and the per-test IChapterReleaseService mock were REMOVED — ChapterController no
+    // longer hydrates a per-canonical-chapter releases collection (Sonarr-canonical
+    // direct-map via `chapters.ToResource()`).
+    //
     // Covers all 6 endpoint shapes wired by ChapterController:
     //   1. GET /api/v5/chapter?mangaId={id}        → IChapterService.GetChaptersByManga
     //   2. GET /api/v5/chapter?chapterIds=...      → IChapterService.GetChapters

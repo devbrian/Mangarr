@@ -50,12 +50,13 @@ namespace NzbDrone.Core.MediaFiles
         {
             var chapterFilePath = Path.Combine(manga.Path, chapterFile.RelativePath);
 
-            // Pick the chapter with the most recent ReleaseDate (analog of TV picking the
-            // latest aired episode). Skips chapters without a ReleaseDate.
+            // Phase 16 D-02 — chapter.ReleaseDate -> chapter.FirstReleaseDate (Sonarr-mirror of
+            // Episode.AirDateUtc). Pick the chapter with the most recent FirstReleaseDate (analog
+            // of TV picking the latest aired episode). Skips chapters without a FirstReleaseDate.
             var releaseDateUtc = chapters
-                .Where(c => c.ReleaseDate.HasValue)
-                .OrderByDescending(c => c.ReleaseDate.Value)
-                .Select(c => (DateTime?)c.ReleaseDate.Value)
+                .Where(c => c.FirstReleaseDate.HasValue)
+                .OrderByDescending(c => c.FirstReleaseDate.Value)
+                .Select(c => (DateTime?)c.FirstReleaseDate.Value)
                 .FirstOrDefault();
 
             if (!releaseDateUtc.HasValue)

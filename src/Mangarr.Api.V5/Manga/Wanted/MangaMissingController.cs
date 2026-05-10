@@ -38,7 +38,7 @@ namespace Mangarr.Api.V5.Manga.Wanted
     // ChapterControllerWithSignalR base class exists in v1 — verified via Grep 2026-05-06).
     //
     // WANTED-01..03: paged list of monitored chapters that have no ChapterFile imported,
-    // filterable by mangaIds + languages + ageRating.
+    // filterable by mangaIds + ageRating.
     //
     // Manga sibling preserves: [V5ApiController] route attribute (literal string per Plan 07-02
     // URL-shaped key contract); PagingRequestResource shape; monitored filter; FilterExpressions
@@ -48,10 +48,7 @@ namespace Mangarr.Api.V5.Manga.Wanted
     //   * Inject IChapterService (paged ChaptersWithoutFiles overload added by Plan 06-09)
     //     + IMangaService (for ageRating filter join + Manga subresource hydration).
     //   * Drop EpisodesWithoutFiles + includeSpecials (manga has no specials concept).
-    //   * Add mangaIds + languages + ageRating filters per WANTED-03.
-    //   * D-04 honored: IsSynthetic=true rows are surfaced identically to IsSynthetic=false
-    //     rows by default. No `WHERE IsSynthetic = false` filter is applied. A future
-    //     `excludeSynthetic` query param could opt-in to the filter; v1 default is INCLUDE.
+    //   * Add mangaIds + ageRating filters per WANTED-03.
     //   * ageRating filter is post-paged (in-memory) because it requires a JOIN to Manga
     //     and the v1 ChapterRepository.ChaptersWithoutFiles does not JOIN. Acceptable for
     //     Phase 6 — the result set is bounded by the paging spec (default 10/page).
@@ -59,6 +56,12 @@ namespace Mangarr.Api.V5.Manga.Wanted
     //     ChapterGrabbedEvent / ChapterImportedEvent / ChapterFileDeletedEvent (NOT plain
     //     Controller). F-MISSING-SIGNALR follow-up (2026-05-06) — mirrors the F-CUTOFF-SIGNALR
     //     closure for cross-controller consistency between the two manga V5 wanted endpoints.
+    //
+    // Phase 16.1 revert (Wave 2): the Phase 16 D-04 per-translation filter parameter and
+    // its sibling-service ctor dependency were REMOVED. Wanted/Missing reverts to the
+    // Sonarr-canonical predicate `monitored && ChapterFileId == null` (mirrors
+    // `Episode.Monitored && EpisodeFileId == 0`). Manga-domain translation preference belongs
+    // in QualityProfile / ReleaseProfile via preferred terms, not a controller-level filter.
     //
     // SignalR emission contract (mirrors TV EpisodeControllerWithSignalR shape verbatim):
     //   * `manga/wanted/missing` resource name auto-derives from
@@ -100,21 +103,22 @@ namespace Mangarr.Api.V5.Manga.Wanted
         public Ok<PagingResource<ChapterResource>> GetMissingChapters([FromQuery] PagingRequestResource paging,
                                                                       bool monitored = true,
                                                                       [FromQuery] int[]? mangaIds = null,
-                                                                      [FromQuery] string[]? languages = null,
                                                                       [FromQuery] string? ageRating = null,
                                                                       [FromQuery] MangaMissingSubresource[]? includeSubresources = null)
         {
             var includeManga = includeSubresources?.Contains(MangaMissingSubresource.Manga) ?? false;
 
+            // Sonarr-canonical sort keys: firstReleaseDate (Sonarr-mirror of Episode.AirDateUtc),
+            // chapterNumber, title. Frontend sends `?sortKey=firstReleaseDate` directly.
             var pagingResource = new PagingResource<ChapterResource>(paging);
             var pagingSpec = pagingResource.MapToPagingSpec<ChapterResource, NzbDrone.Core.Manga.Chapter>(
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    "releaseDate",
+                    "firstReleaseDate",
                     "chapterNumber",
                     "title"
                 },
-                "releaseDate",
+                "firstReleaseDate",
                 SortDirection.Ascending);
 
             if (monitored)
@@ -127,20 +131,9 @@ namespace Mangarr.Api.V5.Manga.Wanted
                 pagingSpec.FilterExpressions.Add(c => mangaIds.Contains(c.MangaId));
             }
 
-            if (languages != null && languages.Length > 0)
-            {
-                pagingSpec.FilterExpressions.Add(c => languages.Contains(c.TranslatedLanguage));
-            }
-
-            // D-04: NO IsSynthetic filter. Synthetic rows are placeholder rows from the
-            // metadata-only-count fallback (Phase 2 D-17) and surface identically to real-feed
-            // rows in the Wanted list. Indexer match upgrades the synthetic row in place per
-            // Phase 2 D-17.
-
-            // ageRating requires a Manga JOIN; apply post-paged in-memory.
-            // The result set is bounded by the paging spec (default 10/page) so the
-            // in-memory pass cost is negligible. Future Phase 8 collapse may push the
-            // filter into the SQL builder.
+            // ageRating requires a JOIN and applies post-paged in-memory. The result set is
+            // bounded by the paging spec (default 10/page) so the in-memory pass cost is
+            // negligible. Future Phase 8 collapse may push the filter into the SQL builder.
             var page = pagingSpec.ApplyToPage(
                 spec => _chapterService.ChaptersWithoutFiles(spec),
                 c => MapToResource(c, includeManga));

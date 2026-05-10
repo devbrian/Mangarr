@@ -7,6 +7,14 @@
         "serve"
       ],
       "type": "stdio"
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ],
+      "type": "stdio"
     }
   }
 }

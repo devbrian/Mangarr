@@ -7,6 +7,9 @@ namespace NzbDrone.Core.MediaFiles
     // Sonarr divergence: NEW manga sibling per Phase 6 PIPELINE-04 — see DIVERGENCE.md.
     // Role-match analog: src/NzbDrone.Core/MediaFiles/EpisodeFile.cs (TV).
     // Imported chapter artifact (CBZ / folder of images) on disk + provenance fields.
+    // Phase 16.1 D-06: 2 group-axis fields (TranslatedLanguage + ScanlationGroup), not 3 —
+    // ReleaseGroup absorbed into ScanlationGroup (scanlation groups ARE the release groups
+    // for manga). See DIVERGENCE.md ScanlationGroup-as-canonical entry.
     // Phase 8 cleanup: collapse with EpisodeFile when Tv/ deletes.
     public class ChapterFile : ModelBase
     {
@@ -18,8 +21,11 @@ namespace NzbDrone.Core.MediaFiles
         public DateTime DateAdded { get; set; }
         public string OriginalFilePath { get; set; }
         public string TranslatedLanguage { get; set; }   // BCP-47 — provenance
+
+        // Sonarr divergence: ScanlationGroup is the canonical "release group" axis for manga;
+        // renamed from Sonarr's EpisodeFile.ReleaseGroup because scanlation groups ARE the
+        // release groups for manga. (D-06; DIVERGENCE.md ScanlationGroup-as-canonical entry.)
         public string ScanlationGroup { get; set; }
-        public string ReleaseGroup { get; set; }
 
         public override string ToString()
         {

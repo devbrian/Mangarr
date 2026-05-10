@@ -528,16 +528,13 @@ namespace NzbDrone.Core.Datastore.Migration
             Create.TableForModel("Chapters")
                 .WithColumn("MangaId").AsInt32().NotNullable()
                 .WithColumn("ChapterNumber").AsDecimal(10, 3).NotNullable()         // D-12 applied at baseline (was DECIMAL(10,2))
-                .WithColumn("TranslatedLanguage").AsString().NotNullable()           // BCP-47
-                .WithColumn("ScanlationGroup").AsString().Nullable()
                 .WithColumn("Title").AsString().Nullable()
-                .WithColumn("ReleaseDate").AsDateTime().Nullable()
+                .WithColumn("FirstReleaseDate").AsDateTime().Nullable()                           // Phase 16 D-02 (kept Phase 16.1 — Sonarr-mirror of Episode.AirDateUtc; chapter-publish date)
                 .WithColumn("Monitored").AsBoolean().NotNullable()
                 .WithColumn("ExternalId").AsString().Nullable()
                 .WithColumn("ChapterType").AsString().NotNullable().WithDefaultValue("Regular")  // folded from 002 (D-11)
                 .WithColumn("VolumeNumber").AsInt32().Nullable()                                  // folded from 002 (D-11)
                 .WithColumn("AbsoluteChapterNumber").AsDecimal(10, 3).Nullable()                  // folded from 002 (D-11)
-                .WithColumn("IsSynthetic").AsBoolean().NotNullable().WithDefaultValue(false)      // folded from 002 (D-17 marker)
                 .WithColumn("LastSearchTime").AsDateTime().Nullable();                            // Phase 8 audit gap-07 — search-history per chapter (sibling of Episodes.LastSearchTime)
 
             // ─────────────────────────────────────────────────────────────────────
@@ -571,20 +568,14 @@ namespace NzbDrone.Core.Datastore.Migration
                 .OnColumn("MangaId").Ascending()
                 .OnColumn("Date").Descending();
 
-            // 4. (Chapters.MangaId, ChapterNumber, TranslatedLanguage) —
-            //    Phase 5 selection path.
-            Create.Index().OnTable("Chapters")
+            // 4. Phase 16 STRUCT-01: composite UNIQUE on canonical Chapter grain — replaces the
+            //    language-keyed indexes #4 + #5 from the pre-Phase-16 shape. First composite-UNIQUE
+            //    in the codebase (FluentMigrator DSL verified against SQLite + PostgreSQL per
+            //    RESEARCH Pitfall 6 / Assumption A1).
+            Create.Index("IX_Chapters_MangaId_ChapterNumber").OnTable("Chapters")
                 .OnColumn("MangaId").Ascending()
                 .OnColumn("ChapterNumber").Ascending()
-                .OnColumn("TranslatedLanguage").Ascending();
-
-            // 5. (Chapters.MangaId, TranslatedLanguage) — LANG-01 wanted-list filter.
-            //    NOTE: leftmost-prefix from index #4 cannot cover this (TranslatedLanguage
-            //    is third col, second col ChapterNumber blocks the prefix match). Two
-            //    indexes are required. See Pitfall 3 in 01-RESEARCH.md.
-            Create.Index().OnTable("Chapters")
-                .OnColumn("MangaId").Ascending()
-                .OnColumn("TranslatedLanguage").Ascending();
+                .WithOptions().Unique();
 
             // No seed data. The RefreshMangaCommand ScheduledTasks row is registered by
             // TaskManager.Handle(ApplicationStartedEvent) at runtime (Sonarr's canonical
@@ -655,8 +646,7 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("DateAdded").AsDateTime().NotNullable()
                 .WithColumn("OriginalFilePath").AsString().Nullable()
                 .WithColumn("TranslatedLanguage").AsString().Nullable()
-                .WithColumn("ScanlationGroup").AsString().Nullable()
-                .WithColumn("ReleaseGroup").AsString().Nullable();
+                .WithColumn("ScanlationGroup").AsString().Nullable();
 
             Create.Index("IX_ChapterFile_MangaId").OnTable("ChapterFiles").OnColumn("MangaId");
             Create.Index("IX_ChapterFile_ChapterId").OnTable("ChapterFiles").OnColumn("ChapterId");

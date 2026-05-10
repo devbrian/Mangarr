@@ -3,12 +3,15 @@
 // monitor + status + search — the Manga Chapters tab is a flat sortable
 // table with no season grouping per PROJECT.md "Volumes/Seasons" Out-of-Scope).
 //
+// Canonical row layout: monitored / chapterNumber / title / status / actions.
+// Status cell reads aggregate state from ChapterStatus.tsx (Sonarr-canonical
+// `monitored && !hasFile` predicate for the Missing pill).
+//
 // Manga sibling preserves: <TableRow> + per-column dispatch shape;
-// MonitorToggleButton + RelativeDateCell + TableRowCell.
+// MonitorToggleButton + TableRowCell.
 // Manga sibling diverges from EpisodeRow:
 //   * Drops scene-numbering cells, EpisodeFileLanguages cell, MediaInfo cell,
 //     IndexerFlags cell, runtime cell, finaleType — manga has none of these.
-//   * Adds LanguageBadge cell + ScanlationGroup cell.
 //   * Per-row monitor toggle dispatches PUT /api/v5/chapter/{id} with full
 //     chapter body (Plan 07-01 RestPutById endpoint) instead of dispatching
 //     into the Sonarr command queue.
@@ -17,12 +20,11 @@
 //   * `actions` cell renders ChapterSearchCell (Auto + Interactive search).
 //
 // T-07-15 (XSS) mitigation: every user-controlled string field flows through
-// React JSX default escaping ({chapter.title}, {scanlationGroup}). NO
-// dangerouslySetInnerHTML anywhere in this file.
+// React JSX default escaping ({chapter.title}). NO dangerouslySetInnerHTML
+// anywhere in this file.
 //
 // Phase 8 cleanup: collapse with EpisodeRow when Tv/ deletes.
 import React, { useCallback } from 'react';
-import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import Column from 'Components/Table/Column';
 import TableRow from 'Components/Table/TableRow';
@@ -32,7 +34,6 @@ import ChapterNumber from 'Chapter/ChapterNumber';
 import ChapterSearchCell from 'Chapter/ChapterSearchCell';
 import ChapterStatus from 'Chapter/ChapterStatus';
 import ChapterTitleLink from 'Chapter/ChapterTitleLink';
-import LanguageBadge from 'Chapter/LanguageBadge';
 import { useToggleChapterMonitored } from 'Chapter/useChapter';
 import { useSingleManga } from 'Manga/useManga';
 import styles from './ChapterRow.css';
@@ -100,26 +101,6 @@ function ChapterRow({ chapter, columns }: ChapterRowProps) {
               />
             </TableRowCell>
           );
-        }
-
-        if (name === 'translatedLanguage') {
-          return (
-            <TableRowCell key={name} className={styles.language}>
-              <LanguageBadge language={chapter.translatedLanguage} />
-            </TableRowCell>
-          );
-        }
-
-        if (name === 'scanlationGroup') {
-          return (
-            <TableRowCell key={name} className={styles.scanlationGroup}>
-              {chapter.scanlationGroup}
-            </TableRowCell>
-          );
-        }
-
-        if (name === 'releaseDate') {
-          return <RelativeDateCell key={name} date={chapter.releaseDate} />;
         }
 
         if (name === 'status') {

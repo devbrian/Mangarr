@@ -388,3 +388,42 @@ diversification.
 *Last updated: 2026-05-08 (Phase 15 plan 15-09 Wave 5 close-out — appended F-A (Donate href: PRESERVE as upstream-acknowledgment) + F-B (DB filename: sonarr.db -> mangarr.db + in-place migrator) decisions + fix-forward Sonarr-string sweep (Bootstrap.cs + Startup.cs + NotificationBase.cs + NotificationService.cs + NzbDroneRunner.cs) + D-28 REG-DUMP hook closure)*
 
 *Last updated: 2026-05-09 (post-Phase-15 fresh-DB-UX divergence — IndexerFactory + DownloadClientFactory InitializeProviders overrides seed MangaDex + Comix indexers + Mangarr In-Process Downloader on empty DB; idempotent S4-pattern; mirrors MetadataSourceFactory precedent)*
+
+## ChapterFile.ScanlationGroup is the canonical release-group axis for manga (Phase 16.1, 2026-05-10)
+
+**Status:** Active (Phase 16.1 revert; locked 2026-05-10).
+
+**Sonarr counterpart:** `EpisodeFile.ReleaseGroup` — the canonical "release group" slot in Sonarr's pre-deletion file entity (`git show 7794a184cf~1:src/NzbDrone.Core/MediaFiles/EpisodeFile.cs` shape).
+
+**Manga divergence:** Mangarr's renamed `ChapterFile` adopts `ScanlationGroup` as the canonical release-group axis — same conceptual slot, manga-domain field name. The TV-side `EpisodeFile` was deleted in Phase 15 so there is no parallel to maintain; `ChapterFile.ScanlationGroup` is the single canonical home.
+
+**Why diverge:** Scanlation groups ARE the release groups for manga. The "release group" concept in Sonarr — the named entity that packaged the release (`-RARBG`, `-EZTV`, etc.) — maps 1:1 onto manga's "scanlation group" concept (the named team that translated, typeset, and packaged the chapter). Naming the field `ScanlationGroup` instead of `ReleaseGroup` makes the manga-domain semantic explicit at every layer (DB column, C# property, JSON wire field, frontend type) without losing Sonarr's structural shape.
+
+**Why this is a CONSCIOUS divergence (not accidental):** Phase 6 PIPELINE-04 originally landed both `ChapterFile.ReleaseGroup` (mirroring Sonarr verbatim) AND `ChapterFile.ScanlationGroup` (carrying the manga-domain semantic) as separate columns. Phase 16.1 D-04 collapses the two into a single canonical field — `ScanlationGroup` — because the redundancy added complexity with no behavioral payoff. The collapsed shape is more aligned with Sonarr's *pattern* (one canonical release-group axis on the file entity) while diverging from Sonarr's *literal field name* (renamed for manga-domain semantic clarity).
+
+**Marker discipline:** the C# property declaration in `ChapterFile.cs` carries an inline `// Sonarr divergence: ScanlationGroup is the canonical "release group" axis for manga; renamed from Sonarr's EpisodeFile.ReleaseGroup because scanlation groups ARE the release groups for manga.` comment per Phase 15 Pattern S2 / Phase 16.1 D-06 (Pattern ι allowlist match for sonarr-consistency-audit).
+
+**Per-translation language axis:** the sibling field `ChapterFile.TranslatedLanguage` (BCP-47 string) carries the per-translation language at the file grain. Together `ChapterFile.TranslatedLanguage` + `ChapterFile.ScanlationGroup` form the manga-domain "release identity" pair on the file entity — Sonarr-canonical analogue: `EpisodeFile.Languages` + `EpisodeFile.ReleaseGroup`.
+
+**Wire shape:** `ChapterFileResource` emits camelCase `scanlationGroup` (D-05). The `ChapterFiles` schema table has 2 group-axis columns (`TranslatedLanguage`, `ScanlationGroup`) — not 3.
+
+**Wanted / Missing semantic:** Sonarr-canonical `monitored && ChapterFileId == null` mirrors `Episode.Monitored && EpisodeFileId == 0` byte-for-byte at the predicate level. `MangaMissingController` carries no `languages[]` query parameter (no Sonarr analog — per-translation preference belongs in TranslationProfile, not a controller-level filter).
+
+**Cross-references:**
+- `src/NzbDrone.Core/MediaFiles/ChapterFile.cs` — D-06 marker on the `ScanlationGroup` C# property declaration
+- `src/NzbDrone.Core/Datastore/Migration/001_mangarr_baseline.cs` — `ChapterFiles.ScanlationGroup` schema column
+- `src/Mangarr.Api.V5/Manga/Chapter/ChapterFileResource.cs` — wire shape carrying `scanlationGroup`
+- `.planning/phases/16.1-revert-chapterrelease-adopt-sonarr-canonical-translation-pat/16.1-SUMMARY.md` — Phase 16.1 close-out record (revert from Phase 16's `ChapterRelease` over-engineering)
+- `.planning/phases/16.1-revert-chapterrelease-adopt-sonarr-canonical-translation-pat/16.1-PHASE-8-REAUDIT-DELTA.md` — Category B verdicts re-resolved at the `ChapterFile` grain (rows 1-2 in `16-PHASE-8-REAUDIT.md`)
+- `git show 7794a184cf~1:src/NzbDrone.Core/MediaFiles/EpisodeFile.cs` — pre-deletion Sonarr `EpisodeFile.ReleaseGroup` slot (the canonical position `ChapterFile.ScanlationGroup` mirrors)
+
+**Historical note:** Phase 16 (closed 2026-05-09) attempted a `ChapterRelease` sibling persistent layer that carried per-(language, scanlation-group) translation metadata as a separate entity. Phase 16.1 reverted that approach (closed 2026-05-10) because every axis the sibling carried already had a canonical home on `ChapterFile` — the over-engineered persistent layer was paid-for-but-unrealized cost. The 44 Phase 16 commits remain in the git history as a "path not taken" record (no rebase, no squash, no `git revert` storm). For the historical context see `.planning/phases/16-chapter-canonical-release-split/16-SPEC.md` + the Phase 16.1 SUMMARY.
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `src/NzbDrone.Core/MediaFiles/ChapterFile.cs` `ScanlationGroup : string` property | rename | Phase 16.1 | Per CONTEXT.md D-04 / D-06 + REVERT-06. Renamed from Phase 6 PIPELINE-04's `ReleaseGroup` to make the manga-domain semantic explicit; D-06 inline `// Sonarr divergence:` marker on the C# property declaration. The pre-Phase-16.1 redundant pair (`ReleaseGroup` + `ScanlationGroup`) collapsed into a single canonical axis. |
+| `src/Mangarr.Api.V5/Manga/Chapter/ChapterFileResource.cs` `scanlationGroup` JSON field | rename | Phase 16.1 | Per CONTEXT.md D-05. Wire-side mirror of the C# rename; consumers see camelCase `scanlationGroup`. Pre-v1 dev policy means no external API consumers to break. |
+| `001_mangarr_baseline.cs` `ChapterFiles.ScanlationGroup` schema column | rename | Phase 16.1 | Per CONTEXT.md D-04 + dev-migration-policy.md edit-001-in-place rule. Renamed from `ReleaseGroup` in-place; fresh DB during dev picks up the change. |
+
+---
+*Last updated: 2026-05-10 (Phase 16.1 plan 16.1-05 — DELETED prior Phase 16 ChapterRelease entry per CONTEXT.md D-10 user-locked decision: DIVERGENCE.md is a snapshot of CURRENT divergences, not a history-of-decisions log; obsolete `ChapterRelease` entry removed because the sibling table no longer exists. NEW ScanlationGroup-as-canonical-release-group entry ADDED documenting the surviving Phase 16.1 divergence — `ChapterFile.ScanlationGroup` is the manga-domain field name for Sonarr's `EpisodeFile.ReleaseGroup` slot. Historical record of the Phase 16 attempt-and-correction lives in 16.1-SUMMARY.md + 16-PHASE-8-REAUDIT.md + 16.1-PHASE-8-REAUDIT-DELTA.md + the preserved 44 Phase 16 commits.)*

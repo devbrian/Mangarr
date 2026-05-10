@@ -53,8 +53,9 @@ namespace NzbDrone.Api.Test.Manga.Wanted
     //   1. Happy-path paged GET delegates to IChapterService.ChaptersWithoutFiles exactly once.
     //   2. Reflective Attribute lookup confirms route literal "manga/wanted/missing" — the contract
     //      that the frontend Plan 07-10 fetch path expects per Plan 07-02 URL-shaped key contract.
-    //   3. Filter-expression behavior tests (monitored / mangaIds / languages — defense-in-depth
-    //      mirroring 12-REVIEW MED-01 pattern).
+    //   3. Filter-expression behavior tests (monitored / mangaIds — defense-in-depth
+    //      mirroring 12-REVIEW MED-01 pattern; languages-filter cohort dropped per Phase 16.1
+    //      revert REVERT-05).
     //   4. Subresource hydration test (includeSubresources=[Manga] / null / empty array).
     //   5. (F-MISSING-SIGNALR) Base-class assertion: MangaMissingController extends
     //      RestControllerWithSignalR<ChapterResource, Chapter> (NOT plain Controller). This
@@ -152,9 +153,11 @@ namespace NzbDrone.Api.Test.Manga.Wanted
         // pattern):
         //   * `monitored=true` adds a `c.Monitored == true` FilterExpression
         //   * `mangaIds[]` (non-empty) adds a `mangaIds.Contains(c.MangaId)` FilterExpression
-        //   * `languages[]` (non-empty) adds a `languages.Contains(c.TranslatedLanguage)` FilterExpression
         //   * `includeSubresources=[Manga]` triggers IMangaService.GetManga(MangaId) hydration in MapToResource
         //   * `includeSubresources` null / empty does NOT trigger hydration
+        //
+        // Phase 16.1 revert (Wave 2): the `languages[]` FilterExpression test was dropped
+        // because the controller surface no longer carries the parameter (REVERT-05).
 
         [Test]
         public void GetMissingChapters_applies_monitored_filter_when_monitored_true()
@@ -250,36 +253,29 @@ namespace NzbDrone.Api.Test.Manga.Wanted
                 "mangaIds filter should reject rows whose MangaId is not in the supplied list");
         }
 
+        // Phase 16.1 REVERT-05 acceptance pin (reflection): the Phase 16 D-04
+        // `[FromQuery] string[]? languages` parameter must NOT exist on
+        // MangaMissingController.GetMissingChapters. Manga-domain translation preference
+        // is enforced in the DecisionEngine via TranslationProfile, NOT a controller-level
+        // filter. Sonarr's MissingController has no `languages[]` analog.
         [Test]
-        public void GetMissingChapters_applies_languages_filter_when_languages_non_empty()
+        public void languages_query_parameter_must_be_absent_from_controller_surface()
         {
-            PagingSpec<NzbDrone.Core.Manga.Chapter> capturedSpec = null;
+            var method = typeof(MangaMissingController)
+                .GetMethod(nameof(MangaMissingController.GetMissingChapters));
 
-            Mocker.GetMock<IChapterService>()
-                .Setup(s => s.ChaptersWithoutFiles(It.IsAny<PagingSpec<NzbDrone.Core.Manga.Chapter>>()))
-                .Returns<PagingSpec<NzbDrone.Core.Manga.Chapter>>(spec =>
-                {
-                    capturedSpec = spec;
-                    spec.Records = new List<NzbDrone.Core.Manga.Chapter>();
-                    spec.TotalRecords = 0;
-                    return spec;
-                });
+            method.Should().NotBeNull(
+                "MangaMissingController.GetMissingChapters must exist");
 
-            // monitored=false to isolate the languages filter.
-            Subject.GetMissingChapters(new PagingRequestResource(), monitored: false, languages: new[] { "en", "ja" });
+            var parameterNames = method!.GetParameters()
+                .Select(p => p.Name)
+                .ToList();
 
-            capturedSpec.Should().NotBeNull();
-            capturedSpec!.FilterExpressions.Should().HaveCount(1,
-                "languages filter should add exactly one FilterExpression when monitored=false + mangaIds empty");
-
-            var enChapter = new NzbDrone.Core.Manga.Chapter { TranslatedLanguage = "en" };
-            var deChapter = new NzbDrone.Core.Manga.Chapter { TranslatedLanguage = "de" };
-
-            var compiledFilter = capturedSpec.FilterExpressions[0].Compile();
-            compiledFilter(enChapter).Should().BeTrue(
-                "languages filter should accept rows whose TranslatedLanguage is in the supplied list");
-            compiledFilter(deChapter).Should().BeFalse(
-                "languages filter should reject rows whose TranslatedLanguage is not in the supplied list");
+            parameterNames.Should().NotContain(
+                "languages",
+                "Phase 16.1 REVERT-05: languages[] parameter dropped from controller surface " +
+                "(no Sonarr analog; manga translation preference belongs in TranslationProfile, " +
+                "not a controller-level filter)");
         }
 
         [Test]

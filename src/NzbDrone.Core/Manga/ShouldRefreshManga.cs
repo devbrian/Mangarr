@@ -68,12 +68,13 @@ namespace NzbDrone.Core.Manga
                 // mid-edit "completed → ongoing" re-classification race, or a one-shot
                 // epilogue chapter). 14-day window narrower than TV because manga moves
                 // weekly+; we want to back off as soon as the trickle stops.
+                // Sonarr divergence: Phase 16 D-02 — chapter.ReleaseDate -> chapter.FirstReleaseDate.
                 var lastChapter = _chapterService.GetChaptersByManga(manga.Id)
-                    .Where(c => c.ReleaseDate.HasValue)
-                    .OrderByDescending(c => c.ReleaseDate)
+                    .Where(c => c.FirstReleaseDate.HasValue)
+                    .OrderByDescending(c => c.FirstReleaseDate)
                     .FirstOrDefault();
 
-                if (lastChapter != null && lastChapter.ReleaseDate > DateTime.UtcNow.AddDays(-14))
+                if (lastChapter != null && lastChapter.FirstReleaseDate > DateTime.UtcNow.AddDays(-14))
                 {
                     _logger.Trace("Last chapter for {0} released less than 14 days ago, should refresh.", manga.Title);
                     return true;

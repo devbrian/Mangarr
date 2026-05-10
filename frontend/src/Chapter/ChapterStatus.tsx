@@ -149,11 +149,20 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
   }
 
   if (chapter.monitored) {
+    // Sonarr-canonical: monitored && !hasFile renders as Missing.
+    // hasFile is the SOLE file-presence axis (chapter.chapterFileId != null) —
+    // mirrors Episode.Monitored && EpisodeFileId == 0 (Sonarr Tv/Episode.cs).
+    // Phase 16 D-04 alias-flip on the (now-removed) per-translation collection
+    // reverted in Phase 16.1 per SPEC REVERT-05.
+    // Pill literal is `'Missing'` for max Sonarr parity
+    // (per CONTEXT.md additional_context Pitfall #5 + PATTERNS.md Pitfall 8).
+    // 6-state precedence preserved: failed > blocklisted > have-file > queued >
+    // wanted/missing > unmonitored. NO 7th state.
     return (
       <Icon
         name={icons.MONITORED}
         kind={kinds.WARNING}
-        title={translate('Wanted')}
+        title={translate('Missing')}
       />
     );
   }
