@@ -14,18 +14,18 @@ const { useOptions, useOption, setOptions, setOption, setSort } =
       columns: [
         {
           name: 'series.sortTitle',
-          label: () => translate('SeriesTitle'),
+          label: () => translate('MangaTitle'),
           isSortable: true,
           isVisible: true,
         },
         {
           name: 'episode',
-          label: () => translate('Episode'),
+          label: () => translate('Chapter'),
           isVisible: true,
         },
         {
           name: 'episodes.title',
-          label: () => translate('EpisodeTitle'),
+          label: () => translate('ChapterTitle'),
           isVisible: true,
         },
         {

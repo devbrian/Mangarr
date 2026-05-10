@@ -100,7 +100,7 @@ const COLUMNS = [
   },
   {
     name: 'episodes',
-    label: () => translate('Episodes'),
+    label: () => translate('Chapters'),
     isVisible: true,
   },
   {

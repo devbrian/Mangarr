@@ -84,7 +84,7 @@ function MangaIndexProgressBar(props: MangaIndexProgressBarProps) {
       size={detailedProgressBar ? sizes.MEDIUM : sizes.SMALL}
       showText={detailedProgressBar}
       text={text}
-      title={translate('SeriesProgressBarText', {
+      title={translate('MangaProgressBarText', {
         episodeFileCount,
         episodeCount,
         totalEpisodeCount,
