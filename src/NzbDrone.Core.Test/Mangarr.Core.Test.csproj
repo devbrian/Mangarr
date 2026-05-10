@@ -39,5 +39,11 @@
       <Link>Files\Phase04\golden-cbz\ComicInfo.xml</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- Phase 17 W-4 (revision iteration 1) — captured upstream keiyoushi Signer.kt
+         excerpt at port-time SHA. UpstreamSignerDriftFixture reads this resource
+         at test runtime to detect upstream-shape drift before the live test in Wave 3. -->
+    <None Update="Indexers\Comix\Resources\upstream-signer.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>
