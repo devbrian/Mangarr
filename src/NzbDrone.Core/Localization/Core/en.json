@@ -2035,6 +2035,8 @@
   "SelectSeries": "Select Series",
   "SendAnonymousUsageData": "Send Anonymous Usage Data",
   "SetAsPrimary": "Set as Primary",
+  "SetAsPrimaryOnSave": "Set as Primary on Save",
+  "SetAsPrimaryOnSaveHelpText": "Promote this source to Primary after saving. The current Primary will be demoted automatically (atomic operation).",
   "SetIndexerFlags": "Set Indexer Flags",
   "SetIndexerFlagsModalTitle": "{modalTitle} - Set Indexer Flags",
   "SetPermissions": "Set Permissions",

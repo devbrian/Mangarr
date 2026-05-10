@@ -1,6 +1,5 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import useApiMutation from 'Helpers/Hooks/useApiMutation';
 import {
   SelectedSchema,
   useProviderSchema,
@@ -13,7 +12,8 @@ import {
 } from 'Settings/useProviderSettings';
 import Provider from 'typings/Provider';
 import { sortByProp } from 'Utilities/Array/sortByProp';
-import { ApiError } from 'Utilities/Fetch/fetchJson';
+import fetchJson, { ApiError } from 'Utilities/Fetch/fetchJson';
+import getQueryPath from 'Utilities/Fetch/getQueryPath';
 
 // Mirrors NotificationModel shape (Settings/Notifications/useConnections.ts) — the closest
 // canonical analog. MetadataSource has no per-event toggles or protocol/priority/RSS axes;
@@ -102,30 +102,52 @@ export const useMetadataSourceSchema = (enabled: boolean = true) => {
 // MetadataSourceFactory.SetPrimary which enforces the at-most-one invariant server-side.
 // On success we optimistically update every cached row's isPrimary flag so the UI flips
 // without a refetch (mirrors the Sonarr cache-write pattern in useBulkEditIndexers).
+//
+// `defaultId` is the id captured at hook-creation time (used by the card-level
+// "Set as Primary" button which knows its row id). The returned `setPrimary`
+// also accepts an `idOverride` argument so the Add-Source flow can promote a
+// just-created row whose id was unknown at hook-creation time (looked up by
+// name from the cache after save). useApiMutation's path is fixed at hook
+// construction, so we use react-query's useMutation directly here to make the
+// path id-flexible.
 export const useSetPrimaryMetadataSource = (
-  id: number,
+  defaultId: number,
   onSuccess?: () => void,
   onError?: (error: ApiError) => void
 ) => {
   const queryClient = useQueryClient();
 
-  const { mutate, isPending, error } = useApiMutation<void, void>({
-    path: `${PATH}/${id}/setprimary`,
-    method: 'POST',
-    mutationOptions: {
-      onSuccess: () => {
-        queryClient.setQueryData<MetadataSourceModel[]>(
-          [PATH],
-          (oldData = []) =>
-            oldData.map((source) => ({
-              ...source,
-              isPrimary: source.id === id,
-            }))
-        );
-        onSuccess?.();
-      },
-      onError,
+  const { mutate, isPending, error } = useMutation<void, ApiError, number | void>({
+    mutationFn: async (idArg) => {
+      const id = typeof idArg === 'number' ? idArg : defaultId;
+
+      if (!id) {
+        throw new Error('SetPrimaryMetadataSource called with no id');
+      }
+
+      return fetchJson<void, void>({
+        path: `${getQueryPath(PATH)}/${id}/setprimary`,
+        method: 'POST',
+        headers: {
+          'X-Api-Key': window.Mangarr.apiKey,
+          'X-Mangarr-Client': 'Mangarr',
+        },
+      });
     },
+    onSuccess: (_data, idArg) => {
+      const id = typeof idArg === 'number' ? idArg : defaultId;
+
+      queryClient.setQueryData<MetadataSourceModel[]>(
+        [PATH],
+        (oldData = []) =>
+          oldData.map((source) => ({
+            ...source,
+            isPrimary: source.id === id,
+          }))
+      );
+      onSuccess?.();
+    },
+    onError,
   });
 
   return {
