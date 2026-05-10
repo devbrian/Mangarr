@@ -1,12 +1,11 @@
-// Sonarr divergence: REWRITTEN per Phase 16 STRUCT-09 + D-03 — see DIVERGENCE.md.
+// Sonarr divergence: NEW manga sibling per Phase 7 D-03 — see DIVERGENCE.md.
 // Role-match analog: frontend/src/Series/Details/EpisodeRow.tsx (per-row
 // monitor + status + search — the Manga Chapters tab is a flat sortable
 // table with no season grouping per PROJECT.md "Volumes/Seasons" Out-of-Scope).
 //
-// Pre-Phase-16: 3 cell branches for translatedLanguage / scanlationGroup / releaseDate.
-// Post-Phase-16: those branches dropped; canonical row layout is monitored / chapterNumber
-// / title / status / actions. Status cell unchanged (state-machine flip lives in
-// frontend/src/Chapter/ChapterStatus.tsx per Phase 16 D-04 + Pitfall 5).
+// Canonical row layout: monitored / chapterNumber / title / status / actions.
+// Status cell reads aggregate state from ChapterStatus.tsx (Sonarr-canonical
+// `monitored && !hasFile` predicate for the Missing pill).
 //
 // Manga sibling preserves: <TableRow> + per-column dispatch shape;
 // MonitorToggleButton + TableRowCell.
