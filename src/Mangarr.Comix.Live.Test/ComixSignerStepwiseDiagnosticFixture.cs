@@ -219,9 +219,21 @@ namespace Mangarr.Comix.Live.Test
             {
                 await ProxyFetchAsync("/manga/__warmup__/chapters", ct);
             }
+            catch (System.OperationCanceledException)
+            {
+                // WR-04 mitigation (Phase 17.2 WR-GC-04 piggyback fix per Plan 17.2-03):
+                // cancellation is structural — never silently translate it into a "warm-up
+                // succeeded with empty probe" state. Diagnostic-harness override must
+                // preserve shutdown semantics so test cleanup / scheduler cancel surfaces
+                // correctly to callers. Mirrors the canonical WR-04 pattern in
+                // ComixIndexer.cs lines 170-178 (`catch (OperationCanceledException) { throw; }`).
+                throw;
+            }
             catch
             {
-                // Probe + spawn is the goal; ignore fetch failures.
+                // Probe + spawn is the goal; ignore non-cancellation fetch failures
+                // (e.g. the controlled __warmup__ apiPath legitimately yields no chapter
+                // data; we only need the warm-page + cached probe exprs as side-effect).
             }
 
             if (string.IsNullOrEmpty(SignerExprForTest) || string.IsNullOrEmpty(InstallerExprForTest))
