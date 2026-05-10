@@ -20,10 +20,20 @@ namespace Mangarr.Api.V5.Manga.Queue
     //   another broadcast (mirrors QueueStatusController.cs:42-58 verbatim).
     //
     // Diverges from QueueStatusController:
-    //   * Route literal "manga/queue/status" (NOT "queue/status") so Phase 13's frontend
-    //     useQueueStatus.ts:15 can be re-pointed at the manga peer in a follow-up plan without
-    //     colliding with the still-shipping TV path (D-13-16: phase is purely additive — TV
+    //   * Route literal "manga/queue/status" (NOT "queue/status") so the frontend
+    //     useQueueStatus.ts repoint could land in a separate plan without colliding with
+    //     the still-shipping TV path (D-13-16: phase is purely additive — TV
     //     QueueStatusController stays in place; Phase 15 deletes).
+    //
+    //     Frontend repoint shipped 2026-05-10 in response to GitHub issue #45
+    //     (queue-status-404-stale-route): the TV QueueStatusController had been
+    //     deleted from src/Mangarr.Api.V5/ during the Phase 5/13 cutover, leaving
+    //     useQueueStatus.ts:15 firing 4× 404s on every home-page mount. The repoint
+    //     also aligned the React Query cache key with the SignalRListener.tsx:366-380
+    //     setQueryData(['/manga/queue/status'], …) handler — pre-fix the cache key
+    //     was ['/queue/status'] so SignalR pushes were silently dropped on the floor
+    //     (latent cache-staleness bug fixed alongside the 404). No code changes
+    //     required to this controller; only the doc-comment was re-anchored.
     //   * QueueStatusResource → MangaQueueStatusResource (counter shape preserved field-for-field).
     //   * QueueUpdatedEvent → MangaQueueUpdatedEvent (manga peer per MangaQueueController.cs:35;
     //     event class verified in src/NzbDrone.Core/Queue/Manga/MangaQueueUpdatedEvent.cs:13).

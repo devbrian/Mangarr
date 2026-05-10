@@ -161,12 +161,24 @@ expects. Phase 15 D-15-XX type unification will introduce a unified
   - `MangaQueueSubresource` → collapses with `QueueSubresource`
   - `RemoteChapter.ToRemoteEpisodeShim()` call site disappears alongside the unified
     `IDownloadService.DownloadReport(RemoteChapter, int?)` overload.
-- **Frontend re-pointing (partial — 2026-05-09):** `QueueDetailsProvider.tsx` was repointed
-  onto `/manga/queue/details` by the home-404s-queue-qualityprofile fix; filter params
-  mapped (`seriesId`→`mangaId`, `episodeIds`→`chapterIds`); the legacy `all=true`
-  discriminator dropped (manga endpoint returns the full queue with no filter); helper
-  hooks (`useQueueDetailsForSeries` etc.) fall back to manga-shape fields. Still deferred:
-  `useQueueStatus.ts:15` (`/queue/status`) — separate plan per D-13-16 additive-only mandate.
+- **Frontend re-pointing (complete — 2026-05-10):** All Sonarr-era `/queue/*` frontend
+  hooks have been repointed onto their canonical `/manga/queue/*` peers:
+  - `QueueDetailsProvider.tsx` → `/manga/queue/details` (2026-05-09, PR #46 — fix for
+    `home-404s-queue-qualityprofile`); filter params mapped (`seriesId`→`mangaId`,
+    `episodeIds`→`chapterIds`); the legacy `all=true` discriminator dropped (manga
+    endpoint returns the full queue with no filter); helper hooks
+    (`useQueueDetailsForSeries` etc.) fall back to manga-shape fields.
+  - `useQueueStatus.ts` → `/manga/queue/status` (2026-05-10, issue #45 — fix for
+    `queue-status-404-stale-route`); `QueueStatus` TypeScript interface unchanged because
+    `MangaQueueStatusResource` mirrors `QueueStatusResource` field-for-field (`TotalCount`
+    / `Count` / `UnknownCount` / `Errors` / `Warnings` / `UnknownErrors` /
+    `UnknownWarnings`); React Query key now matches the `SignalRListener.tsx:366-380`
+    `setQueryData(['/manga/queue/status'], …)` handler — pre-fix the cache key was
+    `['/queue/status']` so SignalR pushes were silently dropped on the floor (latent
+    cache-staleness bug fixed alongside the 404).
+
+  No `/queue/*` frontend hooks remain. The TV peers stay in place per D-13-16
+  additive-only mandate; Phase 15 collapse drops the manga prefix from both ends together.
 
 ## Test fixture location
 
