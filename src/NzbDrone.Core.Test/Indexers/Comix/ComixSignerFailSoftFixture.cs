@@ -9,6 +9,7 @@ using NUnit.Framework;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Comix;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 using PuppeteerSharp;
 
 namespace NzbDrone.Core.Test.Indexers.Comix
@@ -94,6 +95,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
 
             Mocker.GetMock<IIndexerSourceStatusService>()
                   .Verify(s => s.RecordFailure("comix.to", It.IsAny<TimeSpan>()), Times.AtLeastOnce());
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
@@ -135,6 +137,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             Func<Task> act = () => subject.ProxyFetchAsync("/manga/test/chapters");
             await act.Should().ThrowAsync<HttpRequestException>(
                 "exception must surface as a Task throw, not a process-level crash");
+            ExceptionVerification.ExpectedWarns(1);
         }
     }
 }
