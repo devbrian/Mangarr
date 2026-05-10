@@ -37,15 +37,20 @@ namespace NzbDrone.Core.Organizer.Manga
         private static readonly Regex TrimSeparatorsRegex = new Regex(@"[- ._]+$", RegexOptions.Compiled);
 
         private readonly INamingConfigService _namingConfigService;
-        private readonly IChapterFileService _chapterFileService;
+
+        // Phase 16.1 fix-forward: depend on IChapterFileRepository, not IChapterFileService.
+        // IChapterFileService takes IMangaService in its ctor, which closes a DI cycle through
+        // MangaService -> MangaPathBuilder -> MangaFileNameBuilder. The repo exposes the same
+        // GetFilesByChapter(int) signature with no IMangaService dependency.
+        private readonly IChapterFileRepository _chapterFileRepository;
         private readonly Logger _logger;
 
         public MangaFileNameBuilder(INamingConfigService namingConfigService,
-                                    IChapterFileService chapterFileService,
+                                    IChapterFileRepository chapterFileRepository,
                                     Logger logger)
         {
             _namingConfigService = namingConfigService;
-            _chapterFileService = chapterFileService;
+            _chapterFileRepository = chapterFileRepository;
             _logger = logger;
         }
 
@@ -323,7 +328,7 @@ namespace NzbDrone.Core.Organizer.Manga
                 return null;
             }
 
-            return _chapterFileService.GetFilesByChapter(chapterId).FirstOrDefault()?.ScanlationGroup;
+            return _chapterFileRepository.GetFilesByChapter(chapterId).FirstOrDefault()?.ScanlationGroup;
         }
 
         private string GetChapterFileLanguage(List<NzbDrone.Core.Manga.Chapter> chapters)
@@ -334,7 +339,7 @@ namespace NzbDrone.Core.Organizer.Manga
                 return null;
             }
 
-            return _chapterFileService.GetFilesByChapter(chapterId).FirstOrDefault()?.TranslatedLanguage;
+            return _chapterFileRepository.GetFilesByChapter(chapterId).FirstOrDefault()?.TranslatedLanguage;
         }
     }
 }
