@@ -2,7 +2,10 @@ using System.Collections.Generic;
 using System.Linq;
 using FizzWare.NBuilder;
 using FluentAssertions;
+using Moq;
 using NUnit.Framework;
+using NzbDrone.Core.Indexers;
+using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Profiles.Delay;
 using NzbDrone.Core.Test.Framework;
 
@@ -106,6 +109,59 @@ namespace NzbDrone.Core.Test.Profiles.Delay
             var afterMove = result.Single(d => d.Id == after.Id);
 
             afterMove.Order.Should().BeLessThan(afterOrder);
+        }
+    }
+
+    // Separate fixture for the IHandle<ApplicationStartedEvent> seeder per issue #62. Kept apart
+    // from the Reorder fixture so the [SetUp] there (which seeds 4 mock rows) doesn't fight the
+    // "empty repo on first run" precondition this seeder requires.
+    [TestFixture]
+    public class DelayProfileServiceSeederFixture : CoreTest<DelayProfileService>
+    {
+        [Test]
+        public void should_seed_default_tagless_profile_when_repo_is_empty()
+        {
+            // Pattern S4 first-run precondition: All() returns nothing.
+            Mocker.GetMock<IDelayProfileRepository>()
+                  .Setup(s => s.All())
+                  .Returns(new List<DelayProfile>());
+
+            DelayProfile inserted = null;
+            Mocker.GetMock<IDelayProfileRepository>()
+                  .Setup(s => s.Insert(It.IsAny<DelayProfile>()))
+                  .Callback<DelayProfile>(p => inserted = p)
+                  .Returns<DelayProfile>(p => p);
+
+            Subject.Handle(new ApplicationStartedEvent());
+
+            // Sonarr-canonical default shape — see DelayProfileService.Handle(ApplicationStartedEvent).
+            inserted.Should().NotBeNull("seeder must Insert a default DelayProfile on first run");
+            inserted.Tags.Should().BeEmpty("default profile must be tag-less so AllForTags returns it for zero-tag manga");
+            inserted.Order.Should().Be(int.MaxValue, "Sonarr-canonical sentinel — sorted last so user-added profiles take precedence");
+            inserted.PreferredProtocol.Should().Be(DownloadProtocol.Http);
+            inserted.HttpDelay.Should().Be(0);
+            inserted.EnableUsenet.Should().BeTrue();
+            inserted.EnableTorrent.Should().BeTrue();
+        }
+
+        [Test]
+        public void should_be_idempotent_when_repo_already_has_rows()
+        {
+            // Pattern S4 idempotency: All() returns at least one row -> no re-seed on restart.
+            Mocker.GetMock<IDelayProfileRepository>()
+                  .Setup(s => s.All())
+                  .Returns(new List<DelayProfile>
+                  {
+                      new DelayProfile { Id = 1, Order = int.MaxValue, Tags = new HashSet<int>() }
+                  });
+
+            Subject.Handle(new ApplicationStartedEvent());
+
+            Mocker.GetMock<IDelayProfileRepository>()
+                  .Verify(
+                      s => s.Insert(It.IsAny<DelayProfile>()),
+                      Times.Never,
+                      "seeder must not re-insert on restart when a profile already exists");
         }
     }
 }
