@@ -331,6 +331,53 @@ namespace NzbDrone.Core.Indexers.Comix
             return await page.EvaluateExpressionAsync<string>(jsTemplate).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// Phase 17 GAP-17-B diagnostic seam (Plan 17-05 Task 1). Wraps the warm page's
+        /// <see cref="IPage.EvaluateExpressionAsync{T}(string)"/> for the diagnostic fixture
+        /// in <c>Mangarr.Comix.Live.Test</c> to drive raw probes against the SAME warm
+        /// page used by the production code path. NOT called from production code.
+        /// Fails fast with <see cref="ObjectDisposedException"/> if the page is gone.
+        /// </summary>
+        /// <remarks>
+        /// `protected internal` so the diagnostic fixture (which lives in a sibling test
+        /// project, NOT in NzbDrone.Core.Test) can subclass and access it. The seam is
+        /// VIRTUAL only to satisfy fixture-override patterns elsewhere in this class — no
+        /// production override is intended.
+        /// </remarks>
+        protected internal virtual async Task<string> EvaluateRawAsync(string js, CancellationToken ct)
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+            }
+
+            var page = _page;
+            if (page == null)
+            {
+                throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+            }
+
+            ct.ThrowIfCancellationRequested();
+            return await page.EvaluateExpressionAsync<string>(js).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Phase 17 GAP-17-B diagnostic accessor (Plan 17-05 Task 1). Exposes the
+        /// captured signer namespace expression so the diagnostic fixture can construct
+        /// stepwise probes WITHOUT reflection (a future rename of `_signerExpr` will
+        /// surface as a compile error rather than silently breaking the diagnostic).
+        /// `protected internal` so the diagnostic fixture in the sibling test project
+        /// can subclass and read. NOT called from production code.
+        /// </summary>
+        protected internal string SignerExprForTest => _signerExpr;
+
+        /// <summary>
+        /// Phase 17 GAP-17-B diagnostic accessor (Plan 17-05 Task 1). Exposes the
+        /// captured installer namespace expression so the diagnostic fixture can
+        /// construct stepwise probes WITHOUT reflection. NOT called from production code.
+        /// </summary>
+        protected internal string InstallerExprForTest => _installerExpr;
+
         // T-17-02-02 mitigation: single-quote string substitution helper. Escapes \ and '
         // before string-format-style insertion into the page-context JS template.
         private static string JsString(string s) =>
