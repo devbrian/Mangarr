@@ -182,5 +182,33 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             _upstreamExcerpt.Should().Contain("Upstream commit SHA:",
                 "Resources/upstream-signer.txt MUST carry a verbatim 'Upstream commit SHA:' header line");
         }
+
+        [Test]
+        public void Port_must_not_regress_GAP_17_B_decrypt_guard()
+        {
+            // GAP-17-B Branch C regression guard (Plan 17-06): Plan 17-05's Probe D
+            // diagnosis localized the cause of `EvaluationFailedException: Execution
+            // context was destroyed` to the in-page `await captured.res(fakeResp)`
+            // decrypt invocation — Probe D omits that step and returns 200 OK +
+            // `{"e":"..."}` cleanly; the production path WITH the decrypt step
+            // reliably fires the lazy-reprobe Warn on every WarmAsync.
+            //
+            // Plan 17-06 Branch C wrapped the decrypt invocation in an in-page
+            // try/catch that surfaces a `decryptError` envelope on throw instead
+            // of letting the rejection tear down the page. Removing the guard
+            // regresses GAP-17-B (the live fixture transitions back from passing
+            // to throwing EvaluationFailedException on every call).
+            _signerSource.Should().Contain("decryptError",
+                "Plan 17-06 Branch C wrapped `await captured.res(fakeResp)` in an " +
+                "in-page try/catch and surfaces the encrypted shape via a `decryptError` " +
+                "envelope on throw. Removing the guard regresses GAP-17-B — the " +
+                "decrypt interceptor's window mutation tears down the warm page on " +
+                "every call.");
+
+            _signerSource.Should().Contain("GAP-17-B Branch C",
+                "Branch C annotation block above EvaluateProxyFetchAsync must remain so " +
+                "future maintainers don't 'simplify' the catch back to a bare await — " +
+                "removing the annotation suggests the rationale has been lost.");
+        }
     }
 }
