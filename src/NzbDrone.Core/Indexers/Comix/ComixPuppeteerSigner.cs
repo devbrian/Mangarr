@@ -42,36 +42,62 @@ namespace NzbDrone.Core.Indexers.Comix
         private const string ComixSourceKey = "comix.to";
         private const string ComixHomepageUrl = "https://comix.to/";
 
-        // PROBE_JS — ports keiyoushi Signer.kt verbatim (D-14). Behaviour-based: detects
-        // signer (function returning ≥40-char base64url) + installer (function registering a
-        // response interceptor on a fake axios) inside any window.vmf_* namespace. Names
-        // rotate per comix.to deploy; behaviour does not.
+        // PROBE_JS — behaviour-based detection of comix.to's anti-bot signer and axios
+        // installer (D-14). Mirrors keiyoushi Signer.kt's intent (Apache-2.0). Detects:
+        //   - signer:    fn(path) -> ≥40-char base64url string (different from input)
+        //   - installer: fn(axios) registers a response interceptor on a fake axios
+        // and the upstream Signer.kt comment "Names rotate per deploy; behaviour does not"
+        // means BOTH the namespace prefix AND function names rotate. The earlier port
+        // hardcoded `window.<vmf_*>.*`, but comix.to has since rotated to `vmX_<hex>`
+        // (observed live 2026-05-10) — drop the prefix filter and walk all window
+        // namespaces. The combined signer + installer behaviour is a strong enough
+        // filter on its own; a typical page exposes ~270 window keys but only one
+        // pair will have both behaviours.
+        //
+        // SignerExprAllowlistRegex (defense in depth, WR-02) constrains the captured
+        // names to identifier shape before they're interpolated into the in-page JS
+        // template, so any non-bundle namespace that accidentally passes the
+        // behaviour test is still rejected at the validation gate.
         private const string PROBE_JS = @"
           (() => {
             const probe = (probePath) => {
               let signerExpr = null, installerExpr = null;
-              for (const ns of Object.keys(window).filter(k => k.startsWith('vmf_'))) {
+              for (const ns of Object.keys(window)) {
                 const obj = window[ns];
-                for (const fn of Object.keys(obj || {})) {
-                  try {
-                    const out = obj[fn](probePath);
-                    if (typeof out === 'string' && out.length >= 40 && /^[A-Za-z0-9_-]+$/.test(out)) {
-                      signerExpr = ns + '.' + fn;
-                      continue;
-                    }
-                  } catch (_e) {}
-                  try {
-                    let got = false;
-                    const fakeAxios = {
-                      interceptors: {
-                        response: { use: () => { got = true; } },
-                        request:  { use: () => {} },
-                      },
-                    };
-                    obj[fn](fakeAxios);
-                    if (got) installerExpr = ns + '.' + fn;
-                  } catch (_e) {}
+                if (!obj || typeof obj !== 'object') continue;
+                let fns;
+                try { fns = Object.keys(obj); } catch (_e) { continue; }
+                if (fns.length === 0 || fns.length > 200) continue;
+                for (const fn of fns) {
+                  if (signerExpr === null) {
+                    try {
+                      const out = obj[fn](probePath);
+                      if (typeof out === 'string'
+                          && out !== probePath
+                          && out.length >= 40
+                          && /^[A-Za-z0-9_-]+$/.test(out)) {
+                        signerExpr = ns + '.' + fn;
+                        continue;
+                      }
+                    } catch (_e) {}
+                  }
+                  if (installerExpr === null) {
+                    try {
+                      let got = false;
+                      const fakeAxios = {
+                        interceptors: {
+                          response: { use: () => { got = true; } },
+                          request:  { use: () => {} },
+                        },
+                        defaults: { headers: { common: {} }, transformRequest: [], transformResponse: [] },
+                      };
+                      obj[fn](fakeAxios);
+                      if (got) installerExpr = ns + '.' + fn;
+                    } catch (_e) {}
+                  }
+                  if (signerExpr !== null && installerExpr !== null) break;
                 }
+                if (signerExpr !== null && installerExpr !== null) break;
               }
               return { signerExpr: signerExpr, installerExpr: installerExpr };
             };
@@ -90,16 +116,22 @@ namespace NzbDrone.Core.Indexers.Comix
                 "^/[A-Za-z0-9_\\-/]+(\\?[A-Za-z0-9_\\-/=&%.]*)?$",
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
-        // WR-02 mitigation (revision iteration 2): defense-in-depth allowlist on the
-        // probe-captured signerExpr/installerExpr strings BEFORE they are interpolated
-        // into the in-page JS template. JS object property names CAN technically be
-        // arbitrary strings; bundlers in practice emit alphanumeric keys (`vmf_<hex>`
-        // namespace + identifier-shaped function name). Anything outside that shape is
-        // either an upstream rotation we don't recognize OR an MITM rewrite — reject
-        // either way and surface as a probe failure (D-15 RecordFailure path).
+        // WR-02 mitigation: defense-in-depth allowlist on the probe-captured
+        // signerExpr/installerExpr strings BEFORE they are interpolated into the
+        // in-page JS template. JS object property names CAN technically be arbitrary
+        // strings; bundlers in practice emit identifier-shaped keys. Anything
+        // outside that shape is either an upstream rotation we don't recognize OR
+        // an MITM rewrite — reject either way and surface as a probe failure
+        // (D-15 RecordFailure path).
+        //
+        // Earlier revision required a `vmf_` namespace prefix; comix.to rotated
+        // to `vmX_<hex>` (observed live 2026-05-10), so the allowlist no longer
+        // pins the prefix. PROBE_JS's behavioural detection (signer + installer
+        // both required) plus this identifier-shape gate together provide the
+        // safety envelope.
         private static readonly System.Text.RegularExpressions.Regex SignerExprAllowlistRegex =
             new System.Text.RegularExpressions.Regex(
-                @"^vmf_[A-Za-z0-9_$]{1,128}\.[A-Za-z0-9_$]{1,128}$",
+                @"^[A-Za-z_$][A-Za-z0-9_$]{0,127}\.[A-Za-z_$0-9][A-Za-z0-9_$]{0,127}$",
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
         // ── Test-overridable seams (D-12 / fixture overrides) ────────────────────────
@@ -160,7 +192,17 @@ namespace NzbDrone.Core.Indexers.Comix
                 _page = await _browser.NewPageAsync().ConfigureAwait(false);
                 ct.ThrowIfCancellationRequested();
 
-                await _page.GoToAsync(ComixHomepageUrl).ConfigureAwait(false);
+                // WaitUntilNavigation.Networkidle0 — comix.to fronts a Cloudflare
+                // interstitial that responds 502 on initial load before the bundle
+                // finishes; the default Load event fires on the partial page and
+                // window.<bundle-namespace> isn't populated yet. Networkidle0 waits
+                // for ≥500ms of zero in-flight requests, which lets the bundle
+                // finish parsing and registering its `vmX_<hex>` namespace before
+                // PROBE_JS runs.
+                await _page.GoToAsync(
+                    ComixHomepageUrl,
+                    new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Networkidle0 } })
+                    .ConfigureAwait(false);
                 ct.ThrowIfCancellationRequested();
 
                 var probe = await _page.EvaluateExpressionAsync<ProbeResult>(PROBE_JS).ConfigureAwait(false);
