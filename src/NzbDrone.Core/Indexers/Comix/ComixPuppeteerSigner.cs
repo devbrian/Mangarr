@@ -517,7 +517,7 @@ namespace NzbDrone.Core.Indexers.Comix
         //        - /opt/mangarr-chromium               (Linux Docker — D-03 image-layer default)
         //        - $HOME/.cache/mangarr-chromium       (Linux non-Docker, XDG; matches
         //                                                tools/ChromiumPrefetch local-dev path)
-        //        - $LOCALAPPDATA/mangarr-chromium      (Windows convention)
+        //        - %LOCALAPPDATA%\mangarr-chromium     (Windows convention)
         //        - $HOME/Library/Caches/mangarr-chromium (macOS convention)
         //
         // Phase 17 shipped only the /opt/mangarr-chromium default — it works in the production
