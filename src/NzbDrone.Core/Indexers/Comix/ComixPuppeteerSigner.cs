@@ -190,7 +190,9 @@ namespace NzbDrone.Core.Indexers.Comix
             // Pitfall 7 (Chromium-as-root in container): launch args required for headless
             // Chrome inside Docker — --no-sandbox + setuid disable + dev/shm fallback +
             // GPU disable. ExecutablePath comes from PUPPETEER_EXECUTABLE_PATH (D-03 escape
-            // hatch) or the baked image-layer path under /opt/mangarr-chromium (D-03 default).
+            // hatch) or the baked image-layer path resolved by GetBakedChromiumPath (Phase 17
+            // D-03 default plus Phase 17.2 follow-up Windows / Mac / Linux non-Docker
+            // platform-aware fallbacks — see comment above GetBakedChromiumPath).
             var launchOptions = new LaunchOptions
             {
                 Headless = true,
@@ -507,23 +509,94 @@ namespace NzbDrone.Core.Indexers.Comix
         private static string JsString(string s) =>
             "'" + s.Replace("\\", "\\\\").Replace("'", "\\'") + "'";
 
-        // BrowserFetcher discovery for D-03 baked Chromium under /opt/mangarr-chromium
-        // (or PUPPETEER_CACHE_DIR if the operator overrode the cache dir). Returns null
-        // when no installed browser found — Puppeteer.LaunchAsync will then surface its
-        // own error (caught + RecordFailure'd by LaunchAndProbeAsync).
+        // Phase 17.2 follow-up — platform-aware Chromium cache discovery.
+        //
+        // Resolution order:
+        //   1. PUPPETEER_CACHE_DIR env var (operator override; D-03 escape hatch)
+        //   2. Platform-conventional candidates (first one with an installed browser wins):
+        //        - /opt/mangarr-chromium               (Linux Docker — D-03 image-layer default)
+        //        - $HOME/.cache/mangarr-chromium       (Linux non-Docker, XDG; matches
+        //                                                tools/ChromiumPrefetch local-dev path)
+        //        - $LOCALAPPDATA/mangarr-chromium      (Windows convention)
+        //        - $HOME/Library/Caches/mangarr-chromium (macOS convention)
+        //
+        // Phase 17 shipped only the /opt/mangarr-chromium default — it works in the production
+        // Docker image but returns null on every other host (Windows / Mac / Linux non-Docker
+        // dev), so PuppeteerSharp falls back to looking for chrome relative to the working dir
+        // at `_output/net10.0/Chrome/...` and throws ProcessException at first request. This
+        // gap was invisible in Phase 17 (the live signer never actually worked end-to-end so
+        // no one hit the launcher path); Phase 17.2's Mitigation A re-greened the live fixtures
+        // and surfaced it on the very first manual search through the running app.
+        //
+        // Returns null only when no candidate has an installed browser — Puppeteer.LaunchAsync
+        // will then surface its own error (caught + RecordFailure'd by LaunchAndProbeAsync).
         private static string GetBakedChromiumPath()
         {
-            var cacheDir = Environment.GetEnvironmentVariable("PUPPETEER_CACHE_DIR")
-                           ?? "/opt/mangarr-chromium";
-            try
+            var explicitOverride = Environment.GetEnvironmentVariable("PUPPETEER_CACHE_DIR");
+            var candidates = explicitOverride != null
+                ? new[] { explicitOverride }
+                : GetPlatformCacheCandidates();
+
+            foreach (var cacheDir in candidates)
             {
-                var fetcher = new BrowserFetcher(new BrowserFetcherOptions { Path = cacheDir });
-                var installed = System.Linq.Enumerable.FirstOrDefault(fetcher.GetInstalledBrowsers());
-                return installed?.GetExecutablePath();
+                if (string.IsNullOrEmpty(cacheDir))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var fetcher = new BrowserFetcher(new BrowserFetcherOptions { Path = cacheDir });
+                    var installed = System.Linq.Enumerable.FirstOrDefault(fetcher.GetInstalledBrowsers());
+                    var execPath = installed?.GetExecutablePath();
+                    if (!string.IsNullOrEmpty(execPath))
+                    {
+                        return execPath;
+                    }
+                }
+                catch
+                {
+                    // Try next candidate.
+                }
             }
-            catch
+
+            return null;
+        }
+
+        // Phase 17.2 follow-up — platform-conventional Chromium cache directories.
+        //
+        // Order: production Docker default first (preserves Phase 17 D-03 semantics
+        // for the production image), then local-dev conventions per OS. Yielded
+        // lazily so HOME / LOCALAPPDATA are read on the host that's running.
+        // `internal` so the regression guard in
+        // ComixSignerProbeSameNamespaceFixture.Launcher_must_have_platform_aware_cache_fallback
+        // can spot-check the candidate list directly.
+        internal static System.Collections.Generic.IEnumerable<string> GetPlatformCacheCandidates()
+        {
+            // Linux Docker default first (production image-layer path; Phase 17 D-03)
+            yield return "/opt/mangarr-chromium";
+
+            var home = Environment.GetEnvironmentVariable("HOME")
+                       ?? Environment.GetEnvironmentVariable("USERPROFILE");
+            if (!string.IsNullOrEmpty(home))
             {
-                return null;
+                // XDG cache convention (Linux non-Docker; also matches the path
+                // tools/ChromiumPrefetch writes to on the local Windows dev host
+                // when invoked with `--output-dir $HOME/.cache/mangarr-chromium`)
+                yield return System.IO.Path.Combine(home, ".cache", "mangarr-chromium");
+            }
+
+            // Windows %LOCALAPPDATA% (Windows convention; preferred when set)
+            var localAppData = Environment.GetEnvironmentVariable("LOCALAPPDATA");
+            if (!string.IsNullOrEmpty(localAppData))
+            {
+                yield return System.IO.Path.Combine(localAppData, "mangarr-chromium");
+            }
+
+            // macOS ~/Library/Caches (macOS convention)
+            if (!string.IsNullOrEmpty(home))
+            {
+                yield return System.IO.Path.Combine(home, "Library", "Caches", "mangarr-chromium");
             }
         }
 
