@@ -73,7 +73,11 @@ namespace Mangarr.Comix.Live.Test
                 items.GetArrayLength() > 0 &&
                 items[0].TryGetProperty("id", out var idEl))
             {
-                return idEl.GetString();
+                // Phase 17.2: live chapter `id` is JSON Number (not String) per the
+                // 2026-05-10 survey. Accept either kind so the helper isn't brittle.
+                return idEl.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? idEl.GetString()
+                    : idEl.GetRawText();
             }
 
             return null;
