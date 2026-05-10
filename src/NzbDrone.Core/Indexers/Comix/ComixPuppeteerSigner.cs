@@ -318,18 +318,44 @@ namespace NzbDrone.Core.Indexers.Comix
             }
         }
 
-        // GAP-17-B Branch C (Plan 17-06): the production IIFE's `await captured.res(fakeResp)`
-        // decrypt invocation reliably destroys the warm Chromium page execution context on
-        // comix.to (diagnosed via Plan 17-05's Probe D — fetch-no-decrypt — returning 200 OK
-        // + `{"e":"..."}` envelope cleanly while the production path with the decrypt step
-        // fires the lazy-reprobe Warn on every WarmAsync). The decrypt step is wrapped in an
-        // in-page `try/catch`: on throw, the IIFE returns a JSON envelope marking
-        // `decryptError` instead of letting the rejection tear the page down. The .NET caller
-        // (ComixIndexer.Fetch) sees the same string return shape — its existing JSON parser
-        // surfaces a parse error to IIndexerSourceStatusService.RecordFailure escalation if
-        // the decrypt always fails. Followup issue tracked against Phase 17.2 milestone.
-        // Annotation block remains so future maintainers don't "simplify" the catch back to a
-        // bare await — see UpstreamSignerDriftFixture.Port_must_not_regress_GAP_17_B_decrypt_guard.
+        // GAP-17-B Branch C (Plan 17-06) — REFINED by Phase 17.2 D-3 (Plan 17.2-03):
+        //
+        // Plan 17-06 shipped the in-IIFE try/catch around `await captured.res(fakeResp)` as
+        // a no-harm BRANCH-C measure: on decrypt-throw, the IIFE returns the JSON envelope
+        // `{result:null, e: raw.e, decryptError: String(decryptErr)}` instead of letting the
+        // rejection tear the page down. The original Plan 17-06 prose claimed the .NET
+        // caller's "existing JSON parser surfaces a parse error to RecordFailure" — Code
+        // Review WR-GC-01 (2026-05-10) falsified this: JsonConvert.DeserializeObject<typed-
+        // shape>(envelope) parses to a partially-populated POCO with the typed fields
+        // null'd; no parse error fires; RecordFailure never engages; the failure is
+        // SILENTLY SWALLOWED.
+        //
+        // Phase 17.2 D-3 fix (REFINE, do NOT revert per cutover-branch decision-history
+        // policy / SC#7 of ROADMAP):
+        //   1. The in-IIFE try/catch BELOW (lines ~407-420) is BYTE-FOR-BYTE UNCHANGED —
+        //      kept as cheap defensive code if a real decrypt exception ever surfaces in
+        //      production after Mitigation A (Plan 17.2-01 settle step) eliminated the
+        //      page-context-destroyed root cause.
+        //   2. The C# caller (ComixIndexer.DispatchSignerPathsAsync AND
+        //      ComixIndexer.GetChapterPages) now inspects the JSON envelope BEFORE
+        //      delegating to parser.ParseResponse / DeserializeObject<ComixChapterPagesResponse>;
+        //      on decryptError envelope hit → log Warn + _sourceStatusService.RecordFailure(SourceKey)
+        //      + continue/return-empty.
+        //   3. T-17.2-11 mitigation: only the decryptError STRING surfaces in the Warn log
+        //      — the `e` field's encrypted blob NEVER appears in the log surface
+        //      (verified by ComixDecryptErrorEnvelopeRoutingFixture.cs).
+        //
+        // *** DO NOT remove the in-IIFE catch ***: it is the defensive fallback if a real
+        // decrypt exception ever surfaces. The .NET-side envelope routing in ComixIndexer
+        // is the PRIMARY surface; the in-IIFE catch is a SECONDARY no-harm safety net.
+        //
+        // Regression guards:
+        //   - ComixDecryptErrorEnvelopeRoutingFixture.cs (NEW Phase 17.2-03; mock-based,
+        //     Chromium-free) asserts the envelope routes to RecordFailure on BOTH the
+        //     chapter-list dispatch path AND the GetChapterPages path.
+        //   - UpstreamSignerDriftFixture.Port_must_not_regress_GAP_17_B_decrypt_guard
+        //     (Phase 17 Plan 17-06; preserved verbatim) asserts the in-IIFE catch shape
+        //     stays present in this file.
         protected virtual async Task<string> EvaluateProxyFetchAsync(string apiPath, CancellationToken ct)
         {
             // CR-05 mitigation (revision iteration 2): snapshot fields under the gate before

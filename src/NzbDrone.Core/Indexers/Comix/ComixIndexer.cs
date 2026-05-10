@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentValidation.Results;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NLog;
 using NzbDrone.Common.Http;
 using NzbDrone.Core.Configuration;
@@ -188,6 +189,26 @@ namespace NzbDrone.Core.Indexers.Comix
                     continue;
                 }
 
+                // Phase 17.2 D-3 / WR-GC-01 closure: the in-IIFE BRANCH-C catch in
+                // ComixPuppeteerSigner.EvaluateProxyFetchAsync returns a
+                // {result:null, e:..., decryptError:...} envelope on decrypt-throw.
+                // JsonConvert.DeserializeObject<typed-shape>(envelope) parses to a
+                // null-Result POCO — the existing parse path silently swallows the
+                // failure (no log, no RecordFailure, no Health Check trip). Detect
+                // the envelope here and route to RecordFailure so the per-SourceKey
+                // 4-step escalation engages.
+                // T-17.2-11: log ONLY the decryptError STRING — never the `e` field's
+                // encrypted blob (cipher of the upstream API response).
+                if (TryDetectDecryptErrorEnvelope(json, out var listDecryptError))
+                {
+                    _logger.Warn(
+                        "Comix: signer returned decryptError envelope for '{0}'; routing to RecordFailure. decryptError={1}",
+                        apiPath,
+                        listDecryptError);
+                    _sourceStatusService.RecordFailure(SourceKey);
+                    continue;
+                }
+
                 var fakeRequest = new HttpRequest($"{Settings.BaseUrl.TrimEnd('/')}/api/v1{apiPath}");
                 var fakeResponse = new HttpResponse(fakeRequest, new HttpHeader { ContentType = "application/json" }, json, System.Net.HttpStatusCode.OK);
                 var indexerResponse = new IndexerResponse(new IndexerRequest(fakeRequest), fakeResponse);
@@ -199,6 +220,53 @@ namespace NzbDrone.Core.Indexers.Comix
             }
 
             return allReleases;
+        }
+
+        /// <summary>
+        /// Phase 17.2 D-3 / WR-GC-01: lightweight envelope detector for the in-IIFE
+        /// BRANCH-C decrypt-throw shape (<c>{result:null, e:..., decryptError:...}</c>).
+        /// Returns <c>true</c> + the decryptError STRING when the JSON has a non-empty
+        /// <c>decryptError</c> string AND a null <c>result</c>; <c>false</c> otherwise
+        /// (including malformed JSON — the legacy parse path handles those).
+        /// </summary>
+        private static bool TryDetectDecryptErrorEnvelope(string json, out string decryptError)
+        {
+            decryptError = null;
+            try
+            {
+                var envelope = JsonConvert.DeserializeObject<JObject>(json);
+                if (envelope == null)
+                {
+                    return false;
+                }
+
+                var decryptToken = envelope["decryptError"];
+                if (decryptToken == null || decryptToken.Type != JTokenType.String)
+                {
+                    return false;
+                }
+
+                var resultToken = envelope["result"];
+                if (resultToken != null && resultToken.Type != JTokenType.Null)
+                {
+                    return false;
+                }
+
+                var s = decryptToken.ToString();
+                if (string.IsNullOrWhiteSpace(s))
+                {
+                    return false;
+                }
+
+                decryptError = s;
+                return true;
+            }
+            catch (JsonReaderException)
+            {
+                // Malformed JSON — let the existing parse path handle it (it will
+                // fail / produce empty list). Not our envelope shape.
+                return false;
+            }
         }
 
         /// <summary>
@@ -386,6 +454,31 @@ namespace NzbDrone.Core.Indexers.Comix
             if (string.IsNullOrWhiteSpace(json))
             {
                 _logger.Warn("Comix: GetChapterPages received empty signer payload for '{0}'; returning empty manifest.", apiPath);
+                return new ChapterManifest
+                {
+                    Pages = Array.Empty<ChapterPage>(),
+                    ScanlationGroup = release.ScanlationGroup,
+                    TotalCount = 0,
+                    ExpiresAt = null
+                };
+            }
+
+            // Phase 17.2 D-3 / WR-GC-01 closure: same envelope-detect routing as
+            // DispatchSignerPathsAsync — the in-IIFE BRANCH-C catch in
+            // ComixPuppeteerSigner.EvaluateProxyFetchAsync emits the
+            // {result:null, e:..., decryptError:...} envelope on decrypt-throw.
+            // Without this guard, JsonConvert.DeserializeObject<ComixChapterPagesResponse>(envelope)
+            // returns a Result with null pages — we silently produce a zero-page
+            // manifest with no escalation. Fail-soft to empty manifest (CR-06
+            // posture) AND route to RecordFailure so the 4-step escalation engages.
+            // T-17.2-11: log ONLY the decryptError STRING — never the `e` blob.
+            if (TryDetectDecryptErrorEnvelope(json, out var pagesDecryptError))
+            {
+                _logger.Warn(
+                    "Comix: GetChapterPages signer returned decryptError envelope for '{0}'; routing to RecordFailure + returning empty manifest. decryptError={1}",
+                    apiPath,
+                    pagesDecryptError);
+                _sourceStatusService.RecordFailure(SourceKey);
                 return new ChapterManifest
                 {
                     Pages = Array.Empty<ChapterPage>(),
