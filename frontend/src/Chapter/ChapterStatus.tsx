@@ -13,21 +13,27 @@
 //   * No airDate / hasAired branch (manga has no airing concept).
 //   * No EpisodeFile detail panel — `chapterFileId` presence alone toggles
 //     have-file. Files-tab UI (Plan 07-08+) renders chapter-file detail.
-//   * Reads three React Query caches concurrently (queue / history /
-//     blocklist) via the URL-shaped cache keys from Plan 07-02 SignalR
-//     contract; SignalR-pushed updates invalidate the keys → status icon
-//     re-renders within 1 second of backend events.
+//   * Reads queue + blocklist via the URL-shaped React Query cache keys from
+//     Plan 07-02 SignalR contract; SignalR-pushed updates invalidate the keys
+//     -> status icon re-renders within 1 second of backend events.
+//   * Reads per-chapter most-recent history event from MangaChapterHistoryContext
+//     (lifted parent-fetched whole-manga history bucketed by chapterId)
+//     instead of firing its own per-row useApiQuery({ path: '/manga/history',
+//     queryParams: { chapterId } }) — issue #51 fix. The prior per-row pattern
+//     fanned out to N HTTP requests when the Chapters tab opened (one per
+//     row); the parent-provider pattern mirrors Sonarr's QueueDetailsProvider
+//     -> useQueueItemForEpisode parent-read shape (canonical mirror).
 //
 // Phase 8 cleanup: collapse with EpisodeStatus when Tv/ deletes.
 import React from 'react';
 import Icon from 'Components/Icon';
 import useApiQuery from 'Helpers/Hooks/useApiQuery';
 import { icons, kinds } from 'Helpers/Props';
-import translate from 'Utilities/String/translate';
-import Chapter from './Chapter';
-import ChapterHistory from 'typings/ChapterHistory';
+import { useLastChapterHistoryEvent } from 'Manga/Details/MangaChapterHistoryContext';
 import MangaBlocklist from 'typings/MangaBlocklist';
 import MangaQueueItem from 'typings/MangaQueueItem';
+import translate from 'Utilities/String/translate';
+import Chapter from './Chapter';
 
 export interface ChapterStatusProps {
   chapter: Chapter;
@@ -53,33 +59,21 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
     queryOptions: { staleTime: 30 * 1000 },
   });
 
-  // WR-05 fix: explicitly request descending-by-date so `history?.[0]` is
-  // guaranteed to be the most recent event. The /manga/history endpoint is
-  // paged and does not contractually default to descending sort order — the
-  // previous code would surface stale "download failed" indicators forever
-  // if the backend returned ascending order.
+  // Issue #51 fix: read the most-recent history event for this chapter from
+  // the MangaDetailsProvider-level context. The provider runs ONE
+  // /api/v5/manga/history?mangaIds=<id> fetch on tab-mount and buckets
+  // results by chapterId; we get O(1) lookup here instead of an HTTP round-
+  // trip per row.
   //
-  // WR-04 (per-row fan-out) is intentionally NOT fixed here: the backend
-  // history endpoint is PAGED and supports `chapterId` as a server-side
-  // filter. Fetching whole-manga history client-side and filtering by
-  // chapterId would only inspect the first page (typically 20-50 rows) and
-  // could miss the most recent event for older chapters. Lifting the fetch
-  // to a parent component (per the reviewer's suggestion) is a structural
-  // refactor deferred to a follow-up plan.
-  // /api/v5/manga/history returns the paged `Ok<PagingResource<ChapterHistoryResource>>`
-  // shape — same wrapper as blocklist above. Read .records[0] for the most recent
-  // event after the descending-by-date sort. The previous flat-array typing happened
-  // to gracefully degrade to "no failure detected" because `[].records` is undefined
-  // and the optional chain returns undefined, but it silently masked failed downloads.
-  const { data: history } = useApiQuery<{ records?: ChapterHistory[] }>({
-    path: '/manga/history',
-    queryParams: {
-      chapterId: chapter.id,
-      sortKey: 'date',
-      sortDirection: 'descending',
-    },
-    queryOptions: { staleTime: 30 * 1000 },
-  });
+  // WR-05 sort-discipline preserved: provider's usePagedApiQuery passes
+  // sortKey='date' + sortDirection='descending', so the bucketed array is in
+  // most-recent-first order without an additional client-side sort.
+  //
+  // WR-04 (per-row fan-out) IS NOW FIXED via the lift to
+  // MangaDetailsProvider — single mangaIds-filtered fetch instead of N
+  // chapterId-filtered fetches.
+  const lastEvent = useLastChapterHistoryEvent(chapter.id);
+  const isFailed = lastEvent?.eventType === 'downloadFailed';
 
   const isQueued =
     !!queue &&
@@ -92,13 +86,6 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
   const isBlocklisted =
     !!blocklist?.records &&
     blocklist.records.some((b) => b.chapterIds?.includes(chapter.id) ?? false);
-
-  // The most recent history event for this chapter — used to detect a failed
-  // last attempt. The retry-budget gate (Phase 6 D-13) is not yet exposed on
-  // the wire; v1 uses last-event === 'downloadFailed' as the signal. When
-  // the budget signal lands, AND the budget into the condition.
-  const lastEvent = history?.records?.[0]?.eventType;
-  const isFailed = lastEvent === 'downloadFailed';
 
   const hasFile = chapter.chapterFileId != null;
 
