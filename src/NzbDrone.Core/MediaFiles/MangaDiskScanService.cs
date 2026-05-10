@@ -54,7 +54,6 @@ namespace NzbDrone.Core.MediaFiles
         private readonly IMangaService _mangaService;
         private readonly IChapterFileService _chapterFileService;
         private readonly IChapterService _chapterService;
-        private readonly IChapterReleaseService _chapterReleaseService;
         private readonly IMangaParsingService _parsingService;
         private readonly IMangaFileTableCleanupService _chapterFileTableCleanupService;
         private readonly IRootFolderService _rootFolderService;
@@ -68,7 +67,6 @@ namespace NzbDrone.Core.MediaFiles
                                     IMangaService mangaService,
                                     IChapterFileService chapterFileService,
                                     IChapterService chapterService,
-                                    IChapterReleaseService chapterReleaseService,
                                     IMangaParsingService parsingService,
                                     IMangaFileTableCleanupService chapterFileTableCleanupService,
                                     IRootFolderService rootFolderService,
@@ -82,7 +80,6 @@ namespace NzbDrone.Core.MediaFiles
             _mangaService = mangaService;
             _chapterFileService = chapterFileService;
             _chapterService = chapterService;
-            _chapterReleaseService = chapterReleaseService;
             _parsingService = parsingService;
             _chapterFileTableCleanupService = chapterFileTableCleanupService;
             _rootFolderService = rootFolderService;
@@ -213,13 +210,13 @@ namespace NzbDrone.Core.MediaFiles
                 // Issue #30 — when neither the parser nor the indexer supplies a language
                 // tag (e.g., a CBZ file dropped into the manga's library folder named
                 // `<Title> - Chapter NNN.cbz` with no language marker), back-propagate
-                // from the matched Chapter's ChapterRelease rows. Phase 16 STRUCT-04
-                // lifted language to ChapterRelease — pick the first ChapterRelease's
-                // TranslatedLanguage as a best-effort fallback. When parser DOES supply
-                // a language, it wins (consistent with MangaParsingService D-10 contract).
+                // from the matched Chapter's existing ChapterFile.TranslatedLanguage
+                // (Phase 16.1 — TranslatedLanguage is canonical on ChapterFile per D-06).
+                // When parser DOES supply a language, it wins (consistent with
+                // MangaParsingService D-10 contract).
                 var resolvedLanguage = parsed?.TranslatedLanguage
                     ?? (chapter != null
-                        ? _chapterReleaseService.GetReleasesByChapter(chapter.Id).FirstOrDefault()?.TranslatedLanguage
+                        ? _chapterFileService.GetFilesByChapter(chapter.Id).FirstOrDefault()?.TranslatedLanguage
                         : null);
 
                 return new LocalChapter

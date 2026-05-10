@@ -39,8 +39,9 @@ namespace NzbDrone.Core.Test.Datastore.Migration
 
         // ============================================================
         // Test 2 — ChapterNumber DECIMAL(10,2) round-trips lossless (D-09)
-        // Phase 16 STRUCT-01: TranslatedLanguage column dropped from Chapters (lifted to
-        // ChapterReleases). INSERT no longer references the column.
+        // Phase 16 STRUCT-01: TranslatedLanguage column dropped from Chapters (canonical
+        // (MangaId, ChapterNumber) grain). Phase 16.1 keeps that shape; per-translation
+        // language lives on ChapterFile post-import (D-06).
         // ============================================================
         [Test]
         public void should_create_chapters_table_with_decimal_chapter_number()
@@ -212,12 +213,10 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         // Test 9 — Phase 16 STRUCT-01: language-keyed Chapters indexes are GONE.
         // The pre-Phase-16 (MangaId, TranslatedLanguage) two-column index and the
         // (MangaId, ChapterNumber, TranslatedLanguage) three-column index were both
-        // dropped when Plan 16-02 lifted the language axis to ChapterRelease. The
-        // canonical Chapter index is now the composite UNIQUE on (MangaId, ChapterNumber).
-        //
-        // Per-language access patterns now go via IChapterReleaseRepository against the
-        // (ChapterId, TranslatedLanguage, ScanlationGroup) UNIQUE on the new ChapterReleases
-        // table — see should_create_chapter_releases_unique_index below.
+        // dropped when Plan 16-02 lifted the language axis off the canonical Chapter
+        // grain. Phase 16.1 keeps that canonical (MangaId, ChapterNumber) UNIQUE shape;
+        // per-language data lives on ChapterFile (TranslatedLanguage + ScanlationGroup)
+        // post-import — see should_create_chapter_files_table_round_trip below.
         // ============================================================
         [Test]
         public void should_drop_pre_phase_16_translatedlanguage_chapters_indexes()
@@ -236,27 +235,39 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         }
 
         // ============================================================
-        // Phase 16 STRUCT-02 — ChapterReleases table + (ChapterId, TranslatedLanguage,
-        // ScanlationGroup) composite UNIQUE + per-Chapter lookup index.
+        // Phase 16.1 REVERT-01 + REVERT-02 — ChapterReleases table + 2 indexes
+        // are GONE. Per-translation language and packager axes live on ChapterFile
+        // (TranslatedLanguage + ScanlationGroup) instead — see
+        // should_create_chapter_files_table_round_trip below.
         // ============================================================
         [Test]
-        public void should_create_chapter_releases_unique_index()
+        public void should_not_create_chapter_releases_table()
         {
             var db = WithDapperMigrationTestDb();
 
-            var indexes = db.Query<IndexInfo>(
-                "SELECT name, tbl_name AS TableName, sql FROM sqlite_master " +
-                "WHERE type='index' AND tbl_name='ChapterReleases' AND sql IS NOT NULL")
-                .ToList();
+            var tableNames = db.Query<string>(
+                "SELECT name FROM sqlite_master WHERE type='table'").ToList();
 
-            indexes.Should().Contain(
-                i => i.Name == "IX_ChapterReleases_ChapterId_Lang_Group" &&
-                     System.Text.RegularExpressions.Regex.IsMatch(i.Sql ?? string.Empty, "UNIQUE"),
-                "ChapterReleases natural-key UNIQUE index must exist (Phase 16 STRUCT-02)");
+            tableNames.Should().NotContain(
+                "ChapterReleases",
+                "ChapterReleases table dropped in Phase 16.1 REVERT-02 (entity layer reverted)");
+        }
 
-            indexes.Should().Contain(
-                i => i.Name == "IX_ChapterReleases_ChapterId",
-                "ChapterReleases per-Chapter lookup index must exist (Phase 16 STRUCT-02)");
+        [Test]
+        public void should_not_create_chapter_releases_indexes()
+        {
+            var db = WithDapperMigrationTestDb();
+
+            var indexNames = db.Query<string>(
+                "SELECT name FROM sqlite_master WHERE type='index'").ToList();
+
+            indexNames.Should().NotContain(
+                "IX_ChapterReleases_ChapterId_Lang_Group",
+                "ChapterReleases natural-key UNIQUE index dropped in Phase 16.1 REVERT-02");
+
+            indexNames.Should().NotContain(
+                "IX_ChapterReleases_ChapterId",
+                "ChapterReleases per-Chapter lookup index dropped in Phase 16.1 REVERT-02");
         }
 
         // ============================================================
@@ -331,7 +342,9 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         }
 
         // ============================================================
-        // Phase 6 — ChapterFiles table (PIPELINE-04 import artifact)
+        // Phase 6 — ChapterFiles table (PIPELINE-04 import artifact).
+        // Phase 16.1 REVERT-06 + D-06: 2 group-axis columns (TranslatedLanguage +
+        // ScanlationGroup), not 3 — ReleaseGroup absorbed into ScanlationGroup.
         // ============================================================
         [Test]
         public void should_create_chapter_files_table_round_trip()
@@ -347,6 +360,18 @@ namespace NzbDrone.Core.Test.Datastore.Migration
             columnNames.Should().Contain("Path");
             columnNames.Should().Contain("Size");
             columnNames.Should().Contain("DateAdded");
+
+            // Phase 16.1 D-06: TranslatedLanguage + ScanlationGroup are the two canonical
+            // group-axis columns; ReleaseGroup column is dropped.
+            columnNames.Should().Contain(
+                "TranslatedLanguage",
+                "TranslatedLanguage column survives — Phase 6 PIPELINE-04 axis preserved");
+            columnNames.Should().Contain(
+                "ScanlationGroup",
+                "ScanlationGroup is the canonical \"release group\" axis for manga (Phase 16.1 D-06)");
+            columnNames.Should().NotContain(
+                "ReleaseGroup",
+                "ReleaseGroup column absorbed into ScanlationGroup (Phase 16.1 REVERT-06 + D-06)");
 
             db.Execute(
                 "INSERT INTO \"ChapterFiles\" (\"MangaId\", \"ChapterId\", \"RelativePath\", \"Path\", \"Size\", \"DateAdded\") "

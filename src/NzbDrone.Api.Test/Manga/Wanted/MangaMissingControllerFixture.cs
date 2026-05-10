@@ -253,14 +253,31 @@ namespace NzbDrone.Api.Test.Manga.Wanted
                 "mangaIds filter should reject rows whose MangaId is not in the supplied list");
         }
 
-        // Phase 16.1 revert (Wave 2): the Phase 16 D-04 `[FromQuery] string[]? languages`
-        // parameter and its sibling-service hydration were REMOVED. REVERT-05 acceptance:
-        // Wanted/Missing reverts to the Sonarr-canonical predicate `monitored && no file`
-        // (see ChaptersWithoutFiles paged spec). The languages-filter test cohort (4 tests
-        // — applies_languages_filter / zero_releases_appears / zero_releases_excluded /
-        // case_insensitive) was deleted because the controller surface no longer carries
-        // the parameter. Manga-domain translation preference is enforced in the
-        // DecisionEngine via TranslationProfile, NOT a controller-level filter.
+        // Phase 16.1 REVERT-05 acceptance pin (reflection): the Phase 16 D-04
+        // `[FromQuery] string[]? languages` parameter must NOT exist on
+        // MangaMissingController.GetMissingChapters. Manga-domain translation preference
+        // is enforced in the DecisionEngine via TranslationProfile, NOT a controller-level
+        // filter. Sonarr's MissingController has no `languages[]` analog.
+        [Test]
+        public void languages_query_parameter_must_be_absent_from_controller_surface()
+        {
+            var method = typeof(MangaMissingController)
+                .GetMethod(nameof(MangaMissingController.GetMissingChapters));
+
+            method.Should().NotBeNull(
+                "MangaMissingController.GetMissingChapters must exist");
+
+            var parameterNames = method!.GetParameters()
+                .Select(p => p.Name)
+                .ToList();
+
+            parameterNames.Should().NotContain(
+                "languages",
+                "Phase 16.1 REVERT-05: languages[] parameter dropped from controller surface " +
+                "(no Sonarr analog; manga translation preference belongs in TranslationProfile, " +
+                "not a controller-level filter)");
+        }
+
         [Test]
         public void GetMissingChapters_hydrates_Manga_subresource_when_includeSubresources_contains_Manga()
         {

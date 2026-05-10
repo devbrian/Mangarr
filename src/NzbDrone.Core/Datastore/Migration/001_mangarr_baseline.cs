@@ -529,27 +529,13 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("MangaId").AsInt32().NotNullable()
                 .WithColumn("ChapterNumber").AsDecimal(10, 3).NotNullable()         // D-12 applied at baseline (was DECIMAL(10,2))
                 .WithColumn("Title").AsString().Nullable()
-                .WithColumn("FirstReleaseDate").AsDateTime().Nullable()                           // Phase 16 D-02 — Sonarr-mirror of Episode.AirDateUtc; chapter-publish date (NOT per-translation upload time — that lives on ChapterReleases.ReleaseDate)
+                .WithColumn("FirstReleaseDate").AsDateTime().Nullable()                           // Phase 16 D-02 (kept Phase 16.1 — Sonarr-mirror of Episode.AirDateUtc; chapter-publish date)
                 .WithColumn("Monitored").AsBoolean().NotNullable()
                 .WithColumn("ExternalId").AsString().Nullable()
                 .WithColumn("ChapterType").AsString().NotNullable().WithDefaultValue("Regular")  // folded from 002 (D-11)
                 .WithColumn("VolumeNumber").AsInt32().Nullable()                                  // folded from 002 (D-11)
                 .WithColumn("AbsoluteChapterNumber").AsDecimal(10, 3).Nullable()                  // folded from 002 (D-11)
                 .WithColumn("LastSearchTime").AsDateTime().Nullable();                            // Phase 8 audit gap-07 — search-history per chapter (sibling of Episodes.LastSearchTime)
-
-            // Phase 16 STRUCT-02: per-(language, group) translation upload metadata.
-            // Sonarr divergence: NEW manga sibling table per Phase 16 — see DIVERGENCE.md.
-            // Multilingual scanlations exist for manga but not for TV; canonical Chapter row
-            // stays language-free at the (MangaId, ChapterNumber) grain (STRUCT-01).
-            // SOFT-FK convention (Pitfall 2): ChapterId is a plain int column; cascade-delete
-            // lives in C# at IChapterReleaseService.HandleAsync(MangaDeletedEvent), NOT at
-            // SQL layer (existing 001 has zero Create.ForeignKey calls — verify with grep).
-            Create.TableForModel("ChapterReleases")
-                .WithColumn("ChapterId").AsInt32().NotNullable()
-                .WithColumn("TranslatedLanguage").AsString().NotNullable()
-                .WithColumn("ScanlationGroup").AsString().Nullable()
-                .WithColumn("ReleaseDate").AsDateTime().Nullable()
-                .WithColumn("ExternalId").AsString().Nullable();
 
             // ─────────────────────────────────────────────────────────────────────
             // History/Blocklist manga columns (D-07 added; D-23 flipped to NotNullable per Phase 15).
@@ -590,20 +576,6 @@ namespace NzbDrone.Core.Datastore.Migration
                 .OnColumn("MangaId").Ascending()
                 .OnColumn("ChapterNumber").Ascending()
                 .WithOptions().Unique();
-
-            // 5. Phase 16 STRUCT-02: ChapterReleases natural-key UNIQUE on
-            //    (ChapterId, TranslatedLanguage, ScanlationGroup) — at-most-one row per
-            //    (canonical chapter, language, group) tuple.
-            Create.Index("IX_ChapterReleases_ChapterId_Lang_Group").OnTable("ChapterReleases")
-                .OnColumn("ChapterId").Ascending()
-                .OnColumn("TranslatedLanguage").Ascending()
-                .OnColumn("ScanlationGroup").Ascending()
-                .WithOptions().Unique();
-
-            // 6. Phase 16 STRUCT-02: ChapterReleases per-Chapter lookup index — supports
-            //    GetByChapterId / GetByChapterIds bulk queries used by N+1-safe controller paths.
-            Create.Index("IX_ChapterReleases_ChapterId").OnTable("ChapterReleases")
-                .OnColumn("ChapterId");
 
             // No seed data. The RefreshMangaCommand ScheduledTasks row is registered by
             // TaskManager.Handle(ApplicationStartedEvent) at runtime (Sonarr's canonical
@@ -674,8 +646,7 @@ namespace NzbDrone.Core.Datastore.Migration
                 .WithColumn("DateAdded").AsDateTime().NotNullable()
                 .WithColumn("OriginalFilePath").AsString().Nullable()
                 .WithColumn("TranslatedLanguage").AsString().Nullable()
-                .WithColumn("ScanlationGroup").AsString().Nullable()
-                .WithColumn("ReleaseGroup").AsString().Nullable();
+                .WithColumn("ScanlationGroup").AsString().Nullable();
 
             Create.Index("IX_ChapterFile_MangaId").OnTable("ChapterFiles").OnColumn("MangaId");
             Create.Index("IX_ChapterFile_ChapterId").OnTable("ChapterFiles").OnColumn("ChapterId");

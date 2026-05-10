@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using NLog;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.CustomFormats;
+using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.Parser.Model;
 using MangaModel = NzbDrone.Core.Manga.Manga;
 
@@ -36,15 +37,15 @@ namespace NzbDrone.Core.Organizer.Manga
         private static readonly Regex TrimSeparatorsRegex = new Regex(@"[- ._]+$", RegexOptions.Compiled);
 
         private readonly INamingConfigService _namingConfigService;
-        private readonly NzbDrone.Core.Manga.IChapterReleaseService _chapterReleaseService;
+        private readonly IChapterFileService _chapterFileService;
         private readonly Logger _logger;
 
         public MangaFileNameBuilder(INamingConfigService namingConfigService,
-                                    NzbDrone.Core.Manga.IChapterReleaseService chapterReleaseService,
+                                    IChapterFileService chapterFileService,
                                     Logger logger)
         {
             _namingConfigService = namingConfigService;
-            _chapterReleaseService = chapterReleaseService;
+            _chapterFileService = chapterFileService;
             _logger = logger;
         }
 
@@ -202,19 +203,19 @@ namespace NzbDrone.Core.Organizer.Manga
 
                 case "scanlationgroup":
                 case "scanlation.group":
-                    // Phase 16 STRUCT-04: ScanlationGroup lifted to ChapterRelease (per-translation
-                    // data). Indexer's ReleaseInfo wins (Phase 3 indexer pipeline carries the
-                    // selected-release context); on a rename / disk-import path with no release,
-                    // fall back to the matched Chapter's first ChapterRelease scanlation group.
+                    // Phase 16.1: ScanlationGroup is canonical on ChapterFile (D-06). Indexer's
+                    // ReleaseInfo wins (Phase 3 indexer pipeline carries the selected-release
+                    // context); on a rename / disk-import path with no release, fall back to
+                    // the matched Chapter's existing ChapterFile.ScanlationGroup.
                     return release?.ScanlationGroup
-                        ?? GetFirstReleaseScanlationGroup(chapters);
+                        ?? GetChapterFileScanlationGroup(chapters);
 
                 case "language":
-                    // Phase 16 STRUCT-04: TranslatedLanguage lifted to ChapterRelease — same
-                    // shape as scanlation group above; release-info wins, fall back to the
-                    // matched Chapter's first ChapterRelease language for rename/disk-import.
+                    // Phase 16.1: TranslatedLanguage is canonical on ChapterFile — same shape as
+                    // scanlation group above; release-info wins, fall back to the matched
+                    // Chapter's existing ChapterFile.TranslatedLanguage for rename/disk-import.
                     return release?.TranslatedLanguage
-                        ?? GetFirstReleaseLanguage(chapters);
+                        ?? GetChapterFileLanguage(chapters);
 
                 case "source":
                     // Indexer attribution — D-17 SourceKey. ReleaseInfo.Indexer carries the
@@ -310,12 +311,11 @@ namespace NzbDrone.Core.Organizer.Manga
             return result.TrimStart(' ', '.').TrimEnd(' ');
         }
 
-        // Phase 16 STRUCT-04 Plan 16-03 fallback helpers — when the {ScanlationGroup} /
-        // {Language} tokens are evaluated without a populated release context (e.g.,
-        // rename/disk-import path), resolve from the matched Chapter's first ChapterRelease.
-        // This preserves the pre-Phase-16 user expectation (rename a CBZ on disk and the
-        // language token still populates) on the new (canonical, releases) shape.
-        private string GetFirstReleaseScanlationGroup(List<NzbDrone.Core.Manga.Chapter> chapters)
+        // Phase 16.1 fallback helpers — when the {ScanlationGroup} / {Language} tokens are
+        // evaluated without a populated release context (e.g., rename/disk-import path),
+        // resolve from the matched Chapter's existing ChapterFile (which carries the canonical
+        // TranslatedLanguage + ScanlationGroup post-import per Phase 6 PIPELINE-04 + D-06).
+        private string GetChapterFileScanlationGroup(List<NzbDrone.Core.Manga.Chapter> chapters)
         {
             var chapterId = chapters?.FirstOrDefault()?.Id ?? 0;
             if (chapterId == 0)
@@ -323,10 +323,10 @@ namespace NzbDrone.Core.Organizer.Manga
                 return null;
             }
 
-            return _chapterReleaseService.GetReleasesByChapter(chapterId).FirstOrDefault()?.ScanlationGroup;
+            return _chapterFileService.GetFilesByChapter(chapterId).FirstOrDefault()?.ScanlationGroup;
         }
 
-        private string GetFirstReleaseLanguage(List<NzbDrone.Core.Manga.Chapter> chapters)
+        private string GetChapterFileLanguage(List<NzbDrone.Core.Manga.Chapter> chapters)
         {
             var chapterId = chapters?.FirstOrDefault()?.Id ?? 0;
             if (chapterId == 0)
@@ -334,7 +334,7 @@ namespace NzbDrone.Core.Organizer.Manga
                 return null;
             }
 
-            return _chapterReleaseService.GetReleasesByChapter(chapterId).FirstOrDefault()?.TranslatedLanguage;
+            return _chapterFileService.GetFilesByChapter(chapterId).FirstOrDefault()?.TranslatedLanguage;
         }
     }
 }

@@ -223,8 +223,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                         DateAdded = DateTime.UtcNow,
                         OriginalFilePath = lc.Path,
                         TranslatedLanguage = lc.TranslatedLanguage ?? lc.Release?.TranslatedLanguage,
-                        ScanlationGroup = lc.ScanlationGroup ?? lc.Release?.ScanlationGroup,
-                        ReleaseGroup = lc.Release?.Indexer
+                        ScanlationGroup = lc.ScanlationGroup ?? lc.Release?.ScanlationGroup ?? lc.Release?.Indexer
                     };
 
                     chapterFile = _chapterFileService.Add(chapterFile);

@@ -66,7 +66,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
         private readonly IMangaParsingService _parsingService;
         private readonly IMangaService _mangaService;
         private readonly IChapterService _chapterService;
-        private readonly IChapterReleaseService _chapterReleaseService;          // NEW Plan 16-03 — Issue #30 back-propagation against ChapterRelease grain
+        private readonly IChapterFileService _chapterFileService;                // Phase 16.1 — Issue #30 back-propagation against ChapterFile grain (canonical post-Phase-16.1)
         private readonly IMakeMangaImportDecision _importDecisionMaker;
         private readonly IImportApprovedChapters _importApprovedChapters;
         private readonly IChapterDownloadStateRepository _chapterDownloadStateRepository;   // NEW per Plan 09-14 (audit gap-06)
@@ -76,7 +76,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
                                    IMangaParsingService parsingService,
                                    IMangaService mangaService,
                                    IChapterService chapterService,
-                                   IChapterReleaseService chapterReleaseService,             // NEW Plan 16-03
+                                   IChapterFileService chapterFileService,                  // Phase 16.1 — replaces IChapterReleaseService
                                    IMakeMangaImportDecision importDecisionMaker,
                                    IImportApprovedChapters importApprovedChapters,
                                    IChapterDownloadStateRepository chapterDownloadStateRepository,   // NEW Plan 09-14
@@ -86,7 +86,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
             _parsingService = parsingService;
             _mangaService = mangaService;
             _chapterService = chapterService;
-            _chapterReleaseService = chapterReleaseService;
+            _chapterFileService = chapterFileService;
             _importDecisionMaker = importDecisionMaker;
             _importApprovedChapters = importApprovedChapters;
             _chapterDownloadStateRepository = chapterDownloadStateRepository;   // NEW Plan 09-14
@@ -393,13 +393,13 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
 
             // Issue #30 — when neither the parser nor the indexer supplies a language tag
             // (e.g., a CBZ file dropped via manual-import with no language marker in the
-            // name), back-propagate from the matched Chapter's ChapterRelease rows. Phase 16
-            // STRUCT-04 lifted language to ChapterRelease — pick the first ChapterRelease's
-            // TranslatedLanguage as a best-effort fallback. When parser DOES supply a
-            // language, it wins (consistent with MangaParsingService D-10 contract).
+            // name), back-propagate from the matched Chapter's existing ChapterFile.
+            // Phase 16.1 — TranslatedLanguage is canonical on ChapterFile per D-06.
+            // When parser DOES supply a language, it wins (consistent with
+            // MangaParsingService D-10 contract).
             var resolvedLanguage = parsed?.TranslatedLanguage
                 ?? (chapter != null
-                    ? _chapterReleaseService.GetReleasesByChapter(chapter.Id).FirstOrDefault()?.TranslatedLanguage
+                    ? _chapterFileService.GetFilesByChapter(chapter.Id).FirstOrDefault()?.TranslatedLanguage
                     : null);
 
             return new LocalChapter

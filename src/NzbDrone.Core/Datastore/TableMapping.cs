@@ -157,11 +157,6 @@ namespace NzbDrone.Core.Datastore
             Mapper.Entity<Core.Manga.Manga>("Manga").RegisterModel();
             Mapper.Entity<Core.Manga.Chapter>("Chapters").RegisterModel();
 
-            // Phase 16 STRUCT-02 (Pitfall 1): Dapper Mapper registration for ChapterReleases.
-            // Schema-DDL added to 001_mangarr_baseline.cs in the same plan; this registration
-            // must land alongside or queries silently fail with "table not found in mapping".
-            Mapper.Entity<Core.Manga.ChapterRelease>("ChapterReleases").RegisterModel();
-
             // Sonarr divergence: Phase 15 D-11 schema delete — QualityDefinition entity registration stripped (Plan 15-03)
 
             Mapper.Entity<CustomFormat>("CustomFormats").RegisterModel();

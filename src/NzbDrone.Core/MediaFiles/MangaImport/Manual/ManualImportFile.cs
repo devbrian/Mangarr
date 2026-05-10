@@ -19,7 +19,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
 
         // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — QualityModel stripped (Quality cascade per Plan 15-03).
         public List<Language> Languages { get; set; }
-        public string ReleaseGroup { get; set; }
+        public string ScanlationGroup { get; set; }    // Phase 16.1 D-06 — canonical "release group" axis for manga
         public int IndexerFlags { get; set; }
         public ReleaseType ReleaseType { get; set; }
         public string DownloadId { get; set; }

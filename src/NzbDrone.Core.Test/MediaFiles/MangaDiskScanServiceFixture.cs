@@ -289,7 +289,7 @@ namespace NzbDrone.Core.Test.MediaFiles
             var filePath = Path.Combine(_manga.Path, "Manga Title - Chapter 001.cbz").AsOsAgnostic();
             GivenFiles(new List<string> { filePath });
 
-            // Phase 16 STRUCT-01: TranslatedLanguage lifted off Chapter (now on ChapterRelease).
+            // Phase 16.1 D-06: TranslatedLanguage is canonical on ChapterFile (post-import).
             var dbChapter = Builder<Chapter>
                 .CreateNew()
                 .With(c => c.MangaId = _manga.Id)
@@ -305,12 +305,13 @@ namespace NzbDrone.Core.Test.MediaFiles
                       Chapters = new List<Chapter> { dbChapter }
                   });
 
-            // Phase 16 STRUCT-04 + Plan 16-03: language back-propagation now reads from
-            // IChapterReleaseService.GetReleasesByChapter against the matched Chapter id.
-            // Stub a single ChapterRelease at "en"/Group-X so the fallback resolves.
-            Mocker.GetMock<NzbDrone.Core.Manga.IChapterReleaseService>()
-                  .Setup(s => s.GetReleasesByChapter(dbChapter.Id))
-                  .Returns(new List<NzbDrone.Core.Manga.ChapterRelease>
+            // Phase 16.1 D-06: language back-propagation now reads from
+            // IChapterFileService.GetFilesByChapter against the matched Chapter id
+            // (TranslatedLanguage is canonical on ChapterFile post-import).
+            // Stub a single ChapterFile at "en"/Group-X so the fallback resolves.
+            Mocker.GetMock<IChapterFileService>()
+                  .Setup(s => s.GetFilesByChapter(dbChapter.Id))
+                  .Returns(new List<ChapterFile>
                   {
                       new()
                       {
@@ -335,10 +336,10 @@ namespace NzbDrone.Core.Test.MediaFiles
             var lc = captured[0];
             lc.Chapter.Should().NotBeNull();
 
-            // Phase 16 STRUCT-04 + Plan 16-03: when the parser extracted no language tag
-            // from the filename, MangaDiskScanService falls back to the matched Chapter's
-            // first ChapterRelease.TranslatedLanguage — Issue #30 back-propagation
-            // re-introduced against the ChapterRelease grain.
+            // Phase 16.1 D-06: when the parser extracted no language tag from the
+            // filename, MangaDiskScanService falls back to the matched Chapter's
+            // first ChapterFile.TranslatedLanguage — Issue #30 back-propagation
+            // retargeted against the canonical ChapterFile grain.
             lc.TranslatedLanguage.Should().Be("en");
         }
     }
