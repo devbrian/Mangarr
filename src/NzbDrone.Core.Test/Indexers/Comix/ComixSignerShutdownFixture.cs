@@ -98,8 +98,14 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         }
 
         [Test]
-        public void ApplicationShutdownRequested_should_dispose_and_subsequent_calls_throw()
+        public async Task ApplicationShutdownRequested_should_dispose_and_subsequent_calls_throw()
         {
+            // WR-01 mitigation (revision iteration 2): the previous version of this test
+            // was non-async and called `act.Should().ThrowAsync<ObjectDisposedException>();`
+            // without awaiting. ThrowAsync returns a `Task<ExceptionAssertions<...>>` —
+            // an unawaited Task is silently dropped by NUnit, so the assertion never
+            // executed. The test passed regardless of what the SUT did. Make the method
+            // async + await the assertion so the contract is actually enforced.
             var subject = new ComixPuppeteerSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
                 LogManager.GetLogger("ComixPuppeteerSigner"));
@@ -107,7 +113,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             subject.Handle(new ApplicationShutdownRequested(restarting: false));
 
             Func<Task> act = () => subject.ProxyFetchAsync("/manga/test/chapters");
-            act.Should().ThrowAsync<ObjectDisposedException>();
+            await act.Should().ThrowAsync<ObjectDisposedException>();
         }
 
         [Test]
