@@ -18,18 +18,16 @@ namespace NzbDrone.Core.MetadataSource
     /// on 404.
     ///
     /// <para>
-    /// Phase 16 STRUCT-05 + STRUCT-07: the chapter-feed return shape changed from a flat
-    /// <c>List&lt;Chapter&gt;</c> (one row per chapter) to a tuple stream — one element per
-    /// canonical chapter, each carrying a <see cref="Manga.ChapterEnsureInputs"/> (canonical
-    /// upsert payload) + a <see cref="List{T}"/> of <see cref="Manga.ChapterReleaseFeedRow"/>
-    /// (per-translation upload metadata). RefreshMangaService consumes this stream in a
-    /// two-pass <c>EnsureChapter</c> + <c>SyncChapterReleases</c> shape (mirrors Sonarr's
-    /// RefreshEpisodeService two-pass).
+    /// Phase 16.1 Wave 3 (REVERT-03): chapter-feed return shape reverted to
+    /// Sonarr-canonical flat <see cref="IEnumerable{T}"/> of <see cref="Chapter"/> — one
+    /// row per canonical chapter. Mirror of Sonarr's <c>IProvideSeriesInfo.GetSeriesInfo</c>
+    /// returning <c>Tuple&lt;Series, IEnumerable&lt;Episode&gt;&gt;</c>. Per-translation
+    /// language and scanlation-group axes live on <see cref="MediaFiles.ChapterFile"/>
+    /// after import (Phase 6 PIPELINE-04 axis), not on the metadata-feed projection.
     /// </para>
     /// </summary>
     public interface IProvideMangaInfo
     {
-        Tuple<Manga.Manga, IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)>>
-            GetMangaInfo(string sourceId);
+        Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId);
     }
 }

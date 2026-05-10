@@ -182,11 +182,10 @@ namespace NzbDrone.Core.Manga
                     var tuple = primary.GetMangaInfo(sourceId);
                     var mangaInfo = tuple.Item1;
 
-                    // Phase 16 STRUCT-05 + STRUCT-07: chapter feed is now a tuple stream —
-                    // one element per canonical chapter (Chapter row) with N per-translation
-                    // releases (ChapterRelease rows). Materialize once so we can iterate twice
-                    // (FK assignment requires the canonical row Id BEFORE pushing releases).
-                    var chapterTuples = tuple.Item2.ToList();
+                    // Phase 16.1 Wave 3 (REVERT-03): chapter feed is the Sonarr-canonical
+                    // IEnumerable<Chapter> shape. Materialize once for the snapshot/diff
+                    // delta computation below + the SyncChapters call.
+                    var remoteChapters = tuple.Item2.ToList();
 
                     // Manga.ApplyChanges copies user-mutable fields (Monitored,
                     // RootFolderPath, Tags, AddOptions, MonitorNewItems,
@@ -252,27 +251,17 @@ namespace NzbDrone.Core.Manga
                     //
                     // The chapter-sync pass does not return a delta (its public surface predates
                     // this requirement), so we snapshot+diff here. The diff key is ChapterId —
-                    // rows whose ID exists in both snapshots count as "updated" (EnsureChapter
+                    // rows whose ID exists in both snapshots count as "updated" (SyncChapters
                     // may have updated mutable fields in place); IDs only present post-sync are
-                    // "added"; IDs only present pre-sync are "removed". Per CONTEXT D-01 stale
-                    // ChapterRelease rows stay — but Chapter rows themselves are not pruned by
-                    // EnsureChapter (which only ever Inserts or Updates), so removed will be
-                    // empty unless a separate deletion path runs.
+                    // "added"; IDs only present pre-sync are "removed". Per Phase 16.1 Wave 3
+                    // locked stale-handling decision SyncChapters does NOT delete stale Chapter
+                    // rows, so removed will be empty unless a separate deletion path runs.
                     var beforeIds = _chapterService.GetChaptersByManga(existing.Id)
                         .ToDictionary(c => c.Id);
 
-                    // Phase 16 STRUCT-07: split into per-canonical EnsureChapter +
-                    // per-chapter SyncChapterReleases. Sonarr divergence: mirror of
-                    // TV's RefreshEpisodeService two-pass (canonical row + per-release).
-                    // Per CONTEXT D-01: SyncChapterReleases is upsert-on-natural-key —
-                    // stale releases retained.
-                    // Per CONTEXT D-04: EnsureChapter creates real canonical rows even
-                    // with 0 releases (zero-release Chapter renders as Missing).
-                    foreach (var (chapterNumber, canonicalInputs, releaseRows) in chapterTuples)
-                    {
-                        var chapter = _chapterListService.EnsureChapter(existing.Id, chapterNumber, canonicalInputs);
-                        _chapterListService.SyncChapterReleases(chapter.Id, releaseRows);
-                    }
+                    // Phase 16.1 Wave 3 (REVERT-03): single SyncChapters call per refresh.
+                    // Mirror of Sonarr's RefreshEpisodeService.RefreshEpisodeInfo.
+                    _chapterListService.SyncChapters(existing, remoteChapters);
 
                     var afterChapters = _chapterService.GetChaptersByManga(existing.Id);
                     var added = afterChapters.Where(c => !beforeIds.ContainsKey(c.Id)).ToList();

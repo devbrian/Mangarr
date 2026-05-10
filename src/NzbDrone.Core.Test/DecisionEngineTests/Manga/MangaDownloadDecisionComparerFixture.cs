@@ -73,18 +73,18 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             Subject.Compare(b, a).Should().BeLessThan(0);
         }
 
-        // Sonarr divergence: Phase 16 STRUCT-06 multi-release ranking regression guard.
-        // Per RESEARCH.md §"Pattern: MangaDownloadDecisionComparer.CompareLanguageRank — verification
-        // only", this comparer already operates at release-grain (`rc?.Release?.TranslatedLanguage`).
-        // Wave 3 work is verification + a reflection-guard living-doc test + a multi-release
-        // ranking case demonstrating that swapping the candidate's ChapterRelease (different
-        // language, same canonical chapter) re-ranks purely by the Release.TranslatedLanguage
-        // axis. Sibling guard in LanguageInTranslationProfileSpecificationFixture mirrors this shape.
+        // Phase 16.1 Wave 3 (REVERT-03): this comparer already operated at release-grain
+        // (`rc?.Release?.TranslatedLanguage` — the indexer-time projection on the
+        // RemoteChapter). The Phase 16 persistent layer was reverted, but this comparer
+        // was a verify-only no-op throughout (Pitfall #3 in the Phase 16.1 PATTERNS.md).
+        // Tests below are the structural reflection-guard + a multi-candidate language
+        // ranking case driven purely by RemoteChapter.Release.TranslatedLanguage. Sibling
+        // guard in LanguageInTranslationProfileSpecificationFixture mirrors this shape.
 
         [Test]
         public void Comparer_does_not_reference_Chapter_TranslatedLanguage()
         {
-            // Phase 16 STRUCT-06 living documentation; sibling of LanguageInTranslationProfileSpecification's guard.
+            // Living-documentation guard: sibling of LanguageInTranslationProfileSpecification's guard.
             typeof(NzbDrone.Core.Manga.Chapter)
                 .GetProperty("TranslatedLanguage").Should().BeNull();
         }
@@ -92,12 +92,10 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
         [Test]
         public void Multi_release_ranking_picks_higher_priority_language()
         {
-            // STRUCT-06 acceptance line 49: "adding a second ChapterRelease (e.g., a higher-quality
-            // scanlation group for the same chapter) re-ranks correctly without creating duplicate
-            // Chapter rows." The comparer ranks two RemoteChapter candidates for the same canonical
-            // chapter, each carrying a different Release.TranslatedLanguage (en vs es). Profile prefers
-            // en (rank 0), then es (rank 1). The en candidate must rank ahead of the es candidate
-            // under OrderByDescending (Subject.Compare(loser=es, winner=en) < 0).
+            // The comparer ranks two RemoteChapter candidates for the same canonical chapter,
+            // each carrying a different RemoteChapter.Release.TranslatedLanguage (en vs es).
+            // Profile prefers en (rank 0), then es (rank 1). The en candidate must rank ahead
+            // of the es candidate under OrderByDescending (Subject.Compare(loser=es, winner=en) < 0).
             GivenProfile(7, "en", "es");
             var enCandidate = Decision(BuildRemoteChapter(releaseLanguage: "en", customFormatScore: 0, translationProfileId: 7));
             var esCandidate = Decision(BuildRemoteChapter(releaseLanguage: "es", customFormatScore: 0, translationProfileId: 7));

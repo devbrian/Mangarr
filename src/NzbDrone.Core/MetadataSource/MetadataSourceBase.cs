@@ -5,9 +5,6 @@ using NLog;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.ThingiProvider;
 
-// NOTE: ChapterEnsureInputs / ChapterReleaseFeedRow live in NzbDrone.Core.Manga (alongside
-// IChapterListService) — already imported via the using directive above.
-
 namespace NzbDrone.Core.MetadataSource
 {
     /// <summary>
@@ -68,12 +65,11 @@ namespace NzbDrone.Core.MetadataSource
 
         // --- IProvideMangaInfo split contract ---
         //
-        // Phase 16 STRUCT-05 + STRUCT-07: tuple-stream shape — one element per canonical
-        // chapter, each carrying a ChapterEnsureInputs + List<ChapterReleaseFeedRow>.
-        // RefreshMangaService consumes the stream via EnsureChapter + SyncChapterReleases
-        // (Sonarr-mirror of RefreshEpisodeService two-pass).
-        public abstract Tuple<Manga.Manga, IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)>>
-            GetMangaInfo(string sourceId);
+        // Phase 16.1 Wave 3 (REVERT-03): flat IEnumerable<Chapter> shape — Sonarr-canonical
+        // mirror of IProvideSeriesInfo.GetSeriesInfo returning Tuple<Series, IEnumerable<Episode>>.
+        // RefreshMangaService consumes the result via single-pass ChapterListService.SyncChapters
+        // (mirror of Sonarr's RefreshEpisodeService.RefreshEpisodeInfo).
+        public abstract Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId);
 
         // --- ISearchForNewManga split contract ---
 

@@ -41,8 +41,7 @@ namespace NzbDrone.Core.MetadataSource.MyAnimeList
             () => Settings.ClientId,
             SourceKey);
 
-        public override Tuple<Manga.Manga, IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)>>
-            GetMangaInfo(string sourceId)
+        public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)
         {
             if (!int.TryParse(sourceId, out var malId))
             {
@@ -52,13 +51,12 @@ namespace NzbDrone.Core.MetadataSource.MyAnimeList
             var resource = Api.GetById(malId)
                 ?? throw new MangaNotFoundException(sourceId);
 
-            // MAL exposes NO per-chapter feed in v2; return EMPTY tuple stream. Phase 16
-            // STRUCT-05 + STRUCT-07: shape conforms to the canonical/release tuple stream;
-            // when MAL is the active primary the post-Phase-16 RefreshMangaService creates
-            // zero canonical Chapters, which renders the manga as fully-Missing (D-04). MangaDex
-            // remains the v1 default primary (D-16) so this path is the dormant fallback.
-            return Tuple.Create(MapManga(resource),
-                Enumerable.Empty<(decimal, ChapterEnsureInputs, List<ChapterReleaseFeedRow>)>());
+            // MAL exposes NO per-chapter feed in v2; return EMPTY chapter list. Phase 16.1
+            // Wave 3 (REVERT-03): shape conforms to the Sonarr-canonical flat IEnumerable<Chapter>;
+            // when MAL is the active primary the RefreshMangaService creates zero canonical
+            // Chapters, which renders the manga as fully-Missing. MangaDex remains the v1 default
+            // primary (D-16) so this path is the dormant fallback.
+            return Tuple.Create(MapManga(resource), Enumerable.Empty<Chapter>());
         }
 
         public override List<Manga.Manga> SearchForNewManga(string title)

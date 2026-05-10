@@ -128,23 +128,18 @@ namespace NzbDrone.Core.Test.MangaTests
         [Test]
         public void Add_does_not_call_ChapterListService_directly()
         {
-            // Phase 16 STRUCT-05 + STRUCT-07: chapter-list synthesis was removed from
-            // AddMangaService.AddManga. The initial RefreshMangaCommand (queued by
-            // MangaAddedHandler from MangaAddedEvent) now lands the canonical Chapters
-            // + per-language ChapterReleases via RefreshMangaService's two-pass
-            // EnsureChapter + SyncChapterReleases against the MapChapters tuple stream
-            // (Plan 16-03). AddMangaService MUST NOT call ChapterListService directly —
-            // doing so would (a) duplicate work the Refresh path already performs and
-            // (b) operate on a Chapter list shape that no longer matches the canonical
-            // language-free grain.
+            // Phase 16.1 Wave 3 (REVERT-03): the initial RefreshMangaCommand (queued by
+            // MangaAddedHandler from MangaAddedEvent) is the sole producer of canonical
+            // Chapter rows via RefreshMangaService's single-pass SyncChapters call.
+            // AddMangaService MUST NOT call ChapterListService directly — doing so would
+            // (a) duplicate work the Refresh path already performs and (b) operate on a
+            // Chapter list shape that the metadata source has not yet projected.
             var newManga = new Manga.Manga { MangaDexId = _primaryResult.MangaDexId, Title = "Test", RootFolderPath = "C:\\Test" };
 
             Subject.AddManga(newManga);
 
             Mocker.GetMock<IChapterListService>()
-                  .Verify(c => c.EnsureChapter(It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<ChapterEnsureInputs>()), Times.Never);
-            Mocker.GetMock<IChapterListService>()
-                  .Verify(c => c.SyncChapterReleases(It.IsAny<int>(), It.IsAny<IList<ChapterReleaseFeedRow>>()), Times.Never);
+                  .Verify(c => c.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>()), Times.Never);
         }
 
         [Test]
@@ -192,10 +187,10 @@ namespace NzbDrone.Core.Test.MangaTests
             result.PrimaryAuthor.Should().Be(_primaryResult.PrimaryAuthor);
             result.TotalChapterCount.Should().Be(_primaryResult.TotalChapterCount);
 
-            // Phase 16 STRUCT-05 + STRUCT-07: chapter-list synthesis is delegated to
-            // RefreshMangaService (two-pass EnsureChapter + SyncChapterReleases) which is
-            // queued by MangaAddedHandler from the MangaAddedEvent — not invoked here.
-            // Verified by Add_does_not_call_ChapterListService_directly above.
+            // Phase 16.1 Wave 3 (REVERT-03): chapter-list synthesis is delegated to
+            // RefreshMangaService's single-pass SyncChapters call, queued by MangaAddedHandler
+            // from the MangaAddedEvent — not invoked here. Verified by
+            // Add_does_not_call_ChapterListService_directly above.
         }
 
         // D-19 fixture case (locked acceptance literal): three sub-cases —
@@ -435,10 +430,8 @@ namespace NzbDrone.Core.Test.MangaTests
                 Definition = new MetadataSourceDefinition { Id = 1, Name = "MangaDex", IsPrimary = true };
             }
 
-            public override Tuple<Manga.Manga, IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)>>
-                GetMangaInfo(string sourceId)
-                => Tuple.Create(_result,
-                    Enumerable.Empty<(decimal, ChapterEnsureInputs, List<ChapterReleaseFeedRow>)>());
+            public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)
+                => Tuple.Create(_result, Enumerable.Empty<Chapter>());
 
             public override List<Manga.Manga> SearchForNewManga(string title) => SearchHits;
         }
@@ -455,10 +448,8 @@ namespace NzbDrone.Core.Test.MangaTests
                 Definition = new MetadataSourceDefinition { Id = 2, Name = "AniList", IsPrimary = false };
             }
 
-            public override Tuple<Manga.Manga, IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)>>
-                GetMangaInfo(string sourceId)
-                => Tuple.Create(_result,
-                    Enumerable.Empty<(decimal, ChapterEnsureInputs, List<ChapterReleaseFeedRow>)>());
+            public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)
+                => Tuple.Create(_result, Enumerable.Empty<Chapter>());
 
             public override List<Manga.Manga> SearchForNewManga(string title) => SearchHits;
         }
@@ -475,10 +466,8 @@ namespace NzbDrone.Core.Test.MangaTests
                 Definition = new MetadataSourceDefinition { Id = 3, Name = "MyAnimeList", IsPrimary = false };
             }
 
-            public override Tuple<Manga.Manga, IEnumerable<(decimal ChapterNumber, ChapterEnsureInputs Canonical, List<ChapterReleaseFeedRow> Releases)>>
-                GetMangaInfo(string sourceId)
-                => Tuple.Create(_result,
-                    Enumerable.Empty<(decimal, ChapterEnsureInputs, List<ChapterReleaseFeedRow>)>());
+            public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)
+                => Tuple.Create(_result, Enumerable.Empty<Chapter>());
 
             public override List<Manga.Manga> SearchForNewManga(string title) => SearchHits;
         }
