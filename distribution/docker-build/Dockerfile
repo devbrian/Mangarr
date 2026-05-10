@@ -37,6 +37,30 @@ RUN apt-cache policy cli-common-dev
 # N-1: this approach intentionally diverges from the upstream PuppeteerSharp blog
 #   (`hardkoded.com/blog/puppeteer-sharp-docker`); D-02 + the smoke check are the
 #   tradeoff lock.
+#
+# ── 17-REVIEW.md CR-03 — DEFERRED TO PHASE 99 (2026-05-10 acknowledged) ──
+# This Dockerfile is the Debian-PACKAGE BUILDER (note `mono-complete`, `dh-make`,
+# `dh-systemd`, `devscripts`, `cli-common-dev` above; CMD `/debian-start.sh` runs
+# `debian.sh` to package pre-built `/data/sonarr_bin`). The image users PULL is a
+# downstream runtime image (likely external — `linuxserver.io`/`hotio.dev` style)
+# whose authoring is owned by Phase 99 (Distribution + v1 Release). At Phase-17
+# close 2026-05-10 the planner-side decision is to keep the BrowserFetcher
+# pre-download here as a LAYOUT REFERENCE Phase 99 will lift into the runtime
+# Dockerfile (sys-deps list + BrowserFetcher invocation pattern + smoke check
+# shape are all reusable). The bake itself is harmless in the package-builder
+# image — it has no .NET SDK so the `dotnet run` line below is a no-op at build
+# time, and `/opt/mangarr-chromium` lives in a layer that the .deb output never
+# carries. Phase 99 will:
+#   1) Author the runtime Dockerfile (or add Chromium provisioning to the
+#      external linuxserver.io/hotio.dev runtime image build).
+#   2) Install .NET SDK in the runtime build stage.
+#   3) COPY tools/ChromiumPrefetch/ into the build stage.
+#   4) Run the prefetch + smoke check.
+#   5) Copy /opt/mangarr-chromium into the published runtime stage.
+# See ROADMAP.md Phase 99 SC#1 for the canonical schedule entry.
+# (When Phase 99 lands, the 17 D-02 docs and the prefetch lines below MAY be
+# removed from this builder Dockerfile — but the sys-deps + smoke-check shape
+# are useful enough as on-disk reference that we leave them for now.)
 
 # Sys-deps list extracted from pptr.dev/troubleshooting:
 RUN apt-get update && apt-get install -y --no-install-recommends \
