@@ -182,59 +182,182 @@ namespace NzbDrone.Core.Indexers.Comix
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // Phase 4 — chapter PAGES response shape for /api/v1/chapters/{id}/pages.
-    // The path moved from /api/v2/chapters/{id} to /api/v1/chapters/{id}/pages alongside the
-    // overall API-version correction. keiyoushi Dto.kt shape — flat list of image URLs.
+    // Phase 4 — chapter pages response shape.
+    //
+    // Phase 17.2 GAP-17-E (2026-05-10): the legacy shape was
+    //   /api/v1/chapters/{id}/pages -> { status, result: { images: [{url:absolute}] } }
+    // — a separate pages-list endpoint that comix.to retired alongside response-body
+    // encryption + per-deploy signer rotation. The bundle's signer allowlist now rejects
+    // all /chapters/{id}/<suffix> shapes.
+    //
+    // The current shape (per 17.2-PAGES-ENDPOINT-SURVEY.md winner verdict):
+    //   /api/v1/chapters/{id} -> { e: <encrypted> } -> decrypts in-page to chapter detail
+    //   The .NET caller receives the production decrypt-wrap envelope:
+    //     { result: { id, mangaId, number, volume, name, language, ..., pages: { baseUrl, items: [{width, height, url:relative}] } } }
+    //   See ComixPuppeteerSigner.EvaluateProxyFetchAsync line ~417 — the in-page IIFE
+    //   returns JSON.stringify({result: decoded.data}) on the encrypted-body path.
+    //
+    // Per-image absolute URLs are composed: `Pages.BaseUrl + Items[i].Url` (e.g.,
+    // "https://j24n.wowpic3.store/ii/<keyHex>/" + "01.webp"). The Pages convenience
+    // accessor on ComixChapterPagesResponse handles this composition.
     // ─────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Per-chapter pages response. comix.to returns the image list under
-    /// <c>result.images[]</c> (each entry has at least a <c>url</c> field).
+    /// Per-chapter pages response (Phase 17.2 GAP-17-E shape — chapter-detail-rooted,
+    /// pages list embedded under <c>result.pages.{baseUrl, items[]}</c>).
     /// </summary>
     public class ComixChapterPagesResponse
     {
-        [JsonProperty("status")]
-        public string Status { get; set; }
-
+        /// <summary>
+        /// Phase 17 envelope: production wraps the decrypted chapter-detail under
+        /// <c>{result: &lt;decoded.data&gt;}</c> (per ComixPuppeteerSigner.EvaluateProxyFetchAsync
+        /// line ~417). On the unencrypted-body path, the raw chapter detail is the root —
+        /// callers should fall back to <see cref="RootDetailId"/> + <see cref="RootPages"/>
+        /// in that case.
+        /// </summary>
         [JsonProperty("result")]
-        public ComixChapterPagesResult Result { get; set; }
+        public ComixChapterDetail Result { get; set; }
 
         /// <summary>
-        /// Convenience accessor that flattens <c>Result.Images</c> into a plain string list of URLs.
-        /// Returns an empty list if the envelope is malformed or empty (no exception path).
+        /// Phase 17.2 fallback: when JsonConvert.DeserializeObject is given a body whose
+        /// root IS the chapter detail (no <c>result</c> wrapper — possible if the in-page
+        /// IIFE skips the encrypted-body branch and returns the raw text directly), we
+        /// also deserialize fields at the root so the convenience accessor still works.
+        /// Callers should not depend on this; the encrypted-body path is the primary route.
+        /// </summary>
+        [JsonProperty("id")]
+        public long? RootDetailId { get; set; }
+
+        /// <summary>Direct root-level pages object (matches the unwrapped-body path).</summary>
+        [JsonProperty("pages")]
+        public ComixChapterPagesContainer RootPages { get; set; }
+
+        /// <summary>
+        /// Convenience accessor that composes per-page absolute URLs from
+        /// <c>BaseUrl + Items[].Url</c>. Returns an empty list if the envelope is malformed
+        /// or empty (no exception path). Tries the wrapped <c>Result.Pages</c> first then
+        /// falls back to root-level <c>RootPages</c>.
         /// </summary>
         [JsonIgnore]
         public List<string> Pages
         {
             get
             {
-                var pages = new List<string>();
-                if (Result?.Images == null)
+                var urls = new List<string>();
+                var container = Result?.Pages ?? RootPages;
+                if (container?.Items == null)
                 {
-                    return pages;
+                    return urls;
                 }
 
-                foreach (var image in Result.Images)
+                var baseUrl = container.BaseUrl ?? string.Empty;
+                foreach (var item in container.Items)
                 {
-                    if (!string.IsNullOrWhiteSpace(image?.Url))
+                    if (string.IsNullOrWhiteSpace(item?.Url))
                     {
-                        pages.Add(image.Url);
+                        continue;
                     }
+
+                    // Item.Url may already be absolute (legacy fallback). Detect by
+                    // scheme prefix and skip composition in that case so canned/legacy
+                    // responses don't accidentally become "https://base/https://other/...".
+                    var composed = (item.Url.StartsWith("http://", System.StringComparison.OrdinalIgnoreCase)
+                                    || item.Url.StartsWith("https://", System.StringComparison.OrdinalIgnoreCase))
+                                   ? item.Url
+                                   : ComposeUrl(baseUrl, item.Url);
+                    urls.Add(composed);
                 }
 
-                return pages;
+                return urls;
             }
+        }
+
+        // Compose baseUrl + relative segment, normalizing the boundary so we don't
+        // double or drop the slash. baseUrl typically ends in '/'; relative typically
+        // doesn't start with '/'. This handles both cases without producing '//'.
+        private static string ComposeUrl(string baseUrl, string relative)
+        {
+            if (string.IsNullOrEmpty(baseUrl))
+            {
+                return relative;
+            }
+
+            var trimmedBase = baseUrl.EndsWith("/", System.StringComparison.Ordinal)
+                              ? baseUrl
+                              : baseUrl + "/";
+            var trimmedRel = relative.StartsWith("/", System.StringComparison.Ordinal)
+                             ? relative.Substring(1)
+                             : relative;
+            return trimmedBase + trimmedRel;
         }
     }
 
-    public class ComixChapterPagesResult
+    /// <summary>
+    /// Phase 17.2 chapter-detail body (rooted under <c>response.result</c> per the production
+    /// in-page IIFE wrap). Carries the <see cref="Pages"/> container as the primary payload;
+    /// other fields (id, mangaId, number, etc.) are surfaced for completeness but not all
+    /// consumed by ComixIndexer.GetChapterPages today.
+    /// </summary>
+    public class ComixChapterDetail
     {
-        [JsonProperty("images")]
-        public List<ComixChapterImage> Images { get; set; }
+        [JsonProperty("id")]
+        public long Id { get; set; }
+
+        [JsonProperty("mangaId")]
+        public long? MangaId { get; set; }
+
+        [JsonProperty("number")]
+        public decimal? Number { get; set; }
+
+        [JsonProperty("volume")]
+        public int? Volume { get; set; }
+
+        [JsonProperty("name")]
+        public string Name { get; set; }
+
+        [JsonProperty("language")]
+        public string Language { get; set; }
+
+        [JsonProperty("isOfficial")]
+        public bool? IsOfficial { get; set; }
+
+        [JsonProperty("group")]
+        public ComixScanlationGroup Group { get; set; }
+
+        [JsonProperty("url")]
+        public string Url { get; set; }
+
+        [JsonProperty("pages")]
+        public ComixChapterPagesContainer Pages { get; set; }
     }
 
+    /// <summary>
+    /// Phase 17.2 pages container — holds the CDN base-URL + per-image relative URLs.
+    /// Per-image absolute URL is composed by concatenating <c>BaseUrl + Items[i].Url</c>.
+    /// </summary>
+    public class ComixChapterPagesContainer
+    {
+        [JsonProperty("baseUrl")]
+        public string BaseUrl { get; set; }
+
+        [JsonProperty("items")]
+        public List<ComixChapterImage> Items { get; set; }
+    }
+
+    /// <summary>
+    /// Phase 17.2 per-page image entry. <c>Url</c> is relative under the new shape (e.g.,
+    /// <c>"01.webp"</c>) and absolute under the legacy shape (e.g.,
+    /// <c>"https://cdn.comix.to/manga/test/ch1/1.jpg"</c>) — composition is handled by
+    /// <see cref="ComixChapterPagesResponse.Pages"/>.
+    /// </summary>
     public class ComixChapterImage
     {
+        [JsonProperty("width")]
+        public int? Width { get; set; }
+
+        [JsonProperty("height")]
+        public int? Height { get; set; }
+
         [JsonProperty("url")]
         public string Url { get; set; }
     }

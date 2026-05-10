@@ -343,15 +343,27 @@ namespace NzbDrone.Core.Indexers.Comix
                 ["Referer"] = $"{Settings.BaseUrl.TrimEnd('/')}/"
             };
 
-        // ── Phase 4 D-01 + Phase 17 D-08 — Comix /api/v1/chapters/{id}/pages dereference ──
-        // Sonarr divergence: Phase 17 D-08 — comix.to /api/v1/chapters/{id}/pages requires
-        // the runtime signer (per RESEARCH.md N-3 + keiyoushi Signer.kt:238-241). Path-only;
-        // CDN image GETs (cdn.comix.to/.../*.jpg) below stay on plain IHttpClient (the
-        // image bytes themselves are not signed — only the manifest endpoint is).
+        // ── Phase 4 D-01 + Phase 17 D-08 + Phase 17.2 GAP-17-E — chapter-pages dereference ──
+        // Sonarr divergence: Phase 17 D-08 + Phase 17.2 GAP-17-E (2026-05-10) — comix.to's
+        // legacy pages-list endpoint /api/v1/chapters/{id}/pages was retired alongside
+        // response-body encryption + per-deploy signer rotation. The bundle's signer
+        // allowlist now rejects all /chapters/{id}/<suffix> shapes; the bare chapter
+        // detail endpoint /api/v1/chapters/{id} returns 200 with the pages list embedded
+        // under `result.pages.{baseUrl, items[]}`. ComixParser.ParseChapterList constructs
+        // DownloadUrl = "{BaseUrl}/api/v1/chapters/{ch.Id}" (no /pages suffix) so the
+        // consumer-side prefix-strip below naturally yields "/chapters/{id}" — the
+        // survey-winner shape per 17.2-PAGES-ENDPOINT-SURVEY.md. The decoded body is
+        // deserialized via ComixChapterPagesResponse (now chapter-detail-rooted under
+        // .Result, with the convenience .Pages accessor composing
+        // baseUrl + items[].url to absolute URLs). Path-only; CDN image GETs
+        // (cdn.comix.to/.../*.jpg or wowpic-style host) below stay on plain IHttpClient
+        // (only the manifest endpoint is signed).
         public override async Task<ChapterManifest> GetChapterPages(ReleaseInfo release)
         {
             // Strip /api/v1 prefix from the absolute URL so the signer signs the path
-            // shape comix.to expects (per ComixRequestGenerator convention).
+            // shape comix.to expects (per ComixRequestGenerator convention). Phase 17.2
+            // GAP-17-E: yields /chapters/{id} (no /pages suffix) which is the survey-
+            // winner shape the bundle's signer allowlist accepts post-2026-05-10.
             var apiPath = new Uri(release.DownloadUrl).AbsolutePath;
             if (apiPath.StartsWith("/api/v1", StringComparison.Ordinal))
             {

@@ -39,15 +39,24 @@ namespace Mangarr.Comix.Live.Test
         }
 
         [Test]
-        public async Task ProxyFetchPages_returns_decoded_JSON_with_images_array()
+        public async Task ProxyFetchPages_returns_decoded_JSON_with_pages_object()
         {
+            // Phase 17.2 GAP-17-E (2026-05-10): the bundle's signer allowlist no longer
+            // accepts /chapters/{id}/<suffix> shapes (per 17.2-PAGES-ENDPOINT-SURVEY.md
+            // winner verdict). The bare /chapters/{id} endpoint returns 200 with the
+            // pages list embedded under `result.pages.{baseUrl, items[]}` in the
+            // production decrypt-wrap envelope.
             var chaptersJson = await Subject.ProxyFetchAsync("/manga/mr3m0/chapters");
             var chapterId = ExtractFirstChapterId(chaptersJson);
             chapterId.Should().NotBeNullOrEmpty("chapter list must contain at least one row");
 
-            var pagesJson = await Subject.ProxyFetchAsync($"/chapters/{chapterId}/pages");
+            var pagesJson = await Subject.ProxyFetchAsync($"/chapters/{chapterId}");
             pagesJson.Should().NotBeNullOrWhiteSpace();
-            pagesJson.Should().Contain("\"images\"", "decoded body shape per ComixChapterPagesResponse");
+            pagesJson.Should().Contain("\"pages\"",
+                "decoded body shape per ComixChapterPagesResponse — chapter detail embeds " +
+                "the pages list under result.pages.{baseUrl, items[]} per Phase 17.2 GAP-17-E " +
+                "winner verdict (17.2-PAGES-ENDPOINT-SURVEY.md). The legacy `\"images\"` shape " +
+                "was retired alongside response-body encryption + per-deploy signer rotation.");
         }
 
         [OneTimeTearDown]
