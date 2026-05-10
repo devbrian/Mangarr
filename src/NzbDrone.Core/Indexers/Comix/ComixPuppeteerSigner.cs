@@ -118,6 +118,13 @@ namespace NzbDrone.Core.Indexers.Comix
         /// </summary>
         protected virtual async Task<IBrowser> LaunchBrowserAsync(CancellationToken ct)
         {
+            // WR-03 mitigation (revision iteration 2): observe ct before issuing the
+            // (synchronously-launching) Puppeteer call. PuppeteerSharp's LaunchAsync
+            // does not accept a CancellationToken in 24.42.0; the most we can do is
+            // bail before starting and rely on subsequent ct.ThrowIfCancellationRequested()
+            // calls between awaits to abort partway through the spawn sequence.
+            ct.ThrowIfCancellationRequested();
+
             // Pitfall 7 (Chromium-as-root in container): launch args required for headless
             // Chrome inside Docker — --no-sandbox + setuid disable + dev/shm fallback +
             // GPU disable. ExecutablePath comes from PUPPETEER_EXECUTABLE_PATH (D-03 escape
@@ -144,9 +151,17 @@ namespace NzbDrone.Core.Indexers.Comix
             var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
+                // WR-03 mitigation: observe ct between each await. PuppeteerSharp's
+                // NewPageAsync / GoToAsync / EvaluateExpressionAsync don't accept ct
+                // directly; throw-on-request between calls is the best we get.
                 _browser = await LaunchBrowserAsync(ct).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
                 _page = await _browser.NewPageAsync().ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
                 await _page.GoToAsync(ComixHomepageUrl).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
 
                 var probe = await _page.EvaluateExpressionAsync<ProbeResult>(PROBE_JS).ConfigureAwait(false);
                 if (probe == null
@@ -267,6 +282,10 @@ namespace NzbDrone.Core.Indexers.Comix
                 return text;
               }})();";
 
+            // WR-03 mitigation: cancellation observation BEFORE the page evaluation —
+            // PuppeteerSharp.EvaluateExpressionAsync does not accept ct in 24.42.0,
+            // but a fast-fail on cancellation here saves the ~25s in-page fetch timeout.
+            ct.ThrowIfCancellationRequested();
             return await page.EvaluateExpressionAsync<string>(jsTemplate).ConfigureAwait(false);
         }
 
@@ -334,6 +353,16 @@ namespace NzbDrone.Core.Indexers.Comix
         private string _installerExpr;
 
         private Timer _idleTimer;
+
+        // WR-06 mitigation (revision iteration 2): generation counter for the idle
+        // timer's fire-then-rearm race. System.Timers.Timer.Stop() does NOT pull back
+        // an Elapsed event already queued to the ThreadPool, so OnIdleElapsed can
+        // execute even after ReArmIdleTimer ran. Each ReArmIdleTimer bumps
+        // _idleTimerGeneration; OnIdleElapsed snapshots its own generation at entry
+        // and bails (without tearing down) if it has been superseded.
+        // Using `int` + Interlocked is fine for a 64-bit-host monotonic counter — the
+        // wraparound interval at 1 increment per minute is ~4000 years.
+        private int _idleTimerGeneration;
 
         public ComixPuppeteerSigner(IIndexerSourceStatusService sourceStatusService, Logger logger)
         {
@@ -478,6 +507,12 @@ namespace NzbDrone.Core.Indexers.Comix
                 _idleTimer.Elapsed += OnIdleElapsed;
             }
 
+            // WR-06 mitigation (revision iteration 2): bump generation BEFORE Stop +
+            // Start so any already-queued Elapsed event observes a generation bump and
+            // bails. The order matters — bump first, then Stop/Start — because the
+            // queued Elapsed handler races with us; bumping first ensures the racing
+            // handler reads a stale generation and skips its teardown.
+            Interlocked.Increment(ref _idleTimerGeneration);
             _idleTimer.Stop();
             _idleTimer.Interval = IdleTimeout.TotalMilliseconds;
             _idleTimer.Start();
@@ -489,9 +524,21 @@ namespace NzbDrone.Core.Indexers.Comix
         // exceptions do NOT escape (caught + logged at Warn).
         private async void OnIdleElapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
+            // WR-06 mitigation (revision iteration 2): snapshot generation at entry.
+            // If ReArmIdleTimer ran between this Elapsed event being queued to the
+            // ThreadPool and us actually executing, _idleTimerGeneration has been
+            // bumped — bail without tearing down (the rearm has reset the idle window).
+            var generationAtEntry = Volatile.Read(ref _idleTimerGeneration);
+
+            // WR-07 mitigation (revision iteration 2): bound the gate WaitAsync so a
+            // wedged ProxyFetch (Chromium hang, network stall) cannot stall this idle
+            // handler forever. Use IdleTimeout itself as the upper bound — if the gate
+            // is held that long, the idle teardown is moot anyway (a request is still
+            // active, so re-arm-on-completion will reset the idle window once it lands).
+            bool acquired;
             try
             {
-                await _gate.WaitAsync().ConfigureAwait(false);
+                acquired = await _gate.WaitAsync(IdleTimeout).ConfigureAwait(false);
             }
             catch (ObjectDisposedException)
             {
@@ -499,8 +546,29 @@ namespace NzbDrone.Core.Indexers.Comix
                 return;
             }
 
+            if (!acquired)
+            {
+                _logger.Debug("Comix signer: idle teardown skipped — gate busy beyond IdleTimeout.");
+                return;
+            }
+
             try
             {
+                // WR-06 mitigation: re-check generation under the gate. Even if we
+                // observed an unbumped generation at entry, ReArmIdleTimer can have run
+                // between then and now (we yielded on the WaitAsync). Re-checking under
+                // the gate ensures we never tear down a browser whose idle window was
+                // reset.
+                if (Volatile.Read(ref _idleTimerGeneration) != generationAtEntry)
+                {
+                    return;
+                }
+
+                if (_disposed)
+                {
+                    return;
+                }
+
                 if (_browser != null)
                 {
                     _logger.Info("Comix signer: idle {0} min, browser torn down.", IdleTimeout.TotalMinutes);
