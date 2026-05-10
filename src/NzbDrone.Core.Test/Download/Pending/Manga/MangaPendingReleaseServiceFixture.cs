@@ -65,7 +65,8 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
                 .Build()
                 .ToList();
 
-            // Phase 16 STRUCT-01: TranslatedLanguage lifted off Chapter (now on ChapterRelease).
+            // Phase 16 STRUCT-01 + Phase 16.1: canonical Chapter is language-free at
+            // (MangaId, ChapterNumber) grain; per-translation data lives on ChapterFile.
             _chapters[0].Id = 100;
             _chapters[0].ChapterNumber = 1m;
             _chapters[1].Id = 200;
@@ -154,9 +155,9 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
                 MangaTitle = _manga.Title,
                 ChapterNumbers = new[] { chapter.ChapterNumber },
 
-                // Phase 16 STRUCT-01: per-translation language is on ChapterRelease, not Chapter.
-                // For test fixture purposes use a fixed sentinel; Plan 16-03 reintroduces
-                // ChapterRelease-grain language flow.
+                // Phase 16 STRUCT-01 + Phase 16.1: per-translation language lives on
+                // ChapterFile post-import; here it flows via ParsedChapterInfo (parser-grain).
+                // For test fixture purposes use a fixed sentinel.
                 TranslatedLanguage = "en",
             };
 
@@ -193,7 +194,8 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
                     MangaTitle = _manga.Title,
                     ChapterNumbers = new[] { chapter.ChapterNumber },
 
-                    // Phase 16 STRUCT-01: language axis lifted off Chapter (now on ChapterRelease).
+                    // Phase 16 STRUCT-01 + Phase 16.1: language axis at parser-grain on
+                    // ParsedChapterInfo / file-grain on ChapterFile.
                     TranslatedLanguage = "en",
                 },
                 Release = new ReleaseInfo

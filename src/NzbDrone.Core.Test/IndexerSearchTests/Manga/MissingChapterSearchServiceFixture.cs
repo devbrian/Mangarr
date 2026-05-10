@@ -27,11 +27,11 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
                 .Returns(new List<NzbDrone.Core.Manga.Chapter>());
         }
 
-        // Phase 16 STRUCT-03: IsSynthetic property removed from Chapter (synthetic-ness now
-        // derives from "0 ChapterRelease rows"). The `synthetic` arg is preserved on this
-        // factory so the existing `D-04: synthetic + real chapters surface alike` test
-        // contract is documented; it's a no-op until Plan 16-03 reintroduces the
-        // ChapterRelease.Count == 0 derivation.
+        // Phase 16 STRUCT-03: IsSynthetic property removed from Chapter. Phase 16.1
+        // Sonarr-canonical Wanted/Missing predicate is `monitored && ChapterFileId == null`
+        // (mirrors Episode.Monitored && EpisodeFileId == 0). The `synthetic` arg here is
+        // preserved on the factory for legacy test signatures but is now a no-op — synthetic-
+        // vs-real distinction collapses into "no file" under the canonical predicate.
         private NzbDrone.Core.Manga.Chapter Ch(int id, int mangaId, bool synthetic = false, bool monitored = true)
         {
             _ = synthetic;

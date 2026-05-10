@@ -45,10 +45,9 @@ namespace NzbDrone.Core.Parser.Manga.Model
         // score and the gate keyed off different profiles.
         public int? ResolvedCustomFormatProfileId { get; set; }
 
-        // Phase 16 D-02 — Sonarr-mirror of Episode.AirDateUtc. Manga uses Chapter.FirstReleaseDate
-        // as the canonical upstream chapter-publish date. Returns true if any chapter was
-        // published within the last 14 days. Note: distinct from ChapterRelease.ReleaseDate
-        // (per-translation upload time).
+        // Phase 16 D-02 (survived Phase 16.1 revert) — Sonarr-mirror of Episode.AirDateUtc.
+        // Manga uses Chapter.FirstReleaseDate as the canonical upstream chapter-publish
+        // date. Returns true if any chapter was published within the last 14 days.
         public bool IsRecentChapter()
         {
             return Chapters.Any(c => c.FirstReleaseDate >= DateTime.UtcNow.Date.AddDays(-14));

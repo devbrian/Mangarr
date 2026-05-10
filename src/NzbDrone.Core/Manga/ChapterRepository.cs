@@ -21,8 +21,10 @@ namespace NzbDrone.Core.Manga
         }
 
         // Sonarr divergence: Phase 16 STRUCT-01 — 3-arg Find collapsed to 2-arg.
-        // Language axis lifted to ChapterRelease per STRUCT-02; canonical Chapter is now
-        // unique on (MangaId, ChapterNumber) at the SQL layer.
+        // Language axis dropped from the canonical Chapter grain (per-translation data
+        // lives on ChapterFile post-import per Phase 16.1 D-04 — Sonarr-canonical
+        // pattern). Canonical Chapter is now unique on (MangaId, ChapterNumber) at the
+        // SQL layer.
         public Chapter Find(int mangaId, decimal chapterNumber)
         {
             return Query(c => c.MangaId == mangaId

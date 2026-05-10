@@ -151,14 +151,14 @@ namespace NzbDrone.Core.Test.MangaParserTests
 
         // Phase 16 STRUCT-01 made the canonical Chapter UNIQUE on (MangaId, ChapterNumber);
         // multiple Chapter rows differing only by language are no longer a valid DB shape.
-        // The pre-Phase-16 multi-language disambiguation moved to the DecisionEngine layer
-        // where the indexer's ReleaseInfo carries the language code and the spec scores
-        // the candidate ChapterRelease against the manga's TranslationProfile (Plan 16-04
-        // retargets the Wanted/Cutoff specs at the ChapterRelease grain). This test is
-        // therefore [Ignore]'d at the MangaParsingService layer; the equivalent coverage
-        // lives in DecisionEngineSpecificationFixture (Plan 16-04 introduces).
+        // Phase 16.1 routes per-translation axes through ChapterFile (Sonarr-canonical
+        // pattern). Multi-language disambiguation lives in the DecisionEngine layer where
+        // the indexer's ReleaseInfo carries the language code and the spec scores the
+        // candidate release against the manga's TranslationProfile. This test is therefore
+        // [Ignore]'d at the MangaParsingService layer; the equivalent coverage lives in
+        // DecisionEngineSpecificationFixture.
         [Test]
-        [Ignore("Phase 16 STRUCT-01 + Plan 16-04 retarget — disambiguation moved out of MangaParsingService into DecisionEngine specs")]
+        [Ignore("Phase 16 STRUCT-01 + Phase 16.1 — disambiguation moved out of MangaParsingService into DecisionEngine specs")]
         public void Map_disambiguates_multi_language_candidates_via_TranslationProfile_when_no_language_signal()
         {
             // Coverage moved to DecisionEngine spec fixtures (Plan 16-04).

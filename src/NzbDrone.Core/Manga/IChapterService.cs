@@ -16,7 +16,9 @@ namespace NzbDrone.Core.Manga
 
         // Sonarr divergence: Phase 16 STRUCT-01 — 3-arg form (with translatedLanguage)
         // dropped because the language axis is gone from the canonical Chapter grain.
-        // Per-language lookups go via IChapterReleaseService.GetReleasesByChapter.
+        // Per-translation lookups go via IChapterFileService.GetFilesByChapter reading
+        // ChapterFile.TranslatedLanguage + ChapterFile.ScanlationGroup (Phase 16.1
+        // D-04 / D-06 — Sonarr-canonical pattern; mirrors EpisodeFile.Languages placement).
         Chapter FindByMangaAndNumber(int mangaId, decimal chapterNumber);
         List<Chapter> GetChaptersByManga(int mangaId);
 

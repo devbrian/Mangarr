@@ -103,7 +103,8 @@ namespace NzbDrone.Core.Test.Indexers.Comix
 
             var manga = new Manga.Manga { Title = "The Forgotten Field" };
 
-            // Phase 16 STRUCT-01: TranslatedLanguage lifted off Chapter (now on ChapterRelease).
+            // Phase 16 STRUCT-01 + Phase 16.1: canonical Chapter is language-free; per-translation
+            // language flows via ParsedChapterInfo (parser grain) / ChapterFile (file grain).
             var chapter = new Manga.Chapter { ChapterNumber = 4m };
             var criteria = new ChapterSearchCriteria
             {
