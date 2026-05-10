@@ -99,18 +99,128 @@ namespace NzbDrone.Core.Indexers.Comix
         protected virtual TimeSpan IdleTimeout => TimeSpan.FromMinutes(10);
 
         /// <summary>
-        /// Page-context impl seams. Stubbed at Task 1a (lifecycle skeleton); filled at
-        /// Task 1b. Test fixtures override via subclass for FailSoft / IdleTeardown /
-        /// LazyReprobe scenarios — overrides do NOT need a real Chromium child.
+        /// Page-context impl seams. Test fixtures override via subclass for FailSoft /
+        /// IdleTeardown / LazyReprobe scenarios — overrides do NOT need a real Chromium
+        /// child. Production paths in this file fill these with the PuppeteerSharp impl.
         /// </summary>
-        protected virtual Task<IBrowser> LaunchBrowserAsync(CancellationToken ct)
-            => throw new NotImplementedException("Plan 17-02 Task 1b owns this method body.");
+        protected virtual async Task<IBrowser> LaunchBrowserAsync(CancellationToken ct)
+        {
+            // Pitfall 7 (Chromium-as-root in container): launch args required for headless
+            // Chrome inside Docker — --no-sandbox + setuid disable + dev/shm fallback +
+            // GPU disable. ExecutablePath comes from PUPPETEER_EXECUTABLE_PATH (D-03 escape
+            // hatch) or the baked image-layer path under /opt/mangarr-chromium (D-03 default).
+            var launchOptions = new LaunchOptions
+            {
+                Headless = true,
+                ExecutablePath = Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH")
+                                ?? GetBakedChromiumPath(),
+                Args = new[]
+                {
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                },
+            };
 
-        protected virtual Task LaunchAndProbeAsync(CancellationToken ct)
-            => throw new NotImplementedException("Plan 17-02 Task 1b owns this method body.");
+            return await Puppeteer.LaunchAsync(launchOptions).ConfigureAwait(false);
+        }
 
-        protected virtual Task<string> EvaluateProxyFetchAsync(string apiPath, CancellationToken ct)
-            => throw new NotImplementedException("Plan 17-02 Task 1b owns this method body.");
+        protected virtual async Task LaunchAndProbeAsync(CancellationToken ct)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                _browser = await LaunchBrowserAsync(ct).ConfigureAwait(false);
+                _page = await _browser.NewPageAsync().ConfigureAwait(false);
+                await _page.GoToAsync(ComixHomepageUrl).ConfigureAwait(false);
+
+                var probe = await _page.EvaluateExpressionAsync<ProbeResult>(PROBE_JS).ConfigureAwait(false);
+                if (probe == null
+                    || string.IsNullOrEmpty(probe.SignerExpr)
+                    || string.IsNullOrEmpty(probe.InstallerExpr))
+                {
+                    throw new InvalidOperationException(
+                        "Comix signer: probe failed; window.vmf_* signer/installer fns not found.");
+                }
+
+                _signerExpr = probe.SignerExpr;
+                _installerExpr = probe.InstallerExpr;
+                _probeFailureCount = 0;
+                sw.Stop();
+
+                _logger.Info(
+                    "Comix signer: Chromium launched, page loaded, probe captured signer/installer fns (probe latency: {0}ms).",
+                    sw.ElapsedMilliseconds);
+            }
+            catch (Exception ex)
+            {
+                _probeFailureCount++;
+                _logger.Warn(ex, "Comix signer: probe failed (n={0}); relaunching browser.", _probeFailureCount);
+                _sourceStatusService.RecordFailure(ComixSourceKey);
+                await TeardownBrowserAsync().ConfigureAwait(false);
+                throw;
+            }
+        }
+
+        protected virtual async Task<string> EvaluateProxyFetchAsync(string apiPath, CancellationToken ct)
+        {
+            // Build the in-page JS template using the cached signerExpr/installerExpr —
+            // names rotate per comix.to deploy (D-14) so we cannot hardcode them; the
+            // probe captured them once per page-load. JsString escapes the apiPath value
+            // (T-17-02-02 mitigation: JS-injection-safe single-quote string substitution).
+            var jsTemplate = $@"
+              (async () => {{
+                const signer = {_signerExpr};
+                const installer = {_installerExpr};
+                const axios = {{ interceptors: {{ response: {{ use: () => {{}} }}, request: {{ use: () => {{}} }} }} }};
+                installer(axios);
+                const apiPath = {JsString(apiPath)};
+                const token = signer(apiPath);
+                const sep = apiPath.includes('?') ? '&' : '?';
+                const url = '/api/v1' + apiPath + sep + '_=' + encodeURIComponent(token);
+                const resp = await fetch(url, {{ credentials: 'include' }});
+                const body = await resp.text();
+                return window.__decryptedBody__ || body;
+              }})();";
+
+            return await _page.EvaluateExpressionAsync<string>(jsTemplate).ConfigureAwait(false);
+        }
+
+        // T-17-02-02 mitigation: single-quote string substitution helper. Escapes \ and '
+        // before string-format-style insertion into the page-context JS template.
+        private static string JsString(string s) =>
+            "'" + s.Replace("\\", "\\\\").Replace("'", "\\'") + "'";
+
+        // BrowserFetcher discovery for D-03 baked Chromium under /opt/mangarr-chromium
+        // (or PUPPETEER_CACHE_DIR if the operator overrode the cache dir). Returns null
+        // when no installed browser found — Puppeteer.LaunchAsync will then surface its
+        // own error (caught + RecordFailure'd by LaunchAndProbeAsync).
+        private static string GetBakedChromiumPath()
+        {
+            var cacheDir = Environment.GetEnvironmentVariable("PUPPETEER_CACHE_DIR")
+                           ?? "/opt/mangarr-chromium";
+            try
+            {
+                var fetcher = new BrowserFetcher(new BrowserFetcherOptions { Path = cacheDir });
+                var installed = System.Linq.Enumerable.FirstOrDefault(fetcher.GetInstalledBrowsers());
+                return installed?.GetExecutablePath();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // ProbeResult — JSON-serialisation target for the PROBE_JS return value.
+        private sealed class ProbeResult
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("signerExpr")]
+            public string SignerExpr { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("installerExpr")]
+            public string InstallerExpr { get; set; }
+        }
 
         // ── Fields ────────────────────────────────────────────────────────────────────
         private readonly IIndexerSourceStatusService _sourceStatusService;
@@ -119,26 +229,16 @@ namespace NzbDrone.Core.Indexers.Comix
         private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
         private bool _disposed;
 
-        // _probeFailureCount is read inside Task 1b's LaunchAndProbeAsync — it is incremented
-        // on each probe failure and surfaces in the D-15 Warn line. Task 1a leaves this field
-        // declared (so the dispose/teardown path needs no field-shape change at Task 1b time)
-        // and the analyzer warning is suppressed via #pragma until Task 1b reads it.
-#pragma warning disable CS0169 // The field is never used (resolved at Task 1b)
+        // _probeFailureCount tracks the n-count surfaced in the D-15 probe-failure Warn
+        // line. Reset to 0 on a successful probe; incremented on each probe throw.
         private int _probeFailureCount;
-#pragma warning restore CS0169
 
         // Page-context state — mutated only under _gate.
         // Pitfall 4: nulled BEFORE awaiting browser.CloseAsync inside TeardownBrowserAsync.
-        // _page / _signerExpr / _installerExpr are written in Task 1a (TeardownBrowserAsync
-        // + Dispose null them out); Task 1b adds the read-side (LaunchAndProbeAsync sets +
-        // EvaluateProxyFetchAsync reads). CS0414 (assigned-but-never-read) is suppressed
-        // until Task 1b lands the read side.
         private IBrowser _browser;
-#pragma warning disable CS0414 // The field is assigned but its value is never used (resolved at Task 1b)
         private IPage _page;
         private string _signerExpr;
         private string _installerExpr;
-#pragma warning restore CS0414
 
         private Timer _idleTimer;
 
@@ -151,12 +251,21 @@ namespace NzbDrone.Core.Indexers.Comix
         // ── Public surface ────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Sign-and-fetch the given comix.to API path through the warm Chromium page; returns
-        /// the decoded JSON body. Task 1b fills in the gate-acquire / launch / evaluate /
-        /// reprobe flow.
+        /// Sign-and-fetch the given comix.to API path through the warm Chromium page;
+        /// returns the decoded JSON body. V5 input validation (T-17-02-01) at the entry
+        /// guards the JS-injection surface; the gate / launch / evaluate / reprobe flow
+        /// happens inside <see cref="ProxyFetchAsyncImpl"/>.
         /// </summary>
         public Task<string> ProxyFetchAsync(string apiPath, CancellationToken ct = default)
         {
+            // T-17-02-01 mitigation: strict allowlist regex BEFORE touching the page.
+            if (string.IsNullOrEmpty(apiPath) || !ApiPathRegex.IsMatch(apiPath))
+            {
+                throw new ArgumentException(
+                    $"Comix signer: apiPath must match {ApiPathRegex} — got '{apiPath}'.",
+                    nameof(apiPath));
+            }
+
             if (_disposed)
             {
                 throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
@@ -165,10 +274,76 @@ namespace NzbDrone.Core.Indexers.Comix
             return ProxyFetchAsyncImpl(apiPath, ct);
         }
 
-        // Task 1b owns the body. Made virtual so subclasses (test fixtures) can drive the
-        // lifecycle without needing the real page-context impl.
-        protected virtual Task<string> ProxyFetchAsyncImpl(string apiPath, CancellationToken ct)
-            => throw new NotImplementedException("Plan 17-02 Task 1b owns this method body.");
+        /// <summary>
+        /// Gate-acquire / launch-if-cold / evaluate / lazy-reprobe-on-error flow. Made
+        /// <c>protected virtual</c> so test fixtures can substitute simpler bodies (the
+        /// FastIdleSigner / GatedSigner / ReprobableSigner subclasses bypass this method
+        /// to avoid spinning real Chromium during unit tests).
+        ///
+        /// <para>
+        /// B-2 path (a) — revision iteration 1 — LAZY REPROBE on EvaluateAsync error.
+        /// First attempt: try the cached (signerExpr, installerExpr) on the warm page.
+        /// If it throws (stale cache because comix.to re-deployed mid-session), tear down
+        /// + relaunch + retry ONCE. On second throw, fall through to the existing
+        /// RecordFailure path. This bounds re-entry to a single retry — no infinite recurse.
+        /// </para>
+        /// </summary>
+        protected virtual async Task<string> ProxyFetchAsyncImpl(string apiPath, CancellationToken ct)
+        {
+            await _gate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                if (_disposed)
+                {
+                    throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+                }
+
+                if (_browser == null)
+                {
+                    await LaunchAndProbeAsync(ct).ConfigureAwait(false);
+                }
+
+                ReArmIdleTimer();   // BEFORE Release() — Pitfall 2.
+
+                try
+                {
+                    return await EvaluateProxyFetchAsync(apiPath, ct).ConfigureAwait(false);
+                }
+                catch (Exception evalEx) when (
+                    !(evalEx is ObjectDisposedException) && !(evalEx is OperationCanceledException))
+                {
+                    _logger.Warn(
+                        "Comix signer: stale page detected (EvaluateAsync threw); relaunching and retrying once.");
+                    try
+                    {
+                        await TeardownBrowserAsync().ConfigureAwait(false);
+                        await LaunchAndProbeAsync(ct).ConfigureAwait(false);
+                        return await EvaluateProxyFetchAsync(apiPath, ct).ConfigureAwait(false);
+                    }
+                    catch (Exception retryEx) when (
+                        !(retryEx is ObjectDisposedException) && !(retryEx is OperationCanceledException))
+                    {
+                        // D-10 + D-11 fall-through: second throw → RecordFailure + rethrow.
+                        // (LaunchAndProbeAsync already RecordFailure'd if the relaunch's
+                        // probe step failed; this is the belt-and-braces for an
+                        // EvaluateAsync-only failure mode.)
+                        _sourceStatusService.RecordFailure(ComixSourceKey);
+                        throw;
+                    }
+                }
+            }
+            finally
+            {
+                try
+                {
+                    _gate.Release();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Shutdown race — gate disposed by Dispose under us.
+                }
+            }
+        }
 
         // ── Idle teardown timer ──────────────────────────────────────────────────────
 

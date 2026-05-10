@@ -1,11 +1,21 @@
+using System;
+using System.Threading;
 using System.Threading.Tasks;
+using FluentAssertions;
+using Moq;
+using NLog;
+using NLog.Config;
+using NLog.Targets;
 using NUnit.Framework;
+using NzbDrone.Core.Indexers;
+using NzbDrone.Core.Indexers.Comix;
 using NzbDrone.Core.Test.Framework;
+using PuppeteerSharp;
 
 namespace NzbDrone.Core.Test.Indexers.Comix
 {
     /// <summary>
-    /// Phase 17 Wave 0 RED fixture — lazy re-probe-on-EvaluateAsync-error
+    /// Phase 17 Wave 1 fixture — lazy re-probe-on-EvaluateAsync-error
     /// (revision iteration 1, B-2 path (a); plan-side decision retires D-09's "deferred").
     ///
     /// <para>
@@ -21,58 +31,117 @@ namespace NzbDrone.Core.Test.Indexers.Comix
     /// </list>
     /// </summary>
     [TestFixture]
-    [Ignore("WAVE-1-DEP: requires ComixPuppeteerSigner with EvaluateProxyFetchAsync + LaunchBrowserAsync seams from Plan 17-02 Task 1b")]
     public class ComixSignerLazyReprobeFixture : CoreTest
     {
-        // Wave 1 subclass shape:
-        //
-        //   private class ReprobableSigner : ComixPuppeteerSigner
-        //   {
-        //       public int LaunchCount;
-        //       public int EvalCount;
-        //       public Func<int, bool> ShouldThrow { get; set; } = _ => false;
-        //       protected override Task<PuppeteerSharp.IBrowser> LaunchBrowserAsync(CancellationToken ct)
-        //       {
-        //           LaunchCount++;
-        //           return base.LaunchBrowserAsync(ct);
-        //       }
-        //       protected override Task<string> EvaluateProxyFetchAsync(string apiPath, CancellationToken ct)
-        //       {
-        //           var n = ++EvalCount;
-        //           if (ShouldThrow(n))
-        //               throw new InvalidOperationException($"simulated stale-page on call {n}");
-        //           return Task.FromResult($"{{\"call\":{n}}}");
-        //       }
-        //   }
+        // ReprobableSigner: counts launches + evaluates; ShouldThrow predicate decides
+        // whether each EvaluateProxyFetchAsync attempt throws. Lets us drive the lazy
+        // reprobe's path-(a) "first throw → retry succeeds" + path-(b) "both throw →
+        // RecordFailure + rethrow" without a real Chromium child.
+        private class ReprobableSigner : ComixPuppeteerSigner
+        {
+            public int LaunchCount;
+            public int EvalCount;
+            public Func<int, bool> ShouldThrow { get; set; } = _ => false;
+
+            public ReprobableSigner(IIndexerSourceStatusService s, Logger l)
+                : base(s, l)
+            {
+            }
+
+            protected override Task<IBrowser> LaunchBrowserAsync(CancellationToken ct)
+            {
+                LaunchCount++;
+                var mockBrowser = new Mock<IBrowser>();
+                mockBrowser.Setup(b => b.CloseAsync()).Returns(Task.CompletedTask);
+                return Task.FromResult(mockBrowser.Object);
+            }
+
+            protected override async Task LaunchAndProbeAsync(CancellationToken ct)
+            {
+                var browser = await LaunchBrowserAsync(ct).ConfigureAwait(false);
+                SetBrowserField(browser);
+            }
+
+            protected override Task<string> EvaluateProxyFetchAsync(string apiPath, CancellationToken ct)
+            {
+                var n = ++EvalCount;
+                if (ShouldThrow(n))
+                {
+                    throw new InvalidOperationException($"simulated stale-page on call {n}");
+                }
+
+                return Task.FromResult($"{{\"call\":{n}}}");
+            }
+
+            private void SetBrowserField(IBrowser browser)
+            {
+                var f = typeof(ComixPuppeteerSigner).GetField("_browser",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                f.SetValue(this, browser);
+            }
+        }
+
+        private MemoryTarget _memoryTarget;
+        private LoggingConfiguration _previousConfig;
+
+        [SetUp]
+        public void AttachMemoryTarget()
+        {
+            _previousConfig = LogManager.Configuration;
+
+            var config = new LoggingConfiguration();
+            _memoryTarget = new MemoryTarget("memory") { Layout = "${level}|${message}" };
+            config.AddTarget(_memoryTarget);
+            config.AddRule(LogLevel.Debug, LogLevel.Fatal, _memoryTarget);
+            LogManager.Configuration = config;
+        }
+
+        [TearDown]
+        public void DetachMemoryTarget()
+        {
+            LogManager.Configuration = _previousConfig;
+        }
 
         [Test]
         public async Task EvaluateAsync_throw_on_first_call_should_relaunch_and_retry_once()
         {
-            // Configure ShouldThrow = (n) => n == 1.
-            // 1. var result = await Subject.ProxyFetchAsync("/manga/test/chapters");
-            // 2. result.Should().Contain("\"call\":2");                  // second call returned successfully
-            // 3. Subject.LaunchCount.Should().Be(2);                      // initial + relaunch
-            // 4. Subject.EvalCount.Should().Be(2);                        // first throw + second success
-            // 5. NLog MemoryTarget should contain Warn-level log with substring:
-            //    "Comix signer: stale page detected (EvaluateAsync threw); relaunching"
-            await Task.Yield();
-            Assert.Fail("WAVE-1-DEP: implement after Plan 17-02 Task 1b.");
+            var subject = new ReprobableSigner(
+                Mocker.GetMock<IIndexerSourceStatusService>().Object,
+                LogManager.GetLogger("ComixPuppeteerSigner"))
+            {
+                ShouldThrow = n => n == 1,
+            };
+
+            var result = await subject.ProxyFetchAsync("/manga/test/chapters");
+
+            result.Should().Contain("\"call\":2", "second call returned successfully after relaunch");
+            subject.LaunchCount.Should().Be(2, "initial + ONE relaunch");
+            subject.EvalCount.Should().Be(2, "first throw + second success");
+
+            _memoryTarget.Logs.Should().Contain(l =>
+                l.StartsWith("Warn|")
+                && l.Contains("Comix signer: stale page detected (EvaluateAsync threw); relaunching"));
         }
 
         [Test]
         public async Task EvaluateAsync_throw_on_BOTH_calls_should_RecordFailure_and_rethrow()
         {
-            // Configure ShouldThrow = (n) => true.  (every call throws)
-            // 1. await Assert.ThrowsAsync<InvalidOperationException>(
-            //        () => Subject.ProxyFetchAsync("/manga/test/chapters"));
-            // 2. Subject.LaunchCount.Should().Be(2,
-            //        "exactly initial + ONE relaunch — no infinite recurse");
-            // 3. Subject.EvalCount.Should().Be(2);
-            // 4. Mocker.GetMock<IIndexerSourceStatusService>()
-            //          .Verify(s => s.RecordFailure("comix.to", It.IsAny<TimeSpan>()),
-            //                  Times.AtLeastOnce());
-            await Task.Yield();
-            Assert.Fail("WAVE-1-DEP: implement after Plan 17-02 Task 1b.");
+            var subject = new ReprobableSigner(
+                Mocker.GetMock<IIndexerSourceStatusService>().Object,
+                LogManager.GetLogger("ComixPuppeteerSigner"))
+            {
+                ShouldThrow = _ => true,   // every call throws
+            };
+
+            Func<Task> act = () => subject.ProxyFetchAsync("/manga/test/chapters");
+            await act.Should().ThrowAsync<InvalidOperationException>();
+
+            subject.LaunchCount.Should().Be(2,
+                "exactly initial + ONE relaunch — no infinite recurse");
+            subject.EvalCount.Should().Be(2);
+
+            Mocker.GetMock<IIndexerSourceStatusService>()
+                  .Verify(s => s.RecordFailure("comix.to", It.IsAny<TimeSpan>()), Times.AtLeastOnce());
         }
 
         [Test]
@@ -80,14 +149,32 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             // T-17-01-02 mitigation guard: the reprobe Warn line is allowed to log a
             // fixed substring "stale page detected" + "relaunching" — but MUST NOT log
-            // the apiPath value (potentially attacker-controlled per T-17-01-01) nor any
+            // the apiPath value (potentially attacker-controlled per T-17-02-01) nor any
             // EvaluateAsync exception bytes that might contain page-context state.
-            // Wave 1 elaboration: assert Warn line matches /^stale page detected/ only.
-            await Task.Yield();
-            Assert.Fail("WAVE-1-DEP: implement after Plan 17-02 Task 1b.");
-        }
+            const string ApiPath = "/manga/sensitive_token_value/chapters";
+            var subject = new ReprobableSigner(
+                Mocker.GetMock<IIndexerSourceStatusService>().Object,
+                LogManager.GetLogger("ComixPuppeteerSigner"))
+            {
+                ShouldThrow = n => n == 1,
+            };
 
-        // Verbatim assertion target (acceptance criterion grep):
-        //   "Comix signer: stale page detected (EvaluateAsync threw); relaunching"
+            await subject.ProxyFetchAsync(ApiPath);
+
+            // Find the lazy-reprobe warn line and assert it does NOT contain the apiPath.
+            var reprobeWarn = string.Empty;
+            foreach (var line in _memoryTarget.Logs)
+            {
+                if (line.StartsWith("Warn|") && line.Contains("stale page detected"))
+                {
+                    reprobeWarn = line;
+                    break;
+                }
+            }
+
+            reprobeWarn.Should().NotBeNullOrEmpty();
+            reprobeWarn.Should().NotContain("sensitive_token_value",
+                "lazy-reprobe Warn must NOT leak apiPath bytes (V7 / T-17-01-02)");
+        }
     }
 }
