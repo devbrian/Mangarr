@@ -236,6 +236,49 @@ namespace NzbDrone.Core.Indexers.Comix
                 ct.ThrowIfCancellationRequested();
 
                 var probe = await _page.EvaluateExpressionAsync<ProbeResult>(PROBE_JS).ConfigureAwait(false);
+
+                // Phase 17.2 D-1 (Mitigation A): settle the page execution context after PROBE_JS
+                // so subsequent EvaluateExpressionAsync calls in EvaluateProxyFetchAsync hit a
+                // stable context, not one mid-Runtime.executionContextDestroyed from PROBE_JS's
+                // pushState side-effect. Per Phase 17 17-08-LIVE-VERIFICATION-EVIDENCE.md
+                // Finding 3 (orchestrator-driven Playwright re-verification 2026-05-10), running
+                // PROBE_JS against the live page changes the URL from `https://comix.to/` to
+                // `https://comix.to/[object%20Object]` — PROBE_JS indiscriminately calls every
+                // property of every window object with the probe path string, and at least one
+                // of those calls is a router function whose stringified-Object argument triggers
+                // a soft pushState. PuppeteerSharp 24.42.0 interprets the resulting
+                // `Page.frameNavigated` / `Runtime.executionContextDestroyed` event as a hard
+                // "context destroyed" before the next EvaluateExpressionAsync can run.
+                //
+                // Settle flavor chosen: WaitForNetworkIdleAsync(IdleTime=500ms, Timeout=5000ms).
+                // Rationale: a soft pushState does NOT necessarily generate network requests, so
+                // WaitForNavigationAsync's Networkidle0/Load wait conditions may never trigger
+                // and we'd time out spuriously even when no settle is actually needed. By
+                // contrast, WaitForNetworkIdleAsync is the safest superset — it converges to a
+                // stable signal regardless of whether pushState fired (when no nav occurred,
+                // network is already idle and the call returns near-instantly; when pushState
+                // fired, we wait the actual settle window). Polling EvaluateExpressionAsync<bool>
+                // (Option c per the plan) was rejected because it invokes the very
+                // EvaluateExpressionAsync call Mitigation A is trying to make safe, defeating
+                // the purpose. T-17.2-01 mitigation: bounded by the 5000ms Timeout (no infinite
+                // wait, no DoS surface).
+                //
+                // On any thrown exception (TimeoutException, ObjectDisposedException, etc.) the
+                // existing catch (lines 268-275) handles it: _probeFailureCount increments,
+                // RecordFailure(ComixSourceKey) fires, TeardownBrowserAsync runs, throw rethrows.
+                // No new catch added; no swallowing.
+                //
+                // PROBE_JS string literal byte-for-byte unchanged (D-14 inherited / SC#5).
+                // Sonarr divergence: Mangarr-only seam (Pattern S2 / sonarr-consistency-audit
+                // Pattern ι allowlist coverage). See:
+                //   .planning/phases/17-comix-runtime-signer-port-puppeteersharp/17-08-LIVE-VERIFICATION-EVIDENCE.md (Finding 3)
+                //   .planning/phases/17-comix-runtime-signer-port-puppeteersharp/17-LEARNINGS.md (L-1, S-2)
+                //   .planning/phases/17.2-comix-signer-driver-layer-fix/17.2-CONTEXT.md (D-1)
+                await _page.WaitForNetworkIdleAsync(
+                        new WaitForNetworkIdleOptions { IdleTime = 500, Timeout = 5000 })
+                    .ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
                 if (probe == null
                     || string.IsNullOrEmpty(probe.SignerExpr)
                     || string.IsNullOrEmpty(probe.InstallerExpr))
