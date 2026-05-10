@@ -53,8 +53,9 @@ namespace NzbDrone.Api.Test.Manga.Wanted
     //   1. Happy-path paged GET delegates to IChapterService.ChaptersWithoutFiles exactly once.
     //   2. Reflective Attribute lookup confirms route literal "manga/wanted/missing" — the contract
     //      that the frontend Plan 07-10 fetch path expects per Plan 07-02 URL-shaped key contract.
-    //   3. Filter-expression behavior tests (monitored / mangaIds / languages — defense-in-depth
-    //      mirroring 12-REVIEW MED-01 pattern).
+    //   3. Filter-expression behavior tests (monitored / mangaIds — defense-in-depth
+    //      mirroring 12-REVIEW MED-01 pattern; languages-filter cohort dropped per Phase 16.1
+    //      revert REVERT-05).
     //   4. Subresource hydration test (includeSubresources=[Manga] / null / empty array).
     //   5. (F-MISSING-SIGNALR) Base-class assertion: MangaMissingController extends
     //      RestControllerWithSignalR<ChapterResource, Chapter> (NOT plain Controller). This
@@ -152,9 +153,11 @@ namespace NzbDrone.Api.Test.Manga.Wanted
         // pattern):
         //   * `monitored=true` adds a `c.Monitored == true` FilterExpression
         //   * `mangaIds[]` (non-empty) adds a `mangaIds.Contains(c.MangaId)` FilterExpression
-        //   * `languages[]` (non-empty) adds a `languages.Contains(c.TranslatedLanguage)` FilterExpression
         //   * `includeSubresources=[Manga]` triggers IMangaService.GetManga(MangaId) hydration in MapToResource
         //   * `includeSubresources` null / empty does NOT trigger hydration
+        //
+        // Phase 16.1 revert (Wave 2): the `languages[]` FilterExpression test was dropped
+        // because the controller surface no longer carries the parameter (REVERT-05).
 
         [Test]
         public void GetMissingChapters_applies_monitored_filter_when_monitored_true()
@@ -250,174 +253,14 @@ namespace NzbDrone.Api.Test.Manga.Wanted
                 "mangaIds filter should reject rows whose MangaId is not in the supplied list");
         }
 
-        // Sonarr divergence: Phase 16 STRUCT-06 + D-04 — languages filter joins ChapterRelease;
-        // zero-release IS Missing in unfiltered view but EXCLUDED from language-filtered subset.
-        // Plan 16-04 retarget: the languages filter now operates post-paged in-memory against
-        // bulk-loaded ChapterReleases (IChapterReleaseService.GetReleasesByChapterIds — single
-        // SQL, N+1-safe). A chapter is "in" the filter if ANY of its ChapterReleases match
-        // any language in the filter (case-insensitive — BCP-47 codes).
-        [Test]
-        public void GetMissingChapters_applies_languages_filter_when_languages_non_empty()
-        {
-            // Arrange: 3 chapters, each with releases:
-            //   - Chapter 1: en (MangaPlus)
-            //   - Chapter 2: es (MangaPlus)
-            //   - Chapter 3: ja (MangaPlus)
-            // Filter ?languages=en,es should return Chapters 1 + 2 only.
-            var chapters = new List<NzbDrone.Core.Manga.Chapter>
-            {
-                new() { Id = 1, MangaId = 42, ChapterNumber = 1m, Monitored = true, ChapterType = ChapterType.Regular },
-                new() { Id = 2, MangaId = 42, ChapterNumber = 2m, Monitored = true, ChapterType = ChapterType.Regular },
-                new() { Id = 3, MangaId = 42, ChapterNumber = 3m, Monitored = true, ChapterType = ChapterType.Regular },
-            };
-
-            Mocker.GetMock<IChapterService>()
-                .Setup(s => s.ChaptersWithoutFiles(It.IsAny<PagingSpec<NzbDrone.Core.Manga.Chapter>>()))
-                .Returns<PagingSpec<NzbDrone.Core.Manga.Chapter>>(spec =>
-                {
-                    spec.Records = chapters;
-                    spec.TotalRecords = chapters.Count;
-                    return spec;
-                });
-
-            Mocker.GetMock<IChapterReleaseService>()
-                .Setup(s => s.GetReleasesByChapterIds(It.IsAny<List<int>>()))
-                .Returns(new List<ChapterRelease>
-                {
-                    new() { Id = 10, ChapterId = 1, TranslatedLanguage = "en", ScanlationGroup = "MangaPlus" },
-                    new() { Id = 11, ChapterId = 2, TranslatedLanguage = "es", ScanlationGroup = "MangaPlus" },
-                    new() { Id = 12, ChapterId = 3, TranslatedLanguage = "ja", ScanlationGroup = "MangaPlus" },
-                });
-
-            var result = Subject.GetMissingChapters(
-                new PagingRequestResource(),
-                monitored: false,
-                languages: new[] { "en", "es" });
-
-            result.Should().BeOfType<Ok<PagingResource<ChapterResource>>>();
-            var ok = (Ok<PagingResource<ChapterResource>>)result;
-            ok.Value!.Records.Select(r => r.Id).Should().BeEquivalentTo(new[] { 1, 2 });
-
-            // Verify N+1-safe path: single bulk call (NOT per-chapter GetReleasesByChapter).
-            Mocker.GetMock<IChapterReleaseService>()
-                .Verify(s => s.GetReleasesByChapterIds(It.IsAny<List<int>>()), Times.Once);
-            Mocker.GetMock<IChapterReleaseService>()
-                .Verify(s => s.GetReleasesByChapter(It.IsAny<int>()), Times.Never);
-        }
-
-        // Sonarr divergence: Phase 16 D-04 — Chapter with zero ChapterRelease rows IS in the
-        // missing list when the languages filter is unset. The languages filter narrows further
-        // (zero-release chapters are excluded from the filtered subset because they have no
-        // language to match — see Multi_release_candidate_with_unsupported_language_is_rejected
-        // in the spec fixture for the dual gate).
-        [Test]
-        public void GetMissingChapters_with_zero_releases_appears_when_languages_filter_unset()
-        {
-            // Arrange: monitored chapter with NO ChapterRelease rows. D-04: surfaces in missing list.
-            var chapters = new List<NzbDrone.Core.Manga.Chapter>
-            {
-                new() { Id = 5, MangaId = 42, ChapterNumber = 5m, Monitored = true, ChapterType = ChapterType.Regular },
-            };
-
-            Mocker.GetMock<IChapterService>()
-                .Setup(s => s.ChaptersWithoutFiles(It.IsAny<PagingSpec<NzbDrone.Core.Manga.Chapter>>()))
-                .Returns<PagingSpec<NzbDrone.Core.Manga.Chapter>>(spec =>
-                {
-                    spec.Records = chapters;
-                    spec.TotalRecords = chapters.Count;
-                    return spec;
-                });
-
-            // No languages filter: the languages-filter branch is short-circuited and
-            // GetReleasesByChapterIds is never called.
-            var result = Subject.GetMissingChapters(new PagingRequestResource(), monitored: false);
-
-            result.Should().BeOfType<Ok<PagingResource<ChapterResource>>>();
-            var ok = (Ok<PagingResource<ChapterResource>>)result;
-            ok.Value!.Records.Should().NotBeEmpty(
-                "zero-release Chapter must surface in unfiltered missing list per D-04");
-            ok.Value.Records.Single().Id.Should().Be(5);
-
-            Mocker.GetMock<IChapterReleaseService>()
-                .Verify(
-                    s => s.GetReleasesByChapterIds(It.IsAny<List<int>>()),
-                    Times.Never,
-                    "languages filter unset: must NOT trigger ChapterRelease bulk-load");
-        }
-
-        [Test]
-        public void GetMissingChapters_with_zero_releases_excluded_when_languages_filter_set()
-        {
-            // Arrange: monitored chapter with NO ChapterRelease rows. With languages filter
-            // SET (?languages=en), zero-release chapters are EXCLUDED — they have no language
-            // to match. Pairs with the unfiltered case above to lock both gates of D-04.
-            var chapters = new List<NzbDrone.Core.Manga.Chapter>
-            {
-                new() { Id = 5, MangaId = 42, ChapterNumber = 5m, Monitored = true, ChapterType = ChapterType.Regular },
-            };
-
-            Mocker.GetMock<IChapterService>()
-                .Setup(s => s.ChaptersWithoutFiles(It.IsAny<PagingSpec<NzbDrone.Core.Manga.Chapter>>()))
-                .Returns<PagingSpec<NzbDrone.Core.Manga.Chapter>>(spec =>
-                {
-                    spec.Records = chapters;
-                    spec.TotalRecords = chapters.Count;
-                    return spec;
-                });
-
-            // Bulk lookup returns empty for this chapter id (zero-release case).
-            Mocker.GetMock<IChapterReleaseService>()
-                .Setup(s => s.GetReleasesByChapterIds(It.IsAny<List<int>>()))
-                .Returns(new List<ChapterRelease>());
-
-            var result = Subject.GetMissingChapters(
-                new PagingRequestResource(),
-                monitored: false,
-                languages: new[] { "en" });
-
-            result.Should().BeOfType<Ok<PagingResource<ChapterResource>>>();
-            var ok = (Ok<PagingResource<ChapterResource>>)result;
-            ok.Value!.Records.Should().BeEmpty(
-                "zero-release Chapter must be excluded when languages filter is set per D-04 dual gate");
-        }
-
-        [Test]
-        public void GetMissingChapters_languages_filter_is_case_insensitive()
-        {
-            // BCP-47 language codes are case-insensitive in practice. Filter "EN" should match
-            // ChapterRelease.TranslatedLanguage = "en". Mirrors HashSet OrdinalIgnoreCase shape
-            // in MangaMissingController.
-            var chapters = new List<NzbDrone.Core.Manga.Chapter>
-            {
-                new() { Id = 1, MangaId = 42, ChapterNumber = 1m, Monitored = true, ChapterType = ChapterType.Regular },
-            };
-
-            Mocker.GetMock<IChapterService>()
-                .Setup(s => s.ChaptersWithoutFiles(It.IsAny<PagingSpec<NzbDrone.Core.Manga.Chapter>>()))
-                .Returns<PagingSpec<NzbDrone.Core.Manga.Chapter>>(spec =>
-                {
-                    spec.Records = chapters;
-                    spec.TotalRecords = chapters.Count;
-                    return spec;
-                });
-
-            Mocker.GetMock<IChapterReleaseService>()
-                .Setup(s => s.GetReleasesByChapterIds(It.IsAny<List<int>>()))
-                .Returns(new List<ChapterRelease>
-                {
-                    new() { Id = 10, ChapterId = 1, TranslatedLanguage = "en" },
-                });
-
-            var result = Subject.GetMissingChapters(
-                new PagingRequestResource(),
-                monitored: false,
-                languages: new[] { "EN" });
-
-            result.Should().BeOfType<Ok<PagingResource<ChapterResource>>>();
-            var ok = (Ok<PagingResource<ChapterResource>>)result;
-            ok.Value!.Records.Should().HaveCount(1, "case-insensitive match: 'EN' filter accepts 'en' release");
-        }
-
+        // Phase 16.1 revert (Wave 2): the Phase 16 D-04 `[FromQuery] string[]? languages`
+        // parameter and its sibling-service hydration were REMOVED. REVERT-05 acceptance:
+        // Wanted/Missing reverts to the Sonarr-canonical predicate `monitored && no file`
+        // (see ChaptersWithoutFiles paged spec). The languages-filter test cohort (4 tests
+        // — applies_languages_filter / zero_releases_appears / zero_releases_excluded /
+        // case_insensitive) was deleted because the controller surface no longer carries
+        // the parameter. Manga-domain translation preference is enforced in the
+        // DecisionEngine via TranslationProfile, NOT a controller-level filter.
         [Test]
         public void GetMissingChapters_hydrates_Manga_subresource_when_includeSubresources_contains_Manga()
         {
