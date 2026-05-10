@@ -245,6 +245,18 @@ namespace NzbDrone.Core.Indexers.Comix
             }
         }
 
+        // GAP-17-B Branch C (Plan 17-06): the production IIFE's `await captured.res(fakeResp)`
+        // decrypt invocation reliably destroys the warm Chromium page execution context on
+        // comix.to (diagnosed via Plan 17-05's Probe D — fetch-no-decrypt — returning 200 OK
+        // + `{"e":"..."}` envelope cleanly while the production path with the decrypt step
+        // fires the lazy-reprobe Warn on every WarmAsync). The decrypt step is wrapped in an
+        // in-page `try/catch`: on throw, the IIFE returns a JSON envelope marking
+        // `decryptError` instead of letting the rejection tear the page down. The .NET caller
+        // (ComixIndexer.Fetch) sees the same string return shape — its existing JSON parser
+        // surfaces a parse error to IIndexerSourceStatusService.RecordFailure escalation if
+        // the decrypt always fails. Followup issue tracked against Phase 17.2 milestone.
+        // Annotation block remains so future maintainers don't "simplify" the catch back to a
+        // bare await — see UpstreamSignerDriftFixture.Port_must_not_regress_GAP_17_B_decrypt_guard.
         protected virtual async Task<string> EvaluateProxyFetchAsync(string apiPath, CancellationToken ct)
         {
             // CR-05 mitigation (revision iteration 2): snapshot fields under the gate before
@@ -310,16 +322,29 @@ namespace NzbDrone.Core.Indexers.Comix
                 let raw;
                 try {{ raw = JSON.parse(text); }} catch (_e) {{ raw = null; }}
                 if (raw && typeof raw === 'object' && 'e' in raw && captured.res) {{
-                  const fakeResp = {{
-                    data: raw,
-                    status: resp.status,
-                    statusText: resp.statusText,
-                    headers: Object.fromEntries([...resp.headers.entries()]),
-                    config: {{ url: url, method: 'get', baseURL: '/api/v1' }},
-                    request: {{}}
-                  }};
-                  const decoded = await captured.res(fakeResp);
-                  return JSON.stringify({{ result: decoded && decoded.data }});
+                  // GAP-17-B Branch C fix (Plan 17-06): wrap the captured response interceptor
+                  // invocation in try/catch. Plan 17-05's Probe D diagnosis showed that
+                  // `await captured.res(fakeResp)` mutates window state (likely
+                  // window.location reload on stale-token defence OR a CSP-violating
+                  // side-effect) that destroys the page execution context. The catch
+                  // surfaces the encrypted shape + a `decryptError` string to the .NET
+                  // caller so ComixIndexer.Fetch's existing JSON-parse path can route to
+                  // IIndexerSourceStatusService.RecordFailure escalation, and — critically —
+                  // the warm page stays alive for the next request.
+                  try {{
+                    const fakeResp = {{
+                      data: raw,
+                      status: resp.status,
+                      statusText: resp.statusText,
+                      headers: Object.fromEntries([...resp.headers.entries()]),
+                      config: {{ url: url, method: 'get', baseURL: '/api/v1' }},
+                      request: {{}}
+                    }};
+                    const decoded = await captured.res(fakeResp);
+                    return JSON.stringify({{ result: decoded && decoded.data }});
+                  }} catch (decryptErr) {{
+                    return JSON.stringify({{ result: null, e: raw.e, decryptError: String(decryptErr) }});
+                  }}
                 }}
                 return text;
               }})();";
