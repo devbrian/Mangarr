@@ -240,35 +240,62 @@ function PageSidebar() {
     ? location.pathname.substr(urlBase.length) || '/'
     : location.pathname;
 
+  // Mangarr fix (nav-subheaders-missing, 2026-05-11): two-pass specificity-first
+  // selection. The single-pass `find` of upstream Sonarr was safe only while
+  // every top-level nav prefix was disjoint (Sonarr: /series, /activity, /wanted).
+  // Phase 15-07 Wave 3 rebrand flipped the Manga alias to `/manga` and the
+  // Activity / Wanted nav `to` paths to `/manga/activity/*` and `/manga/wanted/*`,
+  // making `/manga` a prefix of every other manga-rooted top-level target. The
+  // single-pass find then short-circuited on the Manga link's alias for every
+  // /manga/* URL, leaving Activity and Wanted unable to become the active parent
+  // and silently suppressing their child sub-headers.
+  //
+  // Fix: prefer the most-specific match (exact link.to OR a child whose `to`
+  // matches the pathname) before falling back to the alias / prefix match. This
+  // restores the Sonarr-canonical specificity order without altering the
+  // single-pass behavior when the prefixes are disjoint (the second pass is
+  // unreached in that case).
   const activeParent = useMemo(() => {
-    return (
-      links.find((link) => {
-        if (link.to && link.to === pathname) {
+    // Pass 1: most-specific — exact link.to match, OR a child whose `to`
+    // matches the pathname (longest-prefix among children wins).
+    const specificMatch = links.find((link) => {
+      if (link.to && link.to === pathname) {
+        return true;
+      }
+
+      const children = link.children;
+
+      if (children) {
+        const matchingChild = children.find((childLink) => {
+          return pathname.startsWith(childLink.to);
+        });
+
+        if (matchingChild) {
           return true;
         }
+      }
 
-        const children = link.children;
+      return false;
+    });
 
-        if (children) {
-          const matchingChild = children.find((childLink) => {
-            return pathname.startsWith(childLink.to);
-          });
+    if (specificMatch) {
+      return specificMatch.to;
+    }
 
-          if (matchingChild) {
-            return matchingChild;
-          }
-        }
+    // Pass 2: fall back to prefix / alias match.
+    const prefixMatch = links.find((link) => {
+      if (link.to !== '/' && pathname.startsWith(link.to)) {
+        return true;
+      }
 
-        if (
-          (link.to !== '/' && pathname.startsWith(link.to)) ||
-          (link.alias && pathname.startsWith(link.alias))
-        ) {
-          return true;
-        }
+      if (link.alias && pathname.startsWith(link.alias)) {
+        return true;
+      }
 
-        return false;
-      })?.to ?? links[0].to
-    );
+      return false;
+    });
+
+    return prefixMatch?.to ?? links[0].to;
   }, [pathname]);
 
   const handleWindowClick = useCallback(
