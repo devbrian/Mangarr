@@ -40,6 +40,19 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
     /// </summary>
     public class MangaDexMetadataSource : HttpMetadataSourceBase<MangaDexMetadataSourceSettings>
     {
+        // Bug fix (manga-details-chapter-titles, 2026-05-10): canonical Chapter.Title
+        // is the English official title only. MangaDex's per-translation feed yields
+        // one entry per (chapter, language, scanlation-group); non-English entries
+        // routinely carry scanlator-group commentary in the Title slot (e.g. Polish
+        // entries for "Solo Leveling: Ragnarok" hold lines like
+        // "KONIEC DRUGIEGO SEZONU !!!!!"). Treating Chapter.Title as the canonical
+        // language-neutral title (Sonarr-mirror of Episode.Title's TVDB-EN shape) means
+        // only entries with translatedLanguage == "en" may contribute Title; otherwise
+        // Title stays null and the UI falls back to "Chapter N". The chapter row itself
+        // still ingests from any-language entry (so chapters discovered only via pl/it/etc.
+        // remain enumerable + searchable) — we simply suppress the noisy non-EN title.
+        private const string CanonicalTitleLanguage = "en";
+
         private MangaDexApi _api;
 
         public MangaDexMetadataSource(IHttpClient httpClient, Logger logger)
@@ -80,7 +93,9 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             // Phase 16.1 Wave 3 (REVERT-03): project the flat feed into a Sonarr-canonical
             // IEnumerable<Chapter>. MapChapters dedups multiple per-translation feed entries
             // by canonical ChapterNumber via GroupBy + Last() (BL-05 multi-translation
-            // dedup safety — mirror of Sonarr's DistinctBy(new { SeasonNumber, EpisodeNumber })).
+            // dedup safety — mirror of Sonarr's DistinctBy(new { SeasonNumber, EpisodeNumber }))
+            // AND suppresses non-English titles to keep Chapter.Title canonical
+            // (manga-details-chapter-titles fix, 2026-05-10).
             var chapters = MapChapters(feedEntries);
             return Tuple.Create(manga, chapters);
         }
@@ -239,6 +254,16 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
         // here — those per-release axes live on ChapterFile after import (Phase 6
         // PIPELINE-04 axis: ChapterFile.TranslatedLanguage + ChapterFile.ScanlationGroup),
         // not on the metadata-feed projection.
+        //
+        // Bug fix (manga-details-chapter-titles, 2026-05-10): Title is suppressed for
+        // non-English feed entries — MangaDex's per-translation rows routinely carry
+        // scanlator commentary in the Title slot for non-EN languages (e.g. Polish entries
+        // for Solo Leveling: Ragnarok hold lines like "KONIEC DRUGIEGO SEZONU !!!!!").
+        // Sonarr-mirror: Episode.Title is the canonical English title; same shape here.
+        // The other fields (ChapterNumber / VolumeNumber / FirstReleaseDate / ExternalId)
+        // are language-neutral structural data and ingest from any-language entry — so
+        // chapters that exist only in non-EN translations are still enumerable +
+        // searchable; we just don't pollute Chapter.Title with non-canonical strings.
         private static NzbDrone.Core.Manga.Chapter MapChapter(ChapterFeedEntry entry)
         {
             var attrs = entry.Attributes;
@@ -254,11 +279,21 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
                 volume = v;
             }
 
+            // Suppress non-English titles to keep Chapter.Title canonical (Sonarr-mirror
+            // of Episode.Title's TVDB-English shape). Polish/Italian/etc. entries
+            // routinely carry scanlator-group commentary in the Title slot; ingesting
+            // those as canonical Chapter.Title pollutes the Manga Details Chapters tab.
+            // A null Title renders cleanly as "Chapter N" via the ChapterTitleLink
+            // fallback path.
+            var title = string.Equals(attrs?.TranslatedLanguage, CanonicalTitleLanguage, StringComparison.OrdinalIgnoreCase)
+                ? attrs?.Title
+                : null;
+
             return new NzbDrone.Core.Manga.Chapter
             {
                 ChapterNumber = chapterNumber,
                 VolumeNumber = volume,
-                Title = attrs?.Title,
+                Title = title,
                 ChapterType = ChapterType.Regular,
                 FirstReleaseDate = attrs?.PublishAt,    // Sonarr-mirror of Episode.AirDateUtc (D-02 chapter-publish date)
                 ExternalId = entry.Id,
@@ -274,9 +309,16 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
         // per-translation feed entries (the MangaDex feed yields one entry per (chapter, language,
         // group) tuple) to one canonical Chapter. Mirror of Sonarr's
         // DistinctBy(new { m.SeasonNumber, m.EpisodeNumber }) precedent at the canonical natural
-        // key. Last-write-wins on the canonical mutable fields (Title / VolumeNumber /
-        // FirstReleaseDate); the per-translation language and scanlation-group axes are NOT in
-        // the canonical Chapter and live on ChapterFile after import.
+        // key.
+        //
+        // Bug fix (manga-details-chapter-titles, 2026-05-10): ordering tweak — entries with
+        // a non-null Title (i.e. the EN-language entries after the MapChapter Title-suppression
+        // pass) are pushed to the END of each group so they win the Last() race. Without
+        // ordering, an English entry that happens to land earlier in the feed than a non-EN
+        // entry would be overwritten with a null-title row. Stable OrderBy preserves all
+        // other field semantics (FirstReleaseDate / VolumeNumber / ExternalId are populated
+        // from whichever entry wins; the canonical structural data is consistent across
+        // per-translation entries).
         public static IEnumerable<NzbDrone.Core.Manga.Chapter> MapChapters(IEnumerable<ChapterFeedEntry> entries)
         {
             if (entries == null)
@@ -287,7 +329,9 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             return entries
                 .Select(MapChapter)
                 .GroupBy(c => c.ChapterNumber)
-                .Select(g => g.Last())     // BL-05 dedup safety — last canonical write wins
+                .Select(g => g
+                    .OrderBy(c => c.Title != null)   // false (null) sorts first, true (has-title) sorts last → Last() picks Title-bearing entry
+                    .Last())
                 .ToList();
         }
 

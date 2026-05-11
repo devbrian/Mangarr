@@ -110,15 +110,65 @@ namespace NzbDrone.Core.Test.MangaTests
         }
 
         [Test]
-        public void SyncChapters_does_not_clobber_existing_field_when_remote_is_null()
+        public void SyncChapters_does_not_clobber_structural_fields_when_remote_is_null()
         {
-            // Null-coalesce protects against losing data when the metadata source omits a field.
+            // Null-coalesce protects against losing data when the metadata source omits a
+            // structural field (FirstReleaseDate / VolumeNumber / AbsoluteChapterNumber /
+            // ExternalId). The Title field is intentionally excluded from this guard — see
+            // SyncChapters_clobbers_existing_Title_with_null_remote below for the rationale.
+            var existingWhen = new System.DateTime(2024, 1, 1, 0, 0, 0, System.DateTimeKind.Utc);
             var existing = new Chapter
             {
                 Id = 42,
                 MangaId = 1,
                 ChapterNumber = 5m,
                 Title = "Original",
+                VolumeNumber = 7,
+                AbsoluteChapterNumber = 99,
+                FirstReleaseDate = existingWhen,
+                ExternalId = "existing-external-id",
+                ChapterType = ChapterType.Regular,
+            };
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.GetByMangaId(1))
+                .Returns(new List<Chapter> { existing });
+
+            var remote = new List<Chapter>
+            {
+                // All structural fields null on remote — coalesce must preserve existing values.
+                new() { ChapterNumber = 5m, Title = "kept", ChapterType = ChapterType.Regular },
+            };
+
+            IList<Chapter> captured = null;
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.UpdateMany(It.IsAny<IList<Chapter>>()))
+                .Callback<IList<Chapter>>(list => captured = list);
+
+            Subject.SyncChapters(_manga, remote);
+
+            captured.Should().NotBeNull();
+            captured[0].VolumeNumber.Should().Be(7);
+            captured[0].AbsoluteChapterNumber.Should().Be(99);
+            captured[0].FirstReleaseDate.Should().Be(existingWhen);
+            captured[0].ExternalId.Should().Be("existing-external-id");
+        }
+
+        [Test]
+        public void SyncChapters_clobbers_existing_Title_with_null_remote()
+        {
+            // Bug fix (manga-details-chapter-titles, 2026-05-10): Title is overwrite-with-null
+            // on refresh (DIVERGES from the structural-field coalesce behavior immediately above).
+            // MangaDexMetadataSource.MapChapter now suppresses non-English Title to null
+            // (canonical Episode.Title-mirror — TVDB-English-only). For chapters whose Title was
+            // ingested before the fix (e.g. Polish scanlator commentary on Solo Leveling: Ragnarok),
+            // the coalesce would preserve the stale polluted value across refreshes. Treating Title
+            // as fully remote-driven ensures the next refresh cleans up legacy stale-EN-pollution.
+            var existing = new Chapter
+            {
+                Id = 42,
+                MangaId = 1,
+                ChapterNumber = 5m,
+                Title = "POLISH SCANLATOR COMMENTARY (legacy)",
                 ChapterType = ChapterType.Regular,
             };
             Mocker.GetMock<IChapterRepository>()
@@ -138,7 +188,8 @@ namespace NzbDrone.Core.Test.MangaTests
             Subject.SyncChapters(_manga, remote);
 
             captured.Should().NotBeNull();
-            captured[0].Title.Should().Be("Original");
+            captured[0].Title.Should().BeNull(
+                "Title is overwrite-with-null on refresh so stale pre-fix titles get cleaned up");
         }
 
         [Test]

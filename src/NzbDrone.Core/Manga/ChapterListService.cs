@@ -68,7 +68,18 @@ namespace NzbDrone.Core.Manga
                     // input field does NOT clobber a previously-set canonical value.
                     // Monitored is intentionally NOT touched on update — Sonarr precedent:
                     // Monitored is set on insert, then user-controlled afterwards.
-                    match.Title = remote.Title ?? match.Title;
+                    //
+                    // EXCEPTION: Title is assigned verbatim (no null-coalesce). The metadata
+                    // source defines null as the canonical "no English title available" value
+                    // (manga-details-chapter-titles fix, 2026-05-10 — MangaDexMetadataSource.MapChapter
+                    // suppresses non-EN entries' Title slot so scanlator-group commentary
+                    // does not pollute Chapter.Title). Coalescing here would preserve stale
+                    // polluted titles from pre-fix ingestions — exactly the bug we are
+                    // shipping the fix for. Title is intentionally treated as fully
+                    // remote-driven; the structural mutable fields below keep their
+                    // coalesce guard because their semantic is "transient API gap" rather
+                    // than "canonically absent."
+                    match.Title = remote.Title;
                     match.AbsoluteChapterNumber = remote.AbsoluteChapterNumber ?? match.AbsoluteChapterNumber;
                     match.VolumeNumber = remote.VolumeNumber ?? match.VolumeNumber;
                     match.ChapterType = remote.ChapterType;
