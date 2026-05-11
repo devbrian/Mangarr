@@ -1,6 +1,28 @@
 .title {
   composes: cell from '~Components/Table/Cells/TableRowCell.css';
 
+  /*
+   * width:100% forces this cell to absorb ALL leftover horizontal space in the
+   * <table width:100%; table-layout:auto> layout — without it, the manga-flat
+   * 5-column row (monitored 42 + chapterNumber 80 + status 60 = 182 px of
+   * fixed-width cells) leaves ~1000+ px of leftover desktop width that the
+   * browser splits between the two unwidthed cells (title + actions), causing
+   * status + actions to drift mid-row instead of pinning right.
+   *
+   * Sonarr's TV EpisodeRow.css uses the same `title { nowrap; no width }`
+   * idiom but masks the bug via ~9 fixed-width cells totalling ~700-800 px —
+   * leftover space is small enough that the right-edge pin holds naturally.
+   * The manga-flat shape (PROJECT.md "Volumes/Seasons" Out-of-Scope) drops
+   * those cells, so we apply the canonical HTML-table "stretch one column,
+   * collapse the rest" technique explicitly here.
+   *
+   * Holds for ANY title length: nowrap prevents wrapping; width:100% claims
+   * the leftover; short and long titles both render with status+actions
+   * pinned to the right edge.
+   *
+   * Debug session: .planning/debug/chapters-status-right-align.md (2026-05-11).
+   */
+  width: 100%;
   white-space: nowrap;
 }
 
