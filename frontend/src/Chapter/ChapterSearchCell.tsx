@@ -18,6 +18,10 @@
 //     backend endpoint already enqueues.
 //   * No EpisodeEntity discriminator; opens the streamlined v1
 //     ChapterDetailsModal (search-first).
+//   * Accepts an optional `className` prop forwarded to TableRowCell so the
+//     parent ChapterRow can apply the `.actions` cell style (fixed width +
+//     white-space: nowrap to prevent the two inline-block buttons from
+//     stacking vertically). Debug session: manga-details-buttons-tvdb.md.
 //
 // Phase 8 cleanup: collapse with EpisodeSearchCell when Tv/ deletes.
 import React, { useCallback, useState } from 'react';
@@ -33,12 +37,14 @@ export interface ChapterSearchCellProps {
   chapterId: number;
   mangaId: number;
   chapterTitle?: string;
+  className?: string;
 }
 
 function ChapterSearchCell({
   chapterId,
   mangaId,
   chapterTitle,
+  className,
 }: ChapterSearchCellProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -67,7 +73,7 @@ function ChapterSearchCell({
   }, []);
 
   return (
-    <TableRowCell>
+    <TableRowCell className={className}>
       <SpinnerIconButton
         name={icons.SEARCH}
         isSpinning={isSearching}
