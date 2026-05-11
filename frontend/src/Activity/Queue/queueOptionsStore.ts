@@ -1,10 +1,27 @@
-import React from 'react';
-import Icon from 'Components/Icon';
+// Sonarr divergence: column registry rebalanced for manga shape per GH issue #73
+// (Plan 15-12 follow-up). The Sonarr column keys (`series.sortTitle`, `episode`,
+// `episodes.title`) are preserved so persisted Zustand state keeps working; the
+// labels are relabeled to manga terminology, and the manga-only columns
+// (`translatedLanguage`, `scanlationGroup`) are appended. The TV-only columns
+// (`quality`, `customFormats`, `customFormatScore`, `languages`,
+// `episodes.airDateUtc`) are removed from the registry — manga has no quality
+// model per Phase 5 D-04 and no episodic air-date semantics per Phase 7 D-03.
+//
+// Mirrors the precedent set by `frontend/src/Wanted/Missing/missingOptionsStore.ts`
+// + `frontend/src/Wanted/CutoffUnmet/cutoffUnmetOptionsStore.ts` +
+// `frontend/src/Activity/Blocklist/blocklistOptionsStore.ts`: keep Sonarr column
+// keys, flip labels, drop quality axes, add the manga-specific axes
+// (translatedLanguage + scanlationGroup).
+//
+// Store-name strategy: the localStorage key is bumped to `manga_queue_options` to
+// avoid hydrating users into a registry that no longer has the Quality / Formats
+// columns they previously toggled visible. Pre-existing `queue_options` localStorage
+// entries become orphaned and get garbage-collected on next browser cleanup; no
+// data is lost (this store carries only column visibility + page size + sort key).
 import {
   createOptionsStore,
   PageableOptions,
 } from 'Helpers/Hooks/useOptionsStore';
-import { icons } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 
 interface QueueRemovalOptions {
@@ -17,7 +34,7 @@ export interface QueueOptions extends PageableOptions {
 }
 
 const { useOptions, useOption, setOptions, setOption, setSort } =
-  createOptionsStore<QueueOptions>('queue_options', () => {
+  createOptionsStore<QueueOptions>('manga_queue_options', () => {
     return {
       pageSize: 20,
       selectedFilterKey: 'all',
@@ -34,54 +51,33 @@ const { useOptions, useOption, setOptions, setOption, setSort } =
         },
         {
           name: 'series.sortTitle',
-          label: () => translate('Series'),
+          label: () => translate('MangaTitle'),
           isSortable: true,
           isVisible: true,
         },
         {
           name: 'episode',
-          label: () => translate('EpisodeMaybePlural'),
+          label: () => translate('Chapter'),
           isSortable: true,
           isVisible: true,
         },
         {
           name: 'episodes.title',
-          label: () => translate('EpisodeTitleMaybePlural'),
+          label: () => translate('ChapterTitle'),
           isSortable: true,
           isVisible: true,
         },
         {
-          name: 'episodes.airDateUtc',
-          label: () => translate('EpisodeAirDate'),
-          isSortable: true,
-          isVisible: false,
-        },
-        {
-          name: 'languages',
-          label: () => translate('Languages'),
-          isSortable: true,
-          isVisible: false,
-        },
-        {
-          name: 'quality',
-          label: () => translate('Quality'),
-          isSortable: true,
-          isVisible: true,
-        },
-        {
-          name: 'customFormats',
-          label: () => translate('Formats'),
+          name: 'translatedLanguage',
+          label: () => translate('Language'),
           isSortable: false,
           isVisible: true,
         },
         {
-          name: 'customFormatScore',
-          columnLabel: () => translate('CustomFormatScore'),
-          label: React.createElement(Icon, {
-            name: icons.SCORE,
-            title: () => translate('CustomFormatScore'),
-          }),
-          isVisible: false,
+          name: 'scanlationGroup',
+          label: () => translate('ScanlationGroup'),
+          isSortable: false,
+          isVisible: true,
         },
         {
           name: 'protocol',

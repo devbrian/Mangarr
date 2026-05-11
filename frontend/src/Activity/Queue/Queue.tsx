@@ -1,8 +1,13 @@
 // Sonarr divergence: per Phase 7 D-10 + Lock #1 — mediaType prop added — see DIVERGENCE.md.
 // Phase 15 Plan 15-07 Wave 3 (Sub-step F option (a)): mediaType prop default flipped 'series' ->
 // 'manga' since TV is gone post-cutover; the prop type union 'series' | 'manga' collapsed to
-// 'manga' (preserves the discriminator type for v2 reintroduction). Both default-sites
-// (QueueContent inner + Queue outer) updated atomically.
+// 'manga' (preserves the discriminator type for v2 reintroduction).
+//
+// GH issue #73 (2026-05-11) — QueueRow rewritten to consume MangaQueueItem shape
+// directly; the `@ts-expect-error` directive on the spread and the legacy
+// `useEpisodes` lookup (which would short-circuit on `episodeIds=[]` and
+// gate the `isAllPopulated` flag forever) are removed. Mirrors the Plan 15-12-era
+// History.tsx pattern that already skips `useEpisodes` for manga records.
 import React, {
   ReactElement,
   useCallback,
@@ -27,15 +32,13 @@ import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableOptionsModalWrapper from 'Components/Table/TableOptions/TableOptionsModalWrapper';
 import TablePager from 'Components/Table/TablePager';
-import useEpisodes from 'Episode/useEpisodes';
 import { useCustomFiltersList } from 'Filters/useCustomFilters';
 import { align, icons, kinds } from 'Helpers/Props';
 import { SortDirection } from 'Helpers/Props/sortDirections';
 import InteractiveImportModal from 'InteractiveImport/InteractiveImportModal';
 import { CheckInputChanged } from 'typings/inputs';
-import QueueModel from 'typings/Queue';
+import MangaQueueItem from 'typings/MangaQueueItem';
 import { TableOptionsChangePayload } from 'typings/Table';
-import selectUniqueIds from 'Utilities/Object/selectUniqueIds';
 import {
   registerPagePopulator,
   unregisterPagePopulator,
@@ -59,6 +62,22 @@ import useQueue, {
 
 interface QueueProps {
   mediaType?: 'manga';
+}
+
+function renderEmptyAlert(
+  selectedFilterKey: string | number,
+  count: number,
+  mediaType: 'manga'
+) {
+  let message: string = '';
+  if (selectedFilterKey !== 'all' && count > 0) {
+    message = translate('QueueFilterHasNoItems');
+  } else if (mediaType === 'manga') {
+    message = translate('QueueIsEmptyManga');
+  } else {
+    message = translate('QueueIsEmpty');
+  }
+  return <Alert kind={kinds.INFO}>{message}</Alert>;
 }
 
 function QueueContent({ mediaType = 'manga' }: QueueProps) {
@@ -86,16 +105,6 @@ function QueueContent({ mediaType = 'manga' }: QueueProps) {
 
   const { count } = useQueueStatus();
 
-  const episodeIds = useMemo(() => {
-    return selectUniqueIds<QueueModel, number>(records, 'episodeIds');
-  }, [records]);
-
-  const {
-    isFetching: isEpisodesFetching,
-    isFetched: isEpisodesFetched,
-    error: episodesError,
-  } = useEpisodes({ episodeIds });
-
   const customFilters = useCustomFiltersList('queue');
 
   const isRefreshMonitoredDownloadsExecuting = useCommandExecuting(
@@ -106,7 +115,7 @@ function QueueContent({ mediaType = 'manga' }: QueueProps) {
   const currentQueue = useRef<ReactElement | null>(null);
 
   const { allSelected, allUnselected, selectAll, unselectAll, useSelectedIds } =
-    useSelect<QueueModel>();
+    useSelect<MangaQueueItem>();
 
   const selectedIds = useSelectedIds();
   const isPendingSelected = useMemo(() => {
@@ -121,16 +130,14 @@ function QueueContent({ mediaType = 'manga' }: QueueProps) {
   const [isInteractiveImportDownloadIds, setIsInteractiveImportDownloadIds] =
     useState<string[]>(() => []);
 
-  const isRefreshing =
-    isLoading || isEpisodesFetching || isRefreshMonitoredDownloadsExecuting;
+  const isRefreshing = isLoading || isRefreshMonitoredDownloadsExecuting;
 
-  // Use isLoading over isFetched to avoid losing the table UI when switching pages
-  const isAllPopulated =
-    !isLoading &&
-    (isEpisodesFetched ||
-      !records.length ||
-      records.every((e) => !e.episodeIds?.length));
-  const hasError = error || episodesError;
+  // Manga queue rows carry their own chapter/manga hydration via subresources
+  // (or fall back to the `['/manga']` / `['/chapter']` React Query caches in
+  // QueueRow). There is no episode-style multi-id batch lookup; the table is
+  // populated as soon as the queue records arrive.
+  const isAllPopulated = !isLoading;
+  const hasError = error;
   const selectedCount = selectedIds.length;
   const disableSelectedActions = selectedCount === 0;
 
@@ -242,15 +249,9 @@ function QueueContent({ mediaType = 'manga' }: QueueProps) {
           <Alert kind={kinds.DANGER}>{translate('QueueLoadError')}</Alert>
         ) : null}
 
-        {isAllPopulated && !hasError && !records.length ? (
-          <Alert kind={kinds.INFO}>
-            {selectedFilterKey !== 'all' && count > 0
-              ? translate('QueueFilterHasNoItems')
-              : mediaType === 'manga'
-                ? translate('QueueIsEmptyManga')
-                : translate('QueueIsEmpty')}
-          </Alert>
-        ) : null}
+        {isAllPopulated && !hasError && !records.length
+          ? renderEmptyAlert(selectedFilterKey, count, mediaType)
+          : null}
 
         {isAllPopulated && !hasError && !!records.length ? (
           <div>
@@ -269,7 +270,6 @@ function QueueContent({ mediaType = 'manga' }: QueueProps) {
               <TableBody>
                 {records.map((item) => {
                   return (
-                    // @ts-expect-error — Sonarr divergence (Plan 15-12): TV-shape QueueRow.
                     <QueueRow
                       key={item.id}
                       columns={columns}
@@ -377,7 +377,7 @@ function QueueContent({ mediaType = 'manga' }: QueueProps) {
           selectedIds.every((id: number) => {
             const item = records.find((i) => i.id === id);
 
-            return !!(item && item.seriesId && item.episodeIds.length);
+            return !!(item && item.mangaId && (item.chapterIds?.length ?? 0));
           })
         }
         isPending={
@@ -413,7 +413,7 @@ function Queue({ mediaType = 'manga' }: QueueProps) {
   const { records } = useQueue(mediaType);
 
   return (
-    <SelectProvider<QueueModel> items={records}>
+    <SelectProvider<MangaQueueItem> items={records}>
       <QueueContent mediaType={mediaType} />
     </SelectProvider>
   );

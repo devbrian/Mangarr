@@ -115,6 +115,22 @@ backend events identically to how TV Activity pages auto-refresh on `queue` / `h
 thin wrappers merge into the page components (`mediaType` default flips to `'manga'`) and
 the wrappers are deleted. The hooks lose the discriminator (single URL).
 
+
+## GH issue #73 (2026-05-11) — QueueRow / HistoryRow / BlocklistRow manga-shape migration (Plan 15-12 follow-up)
+
+The Activity Queue / History / Blocklist row components were rewritten to consume manga wire shapes directly, replacing the TV-shape `seriesId` / `episodeIds` / `quality` / `customFormats` props with manga-shape `mangaId` / `chapterId` / `translatedLanguage` / `scanlationGroup`. The previous PR #74 added crash-prevention defaults (`episodeIds = []` / `seasonNumbers = []`) so the queue could render at all post-Phase-15 cutover; this PR completes the migration so the cells actually show values.
+
+**Pattern adopted (mirrors `Wanted/Missing/MissingRow.tsx` precedent):**
+
+- **Row components** consume manga wire shape directly via spread (`{...item}`) from page-level `MangaQueueItem[]` / `ChapterHistory[]` / `MangaBlocklist[]` records. Resolve `manga` / `chapter` via hydrated subresource preferred over `useSingleManga(mangaId)` / `useSingleChapter(chapterId)` fallback from the React Query caches (`['/manga']` / `['/chapter']`). No additional network fetches in the common path.
+- **Column keys preserved verbatim** from the pre-fix TV-shape registries (`series.sortTitle`, `episode`, `episodes.title`) so persisted Zustand state continues to work without a localStorage migration; labels flip to manga terminology in the option stores (Manga / Chapter / Chapter Title).
+- **New columns** `translatedLanguage` (renders `Chapter/LanguageBadge`) + `scanlationGroup` (plain text) appended to Queue + History; History keeps `releaseGroup` as a backward-compat alias for `scanlationGroup`.
+- **TV-only columns dropped from defaults:** `quality`, `customFormats`, `customFormatScore`, `languages`, `episodes.airDateUtc` (manga has no quality model per Phase 5 D-04).
+- **Store names bumped** (`manga_queue_options`, `manga_history_options`, `manga_blocklist_options`) so users on the upgrade path hydrate a clean registry; pre-existing `queue_options` / `history_options` / `blocklist_options` localStorage entries become orphaned (no data loss — column-visibility + page-size + sort-key only).
+- **Hook types retyped:** `useQueue` → `MangaQueueItem`; `useHistory` → `ChapterHistory`; `useBlocklist` → `MangaBlocklist`. The `@ts-expect-error` directives on `Queue.tsx:272` and `History.tsx:207` are removed; the dead-code `useEpisodes` / `useEpisodesWithIds` lookups (Plan 15-12 era stubs returning `[]`) are removed.
+
+**Phase 8 cleanup target:** when Tv/ deletes, the column keys can rename to `manga.X` / `chapter.X` (one-off Zustand migration at that point). The MangaQueue / MangaHistory / MangaBlocklist thin wrappers collapse into the page components.
+
 ## Cross-References
 
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview

@@ -4,7 +4,6 @@
 // 'manga' (preserves the discriminator type for v2 reintroduction). Both default-sites
 // (BlocklistContent inner + Blocklist outer) updated atomically.
 import React, { useCallback, useEffect, useState } from 'react';
-import { setQueueOptions } from 'Activity/Queue/queueOptionsStore';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
 import CommandNames from 'Commands/CommandNames';
 import { useCommandExecuting, useExecuteCommand } from 'Commands/useCommands';
@@ -24,8 +23,8 @@ import TablePager from 'Components/Table/TablePager';
 import { useCustomFiltersList } from 'Filters/useCustomFilters';
 import { align, icons, kinds } from 'Helpers/Props';
 import { SortDirection } from 'Helpers/Props/sortDirections';
-import BlockListModel from 'typings/Blocklist';
 import { CheckInputChanged } from 'typings/inputs';
+import MangaBlocklist from 'typings/MangaBlocklist';
 import { TableOptionsChangePayload } from 'typings/Table';
 import {
   registerPagePopulator,
@@ -35,6 +34,7 @@ import translate from 'Utilities/String/translate';
 import BlocklistFilterModal from './BlocklistFilterModal';
 import {
   setBlocklistOption,
+  setBlocklistOptions,
   setBlocklistSort,
   useBlocklistOptions,
 } from './blocklistOptionsStore';
@@ -46,6 +46,21 @@ import useBlocklist, {
 
 interface BlocklistProps {
   mediaType?: 'manga';
+}
+
+function renderEmptyAlert(
+  selectedFilterKey: string | number,
+  mediaType: 'manga'
+) {
+  let message: string = '';
+  if (selectedFilterKey !== 'all') {
+    message = translate('BlocklistFilterHasNoItems');
+  } else if (mediaType === 'manga') {
+    message = translate('NoBlocklistItemsManga');
+  } else {
+    message = translate('NoBlocklistItems');
+  }
+  return <Alert kind={kinds.INFO}>{message}</Alert>;
 }
 
 function BlocklistContent({ mediaType = 'manga' }: BlocklistProps) {
@@ -85,7 +100,7 @@ function BlocklistContent({ mediaType = 'manga' }: BlocklistProps) {
     getSelectedIds,
     selectAll,
     unselectAll,
-  } = useSelect<BlockListModel>();
+  } = useSelect<MangaBlocklist>();
 
   const handleSelectAllChange = useCallback(
     ({ value }: CheckInputChanged) => {
@@ -146,7 +161,7 @@ function BlocklistContent({ mediaType = 'manga' }: BlocklistProps) {
 
   const handleTableOptionChange = useCallback(
     (payload: TableOptionsChangePayload) => {
-      setQueueOptions(payload);
+      setBlocklistOptions(payload);
 
       if (payload.pageSize) {
         goToPage(1);
@@ -218,15 +233,9 @@ function BlocklistContent({ mediaType = 'manga' }: BlocklistProps) {
           <Alert kind={kinds.DANGER}>{translate('BlocklistLoadError')}</Alert>
         ) : null}
 
-        {isFetched && !error && !records.length ? (
-          <Alert kind={kinds.INFO}>
-            {selectedFilterKey === 'all'
-              ? mediaType === 'manga'
-                ? translate('NoBlocklistItemsManga')
-                : translate('NoBlocklistItems')
-              : translate('BlocklistFilterHasNoItems')}
-          </Alert>
-        ) : null}
+        {isFetched && !error && !records.length
+          ? renderEmptyAlert(selectedFilterKey, mediaType)
+          : null}
 
         {isFetched && !error && !!records.length ? (
           <div>
@@ -288,7 +297,7 @@ function Blocklist({ mediaType = 'manga' }: BlocklistProps) {
   const { records } = useBlocklist(mediaType);
 
   return (
-    <SelectProvider<BlockListModel> items={records}>
+    <SelectProvider<MangaBlocklist> items={records}>
       <BlocklistContent mediaType={mediaType} />
     </SelectProvider>
   );

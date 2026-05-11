@@ -1,46 +1,93 @@
+// Sonarr divergence: rewritten as manga-shape MangaBlocklist consumer per
+// GH issue #73 (Plan 15-12 follow-up) — see DIVERGENCE.md.
+// Role-match analog: frontend/src/Wanted/Missing/MissingRow.tsx (canonical
+// manga-shape per-row dispatch precedent — same idiom, different column set).
+//
+// Pre-fix shape: consumed TV `seriesId` / `quality` / `customFormats` /
+// `languages` props that the manga backend never emits. The
+// `if (!series) return null` early-return hid every manga row because
+// `useSingleSeries(undefined)` returned undefined for every record. The page
+// alert path branched on `selectedFilterKey === 'all'` (which it always is for
+// manga since the wire shape carries no series filter) to render
+// `NoBlocklistItemsManga` — masking the rows-were-rendered-as-null bug.
+//
+// Post-fix shape: consumes `MangaBlocklist` props directly via spread from
+// `Blocklist.tsx`'s `{...item}`. Resolves manga-title link via the hydrated
+// `manga` subresource (fallback to `useSingleManga(mangaId)` from the
+// `['/manga']` cache). The TV-only `languages` / `quality` / `customFormats`
+// columns are dropped from the registry; `translatedLanguage` (manga's BCP-47
+// single-string) and `reason` (manga's analog of TV `message`) are added.
+//
+// Column-key strategy: preserves the legacy TV column keys
+// (`series.sortTitle`, `sourceTitle`, `date`, `indexer`, `actions`) so the
+// persisted Zustand `blocklist_options` state of upgrade-path users continues
+// to work without a localStorage migration; the column labels are flipped in
+// `blocklistOptionsStore.ts`.
+//
+// Phase 8 cleanup: when Tv/ deletes, the column keys can rename to manga.X.
 import React, { useCallback, useState } from 'react';
 import { useSelect } from 'App/Select/SelectContext';
+import LanguageBadge from 'Chapter/LanguageBadge';
 import IconButton from 'Components/Link/IconButton';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
 import Column from 'Components/Table/Column';
 import TableRow from 'Components/Table/TableRow';
-import EpisodeFormats from 'Episode/EpisodeFormats';
-import EpisodeLanguages from 'Episode/EpisodeLanguages';
-import EpisodeQuality from 'Episode/EpisodeQuality';
 import { icons, kinds } from 'Helpers/Props';
-import SeriesTitleLink from 'Series/SeriesTitleLink';
-import { useSingleSeries } from 'Series/useSeries';
-import Blocklist from 'typings/Blocklist';
+import MangaTitleLink from 'Manga/MangaTitleLink';
+import { useSingleManga } from 'Manga/useManga';
+import MangaBlocklist, {
+  MangaBlocklistSubresource,
+} from 'typings/MangaBlocklist';
 import { SelectStateInputProps } from 'typings/props';
 import translate from 'Utilities/String/translate';
 import BlocklistDetailsModal from './BlocklistDetailsModal';
 import { useRemoveBlocklistItem } from './useBlocklist';
 import styles from './BlocklistRow.css';
 
-interface BlocklistRowProps extends Blocklist {
+interface BlocklistRowProps {
+  id: number;
+  mangaId: number;
+  chapterIds?: number[];
+  sourceTitle?: string;
+  sourceKey?: string;
+  releaseGuid?: string;
+  date: string;
+  reason?: string;
+  source?: string;
+  translatedLanguage?: string;
+  manga?: MangaBlocklistSubresource;
+  // TV-shape legacy props (kept optional so the wire-layer spread compiles
+  // when the user opens an upgrade-path page with the pre-cutover wire shape;
+  // they are unused in render — manga has no quality / customFormats /
+  // protocol / indexer concept on its blocklist resource).
+  indexer?: string;
+  protocol?: string;
+  message?: string;
   columns: Column[];
 }
 
 function BlocklistRow({
   id,
-  seriesId,
+  mangaId,
   sourceTitle,
-  languages,
-  quality,
-  customFormats,
+  translatedLanguage,
   date,
+  reason,
+  source,
   protocol,
   indexer,
   message,
-  source,
+  manga: hydratedManga,
   columns,
 }: BlocklistRowProps) {
-  const series = useSingleSeries(seriesId);
+  const lookedUpManga = useSingleManga(mangaId);
+  const manga = hydratedManga ?? lookedUpManga;
+
   const { isRemoving, removeBlocklistItem } = useRemoveBlocklistItem(id);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const { toggleSelected, useIsSelected } = useSelect<Blocklist>();
+  const { toggleSelected, useIsSelected } = useSelect<MangaBlocklist>();
   const isSelected = useIsSelected(id);
 
   const handleSelectedChange = useCallback(
@@ -62,10 +109,6 @@ function BlocklistRow({
     removeBlocklistItem();
   }, [removeBlocklistItem]);
 
-  if (!series) {
-    return null;
-  }
-
   return (
     <TableRow>
       <TableSelectCell
@@ -84,53 +127,49 @@ function BlocklistRow({
         if (name === 'series.sortTitle') {
           return (
             <TableRowCell key={name}>
-              <SeriesTitleLink
-                titleSlug={series.titleSlug}
-                title={series.title}
-              />
+              {manga ? (
+                <MangaTitleLink
+                  titleSlug={
+                    'titleSlug' in manga
+                      ? (manga as { titleSlug?: string }).titleSlug
+                      : undefined
+                  }
+                  title={manga.title ?? sourceTitle ?? ''}
+                />
+              ) : (
+                sourceTitle ?? ''
+              )}
             </TableRowCell>
           );
         }
 
         if (name === 'sourceTitle') {
-          return <TableRowCell key={name}>{sourceTitle}</TableRowCell>;
+          return <TableRowCell key={name}>{sourceTitle ?? ''}</TableRowCell>;
         }
 
-        if (name === 'languages') {
-          return (
-            <TableRowCell key={name} className={styles.languages}>
-              <EpisodeLanguages languages={languages} />
-            </TableRowCell>
-          );
-        }
-
-        if (name === 'quality') {
-          return (
-            <TableRowCell key={name} className={styles.quality}>
-              <EpisodeQuality quality={quality} />
-            </TableRowCell>
-          );
-        }
-
-        if (name === 'customFormats') {
+        if (name === 'translatedLanguage') {
           return (
             <TableRowCell key={name}>
-              <EpisodeFormats formats={customFormats} />
+              <LanguageBadge language={translatedLanguage} />
             </TableRowCell>
           );
         }
 
         if (name === 'date') {
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore ts(2739)
           return <RelativeDateCell key={name} date={date} />;
         }
 
         if (name === 'indexer') {
           return (
             <TableRowCell key={name} className={styles.indexer}>
-              {indexer}
+              {indexer ?? ''}
             </TableRowCell>
+          );
+        }
+
+        if (name === 'reason') {
+          return (
+            <TableRowCell key={name}>{reason ?? message ?? ''}</TableRowCell>
           );
         }
 
@@ -160,10 +199,10 @@ function BlocklistRow({
 
       <BlocklistDetailsModal
         isOpen={isDetailsModalOpen}
-        sourceTitle={sourceTitle}
-        protocol={protocol}
-        indexer={indexer}
-        message={message}
+        sourceTitle={sourceTitle ?? ''}
+        protocol={(protocol ?? 'unknown') as 'usenet' | 'torrent' | 'unknown'}
+        indexer={indexer ?? ''}
+        message={reason ?? message}
         source={source}
         onModalClose={handleDetailsModalClose}
       />
