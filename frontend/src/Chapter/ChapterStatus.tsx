@@ -44,7 +44,19 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
   // its matching backend resource handler in `Components/SignalRListener.tsx`,
   // so the status icon below reflects backend events within ~1 s. The keys
   // are URL-shaped strings (NOT EpisodeEntity-style enums).
-  const { data: queue } = useApiQuery<MangaQueueItem[]>({
+  //
+  // /api/v5/manga/queue returns the paged `Ok<PagingResource<MangaQueueResource>>`
+  // envelope (page / pageSize / totalRecords / records[]) post-PR-#74
+  // (`fix(manga-queue): union pending releases + page envelope + frontend null-guards`),
+  // NOT a flat array. Reading it as `MangaQueueItem[]` and calling .some() on the
+  // wrapper object throws `TypeError: queue.some is not a function` and crashes
+  // the entire ChapterStatus component — which in turn breaks every page that
+  // mounts ChapterStatus (Wanted/Missing, Wanted/CutoffUnmet, Manga Details
+  // Chapters tab). Type as the paged shape and dereference .records — same
+  // treatment as the blocklist read below (F-NEW-1 mirror from
+  // quick-260507-tff-rerun). useApiQuery is a raw passthrough (does not
+  // auto-unwrap PagingResource envelopes).
+  const { data: queue } = useApiQuery<{ records?: MangaQueueItem[] }>({
     path: '/manga/queue',
     queryOptions: { staleTime: 30 * 1000 },
   });
@@ -76,8 +88,8 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
   const isFailed = lastEvent?.eventType === 'downloadFailed';
 
   const isQueued =
-    !!queue &&
-    queue.some(
+    !!queue?.records &&
+    queue.records.some(
       (q) =>
         q.chapterId === chapter.id ||
         (q.chapterIds?.includes(chapter.id) ?? false)
