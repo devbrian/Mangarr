@@ -13,6 +13,14 @@
 // CutoffUnmetRow rewritten to consume Chapter shape; the `@ts-expect-error` directive on
 // the spread is no longer needed because CutoffUnmetRowProps extends Chapter and Episode
 // (the records type) extends Chapter — the spread type-checks cleanly without the directive.
+//
+// GH issue #63 (2026-05-10) — Wanted bulk toolbar rewire: parallel sibling change to
+// Missing.tsx — `useToggleEpisodesMonitored` no-op stub replaced with
+// `useBulkToggleChaptersMonitored` (frontend/src/Chapter/useChapter.ts — PUT
+// /api/v5/chapter/monitor); TV-side `CommandNames.EpisodeSearch` /
+// `CutoffUnmetEpisodeSearch` retargeted to the manga-side `CommandNames.ChapterSearch` /
+// `CutoffUnmetChapterSearch` whose IExecute<T> handlers live in
+// src/NzbDrone.Core/IndexerSearch/Manga/. `episodeIds` payload field renames to `chapterIds`.
 import React, {
   PropsWithChildren,
   useCallback,
@@ -22,6 +30,7 @@ import React, {
 } from 'react';
 import QueueDetailsProvider from 'Activity/Queue/Details/QueueDetailsProvider';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
+import { useBulkToggleChaptersMonitored } from 'Chapter/useChapter';
 import CommandNames from 'Commands/CommandNames';
 import { useCommandExecuting, useExecuteCommand } from 'Commands/useCommands';
 import Alert from 'Components/Alert';
@@ -39,7 +48,6 @@ import TableBody from 'Components/Table/TableBody';
 import TableOptionsModalWrapper from 'Components/Table/TableOptions/TableOptionsModalWrapper';
 import TablePager from 'Components/Table/TablePager';
 import Episode from 'Episode/Episode';
-import { useToggleEpisodesMonitored } from 'Episode/useEpisode';
 import EpisodeFileProvider from 'EpisodeFile/EpisodeFileProvider';
 import { Filter } from 'Filters/Filter';
 import { useCustomFiltersList } from 'Filters/useCustomFilters';
@@ -95,10 +103,10 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
     useCutoffUnmetOptions();
 
   const isSearchingForAllEpisodes = useCommandExecuting(
-    CommandNames.CutoffUnmetEpisodeSearch
+    CommandNames.CutoffUnmetChapterSearch
   );
   const isSearchingForSelectedEpisodes = useCommandExecuting(
-    CommandNames.EpisodeSearch
+    CommandNames.ChapterSearch
   );
 
   const {
@@ -113,9 +121,10 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
   const [isConfirmSearchAllModalOpen, setIsConfirmSearchAllModalOpen] =
     useState(false);
 
-  const { toggleEpisodesMonitored, isToggling } = useToggleEpisodesMonitored([
-    mediaType === 'manga' ? '/manga/wanted/cutoff' : '/wanted/cutoff',
-  ]);
+  const {
+    bulkToggleChaptersMonitored,
+    isBulkToggling: isToggling,
+  } = useBulkToggleChaptersMonitored();
 
   const isShowingMonitored = getMonitoredValue(FILTERS, selectedFilterKey);
   const isSearchingForEpisodes =
@@ -144,8 +153,8 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
   const handleSearchSelectedPress = useCallback(() => {
     executeCommand(
       {
-        name: CommandNames.EpisodeSearch,
-        episodeIds: getSelectedIds(),
+        name: CommandNames.ChapterSearch,
+        chapterIds: getSelectedIds(),
       },
       () => {
         refetch();
@@ -164,7 +173,7 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
   const handleSearchAllCutoffUnmetConfirmed = useCallback(() => {
     executeCommand(
       {
-        name: CommandNames.CutoffUnmetEpisodeSearch,
+        name: CommandNames.CutoffUnmetChapterSearch,
       },
       () => {
         refetch();
@@ -175,11 +184,11 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
   }, [executeCommand, refetch]);
 
   const handleToggleSelectedPress = useCallback(() => {
-    toggleEpisodesMonitored({
-      episodeIds: getSelectedIds(),
+    bulkToggleChaptersMonitored({
+      chapterIds: getSelectedIds(),
       monitored: !isShowingMonitored,
     });
-  }, [isShowingMonitored, getSelectedIds, toggleEpisodesMonitored]);
+  }, [isShowingMonitored, getSelectedIds, bulkToggleChaptersMonitored]);
 
   const handleFilterSelect = useCallback((filterKey: number | string) => {
     setCutoffUnmetOption('selectedFilterKey', filterKey);
