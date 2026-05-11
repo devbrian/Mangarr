@@ -340,7 +340,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
                         name={monitored ? icons.MONITORED : icons.UNMONITORED}
                         size={17}
                       />
-                      <span>
+                      <span className={styles.statusName}>
                         {monitored
                           ? translate('Monitored')
                           : translate('Unmonitored')}
