@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using NLog;
 using NzbDrone.Common.Cache;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Core.Indexers;
+using NzbDrone.Core.Lifecycle;
+using NzbDrone.Core.Messaging.Events;
 
 namespace NzbDrone.Core.Profiles.Delay
 {
@@ -19,15 +23,29 @@ namespace NzbDrone.Core.Profiles.Delay
         List<DelayProfile> Reorder(int id, int? afterId);
     }
 
-    public class DelayProfileService : IDelayProfileService
+    // Sonarr-canonical first-run seeder added per issue #62 (convergence, not divergence).
+    // Mirrors codebase-canonical Pattern S4 (TranslationProfileService precedent at
+    // src/NzbDrone.Core/Profiles/Translations/TranslationProfileService.cs:92-113): runtime
+    // IHandle<ApplicationStartedEvent> seeder rather than migration Insert.IntoTable row, per
+    // 001_mangarr_baseline.cs:580-587 "Migrations create schema only" guidance.
+    //
+    // Why a seeder at all: MangaPendingReleaseService.GetDelay uses `.First()` on
+    // AllForTags(remoteChapter.Manga.Tags). When a manga has zero tags AND no default
+    // (tag-less) DelayProfile row exists, .First() throws InvalidOperationException —
+    // Sonarr never hit this because 001_initial_setup seeds the default row. This codebase's
+    // migration policy prohibits Insert.IntoTable seeds (see Phase 2 retro at
+    // 001_mangarr_baseline.cs:580-587), so the canonical fix is the runtime seeder pattern.
+    public class DelayProfileService : IDelayProfileService, IHandle<ApplicationStartedEvent>
     {
         private readonly IDelayProfileRepository _repo;
         private readonly ICached<DelayProfile> _bestForTagsCache;
+        private readonly Logger _logger;
 
-        public DelayProfileService(IDelayProfileRepository repo, ICacheManager cacheManager)
+        public DelayProfileService(IDelayProfileRepository repo, ICacheManager cacheManager, Logger logger)
         {
             _repo = repo;
             _bestForTagsCache = cacheManager.GetCache<DelayProfile>(GetType(), "best");
+            _logger = logger;
         }
 
         public DelayProfile Add(DelayProfile profile)
@@ -163,6 +181,41 @@ namespace NzbDrone.Core.Profiles.Delay
             }
 
             return after.Order;
+        }
+
+        public void Handle(ApplicationStartedEvent message)
+        {
+            // Pattern S4 — idempotent on restart. Mirror TranslationProfileService.Handle.
+            // Issue #62: ensures AllForTags(emptyTags) never returns an empty list, so
+            // MangaPendingReleaseService.GetDelay's .First() call is always safe.
+            if (All().Any())
+            {
+                return;
+            }
+
+            _logger.Info("Setting up default delay profile (tag-less, Http delay 0)");
+
+            // Sonarr-canonical default: tag-less profile, Order=int.MaxValue (sorted last so
+            // any user-added tagged profile takes precedence). PreferredProtocol=Http is the
+            // only active protocol in this codebase (Phase 15 D-18 — Indexers/DownloadProtocol.cs
+            // strips Usenet=1 + Torrent=2 leaving only Http=3). Order=int.MaxValue matches the
+            // Sonarr DelayProfileServiceFixture.Setup sentinel for the default row.
+            //
+            // NOTE: insert via _repo.Insert directly — Add() rewrites profile.Order to _repo.Count()
+            // which would clobber the int.MaxValue sentinel to 0 on first run.
+            _repo.Insert(new DelayProfile
+            {
+                EnableUsenet = true,
+                EnableTorrent = true,
+                PreferredProtocol = DownloadProtocol.Http,
+                UsenetDelay = 0,
+                TorrentDelay = 0,
+                HttpDelay = 0,
+                Order = int.MaxValue,
+                Tags = new HashSet<int>()
+            });
+
+            _bestForTagsCache.Clear();
         }
     }
 }

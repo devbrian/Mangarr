@@ -683,7 +683,15 @@ namespace NzbDrone.Core.Download.Pending.Manga
         // ============================================================================
         private int GetDelay(RemoteChapter remoteChapter)
         {
-            var delayProfile = _delayProfileService.AllForTags(remoteChapter.Manga.Tags).OrderBy(d => d.Order).First();
+            // Defensive coalesce per issue #62 - belt-and-suspenders alongside the canonical
+            // DelayProfileService.Handle(ApplicationStartedEvent) seeder. If the seeder has not
+            // run yet (race during ApplicationStartedEvent fan-out) or the default row is deleted,
+            // fall back to a zeroed in-memory DelayProfile so this method can never throw
+            // "Sequence contains no elements" and 500 the /api/v5/manga/queue/details endpoint.
+            var delayProfile = _delayProfileService.AllForTags(remoteChapter.Manga.Tags)
+                                                   .OrderBy(d => d.Order)
+                                                   .FirstOrDefault()
+                               ?? new DelayProfile { PreferredProtocol = DownloadProtocol.Http, HttpDelay = 0 };
 
             var delay = delayProfile.GetProtocolDelay(DownloadProtocol.Http);
 
