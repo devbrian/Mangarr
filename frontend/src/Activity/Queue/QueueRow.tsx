@@ -78,7 +78,11 @@ function QueueRow(props: QueueRowProps) {
   const {
     id,
     seriesId,
-    episodeIds,
+    // Sonarr divergence: default to [] so manga-shape queue items (manga
+    // emits `chapterIds`, not `episodeIds`) do not crash `useEpisodesWithIds`
+    // or any downstream consumer expecting an array. Plan 15-12 follow-up
+    // will route through `useChaptersWithIds` for manga rows.
+    episodeIds = [],
     downloadId,
     title,
     status,
@@ -97,7 +101,14 @@ function QueueRow(props: QueueRowProps) {
     downloadClientHasPostImportCategory,
     estimatedCompletionTime,
     isFullSeason,
-    seasonNumbers,
+    // Sonarr divergence: default to [] so manga-shape queue items (no TV
+    // `seasonNumbers` field — manga has no Volume in v1 per PROJECT.md
+    // "Volumes/Seasons" Out-of-Scope) do not crash the row at
+    // `seasonNumber={seasonNumbers[0]}` (line below). See debug session
+    // .planning/debug/activity-badge-three-queue-empty.md for the full Plan 15-12
+    // QueueRow manga-shape migration follow-up — this guard is the minimum
+    // crash-prevention so the backend paging fix lands as a NET-POSITIVE PR.
+    seasonNumbers = [],
     added,
     timeLeft,
     size,
