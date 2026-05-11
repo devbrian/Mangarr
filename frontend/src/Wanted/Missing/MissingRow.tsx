@@ -24,6 +24,15 @@
 //
 // Phase 8 cleanup: collapse with the manga sibling when Tv/ deletes —
 // at that point this row is the canonical "Missing" row.
+//
+// 2026-05-10 (debug session wanted-missing-chapter-fmt) — dropped the
+// `showVolumeNumber={volumeNumber != null}` prop on `<ChapterNumber>`. The
+// Wanted/Missing page is a flat cross-manga list of missing chapter
+// identifiers (Sonarr-canonical analog: clean `S01E03` identifier); a
+// `Vol. N ` prefix is meaningless and visually clipped at the 100px column
+// width (produced strings like `Vol. 1 47`, `Vol. 2 48`). The canonical
+// Manga Details `ChapterRow.tsx` consumer already omits the prop —
+// mirroring that shape here. Volumes remain Out-of-Scope per PROJECT.md.
 import React, { useCallback } from 'react';
 import { useSelect } from 'App/Select/SelectContext';
 import Chapter from 'Chapter/Chapter';
@@ -142,13 +151,16 @@ function MissingRow({
         }
 
         if (name === 'episode') {
+          // No `showVolumeNumber` — Volumes are Out-of-Scope per PROJECT.md
+          // and the canonical Manga Details ChapterRow consumer omits the
+          // prop. See header note dated 2026-05-10 for the prior bug
+          // (rendered `Vol. 1 47` / `Vol. 2 48` clipped to "Vol. 48").
           return (
             <TableRowCell key={name} className={styles.episode}>
               <ChapterNumber
                 chapterNumber={chapterNumber}
                 absoluteChapterNumber={absoluteChapterNumber}
                 volumeNumber={volumeNumber}
-                showVolumeNumber={volumeNumber != null}
               />
             </TableRowCell>
           );

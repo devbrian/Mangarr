@@ -21,6 +21,14 @@
 //
 // Phase 8 cleanup: collapse with the manga sibling when Tv/ deletes —
 // at that point this row is the canonical CutoffUnmet row.
+//
+// 2026-05-10 (debug session wanted-missing-chapter-fmt) — dropped the
+// `showVolumeNumber={volumeNumber != null}` prop on `<ChapterNumber>` for
+// the same reason as the Missing twin: Wanted/CutoffUnmet is a flat
+// cross-manga list of chapter identifiers; a `Vol. N ` prefix is
+// meaningless and visually clipped at the 100px column width. The
+// canonical Manga Details `ChapterRow.tsx` consumer already omits the
+// prop. Volumes remain Out-of-Scope per PROJECT.md.
 import React, { useCallback } from 'react';
 import { useSelect } from 'App/Select/SelectContext';
 import Chapter from 'Chapter/Chapter';
@@ -122,13 +130,14 @@ function CutoffUnmetRow({
         }
 
         if (name === 'episode') {
+          // No `showVolumeNumber` — see header note dated 2026-05-10 and
+          // the matching change in the Missing twin.
           return (
             <TableRowCell key={name} className={styles.episode}>
               <ChapterNumber
                 chapterNumber={chapterNumber}
                 absoluteChapterNumber={absoluteChapterNumber}
                 volumeNumber={volumeNumber}
-                showVolumeNumber={volumeNumber != null}
               />
             </TableRowCell>
           );
