@@ -17,7 +17,9 @@
 //     into the Sonarr command queue.
 //   * `chapterNumber` rendered via the decimal-aware `<ChapterNumber>` cell.
 //   * `status` reads from ChapterStatus.tsx (6-state Lock #4 set).
-//   * `actions` cell renders ChapterSearchCell (Auto + Interactive search).
+//   * `actions` cell renders ChapterSearchCell (Auto + Interactive search)
+//     with className={styles.actions} to pin the two buttons side-by-side
+//     (fixed width + white-space: nowrap — debug: manga-details-buttons-tvdb).
 //
 // T-07-15 (XSS) mitigation: every user-controlled string field flows through
 // React JSX default escaping ({chapter.title}). NO dangerouslySetInnerHTML
@@ -115,6 +117,7 @@ function ChapterRow({ chapter, columns }: ChapterRowProps) {
           return (
             <ChapterSearchCell
               key={name}
+              className={styles.actions}
               chapterId={chapter.id}
               mangaId={chapter.mangaId}
               chapterTitle={chapter.title}

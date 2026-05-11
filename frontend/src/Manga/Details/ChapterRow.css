@@ -43,3 +43,20 @@
 
   width: 60px;
 }
+
+.actions {
+  composes: cell from '~Components/Table/Cells/TableRowCell.css';
+
+  /*
+   * Fixed width large enough for two 22px icon buttons (each with 2px margin
+   * on each side = 26px effective) plus cell padding (8px each side).
+   * white-space: nowrap prevents the two inline-block buttons from wrapping
+   * onto separate lines when the title cell absorbs all remaining width.
+   *
+   * Canonical pattern: QueueRow.css .actions { width: 70px; text-align: right }
+   * Debug session: .planning/debug/manga-details-buttons-tvdb.md (2026-05-11).
+   */
+  width: 70px;
+  white-space: nowrap;
+  text-align: right;
+}
