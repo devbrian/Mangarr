@@ -3,6 +3,11 @@
 // TV is gone post-cutover; the type union 'series' | 'manga' collapsed to 'manga' (preserves the
 // discriminator type for v2 reintroduction). The /history URL branch is dead code now but the
 // conditional is left in place so v2 can flip the union back without re-deriving the URL switch.
+//
+// GH issue #73 (2026-05-11) — type parameter retyped from legacy `History` (TV)
+// to `ChapterHistory` so the records emitted by `usePagedApiQuery` carry the
+// manga wire shape (mangaId / chapterId / translatedLanguage / scanlationGroup +
+// hydrated manga/chapter subresources) consumed by the rewritten HistoryRow.
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { Filter, FilterBuilderProp } from 'Filters/Filter';
@@ -11,7 +16,7 @@ import useApiMutation from 'Helpers/Hooks/useApiMutation';
 import usePage from 'Helpers/Hooks/usePage';
 import usePagedApiQuery from 'Helpers/Hooks/usePagedApiQuery';
 import { filterBuilderValueTypes } from 'Helpers/Props';
-import History from 'typings/History';
+import ChapterHistory from 'typings/ChapterHistory';
 import findSelectedFilters from 'Utilities/Filter/findSelectedFilters';
 import translate from 'Utilities/String/translate';
 import { useHistoryOptions } from './historyOptionsStore';
@@ -92,7 +97,7 @@ export const FILTERS: Filter[] = [
   },
 ];
 
-export const FILTER_BUILDER: FilterBuilderProp<History>[] = [
+export const FILTER_BUILDER: FilterBuilderProp<ChapterHistory>[] = [
   {
     name: 'eventType',
     label: () => translate('EventType'),
@@ -100,22 +105,10 @@ export const FILTER_BUILDER: FilterBuilderProp<History>[] = [
     valueType: filterBuilderValueTypes.HISTORY_EVENT_TYPE,
   },
   {
-    name: 'seriesIds',
-    label: () => translate('Series'),
+    name: 'mangaIds',
+    label: () => translate('MangaTitle'),
     type: 'equal',
     valueType: filterBuilderValueTypes.SERIES,
-  },
-  {
-    name: 'quality',
-    label: () => translate('Quality'),
-    type: 'equal',
-    valueType: filterBuilderValueTypes.QUALITY,
-  },
-  {
-    name: 'languages',
-    label: () => translate('Languages'),
-    type: 'contains',
-    valueType: filterBuilderValueTypes.LANGUAGE,
   },
 ];
 
@@ -138,7 +131,7 @@ const useHistory = (mediaType: HistoryMediaType = 'manga') => {
 
   const path = mediaType === 'manga' ? '/manga/history' : '/history';
 
-  const { refetch, ...query } = usePagedApiQuery<History>({
+  const { refetch, ...query } = usePagedApiQuery<ChapterHistory>({
     path,
     page,
     pageSize,

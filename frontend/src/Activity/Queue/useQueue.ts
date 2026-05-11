@@ -3,6 +3,12 @@
 // TV is gone post-cutover; the type union 'series' | 'manga' collapsed to 'manga' (preserves the
 // discriminator type for v2 reintroduction). The /queue URL branch is dead code now but the
 // conditional is left in place so v2 can flip the union back without re-deriving the URL switch.
+//
+// GH issue #73 (2026-05-11) — type parameter retyped from legacy `Queue` (TV)
+// to `MangaQueueItem` so the records emitted by `usePagedApiQuery` carry the
+// manga wire shape (mangaId / chapterId / chapterIds / translatedLanguage /
+// scanlationGroup) consumed by the rewritten QueueRow. Mirrors useHistory's
+// MangaHistoryItem typing precedent.
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Filter, FilterBuilderProp } from 'Filters/Filter';
@@ -11,7 +17,7 @@ import useApiMutation from 'Helpers/Hooks/useApiMutation';
 import usePage from 'Helpers/Hooks/usePage';
 import usePagedApiQuery from 'Helpers/Hooks/usePagedApiQuery';
 import { filterBuilderValueTypes } from 'Helpers/Props';
-import Queue from 'typings/Queue';
+import MangaQueueItem from 'typings/MangaQueueItem';
 import getQueryString from 'Utilities/Fetch/getQueryString';
 import findSelectedFilters from 'Utilities/Filter/findSelectedFilters';
 import translate from 'Utilities/String/translate';
@@ -42,24 +48,12 @@ export const FILTERS: Filter[] = [
   },
 ];
 
-export const FILTER_BUILDER: FilterBuilderProp<Queue>[] = [
+export const FILTER_BUILDER: FilterBuilderProp<MangaQueueItem>[] = [
   {
-    name: 'seriesIds',
-    label: () => translate('Series'),
+    name: 'mangaIds',
+    label: () => translate('MangaTitle'),
     type: 'equal',
     valueType: filterBuilderValueTypes.SERIES,
-  },
-  {
-    name: 'quality',
-    label: () => translate('Quality'),
-    type: 'equal',
-    valueType: filterBuilderValueTypes.QUALITY,
-  },
-  {
-    name: 'languages',
-    label: () => translate('Languages'),
-    type: 'contains',
-    valueType: filterBuilderValueTypes.LANGUAGE,
   },
   {
     name: 'protocol',
@@ -72,12 +66,6 @@ export const FILTER_BUILDER: FilterBuilderProp<Queue>[] = [
     label: () => translate('Status'),
     type: 'equal',
     valueType: filterBuilderValueTypes.QUEUE_STATUS,
-  },
-  {
-    name: 'includeUnknownSeriesItems',
-    label: () => translate('UnknownSeriesItems'),
-    type: 'equal',
-    valueType: filterBuilderValueTypes.BOOL,
   },
 ];
 
@@ -93,7 +81,7 @@ const useQueue = (mediaType: QueueMediaType = 'manga') => {
 
   const path = mediaType === 'manga' ? '/manga/queue' : '/queue';
 
-  const { refetch, ...query } = usePagedApiQuery<Queue>({
+  const { refetch, ...query } = usePagedApiQuery<MangaQueueItem>({
     path,
     page,
     pageSize,

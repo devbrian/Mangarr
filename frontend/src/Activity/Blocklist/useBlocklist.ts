@@ -4,6 +4,11 @@
 // discriminator type for v2 reintroduction — v2 may readd 'series' or rename if expanding the
 // catalogue beyond manga). The /blocklist URL branch is dead code now but the conditional is left
 // in place so v2 can flip the union back without re-deriving the URL switch.
+//
+// GH issue #73 (2026-05-11) — type parameter retyped from legacy `Blocklist` (TV)
+// to `MangaBlocklist` so the records emitted by `usePagedApiQuery` carry the
+// manga wire shape (mangaId / chapterIds / translatedLanguage / scanlationGroup +
+// optional hydrated manga subresource) consumed by the rewritten BlocklistRow.
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { Filter, FilterBuilderProp } from 'Filters/Filter';
@@ -12,7 +17,7 @@ import useApiMutation from 'Helpers/Hooks/useApiMutation';
 import usePage from 'Helpers/Hooks/usePage';
 import usePagedApiQuery from 'Helpers/Hooks/usePagedApiQuery';
 import { filterBuilderValueTypes } from 'Helpers/Props';
-import Blocklist from 'typings/Blocklist';
+import MangaBlocklist from 'typings/MangaBlocklist';
 import findSelectedFilters from 'Utilities/Filter/findSelectedFilters';
 import translate from 'Utilities/String/translate';
 import { useBlocklistOptions } from './blocklistOptionsStore';
@@ -31,18 +36,12 @@ export const FILTERS: Filter[] = [
   },
 ];
 
-export const FILTER_BUILDER: FilterBuilderProp<Blocklist>[] = [
+export const FILTER_BUILDER: FilterBuilderProp<MangaBlocklist>[] = [
   {
-    name: 'seriesIds',
-    label: () => translate('Series'),
+    name: 'mangaIds',
+    label: () => translate('MangaTitle'),
     type: 'equal',
     valueType: filterBuilderValueTypes.SERIES,
-  },
-  {
-    name: 'protocols',
-    label: () => translate('Protocol'),
-    type: 'equal',
-    valueType: filterBuilderValueTypes.PROTOCOL,
   },
 ];
 
@@ -58,7 +57,7 @@ const useBlocklist = (mediaType: BlocklistMediaType = 'manga') => {
 
   const path = mediaType === 'manga' ? '/manga/blocklist' : '/blocklist';
 
-  const { refetch, ...query } = usePagedApiQuery<Blocklist>({
+  const { refetch, ...query } = usePagedApiQuery<MangaBlocklist>({
     path,
     page,
     pageSize,

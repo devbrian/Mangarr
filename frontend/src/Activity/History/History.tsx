@@ -2,7 +2,13 @@
 // Phase 15 Plan 15-07 Wave 3 (Sub-step F option (a)): mediaType prop default flipped 'series' ->
 // 'manga' since TV is gone post-cutover; the prop type union 'series' | 'manga' collapsed to
 // 'manga' (preserves the discriminator type for v2 reintroduction).
-import React, { useCallback, useEffect, useMemo } from 'react';
+//
+// GH issue #73 (2026-05-11) — HistoryRow rewritten to consume ChapterHistory shape
+// directly; the `@ts-expect-error` directive on the spread and the dead-code
+// `useEpisodes` lookup (Plan-15-12 era manga-mode `episodeIds=[]` short-circuit)
+// are removed. Manga records hydrate their own manga/chapter subresources from
+// the wire shape (or fall back to React Query caches in the row).
+import React, { useCallback, useEffect } from 'react';
 import Alert from 'Components/Alert';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import FilterMenu from 'Components/Menu/FilterMenu';
@@ -15,13 +21,10 @@ import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableOptionsModalWrapper from 'Components/Table/TableOptions/TableOptionsModalWrapper';
 import TablePager from 'Components/Table/TablePager';
-import useEpisodes from 'Episode/useEpisodes';
 import { useCustomFiltersList } from 'Filters/useCustomFilters';
 import { align, icons, kinds } from 'Helpers/Props';
 import { SortDirection } from 'Helpers/Props/sortDirections';
-import HistoryItem from 'typings/History';
 import { TableOptionsChangePayload } from 'typings/Table';
-import selectUniqueIds from 'Utilities/Object/selectUniqueIds';
 import {
   registerPagePopulator,
   unregisterPagePopulator,
@@ -58,38 +61,16 @@ function History({ mediaType = 'manga' }: HistoryProps) {
   const { columns, pageSize, sortKey, sortDirection, selectedFilterKey } =
     useHistoryOptions();
 
-  // Manga history records carry chapterId/mangaId — never an episodeId — so the
-  // legacy `useEpisodes` lookup below is short-circuited in manga mode (F-NEW-2
-  // from quick-260507-tff-rerun: with the lookup disabled, `isEpisodesFetched`
-  // stays false and the `isAllPopulated` gate hid every record on the manga
-  // history page even after Imported + Grabbed events landed).
-  const episodeIds = useMemo(() => {
-    if (mediaType === 'manga') {
-      return [];
-    }
-
-    return selectUniqueIds<HistoryItem, number>(records, 'episodeId');
-  }, [records, mediaType]);
-
-  const {
-    isFetching: isEpisodesFetching,
-    isFetched: isEpisodesFetched,
-    error: episodesError,
-  } = useEpisodes({ episodeIds });
-
   const filters = useFilters();
 
   const customFilters = useCustomFiltersList('history');
 
-  const isFetchingAny = isLoading || isEpisodesFetching;
-  // Manga mode skips the episodes lookup, so `isEpisodesFetched` would stay
-  // false forever and the records (which carry chapterId/mangaId, not
-  // episodeId) would never render. Treat the gate as always-satisfied when
-  // `mediaType==='manga'`.
-  const isAllPopulated =
-    isFetched &&
-    (mediaType === 'manga' || isEpisodesFetched || !records.length);
-  const hasError = error || episodesError;
+  const isFetchingAny = isLoading;
+  // Manga records hydrate their own manga/chapter subresources at the wire layer
+  // (or fall back to the React Query caches in HistoryRow). No global "all
+  // dependent lookups done" gate is needed.
+  const isAllPopulated = isFetched;
+  const hasError = error;
 
   const handleFilterSelect = useCallback(
     (selectedFilterKey: string | number) => {
@@ -178,18 +159,13 @@ function History({ mediaType = 'manga' }: HistoryProps) {
           <Alert kind={kinds.DANGER}>{translate('HistoryLoadError')}</Alert>
         ) : null}
 
-        {
-          // If history isPopulated and it's empty show no history found and don't
-          // wait for the episodes to populate because they are never coming.
-
-          isFetched && !hasError && !records.length ? (
-            <Alert kind={kinds.INFO}>
-              {mediaType === 'manga'
-                ? translate('NoHistoryFoundManga')
-                : translate('NoHistoryFound')}
-            </Alert>
-          ) : null
-        }
+        {isFetched && !hasError && !records.length ? (
+          <Alert kind={kinds.INFO}>
+            {mediaType === 'manga'
+              ? translate('NoHistoryFoundManga')
+              : translate('NoHistoryFound')}
+          </Alert>
+        ) : null}
 
         {isAllPopulated && !hasError && records.length ? (
           <div>
@@ -204,9 +180,6 @@ function History({ mediaType = 'manga' }: HistoryProps) {
               <TableBody>
                 {records.map((item) => {
                   return (
-                    // @ts-expect-error — Sonarr divergence (Plan 15-12): TV-shape
-                    // HistoryRow expects Series fields the manga History records lack.
-                    // The TV-shape page is unreachable at runtime (manga uses MangaHistory).
                     <HistoryRow
                       key={item.id}
                       columns={columns}

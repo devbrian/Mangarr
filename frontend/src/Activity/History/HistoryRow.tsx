@@ -1,25 +1,51 @@
+// Sonarr divergence: rewritten as manga-shape ChapterHistory consumer per
+// GH issue #73 (Plan 15-12 follow-up) — see DIVERGENCE.md.
+// Role-match analog: frontend/src/Wanted/Missing/MissingRow.tsx (canonical
+// manga-shape per-row dispatch precedent — same idiom, different column set).
+//
+// Pre-fix shape: consumed TV `seriesId` / `episodeId` props that the manga
+// backend never emits. `useSingleSeries(undefined)` short-circuited; the
+// early-return `if (mediaType === 'series' && (!series || !episode)) return null`
+// was skipped for manga (F-NEW-2 fix from quick-260507-tff-rerun) but the
+// series/episode-specific cells then fell through to empty TableRowCells.
+// The result was a row with only "eventType" / "date" / "downloadClient" /
+// "indexer" / "sourceTitle" / "details" rendered — the manga-shape title /
+// chapter number / chapter title / language columns were blank.
+//
+// Post-fix shape: consumes `ChapterHistory` props directly via spread from
+// `History.tsx`'s `{...item}`. Resolves manga-title link via the hydrated
+// `manga` subresource (fallback to `useSingleManga(mangaId)` from the
+// `['/manga']` cache). Resolves chapter number / title via the hydrated
+// `chapter` subresource (fallback to `useSingleChapter(chapterId)`). Renders
+// a `LanguageBadge` from `translatedLanguage`.
+//
+// Column-key strategy: preserves the legacy TV column keys (`series.sortTitle`,
+// `episode`, `episodes.title`) so the persisted Zustand `history_options`
+// state of upgrade-path users continues to work without a localStorage
+// migration; the column labels are flipped in `historyOptionsStore.ts`.
+// Two NEW column keys (`translatedLanguage`, `scanlationGroup`) are added.
+//
+// Phase 8 cleanup: when Tv/ deletes, the column keys can rename to manga.X /
+// chapter.X (one-off Zustand migration at that point).
 import React, { useCallback, useState } from 'react';
+import ChapterNumber from 'Chapter/ChapterNumber';
+import ChapterTitleLink from 'Chapter/ChapterTitleLink';
+import LanguageBadge from 'Chapter/LanguageBadge';
+import { useSingleChapter } from 'Chapter/useChapter';
 import IconButton from 'Components/Link/IconButton';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import Column from 'Components/Table/Column';
 import TableRow from 'Components/Table/TableRow';
-import Tooltip from 'Components/Tooltip/Tooltip';
-import episodeEntities from 'Episode/episodeEntities';
-import EpisodeFormats from 'Episode/EpisodeFormats';
-import EpisodeLanguages from 'Episode/EpisodeLanguages';
-import EpisodeQuality from 'Episode/EpisodeQuality';
-import EpisodeTitleLink from 'Episode/EpisodeTitleLink';
-import SeasonEpisodeNumber from 'Episode/SeasonEpisodeNumber';
-import useEpisode from 'Episode/useEpisode';
-import { icons, tooltipPositions } from 'Helpers/Props';
-import Language from 'Language/Language';
-import { QualityModel } from 'Quality/Quality';
-import SeriesTitleLink from 'Series/SeriesTitleLink';
-import { useSingleSeries } from 'Series/useSeries';
-import CustomFormat from 'typings/CustomFormat';
-import { HistoryData, HistoryEventType } from 'typings/History';
-import formatCustomFormatScore from 'Utilities/Number/formatCustomFormatScore';
+import { icons } from 'Helpers/Props';
+import MangaTitleLink from 'Manga/MangaTitleLink';
+import { useSingleManga } from 'Manga/useManga';
+import {
+  ChapterHistoryEventType,
+  ChapterHistorySubresource,
+  MangaHistorySubresource,
+} from 'typings/ChapterHistory';
+import { HistoryData } from 'typings/History';
 import translate from 'Utilities/String/translate';
 import HistoryDetailsModal from './Details/HistoryDetailsModal';
 import HistoryEventTypeCell from './HistoryEventTypeCell';
@@ -27,52 +53,48 @@ import styles from './HistoryRow.css';
 
 interface HistoryRowProps {
   id: number;
-  episodeId: number;
-  seriesId: number;
-  // Manga records carry chapterId / mangaId instead of episodeId / seriesId.
-  // When mediaType='manga' these are populated and the series/episode fields
-  // are absent from the wire shape — the row falls back to the manga-aware
-  // render path below (skips the series/episode early-return + reads the
-  // manga peer hooks per Phase 7 D-10 + Lock #1).
-  chapterId?: number;
   mangaId?: number;
-  languages: Language[];
-  quality: QualityModel;
-  customFormats?: CustomFormat[];
-  customFormatScore: number;
-  qualityCutoffNotMet: boolean;
-  eventType: HistoryEventType;
-  sourceTitle: string;
+  chapterId?: number;
+  translatedLanguage?: string;
+  scanlationGroup?: string;
+  eventType: ChapterHistoryEventType;
+  sourceTitle?: string;
   date: string;
-  data: HistoryData;
+  data?: Record<string, string>;
   downloadId?: string;
-  isMarkingAsFailed?: boolean;
-  markAsFailedError?: object;
+  manga?: MangaHistorySubresource;
+  chapter?: ChapterHistorySubresource;
   columns: Column[];
-  mediaType?: 'series' | 'manga';
+  mediaType?: 'manga';
 }
 
 function HistoryRow(props: HistoryRowProps) {
   const {
     id,
-    episodeId,
-    seriesId,
-    languages,
-    quality,
-    customFormats = [],
-    customFormatScore,
-    qualityCutoffNotMet,
+    mangaId,
+    chapterId,
+    translatedLanguage,
+    scanlationGroup,
     eventType,
     sourceTitle,
     date,
     data,
     downloadId,
+    manga: hydratedManga,
+    chapter: hydratedChapter,
     columns,
-    mediaType = 'series',
   } = props;
 
-  const series = useSingleSeries(seriesId);
-  const episode = useEpisode(episodeId, 'episodes');
+  // Prefer the hydrated subresources from the backend payload; fall back to
+  // the React Query caches (`['/manga']`, `['/chapter/{id}']`) populated by
+  // the sidebar Manga page and any open Manga Details view.
+  const lookedUpManga = useSingleManga(mangaId);
+  const manga = hydratedManga ?? lookedUpManga;
+
+  const { data: lookedUpChapter } = useSingleChapter(
+    hydratedChapter == null && chapterId != null ? chapterId : undefined
+  );
+  const chapter = hydratedChapter ?? lookedUpChapter;
 
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
@@ -83,14 +105,6 @@ function HistoryRow(props: HistoryRowProps) {
   const handleDetailsModalClose = useCallback(() => {
     setIsDetailsModalOpen(false);
   }, [setIsDetailsModalOpen]);
-
-  // Manga records have no series/episode lookup — F-NEW-2 from quick-260507-tff-rerun.
-  // Skip the early-return so the row's domain-agnostic cells (eventType, sourceTitle,
-  // date, languages, quality, customFormats, actions) render. The series/episode-
-  // specific cells fall through to null below when their lookups are empty.
-  if (mediaType === 'series' && (!series || !episode)) {
-    return null;
-  }
 
   return (
     <TableRow>
@@ -105,93 +119,73 @@ function HistoryRow(props: HistoryRowProps) {
           return (
             <HistoryEventTypeCell
               key={name}
-              eventType={eventType}
-              data={data}
+              eventType={eventType as unknown as never}
+              data={(data ?? {}) as unknown as HistoryData}
             />
           );
         }
 
+        // Column keys preserved verbatim from the pre-fix TV-shape store
+        // (`series.sortTitle`, `episode`, `episodes.title`) for upgrade-path
+        // Zustand state continuity — labels are relabeled in the store.
         if (name === 'series.sortTitle') {
-          // Manga records have no series lookup — render an empty cell so the
-          // column doesn't crash. Phase 8 cleanup will fork a manga peer cell
-          // that links to /manga/<titleSlug> instead.
-          if (!series) {
-            return <TableRowCell key={name} />;
-          }
-
           return (
             <TableRowCell key={name}>
-              <SeriesTitleLink
-                titleSlug={series.titleSlug}
-                title={series.title}
-              />
+              {manga ? (
+                <MangaTitleLink
+                  titleSlug={
+                    'titleSlug' in manga
+                      ? (manga as { titleSlug?: string }).titleSlug
+                      : undefined
+                  }
+                  title={manga.title ?? sourceTitle ?? ''}
+                />
+              ) : (
+                sourceTitle ?? ''
+              )}
             </TableRowCell>
           );
         }
 
         if (name === 'episode') {
-          if (!series || !episode) {
+          if (!chapter) {
             return <TableRowCell key={name} />;
           }
 
           return (
             <TableRowCell key={name}>
-              <SeasonEpisodeNumber
-                seasonNumber={episode.seasonNumber}
-                episodeNumber={episode.episodeNumber}
-                absoluteEpisodeNumber={episode.absoluteEpisodeNumber}
-                seriesType={series.seriesType}
-                alternateTitles={series.alternateTitles}
-                sceneSeasonNumber={episode.sceneSeasonNumber}
-                sceneEpisodeNumber={episode.sceneEpisodeNumber}
-                sceneAbsoluteEpisodeNumber={episode.sceneAbsoluteEpisodeNumber}
-              />
+              <ChapterNumber chapterNumber={chapter.chapterNumber} />
             </TableRowCell>
           );
         }
 
         if (name === 'episodes.title') {
-          if (!series || !episode) {
+          if (!chapter || chapter.mangaId == null) {
             return <TableRowCell key={name} />;
           }
 
           return (
             <TableRowCell key={name}>
-              <EpisodeTitleLink
-                episodeId={episodeId}
-                episodeEntity={episodeEntities.EPISODES}
-                seriesId={series.id}
-                episodeTitle={episode.title}
-                showOpenSeriesButton={true}
+              <ChapterTitleLink
+                chapterId={chapter.id}
+                mangaId={chapter.mangaId}
+                chapterTitle={chapter.title}
               />
             </TableRowCell>
           );
         }
 
-        if (name === 'languages') {
+        if (name === 'translatedLanguage') {
           return (
             <TableRowCell key={name}>
-              <EpisodeLanguages languages={languages} />
+              <LanguageBadge language={translatedLanguage} />
             </TableRowCell>
           );
         }
 
-        if (name === 'quality') {
+        if (name === 'scanlationGroup') {
           return (
-            <TableRowCell key={name}>
-              <EpisodeQuality
-                quality={quality}
-                isCutoffNotMet={qualityCutoffNotMet}
-              />
-            </TableRowCell>
-          );
-        }
-
-        if (name === 'customFormats') {
-          return (
-            <TableRowCell key={name}>
-              <EpisodeFormats formats={customFormats} />
-            </TableRowCell>
+            <TableRowCell key={name}>{scanlationGroup ?? ''}</TableRowCell>
           );
         }
 
@@ -201,9 +195,11 @@ function HistoryRow(props: HistoryRowProps) {
 
         if (name === 'downloadClient') {
           const downloadClientName =
-            'downloadClientName' in data ? data.downloadClientName : null;
+            data && 'downloadClientName' in data
+              ? data.downloadClientName
+              : null;
           const downloadClient =
-            'downloadClient' in data ? data.downloadClient : null;
+            data && 'downloadClient' in data ? data.downloadClient : null;
 
           return (
             <TableRowCell key={name} className={styles.downloadClient}>
@@ -215,36 +211,26 @@ function HistoryRow(props: HistoryRowProps) {
         if (name === 'indexer') {
           return (
             <TableRowCell key={name} className={styles.indexer}>
-              {'indexer' in data ? data.indexer : ''}
-            </TableRowCell>
-          );
-        }
-
-        if (name === 'customFormatScore') {
-          return (
-            <TableRowCell key={name} className={styles.customFormatScore}>
-              <Tooltip
-                anchor={formatCustomFormatScore(
-                  customFormatScore,
-                  customFormats.length
-                )}
-                tooltip={<EpisodeFormats formats={customFormats} />}
-                position={tooltipPositions.BOTTOM}
-              />
+              {data && 'indexer' in data ? data.indexer : ''}
             </TableRowCell>
           );
         }
 
         if (name === 'releaseGroup') {
+          // Manga's analog of "release group" is the scanlation group, which
+          // travels on the row's top-level `scanlationGroup` field, NOT the
+          // GrabbedHistoryData payload. Fall through to the dedicated
+          // scanlationGroup column for the canonical render; this column
+          // remains in the registry as a no-op for upgrade-path persistence.
           return (
             <TableRowCell key={name} className={styles.releaseGroup}>
-              {'releaseGroup' in data ? data.releaseGroup : ''}
+              {scanlationGroup ?? ''}
             </TableRowCell>
           );
         }
 
         if (name === 'sourceTitle') {
-          return <TableRowCell key={name}>{sourceTitle}</TableRowCell>;
+          return <TableRowCell key={name}>{sourceTitle ?? ''}</TableRowCell>;
         }
 
         if (name === 'details') {
@@ -265,9 +251,9 @@ function HistoryRow(props: HistoryRowProps) {
       <HistoryDetailsModal
         id={id}
         isOpen={isDetailsModalOpen}
-        eventType={eventType}
-        sourceTitle={sourceTitle}
-        data={data}
+        eventType={eventType as unknown as never}
+        sourceTitle={sourceTitle ?? ''}
+        data={(data ?? {}) as unknown as HistoryData}
         downloadId={downloadId}
         onModalClose={handleDetailsModalClose}
       />
