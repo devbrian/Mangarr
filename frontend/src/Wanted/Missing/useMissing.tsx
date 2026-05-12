@@ -3,12 +3,14 @@
 // TV is gone post-cutover; the type union 'series' | 'manga' collapsed to 'manga' (preserves the
 // discriminator type for v2 reintroduction). The /wanted/missing URL branch is dead code now but
 // the conditional is left in place so v2 can flip the union back without re-deriving the URL switch.
-// NOTE: Episode imports below are orphaned post-Plan 15-07 Task 1 (frontend/src/Episode/ deleted)
-// and contribute to the expected ~247-error TS2307 cascade — Plan 15-08/15-09 resolves this.
+// Sonarr divergence: Phase 17.3 Plan 17.3-13 (D-09 stub-importer cascade) — Episode/* stub
+// imports rewritten to Chapter/* peers. The Phase 15 ~247-error cascade closed by Plan 17.3-13
+// (Wanted/* branch); the Phase-15 historical NOTE above is preserved as repo memory of the
+// pre-rename state.
 import { keepPreviousData } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import Episode from 'Episode/Episode';
-import { setEpisodeQueryKey } from 'Episode/useEpisode';
+import Chapter from 'Chapter/Chapter';
+import { setChapterQueryKey } from 'Chapter/useChapter';
 import { Filter, FilterBuilderProp } from 'Filters/Filter';
 import { useCustomFiltersList } from 'Filters/useCustomFilters';
 import usePage from 'Helpers/Hooks/usePage';
@@ -56,7 +58,7 @@ export const FILTERS: Filter[] = [
   },
 ];
 
-export const FILTER_BUILDER: FilterBuilderProp<Episode>[] = [
+export const FILTER_BUILDER: FilterBuilderProp<Chapter>[] = [
   {
     name: 'monitored',
     label: () => translate('Monitored'),
@@ -84,7 +86,7 @@ const useMissing = (mediaType: MissingMediaType = 'manga') => {
   const path =
     mediaType === 'manga' ? '/manga/wanted/missing' : '/wanted/missing';
 
-  const { isPlaceholderData, queryKey, ...query } = usePagedApiQuery<Episode>({
+  const { isPlaceholderData, queryKey, ...query } = usePagedApiQuery<Chapter>({
     path,
     page,
     pageSize,
@@ -98,7 +100,7 @@ const useMissing = (mediaType: MissingMediaType = 'manga') => {
 
   useEffect(() => {
     if (!isPlaceholderData) {
-      setEpisodeQueryKey('wanted.missing', queryKey);
+      setChapterQueryKey('wanted.missing', queryKey);
     }
   }, [isPlaceholderData, queryKey]);
 
