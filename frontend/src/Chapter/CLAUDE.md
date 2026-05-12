@@ -2,10 +2,12 @@
 
 ## Purpose
 
-Chapter-domain TypeScript type, hooks, and utility cell/badge/modal components
-— parallel sibling of `frontend/src/Episode/`. Mirrors the V5 backend
-`ChapterResource` (Phase 7 Plan 07-01) and consumes the URL-shaped React Query
-cache contract from Plan 07-02 SignalR handlers.
+Chapter-domain TypeScript type, hooks, and utility cell/badge/modal components.
+Originally a parallel sibling of `frontend/src/Episode/`; Phase 17.3 Plan 17.3-13
+atomic stub-dir delete (D-09/D-10) retired the `Episode/` peer. This directory
+is the canonical home for chapter frontend types + hooks + components. Mirrors
+the V5 backend `ChapterResource` (Phase 7 Plan 07-01) and consumes the
+URL-shaped React Query cache contract from Plan 07-02 SignalR handlers.
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Chapter\`
 
@@ -63,24 +65,24 @@ cache contract from Plan 07-02 SignalR handlers.
 
 ## Manga Adaptation Notes
 
-This directory IS the manga adaptation of `frontend/src/Episode/`. Phase 8 cleanup
-will collapse the two when `Episode/` deletes — at which point all the
-`// Phase 8 cleanup: collapse with X when Tv/ deletes.` markers in this
-directory point Phase 8's executor at the canonical sibling to merge.
+This directory IS the canonical chapter module. Phase 17.3 Plan 17.3-13
+(D-09/D-10) atomic stub-dir delete completed the `Episode/` retirement.
+The `// Phase 8 cleanup: collapse with X when Tv/ deletes.` markers in
+this directory were resolved by Plan 17.3-13 (the stub dirs no longer
+exist).
 
 The `ChapterDetailsModal` is intentionally streamlined relative to the Sonarr
 3-tab `EpisodeDetailsModal` (Details / History / Search). v1 ships search-first
 because the Manga/Details Files / History tabs (Plans 07-08+) absorb the
 per-tab content that would otherwise live in the modal. The streamlined shape
-is the canonical Mangarr default; Phase 8 keeps it.
+is the canonical Mangarr default.
 
 ## Cross-References
 
-- [../Episode/CLAUDE.md](../Episode/CLAUDE.md) — Sibling Episode feature (Phase 8 cleanup target).
 - [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Sibling manga type.
 - [../Manga/Details/CLAUDE.md](../Manga/Details/CLAUDE.md) — Manga details page (Plan 07-05) — primary consumer of ChapterRow + ChapterStatus + ChapterSearchCell + LanguageBadge + ChapterNumber. Hosts `MangaDetailsProvider` + `MangaChapterHistoryContext` (issue #51 N+1 fix).
 - [../InteractiveSearch/CLAUDE.md](../InteractiveSearch/CLAUDE.md) — `InteractiveSearch` component invoked by ChapterDetailsModal + ChapterSearchCell with `type="chapter" searchPayload={{ chapterId }}`.
-- [../../../src/Sonarr.Api.V5/Manga/Chapter/ChapterResource.cs](../../../src/Sonarr.Api.V5/Manga/Chapter/ChapterResource.cs) — Backend resource shape this type mirrors (Phase 7 Plan 07-01).
-- [../../../src/Sonarr.Api.V5/Manga/Chapter/CLAUDE.md](../../../src/Sonarr.Api.V5/Manga/Chapter/CLAUDE.md) — Backend Chapter API surface.
+- [../../../src/Mangarr.Api.V5/Manga/Chapter/ChapterResource.cs](../../../src/Mangarr.Api.V5/Manga/Chapter/ChapterResource.cs) — Backend resource shape this type mirrors (Phase 7 Plan 07-01).
+- [../../../src/Mangarr.Api.V5/Manga/Chapter/CLAUDE.md](../../../src/Mangarr.Api.V5/Manga/Chapter/CLAUDE.md) — Backend Chapter API surface.
 - [../../../.planning/phases/07-api-v5-frontend-manga-shell/07-RESEARCH.md](../../../.planning/phases/07-api-v5-frontend-manga-shell/07-RESEARCH.md) — Lock #4 (6-state status badge sources), Lock #14 (InteractiveSearch payload extension).
 - [../../../.planning/phases/07-api-v5-frontend-manga-shell/07-UI-SPEC.md](../../../.planning/phases/07-api-v5-frontend-manga-shell/07-UI-SPEC.md) — §Chapter status badge set; §Translation language badge.
