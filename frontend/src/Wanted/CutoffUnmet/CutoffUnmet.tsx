@@ -3,6 +3,10 @@
 // 'manga' since TV is gone post-cutover; the prop type union 'series' | 'manga' collapsed to
 // 'manga' (preserves the discriminator type for v2 reintroduction). Both default-sites
 // (CutoffUnmetContent inner + CutoffUnmet outer) updated atomically.
+// Sonarr divergence: Phase 17.3 Plan 17.3-13 (D-09 stub-importer cascade) —
+// Episode/Episode stub import rewritten to Chapter/Chapter peer; EpisodeFile/EpisodeFileProvider
+// stub dropped (no-op pass-through wrapper; children rendered directly). The Phase-15
+// historical NOTE below is preserved as repo memory of the pre-rename state.
 // NOTE: Episode + EpisodeFile imports below are orphaned post-Plan 15-07 Task 1
 // (frontend/src/{Episode,EpisodeFile}/ deleted) and contribute to the expected ~247-error
 // TS2307 cascade — Plan 15-08/15-09 resolves this.
@@ -30,6 +34,7 @@ import React, {
 } from 'react';
 import QueueDetailsProvider from 'Activity/Queue/Details/QueueDetailsProvider';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
+import Chapter from 'Chapter/Chapter';
 import { useBulkToggleChaptersMonitored } from 'Chapter/useChapter';
 import CommandNames from 'Commands/CommandNames';
 import { useCommandExecuting, useExecuteCommand } from 'Commands/useCommands';
@@ -47,8 +52,6 @@ import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableOptionsModalWrapper from 'Components/Table/TableOptions/TableOptionsModalWrapper';
 import TablePager from 'Components/Table/TablePager';
-import Episode from 'Episode/Episode';
-import EpisodeFileProvider from 'EpisodeFile/EpisodeFileProvider';
 import { Filter } from 'Filters/Filter';
 import { useCustomFiltersList } from 'Filters/useCustomFilters';
 import { align, icons, kinds } from 'Helpers/Props';
@@ -116,7 +119,7 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
     getSelectedIds,
     selectAll,
     unselectAll,
-  } = useSelect<Episode>();
+  } = useSelect<Chapter>();
 
   const [isConfirmSearchAllModalOpen, setIsConfirmSearchAllModalOpen] =
     useState(false);
@@ -131,12 +134,12 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
     isSearchingForAllEpisodes || isSearchingForSelectedEpisodes;
 
   const episodeIds = useMemo(() => {
-    return selectUniqueIds<Episode, number>(records, 'id');
+    return selectUniqueIds<Chapter, number>(records, 'id');
   }, [records]);
 
   const episodeFileIds = useMemo(() => {
     // @ts-expect-error — TV-shape episodeFileId field. Plan 15-12.
-    return selectUniqueIds<Episode, number>(records, 'episodeFileId');
+    return selectUniqueIds<Chapter, number>(records, 'episodeFileId');
   }, [records]);
 
   const handleSelectAllChange = useCallback(
@@ -376,7 +379,7 @@ export default function CutoffUnmet({
   const { records } = useCutoffUnmet(mediaType);
 
   return (
-    <SelectProvider<Episode> items={records}>
+    <SelectProvider<Chapter> items={records}>
       <CutoffUnmetContent mediaType={mediaType} />
     </SelectProvider>
   );
@@ -384,15 +387,19 @@ export default function CutoffUnmet({
 
 function CutoffUnmetProvider({
   episodeIds,
-  episodeFileIds,
+  episodeFileIds: _episodeFileIds,
   children,
 }: PropsWithChildren<{ episodeIds: number[]; episodeFileIds: number[] }>) {
+  // Sonarr divergence: Phase 17.3 Plan 17.3-13 — EpisodeFile/EpisodeFileProvider stub
+  // dropped (no-op pass-through wrapper; children rendered directly). The wrapper was
+  // a Phase 15 Plan 15-12 stub that returned <>{children}</> verbatim; the manga side
+  // has no EpisodeFile aggregate to provide cache context for. episodeFileIds prop is
+  // kept on the wrapper signature for caller-shape compatibility but no longer fed
+  // anywhere — Phase 8 cleanup: drop the prop + the wrapper outright when the manga
+  // ChapterFile cache-provider lands (or never, if the URL-keyed cache pattern obviates it).
   return (
     <QueueDetailsProvider episodeIds={episodeIds}>
-      {/* @ts-expect-error — STUB EpisodeFileProvider has no episodeFileIds prop (Plan 15-12). */}
-      <EpisodeFileProvider episodeFileIds={episodeFileIds}>
-        {children}
-      </EpisodeFileProvider>
+      {children}
     </QueueDetailsProvider>
   );
 }
