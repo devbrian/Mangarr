@@ -21,11 +21,14 @@ import ModalHeader from 'Components/Modal/ModalHeader';
 import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
-import { EpisodeFile } from 'EpisodeFile/EpisodeFile';
-import {
-  useDeleteEpisodeFiles,
-  useUpdateEpisodeFiles,
-} from 'EpisodeFile/useEpisodeFiles';
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
+// EpisodeFile/EpisodeFile + EpisodeFile/useEpisodeFiles no-op stub imports
+// DROPPED (Phase 15 Plan 15-12 STUB types/hooks; useEpisodeFiles returned
+// empty data, useDeleteEpisodeFiles + useUpdateEpisodeFiles returned no-op
+// callbacks). The delete-files + update-existing-files flow inside this
+// modal is gated for v1 per Phase 12 Plan 12-11 LOCK guard; replaced with
+// inline no-op stubs to preserve call-site shape until the manga ChapterFile
+// peer dir lands (tracked for v1.x — see Plan 17.3-16 Task 4 deferrals audit).
 import usePrevious from 'Helpers/Hooks/usePrevious';
 import { align, icons, kinds, scrollDirections } from 'Helpers/Props';
 import { SortDirection } from 'Helpers/Props/sortDirections';
@@ -54,8 +57,8 @@ import useInteractiveImport, {
   useUpdateInteractiveImportItems,
 } from 'InteractiveImport/useInteractiveImport';
 import Language from 'Language/Language';
+import Manga from 'Manga/Manga';
 import { QualityModel } from 'Quality/Quality';
-import Series from 'Series/Series';
 import { SortCallback } from 'typings/callbacks';
 import { CheckInputChanged } from 'typings/inputs';
 import getErrorMessage from 'Utilities/Object/getErrorMessage';
@@ -271,10 +274,14 @@ function InteractiveImportModalContentInner(
 
   const items = data;
 
-  const { isDeleting, deleteEpisodeFiles, deleteError } =
-    useDeleteEpisodeFiles();
-
-  const { updateEpisodeFiles } = useUpdateEpisodeFiles();
+  // Sonarr divergence: Phase 17.3 Plan 17.3-13b — useDeleteEpisodeFiles +
+  // useUpdateEpisodeFiles no-op stub hooks replaced with inline no-op
+  // call-site shape (TV InteractiveImport flow gated for v1; no Chapter
+  // peer ships in v1). v1.x cleanup at ChapterFile peer dir authoring.
+  const isDeleting = false;
+  const deleteError: unknown = null;
+  const deleteEpisodeFiles = (_args: { episodeFileIds: number[] }) => undefined;
+  const updateEpisodeFiles = (_files: unknown[]) => undefined;
 
   const [invalidRowsSelected, setInvalidRowsSelected] = useState<number[]>([]);
   const [
@@ -489,7 +496,18 @@ function InteractiveImportModalContentInner(
     const finalImportMode =
       downloadIds || !showImportMode ? 'auto' : importMode;
 
-    const existingFiles: Partial<EpisodeFile>[] = [];
+    // Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeFile stub type
+    // dropped; use a structural shape matching the prior stub
+    // (seriesId/episodeNumbers/etc. preserved at runtime because the TV
+    // InteractiveImport backend is gated for v1).
+    const existingFiles: Array<{
+      id: number;
+      releaseGroup?: string;
+      quality?: unknown;
+      languages?: unknown;
+      indexerFlags?: number;
+      releaseType?: unknown;
+    }> = [];
     const files: InteractiveImportCommandOptions[] = [];
 
     if (finalImportMode === 'chooseImportMode') {
@@ -574,10 +592,11 @@ function InteractiveImportModalContentInner(
           const originalItem = originalItems.find((i) => i.id === item.id);
 
           if (isSameEpisodeFile(item, originalItem)) {
-            // Sonarr divergence: Phase 15 Plan 15-12 — EpisodeFile stub does
-            // not carry indexerFlags/releaseType; cast to any so legacy
-            // TV-shape import path still type-checks. Manga uses ChapterFile.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeFile stub
+            // type dropped (Plan 15-12 cast-to-any pattern superseded); the
+            // inline structural shape on existingFiles now covers
+            // indexerFlags/releaseType. Manga ChapterFile peer deferred to
+            // v1.x (Plan 17.3-16 Task 4 deferrals audit).
             existingFiles.push({
               id: episodeFileId,
               releaseGroup,
@@ -585,7 +604,7 @@ function InteractiveImportModalContentInner(
               languages,
               indexerFlags,
               releaseType,
-            } as any);
+            });
 
             return;
           }
@@ -709,7 +728,7 @@ function InteractiveImportModalContentInner(
   );
 
   const handleSeriesSelect = useCallback(
-    (series: Series) => {
+    (series: Manga) => {
       const updates = {
         series,
         seasonNumber: undefined,
