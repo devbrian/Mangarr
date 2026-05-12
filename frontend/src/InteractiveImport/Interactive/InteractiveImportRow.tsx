@@ -371,16 +371,15 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   );
 
   const seriesTitle = series ? series.title : '';
-  const isAnime = series?.seriesType === 'anime';
+  // Sonarr divergence: Phase 17.3 D-13/D-14 — dropped isAnime
+  // (series?.seriesType === 'anime') local + the anime-format JSX branch +
+  // the isAnime prop pass to SelectEpisodeModal (manga has no anime-format;
+  // seriesType removed from Manga.ts per D-13).
 
   const episodeInfo = episodes.map((episode) => {
     return (
       <div key={episode.id}>
         {episode.episodeNumber}
-
-        {isAnime && episode.absoluteEpisodeNumber != null
-          ? ` (${episode.absoluteEpisodeNumber})`
-          : ''}
 
         {` - ${episode.title}`}
       </div>
@@ -579,7 +578,6 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
         isOpen={selectModalOpen === 'episode'}
         selectedIds={[id]}
         seriesId={series?.id}
-        isAnime={isAnime}
         seasonNumber={seasonNumber}
         selectedDetails={relativePath}
         modalTitle={modalTitle}
