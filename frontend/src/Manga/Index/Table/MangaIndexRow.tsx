@@ -8,7 +8,7 @@ import HeartRating from 'Components/HeartRating';
 import IconButton from 'Components/Link/IconButton';
 import Link from 'Components/Link/Link';
 import SpinnerIconButton from 'Components/Link/SpinnerIconButton';
-import SeriesTagList from 'Components/SeriesTagList';
+import MangaTagList from 'Components/MangaTagList';
 import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import VirtualTableRowCell from 'Components/Table/Cells/VirtualTableRowCell';
 import VirtualTableSelectCell from 'Components/Table/Cells/VirtualTableSelectCell';
@@ -508,7 +508,7 @@ function MangaIndexRow(props: MangaIndexRowProps) {
         if (name === 'tags') {
           return (
             <VirtualTableRowCell key={name} className={styles[name]}>
-              <SeriesTagList tags={tags} />
+              <MangaTagList tags={tags} />
             </VirtualTableRowCell>
           );
         }

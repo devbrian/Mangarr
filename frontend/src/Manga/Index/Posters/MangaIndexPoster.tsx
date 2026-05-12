@@ -6,7 +6,7 @@ import Label from 'Components/Label';
 import IconButton from 'Components/Link/IconButton';
 import Link from 'Components/Link/Link';
 import SpinnerIconButton from 'Components/Link/SpinnerIconButton';
-import SeriesTagList from 'Components/SeriesTagList';
+import MangaTagList from 'Components/MangaTagList';
 import { icons } from 'Helpers/Props';
 // fix(home-card-edit-button-no-op): swap stub `Series/Edit/EditSeriesModal`
 // (Phase 15 Plan 15-12 `() => null`) for the real per-manga Edit modal
@@ -251,7 +251,7 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
       {showTags && tags.length ? (
         <div className={styles.tags}>
           <div className={styles.tagsList}>
-            <SeriesTagList tags={tags} />
+            <MangaTagList tags={tags} />
           </div>
         </div>
       ) : null}

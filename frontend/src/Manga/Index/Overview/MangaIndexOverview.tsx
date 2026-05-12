@@ -6,7 +6,7 @@ import { useExecuteCommand } from 'Commands/useCommands';
 import IconButton from 'Components/Link/IconButton';
 import Link from 'Components/Link/Link';
 import SpinnerIconButton from 'Components/Link/SpinnerIconButton';
-import SeriesTagList from 'Components/SeriesTagList';
+import MangaTagList from 'Components/MangaTagList';
 import { icons } from 'Helpers/Props';
 // fix(home-card-edit-button-no-op): swap stub `Series/Edit/EditSeriesModal`
 // (Phase 15 Plan 15-12 `() => null`) for the real per-manga Edit modal
@@ -230,7 +230,7 @@ function MangaIndexOverview(props: MangaIndexOverviewProps) {
 
               {overviewOptions.showTags ? (
                 <div className={styles.tags}>
-                  <SeriesTagList tags={tags} />
+                  <MangaTagList tags={tags} />
                 </div>
               ) : null}
             </div>

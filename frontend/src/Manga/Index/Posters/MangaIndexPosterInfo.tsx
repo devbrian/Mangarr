@@ -1,6 +1,6 @@
 import React from 'react';
 import HeartRating from 'Components/HeartRating';
-import SeriesTagList from 'Components/SeriesTagList';
+import MangaTagList from 'Components/MangaTagList';
 import useCountryName from 'Internationalization/useCountryName';
 import Language from 'Language/Language';
 import { Ratings } from 'Manga/Manga';
@@ -148,7 +148,7 @@ function MangaIndexPosterInfo(props: MangaIndexPosterInfoProps) {
     return (
       <div className={styles.tags}>
         <div className={styles.tagsList}>
-          <SeriesTagList tags={tags} />
+          <MangaTagList tags={tags} />
         </div>
       </div>
     );
