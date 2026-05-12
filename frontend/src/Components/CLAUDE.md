@@ -178,5 +178,6 @@ Hub-message dispatch table that opens `/signalr/messages?access_token=<apiKey>` 
 ## Cross-References
 
 - [frontend/CLAUDE.md](../../CLAUDE.md) - Frontend overview
-- [Series/CLAUDE.md](../Series/CLAUDE.md) - Feature using these components
+- [Manga/CLAUDE.md](../Manga/CLAUDE.md) - Feature using these components (Sonarr `Series/CLAUDE.md` stub deleted in Phase 17.3 Plan 17.3-13)
 - [.planning/phases/07-api-v5-frontend-manga-shell/07-02-PLAN.md](../../../.planning/phases/07-api-v5-frontend-manga-shell/07-02-PLAN.md) - SignalR manga handler extension (closes F-01)
+- [.planning/phases/17.3-domain-rename-residue-sweep-pre-v1-sweep-tv-term-residue-pha/17.3-04-PLAN.md](../../../.planning/phases/17.3-domain-rename-residue-sweep-pre-v1-sweep-tv-term-residue-pha/17.3-04-PLAN.md) - D-07 Form-component renames (SeriesTypeSelectInput -> MangaTypeSelectInput; SeriesTagInput -> MangaTagInput; SeriesTagList -> MangaTagList; MonitorEpisodesSelectInput -> MonitorChaptersSelectInput); 2 misclassified Activity/Queue Episode*CellContent stubs DELETED.
