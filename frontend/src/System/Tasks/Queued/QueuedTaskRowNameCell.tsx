@@ -1,7 +1,12 @@
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
+// `{ useMultipleSeries } from 'Series/useSeries'` rewritten to
+// `{ useMultipleManga } from 'Manga/useManga'` peer. Call sites in the body
+// renamed; the inherited `series`/`sortedSeries` locals keep the TV-shape
+// var names since the Tasks-queue command body still references seriesId(s).
 import React from 'react';
 import { CommandBody } from 'Commands/Command';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
-import { useMultipleSeries } from 'Series/useSeries';
+import { useMultipleManga } from 'Manga/useManga';
 import sortByProp from 'Utilities/Array/sortByProp';
 import translate from 'Utilities/String/translate';
 import styles from './QueuedTaskRowNameCell.css';
@@ -38,7 +43,7 @@ export default function QueuedTaskRowNameCell(
     seriesIds.push(body.seriesId);
   }
 
-  const series = useMultipleSeries(seriesIds);
+  const series = useMultipleManga(seriesIds);
   const sortedSeries = series.sort(sortByProp('sortTitle'));
 
   return (
