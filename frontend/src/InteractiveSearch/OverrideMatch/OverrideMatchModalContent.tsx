@@ -86,22 +86,20 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
     createEnabledDownloadClientsSelector(protocol)
   );
 
+  // Sonarr divergence: Phase 17.3 D-13/D-14 — dropped
+  // `series?.seriesType === 'anime'` anime-format branch (manga has no
+  // anime-format; seriesType removed from Manga.ts per D-13).
   const episodeInfo = useMemo(() => {
     return episodes.map((episode) => {
       return (
         <div key={episode.id}>
           {episode.episodeNumber}
 
-          {series?.seriesType === 'anime' &&
-          episode.absoluteEpisodeNumber != null
-            ? ` (${episode.absoluteEpisodeNumber})`
-            : ''}
-
           {` - ${episode.title}`}
         </div>
       );
     });
-  }, [series, episodes]);
+  }, [episodes]);
 
   const onSelectModalClose = useCallback(() => {
     setSelectModalOpen(null);
@@ -361,7 +359,6 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
         isOpen={selectModalOpen === 'episode'}
         selectedIds={[guid]}
         seriesId={seriesId}
-        isAnime={series?.seriesType === 'anime'}
         seasonNumber={seasonNumber}
         selectedDetails={title}
         modalTitle={modalTitle}
