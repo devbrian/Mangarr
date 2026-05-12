@@ -209,12 +209,13 @@ function ParseResult(props: ParseResultProps) {
             episodes.length ? (
               <div>
                 {episodes.map((e) => {
+                  // Sonarr divergence: Phase 17.3 D-13/D-14 — dropped
+                  // `series?.seriesType === 'anime' && e.absoluteEpisodeNumber`
+                  // branch (manga has no anime-format; seriesType removed from
+                  // Manga.ts per D-13).
                   return (
                     <div key={e.id}>
                       {e.episodeNumber}
-                      {series?.seriesType === 'anime' && e.absoluteEpisodeNumber
-                        ? ` (${e.absoluteEpisodeNumber})`
-                        : ''}{' '}
                       {` - ${e.title}`}
                     </div>
                   );
