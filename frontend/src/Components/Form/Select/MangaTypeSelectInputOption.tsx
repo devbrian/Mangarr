@@ -3,9 +3,9 @@ import React from 'react';
 import EnhancedSelectInputOption, {
   EnhancedSelectInputOptionProps,
 } from './EnhancedSelectInputOption';
-import styles from './SeriesTypeSelectInputOption.css';
+import styles from './MangaTypeSelectInputOption.css';
 
-interface SeriesTypeSelectInputOptionProps
+interface MangaTypeSelectInputOptionProps
   extends EnhancedSelectInputOptionProps {
   id: string;
   value: string;
@@ -13,7 +13,7 @@ interface SeriesTypeSelectInputOptionProps
   isMobile: boolean;
 }
 
-function SeriesTypeSelectInputOption(props: SeriesTypeSelectInputOptionProps) {
+function MangaTypeSelectInputOption(props: MangaTypeSelectInputOptionProps) {
   const { id, value, format, isMobile, ...otherProps } = props;
 
   return (
@@ -29,4 +29,4 @@ function SeriesTypeSelectInputOption(props: SeriesTypeSelectInputOptionProps) {
   );
 }
 
-export default SeriesTypeSelectInputOption;
+export default MangaTypeSelectInputOption;

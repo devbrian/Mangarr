@@ -1,14 +1,14 @@
 import React from 'react';
 import HintedSelectInputSelectedValue from './HintedSelectInputSelectedValue';
-import { ISeriesTypeOption } from './SeriesTypeSelectInput';
+import { IMangaTypeOption } from './MangaTypeSelectInput';
 
-interface SeriesTypeSelectInputOptionProps {
+interface MangaTypeSelectInputSelectedValueProps {
   selectedValue: string;
-  values: ISeriesTypeOption[];
+  values: IMangaTypeOption[];
   format: string;
 }
-function SeriesTypeSelectInputSelectedValue(
-  props: SeriesTypeSelectInputOptionProps
+function MangaTypeSelectInputSelectedValue(
+  props: MangaTypeSelectInputSelectedValueProps
 ) {
   const { selectedValue, values, ...otherProps } = props;
   const format = values.find((v) => v.key === selectedValue)?.format;
@@ -23,4 +23,4 @@ function SeriesTypeSelectInputSelectedValue(
   );
 }
 
-export default SeriesTypeSelectInputSelectedValue;
+export default MangaTypeSelectInputSelectedValue;
