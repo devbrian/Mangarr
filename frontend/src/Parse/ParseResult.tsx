@@ -1,7 +1,11 @@
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
+// Episode/EpisodeFormats no-op stub import DROPPED (Phase 15 Plan 15-12 STUB
+// component returning null with zero render output); CustomFormats render
+// site below collapsed to the count text. Series/SeriesTitleLink rewritten
+// to Manga/MangaTitleLink peer (routes to /manga/${titleSlug}).
 import React from 'react';
 import FieldSet from 'Components/FieldSet';
-import EpisodeFormats from 'Episode/EpisodeFormats';
-import SeriesTitleLink from 'Series/SeriesTitleLink';
+import MangaTitleLink from 'Manga/MangaTitleLink';
 import translate from 'Utilities/String/translate';
 import { ParseModel } from './ParseModel';
 import ParseResultItem from './ParseResultItem';
@@ -188,7 +192,7 @@ function ParseResult(props: ParseResultProps) {
           title={translate('MatchedToSeries')}
           data={
             series ? (
-              <SeriesTitleLink
+              <MangaTitleLink
                 titleSlug={series.titleSlug}
                 title={series.title}
               />
@@ -200,7 +204,18 @@ function ParseResult(props: ParseResultProps) {
 
         <ParseResultItem
           title={translate('MatchedToSeason')}
-          data={episodes.length ? episodes[0].seasonNumber : '-'}
+          data={
+            // Sonarr divergence: Phase 17.3 Plan 17.3-13b — Episode/Episode
+            // rewritten to Chapter/Chapter; Chapter has no seasonNumber
+            // (manga has no seasons per DOMAIN-02). Backend Parse controller
+            // still emits seasonNumber at runtime for the TV-shape branch;
+            // cast through Chapter & { seasonNumber?: number } preserves the
+            // display path until the parser is forked for chapter-mode
+            // (tracked for v1.x).
+            episodes.length
+              ? (episodes[0] as typeof episodes[0] & { seasonNumber?: number }).seasonNumber ?? '-'
+              : '-'
+          }
         />
 
         <ParseResultItem
@@ -208,18 +223,24 @@ function ParseResult(props: ParseResultProps) {
           data={
             episodes.length ? (
               <div>
-                {episodes.map((e) => {
+                {episodes.map(
                   // Sonarr divergence: Phase 17.3 D-13/D-14 — dropped
                   // `series?.seriesType === 'anime' && e.absoluteEpisodeNumber`
                   // branch (manga has no anime-format; seriesType removed from
                   // Manga.ts per D-13).
-                  return (
-                    <div key={e.id}>
-                      {e.episodeNumber}
-                      {` - ${e.title}`}
-                    </div>
-                  );
-                })}
+                  // Sonarr divergence: Phase 17.3 Plan 17.3-13b —
+                  // Episode/Episode rewritten to Chapter/Chapter; cast
+                  // preserves runtime episodeNumber emission until parser is
+                  // forked.
+                  (e: typeof episodes[0] & { episodeNumber?: number }) => {
+                    return (
+                      <div key={e.id}>
+                        {e.episodeNumber}
+                        {` - ${e.title}`}
+                      </div>
+                    );
+                  }
+                )}
               </div>
             ) : (
               '-'
@@ -227,15 +248,11 @@ function ParseResult(props: ParseResultProps) {
           }
         />
 
+        {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeFormats no-op
+            stub dropped; show CustomFormats count text directly. */}
         <ParseResultItem
           title={translate('CustomFormats')}
-          data={
-            customFormats?.length ? (
-              <EpisodeFormats formats={customFormats} />
-            ) : (
-              '-'
-            )
-          }
+          data={customFormats?.length ? `${customFormats.length}` : '-'}
         />
 
         <ParseResultItem
