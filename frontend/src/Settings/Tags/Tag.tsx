@@ -25,7 +25,9 @@ function Tag({ id, label }: TagProps) {
     indexerIds,
     downloadClientIds,
     autoTagIds,
-    seriesIds,
+    // Sonarr divergence: Phase 17.3 Plan 17.3-13b fix-forward — was `seriesIds`;
+    // backend `/api/v5/tag/detail` returns `mangaIds` (Phase 15 D-12 rename).
+    mangaIds,
   } = useTagDetail(id);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isDeleteTagModalOpen, setIsDeleteTagModalOpen] = useState(false);
@@ -39,7 +41,7 @@ function Tag({ id, label }: TagProps) {
     indexerIds.length ||
     downloadClientIds.length ||
     autoTagIds.length ||
-    seriesIds.length
+    mangaIds.length
   );
 
   const mergedReleaseProfileIds = Array.from(
@@ -77,7 +79,7 @@ function Tag({ id, label }: TagProps) {
 
       {isTagUsed ? (
         <div>
-          <TagInUse label={translate('Series')} count={seriesIds.length} />
+          <TagInUse label={translate('Manga')} count={mangaIds.length} />
 
           <TagInUse
             label={translate('DelayProfile')}
@@ -127,7 +129,7 @@ function Tag({ id, label }: TagProps) {
       <TagDetailsModal
         label={label}
         isTagUsed={isTagUsed}
-        seriesIds={seriesIds}
+        mangaIds={mangaIds}
         delayProfileIds={delayProfileIds}
         importListIds={importListIds}
         notificationIds={notificationIds}

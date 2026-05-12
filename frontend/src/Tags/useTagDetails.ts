@@ -13,7 +13,12 @@ export interface TagDetail extends ModelBase {
   notificationIds: number[];
   restrictionIds: number[];
   excludedReleaseProfileIds: number[];
-  seriesIds: number[];
+  // Sonarr divergence: Phase 17.3 Plan 17.3-13b fix-forward — backend renamed
+  // seriesIds -> mangaIds in Phase 15 D-12 domain rename, but this frontend
+  // interface stayed stale until Wave 4 aggregate smoke surfaced the crash
+  // ("Cannot read properties of undefined (reading 'length')" in Settings
+  // → Tags when any tag exists). Backend `/api/v5/tag/detail` emits `mangaIds`.
+  mangaIds: number[];
 }
 
 const useTagDetails = () => {
@@ -42,7 +47,7 @@ export const useTagDetail = (id: number) => {
       indexerIds: [],
       downloadClientIds: [],
       autoTagIds: [],
-      seriesIds: [],
+      mangaIds: [],
     }
   );
 };

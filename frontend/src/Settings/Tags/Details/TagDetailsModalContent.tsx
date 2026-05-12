@@ -30,11 +30,11 @@ function findMatchingItems<T extends ModelBase>(ids: number[], items: T[]) {
   });
 }
 
-function useMatchingSeries(seriesIds: number[]) {
+function useMatchingSeries(mangaIds: number[]) {
   const { data: allSeries = [] } = useManga();
 
   return useMemo(() => {
-    const matchingSeries = findMatchingItems(seriesIds, allSeries);
+    const matchingSeries = findMatchingItems(mangaIds, allSeries);
 
     return matchingSeries.sort((seriesA, seriesB) => {
       const sortTitleA = seriesA.sortTitle;
@@ -48,7 +48,7 @@ function useMatchingSeries(seriesIds: number[]) {
 
       return 0;
     });
-  }, [seriesIds, allSeries]);
+  }, [mangaIds, allSeries]);
 }
 
 function createMatchingItemSelector<T extends ModelBase>(
@@ -68,7 +68,7 @@ export interface TagDetailsModalContentProps {
   indexerIds: number[];
   downloadClientIds: number[];
   autoTagIds: number[];
-  seriesIds: number[];
+  mangaIds: number[];
   onModalClose: () => void;
   onDeleteTagPress: () => void;
 }
@@ -83,11 +83,11 @@ function TagDetailsModalContent({
   indexerIds = [],
   downloadClientIds = [],
   autoTagIds = [],
-  seriesIds = [],
+  mangaIds = [],
   onModalClose,
   onDeleteTagPress,
 }: TagDetailsModalContentProps) {
-  const series = useMatchingSeries(seriesIds);
+  const series = useMatchingSeries(mangaIds);
 
   const delayProfiles = useSelector(
     createMatchingItemSelector(
