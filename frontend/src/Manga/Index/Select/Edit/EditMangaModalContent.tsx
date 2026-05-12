@@ -10,7 +10,6 @@ import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import { inputTypes } from 'Helpers/Props';
-import MoveSeriesModal from "Series/MoveSeries/MoveSeriesModal";
 import { InputChanged } from 'typings/inputs';
 import translate from 'Utilities/String/translate';
 import styles from './EditMangaModalContent.css';
@@ -87,7 +86,6 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
   const [seriesType, setSeriesType] = useState(NO_CHANGE);
   const [seasonFolder, setSeasonFolder] = useState(NO_CHANGE);
   const [rootFolderPath, setRootFolderPath] = useState(NO_CHANGE);
-  const [isConfirmMoveModalOpen, setIsConfirmMoveModalOpen] = useState(false);
   const { selectedCount } = useSelect();
 
   const save = useCallback(
@@ -172,27 +170,14 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
     [setMonitored]
   );
 
+  // Sonarr divergence: Phase 17.3 Plan 17.3-03 (D-11) — the inherited "Move
+  // Series" confirmation modal (ask whether to move files on disk when the
+  // root folder changes) was a no-op stub and has been deleted. The real
+  // "MoveManga to root folder" feature is tracked as a v1.x GitHub issue.
+  // Until that ships, root-folder edits save with moveFiles=false (no on-disk move).
   const onSavePressWrapper = useCallback(() => {
-    if (rootFolderPath === NO_CHANGE) {
-      save(false);
-    } else {
-      setIsConfirmMoveModalOpen(true);
-    }
-  }, [rootFolderPath, save]);
-
-  const onCancelPress = useCallback(() => {
-    setIsConfirmMoveModalOpen(false);
-  }, [setIsConfirmMoveModalOpen]);
-
-  const onDoNotMoveSeriesPress = useCallback(() => {
-    setIsConfirmMoveModalOpen(false);
     save(false);
-  }, [setIsConfirmMoveModalOpen, save]);
-
-  const onMoveSeriesPress = useCallback(() => {
-    setIsConfirmMoveModalOpen(false);
-    save(true);
-  }, [setIsConfirmMoveModalOpen, save]);
+  }, [save]);
 
   return (
     <ModalContent onModalClose={onModalClose}>
@@ -292,14 +277,6 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
           </Button>
         </div>
       </ModalFooter>
-
-      <MoveSeriesModal
-        isOpen={isConfirmMoveModalOpen}
-        destinationRootFolder={rootFolderPath}
-        onModalClose={onCancelPress}
-        onSavePress={onDoNotMoveSeriesPress}
-        onMoveSeriesPress={onMoveSeriesPress}
-      />
     </ModalContent>
   );
 }
