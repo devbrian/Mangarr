@@ -182,12 +182,12 @@ function MediaManagement() {
                   isAdvanced={true}
                   size={sizes.MEDIUM}
                 >
-                  <FormLabel>{translate('CreateEmptySeriesFolders')}</FormLabel>
+                  <FormLabel>{translate('CreateEmptyMangaFolders')}</FormLabel>
 
                   <FormInputGroup
                     type={inputTypes.CHECK}
                     name="createEmptySeriesFolders"
-                    helpText={translate('CreateEmptySeriesFoldersHelpText')}
+                    helpText={translate('CreateEmptyMangaFoldersHelpText')}
                     onChange={handleInputChange}
                     {...settings.createEmptySeriesFolders}
                   />
@@ -203,7 +203,7 @@ function MediaManagement() {
                   <FormInputGroup
                     type={inputTypes.CHECK}
                     name="deleteEmptyFolders"
-                    helpText={translate('DeleteEmptySeriesFoldersHelpText')}
+                    helpText={translate('DeleteEmptyMangaFoldersHelpText')}
                     onChange={handleInputChange}
                     {...settings.deleteEmptyFolders}
                   />
@@ -264,7 +264,7 @@ function MediaManagement() {
                   <FormInputGroup
                     type={inputTypes.CHECK}
                     name="copyUsingHardlinks"
-                    helpText={translate('CopyUsingHardlinksSeriesHelpText')}
+                    helpText={translate('CopyUsingHardlinksMangaHelpText')}
                     helpTextWarning={translate(
                       'CopyUsingHardlinksHelpTextWarning'
                     )}

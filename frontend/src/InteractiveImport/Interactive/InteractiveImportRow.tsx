@@ -425,7 +425,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
         <TableRowCellButton
           isDisabled={!allowSeriesChange}
           title={
-            allowSeriesChange ? translate('ClickToChangeSeries') : undefined
+            allowSeriesChange ? translate('ClickToChangeManga') : undefined
           }
           onPress={onSelectSeriesPress}
         >
@@ -439,7 +439,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
 
       <TableRowCellButton
         isDisabled={!series}
-        title={series ? translate('ClickToChangeSeason') : undefined}
+        title={series ? translate('ClickToChangeChapter') : undefined}
         onPress={onSelectSeasonPress}
       >
         {showSeasonNumberPlaceholder ? (
@@ -457,7 +457,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
         isDisabled={!series || requiresSeasonNumber}
         title={
           series && !requiresSeasonNumber
-            ? translate('ClickToChangeEpisode')
+            ? translate('ClickToChangeChapter')
             : undefined
         }
         onPress={onSelectEpisodePress}

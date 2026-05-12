@@ -352,7 +352,7 @@ function EditDelayProfileModalContent({
             ) : null}
 
             {id === 1 ? (
-              <Alert>{translate('DefaultDelayProfileSeries')}</Alert>
+              <Alert>{translate('DefaultDelayProfileManga')}</Alert>
             ) : (
               <FormGroup>
                 <FormLabel>{translate('Tags')}</FormLabel>
@@ -361,7 +361,7 @@ function EditDelayProfileModalContent({
                   type={inputTypes.TAG}
                   name="tags"
                   {...tags}
-                  helpText={translate('DelayProfileSeriesTagsHelpText')}
+                  helpText={translate('DelayProfileMangaTagsHelpText')}
                   onChange={onInputChange}
                 />
               </FormGroup>

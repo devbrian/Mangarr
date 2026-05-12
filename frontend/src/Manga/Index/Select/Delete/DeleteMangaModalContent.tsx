@@ -80,7 +80,7 @@ function DeleteMangaModalContent({
               type={inputTypes.CHECK}
               name="addImportListExclusion"
               value={addImportListExclusion}
-              helpText={translate('AddListExclusionSeriesHelpText')}
+              helpText={translate('AddListExclusionMangaHelpText')}
               onChange={onDeleteOptionChange}
             />
           </FormGroup>

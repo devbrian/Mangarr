@@ -1095,8 +1095,8 @@ function InteractiveImportModalContentInner(
       <ConfirmModal
         isOpen={isConfirmDeleteModalOpen}
         kind={kinds.DANGER}
-        title={translate('DeleteSelectedEpisodeFiles')}
-        message={translate('DeleteSelectedEpisodeFilesHelpText')}
+        title={translate('DeleteSelectedChapterFiles')}
+        message={translate('DeleteSelectedChapterFilesHelpText')}
         confirmLabel={translate('Delete')}
         onConfirm={handleConfirmDelete}
         onCancel={handleConfirmDeleteModalClose}

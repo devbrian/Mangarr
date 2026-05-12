@@ -231,7 +231,7 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
 
       <ModalFooter className={styles.modalFooter}>
         <div className={styles.selected}>
-          {translate('CountSeriesSelected', { count: selectedCount })}
+          {translate('CountMangaSelected', { count: selectedCount })}
         </div>
 
         <div>

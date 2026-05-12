@@ -160,7 +160,7 @@ function MangaIndexSortMenu(props: MangaIndexSortMenuProps) {
           sortDirection={sortDirection}
           onPress={onSortSelect}
         >
-          {translate('AverageSizePerEpisode')}
+          {translate('AverageSizePerChapter')}
         </SortMenuItem>
 
         <SortMenuItem

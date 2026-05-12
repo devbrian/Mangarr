@@ -142,7 +142,7 @@ function DeleteMangaForm({ manga, onModalClose }: DeleteMangaFormProps) {
               type={inputTypes.CHECK}
               name="addImportListExclusion"
               value={addImportListExclusion}
-              helpText={translate('AddListExclusionSeriesHelpText')}
+              helpText={translate('AddListExclusionMangaHelpText')}
               onChange={onAddImportListExclusionChange}
             />
           </FormGroup>
