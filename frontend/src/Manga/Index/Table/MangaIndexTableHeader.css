@@ -18,20 +18,6 @@
   flex-grow: 1;
 }
 
-.seriesType {
-  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
-
-  flex: 0 0 100px;
-}
-
-.network {
-  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
-
-  flex: 2 0 90px;
-}
-
-.originalCountry,
-.originalLanguage,
 .qualityProfileId {
   composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
 
@@ -40,8 +26,6 @@
 
 .releaseGroups,
 .releaseTypes,
-.nextAiring,
-.previousAiring,
 .added,
 .genres {
   composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
@@ -49,36 +33,10 @@
   flex: 0 0 180px;
 }
 
-.episodeFileQualities {
-  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
-
-  flex: 0 0 220px;
-}
-
-.seasonCount,
 .certification {
   composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
 
   flex: 0 0 100px;
-}
-
-.seasonFolder {
-  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
-
-  flex: 0 0 150px;
-}
-
-.episodeProgress,
-.latestSeason {
-  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
-
-  flex: 0 0 150px;
-}
-
-.episodeCount {
-  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
-
-  flex: 0 0 130px;
 }
 
 .year {
@@ -99,12 +57,6 @@
   flex: 0 0 120px;
 }
 
-.averageSizePerEpisode {
-  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
-
-  flex: 0 0 160px;
-}
-
 .ratings {
   composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
 
@@ -115,12 +67,6 @@
   composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
 
   flex: 1 0 60px;
-}
-
-.useSceneNumbering {
-  composes: headerCell from '~Components/Table/VirtualTableHeaderCell.css';
-
-  flex: 0 0 145px;
 }
 
 .monitorNewItems {

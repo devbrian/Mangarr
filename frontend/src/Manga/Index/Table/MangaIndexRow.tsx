@@ -3,7 +3,6 @@ import React, { useCallback, useState } from 'react';
 import { useSelect } from 'App/Select/SelectContext';
 import CommandNames from 'Commands/CommandNames';
 import { useExecuteCommand } from 'Commands/useCommands';
-import CheckInput from 'Components/Form/CheckInput';
 import HeartRating from 'Components/HeartRating';
 import IconButton from 'Components/Link/IconButton';
 import Link from 'Components/Link/Link';
@@ -15,7 +14,6 @@ import VirtualTableSelectCell from 'Components/Table/Cells/VirtualTableSelectCel
 import Column from 'Components/Table/Column';
 import { icons } from 'Helpers/Props';
 import ReleaseType from 'InteractiveImport/ReleaseType';
-import useCountryName from 'Internationalization/useCountryName';
 // fix(home-card-edit-button-no-op): replaced the Phase 15 Plan 15-12
 // `null : null` per-row Edit modal stub with the real per-manga
 // `Manga/Edit/EditMangaModal` shipped in PR #27. Sonarr-consistency-audit:
@@ -31,13 +29,18 @@ import { useMangaTableOptions } from 'Manga/mangaOptionsStore';
 import MangaTitleLink from 'Manga/MangaTitleLink';
 import { SelectStateInputProps } from 'typings/props';
 import formatBytes from 'Utilities/Number/formatBytes';
-import titleCase from 'Utilities/String/titleCase';
 import translate from 'Utilities/String/translate';
-import MangaIndexProgressBar from '../ProgressBar/MangaIndexProgressBar';
 import useMangaIndexItem from '../useMangaIndexItem';
 import hasGrowableColumns from './hasGrowableColumns';
-// SeasonsCell omitted per Plan 07-04 Lock #10 (no seasons in manga). Cells
-// referencing 'seasons' / 'latestSeason' are short-circuited to a hyphen below.
+// Phase 17.3 D-14 (2026-05-11): Table view forked to drop TV-shape carry-over
+// reads (network / originalCountry / originalLanguage / nextAiring /
+// previousAiring / seasonFolder / seasons / seriesType / useSceneNumbering)
+// and the season/episode-count columns (latestSeason / episodeCount /
+// episodeProgress / averageSizePerEpisode / episodeFileQualities) — historical
+// Plan 07-04 Lock #10 verbatim-inheritance carry-over now unwound per the
+// "v1 ships free of TV vocabulary" lock. Chapter-shape progress wiring deferred
+// to a future plan; `chapterProgress` column in mangaOptionsStore is currently
+// inert at the row level until wired.
 import MangaStatusCell from './MangaStatusCell';
 import styles from './MangaIndexRow.css';
 
@@ -67,7 +70,6 @@ function MangaIndexRow(props: MangaIndexRowProps) {
   const {
     manga,
     qualityProfile,
-    latestSeason,
     isRefreshingManga,
     isSearchingManga,
   } = useMangaIndexItem(mangaId);
@@ -78,7 +80,6 @@ function MangaIndexRow(props: MangaIndexRowProps) {
   const [hasBannerError, setHasBannerError] = useState(false);
   const [isEditMangaModalOpen, setIsEditMangaModalOpen] = useState(false);
   const { getIsSelected, toggleSelected } = useSelect();
-  const originalCountryName = useCountryName(manga?.originalCountry);
 
   const onRefreshPress = useCallback(() => {
     executeCommand({
@@ -114,10 +115,6 @@ function MangaIndexRow(props: MangaIndexRowProps) {
     setIsEditMangaModalOpen(false);
   }, [setIsEditMangaModalOpen]);
 
-  const checkInputCallback = useCallback(() => {
-    // Mock handler to satisfy `onChange` being required for `CheckInput`.
-  }, []);
-
   const onSelectedChange = useCallback(
     ({ id, value, shiftKey }: SelectStateInputProps) => {
       toggleSelected({
@@ -140,35 +137,20 @@ function MangaIndexRow(props: MangaIndexRowProps) {
     status,
     path,
     titleSlug,
-    nextAiring,
-    previousAiring,
     added,
     statistics = {} as Statistics,
-    seasonFolder,
     images,
-    seriesType,
-    network,
-    originalLanguage,
     certification,
     year,
-    useSceneNumbering,
     genres = [],
     ratings,
-    // seasons / seasonCount unreferenced after Plan 07-04 Lock #10 dropped
-    // SeasonsCell + the related cells; kept on the destructure because the
-    // verbatim port elsewhere may grow them back in a future plan.
     tags = [],
   } = manga;
-  void manga.seasons;
 
   const {
-    episodeCount = 0,
-    episodeFileCount = 0,
-    totalEpisodeCount = 0,
     sizeOnDisk = 0,
     releaseGroups = [],
     releaseTypes = [],
-    episodeFileQualities = [],
   } = statistics;
 
   return (
@@ -236,69 +218,11 @@ function MangaIndexRow(props: MangaIndexRowProps) {
           );
         }
 
-        if (name === 'seriesType') {
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              {titleCase(seriesType)}
-            </VirtualTableRowCell>
-          );
-        }
-
-        if (name === 'network') {
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              {network}
-            </VirtualTableRowCell>
-          );
-        }
-
-        if (name === 'originalCountry') {
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              {originalCountryName}
-            </VirtualTableRowCell>
-          );
-        }
-
-        if (name === 'originalLanguage') {
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              {originalLanguage?.name ?? ''}
-            </VirtualTableRowCell>
-          );
-        }
-
         if (name === 'qualityProfileId') {
           return (
             <VirtualTableRowCell key={name} className={styles[name]}>
               {qualityProfile?.name ?? ''}
             </VirtualTableRowCell>
-          );
-        }
-
-        if (name === 'nextAiring') {
-          return (
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore ts(2739)
-            <RelativeDateCell
-              key={name}
-              className={styles[name]}
-              date={nextAiring}
-              component={VirtualTableRowCell}
-            />
-          );
-        }
-
-        if (name === 'previousAiring') {
-          return (
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore ts(2739)
-            <RelativeDateCell
-              key={name}
-              className={styles[name]}
-              date={previousAiring}
-              component={VirtualTableRowCell}
-            />
           );
         }
 
@@ -312,81 +236,6 @@ function MangaIndexRow(props: MangaIndexRowProps) {
               date={added}
               component={VirtualTableRowCell}
             />
-          );
-        }
-
-        if (name === 'seasonCount') {
-          // Manga has no seasons (Plan 07-04 Lock #10). Render an em-dash; the
-          // 'seasonCount' column is hidden by default in mangaOptionsStore but
-          // a user with TV cookies could land it here so we keep the branch.
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              —
-            </VirtualTableRowCell>
-          );
-        }
-
-        if (name === 'seasonFolder') {
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              <CheckInput
-                name="seasonFolder"
-                value={seasonFolder}
-                isDisabled={true}
-                onChange={checkInputCallback}
-              />
-            </VirtualTableRowCell>
-          );
-        }
-
-        if (name === 'episodeProgress') {
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              <MangaIndexProgressBar
-                mangaId={mangaId}
-                monitored={monitored}
-                status={status}
-                episodeCount={episodeCount}
-                episodeFileCount={episodeFileCount}
-                totalEpisodeCount={totalEpisodeCount}
-                width={125}
-                detailedProgressBar={true}
-                isStandalone={true}
-              />
-            </VirtualTableRowCell>
-          );
-        }
-
-        if (name === 'latestSeason') {
-          if (!latestSeason) {
-            return <VirtualTableRowCell key={name} className={styles[name]} />;
-          }
-
-          const seasonStatistics = latestSeason.statistics || {};
-
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              <MangaIndexProgressBar
-                mangaId={mangaId}
-                seasonNumber={latestSeason.seasonNumber}
-                monitored={monitored}
-                status={status}
-                episodeCount={seasonStatistics.episodeCount ?? 0}
-                episodeFileCount={seasonStatistics.episodeFileCount ?? 0}
-                totalEpisodeCount={seasonStatistics.totalEpisodeCount ?? 0}
-                width={125}
-                detailedProgressBar={true}
-                isStandalone={true}
-              />
-            </VirtualTableRowCell>
-          );
-        }
-
-        if (name === 'episodeCount') {
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              {totalEpisodeCount}
-            </VirtualTableRowCell>
           );
         }
 
@@ -410,17 +259,6 @@ function MangaIndexRow(props: MangaIndexRowProps) {
           return (
             <VirtualTableRowCell key={name} className={styles[name]}>
               {formatBytes(sizeOnDisk)}
-            </VirtualTableRowCell>
-          );
-        }
-
-        if (name === 'averageSizePerEpisode') {
-          const averageSize =
-            totalEpisodeCount > 0 ? sizeOnDisk / totalEpisodeCount : 0;
-
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              {averageSize ? formatBytes(averageSize) : null}
             </VirtualTableRowCell>
           );
         }
@@ -486,43 +324,10 @@ function MangaIndexRow(props: MangaIndexRowProps) {
           );
         }
 
-        if (name === 'episodeFileQualities') {
-          const joinedQualities = episodeFileQualities
-            .map((q) => (q as { name?: string }).name || '')
-            .join(', ');
-          const truncatedQualities =
-            episodeFileQualities.length > 3
-              ? `${episodeFileQualities
-                  .slice(0, 3)
-                  .map((q) => (q as { name?: string }).name || '')
-                  .join(', ')}...`
-              : joinedQualities;
-
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              <span title={joinedQualities}>{truncatedQualities}</span>
-            </VirtualTableRowCell>
-          );
-        }
-
         if (name === 'tags') {
           return (
             <VirtualTableRowCell key={name} className={styles[name]}>
               <MangaTagList tags={tags} />
-            </VirtualTableRowCell>
-          );
-        }
-
-        if (name === 'useSceneNumbering') {
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              <CheckInput
-                className={styles.checkInput}
-                name="useSceneNumbering"
-                value={useSceneNumbering}
-                isDisabled={true}
-                onChange={checkInputCallback}
-              />
             </VirtualTableRowCell>
           );
         }
