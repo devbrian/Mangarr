@@ -22,7 +22,6 @@ Live view of active downloads from the configured download clients.
 | `QueueRow.tsx` | One queue item |
 | `QueueDetails.tsx`, `Details/QueueDetailsProvider.tsx` | Details inline / modal. `QueueDetailsProvider` repointed (2026-05-09) from the deleted TV `/queue/details` route onto `/manga/queue/details` (Phase 13 Plan 13-08 `MangaQueueDetailsController`); filter params mapped from TV shape (`seriesId` / `episodeIds`) to manga shape (`mangaId` / `chapterIds`); the legacy `all=true` discriminator dropped (manga endpoint returns the full queue with no filter). Helper hooks (`useQueueDetailsForSeries` / `useQueueItemForEpisode` / `useIsDownloadingEpisodes`) fall back to manga-shape fields when TV-shape ones are absent. React Query key now matches the `SignalRListener.tsx:357-364` `manga/queue/details` invalidation handler. |
 | `QueueStatus.tsx`, `QueueStatusCell.tsx`, `Status/useQueueStatus.ts` | Status badge (sidebar count + queue page header). `useQueueStatus` repointed (2026-05-10, issue #45) from the deleted TV `/queue/status` route onto `/manga/queue/status` (Phase 13 Plan 13-09 `MangaQueueStatusController`). The `QueueStatus` TypeScript interface is unchanged because `MangaQueueStatusResource` mirrors `QueueStatusResource` field-for-field (`TotalCount` / `Count` / `UnknownCount` / `Errors` / `Warnings` / `UnknownErrors` / `UnknownWarnings`). React Query key now matches the `SignalRListener.tsx:366-380` `manga/queue/status` `setQueryData` handler — pre-fix the cache key was `['/queue/status']` so SignalR pushes were silently dropped on the floor (latent cache-staleness bug fixed alongside the 404). |
-| `EpisodeCellContent.tsx`, `EpisodeTitleCellContent.tsx` | Per-episode rendering |
 | `ProtocolLabel.tsx` | Usenet/Torrent badge |
 | `QueueFilterModal.tsx` | Filter |
 | `queueOptionsStore.ts` | Zustand options |
@@ -75,7 +74,13 @@ These views are **largely reusable**. Migration is mostly terminology:
 | Episode | Chapter |
 | Season | Volume |
 | "Episode title" column | "Chapter title" column |
-| `EpisodeCellContent`, `EpisodeTitleCellContent` | Rename to `ChapterCellContent`, `ChapterTitleCellContent` |
+
+**Note (Phase 17.3 D-07):** Phase 15 Plan 15-12 shipped `EpisodeCellContent.tsx`
+and `EpisodeTitleCellContent.tsx` as 4-line `return null` no-op stubs to
+satisfy the verbatim Sonarr cell-content slot. Phase 17.3 Plan 17.3-04
+deleted both — no chapter-domain consumer ever existed (only this CLAUDE.md
+referenced them). If a chapter-domain cell-content is needed later, author
+it fresh against a real consumer rather than reviving a stub.
 
 The data shapes are minimally different (fields like `episodeId` become `chapterId`).
 
