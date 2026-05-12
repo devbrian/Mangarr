@@ -37,17 +37,22 @@ export default useTagDetails;
 export const useTagDetail = (id: number) => {
   const { data: tagDetails } = useTagDetails();
 
-  return (
-    tagDetails.find((tagDetail) => tagDetail.id === id) ?? {
-      delayProfileIds: [],
-      importListIds: [],
-      notificationIds: [],
-      restrictionIds: [],
-      excludedReleaseProfileIds: [],
-      indexerIds: [],
-      downloadClientIds: [],
-      autoTagIds: [],
-      mangaIds: [],
-    }
-  );
+  // Sonarr divergence: Phase 17.3 Plan 17.3-13b fix-forward — backend
+  // `/api/v5/tag/detail` may OMIT id-array fields that are empty
+  // (importListIds, autoTagIds observed missing on a fresh tag). Spread the
+  // empty-array defaults FIRST, then overlay the API response so any
+  // missing field destructures to [] instead of undefined → crash at
+  // `Tag.tsx:42 isTagUsed` reading `.length` on undefined.
+  return {
+    delayProfileIds: [],
+    importListIds: [],
+    notificationIds: [],
+    restrictionIds: [],
+    excludedReleaseProfileIds: [],
+    indexerIds: [],
+    downloadClientIds: [],
+    autoTagIds: [],
+    mangaIds: [],
+    ...(tagDetails.find((tagDetail) => tagDetail.id === id) ?? {}),
+  };
 };
