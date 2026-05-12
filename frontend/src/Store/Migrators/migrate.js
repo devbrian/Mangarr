@@ -1,5 +1,5 @@
-import migrateAddSeriesDefaults from './migrateAddSeriesDefaults';
+import migrateAddMangaDefaults from './migrateAddMangaDefaults';
 
 export default function migrate(persistedState) {
-  migrateAddSeriesDefaults(persistedState);
+  migrateAddMangaDefaults(persistedState);
 }

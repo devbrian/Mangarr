@@ -1,7 +1,7 @@
 import { get } from 'lodash';
 import monitorOptions from 'Utilities/Series/monitorOptions';
 
-export default function migrateAddSeriesDefaults(persistedState) {
+export default function migrateAddMangaDefaults(persistedState) {
   const monitor = get(persistedState, 'addSeries.defaults.monitor');
 
   if (!monitor) {
