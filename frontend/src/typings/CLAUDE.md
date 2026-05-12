@@ -50,39 +50,38 @@ TypeScript interface definitions mirroring the backend REST API resources (DTOs)
 
 ## Conventions
 
-- **Names mirror backend resources** — `SeriesResource` (C#) ↔ `Series` (TS, declared in `frontend/src/Series/Series.ts`, not here). The `typings/` folder is for **shared / cross-cutting** types.
-- Domain types like `Series`, `Episode`, `EpisodeFile` live in their respective feature module (`Series/Series.ts`, etc.), not here.
+- **Names mirror backend resources** — `MangaResource` (C#) ↔ `Manga` (TS, declared in `frontend/src/Manga/Manga.ts`, not here). The `typings/` folder is for **shared / cross-cutting** types.
+- Domain types like `Manga`, `Chapter`, `ChapterFile` live in their respective feature module (`Manga/Manga.ts`, `Chapter/Chapter.ts`, etc.), not here.
 - `Field.ts` is critical: it defines the type for dynamically-built provider forms (driven by backend `ClientSchema`).
 
 ## Related Type Locations
 
 | Type | Defined In |
 |------|-----------|
-| `Series` | `frontend/src/Series/Series.ts` |
-| `Episode` | `frontend/src/Episode/Episode.ts` |
-| `Season` | (inline in Series.ts) |
-| `EpisodeFile` | `frontend/src/EpisodeFile/EpisodeFile.ts` |
-| `Quality` | `frontend/src/Quality/Quality.ts` |
+| `Quality` | `frontend/src/Quality/Quality.ts` (Sonarr-shape; Phase 5 D-04 dropped from manga decision flow but type retained for back-compat with TV-shape consumers) |
 | `Language` | `frontend/src/Language/Language.ts` |
 | `Tag` | `frontend/src/Tags/...` |
-| `Manga` | `frontend/src/Manga/Manga.ts` (Phase 7 Plan 07-03) |
+| `Manga` | `frontend/src/Manga/Manga.ts` (Phase 7 Plan 07-03; Phase 17.3 Plan 17.3-12 D-13 trimmed TV-shape carry-over fields) |
 | `Chapter` | `frontend/src/Chapter/Chapter.ts` (Phase 7 Plan 07-03) |
 | `AddMangaResult` / `AddMangaPayload` | `frontend/src/AddManga/AddManga.ts` (Phase 7 Plan 07-03) |
 
+Note: Sonarr `Series` / `Episode` / `EpisodeFile` / `Season` TypeScript type
+files lived under their respective `frontend/src/{Series,Episode,EpisodeFile,Season}/`
+feature modules until Phase 17.3 Plan 17.3-13 (D-09/D-10) atomic stub-dir
+delete retired the entire subtree. The manga peers above are now canonical.
+
 ## Manga Adaptation Notes
 
-| Action | Effort |
+| Action | Status |
 |--------|--------|
-| Rename `Series.ts` (in feature module) → `Manga.ts` | High (many imports) |
-| Rename `Episode.ts` → `Chapter.ts` | High |
-| Update fields in feature-module type files (remove TV-specific, add manga) | High |
-| Keep most `typings/*.ts` files unchanged (system types are agnostic) | Low |
+| Rename `Series.ts` (in feature module) → `Manga.ts` | **Done** — Phase 7 Plan 07-03 (Manga.ts shipped); Phase 17.3 Plan 17.3-12 D-13 (carry-over trim); Plan 17.3-13 (Series.ts stub deleted) |
+| Rename `Episode.ts` → `Chapter.ts` | **Done** — Phase 7 Plan 07-03 (Chapter.ts shipped); Plan 17.3-13 (Episode.ts stub deleted) |
+| Update fields in feature-module type files | **Done** — Plan 17.3-12 D-13 stripped Sonarr-shape carry-over fields from Manga.ts |
+| Keep most `typings/*.ts` files unchanged | **Done** — `typings/MangaQueueItem.ts` / `typings/ChapterHistory.ts` / `typings/MangaBlocklist.ts` shipped Phase 6 Plan 06-09; rest of `typings/` is media-agnostic |
 
 ## Cross-References
 
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview
-- [../Series/CLAUDE.md](../Series/CLAUDE.md) — Series type
-- [../Episode/CLAUDE.md](../Episode/CLAUDE.md) — Episode type
 - [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Manga type (Phase 7 Plan 07-03)
 - [../Chapter/CLAUDE.md](../Chapter/CLAUDE.md) — Chapter type (Phase 7 Plan 07-03)
 - [../AddManga/CLAUDE.md](../AddManga/CLAUDE.md) — AddManga flow types (Phase 7 Plan 07-03)

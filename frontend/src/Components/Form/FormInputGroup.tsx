@@ -31,9 +31,9 @@ import IndexerSelectInput, {
 import LanguageSelectInput, {
   LanguageSelectInputProps,
 } from './Select/LanguageSelectInput';
-import MonitorEpisodesSelectInput, {
-  MonitorEpisodesSelectInputProps,
-} from './Select/MonitorEpisodesSelectInput';
+import MonitorChaptersSelectInput, {
+  MonitorChaptersSelectInputProps,
+} from './Select/MonitorChaptersSelectInput';
 import MonitorNewItemsSelectInput, {
   MonitorNewItemsSelectInputProps,
 } from './Select/MonitorNewItemsSelectInput';
@@ -46,12 +46,12 @@ import QualityProfileSelectInput, {
 import RootFolderSelectInput, {
   RootFolderSelectInputProps,
 } from './Select/RootFolderSelectInput';
-import SeriesTypeSelectInput, {
-  SeriesTypeSelectInputProps,
-} from './Select/SeriesTypeSelectInput';
+import MangaTypeSelectInput, {
+  MangaTypeSelectInputProps,
+} from './Select/MangaTypeSelectInput';
 import UMaskInput, { UMaskInputProps } from './Select/UMaskInput';
 import DeviceInput, { DeviceInputProps } from './Tag/DeviceInput';
-import SeriesTagInput, { SeriesTagInputProps } from './Tag/SeriesTagInput';
+import MangaTagInput, { MangaTagInputProps } from './Tag/MangaTagInput';
 import TagSelectInput, { TagSelectInputProps } from './Tag/TagSelectInput';
 import TextTagInput, { TextTagInputProps } from './Tag/TextTagInput';
 import TextArea, { TextAreaProps } from './TextArea';
@@ -72,7 +72,7 @@ const componentMap: Record<InputType, ElementType> = {
   indexerSelect: IndexerSelectInput,
   keyValueList: KeyValueListInput,
   languageSelect: LanguageSelectInput,
-  monitorEpisodesSelect: MonitorEpisodesSelectInput,
+  monitorEpisodesSelect: MonitorChaptersSelectInput,
   monitorNewItemsSelect: MonitorNewItemsSelectInput,
   number: NumberInput,
   oauth: OAuthInput,
@@ -81,9 +81,9 @@ const componentMap: Record<InputType, ElementType> = {
   qualityProfileSelect: QualityProfileSelectInput,
   rootFolderSelect: RootFolderSelectInput,
   select: EnhancedSelectInput,
-  seriesTag: SeriesTagInput,
-  seriesTypeSelect: SeriesTypeSelectInput,
-  tag: SeriesTagInput,
+  seriesTag: MangaTagInput,
+  seriesTypeSelect: MangaTypeSelectInput,
+  tag: MangaTagInput,
   tagSelect: TagSelectInput,
   text: TextInput,
   textArea: TextArea,
@@ -122,7 +122,7 @@ type PickProps<V, C extends InputType> = C extends 'text'
   : C extends 'languageSelect'
   ? LanguageSelectInputProps
   : C extends 'monitorEpisodesSelect'
-  ? MonitorEpisodesSelectInputProps
+  ? MonitorChaptersSelectInputProps
   : C extends 'monitorNewItemsSelect'
   ? MonitorNewItemsSelectInputProps
   : C extends 'number'
@@ -141,11 +141,11 @@ type PickProps<V, C extends InputType> = C extends 'text'
   ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
     EnhancedSelectInputProps<any, V>
   : C extends 'seriesTag'
-  ? SeriesTagInputProps<V>
+  ? MangaTagInputProps<V>
   : C extends 'seriesTypeSelect'
-  ? SeriesTypeSelectInputProps
+  ? MangaTypeSelectInputProps
   : C extends 'tag'
-  ? SeriesTagInputProps<V>
+  ? MangaTagInputProps<V>
   : C extends 'tagSelect'
   ? TagSelectInputProps
   : C extends 'text'

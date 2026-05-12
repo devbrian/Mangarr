@@ -155,7 +155,7 @@ function ReleaseSceneIndicator(props: ReleaseSceneIndicatorProps) {
     } else {
       messages.push(
         <div key="unknown-series">
-          {translate('ReleaseSceneIndicatorUnknownSeries')}
+          {translate('ReleaseSceneIndicatorUnknownManga')}
         </div>
       );
     }

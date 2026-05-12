@@ -127,8 +127,11 @@ export default {
         selectedSchema.minRefreshInterval = payload.minRefreshInterval;
         selectedSchema.enableAutomaticAdd = true;
         selectedSchema.shouldMonitor = 'all';
-        selectedSchema.seriesType = 'standard';
-        selectedSchema.seasonFolder = true;
+        // Sonarr divergence: Phase 17.3 D-13/D-14 — dropped
+        // `selectedSchema.seriesType = 'standard'` and
+        // `selectedSchema.seasonFolder = true` defaults (manga has no
+        // seriesType and no seasonFolder per DOMAIN-02; both fields removed
+        // from Manga.ts per D-13).
         selectedSchema.rootFolderPath = '';
 
         return selectedSchema;

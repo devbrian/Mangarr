@@ -34,7 +34,7 @@ function DeleteMangaFilesModalContent({
 
   return (
     <ModalContent onModalClose={onModalClose}>
-      <ModalHeader>{translate('DeleteSelectedSeriesFiles')}</ModalHeader>
+      <ModalHeader>{translate('DeleteSelectedMangaFiles')}</ModalHeader>
 
       <ModalBody>
         <div className={styles.message}>

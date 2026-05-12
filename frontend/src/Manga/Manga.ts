@@ -14,20 +14,14 @@
 // emit are marked optional so consumers can read them defensively until the
 // MangaResource is extended. See 07-03-SUMMARY.md "Forward-looking shape" note.
 //
-// Plan 07-04 augmentation: the inherited Series/Index components (verbatim-ported
-// to Manga/Index per Lock #10) reference Sonarr-shape Series fields like
-// `originalLanguage`, `network`, `seasons`, `statistics`, `nextAiring`, etc. —
-// these are typed here as OPTIONAL so the components compile while reading
-// undefined defensively at runtime. Phase 8 cutover may trim or rename these
-// once the Sonarr code path retires; until then, manga-domain irrelevance is
-// expressed via "field never populated by the backend" rather than "field absent
-// from the type" so we preserve the verbatim Sonarr inheritance per design
-// philosophy ("Preserve Sonarr's shape wherever it works").
-//
-// Phase 8 cleanup: collapse with Series when Tv/ deletes.
+// Phase 17.3 D-13 completed (2026-05-11): the Sonarr-shape carry-over fields
+// (network/seasons/seriesType/seasonFolder/firstAired/.../tvdbId/etc.) have
+// been removed from the Manga interface per the user's "v1 ships free of TV
+// vocabulary" lock. The Wave 4 per-component forks (Plans 17.3-08..12) drop
+// the corresponding consumer references. Statistics carries chapter-shape
+// progress numbers only; the Season interface was deleted (manga has no
+// seasons per DOMAIN-02).
 import ModelBase from 'App/ModelBase';
-import Language from 'Language/Language';
-// Sonarr divergence: Phase 15 Plan 15-12 — Quality/Quality import dropped per cascade absorption (Plan 15-03 deleted Quality cascade). Statistics.episodeFileQualities[] is Sonarr carry-over and never populated for manga; widened to unknown[].
 import ReleaseType from 'InteractiveImport/ReleaseType';
 
 export type MangaMonitor =
@@ -70,25 +64,9 @@ export interface Statistics {
   totalChapterCount?: number;
   monitoredChapterCount?: number;
   percentOfChapters?: number;
-  previousAiring?: Date;
   releaseGroups?: string[];
   releaseTypes?: ReleaseType[];
-  // Sonarr-shape carry-over so verbatim-inherited components still compile;
-  // never populated for manga (chapter file qualities supersede episode file
-  // qualities once Phase 8 renames).
-  episodeCount?: number;
-  episodeFileCount?: number;
-  totalEpisodeCount?: number;
-  monitoredEpisodeCount?: number;
-  seasonCount?: number;
-  episodeFileQualities?: unknown[];
   sizeOnDisk?: number;
-}
-
-export interface Season {
-  monitored: boolean;
-  seasonNumber: number;
-  statistics?: Statistics;
 }
 
 export interface Ratings {
@@ -98,11 +76,6 @@ export interface Ratings {
 
 export interface AlternateTitle {
   title: string;
-  // Sonarr-shape carry-over (manga has no scene-numbering per
-  // PROJECT.md "Scene numbering" Out-of-Scope).
-  seasonNumber?: number;
-  sceneSeasonNumber?: number;
-  sceneOrigin?: 'unknown' | 'unknown:tvdb' | 'mixed' | 'tvdb';
   comment?: string;
 }
 
@@ -148,29 +121,7 @@ interface Manga extends ModelBase {
   ratings?: Ratings;
   alternateTitles?: AlternateTitle[];
   upgradeAllowedOverride?: boolean;
-  // Sonarr-shape carry-overs so verbatim-inherited components compile (Plan 07-04
-  // Lock #10). All optional and runtime-undefined for manga; Phase 8 trims.
-  network?: string;
-  originalCountry?: string;
-  originalLanguage?: Language;
-  firstAired?: string;
-  lastAired?: string;
-  previousAiring?: string;
-  nextAiring?: string;
-  // Sonarr-shape carry-over: widened to include 'anime' (TV consumer literal) so
-  // verbatim-inherited components compile. Always undefined for manga at runtime.
-  seriesType?: MangaType | 'anime';
-  seasonFolder?: boolean;
-  seasons?: Season[];
   statistics?: Statistics;
-  ended?: boolean;
-  runtime?: number;
-  imdbId?: string;
-  tvdbId?: number;
-  tvMazeId?: number;
-  tvRageId?: number;
-  tmdbId?: number;
-  useSceneNumbering?: boolean;
   addOptions?: MangaAddOptions;
 }
 

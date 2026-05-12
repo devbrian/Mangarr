@@ -84,10 +84,9 @@ public class MangaStatisticsResource
     public int MonitoredChapterCount { get; set; }
     public long SizeOnDisk { get; set; }
 
-    // TV-shape aliases — the Phase 7 MangaIndexPoster + MangaIndexOverview
-    // components inherit verbatim from Series/Index/* and read these names.
-    // Phase 8 collapse will rename consumers to the chapter-shape names and
-    // drop these aliases.
+    // TV-shape aliases — Plan 07-04 historical lock; verbatim-inheritance
+    // unwound by Phase 17.3 D-13/D-14. Consumers migrate to chapter-shape
+    // names; these aliases remain for wire-shape backward compatibility.
     public int EpisodeCount { get; set; }
     public int EpisodeFileCount { get; set; }
     public int TotalEpisodeCount { get; set; }

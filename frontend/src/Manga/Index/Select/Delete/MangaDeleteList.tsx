@@ -29,7 +29,11 @@ function MangaDeleteList({
     <>
       <ul>
         {manga.map(({ title, path, statistics = {} }) => {
-          const { episodeFileCount = 0, sizeOnDisk = 0 } = statistics;
+          // Sonarr divergence: Phase 17.3 D-13/D-14 — destructure
+          // chapterFileCount (manga-canonical) instead of episodeFileCount
+          // (Manga.ts D-13 trim removed the TV-shape episodeFileCount field
+          // from Statistics).
+          const { chapterFileCount = 0, sizeOnDisk = 0 } = statistics;
 
           return (
             <li key={title}>
@@ -41,11 +45,11 @@ function MangaDeleteList({
                     -<span className={styles.path}>{path}</span>
                   </span>
 
-                  {episodeFileCount ? (
+                  {chapterFileCount ? (
                     <span className={styles.statistics}>
                       (
-                      {translate('DeleteMangaFolderEpisodeCount', {
-                        episodeFileCount,
+                      {translate('DeleteMangaFolderChapterCount', {
+                        count: chapterFileCount,
                         size: formatBytes(sizeOnDisk),
                       })}
                       )
@@ -60,8 +64,8 @@ function MangaDeleteList({
 
       {showFileDetails && totalEpisodeFileCount ? (
         <div className={styles.deleteFilesMessage}>
-          {translate('DeleteMangaFolderEpisodeCount', {
-            episodeFileCount: totalEpisodeFileCount,
+          {translate('DeleteMangaFolderChapterCount', {
+            count: totalEpisodeFileCount,
             size: formatBytes(totalSizeOnDisk),
           })}
         </div>

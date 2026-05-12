@@ -197,7 +197,7 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
   return (
     <ModalContent onModalClose={onModalClose}>
       <ModalHeader>
-        {translate('EditSeriesModalHeader', { title: manga.title })}
+        {translate('EditMangaModalHeader', { title: manga.title })}
       </ModalHeader>
 
       <ModalBody>
@@ -211,7 +211,7 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
             <FormInputGroup
               type={inputTypes.CHECK}
               name="monitored"
-              helpText={translate('MonitoredEpisodesHelpText')}
+              helpText={translate('MonitoredChaptersHelpText')}
               {...monitored}
               onChange={handleInputChange}
             />

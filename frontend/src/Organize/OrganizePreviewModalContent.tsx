@@ -12,8 +12,11 @@ import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import { kinds } from 'Helpers/Props';
-import formatSeason from 'Season/formatSeason';
-import { useSingleSeries } from 'Series/useSeries';
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
+// Season/formatSeason DROPPED (manga has no seasons per DOMAIN-02); the call
+// site below collapsed to the season-less header path. Series/useSeries
+// rewritten to Manga/useManga peer (useSingleSeries -> useSingleManga).
+import { useSingleManga } from 'Manga/useManga';
 import { useNamingSettings } from 'Settings/MediaManagement/Naming/useNamingSettings';
 import { CheckInputChanged } from 'typings/inputs';
 import translate from 'Utilities/String/translate';
@@ -57,7 +60,7 @@ function OrganizePreviewModalContentInner({
     data: naming,
   } = useNamingSettings();
 
-  const series = useSingleSeries(seriesId)!;
+  const series = useSingleManga(seriesId)!;
 
   const { allSelected, allUnselected, getSelectedIds, selectAll, unselectAll } =
     useSelect<OrganizePreviewModel>();
@@ -66,10 +69,12 @@ function OrganizePreviewModalContentInner({
   const isPopulated = isPreviewFetched && isNamingFetched;
   const error = previewError || namingError;
   const { renameEpisodes } = naming;
-  // Sonarr divergence: Phase 15 Plan 15-12 — fallback to standardEpisodeFormat
-  // when seriesType undefined (manga has no TV-shape seriesType at runtime).
-  const episodeFormatKey = `${series.seriesType ?? 'standard'}EpisodeFormat` as keyof typeof naming;
-  const episodeFormat = naming[episodeFormatKey] ?? naming.standardEpisodeFormat;
+  // Sonarr divergence: Phase 17.3 D-13/D-14 — replaced
+  // `${series.seriesType ?? 'standard'}EpisodeFormat` lookup with the
+  // unconditional standardEpisodeFormat (manga has no anime-format;
+  // seriesType removed from Manga.ts per D-13). Suppresses the prior
+  // Phase 15 Plan 15-12 fallback comment now made unconditional.
+  const episodeFormat = naming.standardEpisodeFormat;
 
   const selectAllValue = getValue(allSelected, allUnselected);
 
@@ -98,13 +103,13 @@ function OrganizePreviewModalContentInner({
 
   return (
     <ModalContent onModalClose={onModalClose}>
-      <ModalHeader>
-        {seasonNumber == null
-          ? translate('OrganizeModalHeader')
-          : translate('OrganizeModalHeaderSeason', {
-              season: formatSeason(seasonNumber) ?? '',
-            })}
-      </ModalHeader>
+      {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — Season/formatSeason
+          DROPPED (manga has no seasons per DOMAIN-02). The
+          OrganizeModalHeaderSeason branch is unreachable in the manga
+          domain (seasonNumber is always null); kept here so the modal
+          shape is preserved for the v1 Activity surface, but renders the
+          season-less header unconditionally. */}
+      <ModalHeader>{translate('OrganizeModalHeader')}</ModalHeader>
 
       <ModalBody>
         {isFetching ? <LoadingIndicator /> : null}

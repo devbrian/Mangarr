@@ -195,7 +195,7 @@ function EditDownloadClientModalContent({
               <FormInputGroup
                 type={inputTypes.TAG}
                 name="tags"
-                helpText={translate('DownloadClientSeriesTagHelpText')}
+                helpText={translate('DownloadClientMangaTagHelpText')}
                 {...tags}
                 onChange={handleInputChange}
               />

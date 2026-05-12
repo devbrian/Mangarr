@@ -8713,13 +8713,6 @@
           "userRejectedExtensions": {
             "type": "string",
             "nullable": true
-          },
-          "seasonPackUpgrade": {
-            "$ref": "#/components/schemas/SeasonPackUpgradeType"
-          },
-          "seasonPackUpgradeThreshold": {
-            "type": "number",
-            "format": "double"
           }
         },
         "additionalProperties": false
@@ -10233,14 +10226,6 @@
           }
         },
         "additionalProperties": false
-      },
-      "SeasonPackUpgradeType": {
-        "enum": [
-          "all",
-          "threshold",
-          "any"
-        ],
-        "type": "string"
       },
       "SeasonPassResource": {
         "type": "object",

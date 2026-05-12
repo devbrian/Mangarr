@@ -52,7 +52,7 @@ namespace NzbDrone.Core.HealthCheck.Checks
                 return new HealthCheck(GetType(),
                     HealthCheckResult.Error,
                     HealthCheckReason.RemovedSeriesSingle,
-                    _localizationService.GetLocalizedString("RemovedSeriesSingleRemovedHealthCheckMessage", new Dictionary<string, object>
+                    _localizationService.GetLocalizedString("RemovedMangaSingleRemovedHealthCheckMessage", new Dictionary<string, object>
                     {
                         { "series", mangaText }
                     }),
@@ -62,7 +62,7 @@ namespace NzbDrone.Core.HealthCheck.Checks
             return new HealthCheck(GetType(),
                 HealthCheckResult.Error,
                 HealthCheckReason.RemovedSeriesMultiple,
-                _localizationService.GetLocalizedString("RemovedSeriesMultipleRemovedHealthCheckMessage", new Dictionary<string, object>
+                _localizationService.GetLocalizedString("RemovedMangaMultipleRemovedHealthCheckMessage", new Dictionary<string, object>
                 {
                     { "series", mangaText }
                 }),

@@ -43,11 +43,9 @@ $hoverScale: 1.05;
   font-size: 20px;
 }
 
-.nextAiring {
-  background-color: var(--seriesBackgroundColor);
-  text-align: center;
-  font-size: $smallFontSize;
-}
+/* Phase 17.3 D-14: .nextAiring class dropped — the {nextAiring ? <div ...>}
+   JSX block in MangaIndexPoster.tsx that consumed it was deleted (no airing
+   concept in manga domain per DOMAIN-01/02). */
 
 .title {
   @add-mixin truncate;

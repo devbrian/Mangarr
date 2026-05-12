@@ -207,7 +207,7 @@ namespace NzbDrone.Core.HealthCheck.Checks
                             HealthCheckResult.Error,
                             HealthCheckReason.RemotePathMappingDownloadPermissionsEpisode,
                             _localizationService.GetLocalizedString(
-                                "RemotePathMappingDownloadPermissionsEpisodeHealthCheckMessage",
+                                "RemotePathMappingDownloadPermissionsChapterHealthCheckMessage",
                                 new Dictionary<string, object>
                                 {
                                     { "path", episodePath }
@@ -252,7 +252,7 @@ namespace NzbDrone.Core.HealthCheck.Checks
                             GetType(),
                             HealthCheckResult.Error,
                             HealthCheckReason.RemotePathMappingImportEpisodeFailed,
-                            _localizationService.GetLocalizedString("RemotePathMappingImportEpisodeFailedHealthCheckMessage"),
+                            _localizationService.GetLocalizedString("RemotePathMappingImportChapterFailedHealthCheckMessage"),
                             "#remote-path-import-failed");
                     }
 

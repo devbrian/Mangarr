@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import ProtocolLabel from 'Activity/Queue/ProtocolLabel';
 import { useSelect } from 'App/Select/SelectContext';
 import Label from 'Components/Label';
-import SeriesTagList from 'Components/SeriesTagList';
+import MangaTagList from 'Components/MangaTagList';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
 import Column from 'Components/Table/Column';
@@ -102,7 +102,7 @@ function ManageIndexersModalRow(props: ManageIndexersModalRowProps) {
       <TableRowCell className={styles.priority}>{priority}</TableRowCell>
 
       <TableRowCell className={styles.tags}>
-        <SeriesTagList tags={tags} />
+        <MangaTagList tags={tags} />
       </TableRowCell>
     </TableRow>
   );

@@ -119,7 +119,7 @@ function MangaOverrideMatchModalContent(
     // MangaOverrideMatchModal siblings, the sentinel disappears and this guard tightens
     // back to per-modal `if (!mangaId)` / `if (!chapterIds.length)` shapes.
     if (!mangaId && !chapterIds.length) {
-      setError(translate('OverrideGrabNoEpisode'));
+      setError(translate('OverrideGrabNoChapter'));
       return;
     }
 

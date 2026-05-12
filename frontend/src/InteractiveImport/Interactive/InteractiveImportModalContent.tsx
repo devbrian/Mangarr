@@ -21,11 +21,14 @@ import ModalHeader from 'Components/Modal/ModalHeader';
 import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
-import { EpisodeFile } from 'EpisodeFile/EpisodeFile';
-import {
-  useDeleteEpisodeFiles,
-  useUpdateEpisodeFiles,
-} from 'EpisodeFile/useEpisodeFiles';
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
+// EpisodeFile/EpisodeFile + EpisodeFile/useEpisodeFiles no-op stub imports
+// DROPPED (Phase 15 Plan 15-12 STUB types/hooks; useEpisodeFiles returned
+// empty data, useDeleteEpisodeFiles + useUpdateEpisodeFiles returned no-op
+// callbacks). The delete-files + update-existing-files flow inside this
+// modal is gated for v1 per Phase 12 Plan 12-11 LOCK guard; replaced with
+// inline no-op stubs to preserve call-site shape until the manga ChapterFile
+// peer dir lands (tracked for v1.x — see Plan 17.3-16 Task 4 deferrals audit).
 import usePrevious from 'Helpers/Hooks/usePrevious';
 import { align, icons, kinds, scrollDirections } from 'Helpers/Props';
 import { SortDirection } from 'Helpers/Props/sortDirections';
@@ -54,8 +57,8 @@ import useInteractiveImport, {
   useUpdateInteractiveImportItems,
 } from 'InteractiveImport/useInteractiveImport';
 import Language from 'Language/Language';
+import Manga from 'Manga/Manga';
 import { QualityModel } from 'Quality/Quality';
-import Series from 'Series/Series';
 import { SortCallback } from 'typings/callbacks';
 import { CheckInputChanged } from 'typings/inputs';
 import getErrorMessage from 'Utilities/Object/getErrorMessage';
@@ -89,7 +92,12 @@ const COLUMNS = [
   },
   {
     name: 'series',
-    label: () => translate('Series'),
+    // Sonarr divergence: Phase 17.3 Plan 17.3-16 (D-04) — user-visible label
+    // swapped from translate('Series') to translate('Manga'); the column key
+    // 'series' is preserved per Plan 17.3-13 InteractiveImport LOCK (Phase 12
+    // Plan 12-11) but the user-facing label was orphaned when Phase 15-07
+    // deleted the bare "Series" i18n key. Pre-existing carry-forward fix-forward.
+    label: () => translate('Manga'),
     isSortable: true,
     isVisible: true,
   },
@@ -271,10 +279,14 @@ function InteractiveImportModalContentInner(
 
   const items = data;
 
-  const { isDeleting, deleteEpisodeFiles, deleteError } =
-    useDeleteEpisodeFiles();
-
-  const { updateEpisodeFiles } = useUpdateEpisodeFiles();
+  // Sonarr divergence: Phase 17.3 Plan 17.3-13b — useDeleteEpisodeFiles +
+  // useUpdateEpisodeFiles no-op stub hooks replaced with inline no-op
+  // call-site shape (TV InteractiveImport flow gated for v1; no Chapter
+  // peer ships in v1). v1.x cleanup at ChapterFile peer dir authoring.
+  const isDeleting = false;
+  const deleteError: unknown = null;
+  const deleteEpisodeFiles = (_args: { episodeFileIds: number[] }) => undefined;
+  const updateEpisodeFiles = (_files: unknown[]) => undefined;
 
   const [invalidRowsSelected, setInvalidRowsSelected] = useState<number[]>([]);
   const [
@@ -327,7 +339,7 @@ function InteractiveImportModalContentInner(
   const selectedIds = useSelectedIds();
 
   const bulkSelectOptions = useMemo(() => {
-    const { seasonSelectDisabled, episodeSelectDisabled } = items.reduce(
+    const { episodeSelectDisabled } = items.reduce(
       (acc, item) => {
         if (!selectedIds.includes(item.id)) {
           return acc;
@@ -356,14 +368,12 @@ function InteractiveImportModalContentInner(
         value: translate('SelectDropdown'),
         disabled: true,
       },
-      {
-        key: 'season',
-        value: translate('SelectSeason'),
-        disabled: seasonSelectDisabled,
-      },
+      // Sonarr divergence: Phase 17.3 Plan 17.3-14 — 'season' option dropped
+      // (manga has no seasons per DOMAIN-02). 'episode' option renamed to 'chapter'
+      // i18n key SelectChapters.
       {
         key: 'episode',
-        value: translate('SelectEpisodes'),
+        value: translate('SelectChapters'),
         disabled: episodeSelectDisabled,
       },
       {
@@ -391,7 +401,7 @@ function InteractiveImportModalContentInner(
     if (allowSeriesChange) {
       options.splice(1, 0, {
         key: 'series',
-        value: translate('SelectSeries'),
+        value: translate('SelectManga'),
       });
     }
 
@@ -489,7 +499,18 @@ function InteractiveImportModalContentInner(
     const finalImportMode =
       downloadIds || !showImportMode ? 'auto' : importMode;
 
-    const existingFiles: Partial<EpisodeFile>[] = [];
+    // Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeFile stub type
+    // dropped; use a structural shape matching the prior stub
+    // (seriesId/episodeNumbers/etc. preserved at runtime because the TV
+    // InteractiveImport backend is gated for v1).
+    const existingFiles: Array<{
+      id: number;
+      releaseGroup?: string;
+      quality?: unknown;
+      languages?: unknown;
+      indexerFlags?: number;
+      releaseType?: unknown;
+    }> = [];
     const files: InteractiveImportCommandOptions[] = [];
 
     if (finalImportMode === 'chooseImportMode') {
@@ -522,21 +543,21 @@ function InteractiveImportModalContentInner(
 
         if (!series) {
           setInteractiveImportErrorMessage(
-            translate('InteractiveImportNoSeries')
+            translate('InteractiveImportNoManga')
           );
           return;
         }
 
         if (isNaN(seasonNumber)) {
           setInteractiveImportErrorMessage(
-            translate('InteractiveImportNoSeason')
+            translate('InteractiveImportNoChapter')
           );
           return;
         }
 
         if (!episodes || !episodes.length) {
           setInteractiveImportErrorMessage(
-            translate('InteractiveImportNoEpisode')
+            translate('InteractiveImportNoChapter')
           );
           return;
         }
@@ -574,10 +595,11 @@ function InteractiveImportModalContentInner(
           const originalItem = originalItems.find((i) => i.id === item.id);
 
           if (isSameEpisodeFile(item, originalItem)) {
-            // Sonarr divergence: Phase 15 Plan 15-12 — EpisodeFile stub does
-            // not carry indexerFlags/releaseType; cast to any so legacy
-            // TV-shape import path still type-checks. Manga uses ChapterFile.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeFile stub
+            // type dropped (Plan 15-12 cast-to-any pattern superseded); the
+            // inline structural shape on existingFiles now covers
+            // indexerFlags/releaseType. Manga ChapterFile peer deferred to
+            // v1.x (Plan 17.3-16 Task 4 deferrals audit).
             existingFiles.push({
               id: episodeFileId,
               releaseGroup,
@@ -585,7 +607,7 @@ function InteractiveImportModalContentInner(
               languages,
               indexerFlags,
               releaseType,
-            } as any);
+            });
 
             return;
           }
@@ -609,7 +631,7 @@ function InteractiveImportModalContentInner(
 
     if (hasDuplicateEpisodes) {
       setInteractiveImportErrorMessage(
-        translate('InteractiveImportDuplicateEpisodes')
+        translate('InteractiveImportDuplicateChapters')
       );
 
       return;
@@ -709,7 +731,7 @@ function InteractiveImportModalContentInner(
   );
 
   const handleSeriesSelect = useCallback(
-    (series: Series) => {
+    (series: Manga) => {
       const updates = {
         series,
         seasonNumber: undefined,
@@ -1017,12 +1039,15 @@ function InteractiveImportModalContentInner(
         onModalClose={handleSelectModalClose}
       />
 
+      {/* Sonarr divergence: Phase 17.3 D-13/D-14 — dropped
+          isAnime={selectedItem?.series?.seriesType === 'anime'} prop pass
+          (manga has no anime-format; seriesType removed from Manga.ts per
+          D-13). */}
       <SelectEpisodeModal
         isOpen={selectModalOpen === 'episode'}
         selectedIds={orderedSelectedIds}
         seriesId={selectedItem?.series?.id}
         seasonNumber={selectedItem?.seasonNumber}
-        isAnime={selectedItem?.series?.seriesType === 'anime'}
         modalTitle={modalTitle}
         onEpisodesSelect={handleEpisodesSelect}
         onModalClose={handleSelectModalClose}
@@ -1073,8 +1098,8 @@ function InteractiveImportModalContentInner(
       <ConfirmModal
         isOpen={isConfirmDeleteModalOpen}
         kind={kinds.DANGER}
-        title={translate('DeleteSelectedEpisodeFiles')}
-        message={translate('DeleteSelectedEpisodeFilesHelpText')}
+        title={translate('DeleteSelectedChapterFiles')}
+        message={translate('DeleteSelectedChapterFilesHelpText')}
         confirmLabel={translate('Delete')}
         onConfirm={handleConfirmDelete}
         onCancel={handleConfirmDeleteModalClose}

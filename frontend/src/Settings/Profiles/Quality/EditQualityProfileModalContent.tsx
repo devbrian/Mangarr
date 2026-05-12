@@ -577,7 +577,7 @@ function EditQualityProfileModalContent({
                         name="cutoff"
                         {...cutoff}
                         values={qualities}
-                        helpText={translate('UpgradeUntilEpisodeHelpText')}
+                        helpText={translate('UpgradeUntilChapterHelpText')}
                         onChange={handleCutoffChange}
                       />
                     </FormGroup>
@@ -610,7 +610,7 @@ function EditQualityProfileModalContent({
                         name="cutoffFormatScore"
                         {...cutoffFormatScore}
                         helpText={translate(
-                          'UpgradeUntilCustomFormatScoreEpisodeHelpText'
+                          'UpgradeUntilCustomFormatScoreChapterHelpText'
                         )}
                         onChange={handleInputChange}
                       />

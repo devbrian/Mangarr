@@ -2,15 +2,19 @@
 // Role-match analog: frontend/src/Series/Index/useSeriesIndexItem.ts.
 //
 // Manga sibling preserves: composes useSingleManga + useMangaQualityProfile
-// + useCommandExecuting for refresh/search executing flags + a `latestSeason`
-// derivation (manga has no seasons; latestSeason is always undefined here for
-// shape compatibility — the inherited row still references it but renders an
-// em-dash in the seasonCount column).
+// + useCommandExecuting for refresh/search executing flags.
+//
+// Phase 17.3 D-13/D-14 (2026-05-11): dropped the `latestSeason` return-shape
+// carry-over + the orphan `Season` import (manga has no seasons per
+// DOMAIN-02 / Plan 07-04 Lock #10; the Manga.ts D-13 trim deleted the
+// Season interface, breaking the import). The Wave 4 component forks
+// (MangaIndexRow Table view per Plan 17.3-08, MangaIndexOverview per
+// 17.3-09, MangaIndexPoster per 17.3-10) dropped every consumer-side
+// `latestSeason` destructure too — no callsite still reads it.
 //
 // Phase 8 cleanup: collapse with useSeriesIndexItem when Tv/ deletes.
 import CommandNames from 'Commands/CommandNames';
 import { useCommandExecuting } from 'Commands/useCommands';
-import { Season } from 'Manga/Manga';
 import { useSingleManga } from 'Manga/useManga';
 import useMangaQualityProfile from 'Manga/useMangaQualityProfile';
 
@@ -26,17 +30,9 @@ export function useMangaIndexItem(mangaId: number) {
     mangaId,
   });
 
-  // Manga has no seasons (Plan 07-04 Lock #10). `latestSeason` always undefined
-  // — preserved as a return-shape carry-over so inherited row code compiles.
-  // Typed via the explicit return shape below to defeat TS narrowing past the
-  // initial `undefined` so callers can still access `.statistics` / `.seasonNumber`
-  // inside type-guarded branches that never execute at runtime.
-  const latestSeason = undefined as unknown as Season | undefined;
-
   return {
     manga,
     qualityProfile,
-    latestSeason,
     isRefreshingManga,
     isSearchingManga,
   };

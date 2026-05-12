@@ -10,30 +10,28 @@ Almost every change request that isn't strictly a UI tweak or API DTO change tou
 
 ## Top-Level Subdirectories (Quick Reference)
 
-Listed by **migration priority** for the Mangarr → Mangarr conversion.
+Listed by **migration status** post-Phase-17.3 (Sonarr → Mangarr conversion).
 
-### CRITICAL — Core Domain (Major Rewrite Required)
+### CRITICAL — Core Domain
 
-| Directory | Purpose | Migration Notes |
-|-----------|---------|-----------------|
-| `Tv/` | Series / Episode / Season domain | Rename: Series→Manga, Episode→Chapter, Season→Volume. **Series.cs already has MalIds + AniListIds.** See [Tv/CLAUDE.md](./Tv/CLAUDE.md). |
-| `Parser/` | Title parsing regex (~71 KB), `ParsingService` | Replace anime/TV regex with manga release patterns. See [Parser/CLAUDE.md](./Parser/CLAUDE.md). |
-| `MetadataSource/` | TVDB/TMDB integration via SkyHook | Replace with MangaDex / AniList / MangaUpdates / MyAnimeList. See [MetadataSource/CLAUDE.md](./MetadataSource/CLAUDE.md). |
-| `Qualities/` | Quality definitions (480p/720p/1080p/etc.) | Replace with manga quality tiers (raw / official / scanlation, DPI). |
-| `Profiles/` | Quality + Delay + Release profiles | Reusable architecture; specific qualities need rework. See [Profiles/CLAUDE.md](./Profiles/CLAUDE.md). |
+| Directory | Purpose | Migration Status |
+|-----------|---------|------------------|
+| `Manga/` | Manga / Chapter / ChapterFile domain (Mangarr canonical) | **Done** — Phase 15 Plan 15-03 deleted `Tv/` (Series.cs / Episode.cs / Season.cs); manga peers landed Phase 2 + Phase 6. See [Manga/CLAUDE.md](./Manga/CLAUDE.md). |
+| `Parser/` | Title parsing (manga release regex), `ParsingService` | **Done** — Phase 4 + Phase 6 migrated regex; manga peers under [Parser/Manga/CLAUDE.md](./Parser/Manga/CLAUDE.md). |
+| `MetadataSource/` | MangaDex / AniList / MyAnimeList integration | **Done** — Phase 2 shipped `MangaDexMetadataSource`; SkyHook (TVDB) deleted in Phase 15. See [MetadataSource/CLAUDE.md](./MetadataSource/CLAUDE.md). |
+| `Profiles/` | TranslationProfile + CustomFormatProfile + Delay + Release profiles | Sonarr Quality profiles dropped (Phase 5 D-04); manga peers shipped Phase 5. See [Profiles/CLAUDE.md](./Profiles/CLAUDE.md), [Profiles/CustomFormats/CLAUDE.md](./Profiles/CustomFormats/CLAUDE.md), [Profiles/Translations/CLAUDE.md](./Profiles/Translations/CLAUDE.md). |
 
-### HIGH — Significant Adaptation
+### HIGH — Adaptation
 
-| Directory | Purpose | Migration Notes |
-|-----------|---------|-----------------|
-| `Indexers/` | Indexer plugins (Newznab, Torznab, Nyaa, TorrentRSS, Custom) | Add manga site scrapers. See [Indexers/CLAUDE.md](./Indexers/CLAUDE.md). |
-| `IndexerSearch/` | SearchCriteria classes | New `ChapterSearchCriteria` etc. needed. |
-| `MediaFiles/` | Disk scan, file import, organize, rename | CBZ/CBR + image folders instead of video. See [MediaFiles/CLAUDE.md](./MediaFiles/CLAUDE.md). |
-| `DecisionEngine/` | ~32 specifications | Many specs reusable; some TV-specific (AirDate, SceneNumbering). See [DecisionEngine/CLAUDE.md](./DecisionEngine/CLAUDE.md). |
-| `CustomFormats/` | User-defined release scoring | Reusable pattern; add manga-specific spec types. See [CustomFormats/CLAUDE.md](./CustomFormats/CLAUDE.md). |
-| `ImportLists/` | External lists (Trakt, custom) | Need MangaDex/AniList list ingestion. See [ImportLists/CLAUDE.md](./ImportLists/CLAUDE.md). |
-| `Organizer/` | Filename/folder builder | New manga naming tokens. |
-| `SeriesStats/` | Materialized stats | Episodes→Chapters terminology. |
+| Directory | Purpose | Migration Status |
+|-----------|---------|------------------|
+| `Indexers/` | Indexer plugins | **Done** — MangaDex + Comix indexers shipped Phase 3; default-seeded on fresh DB per Phase 15 close. See [Indexers/CLAUDE.md](./Indexers/CLAUDE.md), [Indexers/MangaDex/CLAUDE.md](./Indexers/MangaDex/CLAUDE.md), [Indexers/Comix/CLAUDE.md](./Indexers/Comix/CLAUDE.md). |
+| `IndexerSearch/` | SearchCriteria classes | Manga peers under [IndexerSearch/Manga/CLAUDE.md](./IndexerSearch/Manga/CLAUDE.md). |
+| `MediaFiles/` | Disk scan, file import, organize, rename (CBZ/CBR + image folders) | Phase 15 renamed `EpisodeFile.cs` → `ChapterFile.cs`; Phase 17.3 Plan 17.3-05 D-06 deleted `SeasonPackUpgradeType.cs` vertical. See [MediaFiles/CLAUDE.md](./MediaFiles/CLAUDE.md), [MediaFiles/MangaImport/CLAUDE.md](./MediaFiles/MangaImport/CLAUDE.md), [MediaFiles/ChapterArchiving/CLAUDE.md](./MediaFiles/ChapterArchiving/CLAUDE.md). |
+| `DecisionEngine/` | ~32 specifications | Manga peers under [DecisionEngine/Manga/CLAUDE.md](./DecisionEngine/Manga/CLAUDE.md); [DecisionEngine/CLAUDE.md](./DecisionEngine/CLAUDE.md) covers shared infra. |
+| `CustomFormats/` | User-defined release scoring | Reusable pattern; manga specs under [CustomFormats/Specifications/Manga/CLAUDE.md](./CustomFormats/Specifications/Manga/CLAUDE.md). |
+| `ImportLists/` | External lists | Reference-preserved under `.planning/reference/sonarr-vertical-slices/import-lists/` per v2 deferral; infrastructure layer still live. See [ImportLists/CLAUDE.md](./ImportLists/CLAUDE.md). |
+| `Organizer/` | Filename/folder builder | Manga peers under [Organizer/Manga/CLAUDE.md](./Organizer/Manga/CLAUDE.md). |
 
 ### MEDIUM — Minor Adaptation
 
@@ -75,30 +73,38 @@ Listed by **migration priority** for the Mangarr → Mangarr conversion.
 | `ThingiProvider/` | Generic plugin/provider base |
 | `Analytics/` | Optional usage telemetry |
 | `Annotations/` | Custom attributes |
-| `Exceptions/` | Domain exceptions |
+| `Exceptions/` | Domain exceptions. Note: `SeriesNotFoundException.cs` deleted in Phase 17.3 Plan 17.3-03 D-05; `MetadataSource/MangaNotFoundException.cs` is the manga peer (shipped Phase 2). |
 | `Instrumentation/` | NLog setup |
 | `Http/` | HTTP convenience |
 | `ProgressMessaging/` | Progress events |
 
-## Domain Models (`Tv/`)
+## Domain Models (`Manga/`)
+
+Sonarr's `Tv/` directory was deleted in Phase 15 Plan 15-03 atomic cutover.
+The manga peers below are the canonical home; `Tv/Series.cs` / `Tv/Episode.cs`
+/ `Tv/Season.cs` no longer exist on disk. See [Manga/CLAUDE.md](./Manga/CLAUDE.md)
+for the full Manga directory contents.
 
 | File | Purpose |
 |------|---------|
-| `Series.cs` | Main entity (40 props). Already has `MalIds`, `AniListIds` for manga migration. |
-| `Episode.cs` | Episode entity. 21 properties incl. scene numbering, `AirDate`, `Runtime`, `FinaleType`. |
-| `Season.cs` | Embedded document (`IEmbeddedDocument`). Just `{SeasonNumber, Monitored, Images}`. |
-| `SeriesService.cs` | Series CRUD, lookup |
-| `EpisodeService.cs` | Episode CRUD, monitor toggling |
-| `RefreshSeriesService.cs` | Sync metadata from external source (SkyHook/TVDB) |
-| `AddSeriesService.cs` | Add-new-series workflow |
-| `MoveSeriesService.cs` | File move operations |
-| `SeriesEditedService.cs` | Apply post-edit side effects |
-| `SeriesRepository.cs` / `EpisodeRepository.cs` | Dapper-based repos |
-| `SeriesAddedHandler.cs` / `SeriesScannedHandler.cs` | IHandle event handlers |
-| `SeriesPathBuilder.cs` | Compute series folder path from naming config |
-| `SeriesTitleNormalizer.cs` | Normalize titles for matching |
-| `Commands/` | Series-related commands (RefreshSeriesCommand, etc.) |
-| `Events/` | Series events (SeriesAddedEvent, SeriesDeletedEvent, etc.) |
+| `Manga/Manga.cs` | Main aggregate root. Mirrors Sonarr's `Tv/Series.cs` shape (Pattern S2 markers preserved per D-09). |
+| `Manga/Chapter.cs` | Chapter entity. Sonarr-mirror of `Episode.cs`; no scene numbering, no `Runtime`, no `FinaleType` (manga has no airing concept). |
+| (no `Season` peer) | PROJECT.md Volumes/Seasons Out-of-Scope; `Chapter.VolumeNumber` is display-only with no Volumes table. |
+| `Manga/MangaService.cs` | Manga CRUD, lookup |
+| `Manga/ChapterService.cs` (under `Manga/Chapter/` or sibling) | Chapter CRUD, monitor toggling |
+| `Manga/RefreshMangaService.cs` | Sync metadata from external source (MangaDex / AniList / MAL) |
+| `Manga/AddMangaService.cs` | Add-new-manga workflow |
+| `Manga/MangaEditedService.cs` | Apply post-edit side effects |
+| `Manga/MangaRepository.cs` / `ChapterRepository.cs` | Dapper-based repos |
+| `Manga/MangaAddedHandler.cs` / `MangaScannedHandler.cs` | IHandle event handlers |
+| `Manga/MangaPathBuilder.cs` | Compute manga folder path from naming config |
+| `Manga/MangaTitleNormalizer.cs` | Normalize titles for matching |
+| `Manga/Commands/` | Manga-related commands (RefreshMangaCommand, etc.) |
+| `Manga/Events/` | Manga events (MangaAddedEvent, MangaDeletedEvent, etc.) |
+
+Note: `MoveSeriesService.cs` / `MoveSeriesModal.tsx` deleted in Phase 17.3
+Plan 17.3-11 D-11; v1.x GH follow-up issue tracks the dedicated
+`MoveMangaModal` design.
 
 ## Parser (`Parser/`)
 
@@ -113,7 +119,11 @@ Listed by **migration priority** for the Mangarr → Mangarr conversion.
 | `Model/RemoteEpisode.cs` | ReleaseInfo + matched Series + Episodes |
 | `Model/ParsedEpisodeInfo.cs` | Output of regex parse |
 
-`Parser.cs` public API: `ParsePath`, `SimplifyTitle`, `ParseTitle`, `ParseSeriesName`, `CleanSeriesTitle` (extension), `NormalizeEpisodeTitle`, `NormalizeTitle`, `NormalizeImdbId`, `RemoveFileExtension`, `HasMultipleLanguages`.
+`Parser.cs` public API (Sonarr-shape kept verbatim per Phase 4 + Phase 6
+manga regex addition; manga-specific peers under `Parser/Manga/`):
+`ParsePath`, `SimplifyTitle`, `ParseTitle`, `ParseSeriesName`,
+`CleanSeriesTitle` (extension), `NormalizeEpisodeTitle`, `NormalizeTitle`,
+`NormalizeImdbId`, `RemoveFileExtension`, `HasMultipleLanguages`.
 
 ## Decision Engine (`DecisionEngine/`)
 
@@ -166,15 +176,21 @@ See [Download/CLAUDE.md](./Download/CLAUDE.md).
 
 | File / Subdirectory | Purpose |
 |--------------------|---------|
-| `EpisodeFile.cs` | Physical file entity |
+| `ChapterFile.cs` | Physical file entity (renamed from `EpisodeFile.cs` in Phase 15) — carries `ScanlationGroup` (manga-domain canonical release-group axis per Phase 16.1 D-04) + `TranslatedLanguage` (BCP-47 string). |
 | `DiskScanService.cs` | Library scan |
-| `EpisodeImport/` | File import pipeline + import specs |
-| `EpisodeImport/Specifications/` | NotSampleSpec, MatchesFolderSpec, etc. |
-| `RenameEpisodeFileService.cs` | Rename based on naming config |
-| `EpisodeFileMovingService.cs` | Move/copy on import |
+| `MangaImport/` | File import pipeline + import specs (renamed from `EpisodeImport/` in Phase 15) |
+| `MangaImport/Specifications/` | NotSampleSpec, MatchesFolderSpec, etc. |
+| `RenameChapterFileService.cs` | Rename based on naming config |
+| `ChapterFileMovingService.cs` | Move/copy on import |
 | `MediaFileDeletionService.cs` | Safe delete |
-| `MediaInfo/` | Probe codec/resolution metadata |
-| `TorrentInfo/` | Torrent file metadata |
+| `MediaInfo/` | Probe codec/resolution metadata (TV-shape; manga uses image-page metadata under ChapterArchiving/) |
+| `ChapterArchiving/` | Manga page-archive lifecycle |
+
+Note: `SeasonPackUpgradeType.cs` deleted in Phase 17.3 Plan 17.3-05 D-06
+(manga has no season packs); cascade removed `IConfigService.SeasonPackUpgrade`
++ `MediaManagementSettingsResource.SeasonPackUpgrade*` + openapi.json schema
++ frontend `Settings/MediaManagement/MediaManagement.tsx` form section + 12
+en.json keys.
 
 See [MediaFiles/CLAUDE.md](./MediaFiles/CLAUDE.md).
 
@@ -214,30 +230,30 @@ See [Messaging/CLAUDE.md](./Messaging/CLAUDE.md).
 | `Profiles/Releases/` | Preferred / required / ignored terms |
 | `Qualities/` | Quality enum, QualityDefinition |
 | `Languages/` | Language enum, IsoLanguages, LanguageParser |
-| `MetadataSource/SkyHook/` | TVDB API wrapper (Mangarr's hosted shim) |
-| `ImportLists/AniList/`, `ImportLists/Custom/` | List sources |
+| `MetadataSource/MangaDex/`, `MetadataSource/AniList/`, `MetadataSource/MyAnimeList/` | Manga metadata source ports (Sonarr `MetadataSource/SkyHook/` deleted in Phase 15) |
+| `ImportLists/AniList/`, `ImportLists/Custom/` | List sources (full vertical reference-preserved under `.planning/reference/sonarr-vertical-slices/import-lists/`) |
 | `HealthCheck/Checks/` | Individual `XCheck.cs` classes |
 | `Housekeeping/Housekeepers/` | One class per cleanup task |
 | `Update/` | Self-update from cloud |
 | `Authentication/User.cs`, `UserService.cs` | UI account |
 | `Backup/BackupService.cs` | Auto + manual backups |
-| `Organizer/FileNameBuilder.cs` | Token-based filename builder (`{Series Title}.S{season:00}E{episode:00}.{Quality Title}`) |
+| `Organizer/Manga/MangaFileNameBuilder.cs` | Token-based filename builder for manga (`{Manga Title}.c{chapter:00.000}` etc.); Sonarr-canonical `Organizer/FileNameBuilder.cs` retained for shared infra |
 | `ThingiProvider/ProviderBase.cs` | Generic plugin base for indexers/clients/etc. |
 
 ## Key Interfaces Cheat Sheet
 
 ```csharp
-// Domain services
-ISeriesService, IEpisodeService, IEpisodeFileService
-IParsingService          // Map ReleaseInfo → RemoteEpisode
+// Domain services (manga peers post-Phase-15)
+IMangaService, IChapterService, IChapterFileService
+IParsingService          // Map ReleaseInfo → RemoteChapter
 
 // Plugin providers
 IIndexer                 // Fetch / Search releases
 IDownloadClient          // Submit + monitor downloads
 INotification            // Send notifications
 IImportList              // Pull external lists
-IProvideSeriesInfo       // Metadata source (TVDB / AniList / etc.)
-ISearchForNewSeries
+IProvideMangaInfo        // Metadata source (MangaDex / AniList / MAL)
+ISearchForNewManga
 
 // Decision engine
 IDownloadDecisionEngineSpecification     // single decision rule
@@ -262,9 +278,9 @@ IExecute<TCommand>                       // Command handler
 ```
 Indexer.Fetch() / Search()
     ↓ List<ReleaseInfo>
-Parser.ParseTitle() → ParsedEpisodeInfo
+Parser.ParseTitle() → ParsedChapterInfo
     ↓
-ParsingService.Map() → RemoteEpisode (links Series + Episodes)
+ParsingService.Map() → RemoteChapter (links Manga + Chapters)
     ↓
 DownloadDecisionMaker runs all Specifications
     ↓ List<DownloadDecision> (Approved / Rejected)
@@ -276,9 +292,9 @@ TrackedDownloadService monitors
     ↓
 CompletedDownloadService detects completion
     ↓
-ImportApprovedEpisodes runs ImportSpecs
-    ↓ EpisodeFile created, file moved/renamed
-Events published (EpisodeImportedEvent, …)
+ImportApprovedChapters runs ImportSpecs
+    ↓ ChapterFile created, file moved/renamed
+Events published (ChapterImportedEvent, …)
     ↓
 Notifications fire + SignalR broadcasts to UI
 ```
@@ -287,22 +303,22 @@ Notifications fire + SignalR broadcasts to UI
 
 ### Lazy Loading (Dapper navigation)
 ```csharp
-public LazyLoaded<Series> Series { get; set; }
-public LazyLoaded<List<Episode>> Episodes { get; set; }
+public LazyLoaded<Manga> Manga { get; set; }
+public LazyLoaded<List<Chapter>> Chapters { get; set; }
 // Accessing .Value triggers a query if not yet loaded
 ```
 
 ### Event Publishing
 ```csharp
-_eventAggregator.PublishEvent(new SeriesAddedEvent(series));
-// All IHandle<SeriesAddedEvent> implementations are invoked
+_eventAggregator.PublishEvent(new MangaAddedEvent(manga));
+// All IHandle<MangaAddedEvent> implementations are invoked
 ```
 
 ### Specification Pattern
 ```csharp
 public class MySpecification : IDownloadDecisionEngineSpecification
 {
-    public DownloadSpecDecision IsSatisfiedBy(RemoteEpisode subject, SearchCriteriaBase searchCriteria)
+    public DownloadSpecDecision IsSatisfiedBy(RemoteChapter subject, SearchCriteriaBase searchCriteria)
     {
         if (badCondition)
             return DownloadSpecDecision.Reject(DownloadRejectionReason.X, "Reason");
@@ -340,44 +356,49 @@ public class MyIndexer : HttpIndexerBase<MyIndexerSettings>
 
 Add a migration when changing schema:
 
+**Pre-v1 dev-migration policy:** During v0.x dev, schema changes edit
+`001_mangarr_baseline.cs` in place (per `.planning/memory/project_dev_migration_policy.md`).
+Fresh DB required to pick up schema changes. Once v1.0.0 tag ships, this
+flips to sequential migration files:
+
 ```csharp
-// src/NzbDrone.Core/Datastore/Migration/224_my_new_change.cs
-[Migration(224)]
+// src/NzbDrone.Core/Datastore/Migration/002_my_new_change.cs (post-v1.0.0 only)
+[Migration(2)]
 public class my_new_change : NzbDroneMigrationBase
 {
     protected override void MainDbUpgrade()
     {
-        Alter.Table("Series").AddColumn("MyNewField").AsString().Nullable();
+        Alter.Table("Manga").AddColumn("MyNewField").AsString().Nullable();
     }
 }
 ```
 
-Number sequentially after the highest existing migration. Migrations run automatically on startup.
+Migrations run automatically on startup.
 
-## Manga Adaptation Focus
+## Manga Adaptation Focus (post-Phase-17.3)
 
-### High Priority Changes
-1. **Tv/** — Rename Series→Manga, Episode→Chapter, Season→Volume (already partially done — MalIds/AniListIds exist on Series.cs)
-2. **Parser/** — New regex patterns for manga release naming (chapter, scanlation group, etc.)
-3. **MetadataSource/** — Implement `IProvideSeriesInfo` for MangaDex/AniList; deprecate or wrap SkyHook
-4. **Indexers/** — Add manga site scrapers (e.g., MangaDex feeds, manga torrent trackers)
-5. **MediaFiles/** — Handle CBZ/CBR/folder of images instead of video files
-6. **Qualities/** — Replace TV quality enum with manga scan tiers
+### Migration Status (Phase 2-17.3 close-out)
+1. **Manga/** — **Done** (Phase 15 Plan 15-03 deleted `Tv/`; manga aggregate root + Chapter + ChapterFile in canonical positions; Phase 17.3 Plan 17.3-12 D-13 trimmed frontend Manga.ts TV-shape carry-overs).
+2. **Parser/** — **Done** (Phase 4 + Phase 6 manga regex shipped; `Parser/Manga/` peers).
+3. **MetadataSource/** — **Done** (`IProvideMangaInfo` implemented by `MangaDexMetadataSource` + AniList + MyAnimeList; SkyHook deleted Phase 15).
+4. **Indexers/** — **Done** (`MangaDexIndexer` + `ComixIndexer` shipped Phase 3; default-seeded fresh-DB UX per Phase 15 close).
+5. **MediaFiles/** — **Done** (`ChapterFile.cs` + `MangaImport/` pipeline shipped Phase 6/15; `SeasonPackUpgradeType.cs` vertical deleted Phase 17.3 Plan 17.3-05 D-06).
+6. **Qualities/** — **Done — dropped** (Phase 5 D-04 retired TV quality model; TranslationProfile + Custom Formats are the manga peer).
 
 ### Reusable As-Is
 - Decision engine architecture (specifications)
-- Download client integration (qBittorrent et al. work for any payload)
+- Download client integration (in-process image downloader shipped Phase 6; external clients still work for arbitrary payloads)
 - Event messaging system
-- Database abstraction & migration pipeline
-- Quality profile system (architecture, not values)
-- Notification system (just update message text)
+- Database abstraction & migration pipeline (pre-v1 dev-migration policy: edit `001_mangarr_baseline.cs` in place)
+- Custom format system (architecture, not values)
+- Notification system (Komga + Kavita live; rest reference-preserved)
 - HealthCheck framework
 - Backup / Update / Authentication / Tags
 
 ## Cross-References
 
 - [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) — Overall architecture
-- [Tv/CLAUDE.md](./Tv/CLAUDE.md) — Domain models
+- [Manga/CLAUDE.md](./Manga/CLAUDE.md) — Domain models (Manga + Chapter + ChapterFile)
 - [Parser/CLAUDE.md](./Parser/CLAUDE.md) — Title parsing
 - [DecisionEngine/CLAUDE.md](./DecisionEngine/CLAUDE.md) — Decision rules
 - [Indexers/CLAUDE.md](./Indexers/CLAUDE.md) — Indexer plugins
@@ -387,8 +408,8 @@ Number sequentially after the highest existing migration. Migrations run automat
 - [Datastore/CLAUDE.md](./Datastore/CLAUDE.md) — DB & migrations
 - [Notifications/CLAUDE.md](./Notifications/CLAUDE.md) — Notification providers
 - [CustomFormats/CLAUDE.md](./CustomFormats/CLAUDE.md) — Custom formats
-- [Profiles/CLAUDE.md](./Profiles/CLAUDE.md) — Quality/Delay/Release profiles
+- [Profiles/CLAUDE.md](./Profiles/CLAUDE.md) — TranslationProfile / CustomFormatProfile / Delay / Release profiles
 - [Messaging/CLAUDE.md](./Messaging/CLAUDE.md) — Events & Commands
-- [ImportLists/CLAUDE.md](./ImportLists/CLAUDE.md) — Import lists
+- [ImportLists/CLAUDE.md](./ImportLists/CLAUDE.md) — Import lists (infrastructure live; concrete providers reference-preserved)
 - [../Mangarr.Api.V5/CLAUDE.md](../Mangarr.Api.V5/CLAUDE.md) — API controllers
 - [../Mangarr.Http/CLAUDE.md](../Mangarr.Http/CLAUDE.md) — HTTP infrastructure

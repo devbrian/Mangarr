@@ -65,9 +65,9 @@ function getTooltip(eventType: HistoryEventType, data: HistoryData) {
     case 'imported':
       return translate('EpisodeImportedTooltip');
     case 'importFailed':
-      return translate('DownloadFailedEpisodeTooltip');
+      return translate('DownloadFailedChapterTooltip');
     case 'downloadFailed':
-      return translate('DownloadFailedEpisodeTooltip');
+      return translate('DownloadFailedChapterTooltip');
     case 'episodeFileDeleted':
       return (data as EpisodeFileDeletedHistory).reason === 'MissingFromDisk'
         ? translate('EpisodeFileMissingTooltip')
@@ -75,7 +75,7 @@ function getTooltip(eventType: HistoryEventType, data: HistoryData) {
     case 'episodeFileRenamed':
       return translate('EpisodeFileRenamedTooltip');
     case 'downloadIgnored':
-      return translate('DownloadIgnoredEpisodeTooltip');
+      return translate('DownloadIgnoredChapterTooltip');
     default:
       return translate('UnknownEventTooltip');
   }

@@ -226,7 +226,7 @@ function MangaIndex() {
                 label={
                   isSelectMode
                     ? translate('StopSelecting')
-                    : translate('SelectSeries')
+                    : translate('SelectManga')
                 }
                 iconName={isSelectMode ? icons.SERIES_ENDED : icons.CHECK}
                 isSelectMode={isSelectMode}

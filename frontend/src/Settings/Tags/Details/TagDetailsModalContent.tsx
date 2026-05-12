@@ -11,7 +11,12 @@ import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import { kinds } from 'Helpers/Props';
-import useSeries from 'Series/useSeries';
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
+// Series/useSeries default-export rewritten to Manga/useManga peer. The
+// hook returns the same `{ data }` envelope; the matched-items list is
+// rendered under the inherited 'Series' label since the Tag-Details modal
+// preserves the Tag-resource shape for v1.
+import useManga from 'Manga/useManga';
 import { useIndexersWithIds } from 'Settings/Indexers/useIndexers';
 import { useConnectionsWithIds } from 'Settings/Notifications/useConnections';
 import { useReleaseProfilesWithIds } from 'Settings/Profiles/Release/useReleaseProfiles';
@@ -25,11 +30,11 @@ function findMatchingItems<T extends ModelBase>(ids: number[], items: T[]) {
   });
 }
 
-function useMatchingSeries(seriesIds: number[]) {
-  const { data: allSeries = [] } = useSeries();
+function useMatchingSeries(mangaIds: number[]) {
+  const { data: allSeries = [] } = useManga();
 
   return useMemo(() => {
-    const matchingSeries = findMatchingItems(seriesIds, allSeries);
+    const matchingSeries = findMatchingItems(mangaIds, allSeries);
 
     return matchingSeries.sort((seriesA, seriesB) => {
       const sortTitleA = seriesA.sortTitle;
@@ -43,7 +48,7 @@ function useMatchingSeries(seriesIds: number[]) {
 
       return 0;
     });
-  }, [seriesIds, allSeries]);
+  }, [mangaIds, allSeries]);
 }
 
 function createMatchingItemSelector<T extends ModelBase>(
@@ -63,7 +68,7 @@ export interface TagDetailsModalContentProps {
   indexerIds: number[];
   downloadClientIds: number[];
   autoTagIds: number[];
-  seriesIds: number[];
+  mangaIds: number[];
   onModalClose: () => void;
   onDeleteTagPress: () => void;
 }
@@ -78,11 +83,11 @@ function TagDetailsModalContent({
   indexerIds = [],
   downloadClientIds = [],
   autoTagIds = [],
-  seriesIds = [],
+  mangaIds = [],
   onModalClose,
   onDeleteTagPress,
 }: TagDetailsModalContentProps) {
-  const series = useMatchingSeries(seriesIds);
+  const series = useMatchingSeries(mangaIds);
 
   const delayProfiles = useSelector(
     createMatchingItemSelector(
@@ -124,7 +129,11 @@ function TagDetailsModalContent({
         {!isTagUsed && <div>{translate('TagIsNotUsedAndCanBeDeleted')}</div>}
 
         {series.length ? (
-          <FieldSet legend={translate('Series')}>
+          // Sonarr divergence: Phase 17.3 Plan 17.3-16 (D-04) — user-visible
+          // legend swapped from translate('Series') to translate('Manga'); bare
+          // "Series" i18n key was deleted by Phase 15-07, leaving this callsite
+          // orphan. Pre-existing carry-forward fix-forward.
+          <FieldSet legend={translate('Manga')}>
             {series.map((item) => {
               return <div key={item.id}>{item.title}</div>;
             })}

@@ -22,13 +22,13 @@ const options = [
   {
     key: 'singleEpisode',
     get value() {
-      return translate('SingleEpisode');
+      return translate('SingleChapter');
     },
   },
   {
     key: 'multiEpisode',
     get value() {
-      return translate('MultiEpisode');
+      return translate('MultiChapter');
     },
   },
   {

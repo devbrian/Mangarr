@@ -6,7 +6,7 @@ import { useExecuteCommand } from 'Commands/useCommands';
 import IconButton from 'Components/Link/IconButton';
 import Link from 'Components/Link/Link';
 import SpinnerIconButton from 'Components/Link/SpinnerIconButton';
-import SeriesTagList from 'Components/SeriesTagList';
+import MangaTagList from 'Components/MangaTagList';
 import { icons } from 'Helpers/Props';
 // fix(home-card-edit-button-no-op): swap stub `Series/Edit/EditSeriesModal`
 // (Phase 15 Plan 15-12 `() => null`) for the real per-manga Edit modal
@@ -108,21 +108,24 @@ function MangaIndexOverview(props: MangaIndexOverviewProps) {
     status,
     path,
     titleSlug,
-    nextAiring,
-    previousAiring,
     added,
     overview,
     statistics = {} as Statistics,
     images,
     tags,
-    network,
   } = manga;
 
+  // Phase 17.3 D-14: nextAiring/previousAiring/network dropped from Manga
+  // (no airing concept; no network in manga domain). seasonCount/episodeCount/
+  // episodeFileCount/totalEpisodeCount dropped from Statistics — replaced by
+  // chapter-shape progress numbers. MangaIndexProgressBar still accepts the
+  // legacy episode-named props as a facade (its body internally aliases them
+  // to chapter-shape — see MangaIndexProgressBar.tsx L88-90), so we map the
+  // chapter-shape fields here for verbatim-inheritance prop compatibility.
   const {
-    seasonCount = 0,
-    episodeCount = 0,
-    episodeFileCount = 0,
-    totalEpisodeCount = 0,
+    chapterCount = 0,
+    chapterFileCount = 0,
+    totalChapterCount = 0,
     sizeOnDisk = 0,
   } = statistics;
 
@@ -176,9 +179,9 @@ function MangaIndexOverview(props: MangaIndexOverviewProps) {
             mangaId={mangaId}
             monitored={monitored}
             status={status}
-            episodeCount={episodeCount}
-            episodeFileCount={episodeFileCount}
-            totalEpisodeCount={totalEpisodeCount}
+            episodeCount={chapterCount}
+            episodeFileCount={chapterFileCount}
+            totalEpisodeCount={totalChapterCount}
             width={posterWidth}
             detailedProgressBar={overviewOptions.detailedProgressBar}
             isStandalone={false}
@@ -230,18 +233,14 @@ function MangaIndexOverview(props: MangaIndexOverviewProps) {
 
               {overviewOptions.showTags ? (
                 <div className={styles.tags}>
-                  <SeriesTagList tags={tags} />
+                  <MangaTagList tags={tags} />
                 </div>
               ) : null}
             </div>
             <MangaIndexOverviewInfo
               height={overviewHeight}
               monitored={monitored}
-              network={network}
-              nextAiring={nextAiring}
-              previousAiring={previousAiring}
               added={added}
-              seasonCount={seasonCount}
               qualityProfile={qualityProfile}
               sizeOnDisk={sizeOnDisk}
               path={path}

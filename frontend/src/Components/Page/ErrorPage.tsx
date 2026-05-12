@@ -42,7 +42,7 @@ function ErrorPage(props: ErrorPageProps) {
   } else if (seriesError) {
     errorMessage = getErrorMessage(
       seriesError,
-      translate('FailedToLoadSeriesFromApi')
+      translate('FailedToLoadMangaFromApi')
     );
   } else if (customFiltersError) {
     errorMessage = getErrorMessage(

@@ -188,7 +188,7 @@ function EditReleaseProfileModalContent({
             <FormInputGroup
               type={inputTypes.TAG}
               name="tags"
-              helpText={translate('ReleaseProfileTagSeriesHelpText')}
+              helpText={translate('ReleaseProfileTagMangaHelpText')}
               {...tags}
               onChange={handleInputChange}
             />
@@ -200,7 +200,7 @@ function EditReleaseProfileModalContent({
             <FormInputGroup
               type={inputTypes.TAG}
               name="excludedTags"
-              helpText={translate('ReleaseProfileExcludedTagSeriesHelpText')}
+              helpText={translate('ReleaseProfileExcludedTagMangaHelpText')}
               kind={kinds.DANGER}
               {...excludedTags}
               onChange={handleInputChange}

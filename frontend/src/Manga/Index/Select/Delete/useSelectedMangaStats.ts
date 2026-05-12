@@ -20,9 +20,16 @@ function useSelectedMangaStats() {
   const { totalEpisodeFileCount, totalSizeOnDisk } = useMemo(() => {
     return manga.reduce(
       (acc, { statistics = {} }) => {
-        const { episodeFileCount = 0, sizeOnDisk = 0 } = statistics;
+        // Sonarr divergence: Phase 17.3 D-13/D-14 — destructure
+        // chapterFileCount (manga-canonical) instead of episodeFileCount
+        // (Manga.ts D-13 trim removed the TV-shape episodeFileCount field
+        // from Statistics). The accumulator key `totalEpisodeFileCount`
+        // is left as-is to preserve the public return shape consumed by
+        // DeleteMangaModalContent + DeleteMangaFilesModalContent (full
+        // rename deferred outside this plan's 11-file scope).
+        const { chapterFileCount = 0, sizeOnDisk = 0 } = statistics;
 
-        acc.totalEpisodeFileCount += episodeFileCount;
+        acc.totalEpisodeFileCount += chapterFileCount;
         acc.totalSizeOnDisk += sizeOnDisk;
 
         return acc;

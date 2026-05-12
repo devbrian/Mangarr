@@ -13,7 +13,12 @@ export interface TagDetail extends ModelBase {
   notificationIds: number[];
   restrictionIds: number[];
   excludedReleaseProfileIds: number[];
-  seriesIds: number[];
+  // Sonarr divergence: Phase 17.3 Plan 17.3-13b fix-forward — backend renamed
+  // seriesIds -> mangaIds in Phase 15 D-12 domain rename, but this frontend
+  // interface stayed stale until Wave 4 aggregate smoke surfaced the crash
+  // ("Cannot read properties of undefined (reading 'length')" in Settings
+  // → Tags when any tag exists). Backend `/api/v5/tag/detail` emits `mangaIds`.
+  mangaIds: number[];
 }
 
 const useTagDetails = () => {
@@ -32,17 +37,22 @@ export default useTagDetails;
 export const useTagDetail = (id: number) => {
   const { data: tagDetails } = useTagDetails();
 
-  return (
-    tagDetails.find((tagDetail) => tagDetail.id === id) ?? {
-      delayProfileIds: [],
-      importListIds: [],
-      notificationIds: [],
-      restrictionIds: [],
-      excludedReleaseProfileIds: [],
-      indexerIds: [],
-      downloadClientIds: [],
-      autoTagIds: [],
-      seriesIds: [],
-    }
-  );
+  // Sonarr divergence: Phase 17.3 Plan 17.3-13b fix-forward — backend
+  // `/api/v5/tag/detail` may OMIT id-array fields that are empty
+  // (importListIds, autoTagIds observed missing on a fresh tag). Spread the
+  // empty-array defaults FIRST, then overlay the API response so any
+  // missing field destructures to [] instead of undefined → crash at
+  // `Tag.tsx:42 isTagUsed` reading `.length` on undefined.
+  return {
+    delayProfileIds: [],
+    importListIds: [],
+    notificationIds: [],
+    restrictionIds: [],
+    excludedReleaseProfileIds: [],
+    indexerIds: [],
+    downloadClientIds: [],
+    autoTagIds: [],
+    mangaIds: [],
+    ...(tagDetails.find((tagDetail) => tagDetail.id === id) ?? {}),
+  };
 };

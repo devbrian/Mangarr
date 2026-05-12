@@ -1,7 +1,11 @@
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
+// Episode/EpisodeFormats no-op stub import DROPPED (Phase 15 Plan 15-12 STUB
+// component returning null with zero render output); CustomFormats render
+// site below collapsed to the count text. Series/SeriesTitleLink rewritten
+// to Manga/MangaTitleLink peer (routes to /manga/${titleSlug}).
 import React from 'react';
 import FieldSet from 'Components/FieldSet';
-import EpisodeFormats from 'Episode/EpisodeFormats';
-import SeriesTitleLink from 'Series/SeriesTitleLink';
+import MangaTitleLink from 'Manga/MangaTitleLink';
 import translate from 'Utilities/String/translate';
 import { ParseModel } from './ParseModel';
 import ParseResultItem from './ParseResultItem';
@@ -33,8 +37,6 @@ function ParseResult(props: ParseResultProps) {
     absoluteEpisodeNumbers,
     special,
     fullSeason,
-    isMultiSeason,
-    isPartialSeason,
     isDaily,
     airDate,
     quality,
@@ -121,19 +123,12 @@ function ParseResult(props: ParseResultProps) {
             />
 
             <ParseResultItem
-              title={translate('FullSeason')}
+              title={translate('FullVolume')}
               data={fullSeason ? translate('True') : translate('False')}
             />
 
-            <ParseResultItem
-              title={translate('MultiSeason')}
-              data={isMultiSeason ? translate('True') : translate('False')}
-            />
-
-            <ParseResultItem
-              title={translate('PartialSeason')}
-              data={isPartialSeason ? translate('True') : translate('False')}
-            />
+            {/* Sonarr divergence: Phase 17.3 Plan 17.3-14 — MultiSeason/PartialSeason
+                ParseResultItems dropped (manga has no seasons per DOMAIN-02). */}
           </div>
         </div>
       </FieldSet>
@@ -185,10 +180,10 @@ function ParseResult(props: ParseResultProps) {
 
       <FieldSet legend={translate('Details')}>
         <ParseResultItem
-          title={translate('MatchedToSeries')}
+          title={translate('MatchedToManga')}
           data={
             series ? (
-              <SeriesTitleLink
+              <MangaTitleLink
                 titleSlug={series.titleSlug}
                 title={series.title}
               />
@@ -198,27 +193,32 @@ function ParseResult(props: ParseResultProps) {
           }
         />
 
-        <ParseResultItem
-          title={translate('MatchedToSeason')}
-          data={episodes.length ? episodes[0].seasonNumber : '-'}
-        />
+        {/* Sonarr divergence: Phase 17.3 Plan 17.3-14 — MatchedToSeason
+            ParseResultItem dropped (manga has no seasons per DOMAIN-02). */}
 
         <ParseResultItem
-          title={translate('MatchedToEpisodes')}
+          title={translate('MatchedToChapters')}
           data={
             episodes.length ? (
               <div>
-                {episodes.map((e) => {
-                  return (
-                    <div key={e.id}>
-                      {e.episodeNumber}
-                      {series?.seriesType === 'anime' && e.absoluteEpisodeNumber
-                        ? ` (${e.absoluteEpisodeNumber})`
-                        : ''}{' '}
-                      {` - ${e.title}`}
-                    </div>
-                  );
-                })}
+                {episodes.map(
+                  // Sonarr divergence: Phase 17.3 D-13/D-14 — dropped
+                  // `series?.seriesType === 'anime' && e.absoluteEpisodeNumber`
+                  // branch (manga has no anime-format; seriesType removed from
+                  // Manga.ts per D-13).
+                  // Sonarr divergence: Phase 17.3 Plan 17.3-13b —
+                  // Episode/Episode rewritten to Chapter/Chapter; cast
+                  // preserves runtime episodeNumber emission until parser is
+                  // forked.
+                  (e: typeof episodes[0] & { episodeNumber?: number }) => {
+                    return (
+                      <div key={e.id}>
+                        {e.episodeNumber}
+                        {` - ${e.title}`}
+                      </div>
+                    );
+                  }
+                )}
               </div>
             ) : (
               '-'
@@ -226,15 +226,11 @@ function ParseResult(props: ParseResultProps) {
           }
         />
 
+        {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeFormats no-op
+            stub dropped; show CustomFormats count text directly. */}
         <ParseResultItem
           title={translate('CustomFormats')}
-          data={
-            customFormats?.length ? (
-              <EpisodeFormats formats={customFormats} />
-            ) : (
-              '-'
-            )
-          }
+          data={customFormats?.length ? `${customFormats.length}` : '-'}
         />
 
         <ParseResultItem

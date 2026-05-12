@@ -20,11 +20,14 @@ Single-manga Delete confirmation modal — wired into the Delete toolbar button 
 - **No explicit post-delete navigation** — On successful delete, `useDeleteManga.onSuccess` filters the manga out of the `['/manga']` React Query cache. `MangaDetailsPage.tsx:34-44` watches `mangaIndex === -1 && previousIndex !== -1` and `history.push`es to `/manga` automatically. The modal just calls `onModalClose()` to dismiss the dialog; navigation runs organically.
 - **Persistence model mirrors the bulk delete modal** — `addImportListExclusion` persists across modal opens (zustand `useMangaDeleteOptions()`); `deleteFiles` resets to false on each open (local `useState`). This keeps single-manga and bulk-select flows on the same UX contract for which knobs stick.
 - **i18n keys reuse Mangarr's existing strings** — `DeleteSelectedSeries`, `DeleteMangaFolder`, `DeleteMangaFolderHelpText`, `DeleteMangaFolderCountConfirmation`, `DeleteMangaFolderCountWithFilesConfirmation`, `AddListExclusion`, `AddListExclusionSeriesHelpText`, `Path`, `Chapters`, `SizeOnDisk`, `Cancel`, `Delete`. No new keys added — Phase 11 i18n pass will rename the `Series` references later.
-- **Sibling-divergence comments (Pattern S2)** — both `.tsx` files carry the `// Sonarr divergence: ...` header naming the role-match analog and the Phase 8 cleanup target. The role-match analog `Series/Delete/DeleteSeriesModal.tsx` is currently a `() => null` Plan 15-12 stub, so the structural reference is `Manga/Edit/EditMangaModal.tsx` (the proven sibling shipped in PR #27).
+- **Sibling-divergence comments (Pattern S2)** — both `.tsx` files carry the `// Sonarr divergence: ...` header naming the role-match analog. The role-match analog `Series/Delete/DeleteSeriesModal.tsx` was deleted in Phase 17.3 Plan 17.3-13 atomic stub-dir delete; the structural reference is `Manga/Edit/EditMangaModal.tsx` (the proven sibling shipped in PR #27).
 
 ## Manga Adaptation Notes
 
-This directory IS the manga canonical for single-manga Delete; the Series sibling at `frontend/src/Series/Delete/DeleteSeriesModal.tsx` is a Plan 15-12 stub that will delete in Phase 8 cleanup (when the entire `Series/` subtree is removed). There is nothing to merge at Phase 8 — the file just deletes.
+This directory IS the manga canonical for single-manga Delete. The Series
+sibling at `frontend/src/Series/Delete/DeleteSeriesModal.tsx` was a Phase 15
+Plan 15-12 `() => null` stub that was deleted in Phase 17.3 Plan 17.3-13
+atomic stub-dir delete (D-09/D-10).
 
 ## Cross-References
 
@@ -33,5 +36,4 @@ This directory IS the manga canonical for single-manga Delete; the Series siblin
 - [../useManga.ts](../useManga.ts) — `useDeleteManga` hook (lines 523-553).
 - [../Details/MangaDetails.tsx](../Details/MangaDetails.tsx) — call-site (Delete toolbar button + modal mount).
 - [../Details/MangaDetailsPage.tsx](../Details/MangaDetailsPage.tsx) — owner of the redirect-on-vanish effect that handles post-delete navigation.
-- [../../Series/Delete/DeleteSeriesModal.tsx](../../Series/Delete/DeleteSeriesModal.tsx) — Plan 15-12 `() => null` stub; do NOT use as a structural reference.
 - [../../../../.planning/debug/manga-delete-button-no-op.md](../../../../.planning/debug/manga-delete-button-no-op.md) — debug session that produced this fix.

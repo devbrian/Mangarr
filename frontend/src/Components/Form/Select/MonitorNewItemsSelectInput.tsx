@@ -1,5 +1,9 @@
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
+// 'Utilities/Series/monitorNewItemsOptions' rewritten to
+// 'Utilities/Manga/monitorNewItemsOptions' peer (authored 17.3-13b as no-op
+// empty array per Phase 15 Plan 15-12 STUB shape).
 import React from 'react';
-import monitorNewItemsOptions from 'Utilities/Series/monitorNewItemsOptions';
+import monitorNewItemsOptions from 'Utilities/Manga/monitorNewItemsOptions';
 import EnhancedSelectInput, {
   EnhancedSelectInputProps,
   EnhancedSelectInputValue,

@@ -35,8 +35,9 @@ public class MediaManagementSettingsResource : RestResource
     public string? ExtraFileExtensions { get; set; }
     public bool EnableMediaInfo { get; set; }
     public string? UserRejectedExtensions { get; set; }
-    public SeasonPackUpgradeType SeasonPackUpgrade { get; set; }
-    public double SeasonPackUpgradeThreshold { get; set; }
+
+    // SeasonPackUpgrade stripped — Plan 17.3-05 (D-06)
+    // SeasonPackUpgradeThreshold stripped — Plan 17.3-05 (D-06)
 }
 
 public static class MediaManagementConfigResourceMapper
@@ -68,9 +69,10 @@ public static class MediaManagementConfigResourceMapper
             ImportExtraFiles = model.ImportExtraFiles,
             ExtraFileExtensions = model.ExtraFileExtensions,
             EnableMediaInfo = model.EnableMediaInfo,
-            UserRejectedExtensions = model.UserRejectedExtensions,
-            SeasonPackUpgrade = model.SeasonPackUpgrade,
-            SeasonPackUpgradeThreshold = model.SeasonPackUpgradeThreshold
+            UserRejectedExtensions = model.UserRejectedExtensions
+
+            // SeasonPackUpgrade stripped — Plan 17.3-05 (D-06)
+            // SeasonPackUpgradeThreshold stripped — Plan 17.3-05 (D-06)
         };
     }
 }

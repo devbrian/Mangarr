@@ -128,15 +128,6 @@ function MangaIndexSortMenu(props: MangaIndexSortMenuProps) {
         </SortMenuItem>
 
         <SortMenuItem
-          name="latestSeason"
-          sortKey={sortKey}
-          sortDirection={sortDirection}
-          onPress={onSortSelect}
-        >
-          {translate('LatestSeason')}
-        </SortMenuItem>
-
-        <SortMenuItem
           name="path"
           sortKey={sortKey}
           sortDirection={sortDirection}
@@ -160,7 +151,7 @@ function MangaIndexSortMenu(props: MangaIndexSortMenuProps) {
           sortDirection={sortDirection}
           onPress={onSortSelect}
         >
-          {translate('AverageSizePerEpisode')}
+          {translate('AverageSizePerChapter')}
         </SortMenuItem>
 
         <SortMenuItem

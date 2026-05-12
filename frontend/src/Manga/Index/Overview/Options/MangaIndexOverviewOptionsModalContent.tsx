@@ -52,7 +52,6 @@ function MangaIndexOverviewOptionsModalContent({
     showQualityProfile,
     showPreviousAiring,
     showAdded,
-    showSeasonCount,
     showPath,
     showSizeOnDisk,
     showTags,
@@ -151,16 +150,8 @@ function MangaIndexOverviewOptionsModalContent({
             />
           </FormGroup>
 
-          <FormGroup>
-            <FormLabel>{translate('ShowSeasonCount')}</FormLabel>
-
-            <FormInputGroup
-              type={inputTypes.CHECK}
-              name="showSeasonCount"
-              value={showSeasonCount}
-              onChange={onOverviewOptionChange}
-            />
-          </FormGroup>
+          {/* Sonarr divergence: Phase 17.3 Plan 17.3-14 — ShowSeasonCount
+              option dropped (manga has no seasons per DOMAIN-02). */}
 
           <FormGroup>
             <FormLabel>{translate('ShowPath')}</FormLabel>

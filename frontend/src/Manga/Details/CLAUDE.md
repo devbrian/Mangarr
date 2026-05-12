@@ -5,7 +5,10 @@
 Manga detail page — the user's primary working surface (UI-04). Shows the
 manga hero header (cover, title, monitor toggle, status, links, tags,
 progress) and a tabbed body (Overview / Chapters / Files / History / Search).
-Parallel sibling of `frontend/src/Series/Details/`.
+
+Originally a parallel sibling of `frontend/src/Series/Details/`; Phase 17.3
+Plan 17.3-13 atomic stub-dir delete (D-09/D-10) retired the Series/Details/
+peer. This directory is the canonical home for the manga detail page.
 
 The Chapters tab is **flat** — no season grouping (PROJECT.md "Volumes /
 Seasons" Out-of-Scope, UI-SPEC §Anti-pattern 5).
@@ -17,7 +20,7 @@ Seasons" Out-of-Scope, UI-SPEC §Anti-pattern 5).
 | File | Purpose |
 |------|---------|
 | `MangaDetailsPage.tsx` | Page route component. Resolves `:titleSlug` → manga via `useManga()` and renders `<MangaDetails mangaId>` or `<NotFound>`. Mirrors `SeriesDetailsPage.tsx` verbatim with manga renames + redirects to `/manga` (not `/`) when the manga is deleted out from under the page. |
-| `MangaDetails.tsx` | Hero card + tab navigation + tab body dispatch. Hero header: cover (138 px), title (weight 300), monitor toggle, metadata strip (path / size / TranslationProfile / status / links / tags / chapter progress). Tabs: Overview, Chapters, Files (placeholder), History (placeholder — Plan 07-09), Search. Edit + Delete modals reuse `Series/Edit/EditSeriesModal` + `Series/Delete/DeleteSeriesModal` via `seriesId=mangaId` (Plan 07-04 precedent — Phase 8 forks dedicated manga modals). |
+| `MangaDetails.tsx` | Hero card + tab navigation + tab body dispatch. Hero header: cover (138 px), title (weight 300), monitor toggle, metadata strip (path / size / TranslationProfile / status / links / tags / chapter progress). Tabs: Overview, Chapters, Files (placeholder), History (placeholder — Plan 07-09), Search. Edit + Delete modals are dedicated manga peers under `Manga/Edit/` (PR #27 — `fix(manga-edit-button-no-op)`) and `Manga/Delete/` (`fix(manga-delete-button-no-op)`); the Plan 07-04 `seriesId={mangaId}` Sonarr-modal bridge has been retired (Sonarr `Series/Edit/EditSeriesModal` + `Series/Delete/DeleteSeriesModal` peers deleted in Phase 17.3 Plan 17.3-13). |
 | `MangaDetails.css` + `.css.d.ts` | CSS Modules — verbatim port of `SeriesDetails.css` (cover 250 / 368, title weight 300 / 50 px, gap 35 px, etc.) plus tab-button styles for the inline RESEARCH-A4 fallback (no `Components/Tab/` in the codebase). |
 | `MangaDetailsProvider.tsx` | Page-scoped context provider wrapping the entire `MangaDetails` body. Issue #51 (per-chapter `/manga/history?chapterId=X` N+1) fix: fires ONE `usePagedApiQuery` against `/api/v5/manga/history?mangaIds={id}&sortKey=date&sortDirection=descending&pageSize=250`, buckets the descending-by-date records by `chapterId` into `Map<number, ChapterHistory[]>`, and exposes them via `MangaChapterHistoryContext`. ChapterStatus consumes this context instead of firing its own per-row query. (Future plans wire chapter-file context + manga-queue-details context onto the same provider.) |
 | `MangaChapterHistoryContext.ts` | Context + `useLastChapterHistoryEvent(chapterId)` hook returning the most-recent `ChapterHistory` record for a given chapter — issue #51 fix. Reads from the bucketed map populated by `MangaDetailsProvider`. Returns `undefined` when the manga has no history for that chapter or before the provider's first fetch resolves. |
@@ -87,8 +90,9 @@ on `Chapter`.
 
 ## Manga Adaptation Notes
 
-This directory IS the manga adaptation of `frontend/src/Series/Details/`.
-Phase 8 cleanup will collapse the two when `Series/Details/` deletes.
+This directory IS the manga canonical for manga details. Phase 17.3 Plan
+17.3-13 (D-09/D-10) atomic stub-dir delete completed the `Series/Details/`
+retirement.
 
 The 8 omitted Series files are season-related and have no manga analog
 (PROJECT.md Volumes/Seasons Out-of-Scope). Three new files have NO Series

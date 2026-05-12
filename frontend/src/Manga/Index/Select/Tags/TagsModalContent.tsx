@@ -106,7 +106,7 @@ function TagsModalContent({
               value={applyTags}
               values={applyTagsOptions}
               helpTexts={[
-                translate('ApplyTagsHelpTextHowToApplySeries'),
+                translate('ApplyTagsHelpTextHowToApplyManga'),
                 translate('ApplyTagsHelpTextAdd'),
                 translate('ApplyTagsHelpTextRemove'),
                 translate('ApplyTagsHelpTextReplace'),

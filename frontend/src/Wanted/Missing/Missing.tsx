@@ -3,6 +3,9 @@
 // 'manga' since TV is gone post-cutover; the prop type union 'series' | 'manga' collapsed to
 // 'manga' (preserves the discriminator type for v2 reintroduction). Both default-sites
 // (MissingContent inner + Missing outer) updated atomically.
+// Sonarr divergence: Phase 17.3 Plan 17.3-13 (D-09 stub-importer cascade) — Episode/Episode
+// stub import rewritten to Chapter/Chapter peer; type alias Episode -> Chapter in body.
+// The Phase-15 historical NOTE below is preserved as repo memory of the pre-rename state.
 // NOTE: Episode imports below are orphaned post-Plan 15-07 Task 1 (frontend/src/Episode/ deleted)
 // and contribute to the expected ~247-error TS2307 cascade — Plan 15-08/15-09 resolves this.
 //
@@ -41,7 +44,7 @@ import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableOptionsModalWrapper from 'Components/Table/TableOptions/TableOptionsModalWrapper';
 import TablePager from 'Components/Table/TablePager';
-import Episode from 'Episode/Episode';
+import Chapter from 'Chapter/Chapter';
 import { Filter } from 'Filters/Filter';
 import { useCustomFiltersList } from 'Filters/useCustomFilters';
 import { align, icons, kinds } from 'Helpers/Props';
@@ -112,7 +115,7 @@ function MissingContent({ mediaType = 'manga' }: MissingProps) {
     getSelectedIds,
     selectAll,
     unselectAll,
-  } = useSelect<Episode>();
+  } = useSelect<Chapter>();
 
   const [isConfirmSearchAllModalOpen, setIsConfirmSearchAllModalOpen] =
     useState(false);
@@ -130,7 +133,7 @@ function MissingContent({ mediaType = 'manga' }: MissingProps) {
     isSearchingForAllEpisodes || isSearchingForSelectedEpisodes;
 
   const episodeIds = useMemo(() => {
-    return selectUniqueIds<Episode, number>(records, 'id');
+    return selectUniqueIds<Chapter, number>(records, 'id');
   }, [records]);
 
   const handleSelectAllChange = useCallback(
@@ -362,12 +365,12 @@ function MissingContent({ mediaType = 'manga' }: MissingProps) {
               <ConfirmModal
                 isOpen={isConfirmSearchAllModalOpen}
                 kind={kinds.DANGER}
-                title={translate('SearchForAllMissingEpisodes')}
+                title={translate('SearchForAllMissingChapters')}
                 message={
                   <div>
                     <div>
                       {translate(
-                        'SearchForAllMissingEpisodesConfirmationCount',
+                        'SearchForAllMissingChaptersConfirmationCount',
                         {
                           totalRecords,
                         }
@@ -402,7 +405,7 @@ function Missing({ mediaType = 'manga' }: MissingProps) {
   const { records } = useMissing(mediaType);
 
   return (
-    <SelectProvider<Episode> items={records}>
+    <SelectProvider<Chapter> items={records}>
       <MissingContent mediaType={mediaType} />
     </SelectProvider>
   );
