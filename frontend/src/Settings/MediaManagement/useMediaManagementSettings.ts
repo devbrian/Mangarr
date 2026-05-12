@@ -28,8 +28,9 @@ export interface MediaManagementSettingsModel {
   recycleBin: string;
   recycleBinCleanupDays: number;
   allowFingerprinting: string;
-  seasonPackUpgrade: string;
-  seasonPackUpgradeThreshold: number;
+  // Sonarr divergence: Phase 17.3 Plan 17.3-05 (D-06) — seasonPackUpgrade
+  // + seasonPackUpgradeThreshold fields removed (manga has no season packs).
+  // Paired with backend SeasonPackUpgradeType vertical delete.
 }
 
 const PATH = '/settings/mediamanagement';
