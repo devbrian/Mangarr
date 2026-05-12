@@ -24,6 +24,12 @@ import QualityProfileFilterBuilderRowValue from './QualityProfileFilterBuilderRo
 import QueueStatusFilterBuilderRowValue from './QueueStatusFilterBuilderRowValue';
 import ReleaseTypeFilterBuilderRowValue from './ReleaseTypeFilterBuilderRowValue';
 import TagFilterBuilderRowValue from './TagFilterBuilderRowValue';
+// Phase 17 follow-up (debug qualityprofiles-redux-rename, 2026-05-12 — GH #82
+// Path 1 surface-rename cascade): manga-canonical sibling of
+// QualityProfileFilterBuilderRowValue. Filter rows that declare
+// `valueType: filterBuilderValueTypes.TRANSLATION_PROFILE` render this
+// row-value component (wires `/api/v5/translationprofile`).
+import TranslationProfileFilterBuilderRowValue from './TranslationProfileFilterBuilderRowValue';
 import styles from './FilterBuilderRow.css';
 
 function getselectedFilterBuilderProp<T>(
@@ -104,6 +110,14 @@ function getRowValueConnector<T>(
 
     case filterBuilderValueTypes.QUALITY_PROFILE:
       return QualityProfileFilterBuilderRowValue;
+
+    // Phase 17 follow-up (debug qualityprofiles-redux-rename, 2026-05-12 —
+    // GH #82 Path 1 surface-rename cascade): manga-canonical sibling
+    // dispatch. Filter rows declaring `valueType: TRANSLATION_PROFILE`
+    // render the TranslationProfileFilterBuilderRowValue component which
+    // reads `useTranslationProfilesData()` against `/api/v5/translationprofile`.
+    case filterBuilderValueTypes.TRANSLATION_PROFILE:
+      return TranslationProfileFilterBuilderRowValue;
 
     case filterBuilderValueTypes.QUEUE_STATUS:
       return QueueStatusFilterBuilderRowValue;

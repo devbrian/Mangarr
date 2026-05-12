@@ -25,11 +25,18 @@ import OrganizeMangaModal from './Organize/OrganizeMangaModal';
 import TagsModal from './Tags/TagsModal';
 import styles from './MangaIndexSelectFooter.css';
 
+// Phase 17 follow-up (debug qualityprofiles-redux-rename, 2026-05-12 — GH #82
+// Path 1 surface-rename cascade): the inherited bulk-edit `SavePayload`
+// originally carried `qualityProfileId` + `seriesType` + `seasonFolder`. The
+// Manga editor backend (`Mangarr.Api.V5/Manga/MangaEditorResource.cs`) accepts
+// `TranslationProfileId` instead of `QualityProfileId` (Phase 5 D-05 split);
+// the bulk modal now POSTs `translationProfileId`. `seriesType` +
+// `seasonFolder` were dropped earlier in Plan 17.3-11 (D-14 / D-13 cascade —
+// manga has no series-type axis and no season-folder concept per DOMAIN-02);
+// they are scrubbed from this local typedef in this commit for parity.
 interface SavePayload {
   monitored?: boolean;
-  qualityProfileId?: number;
-  seriesType?: string;
-  seasonFolder?: boolean;
+  translationProfileId?: number;
   rootFolderPath?: string;
   moveFiles?: boolean;
 }

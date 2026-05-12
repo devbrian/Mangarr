@@ -31,6 +31,9 @@ import IndexerSelectInput, {
 import LanguageSelectInput, {
   LanguageSelectInputProps,
 } from './Select/LanguageSelectInput';
+import MangaTypeSelectInput, {
+  MangaTypeSelectInputProps,
+} from './Select/MangaTypeSelectInput';
 import MonitorChaptersSelectInput, {
   MonitorChaptersSelectInputProps,
 } from './Select/MonitorChaptersSelectInput';
@@ -46,9 +49,13 @@ import QualityProfileSelectInput, {
 import RootFolderSelectInput, {
   RootFolderSelectInputProps,
 } from './Select/RootFolderSelectInput';
-import MangaTypeSelectInput, {
-  MangaTypeSelectInputProps,
-} from './Select/MangaTypeSelectInput';
+// Phase 17 follow-up (debug qualityprofiles-redux-rename, 2026-05-12 — GH #82
+// Path 1): manga-canonical sibling of QualityProfileSelectInput. Wires
+// /api/v5/translationprofile for any FormInputGroup typed
+// `inputTypes.TRANSLATION_PROFILE_SELECT`.
+import TranslationProfileSelectInput, {
+  TranslationProfileSelectInputProps,
+} from './Select/TranslationProfileSelectInput';
 import UMaskInput, { UMaskInputProps } from './Select/UMaskInput';
 import DeviceInput, { DeviceInputProps } from './Tag/DeviceInput';
 import MangaTagInput, { MangaTagInputProps } from './Tag/MangaTagInput';
@@ -79,6 +86,7 @@ const componentMap: Record<InputType, ElementType> = {
   password: PasswordInput,
   path: PathInput,
   qualityProfileSelect: QualityProfileSelectInput,
+  translationProfileSelect: TranslationProfileSelectInput,
   rootFolderSelect: RootFolderSelectInput,
   select: EnhancedSelectInput,
   seriesTag: MangaTagInput,
@@ -135,6 +143,8 @@ type PickProps<V, C extends InputType> = C extends 'text'
   ? PathInputProps
   : C extends 'qualityProfileSelect'
   ? QualityProfileSelectInputProps
+  : C extends 'translationProfileSelect'
+  ? TranslationProfileSelectInputProps
   : C extends 'rootFolderSelect'
   ? RootFolderSelectInputProps
   : C extends 'select'
