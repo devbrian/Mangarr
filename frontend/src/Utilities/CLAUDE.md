@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Pure utility functions organized by domain. Almost everything here is **media-agnostic** and reusable for Mangarr — except for `Episode/` and `Series/` subfolders, which contain TV-specific helpers.
+Pure utility functions organized by domain. Everything here is **media-agnostic** post-Phase-17.3 — the `Episode/` and `Series/` TV-shape subfolders were deleted in Plan 17.3-13 atomic stub-dir delete alongside the parent stub directories.
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Utilities\`
 
-**File count**: ~50+ files across 15 sub-domains.
+**File count**: ~50 files across 13 sub-domains (post-Plan-17.3-13 — Series/ + Episode/ subfolders retired).
 
 ## Subdirectories
 
@@ -16,16 +16,16 @@ Pure utility functions organized by domain. Almost everything here is **media-ag
 | `Command/` | `findCommand`, `isCommandExecuting`, `isCommandFinished` | ✓ |
 | `Constants/` | Key codes, magic numbers | ✓ |
 | `Date/` | `formatDate`, `getRelativeDate`, `isToday`, `isTomorrow`, `isYesterday`, `isThisWeek`, … | ✓ |
-| **`Episode/`** | `updateEpisodes` | **Needs Manga update** |
 | `Fetch/` | `fetchJson`, `getQueryString`, `getQueryPath` | ✓ |
 | `Filter/` | `clientSideFilterAndSort`, `findSelectedFilters` | ✓ |
 | `Number/` | `formatBytes`, `formatRuntime`, `formatAge` | ✓ |
 | `Object/` | `isEmpty`, `hasDifferentItems`, `selectUniqueIds` | ✓ |
-| `Quality/` | `getQualities` | Adapt for manga qualities |
-| **`Series/`** | `getNewSeries`, `monitorOptions`, `seriesTypes` | **Needs Manga update** |
+| `Quality/` | `getQualities` (Sonarr-shape; Phase 5 D-04 dropped from manga decision flow but helper retained for TV-shape consumers) | ✓ (back-compat) |
 | `String/` | `titleCase`, `enumToTitle`, `naturalExpansion` | ✓ |
 | `Table/` | `getToggledRange`, `toggleSelected` | ✓ |
 | `State/` | `getNextId` | ✓ |
+
+Note: Sonarr `Utilities/Episode/` (1 file — `updateEpisodes.ts`) + `Utilities/Series/` (4 files — `getNewSeries`, `monitorOptions`, `seriesTypes`, …) were Phase 15 Plan 15-12 stubs and were deleted in Plan 17.3-13 D-09/D-10 atomic stub-dir delete. The widening callsites (`getProgressBarKind`, `getSeriesStatusDetails`) that depended on them were inlined into the per-component forks per Plan 17.3-08 D-14.
 
 ## Top-Level Helpers
 
@@ -60,20 +60,26 @@ import formatBytes from 'Utilities/Number/formatBytes';
 formatBytes(1024 * 1024 * 5);       // → "5.0 MB"
 ```
 
-## Manga Adaptation Notes
+## Manga Adaptation Notes (Phase 17.3 close-out)
 
-### `Series/`
-Contains TV-specific helpers (`monitorOptions`, `seriesTypes`). To migrate:
-- Rename folder to `Manga/`
-- `monitorOptions` — drop `pilot`, `firstSeason`, `lastSeason`, `monitorSpecials`, `unmonitorSpecials`; add `firstChapter`, `latestChapter`, `latestVolume`
-- `seriesTypes` → `mangaTypes` (manga / manhwa / manhua / OEL)
+### `Series/` — **Done — deleted** (Plan 17.3-13)
+The Sonarr `Utilities/Series/` subfolder (`getNewSeries`, `monitorOptions`,
+`seriesTypes`, …) was a Phase 15 Plan 15-12 stub. Plan 17.3-13 atomic
+stub-dir delete retired it alongside the parent `frontend/src/Series/`
+subtree. Manga peers live inline in the canonical feature modules:
+- `monitorOptions` — manga 5-value `MangaMonitor` literal in `Manga/Manga.ts` (per Phase 6 D-03)
+- `seriesTypes` — no peer; PROJECT.md Out-of-Scope (manga has no series-type concept)
+- `getNewSeries` — manga peer in `AddManga/useAddManga.ts` (`useAddManga()` mutation)
 
-### `Episode/`
-- Rename to `Chapter/`
-- `updateEpisodes` → `updateChapters`
+### `Episode/` — **Done — deleted** (Plan 17.3-13)
+The Sonarr `Utilities/Episode/` subfolder (1 file: `updateEpisodes.ts`)
+was a Phase 15 Plan 15-12 stub. Deleted in Plan 17.3-13. Manga peer:
+`useToggleChapterMonitored` / `useBulkToggleChaptersMonitored` in
+`Chapter/useChapter.ts`.
 
 ### `Quality/`
-Update `getQualities` lookup once Quality enum is updated for manga tiers.
+Phase 5 D-04 dropped Quality from the manga decision flow; `getQualities`
+helper retained for back-compat with TV-shape consumers.
 
 ## Cross-References
 
