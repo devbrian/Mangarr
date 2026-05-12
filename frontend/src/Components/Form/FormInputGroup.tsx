@@ -31,9 +31,9 @@ import IndexerSelectInput, {
 import LanguageSelectInput, {
   LanguageSelectInputProps,
 } from './Select/LanguageSelectInput';
-import MonitorEpisodesSelectInput, {
-  MonitorEpisodesSelectInputProps,
-} from './Select/MonitorEpisodesSelectInput';
+import MonitorChaptersSelectInput, {
+  MonitorChaptersSelectInputProps,
+} from './Select/MonitorChaptersSelectInput';
 import MonitorNewItemsSelectInput, {
   MonitorNewItemsSelectInputProps,
 } from './Select/MonitorNewItemsSelectInput';
@@ -72,7 +72,7 @@ const componentMap: Record<InputType, ElementType> = {
   indexerSelect: IndexerSelectInput,
   keyValueList: KeyValueListInput,
   languageSelect: LanguageSelectInput,
-  monitorEpisodesSelect: MonitorEpisodesSelectInput,
+  monitorEpisodesSelect: MonitorChaptersSelectInput,
   monitorNewItemsSelect: MonitorNewItemsSelectInput,
   number: NumberInput,
   oauth: OAuthInput,
@@ -122,7 +122,7 @@ type PickProps<V, C extends InputType> = C extends 'text'
   : C extends 'languageSelect'
   ? LanguageSelectInputProps
   : C extends 'monitorEpisodesSelect'
-  ? MonitorEpisodesSelectInputProps
+  ? MonitorChaptersSelectInputProps
   : C extends 'monitorNewItemsSelect'
   ? MonitorNewItemsSelectInputProps
   : C extends 'number'
