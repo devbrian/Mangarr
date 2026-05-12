@@ -149,4 +149,18 @@ export const useBulkToggleChaptersMonitored = () => {
   };
 };
 
+/**
+ * Sonarr divergence: Phase 17.3 Plan 17.3-13 — manga-peer for the
+ * Episode/useEpisode `setEpisodeQueryKey` no-op stub. Wanted/* consumers
+ * (Missing/useMissing.tsx, CutoffUnmet/useCutoffUnmet.tsx) call this from a
+ * `useEffect` to register the live React Query key for cache invalidation by
+ * SignalR handlers. Manga-side cache invalidation is already wired through
+ * the URL-keyed `['/chapter']` invalidations in `useBulkToggleChaptersMonitored`
+ * + the `chapter` SignalR handler (Plan 07-02), so this remains a no-op for
+ * now — kept to preserve the named-export shape the Wanted/* importers expect.
+ * Phase 8 cleanup: drop together with the wanted-page registrar plumbing once
+ * the discriminator-driven query-key map ships.
+ */
+export const setChapterQueryKey = (..._args: unknown[]) => undefined;
+
 export default useChaptersByManga;
