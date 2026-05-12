@@ -460,3 +460,92 @@ diversification.
 
 ---
 *Last updated: 2026-05-10 (Phase 17 plan 17-04 Wave 3 close-out — added Phase 17 entry documenting the Comix-only browser-automation reversal of Phase 3 D-13. Scope-limit explicit so future devs don't generalize: MangaDex stays browser-free; `IComixSigner` is a manga-side single-source pattern, NOT a Sonarr-substrate addition.)*
+
+## Phase 17.3 — Domain Rename Residue Sweep (pre-v1) (2026-05-12)
+
+**Goal:** Sweep TV-term residue that Phase 15 intentionally deferred so v1.0.0 ships free of TV vocabulary in the developer-facing code surface.
+
+Phase 17.3 closes the long tail of TV-shape carry-overs that Phase 15 (Plans 15-08/09 brand sweep + 15-03/15-12 domain rename + stub-shim) left in place so verbatim-inherited Sonarr consumers could still compile during the cutover. With the stub layer retired, Manga / Chapter / ChapterFile are the single canonical home for the manga domain on both backend and frontend; the manga-shape interfaces no longer carry parallel TV-shape compatibility shims.
+
+### Hard-fork additions (Phase 17.3 deletes)
+
+- `src/NzbDrone.Core/Exceptions/SeriesNotFoundException.cs` — deleted (D-05; Plan 17.3-03). Verified dead by repo grep; `src/NzbDrone.Core/MetadataSource/MangaNotFoundException.cs` is the in-place peer (shipped Phase 2).
+- `src/NzbDrone.Core/MediaFiles/SeasonPackUpgradeType.cs` + the entire vertical (D-06; Plan 17.3-05):
+  - `IConfigService.SeasonPackUpgrade` + `SeasonPackUpgradeThreshold` removed (Pattern S2 cascade-absorption marker added per Phase 15 Plan 15-10 template).
+  - `ConfigService` implementations removed (Pattern S2 marker added).
+  - `MediaManagementSettingsResource` properties + `ToModel` / `ToResource` mappings removed.
+  - `src/Mangarr.Api.V5/openapi.json` schema entry + `$ref` + property entries removed.
+  - `frontend/src/Settings/MediaManagement/MediaManagement.tsx` form section removed (~L379-446).
+  - 6 user-visible en.json keys + 6 indexer en.json keys deleted (Bucket A atomic key+caller per D-02).
+- 8 frontend `Components/Form/*` TV-named files renamed (D-07; Plan 17.3-04):
+  - `SeriesTypeSelectInput` + `SeriesTypeSelectInputOption` + `SeriesTypeSelectInputSelectedValue` → `MangaTypeSelectInput` family.
+  - `SeriesTagInput` → `MangaTagInput`.
+  - `SeriesTagList` → `MangaTagList`.
+  - `MonitorEpisodesSelectInput` → `MonitorChaptersSelectInput`.
+  - 2 misclassified `Activity/Queue/EpisodeCellContent.tsx` + `Activity/Queue/EpisodeTitleCellContent.tsx` no-op `return null` stubs DELETED (not renamed — no real consumer existed; the only references lived in `frontend/src/Activity/CLAUDE.md` documentation).
+- 5 frontend stub directories deleted (D-09/D-10 atomic; Plan 17.3-13): `frontend/src/Series/` (8 files), `frontend/src/Episode/` (14 files), `frontend/src/EpisodeFile/` (4 files), `frontend/src/Season/` (1 file — `formatSeason.ts`), `frontend/src/Utilities/Series/` (4 files). ~27 Phase 15 Plan 15-12 stub files retired in a single `tsc --noEmit`-gated commit after Plan 17.3-13 rewrote the ~36 stub-importer call-sites to the manga peer modules.
+- `MoveSeriesModal.tsx` deleted + invocation removed from `EditMangaModalContent.tsx` (D-11; Plan 17.3-11). v1.x GH follow-up issue filed with `--label enhancement` to track the dedicated `MoveMangaModal` design.
+- `frontend/src/Manga/Manga.ts` type-narrowed (D-13; Plan 17.3-12):
+  - Removed top-level fields: `network`, `originalCountry`, `originalLanguage`, `firstAired`, `lastAired`, `previousAiring`, `nextAiring`, `seriesType`, `seasonFolder`, `seasons`, `ended`, `runtime`, `imdbId`, `tvdbId`, `tvMazeId`, `tvRageId`, `tmdbId`, `useSceneNumbering`.
+  - Removed `Statistics` subfields: episode counts, season counts, episode-file qualities.
+  - Removed `AlternateTitle` subfields: `seasonNumber`, `sceneSeasonNumber`, `sceneOrigin`.
+  - `Season` interface DELETED.
+- 5 per-component forks landed (D-14; Plan 17.3-08): `MangaIndexRow.tsx`, `MangaIndexOverviewInfo.tsx`, `MangaIndexPoster.tsx`, `EditMangaModalContent.tsx` (D-11/D-13 cascade), plus 8 cross-tree consumers (`Parse/ParseModel.ts`, `Parse/ParseResult.tsx`, `InteractiveSearch/OverrideMatch/OverrideMatchModalContent.tsx`, `InteractiveImport/Interactive/InteractiveImportRow.tsx`, `InteractiveImport/Interactive/InteractiveImportModalContent.tsx`, `Organize/OrganizePreviewModalContent.tsx`, `Store/Actions/Settings/importLists.js`, `MangaIndexRow.css` + `MangaIndexTableHeader.css` + `MangaIndexPoster.css` CSS-class deletes). The inherited `getProgressBarKind` / `getSeriesStatusDetails` / `getIndexOfFirstCharacter` widened-signature helpers were inlined into the per-component forks.
+- Redux migrator renamed: `frontend/src/Store/Migrators/migrateAddSeriesDefaults.js` → `migrateAddMangaDefaults.js` (D-12; Plan 17.3-12). Persisted-state keys PRESERVED (Lock #12 — `addSeries.defaults.monitor` localStorage path stays for the existing-user migration path; only the JS module filename + exported symbol + import path renamed).
+- Companion `frontend/src/Store/Actions/Creators/createBatchToggleEpisodeMonitoredHandler.js` (0 importers per grep) DELETED rather than renamed — unwired dead code (D-12 originally specified rename; plan-author override per evidence).
+
+### Sonarr-divergence markers added (Pattern S2)
+
+Phase 17.3 Plan 17.3-05 (D-06) cascade-absorption markers — verbatim Phase 15 Plan 15-10 template:
+
+- `src/NzbDrone.Core/Configuration/IConfigService.cs` — `// Sonarr divergence: Phase 17.3 Plan 17.3-05 (D-06) — SeasonPackUpgrade vertical stripped (manga has no season packs).`
+- `src/NzbDrone.Core/Configuration/ConfigService.cs` — companion stripped-impl marker.
+- `src/Mangarr.Api.V5/Settings/MediaManagementSettingsResource.cs` — companion stripped-DTO markers (2 entries — `SeasonPackUpgrade` property + `ToResource` / `ToModel` mapping cite).
+
+### Preserved (D-09 verbatim historical markers)
+
+Plan 17.3-06 backend audit (D-15) ran a verify-only sweep across `src/NzbDrone.Core/Manga/*.cs` + `src/Mangarr.Api.V5/Manga/*.cs` + `frontend/src/Components/SignalRListener.tsx` + `src/NzbDrone.Core/Datastore/Migration/001_mangarr_baseline.cs`. 36 of 37 backend in-file TV-term hits PRESERVED per D-09 (Pattern S2 `// Sonarr divergence:` markers / `// Mirrors Sonarr's X` parity citations / `// Phase N audit gap-NN (Series-vs-Manga.md):` audit-cite shapes). 1 candidate rewrite at `src/Mangarr.Api.V5/Manga/MangaResource.cs:88` (stale informational comment referencing the inheritance pattern that Phase 17.3 D-13/D-14 unwound) → re-attributed inline.
+
+### Preserved (D-27 PRESERVE catalog — unchanged)
+
+All categories from Phase 15 D-27 stay intact: Sonarr brand references in legal/historical contexts; upstream-Sonarr-via-apt test runtime (`apt.sonarr.tv` + `sonarrtst` user); `Sonarr/Sonarr` GitHub repo guards in `.github/workflows/*.yml`; bare `services.sonarr.tv` URL strings; parser test-fixture sample data carrying historical TV title shapes. Donate href `https://sonarr.tv/donate.html` preserved per Phase 15 Plan 15-09 F-A decision (upstream acknowledgment).
+
+### i18n sweep (D-01/D-02/D-03/D-04)
+
+`src/NzbDrone.Core/Localization/Core/en.json` swept (Plans 17.3-09 / 17.3-10):
+- ~30 Bucket A key renames (delete TV-shape key + atomic per-key rewrite of every `translate()` / `t()` / `GetLocalizedString` caller to the manga-peer key which already existed at the sibling line; e.g., `AddNewSeries` → `AddNewManga` at L50, `DeleteSeriesModalHeader` → `DeleteManga` at L420, `EditSeries` → `EditManga` at L679, `MonitorAllEpisodes` → `MonitorAllChapters` at L1343).
+- ~30 dead-key deletes (Bucket A atomic key+caller per D-02 — keys with no manga peer).
+- ~50-80 Bucket B value-only rewrites (key stays; `"Episode"` → `"Chapter"` inside string values).
+- 6 D-06 frontend `SeasonPackUpgrade*` en.json keys + 6 indexer en.json keys deleted atomically with the D-06 vertical.
+- Non-en locales (43 files) DEFERRED to post-v1 translator-territory per scope lock.
+
+### Documentation hygiene (D-16; Plan 17.3-15)
+
+CLAUDE.md sweep across the repo: ~10 CLAUDE.md files updated to reflect post-Phase-17.3 codebase shape. Stub-dir CLAUDE.md files for `frontend/src/Series/`, `frontend/src/Episode/`, `frontend/src/EpisodeFile/`, `frontend/src/Season/` were deleted alongside their parent stub dirs in Plan 17.3-13's atomic delete. Historical-accuracy contract: sections explicitly marked "Phase 15 deleted X" / "Plan 07-04 Lock #N" / "Plan 15-12 historical" preserved verbatim; only forward-facing stale references ("Phase 8 will trim X") were rewritten to phase-attributed completion markers.
+
+### Phase 17.3 plan structure (5 waves, 16 plans)
+
+| Wave | Plans | Focus |
+|------|-------|-------|
+| 1 | 17.3-01 / 17.3-02 | i18n inventory + RESEARCH-driven scope lock |
+| 2 | 17.3-03 / 17.3-04 / 17.3-05 / 17.3-06 / 17.3-07 | Backend deletes (D-05 + D-06) + frontend Form-component renames (D-07) + backend in-file audit (D-15) |
+| 3 | 17.3-08 / 17.3-09 / 17.3-10 | Per-component forks (D-14) + i18n Bucket A/B sweeps |
+| 4 | 17.3-11 / 17.3-12 / 17.3-13 | MoveSeriesModal delete (D-11) + Manga.ts trim + Redux migrator rename (D-12 + D-13) + atomic stub-dir delete (D-09/D-10) |
+| 5 | 17.3-14 / 17.3-15 / 17.3-16 | Build-green verification + doc sweep (D-16) + phase close-out aggregate UI smoke (D-17) |
+
+### Zero-deferral close-out (per `feedback_no_open_deferrals_at_phase_close.md`)
+
+At Phase 17.3 close every open item is either shipped or formally scheduled into a named future-milestone roadmap. The MoveMangaModal v1.x GH issue is the only formal deferral; no "TBD post-Phase-N" items remain.
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `src/NzbDrone.Core/Exceptions/SeriesNotFoundException.cs` | delete | Phase 17.3 | D-05; dead code (no callers); `MangaNotFoundException.cs` is the peer (Phase 2). |
+| `src/NzbDrone.Core/MediaFiles/SeasonPackUpgradeType.cs` + IConfigService / ConfigService / MediaManagementSettingsResource cascade | delete | Phase 17.3 | D-06; manga has no season packs (PROJECT.md Volumes/Seasons Out-of-Scope). Pattern S2 markers added per Phase 15 Plan 15-10 template. |
+| 8 `frontend/src/Components/Form/*` TV-named files | rename | Phase 17.3 | D-07; vocabulary parity with manga domain (Series* → Manga*, EpisodesSelectInput → ChaptersSelectInput). |
+| 5 stub directories (`frontend/src/Series/`, `Episode/`, `EpisodeFile/`, `Season/`, `Utilities/Series/`) | delete | Phase 17.3 | D-09/D-10; Phase 15 Plan 15-12 thin re-export shims retired after Plan 17.3-13 rewrote ~36 importer call-sites to the manga peer modules. |
+| `frontend/src/Manga/Manga.ts` Sonarr-shape carry-over fields | delete | Phase 17.3 | D-13; verbatim-inherited Plan 07-04 compatibility shims no longer needed after Plan 17.3-08 per-component forks landed. |
+| `frontend/src/Store/Migrators/migrateAddSeriesDefaults.js` | rename | Phase 17.3 | D-12; persisted-state localStorage path PRESERVED (only filename + symbol + import path renamed). |
+| `frontend/src/Store/Actions/Creators/createBatchToggleEpisodeMonitoredHandler.js` | delete | Phase 17.3 | D-12 plan-author override; 0 importers per grep — unwired dead code. |
+
+---
+*Last updated: 2026-05-12 (Phase 17.3 plan 17.3-15 Wave 5 close-out — added Phase 17.3 entry documenting the residue-sweep accomplishments + zero-deferral close-out + 5-wave 16-plan structure. Historical accuracy preserved: Phase 15/16/16.1/17 entries above untouched. Phase 17.3 retires the Phase 15 Plan 15-12 stub layer; manga peers are now single-canonical-home across backend + frontend.)*
