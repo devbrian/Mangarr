@@ -3,9 +3,16 @@
 ## Purpose
 
 TypeScript types, hooks, components, and the zustand options store for the
-manga domain — the parallel sibling of `frontend/src/Series/`. Backs the
-Manga library page (`Index/`), the Manga details page (Plan 07-05 — pending),
-and downstream Activity / Wanted consumers (Plans 07-09 / 07-10).
+manga domain — the canonical frontend manga module post-Phase-17.3. Backs the
+Manga library page (`Index/`), the Manga details page (`Details/`), and
+downstream Activity / Wanted consumers (Phase 7 Plans 07-09 / 07-10).
+
+Historical note: prior to Plan 17.3-13 this directory was the "parallel
+sibling of `frontend/src/Series/`" — the Series/ directory existed as a set
+of thin re-export stubs from Phase 15 Plan 15-12 to keep verbatim-inherited
+TV consumers compiling during the cutover. Plan 17.3-13 (D-09/D-10) atomic
+stub-dir delete retired the Series/ subtree; this directory is now the
+single canonical home for manga frontend types + hooks + components.
 
 **Absolute Path:** `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Manga\`
 
@@ -13,12 +20,12 @@ and downstream Activity / Wanted consumers (Plans 07-09 / 07-10).
 
 | File | Purpose |
 |------|---------|
-| `Manga.ts` | `Manga` interface (extends `ModelBase`) + `MangaMonitor` 5-value type literal (per Phase 6 D-03 — `'all' \| 'future' \| 'missing' \| 'latest' \| 'none'`) + `MangaStatus` + `MangaImage` + Sonarr-shape carry-over fields (statistics / seasons / originalLanguage / network / nextAiring / etc.) typed as optional so the verbatim-inherited Index components from Plan 07-04 compile. Mirrors the V5 backend `MangaResource` (`src/Sonarr.Api.V5/Manga/MangaResource.cs`). |
-| `MangaStatus.ts` | `MANGA_STATUS_VALUES` constant array + `isMonitorableStatus()` helper. Sibling of `Series/SeriesStatus.ts`. |
-| `mangaOptionsStore.ts` | Zustand store backed by `localStorage` key **`'manga_options'`**. 3-view toggle (`posters` / `overview` / `table`), default `view: 'posters'` per Lock #2. Exports `useMangaOptions` / `setMangaOptions` / `useMangaOption` / `setMangaOption` / `setMangaSort` / `getMangaOptions` + per-subview helpers (`useMangaPosterOptions` / `setMangaPosterOptions`, `useMangaOverviewOptions` / `setMangaOverviewOptions`, `useMangaTableOptions` / `setMangaTableOptions`, `useMangaDeleteOptions` / `setMangaDeleteOptions`). The 21-entry `columns` array (Plan 07-04 — RESEARCH Example 4): status, sortTitle, originalCountry, originalLanguage, translationProfileId, customFormatProfileId, chapterProgress, chapterCount, scanlationGroups, translatedLanguages, metadataSource, contentRating, added, year, path, sizeOnDisk, genres, ratings, certification, tags, actions. |
-| `useManga.ts` | Mirrors `Series/useSeries.ts`. Exports the default `useManga()` hook + `useMangaIndex` (filter+sort), `useSingleManga`, `useHasManga`, `useMultipleManga`, `useSaveManga`, `useDeleteManga`, `useToggleMangaMonitored`, `useUpdateMangaMonitor` (stub), `useSaveMangaEditor`, `useBulkDeleteManga`, plus the `FILTERS` / `FILTER_BUILDER` arrays. **React Query key: `['/manga']`** — Plan 07-02 SignalR contract. |
-| `useMangaQualityProfile.ts` | Stub returning `undefined` for the inherited Index columns (`MangaIndexPosterInfo` / `MangaIndexOverviewInfo` / `MangaIndexRow` reference `qualityProfile?.name` and gracefully render empty). Previously delegated to `useQualityProfile`, which fired `GET /api/v5/qualityprofile` 404 on every home-page mount (Phase 5 D-01 deleted `QualityProfileController`); home-404s-queue-qualityprofile fix (2026-05-09) collapsed the delegation. Phase 8 collapses with `useSeriesQualityProfile` when Tv/ deletes (or replace with `useMangaTranslationProfile` when Phase 5 D-04 ships). |
-| `NoManga.tsx` | Empty-state for the library page. UI-SPEC §Empty States locked copy: heading `No manga added yet`, body links to `/add/manga` via `Add New Manga` CTA. Reuses `Series/NoSeries.css` styles. |
+| `Manga.ts` | `Manga` interface (extends `ModelBase`) + `MangaMonitor` 5-value type literal (per Phase 6 D-03 — `'all' \| 'future' \| 'missing' \| 'latest' \| 'none'`) + `MangaStatus` + `MangaImage`. Phase 17.3 Plan 17.3-12 (D-13, completed 2026-05-11) stripped the Sonarr-shape carry-over fields (`network`, `originalCountry`, `originalLanguage`, `firstAired`, `lastAired`, `previousAiring`, `nextAiring`, `seriesType`, `seasonFolder`, `seasons`, `ended`, `runtime`, `imdbId`, `tvdbId`, `tvMazeId`, `tvRageId`, `tmdbId`, `useSceneNumbering`, and the `Statistics` episode/season subfields). The interface is now manga-shape only. Mirrors the V5 backend `MangaResource` (`src/Mangarr.Api.V5/Manga/MangaResource.cs`). |
+| `MangaStatus.ts` | `MANGA_STATUS_VALUES` constant array + `isMonitorableStatus()` helper. Originally sibling of `Series/SeriesStatus.ts`; that stub was deleted in Plan 17.3-13 atomic stub-dir delete. `MangaStatus.ts` is now standalone. |
+| `mangaOptionsStore.ts` | Zustand store backed by `localStorage` key **`'manga_options'`**. 3-view toggle (`posters` / `overview` / `table`), default `view: 'posters'` per Lock #2. Exports `useMangaOptions` / `setMangaOptions` / `useMangaOption` / `setMangaOption` / `setMangaSort` / `getMangaOptions` + per-subview helpers (`useMangaPosterOptions` / `setMangaPosterOptions`, `useMangaOverviewOptions` / `setMangaOverviewOptions`, `useMangaTableOptions` / `setMangaTableOptions`, `useMangaDeleteOptions` / `setMangaDeleteOptions`). The `columns` array carries the manga-canonical column set (Plan 07-04 + Plan 17.3-08 D-14 per-component fork): status, sortTitle, translationProfileId, customFormatProfileId, chapterProgress, chapterCount, scanlationGroups, translatedLanguages, metadataSource, contentRating, added, year, path, sizeOnDisk, genres, ratings, certification, tags, actions. (Two of the inherited entries — `originalCountry` and `originalLanguage` — remain registered in the column registry for back-compat with persisted Zustand state; they render an em-dash because the `Manga` interface no longer carries those fields per Plan 17.3-12 D-13.) |
+| `useManga.ts` | The canonical manga data-hooks module. Exports the default `useManga()` hook + `useMangaIndex` (filter+sort), `useSingleManga`, `useHasManga`, `useMultipleManga`, `useSaveManga`, `useDeleteManga`, `useToggleMangaMonitored`, `useUpdateMangaMonitor` (stub), `useSaveMangaEditor`, `useBulkDeleteManga`, plus the `FILTERS` / `FILTER_BUILDER` arrays. **React Query key: `['/manga']`** — Plan 07-02 SignalR contract. Sonarr `Series/useSeries.ts` re-export stub deleted in Plan 17.3-13. |
+| `useMangaQualityProfile.ts` | Stub returning `undefined` for the inherited Index columns (`MangaIndexPosterInfo` / `MangaIndexOverviewInfo` / `MangaIndexRow` reference `qualityProfile?.name` and gracefully render empty). Previously delegated to `useQualityProfile`, which fired `GET /api/v5/qualityprofile` 404 on every home-page mount (Phase 5 D-01 deleted `QualityProfileController`); home-404s-queue-qualityprofile fix (2026-05-09) collapsed the delegation. Replacement candidate: `useMangaTranslationProfile` (Phase 5 D-04). |
+| `NoManga.tsx` | Empty-state for the library page. UI-SPEC §Empty States locked copy: heading `No manga added yet`, body links to `/add/manga` via `Add New Manga` CTA. Styles ported in-tree (Sonarr `Series/NoSeries.css` deleted in Plan 17.3-13). |
 | `MangaPoster.tsx` | Renders the cover art (138 px portrait per UI-SPEC §Visual Hierarchy). Reads `manga.images[].url` per Lock #3 — already rewritten by `MangaController.MapResource → _coverMapper.ConvertToLocalUrls` to `/MediaCover/manga/{id}/poster.jpg`. |
 | `MangaImage.tsx` | Lazy-loaded image with retry-on-error + size-suffix URL rewrite. Sonarr `MediaCover` serves both `poster.jpg` and `poster-{size}.jpg`. |
 | `MangaBanner.tsx` | Banner-aspect variant (35 / 70 px). |
@@ -35,13 +42,17 @@ and downstream Activity / Wanted consumers (Plans 07-09 / 07-10).
   in `07-03-SUMMARY.md` confirming no collision.
 - **5-value `MangaMonitor`** — Phase 6 D-03 is locked at `'all' | 'future' | 'missing' | 'latest' | 'none'`. Do NOT extend this without a documented decision.
 - **Default view = `'posters'`** — Lock #2 from `07-RESEARCH.md`.
-- **Column set diverges from Series** by dropping seriesType / network /
-  qualityProfileId / nextAiring / previousAiring / seasonCount / seasonFolder /
-  episodeProgress / episodeCount / latestSeason / useSceneNumbering /
-  monitorNewItems / episodeFileQualities / releaseGroups / releaseTypes /
-  averageSizePerEpisode and adding translationProfileId /
+- **Column set is manga-canonical** (Plan 07-04 baseline + Plan 17.3-08 D-14
+  per-component fork — Series/ stub-dir deleted in Plan 17.3-13, so the
+  earlier "diverges from Series" framing is moot): translationProfileId /
   customFormatProfileId / chapterCount / chapterProgress / scanlationGroups /
-  translatedLanguages / metadataSource / contentRating.
+  translatedLanguages / metadataSource / contentRating / status / sortTitle /
+  added / year / path / sizeOnDisk / genres / ratings / certification / tags /
+  actions. TV-shape columns (seriesType, network, qualityProfileId,
+  nextAiring, previousAiring, seasonCount, seasonFolder, episodeProgress,
+  episodeCount, latestSeason, useSceneNumbering, monitorNewItems,
+  episodeFileQualities, releaseGroups, releaseTypes, averageSizePerEpisode)
+  were never registered or were dropped in Plan 17.3-08 D-14.
 - **React Query key contract** (Plan 07-02): list reads use `['/manga']`,
   detail reads use `['/manga', id]`. The SignalR `manga` resource handler
   invalidates `['/manga']` on every backend update.
@@ -70,24 +81,26 @@ The chapter table renders **one row per canonical Chapter** (Phase 16 STRUCT-09 
 
 ## Manga Adaptation Notes
 
-This directory IS the manga adaptation of `frontend/src/Series/`. Phase 8 cutover
-will collapse the two when `Series/` deletes — at which point all the
-`// Phase 8 cleanup: collapse with Series when Tv/ deletes.` markers in this
-directory point Phase 8's executor at the canonical sibling to merge.
-
-A handful of inherited Manga/Index/ components reach back into Series/ for
-peer modals (`Series/Delete/DeleteSeriesModal`, `Series/Edit/EditSeriesModal`)
-+ helpers (`Utilities/Series/getProgressBarKind`,
-`Series/SeriesStatus.getSeriesStatusDetails`) — see Index/CLAUDE.md
-"Sonarr Inheritance Notes" for the full table.
+Phase 17.3 Plan 17.3-13 (D-09/D-10) atomic stub-dir delete completed the
+`Series/` → `Manga/` cutover. The pre-Phase-17.3 inheritance pattern
+(Manga/Index/ components reaching back into `Series/Delete/DeleteSeriesModal`,
+`Series/Edit/EditSeriesModal`, `Utilities/Series/getProgressBarKind`,
+`Series/SeriesStatus.getSeriesStatusDetails`) is GONE — Plan 17.3-08 (D-14)
+landed per-component forks for the inherited Index components
+(MangaIndexRow / MangaIndexOverviewInfo / MangaIndexPoster /
+EditMangaModalContent), and the Series/* peers were deleted in Plan
+17.3-13. The single-manga Edit + Delete modals shipped as dedicated peers
+under `Manga/Edit/` (PR #27) + `Manga/Delete/` ahead of the stub-dir
+delete.
 
 ## Cross-References
 
-- [../Series/CLAUDE.md](../Series/CLAUDE.md) — Sibling Series feature (Phase 8 cleanup target).
 - [../Chapter/CLAUDE.md](../Chapter/CLAUDE.md) — Chapter sibling type.
-- [../AddManga/CLAUDE.md](../AddManga/CLAUDE.md) — Add-manga flow + form-state store (pending).
+- [../AddManga/CLAUDE.md](../AddManga/CLAUDE.md) — Add-manga flow + form-state store.
 - [../typings/CLAUDE.md](../typings/CLAUDE.md) — Cross-cutting typing folder (`MangaQueueItem.ts`, `ChapterHistory.ts`, `MangaBlocklist.ts`).
 - [../Helpers/Hooks/useOptionsStore.ts](../Helpers/Hooks/useOptionsStore.ts) — `createOptionsStore<T>(name, state, options?)` factory.
-- [../../../src/Sonarr.Api.V5/Manga/MangaResource.cs](../../../src/Sonarr.Api.V5/Manga/MangaResource.cs) — Backend resource shape this type mirrors.
+- [../../../src/Mangarr.Api.V5/Manga/MangaResource.cs](../../../src/Mangarr.Api.V5/Manga/MangaResource.cs) — Backend resource shape this type mirrors.
 - [../../../.planning/phases/07-api-v5-frontend-manga-shell/07-RESEARCH.md](../../../.planning/phases/07-api-v5-frontend-manga-shell/07-RESEARCH.md) — Lock #2 (default view), Lock #3 (cover URL), Example 4 (column set), Lock #10 (verbatim port file tree).
-- [../../../.planning/phases/07-api-v5-frontend-manga-shell/07-04-PLAN.md](../../../.planning/phases/07-api-v5-frontend-manga-shell/07-04-PLAN.md) — This plan.
+- [../../../.planning/phases/07-api-v5-frontend-manga-shell/07-04-PLAN.md](../../../.planning/phases/07-api-v5-frontend-manga-shell/07-04-PLAN.md) — Originating plan.
+- [../../../.planning/phases/17.3-domain-rename-residue-sweep-pre-v1-sweep-tv-term-residue-pha/17.3-12-PLAN.md](../../../.planning/phases/17.3-domain-rename-residue-sweep-pre-v1-sweep-tv-term-residue-pha/17.3-12-PLAN.md) — D-13 Manga.ts trim.
+- [../../../.planning/phases/17.3-domain-rename-residue-sweep-pre-v1-sweep-tv-term-residue-pha/17.3-13-PLAN.md](../../../.planning/phases/17.3-domain-rename-residue-sweep-pre-v1-sweep-tv-term-residue-pha/17.3-13-PLAN.md) — D-09/D-10 atomic stub-dir delete.
