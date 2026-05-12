@@ -1017,12 +1017,15 @@ function InteractiveImportModalContentInner(
         onModalClose={handleSelectModalClose}
       />
 
+      {/* Sonarr divergence: Phase 17.3 D-13/D-14 — dropped
+          isAnime={selectedItem?.series?.seriesType === 'anime'} prop pass
+          (manga has no anime-format; seriesType removed from Manga.ts per
+          D-13). */}
       <SelectEpisodeModal
         isOpen={selectModalOpen === 'episode'}
         selectedIds={orderedSelectedIds}
         seriesId={selectedItem?.series?.id}
         seasonNumber={selectedItem?.seasonNumber}
-        isAnime={selectedItem?.series?.seriesType === 'anime'}
         modalTitle={modalTitle}
         onEpisodesSelect={handleEpisodesSelect}
         onModalClose={handleSelectModalClose}
