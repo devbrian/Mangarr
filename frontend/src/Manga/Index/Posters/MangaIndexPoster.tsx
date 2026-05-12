@@ -23,8 +23,10 @@ import { Statistics } from 'Manga/Manga';
 import { useMangaPosterOptions } from 'Manga/mangaOptionsStore';
 import MangaPoster from 'Manga/MangaPoster';
 import { useUiSettingsValues } from 'Settings/UI/useUiSettings';
-import formatDateTime from 'Utilities/Date/formatDateTime';
-import getRelativeDate from 'Utilities/Date/getRelativeDate';
+// Phase 17.3 D-14: formatDateTime/getRelativeDate imports dropped — the
+// {nextAiring ? <div ...>} JSX block that consumed them was deleted (no
+// airing concept in manga domain per DOMAIN-01/02). D-08 orphan-import sweep
+// applied.
 import translate from 'Utilities/String/translate';
 import useMangaIndexItem from '../useMangaIndexItem';
 import MangaIndexPosterInfo from './MangaIndexPosterInfo';
@@ -100,11 +102,6 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
     status,
     path,
     titleSlug,
-    originalCountry,
-    originalLanguage,
-    network,
-    nextAiring,
-    previousAiring,
     added,
     statistics = {} as Statistics,
     images,
@@ -112,11 +109,18 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
     tags,
   } = manga;
 
+  // Phase 17.3 D-14: originalCountry/originalLanguage/network/nextAiring/
+  // previousAiring dropped from Manga destructure (no longer on Manga
+  // interface per Phase 17.3 D-13). seasonCount/episodeCount/episodeFileCount/
+  // totalEpisodeCount dropped from Statistics — replaced by chapter-shape
+  // progress numbers. MangaIndexProgressBar still accepts the legacy
+  // episode-named props as a facade (its body internally aliases them to
+  // chapter-shape — see MangaIndexProgressBar.tsx L88-90), so we map the
+  // chapter-shape fields here for verbatim-inheritance prop compatibility.
   const {
-    seasonCount = 0,
-    episodeCount = 0,
-    episodeFileCount = 0,
-    totalEpisodeCount = 0,
+    chapterCount = 0,
+    chapterFileCount = 0,
+    totalChapterCount = 0,
     sizeOnDisk = 0,
   } = statistics;
 
@@ -203,9 +207,9 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
         mangaId={mangaId}
         monitored={monitored}
         status={status}
-        episodeCount={episodeCount}
-        episodeFileCount={episodeFileCount}
-        totalEpisodeCount={totalEpisodeCount}
+        episodeCount={chapterCount}
+        episodeFileCount={chapterFileCount}
+        totalEpisodeCount={totalChapterCount}
         width={posterWidth}
         detailedProgressBar={detailedProgressBar}
         isStandalone={false}
@@ -229,24 +233,10 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
         </div>
       ) : null}
 
-      {nextAiring ? (
-        <div
-          className={styles.nextAiring}
-          title={`${translate('NextAiring')}: ${formatDateTime(
-            nextAiring,
-            longDateFormat,
-            timeFormat
-          )}`}
-        >
-          {getRelativeDate({
-            date: nextAiring,
-            shortDateFormat,
-            showRelativeDates,
-            timeFormat,
-            timeForToday: true,
-          })}
-        </div>
-      ) : null}
+      {/* Phase 17.3 D-14: top-of-render {nextAiring ? <div ...>} block dropped
+          (no airing concept in manga domain; Manga.ts trim removed
+          props.nextAiring). The .nextAiring CSS class was also dropped from
+          MangaIndexPoster.css. */}
 
       {showTags && tags.length ? (
         <div className={styles.tags}>
@@ -256,13 +246,12 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
         </div>
       ) : null}
 
+      {/* Phase 17.3 D-14: originalCountry/originalLanguage/network/
+          previousAiring/seasonCount props dropped from this call site (no
+          longer on Manga interface per D-13; MangaIndexPosterInfo child also
+          forked to drop the corresponding branches). */}
       <MangaIndexPosterInfo
-        originalCountry={originalCountry}
-        originalLanguage={originalLanguage}
-        network={network}
-        previousAiring={previousAiring}
         added={added}
-        seasonCount={seasonCount}
         sizeOnDisk={sizeOnDisk}
         path={path}
         qualityProfile={qualityProfile}

@@ -1,8 +1,11 @@
 import React from 'react';
 import HeartRating from 'Components/HeartRating';
 import MangaTagList from 'Components/MangaTagList';
-import useCountryName from 'Internationalization/useCountryName';
-import Language from 'Language/Language';
+// Phase 17.3 D-14: useCountryName / Language imports dropped — the
+// `sortKey === 'network'/'originalCountry'/'originalLanguage'/'previousAiring'`
+// branches that consumed them were deleted (no airing concept; no network
+// in manga domain per DOMAIN-01/02). D-08 orphan-import sweep applied.
+// formatDateTime / getRelativeDate kept — still used by the `'added'` branch.
 import { Ratings } from 'Manga/Manga';
 import { QualityProfileModel } from 'Settings/Profiles/Quality/useQualityProfiles';
 import formatDateTime from 'Utilities/Date/formatDateTime';
@@ -11,15 +14,14 @@ import formatBytes from 'Utilities/Number/formatBytes';
 import translate from 'Utilities/String/translate';
 import styles from './MangaIndexPosterInfo.css';
 
+// Phase 17.3 D-14: originalCountry/originalLanguage/network/previousAiring/
+// seasonCount props dropped from MangaIndexPosterInfoProps (no longer on
+// Manga interface per D-13; manga has no seasons per DOMAIN-02). The parent
+// MangaIndexPoster.tsx call site was forked to match.
 interface MangaIndexPosterInfoProps {
-  originalCountry?: string;
-  originalLanguage?: Language;
-  network?: string;
   showQualityProfile: boolean;
   qualityProfile?: QualityProfileModel;
-  previousAiring?: string;
   added?: string;
-  seasonCount: number;
   path: string;
   sizeOnDisk?: number;
   ratings?: Ratings;
@@ -34,14 +36,9 @@ interface MangaIndexPosterInfoProps {
 
 function MangaIndexPosterInfo(props: MangaIndexPosterInfoProps) {
   const {
-    originalCountry,
-    originalLanguage,
-    network,
     qualityProfile,
     showQualityProfile,
-    previousAiring,
     added,
-    seasonCount,
     path,
     sizeOnDisk = 0,
     ratings,
@@ -54,31 +51,10 @@ function MangaIndexPosterInfo(props: MangaIndexPosterInfoProps) {
     showTags,
   } = props;
 
-  const originalCountryName = useCountryName(originalCountry);
-
-  if (sortKey === 'network' && network) {
-    return (
-      <div className={styles.info} title={translate('Network')}>
-        {network}
-      </div>
-    );
-  }
-
-  if (sortKey === 'originalCountry' && !!originalCountryName) {
-    return (
-      <div className={styles.info} title={translate('OriginalCountry')}>
-        {originalCountryName}
-      </div>
-    );
-  }
-
-  if (sortKey === 'originalLanguage' && !!originalLanguage?.name) {
-    return (
-      <div className={styles.info} title={translate('OriginalLanguage')}>
-        {originalLanguage.name}
-      </div>
-    );
-  }
+  // Phase 17.3 D-14: `sortKey === 'network'` / `'originalCountry'` /
+  // `'originalLanguage'` / `'previousAiring'` branches deleted (no airing
+  // concept; no network in manga domain). The Options modal sort-key sweep
+  // is Plan 17.3-13 territory.
 
   if (
     sortKey === 'qualityProfileId' &&
@@ -88,27 +64,6 @@ function MangaIndexPosterInfo(props: MangaIndexPosterInfoProps) {
     return (
       <div className={styles.info} title={translate('QualityProfile')}>
         {qualityProfile.name}
-      </div>
-    );
-  }
-
-  if (sortKey === 'previousAiring' && previousAiring) {
-    return (
-      <div
-        className={styles.info}
-        title={`${translate('PreviousAiring')}: ${formatDateTime(
-          previousAiring,
-          longDateFormat,
-          timeFormat
-        )}`}
-      >
-        {getRelativeDate({
-          date: previousAiring,
-          shortDateFormat,
-          showRelativeDates,
-          timeFormat,
-          timeForToday: true,
-        })}
       </div>
     );
   }
@@ -132,17 +87,9 @@ function MangaIndexPosterInfo(props: MangaIndexPosterInfoProps) {
     );
   }
 
-  if (sortKey === 'seasonCount') {
-    let seasons = translate('OneSeason');
-
-    if (seasonCount === 0) {
-      seasons = translate('NoSeasons');
-    } else if (seasonCount > 1) {
-      seasons = translate('CountSeasons', { count: seasonCount });
-    }
-
-    return <div className={styles.info}>{seasons}</div>;
-  }
+  // Phase 17.3 D-14: `sortKey === 'seasonCount'` branch deleted (manga has
+  // no seasons per DOMAIN-02). The Options modal sort-key sweep is Plan
+  // 17.3-13 territory.
 
   if (!showTags && sortKey === 'tags' && tags.length) {
     return (
