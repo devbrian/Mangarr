@@ -14,12 +14,20 @@ import { InputChanged } from 'typings/inputs';
 import translate from 'Utilities/String/translate';
 import styles from './EditMangaModalContent.css';
 
+// Sonarr divergence: Phase 17.3 Plan 17.3-11 (D-14 / D-13 cascade) — the
+// inherited bulk-edit `SavePayload` originally carried `seriesType?: string`
+// and `seasonFolder?: boolean` form fields. Plan 17.3-07 D-13 trim removed
+// `seriesType` and `seasonFolder` from `Manga.ts` (per the v1 "ships free of
+// TV vocabulary" lock — manga has no series-type axis and no season-folder
+// concept per DOMAIN-02), so the bulk-edit modal no longer has a wire-shape
+// destination for those fields. The two form controls + their state +
+// payload branches + input-change cases have been removed in this commit.
+// If a settable manga `type` ever becomes meaningful in the future, a fresh
+// FormGroup will be authored against a real backing field.
 interface SavePayload {
   monitored?: boolean;
   monitorNewItems?: string;
   qualityProfileId?: number;
-  seriesType?: string;
-  seasonFolder?: boolean;
   rootFolderPath?: string;
   moveFiles?: boolean;
 }
@@ -53,27 +61,10 @@ const monitoredOptions: EnhancedSelectInputValue<string>[] = [
   },
 ];
 
-const seasonFolderOptions: EnhancedSelectInputValue<string>[] = [
-  {
-    key: NO_CHANGE,
-    get value() {
-      return translate('NoChange');
-    },
-    isDisabled: true,
-  },
-  {
-    key: 'yes',
-    get value() {
-      return translate('Yes');
-    },
-  },
-  {
-    key: 'no',
-    get value() {
-      return translate('No');
-    },
-  },
-];
+// Sonarr divergence: Phase 17.3 Plan 17.3-11 (D-14 / D-13 cascade) — the
+// inherited `seasonFolderOptions` constant was removed alongside the
+// SeasonFolder bulk-edit form control (manga has no season-folder concept
+// per DOMAIN-02).
 
 function EditMangaModalContent(props: EditMangaModalContentProps) {
   const { onSavePress, onModalClose } = props;
@@ -83,8 +74,9 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
   const [qualityProfileId, setQualityProfileId] = useState<string | number>(
     NO_CHANGE
   );
-  const [seriesType, setSeriesType] = useState(NO_CHANGE);
-  const [seasonFolder, setSeasonFolder] = useState(NO_CHANGE);
+  // Sonarr divergence: Phase 17.3 Plan 17.3-11 (D-14 / D-13 cascade) — the
+  // inherited `seriesType` + `seasonFolder` useState hooks were removed; the
+  // backing fields no longer exist on Manga.ts per Plan 17.3-07 D-13 trim.
   const [rootFolderPath, setRootFolderPath] = useState(NO_CHANGE);
   const { selectedCount } = useSelect();
 
@@ -108,15 +100,10 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
         payload.qualityProfileId = qualityProfileId as number;
       }
 
-      if (seriesType !== NO_CHANGE) {
-        hasChanges = true;
-        payload.seriesType = seriesType;
-      }
-
-      if (seasonFolder !== NO_CHANGE) {
-        hasChanges = true;
-        payload.seasonFolder = seasonFolder === 'yes';
-      }
+      // Sonarr divergence: Phase 17.3 Plan 17.3-11 (D-14 / D-13 cascade) —
+      // the inherited `seriesType` + `seasonFolder` payload-assignment
+      // branches were removed; the backing fields no longer exist on
+      // Manga.ts per Plan 17.3-07 D-13 trim.
 
       if (rootFolderPath !== NO_CHANGE) {
         hasChanges = true;
@@ -134,8 +121,6 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
       monitored,
       monitorNewItems,
       qualityProfileId,
-      seriesType,
-      seasonFolder,
       rootFolderPath,
       onSavePress,
       onModalClose,
@@ -154,12 +139,9 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
         case 'qualityProfileId':
           setQualityProfileId(value as string);
           break;
-        case 'seriesType':
-          setSeriesType(value as string);
-          break;
-        case 'seasonFolder':
-          setSeasonFolder(value as string);
-          break;
+        // Sonarr divergence: Phase 17.3 Plan 17.3-11 (D-14 / D-13 cascade) —
+        // the inherited `seriesType` + `seasonFolder` input-change cases
+        // were removed; their form controls no longer render.
         case 'rootFolderPath':
           setRootFolderPath(value as string);
           break;
@@ -222,31 +204,14 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
           />
         </FormGroup>
 
-        <FormGroup>
-          <FormLabel>{translate('MangaType')}</FormLabel>
-
-          <FormInputGroup
-            type={inputTypes.SERIES_TYPE_SELECT}
-            name="seriesType"
-            value={seriesType}
-            includeNoChange={true}
-            includeNoChangeDisabled={false}
-            helpText={translate('SeriesTypesHelpText')}
-            onChange={onInputChange}
-          />
-        </FormGroup>
-
-        <FormGroup>
-          <FormLabel>{translate('SeasonFolder')}</FormLabel>
-
-          <FormInputGroup
-            type={inputTypes.SELECT}
-            name="seasonFolder"
-            value={seasonFolder}
-            values={seasonFolderOptions}
-            onChange={onInputChange}
-          />
-        </FormGroup>
+        {/* Sonarr divergence: Phase 17.3 Plan 17.3-11 (D-14 / D-13 cascade) —
+            the inherited "Manga Type" (SERIES_TYPE_SELECT) and "Season Folder"
+            FormGroup blocks were deleted. Rationale: Plan 17.3-07 D-13 trim
+            removed `seriesType` and `seasonFolder` from Manga.ts (manga has no
+            series-type axis and no season-folder concept per DOMAIN-02), so
+            these bulk-edit form controls had no manga-domain backing field.
+            Per the v1 "ships free of TV vocabulary" lock, the controls are
+            removed rather than rebound. */}
 
         <FormGroup>
           <FormLabel>{translate('RootFolder')}</FormLabel>
