@@ -3,6 +3,9 @@
 // TV is gone post-cutover; the type union 'series' | 'manga' collapsed to 'manga' (preserves the
 // discriminator type for v2 reintroduction). The /wanted/cutoff URL branch is dead code now but
 // the conditional is left in place so v2 can flip the union back without re-deriving the URL switch.
+// Sonarr divergence: Phase 17.3 Plan 17.3-13 (D-09 stub-importer cascade) — Episode/* stub
+// imports rewritten to Chapter/* peers. The Phase-15 historical NOTE below is preserved as
+// repo memory of the pre-rename state.
 // NOTE: Episode imports below are orphaned post-Plan 15-07 Task 1 (frontend/src/Episode/ deleted)
 // and contribute to the expected ~247-error TS2307 cascade — Plan 15-08/15-09 resolves this.
 //
@@ -19,8 +22,8 @@
 // to MissingFilterModal.tsx; consumes the FILTER_BUILDER export below).
 import { keepPreviousData } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import Episode from 'Episode/Episode';
-import { setEpisodeQueryKey } from 'Episode/useEpisode';
+import Chapter from 'Chapter/Chapter';
+import { setChapterQueryKey } from 'Chapter/useChapter';
 import { Filter, FilterBuilderProp } from 'Filters/Filter';
 import { useCustomFiltersList } from 'Filters/useCustomFilters';
 import { filterBuilderValueTypes } from 'Helpers/Props';
@@ -57,7 +60,7 @@ export const FILTERS: Filter[] = [
   },
 ];
 
-export const FILTER_BUILDER: FilterBuilderProp<Episode>[] = [
+export const FILTER_BUILDER: FilterBuilderProp<Chapter>[] = [
   {
     name: 'monitored',
     label: () => translate('Monitored'),
@@ -79,7 +82,7 @@ const useCutoffUnmet = (mediaType: CutoffUnmetMediaType = 'manga') => {
   const path =
     mediaType === 'manga' ? '/manga/wanted/cutoff' : '/wanted/cutoff';
 
-  const { isPlaceholderData, queryKey, ...query } = usePagedApiQuery<Episode>({
+  const { isPlaceholderData, queryKey, ...query } = usePagedApiQuery<Chapter>({
     path,
     page,
     pageSize,
@@ -93,7 +96,7 @@ const useCutoffUnmet = (mediaType: CutoffUnmetMediaType = 'manga') => {
 
   useEffect(() => {
     if (!isPlaceholderData) {
-      setEpisodeQueryKey('wanted.cutoffUnmet', queryKey);
+      setChapterQueryKey('wanted.cutoffUnmet', queryKey);
     }
   }, [isPlaceholderData, queryKey]);
 
