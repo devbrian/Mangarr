@@ -98,7 +98,7 @@ function MangaIndexPosterOptionsModalContent({
               type={inputTypes.CHECK}
               name="showTitle"
               value={showTitle}
-              helpText={translate('ShowSeriesTitleHelpText')}
+              helpText={translate('ShowMangaTitleHelpText')}
               onChange={onPosterOptionChange}
             />
           </FormGroup>

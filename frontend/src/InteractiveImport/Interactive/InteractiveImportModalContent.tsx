@@ -334,7 +334,7 @@ function InteractiveImportModalContentInner(
   const selectedIds = useSelectedIds();
 
   const bulkSelectOptions = useMemo(() => {
-    const { seasonSelectDisabled, episodeSelectDisabled } = items.reduce(
+    const { episodeSelectDisabled } = items.reduce(
       (acc, item) => {
         if (!selectedIds.includes(item.id)) {
           return acc;
@@ -363,14 +363,12 @@ function InteractiveImportModalContentInner(
         value: translate('SelectDropdown'),
         disabled: true,
       },
-      {
-        key: 'season',
-        value: translate('SelectSeason'),
-        disabled: seasonSelectDisabled,
-      },
+      // Sonarr divergence: Phase 17.3 Plan 17.3-14 — 'season' option dropped
+      // (manga has no seasons per DOMAIN-02). 'episode' option renamed to 'chapter'
+      // i18n key SelectChapters.
       {
         key: 'episode',
-        value: translate('SelectEpisodes'),
+        value: translate('SelectChapters'),
         disabled: episodeSelectDisabled,
       },
       {
@@ -398,7 +396,7 @@ function InteractiveImportModalContentInner(
     if (allowSeriesChange) {
       options.splice(1, 0, {
         key: 'series',
-        value: translate('SelectSeries'),
+        value: translate('SelectManga'),
       });
     }
 

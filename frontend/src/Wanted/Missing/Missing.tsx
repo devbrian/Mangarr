@@ -365,12 +365,12 @@ function MissingContent({ mediaType = 'manga' }: MissingProps) {
               <ConfirmModal
                 isOpen={isConfirmSearchAllModalOpen}
                 kind={kinds.DANGER}
-                title={translate('SearchForAllMissingEpisodes')}
+                title={translate('SearchForAllMissingChapters')}
                 message={
                   <div>
                     <div>
                       {translate(
-                        'SearchForAllMissingEpisodesConfirmationCount',
+                        'SearchForAllMissingChaptersConfirmationCount',
                         {
                           totalRecords,
                         }

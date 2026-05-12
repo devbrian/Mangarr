@@ -349,12 +349,12 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
               <ConfirmModal
                 isOpen={isConfirmSearchAllModalOpen}
                 kind={kinds.DANGER}
-                title={translate('SearchForCutoffUnmetEpisodes')}
+                title={translate('SearchForCutoffUnmetChapters')}
                 message={
                   <div>
                     <div>
                       {translate(
-                        'SearchForCutoffUnmetEpisodesConfirmationCount',
+                        'SearchForCutoffUnmetChaptersConfirmationCount',
                         { totalRecords }
                       )}
                     </div>

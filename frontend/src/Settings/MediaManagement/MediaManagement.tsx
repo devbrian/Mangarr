@@ -366,12 +366,12 @@ function MediaManagement() {
 
             <FieldSet legend={translate('FileManagement')}>
               <FormGroup size={sizes.MEDIUM}>
-                <FormLabel>{translate('UnmonitorDeletedEpisodes')}</FormLabel>
+                <FormLabel>{translate('UnmonitorDeletedChapters')}</FormLabel>
 
                 <FormInputGroup
                   type={inputTypes.CHECK}
                   name="autoUnmonitorPreviouslyDownloadedEpisodes"
-                  helpText={translate('UnmonitorDeletedEpisodesHelpText')}
+                  helpText={translate('UnmonitorDeletedChaptersHelpText')}
                   onChange={handleInputChange}
                   {...settings.autoUnmonitorPreviouslyDownloadedEpisodes}
                 />
@@ -404,13 +404,13 @@ function MediaManagement() {
                 isAdvanced={true}
               >
                 <FormLabel>
-                  {translate('RescanSeriesFolderAfterRefresh')}
+                  {translate('RescanMangaFolderAfterRefresh')}
                 </FormLabel>
 
                 <FormInputGroup
                   type={inputTypes.SELECT}
                   name="rescanAfterRefresh"
-                  helpText={translate('RescanAfterRefreshSeriesHelpText')}
+                  helpText={translate('RescanAfterRefreshMangaHelpText')}
                   helpTextWarning={translate(
                     'RescanAfterRefreshHelpTextWarning'
                   )}
