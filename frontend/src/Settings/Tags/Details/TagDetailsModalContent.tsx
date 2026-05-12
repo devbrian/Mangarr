@@ -129,7 +129,11 @@ function TagDetailsModalContent({
         {!isTagUsed && <div>{translate('TagIsNotUsedAndCanBeDeleted')}</div>}
 
         {series.length ? (
-          <FieldSet legend={translate('Series')}>
+          // Sonarr divergence: Phase 17.3 Plan 17.3-16 (D-04) — user-visible
+          // legend swapped from translate('Series') to translate('Manga'); bare
+          // "Series" i18n key was deleted by Phase 15-07, leaving this callsite
+          // orphan. Pre-existing carry-forward fix-forward.
+          <FieldSet legend={translate('Manga')}>
             {series.map((item) => {
               return <div key={item.id}>{item.title}</div>;
             })}

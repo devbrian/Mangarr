@@ -92,7 +92,12 @@ const COLUMNS = [
   },
   {
     name: 'series',
-    label: () => translate('Series'),
+    // Sonarr divergence: Phase 17.3 Plan 17.3-16 (D-04) — user-visible label
+    // swapped from translate('Series') to translate('Manga'); the column key
+    // 'series' is preserved per Plan 17.3-13 InteractiveImport LOCK (Phase 12
+    // Plan 12-11) but the user-facing label was orphaned when Phase 15-07
+    // deleted the bare "Series" i18n key. Pre-existing carry-forward fix-forward.
+    label: () => translate('Manga'),
     isSortable: true,
     isVisible: true,
   },
