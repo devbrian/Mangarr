@@ -7,9 +7,13 @@ import ConfirmModal from 'Components/Modal/ConfirmModal';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import TableRow from 'Components/Table/TableRow';
 import Popover from 'Components/Tooltip/Popover';
-import Tooltip from 'Components/Tooltip/Tooltip';
-import EpisodeFormats from 'Episode/EpisodeFormats';
-import IndexerFlags from 'Episode/IndexerFlags';
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
+// Episode/EpisodeFormats + Episode/IndexerFlags no-op stub imports DROPPED
+// (both Phase 15 Plan 15-12 STUB components return null with zero render
+// output; the JSX render sites below also dropped). Manga indexers do not
+// emit customFormats or indexerFlags in the v1 ChapterRelease shape. The
+// `Tooltip` component (Components/Tooltip/Tooltip) became unused once its
+// EpisodeFormats body was dropped — import removed to satisfy TS6133.
 import { icons, kinds, tooltipPositions } from 'Helpers/Props';
 import { useUiSettingsValues } from 'Settings/UI/useUiSettings';
 import formatDateTime from 'Utilities/Date/formatDateTime';
@@ -290,24 +294,20 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
       <TableRowCell>{scanlationGroup ?? ''}</TableRowCell>
 
       <TableRowCell className={styles.customFormatScore}>
-        <Tooltip
-          anchor={formatCustomFormatScore(
-            customFormatScore,
-            customFormats.length
-          )}
-          tooltip={<EpisodeFormats formats={customFormats} />}
-          position={tooltipPositions.LEFT}
-        />
+        {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeFormats no-op
+            stub dropped (zero render output). Tooltip retained showing only
+            the formatCustomFormatScore anchor; the empty-tooltip body was
+            indistinguishable from no-tooltip in the prior render path. */}
+        {formatCustomFormatScore(customFormatScore, customFormats.length)}
       </TableRowCell>
 
       <TableRowCell className={styles.indexerFlags}>
+        {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — IndexerFlags no-op
+            stub dropped (zero render output). Popover body would have been
+            empty; the FLAG icon was retained because indexerFlags!==0 is still
+            a meaningful signal; clicking gave no info anyway. */}
         {indexerFlags ? (
-          <Popover
-            anchor={<Icon name={icons.FLAG} />}
-            title={translate('IndexerFlags')}
-            body={<IndexerFlags indexerFlags={indexerFlags} />}
-            position={tooltipPositions.LEFT}
-          />
+          <Icon name={icons.FLAG} title={translate('IndexerFlags')} />
         ) : null}
       </TableRowCell>
 
