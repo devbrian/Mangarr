@@ -156,11 +156,10 @@ const SORT_PREDICATES = {
     return item.statistics?.totalChapterCount ?? 0;
   },
 
-  originalLanguage: (item: Manga, _direction: SortDirection) => {
-    const { originalLanguage } = item;
-
-    return originalLanguage?.name ?? '';
-  },
+  // Sonarr divergence: Phase 17.3 D-13/D-14 — dropped originalLanguage
+  // SORT_PREDICATE (Manga.ts D-13 trim removed originalLanguage). The
+  // FILTER_BUILDER originalLanguage entry below is also dropped; the
+  // MangaIndexSortMenu / MangaIndexRow forks dropped the column too.
 
   ratings: (item: Manga, _direction: SortDirection) => {
     const ratings = item.ratings;
@@ -205,11 +204,8 @@ const FILTER_PREDICATES = {
     return predicate(votes, filterValue);
   },
 
-  originalLanguage: (item: Manga, filterValue: string, type: FilterType) => {
-    const predicate = getFilterTypePredicate(type);
-    const languageName = item.originalLanguage?.name ?? '';
-    return predicate(languageName, filterValue);
-  },
+  // Sonarr divergence: Phase 17.3 D-13/D-14 — dropped originalLanguage
+  // FILTER_PREDICATE (Manga.ts D-13 trim removed originalLanguage).
 
   sizeOnDisk: (item: Manga, filterValue: number, type: FilterType) => {
     const predicate = getFilterTypePredicate(type);
@@ -300,28 +296,9 @@ export const FILTER_BUILDER: FilterBuilderProp<Manga>[] = [
       return tagList.sort(sortByProp('name'));
     },
   },
-  {
-    name: 'originalLanguage',
-    label: () => translate('OriginalLanguage'),
-    type: filterBuilderTypes.EXACT,
-    optionsSelector: function (items: Manga[]) {
-      const languageList = items.reduce<FilterBuilderTag<string, string>[]>(
-        (acc, manga) => {
-          if (manga.originalLanguage) {
-            acc.push({
-              id: manga.originalLanguage.name,
-              name: manga.originalLanguage.name,
-            });
-          }
-
-          return acc;
-        },
-        []
-      );
-
-      return languageList.sort(sortByProp('name'));
-    },
-  },
+  // Sonarr divergence: Phase 17.3 D-13/D-14 — dropped originalLanguage
+  // FILTER_BUILDER entry (Manga.ts D-13 trim removed originalLanguage; the
+  // optionsSelector aggregator referenced the dropped field).
   {
     name: 'ratings',
     label: () => translate('Rating'),
