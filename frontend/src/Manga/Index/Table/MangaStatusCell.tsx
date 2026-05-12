@@ -1,10 +1,16 @@
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 atomic delete fix-forward)
+// — `getSeriesStatusDetails` from `Series/SeriesStatus` rewritten to
+// `getMangaStatusDetails` from `Manga/MangaStatus` peer (authored alongside
+// this rewrite). Returns manga-domain status copy + icon keyed by MangaStatus
+// value instead of the deleted Phase 15 Plan 15-12 STUB's generic
+// { title:'', message:'', icon:'rss' } no-op shape.
 import React, { useCallback } from 'react';
 import Icon from 'Components/Icon';
 import MonitorToggleButton from 'Components/MonitorToggleButton';
 import VirtualTableRowCell from 'Components/Table/Cells/TableRowCell';
 import { icons } from 'Helpers/Props';
 import { MangaStatus } from 'Manga/Manga';
-import { getSeriesStatusDetails } from "Series/SeriesStatus";
+import { getMangaStatusDetails } from 'Manga/MangaStatus';
 import { useToggleMangaMonitored } from 'Manga/useManga';
 import translate from 'Utilities/String/translate';
 import styles from './MangaStatusCell.css';
@@ -27,7 +33,7 @@ function MangaStatusCell({
   component: Component = VirtualTableRowCell,
   ...otherProps
 }: MangaStatusCellProps) {
-  const statusDetails = getSeriesStatusDetails(status);
+  const statusDetails = getMangaStatusDetails(status);
   const { toggleMangaMonitored, isTogglingMangaMonitored } =
     useToggleMangaMonitored(mangaId);
 
