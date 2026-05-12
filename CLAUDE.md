@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 > 2. **Create new CLAUDE.md files** when adding new directories or major features
 > 3. **Update PROJECT_CONTEXT.md** when making architectural changes
 > 4. **Update cross-references** when renaming or moving files
-> 5. **Document Sonarr→Mangarr changes** as migrations are completed
+> 5. **Document Sonarr → Mangarr divergences** in `DIVERGENCE.md` (Phase 15/16.1/17/17.3 close-out precedent)
 >
 > Accurate documentation is critical for maintaining context across sessions.
 
@@ -20,43 +20,41 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 **Mangarr** is a manga/manhwa/manhua library manager and downloader. It monitors manga reader and aggregator websites for new chapters of your favorite titles, automatically downloads, sorts, and organizes them. It can also be configured to automatically upgrade quality when better scans become available.
 
-This project is a **fork/migration of [Mangarr](https://github.com/Mangarr/Mangarr)**, adapting its mature TV-show management infrastructure to manga management. Most file/class names still use Mangarr/TV terminology — the migration is **in progress** and proceeds incrementally. Phase 16.1 — Revert ChapterRelease + Adopt Sonarr-Canonical Translation Pattern — closed 2026-05-10 (see `.planning/phases/16.1-revert-chapterrelease-adopt-sonarr-canonical-translation-pat/16.1-SUMMARY.md`); Phase 17 — Distribution + v1 Release — is the next active phase (pending). Phase 16 introduced a `ChapterRelease` persistent layer that Phase 16.1 walked back in favor of routing per-translation language and packager axes through the existing `ChapterFile` translation-axis fields shipped in Phase 6 (Sonarr-canonical pattern adoption); both phases preserved as historical record on the cutover branch (NO rebase, NO squash, NO `git revert` storm) — the PR to `Mangarr-v0` ships both stacks as a single decision-record.
+This project is a **fork/migration of [Sonarr](https://github.com/Sonarr/Sonarr)**, adapting its mature TV-show management infrastructure to manga management. Phase 15 (closed 2026-05-08) crossed the hard-fork threshold — canonical assembly names `Mangarr.*.dll`, default data dir `~/.config/Mangarr` / `C:\ProgramData\Mangarr`, canonical DB `mangarr.db`, canonical solution `src/Mangarr.sln`. The `NzbDrone.*` source-tree prefix is preserved per Phase 15 D-06 as a fork-heritage breadcrumb. Phase 16.1 — Revert ChapterRelease + Adopt Sonarr-Canonical Translation Pattern — closed 2026-05-10 (see `.planning/phases/16.1-revert-chapterrelease-adopt-sonarr-canonical-translation-pat/16.1-SUMMARY.md`). **Phase 17.3 — Domain Rename Residue Sweep** closed 2026-05-12; the 5 frontend stub directories (`Series/`, `Episode/`, `EpisodeFile/`, `Season/`, `Utilities/Series/`) were atomically deleted in Plan 17.3-13, TV-shape carry-over fields on `Manga.ts` were stripped in Plan 17.3-12 (D-13), the `SeasonPackUpgrade` vertical was deleted in Plan 17.3-05 (D-06), `SeriesNotFoundException.cs` was deleted in Plan 17.3-03 (D-05), 8 frontend Components/Form/* TV-named files were renamed in Plan 17.3-04 (D-07), and ~150 i18n keys were swept (Bucket A renames + Bucket B value rewrites + Bucket C PRESERVE catalog). Current active phase: **Phase 17 — Comix Runtime Signer Port (PuppeteerSharp)** (renumbered from prior slot-17 on 2026-05-10 per `.planning/debug/comix-invalid-token-403.md`; prior Phase 17 — Distribution + v1 Release — parked as Phase 99).
 
-**Branch model**: `Mangarr-v0` is the long-lived integration branch — **PRs should target `Mangarr-v0`**. The `v5-develop` branch tracks upstream Mangarr v5 and is only used when pulling in upstream changes.
+**Branch model**: `Mangarr-v0` is the long-lived integration branch — **PRs should target `Mangarr-v0`**. The `v5-develop` branch tracks upstream Sonarr v5 and is only used when pulling in upstream changes.
 
-## Migration: Mangarr → Mangarr
+## Migration: Sonarr → Mangarr
 
 ### Conceptual Mapping
 
-| Mangarr Concept | Mangarr Concept | Notes |
+| Sonarr Concept | Mangarr Concept | Notes |
 |----------------|-----------------|-------|
 | Series | Manga / Manhwa / Manhua | Core entity (a "title") |
-| Season | Volume *(optional)* | Many manga series do not use volumes |
+| Season | (no peer; `volumeNumber` is display-only on `Chapter` per PROJECT.md Out-of-Scope) | Most manga (esp. manhwa) have no volumes; flat chapter list per PROJECT.md |
 | Episode | Chapter | Individual release |
 | EpisodeFile | ChapterFile | Physical artifact (CBZ/CBR/folder of images) |
 | TVDB / TheTVDB | MangaDex / AniList / MyAnimeList | Metadata sources |
 | Indexers (Usenet/Torrent) | Manga aggregator sites | Web scrapers |
 | Download Clients | Chapter downloaders | Image scrapers |
-| Quality (720p/1080p) | Scan quality (raw/translated/official, DPI tiers) | Different quality model |
+| Quality (720p/1080p) | Translation language (ordinal `TranslationProfile`) + Custom Formats | No resolution model in manga |
 | Air Date | Release Date | No "airing" concept |
-
-The Mangarr `Series` model has **already been extended** with `MalIds` and `AniListIds` properties — see [src/NzbDrone.Core/Tv/Series.cs](./src/NzbDrone.Core/Tv/Series.cs) — indicating partial migration work has begun.
 
 ### Migration Priority Map
 
 | Layer | Priority | Status |
 |-------|----------|--------|
-| **Domain models** (Tv/Series, Episode, Season) | CRITICAL | Series partially extended (MAL/AniList IDs) |
-| **Parser regex patterns** | CRITICAL | TV-only |
-| **MetadataSource** (TVDB → MangaDex/AniList) | CRITICAL | TV-only (SkyHook = TVDB) |
-| **Quality definitions** | CRITICAL | TV resolutions only |
-| **Indexers** (need manga site scrapers) | HIGH | Anime indexers exist (Nyaa) |
-| **MediaFiles** (CBZ/CBR vs video) | HIGH | TV file logic |
-| **DecisionEngine specifications** | HIGH | TV-aware specs |
-| **Frontend Series/Episode pages** | HIGH | Renamed dirs needed |
-| **API V5 controllers** | HIGH | Names + endpoints |
-| **CustomFormats / Profiles** | MEDIUM | Pattern reusable |
-| **Notifications, Authentication, Tags, Backup, Update, Health** | LOW / NONE | Reusable as-is |
+| **Domain models** (Manga/Chapter; no Season) | CRITICAL | Phase 15 Plan 15-03 deleted `Tv/`; `Manga/` + `Chapter` peers shipped. Phase 17.3 Plan 17.3-12 (D-13) trimmed Sonarr-shape carry-over fields. |
+| **Parser regex patterns** | CRITICAL | Phase 4 + Phase 6 migrated `Parser.cs` to manga release naming |
+| **MetadataSource** (MangaDex / AniList / MAL) | CRITICAL | Phase 2 shipped `MangaDexMetadataSource`; SkyHook deleted in Phase 15 |
+| **Quality definitions** | CRITICAL | Phase 5 D-04 dropped TV-quality model; `TranslationProfile` + Custom Formats are the manga peer |
+| **Indexers** (manga aggregator sites) | HIGH | `MangaDexIndexer` + `ComixIndexer` shipped (Phase 3); seeded on fresh DB |
+| **MediaFiles** (CBZ/CBR vs video) | HIGH | Phase 6 renamed `EpisodeFile.cs` → `ChapterFile.cs`; manga import pipeline at `MediaFiles/MangaImport/` |
+| **DecisionEngine specifications** | HIGH | Phase 4/5 fork: TV-aware specs preserved at `DecisionEngine/Specifications/`; manga peers at `DecisionEngine/Manga/` |
+| **Frontend Manga/Chapter pages** | HIGH | Phase 7 shipped `Manga/` + `Chapter/`; Phase 15 Plan 15-12 + Phase 17.3 Plan 17.3-13 deleted Series/Episode/EpisodeFile/Season stub-dirs |
+| **API V5 controllers** | HIGH | Phase 2/6/12 fork: `MangaController`, `ChapterController`, `ChapterFileController`, `MangaQueueController`, `MangaHistoryController`, `MangaBlocklistController`, `MangaMissingController`, `MangaCutoffController` shipped |
+| **CustomFormats / Profiles** | MEDIUM | Phase 5 shipped `CustomFormatProfile` + `TranslationProfile` |
+| **Notifications, Authentication, Tags, Backup, Update, Health** | LOW / NONE | Reusable as-is; Komga + Kavita notifiers shipped Phase 6 (rest reference-preserved per `.planning/reference/sonarr-vertical-slices/`) |
 
 ---
 
@@ -135,25 +133,24 @@ Mangarr/
 
 | If you need to change... | Look in... |
 |--------------------------|-----------|
-| Series/Manga domain logic | [src/NzbDrone.Core/Tv/](./src/NzbDrone.Core/Tv/) |
-| Episode/Chapter logic | [src/NzbDrone.Core/Tv/](./src/NzbDrone.Core/Tv/) (Episode.cs) |
+| Manga domain logic | [src/NzbDrone.Core/Manga/](./src/NzbDrone.Core/Manga/) |
+| Chapter / ChapterFile logic | [src/NzbDrone.Core/Manga/](./src/NzbDrone.Core/Manga/) (Chapter.cs) / [src/NzbDrone.Core/MediaFiles/](./src/NzbDrone.Core/MediaFiles/) (ChapterFile.cs) |
 | File handling (CBZ/CBR) | [src/NzbDrone.Core/MediaFiles/](./src/NzbDrone.Core/MediaFiles/) |
-| Title/release parsing regex | [src/NzbDrone.Core/Parser/](./src/NzbDrone.Core/Parser/) |
-| Search filters / specs | [src/NzbDrone.Core/DecisionEngine/Specifications/](./src/NzbDrone.Core/DecisionEngine/Specifications/) |
-| Indexer integrations | [src/NzbDrone.Core/Indexers/](./src/NzbDrone.Core/Indexers/) |
-| Download client integrations | [src/NzbDrone.Core/Download/Clients/](./src/NzbDrone.Core/Download/Clients/) |
-| Notification providers | [src/NzbDrone.Core/Notifications/](./src/NzbDrone.Core/Notifications/) |
-| Metadata source (TVDB/AniList) | [src/NzbDrone.Core/MetadataSource/](./src/NzbDrone.Core/MetadataSource/) |
-| Database schema | [src/NzbDrone.Core/Datastore/Migration/](./src/NzbDrone.Core/Datastore/Migration/) (224 migrations) |
+| Title/release parsing regex | [src/NzbDrone.Core/Parser/](./src/NzbDrone.Core/Parser/) (manga peers under [Parser/Manga/](./src/NzbDrone.Core/Parser/Manga/)) |
+| Search filters / specs | [src/NzbDrone.Core/DecisionEngine/Specifications/](./src/NzbDrone.Core/DecisionEngine/Specifications/) (manga peers under [DecisionEngine/Manga/](./src/NzbDrone.Core/DecisionEngine/Manga/)) |
+| Indexer integrations | [src/NzbDrone.Core/Indexers/](./src/NzbDrone.Core/Indexers/) (MangaDex, Comix) |
+| Download client integrations | [src/NzbDrone.Core/Download/](./src/NzbDrone.Core/Download/) (InProcessImageDownloadClient under [Download/Clients/InProcess/](./src/NzbDrone.Core/Download/Clients/InProcess/)) |
+| Notification providers | [src/NzbDrone.Core/Notifications/](./src/NzbDrone.Core/Notifications/) (Komga + Kavita live; rest reference-preserved) |
+| Metadata source (MangaDex / AniList / MAL) | [src/NzbDrone.Core/MetadataSource/](./src/NzbDrone.Core/MetadataSource/) |
+| Database schema | [src/NzbDrone.Core/Datastore/Migration/](./src/NzbDrone.Core/Datastore/Migration/) (`001_mangarr_baseline.cs` is the canonical migration per pre-v1 dev-migration policy) |
 | API endpoints (V5) | [src/Mangarr.Api.V5/](./src/Mangarr.Api.V5/) |
 | Auth / middleware / REST base | [src/Mangarr.Http/](./src/Mangarr.Http/) |
 | App startup / DI registration | [src/NzbDrone.Host/Startup.cs](./src/NzbDrone.Host/Startup.cs), [src/NzbDrone.Host/Bootstrap.cs](./src/NzbDrone.Host/Bootstrap.cs) |
 | React routes | [frontend/src/App/AppRoutes.tsx](./frontend/src/App/AppRoutes.tsx) |
-| Series list page (UI) | [frontend/src/Series/Index/](./frontend/src/Series/Index/) |
-| Series detail page (UI) | [frontend/src/Series/Details/](./frontend/src/Series/Details/) |
-| Add Series flow (UI) | [frontend/src/AddSeries/](./frontend/src/AddSeries/) |
+| Manga library page (UI) | [frontend/src/Manga/Index/](./frontend/src/Manga/Index/) |
+| Manga detail page (UI) | [frontend/src/Manga/Details/](./frontend/src/Manga/Details/) |
+| Add Manga flow (UI) | [frontend/src/AddManga/](./frontend/src/AddManga/) |
 | Settings pages (UI) | [frontend/src/Settings/](./frontend/src/Settings/) |
-| Calendar (UI) | [frontend/src/Calendar/](./frontend/src/Calendar/) |
 | Queue / History / Blocklist UI | [frontend/src/Activity/](./frontend/src/Activity/) |
 | Wanted (Missing/CutoffUnmet) UI | [frontend/src/Wanted/](./frontend/src/Wanted/) |
 | Manual search / import UI | [frontend/src/InteractiveSearch/](./frontend/src/InteractiveSearch/), [frontend/src/InteractiveImport/](./frontend/src/InteractiveImport/) |
@@ -211,7 +208,7 @@ yarn watch                                                  # Webpack watch mode
 | Add new directory/feature | Create new `CLAUDE.md` in that directory |
 | Rename/move files | Update cross-references in all affected docs |
 | Change architecture | Update `PROJECT_CONTEXT.md` |
-| Complete Sonarr→Mangarr migration | Mark as completed in relevant docs |
+| Complete a Sonarr → Mangarr migration step | Mark as completed in relevant docs + append a DIVERGENCE.md entry |
 | Add new API endpoints | Update `src/Mangarr.Api.V5/CLAUDE.md` |
 | Add new domain models | Update `src/NzbDrone.Core/CLAUDE.md` (and create file-specific CLAUDE.md if major) |
 | Add new UI components | Update `frontend/src/Components/CLAUDE.md` |
@@ -254,7 +251,7 @@ yarn watch                                                  # Webpack watch mode
 | Component | Documentation | Purpose |
 |-----------|---------------|---------|
 | NzbDrone.Core (overview) | [src/NzbDrone.Core/CLAUDE.md](./src/NzbDrone.Core/CLAUDE.md) | Core business logic |
-| `Tv/` (domain) | [src/NzbDrone.Core/Tv/CLAUDE.md](./src/NzbDrone.Core/Tv/CLAUDE.md) | Series/Episode/Season models |
+| `Manga/` (domain) | [src/NzbDrone.Core/Manga/CLAUDE.md](./src/NzbDrone.Core/Manga/CLAUDE.md) | Manga / Chapter / ChapterFile models (Sonarr `Tv/` was deleted in Phase 15 Plan 15-03) |
 | `Parser/` | [src/NzbDrone.Core/Parser/CLAUDE.md](./src/NzbDrone.Core/Parser/CLAUDE.md) | Title/release parsing |
 | `DecisionEngine/` | [src/NzbDrone.Core/DecisionEngine/CLAUDE.md](./src/NzbDrone.Core/DecisionEngine/CLAUDE.md) | Specification rules |
 | `Indexers/` | [src/NzbDrone.Core/Indexers/CLAUDE.md](./src/NzbDrone.Core/Indexers/CLAUDE.md) | Indexer integrations |
@@ -280,15 +277,14 @@ yarn watch                                                  # Webpack watch mode
 |-----------|---------------|
 | Frontend Root | [frontend/CLAUDE.md](./frontend/CLAUDE.md) |
 | `App/` (root + routing) | [frontend/src/App/CLAUDE.md](./frontend/src/App/CLAUDE.md) |
-| `Series/` (→ Manga) | [frontend/src/Series/CLAUDE.md](./frontend/src/Series/CLAUDE.md) |
-| `Episode/` (→ Chapter) | [frontend/src/Episode/CLAUDE.md](./frontend/src/Episode/CLAUDE.md) |
+| `Manga/` (manga library — sibling-canonical) | [frontend/src/Manga/CLAUDE.md](./frontend/src/Manga/CLAUDE.md) (Sonarr `Series/` stub deleted in Phase 17.3 Plan 17.3-13) |
+| `Chapter/` (chapter cells / hooks) | [frontend/src/Chapter/CLAUDE.md](./frontend/src/Chapter/CLAUDE.md) (Sonarr `Episode/` stub deleted in Phase 17.3 Plan 17.3-13) |
 | `Components/` (shared UI) | [frontend/src/Components/CLAUDE.md](./frontend/src/Components/CLAUDE.md) |
 | `Store/` (Redux) | [frontend/src/Store/CLAUDE.md](./frontend/src/Store/CLAUDE.md) |
 | `Helpers/` (hooks) | [frontend/src/Helpers/CLAUDE.md](./frontend/src/Helpers/CLAUDE.md) |
 | `Settings/` | [frontend/src/Settings/CLAUDE.md](./frontend/src/Settings/CLAUDE.md) |
-| `AddSeries/` (→ AddManga) | [frontend/src/AddSeries/CLAUDE.md](./frontend/src/AddSeries/CLAUDE.md) |
+| `AddManga/` (add-manga flow) | [frontend/src/AddManga/CLAUDE.md](./frontend/src/AddManga/CLAUDE.md) (Sonarr `AddSeries/` stub deleted in Phase 17.3 Plan 17.3-13) |
 | `Activity/` (Queue/History/Blocklist) | [frontend/src/Activity/CLAUDE.md](./frontend/src/Activity/CLAUDE.md) |
-| `Calendar/` | [frontend/src/Calendar/CLAUDE.md](./frontend/src/Calendar/CLAUDE.md) |
 | `Wanted/` (Missing/Cutoff) | [frontend/src/Wanted/CLAUDE.md](./frontend/src/Wanted/CLAUDE.md) |
 | `InteractiveSearch/` | [frontend/src/InteractiveSearch/CLAUDE.md](./frontend/src/InteractiveSearch/CLAUDE.md) |
 | `InteractiveImport/` | [frontend/src/InteractiveImport/CLAUDE.md](./frontend/src/InteractiveImport/CLAUDE.md) |
