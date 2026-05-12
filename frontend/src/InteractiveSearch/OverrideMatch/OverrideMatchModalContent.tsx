@@ -9,8 +9,12 @@ import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import DownloadProtocol from 'DownloadClient/DownloadProtocol';
-import EpisodeLanguages from 'Episode/EpisodeLanguages';
-import EpisodeQuality from 'Episode/EpisodeQuality';
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
+// Episode/EpisodeLanguages + Episode/EpisodeQuality no-op stub imports DROPPED
+// (both Phase 15 Plan 15-12 STUB components returning null with zero render
+// output); JSX render sites below collapsed to plain quality.name / language
+// names listings. Series/Series + Series/useSeries (useSingleSeries) rewritten
+// to Manga/Manga + Manga/useManga (useSingleManga) peers.
 import usePrevious from 'Helpers/Hooks/usePrevious';
 import SelectEpisodeModal from 'InteractiveImport/Episode/SelectEpisodeModal';
 import { SelectedEpisode } from 'InteractiveImport/Episode/SelectEpisodeModalContent';
@@ -20,9 +24,9 @@ import SelectSeasonModal from 'InteractiveImport/Season/SelectSeasonModal';
 import SelectSeriesModal from 'InteractiveImport/Series/SelectSeriesModal';
 import { ReleaseEpisode, useGrabRelease } from 'InteractiveSearch/useReleases';
 import Language from 'Language/Language';
+import Manga from 'Manga/Manga';
+import { useSingleManga } from 'Manga/useManga';
 import { QualityModel } from 'Quality/Quality';
-import Series from 'Series/Series';
-import { useSingleSeries } from 'Series/useSeries';
 import { fetchDownloadClients } from 'Store/Actions/settingsActions';
 import createEnabledDownloadClientsSelector from 'Store/Selectors/createEnabledDownloadClientsSelector';
 import translate from 'Utilities/String/translate';
@@ -81,7 +85,7 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
   const previousIsGrabbing = usePrevious(isGrabbing);
 
   const dispatch = useDispatch();
-  const series: Series | undefined = useSingleSeries(seriesId);
+  const series: Manga | undefined = useSingleManga(seriesId);
   const { items: downloadClients } = useSelector(
     createEnabledDownloadClientsSelector(protocol)
   );
@@ -110,7 +114,7 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
   }, [setSelectModalOpen]);
 
   const onSeriesSelect = useCallback(
-    (s: Series) => {
+    (s: Manga) => {
       setSeriesId(s.id);
       setSeasonNumber(undefined);
       setEpisodes([]);
@@ -276,30 +280,29 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
             }
           />
 
+          {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeQuality
+              no-op stub dropped (zero render output); display quality.name
+              directly. */}
           <DescriptionListItem
             className={styles.item}
             title={translate('Quality')}
             data={
               <OverrideMatchData
-                value={
-                  <EpisodeQuality className={styles.label} quality={quality} />
-                }
+                value={quality?.quality?.name ?? ''}
                 onPress={onSelectQualityPress}
               />
             }
           />
 
+          {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeLanguages
+              no-op stub dropped (zero render output); join language names
+              directly. */}
           <DescriptionListItem
             className={styles.item}
             title={translate('Languages')}
             data={
               <OverrideMatchData
-                value={
-                  <EpisodeLanguages
-                    className={styles.label}
-                    languages={languages}
-                  />
-                }
+                value={languages.map((l) => l.name).join(', ')}
                 onPress={onSelectLanguagesPress}
               />
             }
