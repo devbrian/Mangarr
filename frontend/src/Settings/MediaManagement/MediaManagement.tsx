@@ -313,7 +313,7 @@ function MediaManagement() {
                   <FormInputGroup
                     type={inputTypes.CHECK}
                     name="importExtraFiles"
-                    helpText={translate('ImportExtraFilesEpisodeHelpText')}
+                    helpText={translate('ImportExtraFilesChapterHelpText')}
                     onChange={handleInputChange}
                     {...settings.importExtraFiles}
                   />

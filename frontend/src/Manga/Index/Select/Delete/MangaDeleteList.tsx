@@ -48,8 +48,8 @@ function MangaDeleteList({
                   {chapterFileCount ? (
                     <span className={styles.statistics}>
                       (
-                      {translate('DeleteMangaFolderEpisodeCount', {
-                        episodeFileCount: chapterFileCount,
+                      {translate('DeleteMangaFolderChapterCount', {
+                        count: chapterFileCount,
                         size: formatBytes(sizeOnDisk),
                       })}
                       )
@@ -64,8 +64,8 @@ function MangaDeleteList({
 
       {showFileDetails && totalEpisodeFileCount ? (
         <div className={styles.deleteFilesMessage}>
-          {translate('DeleteMangaFolderEpisodeCount', {
-            episodeFileCount: totalEpisodeFileCount,
+          {translate('DeleteMangaFolderChapterCount', {
+            count: totalEpisodeFileCount,
             size: formatBytes(totalSizeOnDisk),
           })}
         </div>

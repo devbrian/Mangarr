@@ -256,7 +256,7 @@ function HistoryDetails(props: HistoryDetailsProps) {
         reasonMessage = translate('DeletedReasonManual');
         break;
       case 'MissingFromDisk':
-        reasonMessage = translate('DeletedReasonEpisodeMissingFromDisk');
+        reasonMessage = translate('DeletedReasonChapterMissingFromDisk');
         break;
       case 'Upgrade':
         reasonMessage = translate('DeletedReasonUpgrade');

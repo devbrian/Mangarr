@@ -113,7 +113,7 @@ function DeleteMangaForm({ manga, onModalClose }: DeleteMangaFormProps) {
   return (
     <ModalContent onModalClose={onModalClose}>
       <ModalHeader>
-        {translate('DeleteSelectedSeries')} - {manga.title}
+        {translate('DeleteSelectedManga')} - {manga.title}
       </ModalHeader>
 
       <ModalBody>

@@ -163,7 +163,7 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
 
   return (
     <ModalContent onModalClose={onModalClose}>
-      <ModalHeader>{translate('EditSelectedSeries')}</ModalHeader>
+      <ModalHeader>{translate('EditSelectedManga')}</ModalHeader>
 
       <ModalBody>
         <FormGroup>

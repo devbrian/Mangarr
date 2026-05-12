@@ -197,7 +197,7 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
   return (
     <ModalContent onModalClose={onModalClose}>
       <ModalHeader>
-        {translate('EditSeriesModalHeader', { title: manga.title })}
+        {translate('EditMangaModalHeader', { title: manga.title })}
       </ModalHeader>
 
       <ModalBody>

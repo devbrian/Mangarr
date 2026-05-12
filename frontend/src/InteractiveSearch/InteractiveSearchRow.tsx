@@ -362,7 +362,7 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
         isOpen={isConfirmGrabModalOpen}
         kind={kinds.WARNING}
         title={translate('GrabRelease')}
-        message={translate('GrabReleaseUnknownSeriesOrEpisodeMessageText', {
+        message={translate('GrabReleaseUnknownMangaOrChapterMessageText', {
           title,
         })}
         confirmLabel={translate('Grab')}

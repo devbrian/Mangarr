@@ -69,7 +69,7 @@ function DeleteMangaModalContent({
 
   return (
     <ModalContent onModalClose={onModalClose}>
-      <ModalHeader>{translate('DeleteSelectedSeries')}</ModalHeader>
+      <ModalHeader>{translate('DeleteSelectedManga')}</ModalHeader>
 
       <ModalBody>
         <div>

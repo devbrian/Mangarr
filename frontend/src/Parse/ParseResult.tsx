@@ -125,7 +125,7 @@ function ParseResult(props: ParseResultProps) {
             />
 
             <ParseResultItem
-              title={translate('FullSeason')}
+              title={translate('FullVolume')}
               data={fullSeason ? translate('True') : translate('False')}
             />
 

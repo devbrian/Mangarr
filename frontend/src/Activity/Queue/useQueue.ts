@@ -37,7 +37,7 @@ export const FILTERS: Filter[] = [
   },
   {
     key: 'excludeUnknownSeriesItems',
-    label: () => translate('ExcludeUnknownSeriesItems'),
+    label: () => translate('ExcludeUnknownMangaItems'),
     filters: [
       {
         key: 'includeUnknownSeriesItems',
