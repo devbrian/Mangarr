@@ -128,7 +128,7 @@ function EditNotificationModalContent({
             <FormInputGroup
               type={inputTypes.TAG}
               name="tags"
-              helpText={translate('NotificationsTagsSeriesHelpText')}
+              helpText={translate('NotificationsTagsMangaHelpText')}
               {...tags}
               onChange={handleInputChange}
             />

@@ -89,7 +89,7 @@ function Settings() {
         </Link>
 
         <div className={styles.summary}>
-          {translate('MetadataSettingsSeriesSummary')}
+          {translate('MetadataSettingsMangaSummary')}
         </div>
 
         <Link className={styles.link} to="/settings/metadatasource">
@@ -97,7 +97,7 @@ function Settings() {
         </Link>
 
         <div className={styles.summary}>
-          {translate('MetadataSourceSettingsSeriesSummary')}
+          {translate('MetadataSourceSettingsMangaSummary')}
         </div>
 
         <Link className={styles.link} to="/settings/tags">

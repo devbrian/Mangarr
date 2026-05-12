@@ -37,8 +37,6 @@ function ParseResult(props: ParseResultProps) {
     absoluteEpisodeNumbers,
     special,
     fullSeason,
-    isMultiSeason,
-    isPartialSeason,
     isDaily,
     airDate,
     quality,
@@ -129,15 +127,8 @@ function ParseResult(props: ParseResultProps) {
               data={fullSeason ? translate('True') : translate('False')}
             />
 
-            <ParseResultItem
-              title={translate('MultiSeason')}
-              data={isMultiSeason ? translate('True') : translate('False')}
-            />
-
-            <ParseResultItem
-              title={translate('PartialSeason')}
-              data={isPartialSeason ? translate('True') : translate('False')}
-            />
+            {/* Sonarr divergence: Phase 17.3 Plan 17.3-14 — MultiSeason/PartialSeason
+                ParseResultItems dropped (manga has no seasons per DOMAIN-02). */}
           </div>
         </div>
       </FieldSet>
@@ -189,7 +180,7 @@ function ParseResult(props: ParseResultProps) {
 
       <FieldSet legend={translate('Details')}>
         <ParseResultItem
-          title={translate('MatchedToSeries')}
+          title={translate('MatchedToManga')}
           data={
             series ? (
               <MangaTitleLink
@@ -202,24 +193,11 @@ function ParseResult(props: ParseResultProps) {
           }
         />
 
-        <ParseResultItem
-          title={translate('MatchedToSeason')}
-          data={
-            // Sonarr divergence: Phase 17.3 Plan 17.3-13b — Episode/Episode
-            // rewritten to Chapter/Chapter; Chapter has no seasonNumber
-            // (manga has no seasons per DOMAIN-02). Backend Parse controller
-            // still emits seasonNumber at runtime for the TV-shape branch;
-            // cast through Chapter & { seasonNumber?: number } preserves the
-            // display path until the parser is forked for chapter-mode
-            // (tracked for v1.x).
-            episodes.length
-              ? (episodes[0] as typeof episodes[0] & { seasonNumber?: number }).seasonNumber ?? '-'
-              : '-'
-          }
-        />
+        {/* Sonarr divergence: Phase 17.3 Plan 17.3-14 — MatchedToSeason
+            ParseResultItem dropped (manga has no seasons per DOMAIN-02). */}
 
         <ParseResultItem
-          title={translate('MatchedToEpisodes')}
+          title={translate('MatchedToChapters')}
           data={
             episodes.length ? (
               <div>

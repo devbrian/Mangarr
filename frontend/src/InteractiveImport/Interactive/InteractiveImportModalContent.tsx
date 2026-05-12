@@ -540,21 +540,21 @@ function InteractiveImportModalContentInner(
 
         if (!series) {
           setInteractiveImportErrorMessage(
-            translate('InteractiveImportNoSeries')
+            translate('InteractiveImportNoManga')
           );
           return;
         }
 
         if (isNaN(seasonNumber)) {
           setInteractiveImportErrorMessage(
-            translate('InteractiveImportNoSeason')
+            translate('InteractiveImportNoChapter')
           );
           return;
         }
 
         if (!episodes || !episodes.length) {
           setInteractiveImportErrorMessage(
-            translate('InteractiveImportNoEpisode')
+            translate('InteractiveImportNoChapter')
           );
           return;
         }
@@ -628,7 +628,7 @@ function InteractiveImportModalContentInner(
 
     if (hasDuplicateEpisodes) {
       setInteractiveImportErrorMessage(
-        translate('InteractiveImportDuplicateEpisodes')
+        translate('InteractiveImportDuplicateChapters')
       );
 
       return;

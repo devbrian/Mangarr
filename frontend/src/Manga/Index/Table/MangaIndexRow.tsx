@@ -47,9 +47,9 @@ import styles from './MangaIndexRow.css';
 function getReleaseTypeName(releaseType?: ReleaseType): string | null {
   switch (releaseType) {
     case 'singleEpisode':
-      return translate('SingleEpisode');
+      return translate('SingleChapter');
     case 'multiEpisode':
-      return translate('MultiEpisode');
+      return translate('MultiChapter');
     case 'seasonPack':
       return translate('SeasonPack');
     default:

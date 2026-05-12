@@ -137,17 +137,8 @@ export const FILTERS: Filter[] = [
       },
     ],
   },
-  {
-    key: 'not-season-pack',
-    label: () => translate('NotSeasonPack'),
-    filters: [
-      {
-        key: 'fullSeason',
-        value: [false],
-        type: 'equal',
-      },
-    ],
-  },
+  // Sonarr divergence: Phase 17.3 Plan 17.3-14 — not-season-pack filter dropped
+  // (manga has no seasons per DOMAIN-02).
   {
     key: 'not-rejected',
     label: () => translate('NotRejected'),

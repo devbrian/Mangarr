@@ -14,13 +14,13 @@ const releaseTypeList = [
   {
     id: 'singleEpisode',
     get name() {
-      return translate('SingleEpisode');
+      return translate('SingleChapter');
     },
   },
   {
     id: 'multiEpisode',
     get name() {
-      return translate('MultiEpisode');
+      return translate('MultiChapter');
     },
   },
   {

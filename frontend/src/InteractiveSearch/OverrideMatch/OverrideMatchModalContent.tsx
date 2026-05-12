@@ -187,10 +187,10 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
 
   const onGrabPress = useCallback(() => {
     if (!seriesId) {
-      setError(translate('OverrideGrabNoSeries'));
+      setError(translate('OverrideGrabNoManga'));
       return;
     } else if (!episodes.length) {
-      setError(translate('OverrideGrabNoEpisode'));
+      setError(translate('OverrideGrabNoChapter'));
       return;
     } else if (!quality) {
       setError(translate('OverrideGrabNoQuality'));

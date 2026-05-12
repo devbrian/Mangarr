@@ -211,7 +211,7 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
             <FormInputGroup
               type={inputTypes.CHECK}
               name="monitored"
-              helpText={translate('MonitoredEpisodesHelpText')}
+              helpText={translate('MonitoredChaptersHelpText')}
               {...monitored}
               onChange={handleInputChange}
             />

@@ -56,17 +56,17 @@ function OrganizeMangaModalContent({
   return (
     <ModalContent onModalClose={onModalClose}>
       <ModalHeader>
-        {translate('OrganizeSelectedSeriesModalHeader')}
+        {translate('OrganizeSelectedMangaModalHeader')}
       </ModalHeader>
 
       <ModalBody>
         <Alert>
-          {translate('OrganizeSelectedSeriesModalAlert')}
+          {translate('OrganizeSelectedMangaModalAlert')}
           <Icon className={styles.renameIcon} name={icons.ORGANIZE} />
         </Alert>
 
         <div className={styles.message}>
-          {translate('OrganizeSelectedSeriesModalConfirmation', {
+          {translate('OrganizeSelectedMangaModalConfirmation', {
             count: seriesTitles.length,
           })}
         </div>
