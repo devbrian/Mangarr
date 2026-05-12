@@ -28,21 +28,23 @@ interface RowInfoProps {
 
 interface MangaIndexOverviewInfoProps {
   height: number;
-  showNetwork: boolean;
   showMonitored: boolean;
   showQualityProfile: boolean;
-  showPreviousAiring: boolean;
   showAdded: boolean;
-  showSeasonCount: boolean;
   showPath: boolean;
   showSizeOnDisk: boolean;
+  // Sonarr-shape carry-over: showNetwork / showPreviousAiring / showSeasonCount
+  // dropped per Phase 17.3 D-14 (Overview-view fork). The Options modal still
+  // surfaces these toggles in `overviewOptions` and they spread in via
+  // `{...overviewOptions}` from the parent — they're accepted but ignored
+  // because the corresponding info-row branches have been removed (no airing,
+  // no network, no seasons in manga domain per DOMAIN-02).
+  showNetwork?: boolean;
+  showPreviousAiring?: boolean;
+  showSeasonCount?: boolean;
   monitored: boolean;
-  nextAiring?: string;
-  network?: string;
   qualityProfile?: QualityProfileModel;
-  previousAiring?: string;
   added?: string;
-  seasonCount: number;
   path: string;
   sizeOnDisk?: number;
   sortKey: string;
@@ -50,6 +52,11 @@ interface MangaIndexOverviewInfoProps {
 
 const infoRowHeight = parseInt(dimensions.seriesIndexOverviewInfoRowHeight);
 
+// Phase 17.3 D-14: 'network' / 'previousAiring' / 'seasonCount' rows dropped
+// (manga has no airing, no network, no seasons per DOMAIN-02). The
+// corresponding `name === '...'` branches in getInfoRowProps were dropped in
+// the same edit. The Options-modal toggles (showNetwork/showPreviousAiring/
+// showSeasonCount) are i18n-sweep territory for Plan 17.3-13.
 const rows = [
   {
     name: 'monitored',
@@ -57,29 +64,14 @@ const rows = [
     valueProp: 'monitored',
   },
   {
-    name: 'network',
-    showProp: 'showNetwork',
-    valueProp: 'network',
-  },
-  {
     name: 'qualityProfileId',
     showProp: 'showQualityProfile',
     valueProp: 'qualityProfile',
   },
   {
-    name: 'previousAiring',
-    showProp: 'showPreviousAiring',
-    valueProp: 'previousAiring',
-  },
-  {
     name: 'added',
     showProp: 'showAdded',
     valueProp: 'added',
-  },
-  {
-    name: 'seasonCount',
-    showProp: 'showSeasonCount',
-    valueProp: 'seasonCount',
   },
   {
     name: 'path',
@@ -112,13 +104,8 @@ function getInfoRowProps(
     };
   }
 
-  if (name === 'network') {
-    return {
-      title: translate('Network'),
-      iconName: icons.NETWORK,
-      label: props.network ?? '',
-    };
-  }
+  // Phase 17.3 D-14: name === 'network' branch dropped (no network in manga
+  // domain per DOMAIN-02; Manga.ts trim removed props.network).
 
   if (name === 'qualityProfileId' && !!props.qualityProfile?.name) {
     return {
@@ -128,25 +115,8 @@ function getInfoRowProps(
     };
   }
 
-  if (name === 'previousAiring') {
-    const previousAiring = props.previousAiring;
-    const { showRelativeDates, shortDateFormat, longDateFormat, timeFormat } =
-      uiSettings;
-
-    return {
-      title: translate('PreviousAiringDate', {
-        date: formatDateTime(previousAiring, longDateFormat, timeFormat),
-      }),
-      iconName: icons.CALENDAR,
-      label: getRelativeDate({
-        date: previousAiring,
-        shortDateFormat,
-        showRelativeDates,
-        timeFormat,
-        timeForToday: true,
-      }),
-    };
-  }
+  // Phase 17.3 D-14: name === 'previousAiring' branch dropped (no airing
+  // concept in manga domain; Manga.ts trim removed props.previousAiring).
 
   if (name === 'added') {
     const added = props.added;
@@ -169,22 +139,8 @@ function getInfoRowProps(
     };
   }
 
-  if (name === 'seasonCount') {
-    const { seasonCount } = props;
-    let seasons = translate('OneSeason');
-
-    if (seasonCount === 0) {
-      seasons = translate('NoSeasons');
-    } else if (seasonCount > 1) {
-      seasons = translate('CountSeasons', { count: seasonCount });
-    }
-
-    return {
-      title: translate('SeasonCount'),
-      iconName: icons.CIRCLE,
-      label: seasons,
-    };
-  }
+  // Phase 17.3 D-14: name === 'seasonCount' branch dropped (manga has no
+  // seasons per DOMAIN-02; Statistics trim removed seasonCount).
 
   if (name === 'path') {
     return {
@@ -208,11 +164,12 @@ function getInfoRowProps(
 }
 
 function MangaIndexOverviewInfo(props: MangaIndexOverviewInfoProps) {
-  const { height, nextAiring } = props;
+  const { height } = props;
 
+  // Phase 17.3 D-14: top-of-render nextAiring block dropped (no airing concept
+  // in manga domain; Manga.ts trim removed props.nextAiring). The remaining
+  // date-row branches (added) read their own uiSettings inside getInfoRowProps.
   const uiSettings = useUiSettingsValues();
-  const { shortDateFormat, showRelativeDates, longDateFormat, timeFormat } =
-    uiSettings;
 
   let shownRows = 1;
   const maxRows = Math.floor(height / (infoRowHeight + 4));
@@ -235,22 +192,6 @@ function MangaIndexOverviewInfo(props: MangaIndexOverviewInfoProps) {
 
   return (
     <div className={styles.infos}>
-      {!!nextAiring && (
-        <MangaIndexOverviewInfoRow
-          title={translate('NextAiringDate', {
-            date: formatDateTime(nextAiring, longDateFormat, timeFormat),
-          })}
-          iconName={icons.SCHEDULED}
-          label={getRelativeDate({
-            date: nextAiring,
-            shortDateFormat,
-            showRelativeDates,
-            timeFormat,
-            timeForToday: true,
-          })}
-        />
-      )}
-
       {rowInfo.map((row) => {
         if (!row.isVisible) {
           return null;
