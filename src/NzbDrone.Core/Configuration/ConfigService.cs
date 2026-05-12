@@ -269,17 +269,9 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("UserRejectedExtensions", value); }
         }
 
-        public SeasonPackUpgradeType SeasonPackUpgrade
-        {
-            get { return GetValueEnum("SeasonPackUpgrade", SeasonPackUpgradeType.All); }
-            set { SetValue("SeasonPackUpgrade", value); }
-        }
-
-        public double SeasonPackUpgradeThreshold
-        {
-            get { return GetValueDouble("SeasonPackUpgradeThreshold", 100.0); }
-            set { SetValue("SeasonPackUpgradeThreshold", value); }
-        }
+        // Sonarr divergence: Phase 17.3 Plan 17.3-05 (D-06) — SeasonPackUpgrade vertical stripped (manga has no season packs).
+        //   public SeasonPackUpgradeType SeasonPackUpgrade { get; set; }  // backed by Config row "SeasonPackUpgrade" (stale rows OK pre-v1 per feedback_db_wipe_no_backup)
+        //   public double SeasonPackUpgradeThreshold { get; set; }  // backed by Config row "SeasonPackUpgradeThreshold"
 
         public bool SetPermissionsLinux
         {

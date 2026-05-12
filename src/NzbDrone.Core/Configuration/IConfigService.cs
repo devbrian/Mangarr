@@ -49,9 +49,9 @@ namespace NzbDrone.Core.Configuration
         //   EpisodeTitleRequiredType EpisodeTitleRequired { get; set; }
         string UserRejectedExtensions { get; set; }
 
-        // Season Pack Upgrade (Media Management)
-        SeasonPackUpgradeType SeasonPackUpgrade { get; set; }
-        double SeasonPackUpgradeThreshold { get; set; }
+        // Sonarr divergence: Phase 17.3 Plan 17.3-05 (D-06) — SeasonPackUpgrade vertical stripped (manga has no season packs).
+        //   SeasonPackUpgradeType SeasonPackUpgrade { get; set; }
+        //   double SeasonPackUpgradeThreshold { get; set; }
 
         // Permissions (Media Management)
         bool SetPermissionsLinux { get; set; }
