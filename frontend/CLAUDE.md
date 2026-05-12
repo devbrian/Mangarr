@@ -31,27 +31,24 @@ React-based web UI served by the backend at `http://localhost:8989`. Built with 
 
 ```
 frontend/
-├── src/                                 # 39 top-level dirs (see "Directory Map" below)
+├── src/                                 # Top-level dirs (post-Phase-17.3 manga-canonical tree)
 │   ├── App/                             # Root, providers, routing
-│   ├── Series/                          # → Manga
-│   ├── Episode/                         # → Chapter
-│   ├── EpisodeFile/                     # → ChapterFile
-│   ├── Season/                          # → Volume
+│   ├── Manga/                           # Manga library (canonical; Sonarr Series/ stub-dir deleted in Plan 17.3-13)
+│   ├── Chapter/                         # Chapter cells/hooks (canonical; Sonarr Episode/ stub-dir deleted in Plan 17.3-13)
+│   ├── AddManga/                        # Add-manga flow (canonical; Sonarr AddSeries/ stub-dir deleted in Plan 17.3-13)
 │   ├── Components/                      # Shared UI library (313 files)
 │   ├── Store/                           # Redux store
 │   ├── Helpers/                         # Custom hooks, utilities
 │   ├── Settings/                        # Settings pages (273 files)
 │   ├── Activity/                        # Queue / History / Blocklist
-│   ├── Calendar/                        # Calendar view
 │   ├── Wanted/                          # Missing / CutoffUnmet
-│   ├── AddSeries/                       # Add-series flow → AddManga
 │   ├── InteractiveSearch/               # Manual release search
 │   ├── InteractiveImport/               # Manual file import
 │   ├── Organize/                        # File organize preview
 │   ├── Parse/                           # Title-parse utility
 │   ├── System/                          # Status / Tasks / Logs / Backup / Updates / Events
 │   ├── Commands/                        # Command execution
-│   ├── Utilities/                       # Pure utility functions (50+ files)
+│   ├── Utilities/                       # Pure utility functions (Utilities/Series/ + Utilities/Episode/ deleted in Plan 17.3-13)
 │   ├── typings/                         # TypeScript type definitions
 │   ├── Quality/, Language/, Tags/, Filters/, RootFolder/, Path/, DownloadClient/, OAuth/, FirstRun/, Internationalization/, Diag/, Shared/   # Smaller modules
 │   ├── Styles/                          # Global CSS / themes / variables
@@ -66,6 +63,8 @@ frontend/
 ├── .stylelintrc
 └── tsconfig.json
 ```
+
+Note: Sonarr's `Season/` + `EpisodeFile/` (frontend) had no manga-canonical peer surface that survived Phase 17.3 — `Season/` per PROJECT.md Volumes/Seasons Out-of-Scope (`volumeNumber` is display-only on `Chapter`), `EpisodeFile/` per Phase 15 cutover (the `ChapterFile` wire shape is consumed directly by `Manga/Details/` + `Activity/` without a dedicated frontend feature dir). Both were Phase 15 Plan 15-12 stubs and were deleted with the rest in Plan 17.3-13.
 
 ## Application Bootstrap
 
@@ -225,37 +224,35 @@ yarn stylelint              # CSS lint
 
 Listed by approximate priority. Detailed migration notes are in each module's `CLAUDE.md`.
 
-| Module | Effort | Action |
+| Module | Effort | Status |
 |--------|--------|--------|
-| `Series/` → `Manga/` | HIGH | Rename folder + types; remove tvdbId/seasonFolder/airTime; add mangadexId/anilistId/author/artist |
-| `Episode/` → `Chapter/` | HIGH | Remove airDate/sceneEpisodeNumber; add releaseDate/pageCount/scanlationGroup |
-| `Season/` → `Volume/` | MED | Optional grouping for manga |
-| `EpisodeFile/` → `ChapterFile/` | MED | Rename, update mediaInfo |
-| `AddSeries/` → `AddManga/` | HIGH | Rebrand entire flow |
-| `Calendar/` | MED | Manga release schedules differ from TV airing |
-| `Activity/` | LOW | Update terminology |
-| `Wanted/` | LOW | Logic transfers; rename references |
-| `InteractiveSearch/Import/` | MED | Update match flow |
-| `Settings/Quality, MetadataSource, Indexers` | HIGH | Quality tiers, manga metadata sources, manga indexers |
-| `Components/`, `Helpers/`, `Utilities/`, `System/`, `Diag/`, `Internationalization/`, `Tags/`, `OAuth/`, `FirstRun/` | NONE | Generic utilities — keep |
-| `Styles/`, `Content/` | LOW | App branding (icons, manifest, name) |
-| `typings/` | MED | Series/Episode types renamed |
-| `Store/Actions/Settings/*` | LOW | Some entity slices reference series/episode terminology |
+| `Series/` → `Manga/` | HIGH | **Done** — Phase 7 (Manga/ shipped); Phase 15 Plan 15-12 (Series/ became thin re-export stubs); Phase 17.3 Plan 17.3-13 (atomic stub-dir delete) |
+| `Episode/` → `Chapter/` | HIGH | **Done** — Phase 7 (Chapter/ shipped); Plan 15-12 stubs + Plan 17.3-13 delete |
+| `Season/` (no Manga peer) | — | **Done — no-op** — `Season/` deleted in Plan 17.3-13; `volumeNumber` is display-only on Chapter per PROJECT.md Out-of-Scope |
+| `EpisodeFile/` (no dedicated frontend peer) | — | **Done — stub-only** — `EpisodeFile/` deleted in Plan 17.3-13; `ChapterFile` wire shape consumed directly by `Manga/Details/` + `Activity/` |
+| `AddSeries/` → `AddManga/` | HIGH | **Done** — Phase 7 Plan 07-06 (AddManga/ shipped); Plan 17.3-13 stub-dir delete |
+| `Activity/` | LOW | **Done** — Phase 7 Plan 07-09 thin wrappers (`MangaQueue` / `MangaHistory` / `MangaBlocklist`); GH #73 row-component migration (2026-05-11); EpisodeCellContent stubs deleted in Plan 17.3-04 |
+| `Wanted/` | LOW | **Done** — Phase 6/12 (`MissingChaptersController` + `MangaCutoffController`) |
+| `InteractiveSearch/Import/` | MED | **Done** — Phase 11+ |
+| `Settings/Quality, MetadataSource, Indexers` | HIGH | **Done** — Phase 5 D-04 dropped TV quality; TranslationProfile + CustomFormatProfile shipped; MangaDex MetadataSource + MangaDex/Comix indexers shipped |
+| `Components/`, `Helpers/`, `Utilities/`, `System/`, `Diag/`, `Internationalization/`, `Tags/`, `OAuth/`, `FirstRun/` | NONE | Generic utilities — kept verbatim (8 Components/Form/* renames landed in Plan 17.3-04 D-07 for vocabulary parity) |
+| `Styles/`, `Content/` | LOW | **Done** — Phase 15 rebrand (icons / manifest / favicon flipped) |
+| `typings/` | MED | **Done** — Plan 17.3-13 retired stub-dir types (`Series.ts` / `Episode.ts` / `EpisodeFile.ts`); cross-cutting types in `typings/` already manga-shape |
+| `Store/Actions/Settings/*` | LOW | **In-progress** — entity slices reference series/episode terminology; Phase 17.3 Plan 17.3-12 D-12 renamed `migrateAddSeriesDefaults.js` → `migrateAddMangaDefaults.js` |
 
 ## Documentation Index
 
 | Path | Purpose |
 |------|---------|
 | [src/App/CLAUDE.md](./src/App/CLAUDE.md) | Root + routing + providers |
-| [src/Series/CLAUDE.md](./src/Series/CLAUDE.md) | Series feature → Manga |
-| [src/Episode/CLAUDE.md](./src/Episode/CLAUDE.md) | Episode feature → Chapter |
+| [src/Manga/CLAUDE.md](./src/Manga/CLAUDE.md) | Manga library + Index/Details (canonical; Series/ stub deleted Plan 17.3-13) |
+| [src/Chapter/CLAUDE.md](./src/Chapter/CLAUDE.md) | Chapter cells / hooks / status (canonical; Episode/ stub deleted Plan 17.3-13) |
+| [src/AddManga/CLAUDE.md](./src/AddManga/CLAUDE.md) | Add-manga flow (canonical; AddSeries/ stub deleted Plan 17.3-13) |
 | [src/Components/CLAUDE.md](./src/Components/CLAUDE.md) | Shared UI library |
 | [src/Store/CLAUDE.md](./src/Store/CLAUDE.md) | Redux store |
 | [src/Helpers/CLAUDE.md](./src/Helpers/CLAUDE.md) | Custom hooks |
 | [src/Settings/CLAUDE.md](./src/Settings/CLAUDE.md) | Settings pages |
-| [src/AddSeries/CLAUDE.md](./src/AddSeries/CLAUDE.md) | Add-series flow |
 | [src/Activity/CLAUDE.md](./src/Activity/CLAUDE.md) | Queue/History/Blocklist |
-| [src/Calendar/CLAUDE.md](./src/Calendar/CLAUDE.md) | Calendar |
 | [src/Wanted/CLAUDE.md](./src/Wanted/CLAUDE.md) | Missing / CutoffUnmet |
 | [src/InteractiveSearch/CLAUDE.md](./src/InteractiveSearch/CLAUDE.md) | Manual release search |
 | [src/InteractiveImport/CLAUDE.md](./src/InteractiveImport/CLAUDE.md) | Manual file import |
