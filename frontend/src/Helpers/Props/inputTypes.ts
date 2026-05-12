@@ -11,6 +11,11 @@ export const OAUTH = 'oauth';
 export const PASSWORD = 'password';
 export const PATH = 'path';
 export const QUALITY_PROFILE_SELECT = 'qualityProfileSelect';
+// Phase 17 follow-up (debug qualityprofiles-redux-rename, 2026-05-12 — GH #82
+// Path 1): manga-canonical select for `translationProfileId` form fields.
+// Consumed by the bulk Edit Manga modal (Manga/Index/Select/Edit/) and any
+// future manga form referencing the Translation Profile axis.
+export const TRANSLATION_PROFILE_SELECT = 'translationProfileSelect';
 export const INDEXER_SELECT = 'indexerSelect';
 export const INDEXER_FLAGS_SELECT = 'indexerFlagsSelect';
 export const LANGUAGE_SELECT = 'languageSelect';
@@ -41,6 +46,7 @@ export const all = [
   PASSWORD,
   PATH,
   QUALITY_PROFILE_SELECT,
+  TRANSLATION_PROFILE_SELECT,
   INDEXER_SELECT,
   DOWNLOAD_CLIENT_SELECT,
   ROOT_FOLDER_SELECT,
@@ -73,6 +79,7 @@ export type InputType =
   | 'password'
   | 'path'
   | 'qualityProfileSelect'
+  | 'translationProfileSelect'
   | 'indexerSelect'
   | 'indexerFlagsSelect'
   | 'languageSelect'

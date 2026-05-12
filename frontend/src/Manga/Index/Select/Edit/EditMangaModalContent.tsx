@@ -24,10 +24,18 @@ import styles from './EditMangaModalContent.css';
 // payload branches + input-change cases have been removed in this commit.
 // If a settable manga `type` ever becomes meaningful in the future, a fresh
 // FormGroup will be authored against a real backing field.
+//
+// Phase 17 follow-up (debug qualityprofiles-redux-rename, 2026-05-12 — GH #82
+// Path 1 surface-rename cascade): the inherited `qualityProfileId?: number`
+// payload field + Quality Profile select control fired `GET /api/v5/qualityprofile`
+// (404 — endpoint deleted in Phase 15 Plan 15-03 D-12) and POSTed
+// `qualityProfileId` to the bulk Manga editor, where backend `MangaEditorResource`
+// only accepts `TranslationProfileId`. Both ends have been repointed to the
+// `translationProfileId` axis (wire shape per `Mangarr.Api.V5/Manga/MangaEditorResource.cs:34`).
 interface SavePayload {
   monitored?: boolean;
   monitorNewItems?: string;
-  qualityProfileId?: number;
+  translationProfileId?: number;
   rootFolderPath?: string;
   moveFiles?: boolean;
 }
@@ -71,9 +79,9 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
 
   const [monitored, setMonitored] = useState(NO_CHANGE);
   const [monitorNewItems, setMonitorNewItems] = useState(NO_CHANGE);
-  const [qualityProfileId, setQualityProfileId] = useState<string | number>(
-    NO_CHANGE
-  );
+  const [translationProfileId, setTranslationProfileId] = useState<
+    string | number
+  >(NO_CHANGE);
   // Sonarr divergence: Phase 17.3 Plan 17.3-11 (D-14 / D-13 cascade) — the
   // inherited `seriesType` + `seasonFolder` useState hooks were removed; the
   // backing fields no longer exist on Manga.ts per Plan 17.3-07 D-13 trim.
@@ -95,9 +103,9 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
         payload.monitorNewItems = monitorNewItems;
       }
 
-      if (qualityProfileId !== NO_CHANGE) {
+      if (translationProfileId !== NO_CHANGE) {
         hasChanges = true;
-        payload.qualityProfileId = qualityProfileId as number;
+        payload.translationProfileId = translationProfileId as number;
       }
 
       // Sonarr divergence: Phase 17.3 Plan 17.3-11 (D-14 / D-13 cascade) —
@@ -120,7 +128,7 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
     [
       monitored,
       monitorNewItems,
-      qualityProfileId,
+      translationProfileId,
       rootFolderPath,
       onSavePress,
       onModalClose,
@@ -136,8 +144,8 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
         case 'monitorNewItems':
           setMonitorNewItems(value as string);
           break;
-        case 'qualityProfileId':
-          setQualityProfileId(value as string);
+        case 'translationProfileId':
+          setTranslationProfileId(value as string);
           break;
         // Sonarr divergence: Phase 17.3 Plan 17.3-11 (D-14 / D-13 cascade) —
         // the inherited `seriesType` + `seasonFolder` input-change cases
@@ -192,12 +200,12 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
         </FormGroup>
 
         <FormGroup>
-          <FormLabel>{translate('QualityProfile')}</FormLabel>
+          <FormLabel>{translate('TranslationProfile')}</FormLabel>
 
           <FormInputGroup
-            type={inputTypes.QUALITY_PROFILE_SELECT}
-            name="qualityProfileId"
-            value={qualityProfileId}
+            type={inputTypes.TRANSLATION_PROFILE_SELECT}
+            name="translationProfileId"
+            value={translationProfileId}
             includeNoChange={true}
             includeNoChangeDisabled={false}
             onChange={onInputChange}
