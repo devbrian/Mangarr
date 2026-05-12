@@ -11,7 +11,12 @@ import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import { kinds } from 'Helpers/Props';
-import useSeries from 'Series/useSeries';
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
+// Series/useSeries default-export rewritten to Manga/useManga peer. The
+// hook returns the same `{ data }` envelope; the matched-items list is
+// rendered under the inherited 'Series' label since the Tag-Details modal
+// preserves the Tag-resource shape for v1.
+import useManga from 'Manga/useManga';
 import { useIndexersWithIds } from 'Settings/Indexers/useIndexers';
 import { useConnectionsWithIds } from 'Settings/Notifications/useConnections';
 import { useReleaseProfilesWithIds } from 'Settings/Profiles/Release/useReleaseProfiles';
@@ -26,7 +31,7 @@ function findMatchingItems<T extends ModelBase>(ids: number[], items: T[]) {
 }
 
 function useMatchingSeries(seriesIds: number[]) {
-  const { data: allSeries = [] } = useSeries();
+  const { data: allSeries = [] } = useManga();
 
   return useMemo(() => {
     const matchingSeries = findMatchingItems(seriesIds, allSeries);
