@@ -3,15 +3,22 @@
 ## Purpose
 
 The manga library page (UI-03). Renders the 3-mode (Posters / Overview / Table)
-toggle that sits at `/manga`. Mirrors `frontend/src/Series/Index/` verbatim per
-Phase 7 D-02 + Lock #10 with the manga-domain divergences (no seasons, no
-episodes, manga-shape filter/sort columns).
+toggle that sits at `/manga`. Originally mirrored `frontend/src/Series/Index/`
+verbatim per Phase 7 D-02 + Lock #10 with the manga-domain divergences (no
+seasons, no episodes, manga-shape filter/sort columns). Phase 17.3 Plan 17.3-08
+(D-14) landed per-component forks on the Index components
+(MangaIndexRow / MangaIndexOverviewInfo / MangaIndexPoster /
+EditMangaModalContent); Plan 17.3-13 atomic stub-dir delete retired the
+`Series/Index/` peer. This directory is now the single canonical home for
+the manga library page.
 
 **Absolute Path:** `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Manga\Index`
 
 ## File Tree
 
-82 files (Mangarr's `Series/Index/` had 95; 13 omitted per Lock #10):
+82 files (Sonarr's `Series/Index/` had 95; 13 omitted per Phase 7 Lock #10
+— historical reference; `Series/Index/` itself was deleted in Plan 17.3-13
+atomic stub-dir delete):
 
 ```
 Manga/Index/
@@ -50,16 +57,18 @@ Manga/Index/
     └── hasGrowableColumns.ts
 ```
 
-## Lock #10 Omissions
+## Lock #10 Omissions (historical)
 
-13 files dropped from the verbatim Mangarr port:
+13 files dropped from the verbatim Sonarr port at Phase 7 — historical
+record (the Sonarr `Series/Index/` source tree no longer exists in the
+working copy per Plan 17.3-13 atomic stub-dir delete):
 
 | Path | Reason |
 |------|--------|
 | `Select/SeasonPass/ChangeMonitoringModal{,Content}.{tsx,css,css.d.ts}` (4 files) | Manga has no seasons (PROJECT.md Volumes/Seasons Out-of-Scope) |
 | `Select/SeasonPass/SeasonDetails.{tsx,css,css.d.ts}` (3 files) | ditto |
 | `Select/SeasonPass/SeasonPassSeason.{tsx,css,css.d.ts}` (3 files) | ditto |
-| `Table/SeasonsCell.{tsx,css,css.d.ts}` (3 files) | The `seasonCount` column renders an em-dash inline instead |
+| `Table/SeasonsCell.{tsx,css,css.d.ts}` (3 files) | `seasonCount` column was removed in Plan 17.3-08 D-14 per-component fork (no em-dash placeholder ships in v1) |
 
 ## Patterns / Conventions
 
@@ -70,37 +79,47 @@ Manga/Index/
   - `'overview'` → `MangaIndexOverviews`
   - `'table'` → `MangaIndexTable`
 - **State store:** `Manga/mangaOptionsStore.ts` (Plan 07-03; column-array filled
-  here in Plan 07-04 with `status / sortTitle / originalLanguage /
+  here in Plan 07-04 and trimmed by Plan 17.3-08 D-14 to: `status / sortTitle /
   translationProfileId / customFormatProfileId / chapterCount /
-  chapterProgress / added / year / path / sizeOnDisk / genres / tags /
-  actions`). LocalStorage key: `manga_options`.
+  chapterProgress / scanlationGroups / translatedLanguages / metadataSource /
+  contentRating / added / year / path / sizeOnDisk / genres / ratings /
+  certification / tags / actions`). LocalStorage key: `manga_options`. Note:
+  the `originalCountry` and `originalLanguage` column registrations survive
+  in the columns array for persisted-state back-compat — the corresponding
+  fields were removed from the `Manga` interface in Plan 17.3-12 D-13 so
+  these columns render em-dash placeholders.
 - **Cover-art URL** read off `manga.images[].url` per Lock #3 — already
   rewritten by `MangaController.MapResource → _coverMapper.ConvertToLocalUrls`
   to `/MediaCover/manga/{id}/poster.jpg`.
 - **SignalR cache key:** `['/manga']` (Plan 07-02 contract). Backend
   `manga` resource pushes invalidate the manga list within 1s.
 
-## Mangarr Inheritance Notes
+## Sonarr Inheritance — historical (Phase 17.3 retired)
 
-A handful of inherited components reach back into `frontend/src/Series/` for
-peer modals + helpers that Plan 07-04 chose not to fork in scope:
+At Phase 7 (Plan 07-04), several Manga/Index/ components delegated to
+Sonarr `frontend/src/Series/` peers (`Series/Delete/DeleteSeriesModal`,
+`Series/Edit/EditSeriesModal`, `Utilities/Series/getProgressBarKind`,
+`Series/SeriesStatus.getSeriesStatusDetails`) and widened helper signatures
+to accept manga-domain inputs. Phase 17.3 retired this pattern in two
+steps:
 
-| Manga consumer | Series peer used |
-|----------------|------------------|
-| `Select/Delete/DeleteMangaModal.tsx` | `Series/Delete/DeleteSeriesModal` (TV-shape; `seriesId` prop) |
-| `Select/Edit/EditMangaModal.tsx` | `Series/Edit/EditSeriesModal` (ditto) |
-| `Posters/MangaIndexPoster.tsx`, `Overview/MangaIndexOverview.tsx`, `Table/MangaIndexRow.tsx` | call into the modals above with `seriesId={mangaId}` |
-| `ProgressBar/MangaIndexProgressBar.tsx` | `Utilities/Series/getProgressBarKind` (status arg widened to `string`) |
-| `Table/MangaStatusCell.tsx` | `Series/SeriesStatus.getSeriesStatusDetails` (status arg widened to `string`) |
-| `Overview/MangaIndexOverviews.tsx`, `Posters/MangaIndexPosters.tsx`, `Table/MangaIndexTable.tsx` | `Utilities/Array/getIndexOfFirstCharacter` (now generic over any `{ sortTitle: string }`) |
+| Phase 17.3 step | What changed |
+|-----------------|--------------|
+| Plan 17.3-08 (D-14) | Per-component forks: `MangaIndexRow.tsx`, `MangaIndexOverviewInfo.tsx`, `MangaIndexPoster.tsx`, `EditMangaModalContent.tsx` each absorbed the helper logic they previously imported from `Series/` / `Utilities/Series/`; CSS classes for dropped columns deleted in companion `.css` files. |
+| Plan 17.3-13 (D-09/D-10) | Atomic stub-dir delete: `frontend/src/Series/` + `frontend/src/Episode/` + `frontend/src/EpisodeFile/` + `frontend/src/Season/` + `frontend/src/Utilities/Series/` all deleted in one commit after `tsc --noEmit` returned 0. |
 
-Phase 8 cleanup will collapse Series/ + the dual-codepath. The Phase 7-friendly
-typing changes to `getProgressBarKind` / `getSeriesStatusDetails` /
-`getIndexOfFirstCharacter` were widening-only and preserve TV behaviour.
+Single-manga Edit + Delete modals had already shipped as dedicated peers
+under `Manga/Edit/` (PR #27 — `fix(manga-edit-button-no-op)`) and
+`Manga/Delete/` (`fix(manga-delete-button-no-op)`) before the stub-dir
+delete. The widened helper signatures on `getProgressBarKind` /
+`getSeriesStatusDetails` / `getIndexOfFirstCharacter` no longer survive
+because the helper functions are now inlined into the per-component
+forks.
 
 ## Cross-References
 
-- [Series/Index/CLAUDE.md](../../Series/Index/CLAUDE.md) — verbatim source
 - [Manga/CLAUDE.md](../CLAUDE.md) — peer files (useManga, NoManga, MangaPoster, …)
 - [.planning/phases/07-api-v5-frontend-manga-shell/07-RESEARCH.md](../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-RESEARCH.md) — Lock #2, Lock #3, Lock #10
 - [.planning/phases/07-api-v5-frontend-manga-shell/07-04-PLAN.md](../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-04-PLAN.md)
+- [.planning/phases/17.3-domain-rename-residue-sweep-pre-v1-sweep-tv-term-residue-pha/17.3-08-PLAN.md](../../../../.planning/phases/17.3-domain-rename-residue-sweep-pre-v1-sweep-tv-term-residue-pha/17.3-08-PLAN.md) — D-14 per-component fork
+- [.planning/phases/17.3-domain-rename-residue-sweep-pre-v1-sweep-tv-term-residue-pha/17.3-13-PLAN.md](../../../../.planning/phases/17.3-domain-rename-residue-sweep-pre-v1-sweep-tv-term-residue-pha/17.3-13-PLAN.md) — D-09/D-10 atomic stub-dir delete
