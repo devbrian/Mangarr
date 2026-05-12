@@ -66,10 +66,12 @@ function OrganizePreviewModalContentInner({
   const isPopulated = isPreviewFetched && isNamingFetched;
   const error = previewError || namingError;
   const { renameEpisodes } = naming;
-  // Sonarr divergence: Phase 15 Plan 15-12 — fallback to standardEpisodeFormat
-  // when seriesType undefined (manga has no TV-shape seriesType at runtime).
-  const episodeFormatKey = `${series.seriesType ?? 'standard'}EpisodeFormat` as keyof typeof naming;
-  const episodeFormat = naming[episodeFormatKey] ?? naming.standardEpisodeFormat;
+  // Sonarr divergence: Phase 17.3 D-13/D-14 — replaced
+  // `${series.seriesType ?? 'standard'}EpisodeFormat` lookup with the
+  // unconditional standardEpisodeFormat (manga has no anime-format;
+  // seriesType removed from Manga.ts per D-13). Suppresses the prior
+  // Phase 15 Plan 15-12 fallback comment now made unconditional.
+  const episodeFormat = naming.standardEpisodeFormat;
 
   const selectAllValue = getValue(allSelected, allUnselected);
 
