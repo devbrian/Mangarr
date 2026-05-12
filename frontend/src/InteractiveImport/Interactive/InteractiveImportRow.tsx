@@ -8,12 +8,17 @@ import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
 import Column from 'Components/Table/Column';
 import TableRow from 'Components/Table/TableRow';
 import Popover from 'Components/Tooltip/Popover';
-import Episode from 'Episode/Episode';
-import EpisodeFormats from 'Episode/EpisodeFormats';
-import EpisodeLanguages from 'Episode/EpisodeLanguages';
-import EpisodeQuality from 'Episode/EpisodeQuality';
-import getReleaseTypeName from 'Episode/getReleaseTypeName';
-import IndexerFlags from 'Episode/IndexerFlags';
+// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
+// Episode/Episode rewritten to Chapter/Chapter peer (the TV-shape field names
+// episodeNumber + title + id on the row's `episodes` prop are runtime-emitted
+// by the backend TV InteractiveImport flow which is gated for v1; type-level
+// access is preserved via @ts-expect-error per the Plan 17.3-13 Wanted/* +
+// InteractiveImport core precedent). Episode/EpisodeFormats, EpisodeLanguages,
+// EpisodeQuality, getReleaseTypeName, and IndexerFlags no-op stub imports
+// DROPPED (all Phase 15 Plan 15-12 STUB components returning null with zero
+// render output); JSX render sites below collapsed to plain inline displays.
+// Series/Series rewritten to Manga/Manga peer.
+import Chapter from 'Chapter/Chapter';
 import { icons, kinds, tooltipPositions } from 'Helpers/Props';
 import SelectEpisodeModal from 'InteractiveImport/Episode/SelectEpisodeModal';
 import { SelectedEpisode } from 'InteractiveImport/Episode/SelectEpisodeModalContent';
@@ -28,8 +33,8 @@ import SelectSeasonModal from 'InteractiveImport/Season/SelectSeasonModal';
 import SelectSeriesModal from 'InteractiveImport/Series/SelectSeriesModal';
 import { useUpdateInteractiveImportItem } from 'InteractiveImport/useInteractiveImport';
 import Language from 'Language/Language';
+import Manga from 'Manga/Manga';
 import { QualityModel } from 'Quality/Quality';
-import Series from 'Series/Series';
 import CustomFormat from 'typings/CustomFormat';
 import { SelectStateInputProps } from 'typings/props';
 import Rejection from 'typings/Rejection';
@@ -57,9 +62,9 @@ interface InteractiveImportRowProps {
   id: number;
   allowSeriesChange: boolean;
   relativePath: string;
-  series?: Series;
+  series?: Manga;
   seasonNumber?: number;
-  episodes?: Episode[];
+  episodes?: Chapter[];
   releaseGroup?: string;
   quality?: QualityModel;
   languages?: Language[];
@@ -199,7 +204,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   }, [setSelectModalOpen]);
 
   const onSeriesSelect = useCallback(
-    (series: Series) => {
+    (series: Manga) => {
       updateInteractiveImportItem(id, {
         series,
         seasonNumber: undefined,
@@ -376,7 +381,14 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   // the isAnime prop pass to SelectEpisodeModal (manga has no anime-format;
   // seriesType removed from Manga.ts per D-13).
 
-  const episodeInfo = episodes.map((episode) => {
+  // Sonarr divergence: Phase 17.3 Plan 17.3-13b — Episode/Episode rewritten
+  // to Chapter/Chapter peer. The TV-shape `episodeNumber` field is preserved
+  // at runtime (backend TV InteractiveImport flow is gated for v1 per Phase
+  // 12 Plan 12-11 LOCK guard); cast through Chapter & { episodeNumber?: number }
+  // keeps tsc happy. v1.x cleanup: collapse with the chapter-shape
+  // InteractiveImport flow when the discriminator ships (Plan 12-98 v1.1
+  // roadmap).
+  const episodeInfo = episodes.map((episode: Chapter & { episodeNumber?: number }) => {
     return (
       <div key={episode.id}>
         {episode.episodeNumber}
@@ -468,6 +480,8 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
         )}
       </TableRowCellButton>
 
+      {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeQuality no-op
+          stub dropped (zero render output); display quality.name directly. */}
       <TableRowCellButton
         className={styles.quality}
         title={translate('ClickToChangeQuality')}
@@ -476,10 +490,12 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
         {showQualityPlaceholder && <InteractiveImportRowCellPlaceholder />}
 
         {!showQualityPlaceholder && !!quality && (
-          <EpisodeQuality className={styles.label} quality={quality} />
+          <span className={styles.label}>{quality.quality.name}</span>
         )}
       </TableRowCellButton>
 
+      {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeLanguages no-op
+          stub dropped (zero render output); join language names directly. */}
       <TableRowCellButton
         className={styles.languages}
         title={translate('ClickToChangeLanguage')}
@@ -488,37 +504,36 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
         {showLanguagePlaceholder && <InteractiveImportRowCellPlaceholder />}
 
         {!showLanguagePlaceholder && !!languages && (
-          <EpisodeLanguages className={styles.label} languages={languages} />
+          <span className={styles.label}>
+            {languages.map((l) => l.name).join(', ')}
+          </span>
         )}
       </TableRowCellButton>
 
       <TableRowCell>{formatBytes(size)}</TableRowCell>
 
+      {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — getReleaseTypeName
+          no-op stub dropped (returned translate('Unknown')); display
+          releaseType string directly. */}
       <TableRowCellButton
         title={translate('ClickToChangeReleaseType')}
         onPress={onSelectReleaseTypePress}
       >
-        {getReleaseTypeName(releaseType)}
+        {releaseType ?? translate('Unknown')}
       </TableRowCellButton>
 
       <TableRowCell>
-        {customFormats?.length ? (
-          <Popover
-            anchor={formatCustomFormatScore(
-              customFormatScore,
-              customFormats.length
-            )}
-            title={translate('CustomFormats')}
-            body={
-              <div className={styles.customFormatTooltip}>
-                <EpisodeFormats formats={customFormats} />
-              </div>
-            }
-            position={tooltipPositions.LEFT}
-          />
-        ) : null}
+        {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeFormats no-op
+            stub dropped (zero render output); display custom-format-score
+            inline without Popover body. */}
+        {customFormats?.length
+          ? formatCustomFormatScore(customFormatScore, customFormats.length)
+          : null}
       </TableRowCell>
 
+      {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — IndexerFlags no-op
+          stub dropped (zero render output); FLAG icon retained as meaningful
+          signal when indexerFlags!==0. */}
       {isIndexerFlagsColumnVisible ? (
         <TableRowCellButton
           title={translate('ClickToChangeIndexerFlags')}
@@ -529,12 +544,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
           ) : (
             <>
               {indexerFlags ? (
-                <Popover
-                  anchor={<Icon name={icons.FLAG} />}
-                  title={translate('IndexerFlags')}
-                  body={<IndexerFlags indexerFlags={indexerFlags} />}
-                  position={tooltipPositions.LEFT}
-                />
+                <Icon name={icons.FLAG} title={translate('IndexerFlags')} />
               ) : null}
             </>
           )}
