@@ -1,17 +1,22 @@
+// Sonarr divergence: Phase 17.3 Plan 17.3-04 (D-07) — file renamed from
+// SeriesTagInput.tsx to MangaTagInput.tsx; in-file symbols renamed
+// (SeriesTag -> MangaTag, SeriesTagInputProps -> MangaTagInputProps,
+// useSeriesTags -> useMangaTags). The hook is defined inline in this file
+// so it is renamed in place per the plan's decision rule.
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { Tag, useAddTag, useSortedTagList } from 'Tags/useTags';
 import { InputChanged } from 'typings/inputs';
 import { useFormInputGroup } from '../FormInputGroupContext';
 import TagInput, { TagBase, TagInputProps } from './TagInput';
 
-interface SeriesTag extends TagBase {
+interface MangaTag extends TagBase {
   id: number;
   name: string;
 }
 
-export interface SeriesTagInputProps<V>
+export interface MangaTagInputProps<V>
   extends Omit<
-    TagInputProps<SeriesTag>,
+    TagInputProps<MangaTag>,
     'tags' | 'tagList' | 'onTagAdd' | 'onTagDelete' | 'onChange'
   > {
   name: string;
@@ -19,12 +24,12 @@ export interface SeriesTagInputProps<V>
   onChange: (change: InputChanged<V>) => void;
 }
 
-function useSeriesTags(tags: number[]) {
+function useMangaTags(tags: number[]) {
   const sortedTags = useSortedTagList();
   const filteredTagList = sortedTags.filter((tag) => !tags.includes(tag.id));
 
   return {
-    tags: tags.reduce((acc: SeriesTag[], tag) => {
+    tags: tags.reduce((acc: MangaTag[], tag) => {
       const matchingTag = sortedTags.find((t) => t.id === tag);
 
       if (matchingTag) {
@@ -48,12 +53,12 @@ function useSeriesTags(tags: number[]) {
   };
 }
 
-export default function SeriesTagInput<V extends number | number[]>({
+export default function MangaTagInput<V extends number | number[]>({
   name,
   value,
   onChange,
   ...otherProps
-}: SeriesTagInputProps<V>) {
+}: MangaTagInputProps<V>) {
   const formInputActions = useFormInputGroup();
   const isArray = Array.isArray(value);
 
@@ -65,7 +70,7 @@ export default function SeriesTagInput<V extends number | number[]>({
     return value === 0 ? [] : [value as number];
   }, [isArray, value]);
 
-  const { tags, tagList, allTags } = useSeriesTags(arrayValue);
+  const { tags, tagList, allTags } = useMangaTags(arrayValue);
 
   const handleTagCreated = useCallback(
     (tag: Tag) => {
@@ -84,7 +89,7 @@ export default function SeriesTagInput<V extends number | number[]>({
   const { addTag, addTagError } = useAddTag(handleTagCreated);
 
   const handleTagAdd = useCallback(
-    (newTag: SeriesTag) => {
+    (newTag: MangaTag) => {
       if (newTag.id) {
         if (isArray) {
           onChange({ name, value: [...value, newTag.id] as V });

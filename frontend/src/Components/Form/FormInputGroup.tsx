@@ -51,7 +51,7 @@ import MangaTypeSelectInput, {
 } from './Select/MangaTypeSelectInput';
 import UMaskInput, { UMaskInputProps } from './Select/UMaskInput';
 import DeviceInput, { DeviceInputProps } from './Tag/DeviceInput';
-import SeriesTagInput, { SeriesTagInputProps } from './Tag/SeriesTagInput';
+import MangaTagInput, { MangaTagInputProps } from './Tag/MangaTagInput';
 import TagSelectInput, { TagSelectInputProps } from './Tag/TagSelectInput';
 import TextTagInput, { TextTagInputProps } from './Tag/TextTagInput';
 import TextArea, { TextAreaProps } from './TextArea';
@@ -81,9 +81,9 @@ const componentMap: Record<InputType, ElementType> = {
   qualityProfileSelect: QualityProfileSelectInput,
   rootFolderSelect: RootFolderSelectInput,
   select: EnhancedSelectInput,
-  seriesTag: SeriesTagInput,
+  seriesTag: MangaTagInput,
   seriesTypeSelect: MangaTypeSelectInput,
-  tag: SeriesTagInput,
+  tag: MangaTagInput,
   tagSelect: TagSelectInput,
   text: TextInput,
   textArea: TextArea,
@@ -141,11 +141,11 @@ type PickProps<V, C extends InputType> = C extends 'text'
   ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
     EnhancedSelectInputProps<any, V>
   : C extends 'seriesTag'
-  ? SeriesTagInputProps<V>
+  ? MangaTagInputProps<V>
   : C extends 'seriesTypeSelect'
   ? MangaTypeSelectInputProps
   : C extends 'tag'
-  ? SeriesTagInputProps<V>
+  ? MangaTagInputProps<V>
   : C extends 'tagSelect'
   ? TagSelectInputProps
   : C extends 'text'
