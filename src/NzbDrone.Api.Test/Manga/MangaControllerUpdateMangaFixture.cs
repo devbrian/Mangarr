@@ -41,15 +41,24 @@ namespace NzbDrone.Api.Test.Manga
     // with the value the inbound resource carried — guarding against regressions that
     // re-drop any of the three new fields from the resource, the mapper, or ApplyChanges.
     //
+    // Issue #96 (2026-05-12) — extended the fixture with the Path-preservation regression
+    // pin (tests 6 + 7 below). External API callers that PUT a partial body without
+    // `path` previously clobbered existing.Path in memory via Manga.ApplyChanges (issue
+    // #81 unconditional `Path = other.Path` copy at Manga.cs:135), then tripped the
+    // SQLite NOT NULL constraint on persist. The MangaController.UpdateManga fix mirrors
+    // PR #95's RefreshMangaService save/restore pattern (MangaController.cs:192-194).
+    //
     // Per-fixture unit-test filter:
     //   dotnet test --filter "FullyQualifiedName~MangaControllerUpdateMangaFixture"
     //
-    // Tests (5):
+    // Tests (7):
     //   1. UpdateManga_round_trips_MonitorNewItems_All
     //   2. UpdateManga_round_trips_MonitorNewItems_None
     //   3. UpdateManga_round_trips_TranslationProfileId
     //   4. UpdateManga_round_trips_CustomFormatProfileId
     //   5. UpdateManga_round_trips_all_three_fields_together
+    //   6. UpdateManga_preserves_existing_Path_when_resource_omits_path (issue #96)
+    //   7. UpdateManga_overwrites_existing_Path_when_resource_supplies_path (issue #96)
     [TestFixture]
     public class MangaControllerUpdateMangaFixture : TestBase<MangaController>
     {
@@ -104,11 +113,13 @@ namespace NzbDrone.Api.Test.Manga
         private static MangaResource BuildResource(
             MangaMonitorNewItems monitorNewItems = MangaMonitorNewItems.All,
             int? translationProfileId = 1,
-            int? customFormatProfileId = 1)
+            int? customFormatProfileId = 1,
+            string? path = "C:\\Manga\\Existing")
         {
             return Builder<MangaResource>.CreateNew()
                 .With(r => r.Id = 17)
                 .With(r => r.Title = "Existing Manga")
+                .With(r => r.Path = path!)
                 .With(r => r.Monitored = true)
                 .With(r => r.MonitorNewItems = monitorNewItems)
                 .With(r => r.TranslationProfileId = translationProfileId)
@@ -198,6 +209,49 @@ namespace NzbDrone.Api.Test.Manga
                           Times.Once,
                           "UpdateManga must be called exactly once with all three Issue #28 fields populated " +
                           "and the Plan 10-07 dual-publish flags both true");
+        }
+
+        [Test]
+        public void UpdateManga_preserves_existing_Path_when_resource_omits_path()
+        {
+            // Issue #96 regression pin (2026-05-12). External API callers (curl, scripts,
+            // third-party integrations) frequently PUT partial bodies that omit `path`.
+            // Pre-fix: ToModel produced a model with Path=null, Manga.ApplyChanges
+            // (Manga.cs:135) unconditionally copied `Path = other.Path` and clobbered
+            // existing.Path in memory; the trailing _mangaService.UpdateManga then tripped
+            // the SQLite NOT NULL constraint on Manga.Path. Post-fix: MangaController.cs
+            // saves userPath = existing.Path BEFORE ApplyChanges and restores it via
+            // `existing.Path = !string.IsNullOrWhiteSpace(existing.Path) ? existing.Path : userPath`
+            // AFTER. This test pins the post-fix behavior: when path is omitted, the
+            // existing on-disk path survives the round-trip.
+            var resource = BuildResource(path: null);
+
+            Subject.UpdateManga(resource);
+
+            _captured.Should().NotBeNull("UpdateManga must be invoked even when resource omits path");
+            _captured!.Path.Should().Be("C:\\Manga\\Existing",
+                "issue #96: when resource.Path is null/empty, MangaController must restore " +
+                "existing.Path from userPath rather than letting ApplyChanges clobber it to null");
+        }
+
+        [Test]
+        public void UpdateManga_overwrites_existing_Path_when_resource_supplies_path()
+        {
+            // Issue #96 companion test (2026-05-12). The save/restore guard must be a
+            // no-op when the caller supplies a non-empty Path — i.e., the frontend's
+            // normal Save path (MangaResourceMapper.ToModel always populates Path) and
+            // the issue #81 MoveMangaCommand wire-up (which reads resource.Path BEFORE
+            // ApplyChanges) must continue to work. This test pins that contract: when
+            // the resource carries a different Path, ApplyChanges overwrites existing.Path
+            // and the restore branch does NOT fire.
+            var resource = BuildResource(path: "C:\\Manga\\Renamed");
+
+            Subject.UpdateManga(resource);
+
+            _captured.Should().NotBeNull();
+            _captured!.Path.Should().Be("C:\\Manga\\Renamed",
+                "issue #96 fix must be a no-op when resource supplies a non-empty Path — " +
+                "ApplyChanges overwrites with the new path (preserves frontend Save + issue-#81 MoveManga semantics)");
         }
     }
 }
