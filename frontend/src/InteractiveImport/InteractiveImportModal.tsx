@@ -48,29 +48,34 @@ function InteractiveImportModal(props: InteractiveImportModalProps) {
   }, [folder, previousIsOpen, isOpen, setFolderPath]);
 
   return (
-    <Modal
-      isOpen={isOpen}
-      size={sizes.EXTRA_EXTRA_LARGE}
-      closeOnBackgroundClick={false}
-      onModalClose={onModalClose}
-    >
-      {folderPath || downloadIds ? (
-        <InteractiveImportModalContent
-          {...otherProps}
-          folder={folderPath}
-          downloadIds={downloadIds}
-          modalTitle={modalTitle}
-          onModalClose={onModalClose}
-        />
-      ) : (
-        <InteractiveImportSelectFolderModalContent
-          {...otherProps}
-          modalTitle={modalTitle}
-          onFolderSelect={onFolderSelect}
-          onModalClose={onModalClose}
-        />
-      )}
-    </Modal>
+    // Phase 18 Plan-08 -- interactive-import-modal testid wraps the modal
+    // mount. Wrapping with a div hosts the testid in the React tree even when
+    // the underlying Modal portal is closed.
+    <div data-testid="interactive-import-modal">
+      <Modal
+        isOpen={isOpen}
+        size={sizes.EXTRA_EXTRA_LARGE}
+        closeOnBackgroundClick={false}
+        onModalClose={onModalClose}
+      >
+        {folderPath || downloadIds ? (
+          <InteractiveImportModalContent
+            {...otherProps}
+            folder={folderPath}
+            downloadIds={downloadIds}
+            modalTitle={modalTitle}
+            onModalClose={onModalClose}
+          />
+        ) : (
+          <InteractiveImportSelectFolderModalContent
+            {...otherProps}
+            modalTitle={modalTitle}
+            onFolderSelect={onFolderSelect}
+            onModalClose={onModalClose}
+          />
+        )}
+      </Modal>
+    </div>
   );
 }
 

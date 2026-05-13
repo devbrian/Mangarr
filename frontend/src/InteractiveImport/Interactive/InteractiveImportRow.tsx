@@ -409,15 +409,29 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   const showLanguagePlaceholder = isSelected && !languages;
   const showIndexerFlagsPlaceholder = isSelected && !indexerFlags;
 
+  // Phase 18 Plan-08 D-18 -- per-row testid keyed by item id.
+  //
+  // Testid shapes emitted at runtime (literal patterns for source-grep audits):
+  //   interactive-import-row-{id}
+  //   interactive-import-row-{id}-file
+  //   interactive-import-row-{id}-manga
+  //   interactive-import-row-{id}-chapter
+  //   interactive-import-row-{id}-quality
+  const rowTestId = `interactive-import-row-${id}`;
+
   return (
-    <TableRow>
+    <TableRow data-testid={rowTestId}>
       <TableSelectCell
         id={id}
         isSelected={isSelected}
         onSelectedChange={handleSelectedChange}
       />
 
-      <TableRowCell className={styles.relativePath} title={relativePath}>
+      <TableRowCell
+        className={styles.relativePath}
+        title={relativePath}
+        data-testid={`${rowTestId}-file`}
+      >
         {relativePath}
       </TableRowCell>
 
@@ -427,6 +441,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
           title={
             allowSeriesChange ? translate('ClickToChangeManga') : undefined
           }
+          data-testid={`${rowTestId}-manga`}
           onPress={onSelectSeriesPress}
         >
           {showSeriesPlaceholder ? (
@@ -460,6 +475,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
             ? translate('ClickToChangeChapter')
             : undefined
         }
+        data-testid={`${rowTestId}-chapter`}
         onPress={onSelectEpisodePress}
       >
         {showEpisodeNumbersPlaceholder ? (
@@ -485,6 +501,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
       <TableRowCellButton
         className={styles.quality}
         title={translate('ClickToChangeQuality')}
+        data-testid={`${rowTestId}-quality`}
         onPress={onSelectQualityPress}
       >
         {showQualityPlaceholder && <InteractiveImportRowCellPlaceholder />}
