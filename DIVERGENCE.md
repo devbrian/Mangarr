@@ -20,6 +20,7 @@ Type taxonomy: `extend`, `replace`, `delete`, `new`, `preserve`.
 | File / Path | Type | Phase | Rationale |
 |-------------|------|-------|-----------|
 | `src/NzbDrone.Core/Tv/Series.cs` (lines 20-21, 29-30) | extend | pre-Phase-1 | Added `MalIds: HashSet<int>` and `AniListIds: HashSet<int>` to support manga cross-reference; collection type is `HashSet<int>` (not `List<int>` as some prior `.planning/codebase/` docs suggest). Kept on `Series` (not new `Manga` type) to defer rename to Phase 8 per leaf-first/rename-last sequence. |
+| `src/NzbDrone.Automation.Test/Mangarr.Automation.Test.csproj` + `src/NzbDrone.Automation.Test/AutomationTest.cs` + `src/NzbDrone.Automation.Test/PageModel/PageBase.cs` | replace | Phase 18 | Replaced `Selenium.WebDriver` 3.141.0 + `Selenium.WebDriver.ChromeDriver` 132.0.6834.8300 with `Microsoft.Playwright` 1.59.0 + `Microsoft.Playwright.NUnit` 1.59.0. Sonarr upstream still on Selenium 3.141.0 as of 2026-05-13 (RESEARCH §Sonarr Upstream Analog). Rationale: Selenium 3 is EOL'd; `playwright codegen --target csharp` enables the Claude-MCP→C# authoring loop (Phase 18 D-04); trace.zip + DOM snapshots are first-class in Playwright but third-party-only in Selenium; auto-waiting per locator eliminates the spinner-wait flake class. `MainPagesTest.cs` deleted (Phase 18 D-19) — 6 nav-smoke concepts subsumed by Plan-03 route-axis coverage. See `.planning/phases/18-.../18-CONTEXT.md` D-01..D-19 for the full decision set. |
 
 ## Planned Divergences (Not Yet on `Mangarr-v0`)
 
