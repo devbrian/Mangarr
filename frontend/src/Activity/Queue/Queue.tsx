@@ -254,34 +254,41 @@ function QueueContent({ mediaType = 'manga' }: QueueProps) {
           : null}
 
         {isAllPopulated && !hasError && !!records.length ? (
-          <div>
-            <Table
-              selectAll={true}
-              allSelected={allSelected}
-              allUnselected={allUnselected}
-              columns={columns}
-              pageSize={pageSize}
-              sortKey={sortKey}
-              sortDirection={sortDirection}
-              onTableOptionChange={handleTableOptionChange}
-              onSelectAllChange={handleSelectAllChange}
-              onSortPress={handleSortPress}
-            >
-              <TableBody>
-                {records.map((item) => {
-                  return (
-                    <QueueRow
-                      key={item.id}
-                      columns={columns}
-                      {...item}
-                      onQueueRowModalOpenOrClose={
-                        handleQueueRowModalOpenOrClose
-                      }
-                    />
-                  );
-                })}
-              </TableBody>
-            </Table>
+          // Phase 18 Plan-05: data-testid annotation per
+          // .planning/phases/18-automated-ui-integration-test-suite-playwright-net/inventory/data-testid-spec.md.
+          // Page-level testid lives on the outer wrapper; the inner div carries the
+          // `manga-queue-table` testid so Playwright fixtures can scope row queries
+          // beneath it without traversing through PageContent's `app-shell` testid.
+          <div data-testid="manga-queue-page">
+            <div data-testid="manga-queue-table">
+              <Table
+                selectAll={true}
+                allSelected={allSelected}
+                allUnselected={allUnselected}
+                columns={columns}
+                pageSize={pageSize}
+                sortKey={sortKey}
+                sortDirection={sortDirection}
+                onTableOptionChange={handleTableOptionChange}
+                onSelectAllChange={handleSelectAllChange}
+                onSortPress={handleSortPress}
+              >
+                <TableBody>
+                  {records.map((item) => {
+                    return (
+                      <QueueRow
+                        key={item.id}
+                        columns={columns}
+                        {...item}
+                        onQueueRowModalOpenOrClose={
+                          handleQueueRowModalOpenOrClose
+                        }
+                      />
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
 
             <TablePager
               page={page}

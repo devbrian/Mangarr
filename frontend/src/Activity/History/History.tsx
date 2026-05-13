@@ -168,28 +168,34 @@ function History({ mediaType = 'manga' }: HistoryProps) {
         ) : null}
 
         {isAllPopulated && !hasError && records.length ? (
-          <div>
-            <Table
-              columns={columns}
-              pageSize={pageSize}
-              sortKey={sortKey}
-              sortDirection={sortDirection}
-              onTableOptionChange={handleTableOptionChange}
-              onSortPress={handleSortPress}
-            >
-              <TableBody>
-                {records.map((item) => {
-                  return (
-                    <HistoryRow
-                      key={item.id}
-                      columns={columns}
-                      mediaType={mediaType}
-                      {...item}
-                    />
-                  );
-                })}
-              </TableBody>
-            </Table>
+          // Phase 18 Plan-05: page + table-scope data-testid per
+          // .planning/phases/18-automated-ui-integration-test-suite-playwright-net/inventory/data-testid-spec.md
+          // (`manga-history-page` is the outer scope; `manga-history-table` is the
+          // inner table container so Playwright fixtures can scope row queries).
+          <div data-testid="manga-history-page">
+            <div data-testid="manga-history-table">
+              <Table
+                columns={columns}
+                pageSize={pageSize}
+                sortKey={sortKey}
+                sortDirection={sortDirection}
+                onTableOptionChange={handleTableOptionChange}
+                onSortPress={handleSortPress}
+              >
+                <TableBody>
+                  {records.map((item) => {
+                    return (
+                      <HistoryRow
+                        key={item.id}
+                        columns={columns}
+                        mediaType={mediaType}
+                        {...item}
+                      />
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
 
             <TablePager
               page={page}
