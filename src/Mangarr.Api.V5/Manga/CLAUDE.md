@@ -127,6 +127,19 @@ those subdirectory CLAUDE.md files.
   - [`Chapter/CLAUDE.md`](./Chapter/CLAUDE.md) — `RenameChapterController` + `ChapterFileController` (Plans 13-06 / 13-07)
   - [`Queue/CLAUDE.md`](./Queue/CLAUDE.md) — `MangaQueueDetailsController` + `MangaQueueStatusController` + `MangaQueueActionController` (Plans 13-08 / 13-09 / 13-10)
 
+## Move Manga wire-up (issue #81 — 2026-05-13)
+
+The backend MoveManga slice (`MoveMangaCommand` + `BulkMoveMangaCommand` + `MoveMangaService` + `MangaMovedEvent`) was shipped Phase 2 Plan 02-16 but had no controller publish site. Issue #81 closes the wire-up gap on both controllers:
+
+| Controller | Method | Wire-up |
+|------------|--------|---------|
+| `MangaController` | `UpdateManga` (PUT `/api/v5/manga/{id}`) | Now accepts `[FromQuery] bool moveFiles = false`; if true, pushes `MoveMangaCommand` (with `trigger: CommandTrigger.Manual`) BEFORE the in-memory `ApplyChanges + UpdateManga` so `MoveMangaService` sees the original on-disk path. Mirrors upstream `SeriesController.UpdateSeries:198-212` verbatim. Ctor now injects `IManageCommandQueue`. |
+| `MangaEditorController` | `SaveAll` (PUT `/api/v5/manga/editor`) | Now collects `List<BulkMoveManga>` inside the foreach when `resource.RootFolderPath.IsNotNullOrWhiteSpace()`; pushes `BulkMoveMangaCommand` if `resource.MoveFiles && mangaToMove.Any()`. Mirrors upstream `SeriesEditorController.SaveAll:60-66 + 90-100` verbatim. The existing `useExistingRelativeFolder = !resource.MoveFiles` arg on `IMangaService.UpdateManga` is preserved — it controls the in-memory path-builder branch so the new `Manga.Path` lands in the right shape regardless of whether the on-disk move runs. Stale file-header comment "No BulkMoveMangaCommand publish branch" refreshed to reflect the actual peer at `src/NzbDrone.Core/Manga/Commands/BulkMoveMangaCommand.cs`. |
+
+**Live verification (mandatory per issue #81 acceptance criteria):** On-disk smoke test recorded in PR body — file hashes via `Get-FileHash` before move at `C:\tmp\mangarr-rfA\<title>\`; same hashes confirmed at `C:\tmp\mangarr-rfB\<title>\` after move; original directory removed by `TransferMode.Move`; DB `Manga.Path` + `Manga.RootFolderPath` updated. Idempotency: second move to same destination logs "is already in the specified location" with no file ops. Bulk-edit flow verified independently.
+
+**Phase 15 collapse target:** `MoveMangaCommand` + `BulkMoveMangaCommand` + `MoveMangaService` collapse with their TV peers when `Tv/` deletes — Manga prefix dropped to canonical names.
+
 ## MangaController IHandle subscribers (post-Phase-10)
 
 The `MangaController` fans out SignalR resource changes for the manga lifecycle. As of the Phase 10 close-out, the controller subscribes to **11 IHandle interfaces** — 4 from Phase 2 Plan 02-10, 1 from Phase 9 Plan 09-13, and 6 from Phase 10 sub-wave C (Plans 10-05 / 10-06 / 10-08). The `manga` SignalR resource name is auto-derived from `MangaResource.ResourceName` (Plan 07-02 + Plan 07-01 Lock #6); the frontend `SignalRListener.tsx` handler at line 399 invalidates `['/manga']` query key on every Updated / Created / Deleted action.

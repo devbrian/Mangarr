@@ -8,10 +8,12 @@ using Microsoft.AspNetCore.Mvc;
 using NLog;
 using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.Manga.Commands;
 using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaCover;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.Events;
+using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.SignalR;
 
@@ -42,6 +44,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     private readonly IChapterService _chapterService;
     private readonly IChapterFileService _chapterFileService;
     private readonly IMapMangaCoversToLocal _coverMapper;
+    private readonly IManageCommandQueue _commandQueueManager;
     private readonly Logger _logger;
 
     public MangaController(IBroadcastSignalRMessage signalRBroadcaster,
@@ -50,6 +53,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
                            IChapterService chapterService,
                            IChapterFileService chapterFileService,
                            IMapMangaCoversToLocal coverMapper,
+                           IManageCommandQueue commandQueueManager,
                            Logger logger)
         : base(signalRBroadcaster)
     {
@@ -58,6 +62,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         _chapterService = chapterService;
         _chapterFileService = chapterFileService;
         _coverMapper = coverMapper;
+        _commandQueueManager = commandQueueManager;
         _logger = logger;
 
         SharedValidator.RuleFor(m => m.Title).NotEmpty();
@@ -150,7 +155,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     [RestPutById]
     [Consumes("application/json")]
     [Produces("application/json")]
-    public Results<Accepted<MangaResource>, NotFound> UpdateManga([FromBody] MangaResource resource)
+    public Results<Accepted<MangaResource>, NotFound> UpdateManga([FromBody] MangaResource resource, [FromQuery] bool moveFiles = false)
     {
         // BL-01 fix: GetManga now returns null on missing (was throwing
         // ModelNotFoundException upstream). Surface as 404 instead of NRE / 500.
@@ -158,6 +163,30 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         if (existing == null)
         {
             return TypedResults.NotFound();
+        }
+
+        // issue-81 wire-up: enqueue MoveMangaCommand BEFORE ApplyChanges so the
+        // command sees the original on-disk path. Mirrors upstream
+        // SeriesController.UpdateSeries (Sonarr/v5-develop:src/Sonarr.Api.V5/Series/
+        // SeriesController.cs:198-212). MoveMangaService runs async on the command
+        // queue (SendUpdatesToClient=true, RequiresDiskAccess=true → visible in
+        // System → Tasks); idempotency short-circuit at MoveMangaService.cs:68-72
+        // logs "is already in the specified location" when source == destination.
+        // The backend MoveMangaCommand + BulkMoveMangaCommand + MoveMangaService
+        // were shipped Phase 2 Plan 02-16 but never had a publish site — this is
+        // the single-edit wire-up; MangaEditorController owns the bulk wire-up.
+        if (moveFiles)
+        {
+            var sourcePath = existing.Path;
+            var destinationPath = resource.Path;
+
+            _commandQueueManager.Push(new MoveMangaCommand
+            {
+                MangaId = existing.Id,
+                SourcePath = sourcePath,
+                DestinationPath = destinationPath
+            },
+                trigger: CommandTrigger.Manual);
         }
 
         existing.ApplyChanges(resource.ToModel()!);

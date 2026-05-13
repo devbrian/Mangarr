@@ -40,6 +40,18 @@ This directory is the **manga-side parallel** of `src/NzbDrone.Core/Tv/`. Both c
 | `Events/MangaDeletedEvent.cs` | `IEvent` published after Delete. Carries `DeleteFiles` flag. |
 | `Events/ChapterListUpdatedEvent.cs` | `IEvent` published by `RefreshMangaService` AFTER `IChapterListService.SyncChapters` (Phase 16.1 single-pass; mirrors Sonarr's `IRefreshEpisodeService.RefreshEpisodeInfo`) completes — Pitfall 4 single-emit invariant: DB-write FIRST, event LAST. Consumers re-read from `IChapterRepository` — the event does NOT carry the delta. |
 
+### Move Manga slice (Phase 2 Plan 02-16 + issue #81 wire-up)
+
+| File | Purpose |
+|------|---------|
+| `Commands/MoveMangaCommand.cs` | Single-manga move payload (`MangaId`, `SourcePath`, `DestinationPath`). `SendUpdatesToClient=true`, `RequiresDiskAccess=true`. Mirrors upstream `Tv/Commands/MoveSeriesCommand.cs` verbatim. |
+| `Commands/BulkMoveMangaCommand.cs` | Multi-manga move payload (`Manga: List<BulkMoveManga>`, `DestinationRootFolder`). `BulkMoveManga` is `IEquatable<>` keyed on `MangaId` for dedup. Mirrors upstream `Tv/Commands/BulkMoveSeriesCommand.cs` verbatim. |
+| `MoveMangaService.cs` | `IExecute<MoveMangaCommand>` + `IExecute<BulkMoveMangaCommand>` handler. DryIoc auto-discovered (no DI registration). Uses `IDiskTransferService.TransferFolder(TransferMode.Move)` — cross-drive falls back to copy+verify+delete automatically. Idempotency: `sourcePath.PathEquals(destinationPath)` short-circuit at line 68-72 logs "is already in the specified location" and returns without file ops. On `IOException`, `RevertPath` restores `manga.Path` via `_mangaService.UpdateManga(manga)` (2-arg overload → `MangaUpdatedEvent` only). Mirrors upstream `Tv/MoveSeriesService.cs` verbatim with manga type swaps. |
+| `Events/MangaMovedEvent.cs` | `IEvent` published after successful TransferFolder. Carries `Manga` + `SourcePath` + `DestinationPath`. Mirrors upstream `Tv/Events/SeriesMovedEvent.cs`. |
+
+**Phase 2 → issue #81 status:** The slice shipped Phase 2 Plan 02-16 but had NO controller publish site until issue #81 wired the V5 controllers (`MangaController.UpdateManga` for single, `MangaEditorController.SaveAll` for bulk). Pre-issue-81 the slice was 90% built / 0% reachable — frontend `useSaveManga` sent `?moveFiles=true` but the backend silently ignored it. Test fixture lives at `src/NzbDrone.Core.Test/Manga/MoveMangaServiceFixture.cs` (6 tests: happy path + revert + idempotency + bulk-path + skip-missing-folder; 1:1 port of upstream `MoveSeriesServiceFixture` + 1 Mangarr-specific idempotency test).
+
+
 ## Patterns / Conventions
 
 - **Mirror Mangarr's shape verbatim where it works.** `MangaService` mirrors `SeriesService.AddSeries` event-publish-after-insert at line 73-79. `ChapterRepository.Find` mirrors `EpisodeRepository.Find` at line 53-57.

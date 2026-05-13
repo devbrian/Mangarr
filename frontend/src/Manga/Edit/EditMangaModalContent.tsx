@@ -6,39 +6,43 @@
 //
 // Manga sibling preserves: ModalContent layout, Form/FormGroup/FormInputGroup
 // component shell, usePendingChangesStore + selectSettings plumbing,
-// SpinnerErrorButton submit, MoveSeriesModal-equivalent confirmation flow
-// (DEFERRED — see "Path edit deferred" note below).
-// Manga sibling diverges from EditSeriesModalContent (per Phase 15 + design
-// philosophy "Preserve Sonarr's shape wherever it works"):
-//   * Path edit DEFERRED to a future release: RootFolderModal +
-//     MoveSeriesModal were deleted in Plan 15-07 cascade and have not been
-//     re-shipped. Path is rendered as a read-only label.
-//   * No Redux clearPendingChanges dispatch on close — usePendingChangesStore
-//     is now Zustand-local (a per-instance store), so unmounting the modal
-//     discards pending changes automatically. This is the post-Phase-15
-//     Mangarr convention; the old EditSeriesModal Redux wrapper is gone.
-//   * No "Delete" button in the footer: the Delete toolbar button on
-//     MangaDetails is its own modal (Plan 15-12 second deferred item) and
-//     will be wired in a sibling fix-forward PR.
+// SpinnerErrorButton submit.
+//
+// === Path edit + RootFolder picker + MoveManga confirmation (issue #81) ===
+// Pre-issue-81 the Path field rendered read-only ("Path edit deferred") and
+// the bulk-edit modal hard-wired moveFiles=false; Phase 17.3 Plan 17.3-03
+// D-11 had deleted the upstream MoveSeriesModal stub before a real port
+// could land. issue #81 ports the upstream EditSeriesModalContent.tsx
+// path-edit pattern: clicking the root-folder button on the Path field
+// opens RootFolderModal (the manga peer of upstream's RootFolderModal —
+// hits GET /api/v5/manga/{id}/folder via MangaFolderController, which was
+// shipped Phase 13 Plan 13-05 D-13-04 forward-prophylactic and now reaches
+// its first caller). After the user picks a destination root, the Path
+// FormInputGroup updates with the computed new path + the pending root.
+// On Save: if path is changing, MoveMangaModal pops up with three options
+// (Cancel / No Move / Yes Move). "Yes Move" routes useSaveManga with
+// moveFiles=true which adds ?moveFiles=true to the PUT — backend
+// MangaController.UpdateManga enqueues MoveMangaCommand BEFORE ApplyChanges
+// so MoveMangaService sees the original on-disk path.
 //
 // === Editable field set (Issue #28 — 2026-05-09) ===
-// All five fields below round-trip end-to-end through MangaResource +
-// Manga.ApplyChanges. PR #27 originally shipped just Monitored + Tags because
-// MonitorNewItems / TranslationProfileId / CustomFormatProfileId were not yet
-// on the wire. Issue #28 closed those backend gaps; this modal now exposes
-// the full editable surface that the bulk-edit modal also exposes (minus the
-// NoChange semantics that only multi-select needs).
-//
-// Path / RootFolder remains deferred — RootFolderModal + MoveSeriesModal
-// have not been re-shipped post-Plan-15-07.
+// All five field-set fields below round-trip end-to-end through
+// MangaResource + Manga.ApplyChanges. PR #27 originally shipped just
+// Monitored + Tags because MonitorNewItems / TranslationProfileId /
+// CustomFormatProfileId were not yet on the wire. Issue #28 closed those
+// backend gaps; this modal now exposes the full editable surface that the
+// bulk-edit modal also exposes (minus the NoChange semantics that only
+// multi-select needs).
 //
 // Phase 8 cleanup: this file IS the manga canonical now (Tv/ subtree gone).
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Form from 'Components/Form/Form';
 import FormGroup from 'Components/Form/FormGroup';
+import FormInputButton from 'Components/Form/FormInputButton';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
 import { EnhancedSelectInputValue } from 'Components/Form/Select/EnhancedSelectInput';
+import Icon from 'Components/Icon';
 import Button from 'Components/Link/Button';
 import SpinnerErrorButton from 'Components/Link/SpinnerErrorButton';
 import ModalBody from 'Components/Modal/ModalBody';
@@ -49,12 +53,15 @@ import { getValidationFailures } from 'Helpers/Hooks/useApiMutation';
 import useApiQuery from 'Helpers/Hooks/useApiQuery';
 import { usePendingChangesStore } from 'Helpers/Hooks/usePendingChangesStore';
 import usePrevious from 'Helpers/Hooks/usePrevious';
-import { inputTypes, sizes } from 'Helpers/Props';
+import { icons, inputTypes, kinds, sizes } from 'Helpers/Props';
 import Manga, { MonitorNewItems } from 'Manga/Manga';
+import MoveMangaModal from 'Manga/MoveManga/MoveMangaModal';
 import { useSaveManga, useSingleManga } from 'Manga/useManga';
 import selectSettings from 'Store/Selectors/selectSettings';
 import { InputChanged } from 'typings/inputs';
 import translate from 'Utilities/String/translate';
+import RootFolderModal from './RootFolder/RootFolderModal';
+import { RootFolderUpdated } from './RootFolder/RootFolderModalContent';
 import styles from './EditMangaModalContent.css';
 
 export interface EditMangaModalContentProps {
@@ -64,11 +71,13 @@ export interface EditMangaModalContentProps {
 
 // Editable subset of the Manga record. Fields here MUST round-trip through
 // MangaResource + Manga.ApplyChanges; verify on the backend before extending.
+// `path` was added in issue #81 (was read-only pre-PR).
 interface EditableMangaFields {
   monitored: boolean;
   monitorNewItems: MonitorNewItems;
   translationProfileId: number;
   customFormatProfileId: number;
+  path: string;
   tags: number[];
 }
 
@@ -111,10 +120,26 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
   const { pendingChanges, setPendingChange } =
     usePendingChangesStore<EditableMangaFields>({});
 
-  // Path-change support is deferred (see header note); always pass false to
-  // useSaveManga so the backend skips the move-files branch.
-  const { saveManga, isSaving, saveError } = useSaveManga(manga.id, false);
+  // issue #81: derive isPathChanging from pendingChanges.path vs manga.path.
+  // The MoveManga gate only triggers when the user has actually picked a
+  // new root folder via RootFolderModal AND the resulting path differs
+  // from manga.path. isPathChanging drives both the useSaveManga
+  // moveFiles arg AND the conditional MoveMangaModal pop-up gate.
+  const isPathChanging = !!(
+    pendingChanges.path && manga.path !== pendingChanges.path
+  );
+
+  const { saveManga, isSaving, saveError } = useSaveManga(
+    manga.id,
+    isPathChanging
+  );
   const wasSaving = usePrevious(isSaving);
+
+  const [isRootFolderModalOpen, setIsRootFolderModalOpen] = useState(false);
+  const [rootFolderPath, setRootFolderPath] = useState(
+    manga.rootFolderPath ?? ''
+  );
+  const [isConfirmMoveModalOpen, setIsConfirmMoveModalOpen] = useState(false);
 
   // Profile dropdowns reuse the Phase 5 V5 list endpoints. Mirrors the
   // AddNewMangaModalContent pattern — same useApiQuery + EnhancedSelectInputValue
@@ -155,6 +180,7 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
       // DefaultCustomFormatProfileId" (Phase 5 D-11 default-seeded entities).
       translationProfileId: manga.translationProfileId ?? 0,
       customFormatProfileId: manga.customFormatProfileId ?? 0,
+      path: manga.path,
       tags: manga.tags,
     }),
     [manga]
@@ -172,6 +198,7 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
     monitorNewItems,
     translationProfileId,
     customFormatProfileId,
+    path,
     tags,
   } = settings;
 
@@ -183,9 +210,71 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
     [setPendingChange]
   );
 
+  const handleRootFolderPress = useCallback(() => {
+    setIsRootFolderModalOpen(true);
+  }, []);
+
+  const handleRootFolderModalClose = useCallback(() => {
+    setIsRootFolderModalOpen(false);
+  }, []);
+
+  const handleRootFolderChange = useCallback(
+    ({
+      path: newPath,
+      rootFolderPath: newRootFolderPath,
+    }: RootFolderUpdated) => {
+      setIsRootFolderModalOpen(false);
+      setRootFolderPath(newRootFolderPath);
+      handleInputChange({ name: 'path', value: newPath });
+    },
+    [handleInputChange]
+  );
+
+  const handleCancelPress = useCallback(() => {
+    setIsConfirmMoveModalOpen(false);
+  }, []);
+
+  // Save handler: if the path is changing AND the confirm modal hasn't
+  // been opened yet, open it. Otherwise (no path change, OR confirm modal
+  // already open and the user clicked "No Move"), save with moveFiles
+  // driven by the useSaveManga(mangaId, isPathChanging) hook closure.
+  // The "Yes Move" path goes through handleMoveMangaPress.
   const handleSavePress = useCallback(() => {
-    saveManga({ ...manga, ...pendingChanges });
-  }, [manga, pendingChanges, saveManga]);
+    if (isPathChanging && !isConfirmMoveModalOpen) {
+      setIsConfirmMoveModalOpen(true);
+    } else {
+      setIsConfirmMoveModalOpen(false);
+
+      saveManga({
+        ...manga,
+        ...pendingChanges,
+        // rootFolderPath is a derived state — must be passed alongside path
+        // so the backend MangaResource.RootFolderPath matches the new Path.
+        rootFolderPath,
+      });
+    }
+  }, [
+    manga,
+    isPathChanging,
+    isConfirmMoveModalOpen,
+    pendingChanges,
+    rootFolderPath,
+    saveManga,
+  ]);
+
+  // "Yes, Move the Files" — saves with moveFiles=true. useSaveManga's
+  // closure already has isPathChanging=true here (we only got here via
+  // the isPathChanging confirm-modal gate), so the PUT carries
+  // ?moveFiles=true automatically.
+  const handleMoveMangaPress = useCallback(() => {
+    setIsConfirmMoveModalOpen(false);
+
+    saveManga({
+      ...manga,
+      ...pendingChanges,
+      rootFolderPath,
+    });
+  }, [manga, pendingChanges, rootFolderPath, saveManga]);
 
   // Auto-close on successful save (mirrors EditSeriesModalContent's effect).
   useEffect(() => {
@@ -257,10 +346,29 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
           <FormGroup size={sizes.MEDIUM}>
             <FormLabel>{translate('Path')}</FormLabel>
 
-            {/* Path edit deferred — see file header. Read-only label so the
-                user can confirm the on-disk location. Root-folder change +
-                file move come back in a future release. */}
-            <div className={styles.pathReadOnly}>{manga.path}</div>
+            {/* issue #81: replaced the prior "Path edit deferred" read-only
+                <div> with an editable PATH FormInputGroup + RootFolder
+                picker button. Clicking the button opens RootFolderModal;
+                picking a destination updates path + rootFolderPath; the
+                Save handler then routes through MoveMangaModal if the
+                path actually changed. */}
+            <FormInputGroup
+              type={inputTypes.PATH}
+              name="path"
+              {...path}
+              buttons={[
+                <FormInputButton
+                  key="fileBrowser"
+                  kind={kinds.DEFAULT}
+                  title={translate('RootFolder')}
+                  onPress={handleRootFolderPress}
+                >
+                  <Icon name={icons.ROOT_FOLDER} />
+                </FormInputButton>,
+              ]}
+              includeFiles={false}
+              onChange={handleInputChange}
+            />
           </FormGroup>
 
           <FormGroup size={sizes.MEDIUM}>
@@ -289,6 +397,23 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
           </SpinnerErrorButton>
         </div>
       </ModalFooter>
+
+      <RootFolderModal
+        isOpen={isRootFolderModalOpen}
+        mangaId={manga.id}
+        rootFolderPath={rootFolderPath}
+        onSavePress={handleRootFolderChange}
+        onModalClose={handleRootFolderModalClose}
+      />
+
+      <MoveMangaModal
+        originalPath={manga.path}
+        destinationPath={pendingChanges.path}
+        isOpen={isConfirmMoveModalOpen}
+        onModalClose={handleCancelPress}
+        onSavePress={handleSavePress}
+        onMoveMangaPress={handleMoveMangaPress}
+      />
     </ModalContent>
   );
 }
