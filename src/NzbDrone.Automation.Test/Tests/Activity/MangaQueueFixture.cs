@@ -1,4 +1,4 @@
-using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -45,7 +45,7 @@ public class MangaQueueFixture : AutomationTest
         // (testids of the form `manga-queue-row-{id}` with no trailing -{cell}).
         var rowsLocator = Page.GetByTestId(new Regex(@"^manga-queue-row-\d+$"));
         var count = await rowsLocator.CountAsync();
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
             var row = rowsLocator.Nth(i);
             var idAttr = await row.GetAttributeAsync("data-testid");

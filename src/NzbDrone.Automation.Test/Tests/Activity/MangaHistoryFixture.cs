@@ -1,4 +1,3 @@
-using System;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -43,7 +42,7 @@ public class MangaHistoryFixture : AutomationTest
         // feedback memo guards against.
         var rowsLocator = Page.GetByTestId(new Regex(@"^manga-history-row-\d+$"));
         var count = await rowsLocator.CountAsync();
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
             var row = rowsLocator.Nth(i);
             var idAttr = await row.GetAttributeAsync("data-testid");
