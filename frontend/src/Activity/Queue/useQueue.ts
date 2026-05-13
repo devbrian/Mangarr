@@ -9,6 +9,21 @@
 // manga wire shape (mangaId / chapterId / chapterIds / translatedLanguage /
 // scanlationGroup) consumed by the rewritten QueueRow. Mirrors useHistory's
 // MangaHistoryItem typing precedent.
+//
+// 2026-05-13 (queue-remove-pending-no-op) — Remove / Grab mutations re-pointed onto
+// `/manga/queue/...` peer URLs. Pre-fix the mutation `path` strings were hard-coded
+// to the TV-canonical `/queue/{id}` + `/queue/bulk` + `/queue/grab/{id}` + `/queue/grab/bulk`
+// routes that were physically deleted in Phase 15 Plan 15-10 (V5/Queue/ DELETED). The
+// backend returned HTTP 405 Method Not Allowed (no route matched DELETE/POST under
+// `/api/v5/queue`); React Query's mutation `onSuccess` only fires on 2xx, so the
+// optimistic UI never invalidated and the row visibly stayed. React Query cache key
+// invalidation also pointed at the dead `['/queue']` key — the manga queue read hook
+// at line 84 uses `['/manga/queue']` so the post-fix invalidation now matches.
+//
+// Mirrors the Phase 15 useQueueStatus.ts + QueueDetailsProvider.tsx re-pointing
+// precedent (Plan 15-XX issue #45 + PR #46) that flipped the GET/SignalR sides of
+// the same family of endpoints from `/queue/*` to `/manga/queue/*`. This commit
+// finishes the mutation side of the same migration.
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Filter, FilterBuilderProp } from 'Filters/Filter';
@@ -123,11 +138,11 @@ export const useRemoveQueueItem = (id: number) => {
   const removalOptions = useRemovalOptions();
 
   const { mutate, isPending } = useApiMutation<unknown, void>({
-    path: `/queue/${id}${getQueryString(removalOptions)}`,
+    path: `/manga/queue/${id}${getQueryString(removalOptions)}`,
     method: 'DELETE',
     mutationOptions: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/queue'] });
+        queryClient.invalidateQueries({ queryKey: ['/manga/queue'] });
       },
     },
   });
@@ -143,11 +158,11 @@ export const useRemoveQueueItems = () => {
   const removalOptions = useRemovalOptions();
 
   const { mutate, isPending } = useApiMutation<unknown, BulkQueueData>({
-    path: `/queue/bulk${getQueryString(removalOptions)}`,
+    path: `/manga/queue/bulk${getQueryString(removalOptions)}`,
     method: 'DELETE',
     mutationOptions: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/queue'] });
+        queryClient.invalidateQueries({ queryKey: ['/manga/queue'] });
       },
     },
   });
@@ -163,14 +178,14 @@ export const useGrabQueueItem = (id: number) => {
   const [grabError, setGrabError] = useState<string | null>(null);
 
   const { mutate, isPending } = useApiMutation<unknown, void>({
-    path: `/queue/grab/${id}`,
+    path: `/manga/queue/grab/${id}`,
     method: 'POST',
     mutationOptions: {
       onMutate: () => {
         setGrabError(null);
       },
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/queue'] });
+        queryClient.invalidateQueries({ queryKey: ['/manga/queue'] });
       },
       onError: () => {
         setGrabError('Error grabbing queue item');
@@ -190,11 +205,11 @@ export const useGrabQueueItems = () => {
 
   // Explicitly define the types for the mutation so we can pass in no arguments to mutate as expected.
   const { mutate, isPending } = useApiMutation<unknown, BulkQueueData>({
-    path: '/queue/grab/bulk',
+    path: '/manga/queue/grab/bulk',
     method: 'POST',
     mutationOptions: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/queue'] });
+        queryClient.invalidateQueries({ queryKey: ['/manga/queue'] });
       },
     },
   });

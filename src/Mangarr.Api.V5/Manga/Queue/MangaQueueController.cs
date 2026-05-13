@@ -79,6 +79,24 @@ namespace Mangarr.Api.V5.Manga.Queue
     //     canonical paging envelope. See debug session
     //     .planning/debug/activity-badge-three-queue-empty.md.
     //
+    // Sonarr-canonical fix (queue-remove-pending-no-op, 2026-05-13):
+    //
+    //   GH issue / debug session .planning/debug/queue-remove-pending-no-op.md.
+    //   Symptom: clicking Remove on a pending row was a silent no-op (HTTP 204 with no state
+    //   change). Root cause: the queue projection returned by GetQueue is the UNION of
+    //   in-flight rows (IMangaQueueService) AND pending-release rows (IMangaPendingReleaseService);
+    //   each source assigns deterministic ids in disjoint hash-spaces. The DELETE handlers
+    //   only dispatched to _queueService.Remove(id), which silently returns when the id is
+    //   not present in the in-flight static list. Pending-source ids never matched, so the
+    //   row stayed in the projection (the next GET re-included it from the pending side).
+    //   Fix: dispatch by source. _queueService.Find(id) decides which side owns the id; if
+    //   in-flight, call _queueService.Remove(id); otherwise call
+    //   _pendingReleaseService.RemovePendingQueueItems(id) (mirrors canonical Sonarr
+    //   QueueController.Remove which routes to _pendingReleaseService.RemovePendingQueueItems
+    //   on the pending branch — upstream src/Sonarr.Api.V5/Queue/QueueController.cs:64-86 +
+    //   PendingReleaseService.RemovePendingQueueItems shape). Same dispatch applied per-id
+    //   inside RemoveMany bulk loop.
+    //
     // Phase 8 cleanup: collapse with QueueController when Tv/ deletes.
     [V5ApiController("manga/queue")]
     public class MangaQueueController : RestControllerWithSignalR<MangaQueueResource, MangaQueueItem>,
@@ -309,10 +327,32 @@ namespace Mangarr.Api.V5.Manga.Queue
             }
         }
 
+        // Source-dispatch remove: the queue projection returned by GetQueue is the UNION of
+        // in-flight rows (IMangaQueueService) and pending-release rows (IMangaPendingReleaseService);
+        // each source assigns deterministic ids in disjoint hash-spaces
+        // (HashConverter.GetHashInt31 over distinct seed strings — see
+        // MangaQueueService.MapQueueItem:162-164 vs MangaPendingReleaseService.GetQueueId:674-679).
+        // Before this fix the handler only called _queueService.Remove(id), which silently
+        // returns when the id is absent from the in-flight static list. Pending-source ids
+        // never matched, so the next GET re-included the row from the pending side and the
+        // Activity Queue Remove action was a no-op.
+        //
+        // Dispatch order: try _queueService.Find first; if hit, route to _queueService.Remove
+        // (preserves the existing in-flight removal contract incl. SignalR fan-out via
+        // MangaQueueUpdatedEvent). Otherwise route to _pendingReleaseService.RemovePendingQueueItems
+        // (which Deletes the matching DB row + publishes MangaPendingReleasesUpdatedEvent per
+        // the Pitfall-4 wrapper at MangaPendingReleaseService.Delete:379-383). Both events are
+        // re-broadcast by this controller's IHandle subscribers below.
+        //
+        // Mirrors canonical Sonarr QueueController.Remove dispatch at upstream
+        // src/Sonarr.Api.V5/Queue/QueueController.cs:64-86 (v5-develop) which routes
+        // pending-source ids to IPendingReleaseService.RemovePendingQueueItems on the
+        // pending branch. Manga's simplified signature (no blocklist / skipRedownload /
+        // changeCategory v1 params) is preserved.
         [RestDeleteById]
         public NoContent RemoveQueueItem(int id)
         {
-            _queueService.Remove(id);
+            RemoveOne(id);
             return TypedResults.NoContent();
         }
 
@@ -336,6 +376,10 @@ namespace Mangarr.Api.V5.Manga.Queue
         //     fire duplicate IMangaQueueService.Remove calls, each publishing a
         //     MangaQueueUpdatedEvent and triggering a redundant SignalR Sync broadcast (UI
         //     thrash). Mirrors TV QueueController.cs:122/127 DistinctBy semantics.
+        //
+        // 2026-05-13 (queue-remove-pending-no-op): per-id dispatch routes pending-source ids to
+        // IMangaPendingReleaseService.RemovePendingQueueItems via the shared RemoveOne helper
+        // (see RemoveQueueItem above for the full rationale + canonical Sonarr peer).
         [HttpDelete("bulk")]
         [Consumes("application/json")]
         public NoContent RemoveMany([FromBody] QueueBulkResource resource)
@@ -347,10 +391,27 @@ namespace Mangarr.Api.V5.Manga.Queue
 
             foreach (var id in resource.Ids.Distinct())
             {
-                _queueService.Remove(id);
+                RemoveOne(id);
             }
 
             return TypedResults.NoContent();
+        }
+
+        // Shared source-dispatch helper for single + bulk DELETE paths. See RemoveQueueItem
+        // header comment for the canonical-Sonarr rationale + the queue-remove-pending-no-op
+        // debug session.
+        private void RemoveOne(int id)
+        {
+            if (_queueService.Find(id) != null)
+            {
+                _queueService.Remove(id);
+                return;
+            }
+
+            // Pending-source id (or stale id absent from both projections). The pending service
+            // is internally idempotent — RemovePendingQueueItems no-ops cleanly when the id
+            // does not resolve to a tracked pending release.
+            _pendingReleaseService.RemovePendingQueueItems(id);
         }
 
         [NonAction]

@@ -339,6 +339,22 @@ namespace NzbDrone.Core.Download.Pending.Manga
             {
                 Delete(release);
             }
+
+            // Refresh the static `_pendingReleases` projection so subsequent
+            // GetPendingQueue calls reflect the DB-level deletes this method just
+            // performed. Without this, the cached list is stale until the next
+            // IHandle invocation triggers UpdatePendingReleases (typically minutes
+            // later on the next RSS sync / config save), and the V5 controller
+            // re-includes the just-deleted rows in the queue projection.
+            //
+            // Mirrors the symmetric Handle(ChapterGrabbedEvent) pattern at line 411-419
+            // which calls RemoveGrabbed (Delete-loop) and then UpdatePendingReleases()
+            // for the same reason. Surfaced live during the queue-remove-pending-no-op
+            // debug session 2026-05-13.
+            if (releasesToRemove.Count > 0)
+            {
+                UpdatePendingReleases();
+            }
         }
 
         public RemoteChapter OldestPendingRelease(int mangaId, int[] chapterIds)
