@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.Manga.Commands;
 using NzbDrone.Core.Messaging.Commands;
 
 namespace Mangarr.Api.V5.Manga;
@@ -23,10 +24,15 @@ namespace Mangarr.Api.V5.Manga;
 //     (manga-out-of-scope per PROJECT.md Volumes/Seasons row); replaces
 //     QualityProfileId with TWO fields — TranslationProfileId + CustomFormatProfileId
 //     (Phase 5 D-05 split).
-//   * No BulkMoveMangaCommand publish branch — manga has no BulkMoveSeriesCommand
-//     peer in v1 (verified via Grep). The MoveFiles bool still gates the
-//     useExistingRelativeFolder argument passed to IMangaService.UpdateManga so
-//     the file-move semantics propagate via the standard UpdateManga path.
+//   * BulkMoveMangaCommand publish branch (issue #81 — wire-up of existing manga
+//     peer at src/NzbDrone.Core/Manga/Commands/BulkMoveMangaCommand.cs which was
+//     shipped Phase 2 Plan 02-16 but had no controller publish site until now).
+//     Pre-issue-81 the file comment claimed "No BulkMoveMangaCommand publish
+//     branch — manga has no BulkMoveSeriesCommand peer in v1." That comment was
+//     stale; the peer existed. Now we collect List<BulkMoveManga> inside the
+//     foreach when RootFolderPath changes and push the command after the
+//     UpdateManga returns IF MoveFiles=true. Mirrors upstream
+//     SeriesEditorController.SaveAll lines 60-66 + 90-100 verbatim.
 //   * DeleteManga DELETE call: 2-arg signature per RESEARCH §Pitfall 4 (manga's
 //     IMangaService.DeleteManga is `(List<int>, bool deleteFiles)` — NOT 3-arg
 //     like TV; Import Lists deferred to v1.1 per PROJECT.md). The
@@ -67,6 +73,7 @@ public class MangaEditorController : Controller
     public Results<Ok<List<MangaResource>>, BadRequest> SaveAll([FromBody] MangaEditorResource resource)
     {
         var mangaToUpdate = _mangaService.GetManga(resource.MangaIds);
+        var mangaToMove = new List<BulkMoveManga>();
 
         foreach (var manga in mangaToUpdate)
         {
@@ -88,6 +95,11 @@ public class MangaEditorController : Controller
             if (resource.RootFolderPath.IsNotNullOrWhiteSpace())
             {
                 manga.RootFolderPath = resource.RootFolderPath;
+                mangaToMove.Add(new BulkMoveManga
+                {
+                    MangaId = manga.Id,
+                    SourcePath = manga.Path
+                });
             }
 
             if (resource.Tags != null)
@@ -115,6 +127,22 @@ public class MangaEditorController : Controller
             {
                 throw new ValidationException(validationResult.Errors);
             }
+        }
+
+        // issue-81 wire-up: enqueue BulkMoveMangaCommand if the bulk edit
+        // changed RootFolderPath AND the user opted to move files. The
+        // useExistingRelativeFolder = !MoveFiles arg below still controls
+        // the in-memory path-builder branch inside IMangaService.UpdateManga
+        // (so the new Manga.Path lands in the right shape on the row
+        // regardless of whether the on-disk move runs). Mirrors upstream
+        // Sonarr SeriesEditorController.SaveAll lines 90-100 verbatim.
+        if (resource.MoveFiles && mangaToMove.Any())
+        {
+            _commandQueueManager.Push(new BulkMoveMangaCommand
+            {
+                DestinationRootFolder = resource.RootFolderPath,
+                Manga = mangaToMove
+            });
         }
 
         var updated = _mangaService.UpdateManga(mangaToUpdate, !resource.MoveFiles);
