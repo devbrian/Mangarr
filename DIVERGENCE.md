@@ -568,5 +568,37 @@ Plan 17.3-16 deferral audit (2026-05-12) raised the asymmetry to v1.x as GitHub 
 - `.planning/debug/resolved/issue-84-chapterfile-frontend.md` — debug session record
 
 
+## issue #81 -- Move Manga wire-up (single-edit + bulk-edit + on-disk move) (2026-05-13)
+
+**Goal:** Wire the backend MoveManga slice (`MoveMangaCommand`, `BulkMoveMangaCommand`, `MoveMangaService`, `MangaMovedEvent` -- all shipped Phase 2 Plan 02-16) end-to-end through the V5 controllers and re-author the Phase 17.3 D-11 deleted upstream `MoveSeriesModal` as a manga peer (`MoveMangaModal`). Closes GitHub issue #81 ("Implement Move Manga"). The slice was 90% built / 0% reachable pre-PR.
+
+**Manga divergence (4 rows -- all are 1:1 ports from upstream MoveSeries with `Series -> Manga` rename; no shape divergence):**
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `src/Mangarr.Api.V5/Manga/MangaController.cs` UpdateManga | extend | issue-81 | Adds `[FromQuery] bool moveFiles = false` + ctor-inject `IManageCommandQueue` + push `MoveMangaCommand` with `trigger: CommandTrigger.Manual` BEFORE `ApplyChanges/UpdateManga`. Mirrors upstream `Sonarr.Api.V5/Series/SeriesController.UpdateSeries` lines 198-212 verbatim with `SeriesId -> MangaId` + `MoveSeriesCommand -> MoveMangaCommand` rename. Frontend `useSaveManga` was already sending `?moveFiles=true` query param (verified `frontend/src/Manga/useManga.ts:462-498`); backend was silently dropping it. |
+| `src/Mangarr.Api.V5/Manga/MangaEditorController.cs` SaveAll | extend | issue-81 | Adds `BulkMoveMangaCommand` publish branch (was placeholder per stale comment claiming "no BulkMoveSeriesCommand peer in v1"). Collects `List<BulkMoveManga>` inside the foreach when `resource.RootFolderPath.IsNotNullOrWhiteSpace()`; pushes `BulkMoveMangaCommand` if `resource.MoveFiles && mangaToMove.Any()`. Mirrors upstream `Sonarr.Api.V5/Series/SeriesEditorController.SaveAll` lines 60-66 + 90-100 verbatim. Stale Phase 13 Plan 13-04 file-header comment (claiming no manga peer existed) refreshed to reflect the actual peer at `src/NzbDrone.Core/Manga/Commands/BulkMoveMangaCommand.cs`. |
+| `frontend/src/Manga/MoveManga/MoveMangaModal.tsx` (+ `.css` + `.css.d.ts`) | new | issue-81 | Manga peer of upstream `frontend/src/Series/MoveSeries/MoveSeriesModal.tsx` (deleted in Phase 17.3 Plan 17.3-03 D-11 as a no-op stub). 1:1 port with translation-key rename (`MoveSeriesFoldersToRootFolder -> MoveMangaFoldersToRootFolder`, etc.). Same Modal-shell + Cancel / "No, I'll Move Manually" / DANGER "Yes, Move the Files" footer. |
+| `frontend/src/Manga/Edit/RootFolder/RootFolderModal.tsx` (+ `RootFolderModalContent.tsx`) | new | issue-81 | Manga peer of upstream `frontend/src/Series/Edit/RootFolder/RootFolderModal{,Content}.tsx`. 1:1 port with `seriesId -> mangaId` rename; hits `GET /api/v5/manga/{id}/folder` (the Phase 13 Plan 13-05 `MangaFolderController` -- forward-prophylactic D-13-04, finally reaching its caller). Single divergence retained for follow-up: shared `RootFolderSelectInput` still uses option key name `seriesFolder` (rename to `mangaFolder` is a separate enhancement -- filed as a follow-up issue). Translation key `UpdateSeriesPath` -> `UpdateMangaPath` (new key). |
+
+**Backend slice already existed (verified pre-PR):** `src/NzbDrone.Core/Manga/MoveMangaService.cs` (full `IExecute<MoveMangaCommand>` + `IExecute<BulkMoveMangaCommand>` with cross-drive `IDiskTransferService.TransferFolder(TransferMode.Move)`, idempotency short-circuit at `sourcePath.PathEquals(destinationPath)` line 68, IOException error-revert via `RevertPath`); `src/NzbDrone.Core/Manga/Commands/MoveMangaCommand.cs` (`SendUpdatesToClient=true`, `RequiresDiskAccess=true`); `src/NzbDrone.Core/Manga/Commands/BulkMoveMangaCommand.cs` (+ `BulkMoveManga` IEquatable item type); `src/NzbDrone.Core/Manga/Events/MangaMovedEvent.cs`. DryIoc auto-discovers `MoveMangaService` via the `IExecute<TCommand>` interface -- no DI registration touched.
+
+**Per-translation note:** The bulk-edit modal's RootFolder field continues to send `moveFiles` boolean on the `MangaEditorResource` wire; the controller `MoveFiles` flag now drives BOTH the path-build branch (`useExistingRelativeFolder = !MoveFiles`) AND the `BulkMoveMangaCommand` publish branch.
+
+**Live on-disk verification (mandatory acceptance gate per user requirement "Ensure you validate move files on disk works and the files actually move"):** Smoke test recorded in PR body -- files measured by `Get-FileHash` before move at `C:\tmp\mangarr-rfA\<title>\`; same hashes confirmed at `C:\tmp\mangarr-rfB\<title>\` after move; original directory removed by `TransferMode.Move`; DB `Manga.Path` + `Manga.RootFolderPath` updated; idempotency confirmed via log line `"is already in the specified location"` on second move with identical destination; bulk-edit flow verified independently.
+
+**Reference files (issue #81):**
+- `src/Mangarr.Api.V5/Manga/MangaController.cs` -- UpdateManga wire-up
+- `src/Mangarr.Api.V5/Manga/MangaEditorController.cs` -- SaveAll bulk wire-up
+- `src/NzbDrone.Core.Test/Manga/MoveMangaServiceFixture.cs` -- new NUnit fixture (happy path + idempotency + revert + bulk path + skip-missing)
+- `frontend/src/Manga/MoveManga/MoveMangaModal.tsx` (+ `.css` + `.css.d.ts`) -- new confirmation modal
+- `frontend/src/Manga/Edit/RootFolder/RootFolderModal.tsx` + `RootFolderModalContent.tsx` -- new destination picker
+- `frontend/src/Manga/Edit/EditMangaModalContent.tsx` -- single-edit wire-up (replaced "Path edit deferred" read-only block)
+- `frontend/src/Manga/Index/Select/Edit/EditMangaModalContent.tsx` -- bulk-edit wire-up (replaced Phase 17.3 D-11 `moveFiles=false` hard-wire)
+- `frontend/src/Manga/useManga.ts` -- `SaveMangaEditorPayload` extended with `moveFiles?: boolean; applyTags?: string;`
+- `src/NzbDrone.Core/Localization/Core/en.json` -- 5 new translation keys (`MoveMangaFoldersToRootFolder`, `MoveMangaFoldersToNewPath`, `MoveMangaFoldersDontMoveFiles`, `MoveMangaFoldersMoveFiles`, `UpdateMangaPath`)
+- `.planning/debug/resolved/move-manga-issue-81.md` -- debug session record
+
+
 ---
-*Last updated: 2026-05-12 (issue #84 close-out — added frontend/src/ChapterFile/ peer dir restoration entry. Phase 17.3 plan 17.3-15 Wave 5 close-out preserved verbatim above per historical-accuracy contract.)*
+*Last updated: 2026-05-13 (issue #81 close-out -- added MoveManga wire-up entries; backend slice was pre-shipped Phase 2 Plan 02-16, this PR ships the controller + frontend wire-up + on-disk live-verification gate per user requirement. Issue #84 close-out preserved verbatim above per historical-accuracy contract.)*
