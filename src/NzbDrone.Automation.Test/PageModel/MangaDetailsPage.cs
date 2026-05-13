@@ -6,12 +6,8 @@ using Microsoft.Playwright;
 namespace NzbDrone.Automation.Test.PageModel;
 
 // Phase 18 Plan-03 Task 2 — Route axis PageObject for `/manga/:titleSlug` (MangaDetails).
-// NOT exercised by Plan-03 route load fixtures (requires seeded manga via TestKit;
-// fixture lives in Plan-04 AddManga cluster where the seeding flow exists).
-// Template established here for Plan-04 to consume.
-//
-// Special case: route requires a titleSlug param; provides OpenAsync(rootUri, titleSlug)
-// overload rather than the bare OpenAsync(rootUri) shape used elsewhere.
+// Phase 18 Plan-04 added Edit/Delete/Refresh/Search/History button locators (union-merged).
+// MainContainer and PageRoot are aliases for the same testid — kept both so each plan's fixtures compile.
 public class MangaDetailsPage : PageBase
 {
     public MangaDetailsPage(IPage page)
@@ -19,7 +15,13 @@ public class MangaDetailsPage : PageBase
     {
     }
 
-    public ILocator MainContainer => Page.GetByTestId("manga-details-page");
+    public ILocator MainContainer     => Page.GetByTestId("manga-details-page");
+    public ILocator PageRoot          => MainContainer;
+    public ILocator EditButton        => Page.GetByTestId("manga-details-edit-button");
+    public ILocator DeleteButton      => Page.GetByTestId("manga-details-delete-button");
+    public ILocator RefreshButton     => Page.GetByTestId("manga-details-refresh-button");
+    public ILocator ManualSearchButton => Page.GetByTestId("manga-details-manual-search-button");
+    public ILocator HistoryButton     => Page.GetByTestId("manga-details-history-button");
 
     public async Task<MangaDetailsPage> OpenAsync(string rootUri, string titleSlug)
     {
@@ -35,7 +37,6 @@ public class MangaDetailsPage : PageBase
         }
         catch (Exception ex) when (ex is PlaywrightException or TimeoutException)
         {
-            // Fallback: assert URL matches /manga/{slug} shape (no further nesting).
             await Page.WaitForURLAsync(new Regex(@"/manga/[^/]+$"));
         }
 

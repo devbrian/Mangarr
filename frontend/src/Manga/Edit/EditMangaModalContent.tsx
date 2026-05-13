@@ -290,6 +290,7 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
       </ModalHeader>
 
       <ModalBody>
+        <div data-testid="edit-manga-modal">
         <Form
           validationErrors={validationErrors}
           validationWarnings={validationWarnings}
@@ -382,15 +383,22 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
             />
           </FormGroup>
         </Form>
+        </div>
       </ModalBody>
 
       <ModalFooter className={styles.modalFooter}>
         <div className={styles.modalFooterButtons}>
-          <Button onPress={onModalClose}>{translate('Cancel')}</Button>
+          <Button
+            data-testid="edit-manga-modal-cancel-button"
+            onPress={onModalClose}
+          >
+            {translate('Cancel')}
+          </Button>
 
           <SpinnerErrorButton
             error={saveError}
             isSpinning={isSaving}
+            data-testid="edit-manga-modal-save-button"
             onPress={handleSavePress}
           >
             {translate('Save')}

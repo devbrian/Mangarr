@@ -117,7 +117,7 @@ function DeleteMangaForm({ manga, onModalClose }: DeleteMangaFormProps) {
       </ModalHeader>
 
       <ModalBody>
-        <div>
+        <div data-testid="delete-manga-modal">
           <FormGroup>
             <FormLabel>{translate('Path')}</FormLabel>
 
@@ -176,12 +176,18 @@ function DeleteMangaForm({ manga, onModalClose }: DeleteMangaFormProps) {
 
       <ModalFooter className={styles.modalFooter}>
         <div className={styles.modalFooterButtons}>
-          <Button onPress={onModalClose}>{translate('Cancel')}</Button>
+          <Button
+            data-testid="delete-manga-modal-cancel-button"
+            onPress={onModalClose}
+          >
+            {translate('Cancel')}
+          </Button>
 
           <SpinnerErrorButton
             kind={kinds.DANGER}
             error={deleteError}
             isSpinning={isDeleting}
+            data-testid="delete-manga-modal-confirm-button"
             onPress={handleDeletePress}
           >
             {translate('Delete')}

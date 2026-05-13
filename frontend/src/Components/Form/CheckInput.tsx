@@ -22,6 +22,10 @@ export interface CheckInputProps {
   helpTextWarning?: string;
   isDisabled?: boolean;
   kind?: Extract<Kind, keyof typeof styles>;
+  // Phase 18 Plan-04 wrapper sweep: `data-testid` propagation to the underlying
+  // <input type="checkbox"> element. See data-testid-spec.md §"Wrapper-Component
+  // Sweep Ledger".
+  'data-testid'?: string;
   onChange: (changes: CheckInputChanged) => void;
 }
 
@@ -37,6 +41,7 @@ function CheckInput(props: CheckInputProps) {
     helpTextWarning,
     isDisabled,
     kind = 'primary',
+    'data-testid': dataTestId,
     onChange,
   } = props;
 
@@ -105,6 +110,7 @@ function CheckInput(props: CheckInputProps) {
           name={name}
           checked={isChecked}
           disabled={isDisabled}
+          data-testid={dataTestId}
           onChange={handleChange}
         />
 
