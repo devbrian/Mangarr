@@ -5,14 +5,20 @@ on:
     branches:
       - v5-develop
       - v5-main
+      - Mangarr-v0                       # Phase 18 D-13: per-PR smoke on Mangarr-v0 push
     paths-ignore:
       - "src/Sonarr.Api.*/openapi.json"
   pull_request:
     branches:
       - v5-develop
+      - Mangarr-v0                       # Phase 18 D-13: PR-smoke triggers on Mangarr-v0 PRs
     paths-ignore:
       - "src/NzbDrone.Core/Localization/Core/**"
       - "src/Sonarr.Api.*/openapi.json"
+  schedule:                              # Phase 18 D-13/D-16 nightly cadences
+    - cron: '0 6 * * *'                  # 06:00 UTC — nightly full offline matrix (automation_test_nightly)
+    - cron: '0 7 * * *'                  # 07:00 UTC — LiveService tier (automation_test_liveservice)
+  workflow_dispatch:                     # Allow manual nightly re-run
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -169,6 +175,207 @@ jobs:
           filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory!=IntegrationTest&TestCategory!=AutomationTest
           use_postgres: true
           postgres-version: ${{ matrix.postgres-version }}
+
+  # Phase 18 — Automated UI Integration Test Suite (Playwright .NET) per CONTEXT.md D-13/D-14/D-15/D-16.
+  # New jobs replace the inherited Sonarr Selenium-WebDriver harness (deleted in Plan-02 alongside MainPagesTest.cs per D-19).
+  # automation_test_pr_smoke   — PR gate, SQLite only, PRSmoke filter, ~5 min target
+  # automation_test_nightly    — full Tier C offline, SQLite + Postgres 16/17/18 matrix, ~30-45 min
+  # automation_test_liveservice — nightly contract-invariant probes against real MangaDex/AniList/MAL + comix.to (D-10)
+  # See DIVERGENCE.md Phase 18 row (added in Plan-11).
+  automation_test_pr_smoke:
+    needs: [prepare, backend, frontend]
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10                   # ~5 min target per D-14, 2× headroom
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Read Playwright version
+        id: pw
+        shell: bash
+        run: |
+          PW_VERSION=$(grep -oP 'Microsoft\.Playwright" Version="\K[^"]+' src/NzbDrone.Automation.Test/Mangarr.Automation.Test.csproj | head -1)
+          echo "version=$PW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers (cache miss only)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          ./src/NzbDrone.Automation.Test/bin/Debug/net10.0/playwright.sh install --with-deps chromium
+
+      - name: Test
+        uses: ./.github/actions/test
+        with:
+          os: ubuntu-latest
+          artifact: tests-linux-x64
+          pattern: Mangarr.*.Test.dll
+          filter: TestCategory=AutomationTest&TestCategory=PRSmoke
+
+      - name: Upload Playwright trace + screenshots + log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-pr-smoke-failure-${{ github.run_id }}
+          path: |
+            _tests/net10.0/traces/**/*.zip
+            _tests/net10.0/screenshots/**/*.png
+            /home/runner/.config/Mangarr/logs/mangarr.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
+  automation_test_nightly:
+    needs: [prepare, backend, frontend]
+    if: (github.event_name == 'schedule' && github.event.schedule == '0 6 * * *') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60                   # ~30-45 min target per RESEARCH; 60 ceiling
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - db: sqlite
+            use_postgres: false
+            postgres-version: ''
+          - db: postgres
+            use_postgres: true
+            postgres-version: 16
+          - db: postgres
+            use_postgres: true
+            postgres-version: 17
+          - db: postgres
+            use_postgres: true
+            postgres-version: 18
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Read Playwright version
+        id: pw
+        shell: bash
+        run: |
+          PW_VERSION=$(grep -oP 'Microsoft\.Playwright" Version="\K[^"]+' src/NzbDrone.Automation.Test/Mangarr.Automation.Test.csproj | head -1)
+          echo "version=$PW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers (cache miss only)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          ./src/NzbDrone.Automation.Test/bin/Debug/net10.0/playwright.sh install --with-deps chromium
+
+      - name: Test
+        uses: ./.github/actions/test
+        with:
+          os: ubuntu-latest
+          artifact: tests-linux-x64
+          pattern: Mangarr.*.Test.dll
+          filter: TestCategory=AutomationTest&TestCategory!=LiveService
+          use_postgres: ${{ matrix.use_postgres }}
+          postgres-version: ${{ matrix.postgres-version }}
+
+      - name: Upload Playwright trace + screenshots + log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-nightly-${{ matrix.db }}${{ matrix.postgres-version }}-failure-${{ github.run_id }}
+          path: |
+            _tests/net10.0/traces/**/*.zip
+            _tests/net10.0/screenshots/**/*.png
+            /home/runner/.config/Mangarr/logs/mangarr.txt
+          retention-days: 14
+          if-no-files-found: ignore
+
+  automation_test_liveservice:
+    needs: [prepare, backend, frontend]
+    if: (github.event_name == 'schedule' && github.event.schedule == '0 7 * * *') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Read Playwright version
+        id: pw
+        shell: bash
+        run: |
+          PW_VERSION=$(grep -oP 'Microsoft\.Playwright" Version="\K[^"]+' src/NzbDrone.Automation.Test/Mangarr.Automation.Test.csproj | head -1)
+          echo "version=$PW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers (cache miss only)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          ./src/NzbDrone.Automation.Test/bin/Debug/net10.0/playwright.sh install --with-deps chromium
+
+      - name: Test
+        uses: ./.github/actions/test
+        with:
+          os: ubuntu-latest
+          artifact: tests-linux-x64
+          pattern: Mangarr.*.Test.dll
+          filter: TestCategory=AutomationTest&TestCategory=LiveService
+
+      - name: Upload Playwright trace + screenshots + log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-liveservice-failure-${{ github.run_id }}
+          path: |
+            _tests/net10.0/traces/**/*.zip
+            _tests/net10.0/screenshots/**/*.png
+            /home/runner/.config/Mangarr/logs/mangarr.txt
+          retention-days: 30                # Longer retention for upstream-drift forensics per D-10
+          if-no-files-found: ignore
+
+  # Phase 18 — Meta-validation gate per CONTEXT.md TEST-UI-01 + TEST-UI-02 + 18-VALIDATION.md
+  # §"Meta-Validation: Smoke-the-Smokes" points 1 + 3. No Sonarr upstream analog (mangarr-original).
+  inventory_coverage:
+    needs: [prepare]
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Setup Python (for assertion audit)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Audit four-axis inventory coverage
+        shell: bash
+        run: bash scripts/audit-ui-inventory.sh
+
+      - name: Audit state-not-rendering anti-pattern
+        shell: bash
+        run: bash scripts/audit-test-assertions.sh
 
   integration_test:
     needs: [prepare, backend]
