@@ -119,7 +119,7 @@ function MissingRow({
   );
 
   return (
-    <TableRow>
+    <TableRow data-testid={`manga-missing-row-${id}`}>
       <TableSelectCell
         id={id}
         isSelected={isSelected}
@@ -141,7 +141,7 @@ function MissingRow({
         // keys to manga.X / chapters.X when the TV peer deletes.
         if (name === 'series.sortTitle') {
           return (
-            <TableRowCell key={name}>
+            <TableRowCell key={name} data-testid={`manga-missing-row-${id}-manga`}>
               <MangaTitleLink
                 titleSlug={manga?.titleSlug}
                 title={manga?.title ?? ''}
@@ -156,7 +156,7 @@ function MissingRow({
           // prop. See header note dated 2026-05-10 for the prior bug
           // (rendered `Vol. 1 47` / `Vol. 2 48` clipped to "Vol. 48").
           return (
-            <TableRowCell key={name} className={styles.episode}>
+            <TableRowCell key={name} className={styles.episode} data-testid={`manga-missing-row-${id}-chapter`}>
               <ChapterNumber
                 chapterNumber={chapterNumber}
                 absoluteChapterNumber={absoluteChapterNumber}
@@ -181,7 +181,7 @@ function MissingRow({
         if (name === 'episodes.airDateUtc') {
           // Sonarr-mirror: ChapterResource.firstReleaseDate is the manga
           // analog of EpisodeResource.airDateUtc per Phase 16 D-02.
-          return <RelativeDateCell key={name} date={firstReleaseDate} />;
+          return <RelativeDateCell key={name} date={firstReleaseDate} data-testid={`manga-missing-row-${id}-release-date`} />;
         }
 
         if (name === 'episodes.lastSearchTime') {
