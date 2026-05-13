@@ -40,6 +40,11 @@ interface SidebarItem {
   isParentItem?: boolean;
   isChildItem?: boolean;
   statusComponent?: React.ElementType;
+  // Phase 18 Plan-03 — nav-{section} data-testid carried on each top-level
+  // entry per inventory/data-testid-spec.md. Threaded through PageSidebarItem
+  // -> Link -> rendered DOM <a>. AutomationTest PageBase uses GetByTestId
+  // ("nav-manga") etc. for navigation locators (PageBase.cs lines 16-21).
+  dataTestId?: string;
   children?: {
     title: string | (() => string);
     to: string;
@@ -62,6 +67,7 @@ export const links: SidebarItem[] = [
     title: () => translate('Manga'),
     to: '/',
     alias: '/manga',
+    dataTestId: 'nav-manga',
     children: [
       {
         title: () => translate('AddNew'),
@@ -74,12 +80,14 @@ export const links: SidebarItem[] = [
     iconName: icons.CALENDAR,
     title: () => translate('Calendar'),
     to: '/calendar',
+    dataTestId: 'nav-calendar',
   },
 
   {
     iconName: icons.ACTIVITY,
     title: () => translate('Activity'),
     to: '/manga/activity/queue',
+    dataTestId: 'nav-activity',
     children: [
       {
         title: () => translate('Queue'),
@@ -101,6 +109,7 @@ export const links: SidebarItem[] = [
     iconName: icons.WARNING,
     title: () => translate('Wanted'),
     to: '/manga/wanted/missing',
+    dataTestId: 'nav-wanted',
     children: [
       {
         title: () => translate('Missing'),
@@ -117,6 +126,7 @@ export const links: SidebarItem[] = [
     iconName: icons.SETTINGS,
     title: () => translate('Settings'),
     to: '/settings',
+    dataTestId: 'nav-settings',
     children: [
       {
         title: () => translate('MediaManagement'),
@@ -176,6 +186,7 @@ export const links: SidebarItem[] = [
     iconName: icons.SYSTEM,
     title: () => translate('System'),
     to: '/system/status',
+    dataTestId: 'nav-system',
     children: [
       {
         title: () => translate('Status'),
@@ -520,6 +531,7 @@ function PageSidebar() {
                 iconName={link.iconName}
                 title={link.title}
                 to={link.to}
+                dataTestId={link.dataTestId}
                 statusComponent={
                   isActiveParent || !childStatusComponent
                     ? link.statusComponent

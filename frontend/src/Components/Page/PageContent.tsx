@@ -25,7 +25,9 @@ function PageContent({
   return (
     <ErrorBoundary errorComponent={PageContentError}>
       <DocumentTitle title={title ? `${title} - ${instance}` : instance}>
-        <div className={className}>{children}</div>
+        <div className={className} data-testid="app-shell">
+          {children}
+        </div>
       </DocumentTitle>
     </ErrorBoundary>
   );
