@@ -80,6 +80,7 @@ function Backups() {
 
   return (
     <PageContent title={translate('Backups')}>
+      <div data-testid="system-backups-page">
       <PageToolbar>
         <PageToolbarSection>
           <PageToolbarButton
@@ -135,6 +136,7 @@ function Backups() {
         isOpen={isRestoreModalOpen}
         onModalClose={handleRestoreModalClose}
       />
+      </div>
     </PageContent>
   );
 }

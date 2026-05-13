@@ -10,12 +10,14 @@ import MoreInfo from './MoreInfo/MoreInfo';
 function Status() {
   return (
     <PageContent title={translate('Status')}>
-      <PageContentBody>
-        <Health />
-        <DiskSpace />
-        <About />
-        <MoreInfo />
-      </PageContentBody>
+      <div data-testid="system-status-page">
+        <PageContentBody>
+          <Health />
+          <DiskSpace />
+          <About />
+          <MoreInfo />
+        </PageContentBody>
+      </div>
     </PageContent>
   );
 }

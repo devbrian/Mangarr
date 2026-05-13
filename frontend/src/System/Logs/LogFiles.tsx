@@ -68,6 +68,7 @@ function LogFiles({
 
   return (
     <PageContent title={translate('LogFiles')}>
+      <div data-testid="system-logs-page">
       <PageToolbar>
         <PageToolbarSection>
           <LogsNavMenu current={currentLogView} />
@@ -123,6 +124,7 @@ function LogFiles({
           <Alert kind={kinds.INFO}>{translate('NoLogFiles')}</Alert>
         ) : null}
       </PageContentBody>
+      </div>
     </PageContent>
   );
 }

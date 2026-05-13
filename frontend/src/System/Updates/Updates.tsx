@@ -111,6 +111,7 @@ function Updates() {
 
   return (
     <PageContent title={translate('Updates')}>
+      <div data-testid="system-updates-page">
       <PageContentBody>
         {isPopulated || hasError ? null : <LoadingIndicator />}
 
@@ -273,6 +274,7 @@ function Updates() {
           onCancel={handleCancelMajorVersionPress}
         />
       </PageContentBody>
+      </div>
     </PageContent>
   );
 }
