@@ -353,6 +353,30 @@ jobs:
           retention-days: 30                # Longer retention for upstream-drift forensics per D-10
           if-no-files-found: ignore
 
+  # Phase 18 — Meta-validation gate per CONTEXT.md TEST-UI-01 + TEST-UI-02 + 18-VALIDATION.md
+  # §"Meta-Validation: Smoke-the-Smokes" points 1 + 3. No Sonarr upstream analog (mangarr-original).
+  inventory_coverage:
+    needs: [prepare]
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Setup Python (for assertion audit)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Audit four-axis inventory coverage
+        shell: bash
+        run: bash scripts/audit-ui-inventory.sh
+
+      - name: Audit state-not-rendering anti-pattern
+        shell: bash
+        run: bash scripts/audit-test-assertions.sh
+
   integration_test:
     needs: [prepare, backend]
     strategy:
