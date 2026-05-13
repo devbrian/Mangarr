@@ -3,10 +3,10 @@
 interface CssExports {
   'freeSpace': string;
   'isMissing': string;
+  'mangaFolder': string;
   'path': string;
   'pathContainer': string;
   'selectedValue': string;
-  'seriesFolder': string;
 }
 export const cssExports: CssExports;
 export default cssExports;

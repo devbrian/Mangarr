@@ -600,5 +600,33 @@ Plan 17.3-16 deferral audit (2026-05-12) raised the asymmetry to v1.x as GitHub 
 - `.planning/debug/resolved/move-manga-issue-81.md` -- debug session record
 
 
+
+## issue #92 -- RootFolderSelectInput prop seriesFolder -> mangaFolder (2026-05-12)
+
+**Goal:** Close the vocabulary-parity drift retained as a follow-up at the bottom of issue #81 close-out (DIVERGENCE.md row 4 of 2026-05-13). The shared `RootFolderSelectInput` option-row prop name + matching CSS class were inherited from upstream Sonarr verbatim (`seriesFolder`); two manga-canonical consumers (`AddNewMangaModalContent.tsx`, `Manga/Edit/RootFolder/RootFolderModalContent.tsx`) were passing the TV-era key upward, which carried Sonarr vocabulary into the manga code surface.
+
+**Manga divergence (cross-cutting rename across 8 files; no shape change; no behavior change):**
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `frontend/src/Components/Form/Select/RootFolderSelectInputOption.tsx` | rename | issue-92 | Interface field `seriesFolder?: string` -> `mangaFolder?: string`; destructure + JSX reference updated; per-row folder label preserved verbatim. |
+| `frontend/src/Components/Form/Select/RootFolderSelectInputSelectedValue.tsx` | rename | issue-92 | Interface field `seriesFolder?: string` -> `mangaFolder?: string`; destructure + JSX reference updated; selected-value folder label preserved verbatim. |
+| `frontend/src/Components/Form/Select/RootFolderSelectInputOption.css` + `.css.d.ts` | rename | issue-92 | CSS class `.seriesFolder` -> `.mangaFolder`; generated `.css.d.ts` mirror entry updated. |
+| `frontend/src/Components/Form/Select/RootFolderSelectInputSelectedValue.css` + `.css.d.ts` | rename | issue-92 | CSS class `.seriesFolder` -> `.mangaFolder`; generated `.css.d.ts` mirror entry updated. |
+| `frontend/src/AddManga/AddNewManga/AddNewMangaModalContent.tsx` | rename | issue-92 | Both `valueOptions` and `selectedValueOptions` flip the key `seriesFolder: title` -> `mangaFolder: title`. |
+| `frontend/src/Manga/Edit/RootFolder/RootFolderModalContent.tsx` | rename | issue-92 | Both `valueOptions` and `selectedValueOptions` flip the key `seriesFolder: data?.folder` -> `mangaFolder: data?.folder`; file-header comment block updated to reference the issue-92 follow-up close-out (replaces the prior "tracked as a follow-up issue" placeholder). |
+
+**Sonarr-shape divergence:** Upstream Sonarr `v5-develop` keeps the prop name `seriesFolder` because its domain is series-shaped. Mangarr is now a single-domain (manga) codebase post-Phase-17.3 stub-dir delete (no `frontend/src/Series/` or `AddSeries/` consumers remain); the vocabulary-neutral options (`itemFolder` / `mediaFolder`) were considered and ruled out for that reason -- `mangaFolder` is the cleaner manga-canonical name when no cross-domain consumer survives. The bulk-edit Index modal (`frontend/src/Manga/Index/Select/Edit/EditMangaModalContent.tsx`) intentionally does NOT pass the prop (the global-change picker omits the per-row folder label by design); it is unchanged by this rename.
+
+**Verification:** No runtime behavior change. Live-verified the two consuming picker surfaces (Add Manga modal, Move Manga RootFolder picker) render with the per-row folder label preserved; bulk-edit Index modal verified unchanged (no `seriesFolder`/`mangaFolder` prop pass-through). `yarn build` clean; `tsc --noEmit` clean (no other consumers of the TV-era prop key per cross-tree grep).
+
+**Reference files (issue #92):**
+- `frontend/src/Components/Form/Select/RootFolderSelectInputOption.tsx` + `.css` + `.css.d.ts`
+- `frontend/src/Components/Form/Select/RootFolderSelectInputSelectedValue.tsx` + `.css` + `.css.d.ts`
+- `frontend/src/AddManga/AddNewManga/AddNewMangaModalContent.tsx`
+- `frontend/src/Manga/Edit/RootFolder/RootFolderModalContent.tsx`
+- `.planning/debug/resolved/issue-92-seriesfolder-rename.md` -- debug session record
+
+
 ---
-*Last updated: 2026-05-13 (issue #81 close-out -- added MoveManga wire-up entries; backend slice was pre-shipped Phase 2 Plan 02-16, this PR ships the controller + frontend wire-up + on-disk live-verification gate per user requirement. Issue #84 close-out preserved verbatim above per historical-accuracy contract.)*
+*Last updated: 2026-05-12 (issue #92 close-out -- vocabulary-parity rename of the shared RootFolderSelectInput option-row prop + matching CSS class; closes the follow-up retained at issue #81 close-out 2026-05-13. Issue #81 + #84 + #92 close-outs preserved verbatim above per historical-accuracy contract.)*
