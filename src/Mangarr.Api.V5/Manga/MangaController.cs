@@ -189,7 +189,27 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
                 trigger: CommandTrigger.Manual);
         }
 
+        // issue #96 fix (2026-05-12): save existing.Path BEFORE ApplyChanges so we
+        // can restore it if the inbound resource omits `path`. Manga.ApplyChanges
+        // (src/NzbDrone.Core/Manga/Manga.cs:135) unconditionally copies
+        // `Path = other.Path` — added by issue #81 so MoveMangaCommand can land the
+        // new on-disk path. But external API callers (curl, scripts, third-party
+        // integrations) frequently PUT partial bodies that omit `path`. Without the
+        // save/restore below, ApplyChanges clobbers existing.Path to null/empty in
+        // memory, then `_mangaService.UpdateManga(existing, …)` trips the SQLite
+        // NOT NULL constraint on Manga.Path (001_mangarr_baseline.cs:510) and
+        // surfaces as a generic HTTP 500. Mirrors the PR #95 save/restore pattern
+        // in RefreshMangaService.RefreshMangaInfo (src/NzbDrone.Core/Manga/
+        // RefreshMangaService.cs:224 + 235) which solved the same foot-gun on the
+        // metadata-refresh path. Frontend MangaResourceMapper.ToModel always sends
+        // Path so the UI is unaffected; this fix preserves the moveFiles wire-up
+        // above (the moveFiles branch reads resource.Path BEFORE this restore) and
+        // is a no-op when the caller supplies a non-empty Path.
+        var userPath = existing.Path;
+
         existing.ApplyChanges(resource.ToModel()!);
+
+        existing.Path = !string.IsNullOrWhiteSpace(existing.Path) ? existing.Path : userPath;
 
         // Phase 10 Plan 10-07 (W4 revision iteration 1 — Option B locked per D-10-08):
         // opt the UI single-edit PUT path INTO BOTH MangaUpdatedEvent + MangaEditedEvent
