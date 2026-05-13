@@ -547,5 +547,26 @@ At Phase 17.3 close every open item is either shipped or formally scheduled into
 | `frontend/src/Store/Migrators/migrateAddSeriesDefaults.js` | rename | Phase 17.3 | D-12; persisted-state localStorage path PRESERVED (only filename + symbol + import path renamed). |
 | `frontend/src/Store/Actions/Creators/createBatchToggleEpisodeMonitoredHandler.js` | delete | Phase 17.3 | D-12 plan-author override; 0 importers per grep — unwired dead code. |
 
+## issue #84 — frontend/src/ChapterFile/ peer dir restoration (2026-05-12)
+
+**Goal:** Restore Sonarr-shape parity between backend ChapterFile entity and frontend peer directory. Phase 17.3 Plan 17.3-13b atomically deleted the stub `frontend/src/EpisodeFile/` peer (4 no-op stubs) on the correct premise that the stubs rendered nothing user-visible. The decision left an asymmetry: backend `src/NzbDrone.Core/MediaFiles/ChapterFile.cs` had no frontend peer dir even though chapter-file data IS user-visible (the Manga Details > Files tab inlined the type + cells directly in `frontend/src/Manga/Details/MangaDetailsFiles.tsx`).
+
+Plan 17.3-16 deferral audit (2026-05-12) raised the asymmetry to v1.x as GitHub issue #84. User selected Option A: author the peer dir so the backend ChapterFile entity has a 1:1 frontend peer dir mirroring `frontend/src/Chapter/` shape.
+
+**Manga divergence:** A new `frontend/src/ChapterFile/` peer dir ships with 4 files — `ChapterFile.ts` (type extending `ModelBase` mirroring `ChapterFileResource.cs` field-for-field), `useChapterFile.ts` (React Query hooks: `useChapterFilesByManga`, `useDeleteChapterFile`, `useDeleteChapterFiles` against the Plan 13-07 GET / DELETE / DELETE-bulk endpoints; bound to the Plan 07-02 SignalR `['/chapterFile']` cache key contract), `ChapterFileRow.tsx` (presentational row delegating the translated-language cell to the Chapter peer's `LanguageBadge` for accent-flip parity), `CLAUDE.md` (peer-dir contract documentation). `frontend/src/Manga/Details/MangaDetailsFiles.tsx` was rewritten to consume the new peer dir — the previously-inline `interface ChapterFile` and inline cell composition are now extracted.
+
+**Stub-trap mitigation (Phase 17.3 Plan 17.3-13b precedent):** The Plan 17.3-13b atomic-delete-of-EpisodeFile/ decision was driven by the empty-stubs-render-nothing rule. The issue #84 peer dir was authored with the stub-trap rule explicitly in mind — every file in the new dir is load-bearing on day one (the type replaces the inline interface; the hooks back the existing fetch + give future bulk-delete affordances a documented home; the row component replaces inline JSX; the CLAUDE.md is required by the project's HIGH PRIORITY documentation rule). No `useUpdateChapterFiles` hook ships because the backend has no PUT endpoint (Plan 13-07 design — adding the hook now would be a stub by definition).
+
+**Sonarr-shape parity statement:** Sonarr's reference `frontend/src/EpisodeFile/` on `v5-develop` ships 5 files (`EpisodeFile.ts`, `useEpisodeFiles.ts`, `EpisodeFileLanguages.tsx`, `EpisodeFileProvider.tsx`, `MediaInfo.tsx`). Mangarr's manga peer ships 3 source files (no `Languages` because manga uses single `translatedLanguage` BCP-47 per Phase 16.1 D-04; no `MediaInfo` because manga has no video MediaInfo for image-archive artifacts; no `Provider` because the per-manga cache is keyed by URL via `useChapterFilesByManga` rather than a React context provider). The Sonarr-shape skeleton is preserved at the dir-existence + key-files level; the per-file shape diverges along the manga-domain trim lines already documented for `ChapterFileResource.cs` / `ChapterFileController.cs` (Phase 13 Plan 13-07).
+
+**Reference files (issue #84):**
+- `frontend/src/ChapterFile/ChapterFile.ts` — new type extending ModelBase
+- `frontend/src/ChapterFile/useChapterFile.ts` — new React Query hooks
+- `frontend/src/ChapterFile/ChapterFileRow.tsx` — new row component
+- `frontend/src/ChapterFile/CLAUDE.md` — new peer-dir docs
+- `frontend/src/Manga/Details/MangaDetailsFiles.tsx` — consumer rewrite (extracted inline ChapterFile interface + inline row cells)
+- `.planning/debug/resolved/issue-84-chapterfile-frontend.md` — debug session record
+
+
 ---
-*Last updated: 2026-05-12 (Phase 17.3 plan 17.3-15 Wave 5 close-out — added Phase 17.3 entry documenting the residue-sweep accomplishments + zero-deferral close-out + 5-wave 16-plan structure. Historical accuracy preserved: Phase 15/16/16.1/17 entries above untouched. Phase 17.3 retires the Phase 15 Plan 15-12 stub layer; manga peers are now single-canonical-home across backend + frontend.)*
+*Last updated: 2026-05-12 (issue #84 close-out — added frontend/src/ChapterFile/ peer dir restoration entry. Phase 17.3 plan 17.3-15 Wave 5 close-out preserved verbatim above per historical-accuracy contract.)*
