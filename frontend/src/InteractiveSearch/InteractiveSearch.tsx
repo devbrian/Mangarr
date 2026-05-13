@@ -63,7 +63,14 @@ function InteractiveSearch({ type, searchPayload }: InteractiveSearchProps) {
   const errorMessage = getErrorMessage(error);
 
   return (
-    <div>
+    // Phase 18 Plan-08 D-18 -- `interactive-search-modal` testid wraps the
+    // entire InteractiveSearch content surface. The plan-prescribed wrapper
+    // name presumed a dedicated `InteractiveSearchModal.tsx` file (Sonarr
+    // shape); the Mangarr architecture renders this content EITHER as a
+    // tab-pane in MangaDetails (`activeTab === 'search'`) OR wrapped in
+    // `ChapterDetailsModal`. Annotating the content surface lets PageObject
+    // GetByTestId("interactive-search-modal") resolve in both contexts.
+    <div data-testid="interactive-search-modal">
       <div className={styles.filterMenuContainer}>
         <FilterMenu
           alignMenu={align.RIGHT}
@@ -95,7 +102,13 @@ function InteractiveSearch({ type, searchPayload }: InteractiveSearchProps) {
       ) : null}
 
       {!isFetching && isFetched && !totalItems ? (
-        <Alert kind={kinds.INFO}>{translate('NoResultsFound')}</Alert>
+        // Phase 18 Plan-08 -- `interactive-search-modal-no-results` testid.
+        // Alert component destructures explicit props per Alert.tsx and does
+        // not pass through data-testid; wrap with a div to expose the state
+        // assertion target.
+        <div data-testid="interactive-search-modal-no-results">
+          <Alert kind={kinds.INFO}>{translate('NoResultsFound')}</Alert>
+        </div>
       ) : null}
 
       {!!totalItems && !isFetching && !data.length ? (
@@ -105,24 +118,29 @@ function InteractiveSearch({ type, searchPayload }: InteractiveSearchProps) {
       ) : null}
 
       {!isFetching && !!data.length ? (
-        <Table
-          columns={columns}
-          sortKey={sortKey}
-          sortDirection={sortDirection}
-          onSortPress={handleSortPress}
-        >
-          <TableBody>
-            {data.map((item) => {
-              return (
-                <InteractiveSearchRow
-                  key={`${item.release.indexerId}-${item.release.guid}`}
-                  {...item}
-                  searchPayload={searchPayload}
-                />
-              );
-            })}
-          </TableBody>
-        </Table>
+        // Phase 18 Plan-08 -- `interactive-search-modal-table` testid wrapper.
+        // Same wrapper-div pattern: Table destructures explicit props and does
+        // not pass through data-testid. Wrap to expose the selector.
+        <div data-testid="interactive-search-modal-table">
+          <Table
+            columns={columns}
+            sortKey={sortKey}
+            sortDirection={sortDirection}
+            onSortPress={handleSortPress}
+          >
+            <TableBody>
+              {data.map((item) => {
+                return (
+                  <InteractiveSearchRow
+                    key={`${item.release.indexerId}-${item.release.guid}`}
+                    {...item}
+                    searchPayload={searchPayload}
+                  />
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       ) : null}
 
       {!isFetching && totalItems !== data.length && !!data.length ? (
