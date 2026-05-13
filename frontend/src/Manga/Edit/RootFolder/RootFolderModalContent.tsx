@@ -89,7 +89,7 @@ function RootFolderModalContent(props: RootFolderModalContentProps) {
               seriesFolder: data?.folder,
               isWindows,
             }}
-            helpText={translate('SeriesEditRootFolderHelpText')}
+            helpText={translate('MangaEditRootFolderHelpText')}
             onChange={onInputChange}
           />
         </FormGroup>

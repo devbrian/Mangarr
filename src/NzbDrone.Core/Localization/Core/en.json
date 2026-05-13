@@ -1135,6 +1135,7 @@
   "ManageLists": "Manage Lists",
   "Manga": "Manga",
   "MangaCannotBeFound": "Manga cannot be found, it may have been deleted.",
+  "MangaEditRootFolderHelpText": "Moving manga to the same root folder can be used to rename manga folders to match updated title or naming format",
   "MangaFolderFormat": "Manga Folder Format",
   "MangaFolderFormatHelpText": "Folder name template for manga library folders. Tokens: {Manga.Title}, {Manga.CleanTitle}, {MangaDexId}, {AniListId}, {MalId}.",
   "MangaID": "Manga ID",

@@ -259,7 +259,7 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
             includeNoChange={true}
             includeNoChangeDisabled={false}
             selectedValueOptions={{ includeFreeSpace: false }}
-            helpText={translate('SeriesEditRootFolderHelpText')}
+            helpText={translate('MangaEditRootFolderHelpText')}
             onChange={onInputChange}
           />
         </FormGroup>
