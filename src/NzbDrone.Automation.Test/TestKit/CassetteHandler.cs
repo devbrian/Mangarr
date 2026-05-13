@@ -139,7 +139,30 @@ public class CassetteHandler : DelegatingHandler
     {
         var body = response.Content == null ? null : await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-        // T-18-01: do NOT capture Authorization or X-Api-Key headers in the serialized DTO.
+        // BL-02 fix (18-13): persist Content-Type + non-sensitive response headers so
+        // LoadFromDiskAsync replay produces the same MediaType the live response had.
+        // T-18-01 mitigation: IsSensitiveHeader filters Authorization / Cookie /
+        // Set-Cookie / X-Api-Key so sensitive bytes never reach the on-disk JSON.
+        var headers = new Dictionary<string, string>();
+        if (response.Content?.Headers != null)
+        {
+            foreach (var h in response.Content.Headers)
+            {
+                if (!IsSensitiveHeader(h.Key))
+                {
+                    headers[h.Key] = string.Join(", ", h.Value);
+                }
+            }
+        }
+
+        foreach (var h in response.Headers)
+        {
+            if (!IsSensitiveHeader(h.Key))
+            {
+                headers[h.Key] = string.Join(", ", h.Value);
+            }
+        }
+
         var dto = new CassetteDto
         {
             Request = new CassetteRequest
@@ -150,11 +173,18 @@ public class CassetteHandler : DelegatingHandler
             Response = new CassetteResponse
             {
                 Status = (int)response.StatusCode,
-                Body = body
+                Body = body,
+                Headers = headers.Count > 0 ? headers : null
             }
         };
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(dto, new JsonSerializerOptions { WriteIndented = true })).ConfigureAwait(false);
     }
+
+    private static bool IsSensitiveHeader(string name) =>
+        name.Equals("Authorization", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Cookie", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Set-Cookie", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("X-Api-Key", StringComparison.OrdinalIgnoreCase);
 
     private class CassetteDto
     {
