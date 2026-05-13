@@ -209,6 +209,20 @@ namespace NzbDrone.Core.Manga
                     var userTranslationProfileId = existing.TranslationProfileId;
                     var userCustomFormatProfileId = existing.CustomFormatProfileId;
 
+                    // Debug session add-manga-lookup-null-path (2026-05-12): Path MUST
+                    // be saved/restored across ApplyChanges. Manga.cs:135 (issue #81
+                    // bug-fix) explicitly copies Path = other.Path inside ApplyChanges
+                    // so MoveMangaCommand can land the new on-disk path through the
+                    // V5 PUT controller. But on the metadata-refresh path here, mangaInfo
+                    // (returned by MangaDexMetadataSource) NEVER sets Path — metadata
+                    // sources don't know disk paths. Without saving existing.Path across
+                    // ApplyChanges, line 229's `new DirectoryInfo(existing.Path).FullName`
+                    // throws ArgumentNullException AND the trailing UpdateManga call
+                    // writes Path=null which trips the SQLite NOT NULL constraint
+                    // (001_mangarr_baseline.cs:510). Mirrors the same dance in
+                    // AddMangaService.PrepareForAdd (lines 251 + 262).
+                    var userPath = existing.Path;
+
                     existing.ApplyChanges(mangaInfo);
 
                     existing.Monitored = userMonitored;
@@ -218,6 +232,7 @@ namespace NzbDrone.Core.Manga
                     existing.MonitorNewItems = userMonitorNewItems;
                     existing.TranslationProfileId = userTranslationProfileId;
                     existing.CustomFormatProfileId = userCustomFormatProfileId;
+                    existing.Path = userPath ?? existing.Path;
 
                     // gap-06: mirror RefreshSeriesService.RefreshSeriesInfo
                     // (Tv/RefreshSeriesService.cs:116-124) — normalize Manga.Path to
@@ -226,8 +241,21 @@ namespace NzbDrone.Core.Manga
                     // file-import pipeline can still match canonical paths.
                     try
                     {
-                        existing.Path = new DirectoryInfo(existing.Path).FullName;
-                        existing.Path = existing.Path.GetActualCasing();
+                        // Debug session add-manga-lookup-null-path (2026-05-12) defense-in-depth:
+                        // even with the userPath save/restore above, legacy/test rows could
+                        // carry an empty Path (pre-Phase-15 baseline). Skip normalization
+                        // rather than throw + swallow.
+                        if (string.IsNullOrWhiteSpace(existing.Path))
+                        {
+                            _logger.Warn("Skipping path normalization for manga {0} (Id={1}): Path is null/empty",
+                                existing.Title,
+                                existing.Id);
+                        }
+                        else
+                        {
+                            existing.Path = new DirectoryInfo(existing.Path).FullName;
+                            existing.Path = existing.Path.GetActualCasing();
+                        }
                     }
                     catch (Exception e)
                     {
