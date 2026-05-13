@@ -110,7 +110,7 @@ function BlocklistRow({
   }, [removeBlocklistItem]);
 
   return (
-    <TableRow>
+    <TableRow data-testid={`manga-blocklist-row-${id}`}>
       <TableSelectCell
         id={id}
         isSelected={isSelected}
@@ -125,8 +125,13 @@ function BlocklistRow({
         }
 
         if (name === 'series.sortTitle') {
+          // Phase 18 Plan-05: legacy Zustand key kept; canonical manga-shape
+          // testid (`-manga`) exposed.
           return (
-            <TableRowCell key={name}>
+            <TableRowCell
+              key={name}
+              data-testid={`manga-blocklist-row-${id}-manga`}
+            >
               {manga ? (
                 <MangaTitleLink
                   titleSlug={
@@ -156,7 +161,13 @@ function BlocklistRow({
         }
 
         if (name === 'date') {
-          return <RelativeDateCell key={name} date={date} />;
+          return (
+            <RelativeDateCell
+              key={name}
+              date={date}
+              data-testid={`manga-blocklist-row-${id}-date`}
+            />
+          );
         }
 
         if (name === 'indexer') {
@@ -169,17 +180,27 @@ function BlocklistRow({
 
         if (name === 'reason') {
           return (
-            <TableRowCell key={name}>{reason ?? message ?? ''}</TableRowCell>
+            <TableRowCell
+              key={name}
+              data-testid={`manga-blocklist-row-${id}-reason`}
+            >
+              {reason ?? message ?? ''}
+            </TableRowCell>
           );
         }
 
         if (name === 'actions') {
           return (
-            <TableRowCell key={name} className={styles.actions}>
+            <TableRowCell
+              key={name}
+              className={styles.actions}
+              data-testid={`manga-blocklist-row-${id}-actions`}
+            >
               <IconButton
                 name={icons.INFO}
                 aria-label={translate('Details')}
                 onPress={handleDetailsPress}
+                data-testid={`manga-blocklist-row-${id}-details-button`}
               />
 
               <IconButton
@@ -189,6 +210,7 @@ function BlocklistRow({
                 kind={kinds.DANGER}
                 isSpinning={isRemoving}
                 onPress={handleRemovePress}
+                data-testid={`manga-blocklist-row-${id}-remove-button`}
               />
             </TableRowCell>
           );

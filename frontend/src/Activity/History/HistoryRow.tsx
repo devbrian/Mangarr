@@ -107,7 +107,7 @@ function HistoryRow(props: HistoryRowProps) {
   }, [setIsDetailsModalOpen]);
 
   return (
-    <TableRow>
+    <TableRow data-testid={`manga-history-row-${id}`}>
       {columns.map((column) => {
         const { name, isVisible } = column;
 
@@ -116,11 +116,17 @@ function HistoryRow(props: HistoryRowProps) {
         }
 
         if (name === 'eventType') {
+          // Phase 18 Plan-05: `manga-history-row-{id}-decision` is the
+          // load-bearing cell per feedback_verify_ui_state_not_just_rendering.md
+          // (the icon-cell that hides silent rejection icons). The cell exposes
+          // `data-event-type` so fixtures can assert decision state
+          // (e.g. grabbed vs downloadFailed) without parsing the icon glyph.
           return (
             <HistoryEventTypeCell
               key={name}
               eventType={eventType as unknown as never}
               data={(data ?? {}) as unknown as HistoryData}
+              data-testid={`manga-history-row-${id}-decision`}
             />
           );
         }
@@ -129,8 +135,13 @@ function HistoryRow(props: HistoryRowProps) {
         // (`series.sortTitle`, `episode`, `episodes.title`) for upgrade-path
         // Zustand state continuity — labels are relabeled in the store.
         if (name === 'series.sortTitle') {
+          // Phase 18 Plan-05: legacy Zustand key kept; canonical manga-shape
+          // testid (`-manga`) exposed.
           return (
-            <TableRowCell key={name}>
+            <TableRowCell
+              key={name}
+              data-testid={`manga-history-row-${id}-manga`}
+            >
               {manga ? (
                 <MangaTitleLink
                   titleSlug={
@@ -149,11 +160,19 @@ function HistoryRow(props: HistoryRowProps) {
 
         if (name === 'episode') {
           if (!chapter) {
-            return <TableRowCell key={name} />;
+            return (
+              <TableRowCell
+                key={name}
+                data-testid={`manga-history-row-${id}-chapter`}
+              />
+            );
           }
 
           return (
-            <TableRowCell key={name}>
+            <TableRowCell
+              key={name}
+              data-testid={`manga-history-row-${id}-chapter`}
+            >
               <ChapterNumber chapterNumber={chapter.chapterNumber} />
             </TableRowCell>
           );
@@ -176,8 +195,14 @@ function HistoryRow(props: HistoryRowProps) {
         }
 
         if (name === 'translatedLanguage') {
+          // Phase 18 Plan-05: `-quality` testid name preserved per the plan
+          // (Mangarr's quality model maps to TranslationProfile per
+          // PROJECT.md Out of Scope; the testid is the row-level handle).
           return (
-            <TableRowCell key={name}>
+            <TableRowCell
+              key={name}
+              data-testid={`manga-history-row-${id}-quality`}
+            >
               <LanguageBadge language={translatedLanguage} />
             </TableRowCell>
           );

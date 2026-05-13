@@ -238,27 +238,33 @@ function BlocklistContent({ mediaType = 'manga' }: BlocklistProps) {
           : null}
 
         {isFetched && !error && !!records.length ? (
-          <div>
-            <Table
-              selectAll={true}
-              allSelected={allSelected}
-              allUnselected={allUnselected}
-              columns={columns}
-              pageSize={pageSize}
-              sortKey={sortKey}
-              sortDirection={sortDirection}
-              onTableOptionChange={handleTableOptionChange}
-              onSelectAllChange={handleSelectAllChange}
-              onSortPress={handleSortPress}
-            >
-              <TableBody>
-                {records.map((item) => {
-                  return (
-                    <BlocklistRow key={item.id} columns={columns} {...item} />
-                  );
-                })}
-              </TableBody>
-            </Table>
+          // Phase 18 Plan-05: page + table-scope data-testid per
+          // .planning/phases/18-automated-ui-integration-test-suite-playwright-net/inventory/data-testid-spec.md
+          // (`manga-blocklist-page` outer scope; `manga-blocklist-table` inner
+          // scope so Playwright fixtures can scope row-removal queries).
+          <div data-testid="manga-blocklist-page">
+            <div data-testid="manga-blocklist-table">
+              <Table
+                selectAll={true}
+                allSelected={allSelected}
+                allUnselected={allUnselected}
+                columns={columns}
+                pageSize={pageSize}
+                sortKey={sortKey}
+                sortDirection={sortDirection}
+                onTableOptionChange={handleTableOptionChange}
+                onSelectAllChange={handleSelectAllChange}
+                onSortPress={handleSortPress}
+              >
+                <TableBody>
+                  {records.map((item) => {
+                    return (
+                      <BlocklistRow key={item.id} columns={columns} {...item} />
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
             <TablePager
               page={page}
               totalPages={totalPages}
