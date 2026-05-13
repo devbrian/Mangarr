@@ -6,12 +6,17 @@ import translate from 'Utilities/String/translate';
 import MetadataSources from './MetadataSources/MetadataSources';
 
 function MetadataSourceSettings() {
+  // Phase 18 Plan 18-07: SettingsToolbar.showSave={false} — provider rows save inline
+  // (no page-level Save button). SettingsMetadataSourcePage PageObject documents the
+  // missing save testid.
   return (
     <PageContent title={translate('MetadataSourceSettings')}>
       <SettingsToolbar showSave={false} />
 
       <PageContentBody>
-        <MetadataSources />
+        <div data-testid="settings-metadata-source-page">
+          <MetadataSources />
+        </div>
       </PageContentBody>
     </PageContent>
   );

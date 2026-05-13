@@ -85,52 +85,63 @@ function TranslationProfile(props: TranslationProfileProps) {
     ? [...languages].filter((l) => l.allowed).sort((a, b) => a.rank - b.rank)
     : [];
 
+  // Phase 18 Plan 18-07: per-row testid for SettingsFlow.SetTranslationProfileOrderAsync
+  // (D-08 catalog). The inner wrapper <div data-testid="settings-translation-profiles-
+  // row-{id}"> guarantees the testid lands on a real DOM node regardless of Card's
+  // prop-spread behavior.
   return (
     <Card
       className={styles.translationProfile}
       overlayContent={true}
       onPress={handleEditPress}
     >
-      <div className={styles.nameContainer}>
-        <div className={styles.name}>{name}</div>
+      <div data-testid={`settings-translation-profiles-row-${id}`}>
+        <div className={styles.nameContainer}>
+          <div
+            className={styles.name}
+            data-testid={`settings-translation-profiles-row-${id}-name`}
+          >
+            {name}
+          </div>
 
-        {isDefault ? (
-          <Label kind={kinds.INFO}>{translate('Default')}</Label>
-        ) : null}
+          {isDefault ? (
+            <Label kind={kinds.INFO}>{translate('Default')}</Label>
+          ) : null}
+        </div>
+
+        <div className={styles.languages}>
+          {allowedLanguages.map((lang) => {
+            return (
+              <Label key={lang.language} kind={kinds.DEFAULT}>
+                {lang.language}
+              </Label>
+            );
+          })}
+        </div>
+
+        <ConfirmModal
+          isOpen={isDeleteModalOpen}
+          kind={kinds.DANGER}
+          title={translate('DeleteTranslationProfile')}
+          message={translate('DeleteTranslationProfileMessageText', { name })}
+          confirmLabel={translate('DeleteProfile')}
+          isSpinning={isDeleting}
+          onConfirm={handleConfirmDelete}
+          onCancel={handleDeleteModalClose}
+        />
+
+        {/* Hidden control hook so the parent EditTranslationProfileModal can reach the delete confirmation
+            via onDeleteTranslationProfilePress prop. The modal renders its own delete button; this card
+            surfaces the same flow if a future Phase 8 design adds a card-level delete icon. */}
+        <button
+          type="button"
+          className={styles.hiddenDeleteHook}
+          onClick={handleDeletePress}
+          aria-hidden="true"
+          tabIndex={-1}
+          style={{ display: 'none' }}
+        />
       </div>
-
-      <div className={styles.languages}>
-        {allowedLanguages.map((lang) => {
-          return (
-            <Label key={lang.language} kind={kinds.DEFAULT}>
-              {lang.language}
-            </Label>
-          );
-        })}
-      </div>
-
-      <ConfirmModal
-        isOpen={isDeleteModalOpen}
-        kind={kinds.DANGER}
-        title={translate('DeleteTranslationProfile')}
-        message={translate('DeleteTranslationProfileMessageText', { name })}
-        confirmLabel={translate('DeleteProfile')}
-        isSpinning={isDeleting}
-        onConfirm={handleConfirmDelete}
-        onCancel={handleDeleteModalClose}
-      />
-
-      {/* Hidden control hook so the parent EditTranslationProfileModal can reach the delete confirmation
-          via onDeleteTranslationProfilePress prop. The modal renders its own delete button; this card
-          surfaces the same flow if a future Phase 8 design adds a card-level delete icon. */}
-      <button
-        type="button"
-        className={styles.hiddenDeleteHook}
-        onClick={handleDeletePress}
-        aria-hidden="true"
-        tabIndex={-1}
-        style={{ display: 'none' }}
-      />
     </Card>
   );
 }

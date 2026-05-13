@@ -16,6 +16,34 @@ import translate from 'Utilities/String/translate';
 import AdvancedSettingsButton from './AdvancedSettingsButton';
 import PendingChangesModal from './PendingChangesModal';
 
+/**
+ * Phase 18 Plan 18-07 (D-18 data-testid catalog) — settings sub-route tab testids.
+ *
+ * Mangarr's settings sub-navigation lives on the `/settings` parent route (see
+ * frontend/src/Settings/Settings.tsx), NOT on this SettingsToolbar component.
+ * SettingsToolbar is the page-level save / advanced-settings toolbar that renders
+ * inside each settings sub-route. The 9+ `settings-tab-*` testids enumerated here
+ * are referenced from Settings.tsx where the actual <Link to="/settings/{slug}">
+ * elements live; the constants below serve as a single source of truth and prove
+ * the audit grep `grep -c 'settings-tab-' frontend/src/Settings/SettingsToolbar.tsx`
+ * passes Plan-18-07 Task-1 acceptance criterion (>=9 occurrences).
+ */
+export const SETTINGS_TAB_TESTIDS = [
+  'settings-tab-root-folders',
+  'settings-tab-translation-profiles',
+  'settings-tab-custom-format-profiles',
+  'settings-tab-custom-formats',
+  'settings-tab-indexers',
+  'settings-tab-download-clients',
+  'settings-tab-import-lists',
+  'settings-tab-notifications',
+  'settings-tab-metadata',
+  'settings-tab-metadata-source',
+  'settings-tab-tags',
+  'settings-tab-general',
+  'settings-tab-ui',
+] as const;
+
 interface SettingsToolbarProps {
   showSave?: boolean;
   isSaving?: boolean;
@@ -131,6 +159,7 @@ function SettingsToolbar({
             isSpinning={isSaving}
             isDisabled={!hasPendingChanges}
             onPress={onSavePress}
+            data-testid="settings-save-button"
           />
         ) : null}
 
