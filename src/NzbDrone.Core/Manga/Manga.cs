@@ -123,6 +123,17 @@ namespace NzbDrone.Core.Manga
             Monitored = other.Monitored;
             RootFolderPath = other.RootFolderPath;
 
+            // issue #81 bug-fix (2026-05-13): the Path field MUST be copied
+            // here so MangaController.UpdateManga's persistence step lands
+            // the new on-disk path that MoveMangaCommand just moved files to.
+            // Without this copy, the V5 PUT returns Accepted, files actually
+            // move on disk, RootFolderPath updates -- but Manga.Path stays at
+            // the old (now non-existent) directory, breaking every subsequent
+            // ChapterFile import + Rename scan + Refresh. Mirrors upstream
+            // Tv/Series.cs:75 Series.ApplyChanges "Path = otherSeries.Path".
+            // Surfaced by the issue #81 live on-disk smoke test on 2026-05-13.
+            Path = other.Path;
+
             // Issue #28 backfill — three editable fields previously deferred from
             // PR #27's single-Manga Edit modal scope. MonitorNewItems mirrors Sonarr's
             // Series.ApplyChanges line 75 (commit ade40b72b); TranslationProfileId +
