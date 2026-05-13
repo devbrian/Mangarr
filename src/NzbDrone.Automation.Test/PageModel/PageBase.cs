@@ -1,61 +1,33 @@
-using System;
-using System.Threading;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Support.UI;
+using System.Threading.Tasks;
+using Microsoft.Playwright;
 
-namespace NzbDrone.Automation.Test.PageModel
+namespace NzbDrone.Automation.Test.PageModel;
+
+public class PageBase
 {
-    public class PageBase
+    protected readonly IPage Page;
+
+    public PageBase(IPage page)
     {
-        private readonly IWebDriver _driver;
+        Page = page;
+    }
 
-        public PageBase(IWebDriver driver)
-        {
-            _driver = driver;
-            driver.Manage().Window.Maximize();
-        }
+    // Phase 17.3 swept TV-shape nav-icon names; Mangarr ships these six:
+    public ILocator MangaNavIcon       => Page.GetByTestId("nav-manga");
+    public ILocator CalendarNavIcon    => Page.GetByTestId("nav-calendar");
+    public ILocator ActivityNavIcon    => Page.GetByTestId("nav-activity");
+    public ILocator WantedNavIcon      => Page.GetByTestId("nav-wanted");
+    public ILocator SettingsNavIcon    => Page.GetByTestId("nav-settings");
+    public ILocator SystemNavIcon      => Page.GetByTestId("nav-system");
 
-        public IWebElement FindByClass(string className, int timeout = 5)
-        {
-            return Find(By.ClassName(className), timeout);
-        }
-
-        public IWebElement Find(By by, int timeout = 5)
-        {
-            var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeout));
-            return wait.Until(d => d.FindElement(by));
-        }
-
-        public void WaitForNoSpinner(int timeout = 30)
-        {
-            // give the spinner some time to show up.
-            Thread.Sleep(200);
-
-            var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeout));
-            wait.Until(d =>
-            {
-                try
-                {
-                    var element = d.FindElement(By.Id("followingBalls"));
-                    return !element.Displayed;
-                }
-                catch (NoSuchElementException)
-                {
-                    return true;
-                }
-            });
-        }
-
-        public IWebElement SeriesNavIcon => Find(By.LinkText("Series"));
-
-        public IWebElement CalendarNavIcon => Find(By.LinkText("Calendar"));
-
-        public IWebElement ActivityNavIcon => Find(By.LinkText("Activity"));
-
-        public IWebElement WantedNavIcon => Find(By.LinkText("Wanted"));
-
-        public IWebElement SettingNavIcon => Find(By.LinkText("Settings"));
-
-        public IWebElement SystemNavIcon => Find(By.PartialLinkText("System"));
+    public async Task<PageBase> WaitForNoSpinnerAsync(int timeoutMs = 30_000)
+    {
+        await Page.GetByTestId("loading-spinner")
+                  .WaitForAsync(new LocatorWaitForOptions
+                  {
+                      State = WaitForSelectorState.Hidden,
+                      Timeout = timeoutMs
+                  });
+        return this; // D-17 fluent return-this
     }
 }
