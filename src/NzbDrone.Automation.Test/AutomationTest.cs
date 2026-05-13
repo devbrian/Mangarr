@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -5,7 +6,6 @@ using System.Threading.Tasks;
 using Microsoft.Playwright;
 using NLog;
 using NUnit.Framework;
-using NzbDrone.Automation.Test.PageModel;
 using NzbDrone.Test.Common;
 
 namespace NzbDrone.Automation.Test;
@@ -47,16 +47,17 @@ public abstract class AutomationTest
 
         // Wait for app shell ready — `app-shell` testid is annotated in frontend/src/App/PageContent.tsx
         // by Plan-04 wrapper sweep. If the testid is not yet present (Wave 1 before wrappers landed),
-        // fall back to title check.
+        // fall back to title check. Use a shorter timeout for the testid probe so the harness boots
+        // quickly when the testid hasn't been wired yet — the fallback assertion is the real gate.
         try
         {
-            await Page.GetByTestId("app-shell").WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
+            await Page.GetByTestId("app-shell").WaitForAsync(new LocatorWaitForOptions { Timeout = 5_000 });
         }
-        catch (PlaywrightException)
+        catch (Exception ex) when (ex is PlaywrightException or TimeoutException)
         {
             // Fallback: assert page title contains "Mangarr" until app-shell testid is wired.
-            // PlaywrightException covers TimeoutException (which derives from PlaywrightException
-            // in Microsoft.Playwright 1.59.0) plus any other locator-related fault.
+            // Both Microsoft.Playwright.TimeoutException (PlaywrightException subclass) AND
+            // System.TimeoutException (raised by some transport-layer timeouts) are caught here.
             await Assertions.Expect(Page).ToHaveTitleAsync(new Regex("Mangarr"));
         }
     }

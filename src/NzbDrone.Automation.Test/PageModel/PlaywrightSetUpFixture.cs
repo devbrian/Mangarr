@@ -2,7 +2,14 @@ using System.Threading.Tasks;
 using Microsoft.Playwright;
 using NUnit.Framework;
 
-namespace NzbDrone.Automation.Test.PageModel;
+// IMPORTANT: SetUpFixture must live at the assembly root namespace (`NzbDrone.Automation.Test`)
+// rather than a narrower sub-namespace. NUnit's [SetUpFixture] runs its [OneTimeSetUp] for every
+// fixture whose namespace starts with the SetUpFixture's namespace. Placing this class in
+// `NzbDrone.Automation.Test.PageModel` would mean fixtures under
+// `NzbDrone.Automation.Test.Tests.Routes` would see `Browser == null` and fail with
+// NullReferenceException in their OneTimeSetUp. File path is kept under PageModel/ for grouping;
+// the namespace is the load-bearing thing.
+namespace NzbDrone.Automation.Test;
 
 [SetUpFixture]
 public class PlaywrightSetUpFixture
