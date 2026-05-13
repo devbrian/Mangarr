@@ -125,6 +125,7 @@ function UISettings() {
       />
 
       <PageContentBody>
+        <div data-testid="settings-ui-page">
         {isFetching && isPopulated ? <LoadingIndicator /> : null}
 
         {!isFetching && error ? (
@@ -277,6 +278,7 @@ function UISettings() {
             </FieldSet>
           </Form>
         ) : null}
+        </div>
       </PageContentBody>
     </PageContent>
   );
