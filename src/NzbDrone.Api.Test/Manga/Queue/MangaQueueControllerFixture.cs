@@ -376,5 +376,111 @@ namespace NzbDrone.Api.Test.Manga.Queue
                       m.Action == ModelAction.Sync && m.Name == "manga/queue")),
                       Times.Once);
         }
+
+        [Test]
+        public void RemoveQueueItem_dispatches_in_flight_id_to_MangaQueueService()
+        {
+            // queue-remove-pending-no-op dispatch — in-flight branch. Find returns a non-null
+            // MangaQueueItem so the handler routes to _queueService.Remove and DOES NOT call
+            // _pendingReleaseService.RemovePendingQueueItems.
+            const int InFlightId = 42;
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Setup(s => s.Find(InFlightId))
+                  .Returns(new MangaQueueItem { Id = InFlightId, MangaId = 1, Title = "In-flight" });
+
+            Subject.RemoveQueueItem(InFlightId);
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(s => s.Remove(InFlightId), Times.Once);
+            Mocker.GetMock<IMangaPendingReleaseService>()
+                  .Verify(s => s.RemovePendingQueueItems(It.IsAny<int>()),
+                          Times.Never,
+                          "in-flight ids must NOT fall through to the pending-release path");
+        }
+
+        [Test]
+        public void RemoveQueueItem_dispatches_pending_id_to_MangaPendingReleaseService()
+        {
+            // queue-remove-pending-no-op dispatch — pending branch. Find returns null because
+            // the id is in the pending hash-space (HashConverter.GetHashInt31("manga-pending-{Id}")),
+            // not the in-flight hash-space (HashConverter.GetHashInt31("trackedDownload-...")).
+            // Pre-fix this case silently no-op'd through _queueService.Remove; post-fix the
+            // handler routes to _pendingReleaseService.RemovePendingQueueItems.
+            //
+            // Regression guard for .planning/debug/queue-remove-pending-no-op.md — clicking
+            // Remove on a pending row was a silent 204-with-no-state-change before this fix.
+            const int PendingId = 1885070670;
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Setup(s => s.Find(PendingId))
+                  .Returns((MangaQueueItem)null!);
+
+            Subject.RemoveQueueItem(PendingId);
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(s => s.Remove(It.IsAny<int>()),
+                          Times.Never,
+                          "pending ids must NOT call _queueService.Remove (silent no-op pre-fix)");
+            Mocker.GetMock<IMangaPendingReleaseService>()
+                  .Verify(s => s.RemovePendingQueueItems(PendingId),
+                          Times.Once,
+                          "pending ids must route to IMangaPendingReleaseService.RemovePendingQueueItems");
+        }
+
+        [Test]
+        public void RemoveMany_dispatches_each_id_by_source()
+        {
+            // queue-remove-pending-no-op bulk dispatch — the same per-id source decision
+            // applies inside the bulk DELETE loop. Pre-fix every id was routed to
+            // _queueService.Remove, so bulk-removing pending items was a silent no-op.
+            const int InFlightId = 100;
+            const int PendingIdA = 200;
+            const int PendingIdB = 300;
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Setup(s => s.Find(InFlightId))
+                  .Returns(new MangaQueueItem { Id = InFlightId, MangaId = 1, Title = "In-flight" });
+            Mocker.GetMock<IMangaQueueService>()
+                  .Setup(s => s.Find(PendingIdA))
+                  .Returns((MangaQueueItem)null!);
+            Mocker.GetMock<IMangaQueueService>()
+                  .Setup(s => s.Find(PendingIdB))
+                  .Returns((MangaQueueItem)null!);
+
+            Subject.RemoveMany(new QueueBulkResource { Ids = new List<int> { InFlightId, PendingIdA, PendingIdB } });
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(s => s.Remove(InFlightId), Times.Once);
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(s => s.Remove(PendingIdA), Times.Never);
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(s => s.Remove(PendingIdB), Times.Never);
+            Mocker.GetMock<IMangaPendingReleaseService>()
+                  .Verify(s => s.RemovePendingQueueItems(PendingIdA), Times.Once);
+            Mocker.GetMock<IMangaPendingReleaseService>()
+                  .Verify(s => s.RemovePendingQueueItems(PendingIdB), Times.Once);
+        }
+
+        [Test]
+        public void RemoveMany_distincts_duplicate_ids_before_dispatch()
+        {
+            // Distinct() guard preserved post-fix — duplicate ids in the request body should
+            // fire one dispatch per unique id, not one per occurrence. Otherwise a stray
+            // duplicate would re-publish MangaPendingReleasesUpdatedEvent / MangaQueueUpdatedEvent
+            // and double-broadcast SignalR Sync messages (UI thrash).
+            const int PendingId = 999;
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Setup(s => s.Find(PendingId))
+                  .Returns((MangaQueueItem)null!);
+
+            Subject.RemoveMany(new QueueBulkResource { Ids = new List<int> { PendingId, PendingId, PendingId } });
+
+            Mocker.GetMock<IMangaPendingReleaseService>()
+                  .Verify(s => s.RemovePendingQueueItems(PendingId),
+                          Times.Once,
+                          "Distinct() must collapse duplicate ids before dispatch");
+        }
     }
 }
