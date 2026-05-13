@@ -9,12 +9,11 @@
 //     ahead of this consumer).
 //   * translate('UpdateSeriesPath') -> translate('UpdateMangaPath')
 //
-// Single retained divergence: the shared `RootFolderSelectInput` component
-// still uses the option key `seriesFolder` for the per-row computed folder
-// label. We pass `seriesFolder: data?.folder` for now; a follow-up issue
-// tracks the cross-cutting rename to `mangaFolder` across
-// RootFolderSelectInput + RootFolderSelectInputOption +
-// RootFolderSelectInputSelectedValue + AddManga consumers.
+// Issue #92 follow-up (2026-05-12): the shared RootFolderSelectInput
+// option-row prop was renamed `seriesFolder` -> `mangaFolder` for
+// manga vocabulary parity (DIVERGENCE.md entry filed). Subcomponents
+// `RootFolderSelectInputOption.tsx` + `RootFolderSelectInputSelectedValue.tsx`
+// + the matching `.seriesFolder` CSS class were all renamed in lockstep.
 import React, { useCallback, useState } from 'react';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
@@ -82,11 +81,11 @@ function RootFolderModalContent(props: RootFolderModalContentProps) {
             name="rootFolderPath"
             value={rootFolderPath}
             valueOptions={{
-              seriesFolder: data?.folder,
+              mangaFolder: data?.folder,
               isWindows,
             }}
             selectedValueOptions={{
-              seriesFolder: data?.folder,
+              mangaFolder: data?.folder,
               isWindows,
             }}
             helpText={translate('MangaEditRootFolderHelpText')}

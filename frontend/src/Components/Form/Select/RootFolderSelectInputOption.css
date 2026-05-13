@@ -17,7 +17,7 @@
   display: flex;
 }
 
-.seriesFolder {
+.mangaFolder {
   flex: 0 0 auto;
   color: var(--disabledColor);
 }

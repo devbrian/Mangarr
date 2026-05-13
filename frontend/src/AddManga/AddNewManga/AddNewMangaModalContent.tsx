@@ -238,11 +238,11 @@ function AddNewMangaModalContent({
                   type={inputTypes.ROOT_FOLDER_SELECT}
                   name="rootFolderPath"
                   valueOptions={{
-                    seriesFolder: title,
+                    mangaFolder: title,
                     isWindows,
                   }}
                   selectedValueOptions={{
-                    seriesFolder: title,
+                    mangaFolder: title,
                     isWindows,
                   }}
                   helpText={translate('AddNewMangaRootFolderHelpText', {

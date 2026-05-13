@@ -4,8 +4,8 @@ interface CssExports {
   'freeSpace': string;
   'isMissing': string;
   'isMobile': string;
+  'mangaFolder': string;
   'optionText': string;
-  'seriesFolder': string;
   'value': string;
 }
 export const cssExports: CssExports;
