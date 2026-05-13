@@ -11,6 +11,9 @@ interface RelativeDateCellProps {
   includeSeconds?: boolean;
   includeTime?: boolean;
   component?: React.ElementType;
+  // Phase 18 Plan 18-06: allow caller-supplied data-testid to propagate
+  // through to the rendered <td> for Playwright row-cell targeting.
+  'data-testid'?: string;
 }
 
 function RelativeDateCell(props: RelativeDateCellProps) {

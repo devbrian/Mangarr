@@ -295,6 +295,7 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
         </PageToolbar>
 
         <PageContentBody>
+          <div data-testid="manga-cutoff-unmet-page">
           {isFetching && isLoading ? <LoadingIndicator /> : null}
 
           {!isFetching && error ? (
@@ -312,7 +313,7 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
           ) : null}
 
           {!isLoading && !error && !!records.length ? (
-            <div>
+            <div data-testid="manga-cutoff-unmet-table">
               <Table
                 selectAll={true}
                 allSelected={allSelected}
@@ -367,6 +368,7 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
               />
             </div>
           ) : null}
+          </div>
         </PageContentBody>
       </PageContent>
     </CutoffUnmetProvider>
