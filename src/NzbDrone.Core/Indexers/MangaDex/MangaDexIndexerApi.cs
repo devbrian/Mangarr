@@ -56,8 +56,11 @@ namespace NzbDrone.Core.Indexers.MangaDex
         ///
         /// <para>
         /// MangaDex pageSize=500 is the published contract — do not lower without changing
-        /// per-call rate-budget math. <c>contentRating[]=safe&amp;contentRating[]=suggestive</c>
-        /// excludes erotica/pornographic per default editorial policy (D-Discretion).
+        /// per-call rate-budget math. The <c>contentRating[]</c> filter is intentionally
+        /// omitted so MangaDex returns all ratings; a previous hardcoded
+        /// <c>safe + suggestive</c> allow-list silently dropped chapters for any
+        /// erotica/pornographic-rated manga the user added (see
+        /// <c>.planning/debug/berserk-no-chapters.md</c>).
         /// </para>
         /// </summary>
         public string BuildFeedUrl(Guid mangaDexId, IReadOnlyList<string> preferredLanguages, int offset = 0)
@@ -68,8 +71,6 @@ namespace NzbDrone.Core.Indexers.MangaDex
             sb.Append("&order[chapter]=asc");
             sb.Append("&includes[]=scanlation_group");
             sb.Append("&includes[]=manga");
-            sb.Append("&contentRating[]=safe");
-            sb.Append("&contentRating[]=suggestive");
 
             if (preferredLanguages != null && preferredLanguages.Count > 0)
             {
@@ -115,8 +116,6 @@ namespace NzbDrone.Core.Indexers.MangaDex
             sb.Append("&limit=100");
             sb.Append("&includes[]=scanlation_group");
             sb.Append("&includes[]=manga");
-            sb.Append("&contentRating[]=safe");
-            sb.Append("&contentRating[]=suggestive");
 
             if (preferredLanguages != null && preferredLanguages.Count > 0)
             {
@@ -147,9 +146,7 @@ namespace NzbDrone.Core.Indexers.MangaDex
              + "&order[publishAt]=desc"
              + "&limit=100"
              + "&includes[]=scanlation_group"
-             + "&includes[]=manga"
-             + "&contentRating[]=safe"
-             + "&contentRating[]=suggestive";
+             + "&includes[]=manga";
 
         /// <summary>
         /// Apply Phase 1 D-11/D-13 wiring: SourceKey-keyed rate budget + honest UA + JSON Accept.

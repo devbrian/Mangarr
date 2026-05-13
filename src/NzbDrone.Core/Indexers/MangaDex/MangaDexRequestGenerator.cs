@@ -25,7 +25,7 @@ namespace NzbDrone.Core.Indexers.MangaDex
         public IndexerPageableRequestChain GetRecentRequests()
         {
             var url = Api?.BuildRecentUrl()
-                ?? $"{Settings.BaseUrl.TrimEnd('/')}/chapter?translatedLanguage[]=en&order[publishAt]=desc&limit=100&includes[]=scanlation_group&includes[]=manga&contentRating[]=safe&contentRating[]=suggestive";
+                ?? $"{Settings.BaseUrl.TrimEnd('/')}/chapter?translatedLanguage[]=en&order[publishAt]=desc&limit=100&includes[]=scanlation_group&includes[]=manga";
             var chain = new IndexerPageableRequestChain();
             chain.Add(new[] { new IndexerRequest(url, HttpAccept.Json) });
             return chain;
@@ -43,7 +43,7 @@ namespace NzbDrone.Core.Indexers.MangaDex
             }
 
             var url = Api?.BuildFeedUrl(sc.Manga.MangaDexId.Value, sc.PreferredLanguages)
-                ?? $"{Settings.BaseUrl.TrimEnd('/')}/manga/{sc.Manga.MangaDexId.Value:D}/feed?limit=500&order[chapter]=asc&includes[]=scanlation_group&includes[]=manga&contentRating[]=safe&contentRating[]=suggestive&translatedLanguage[]=en";
+                ?? $"{Settings.BaseUrl.TrimEnd('/')}/manga/{sc.Manga.MangaDexId.Value:D}/feed?limit=500&order[chapter]=asc&includes[]=scanlation_group&includes[]=manga&translatedLanguage[]=en";
             var chain = new IndexerPageableRequestChain();
             chain.Add(new[] { new IndexerRequest(url, HttpAccept.Json) });
             return chain;
@@ -65,7 +65,7 @@ namespace NzbDrone.Core.Indexers.MangaDex
             }
 
             var url = Api?.BuildChapterPointQueryUrl(sc.Manga.MangaDexId.Value, sc.ChapterNumber, sc.PreferredLanguages)
-                ?? $"{Settings.BaseUrl.TrimEnd('/')}/chapter?manga={sc.Manga.MangaDexId.Value:D}&chapter[]={System.Net.WebUtility.UrlEncode(sc.ChapterNumber.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))}&order[publishAt]=desc&limit=100&includes[]=scanlation_group&includes[]=manga&contentRating[]=safe&contentRating[]=suggestive&translatedLanguage[]=en";
+                ?? $"{Settings.BaseUrl.TrimEnd('/')}/chapter?manga={sc.Manga.MangaDexId.Value:D}&chapter[]={System.Net.WebUtility.UrlEncode(sc.ChapterNumber.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))}&order[publishAt]=desc&limit=100&includes[]=scanlation_group&includes[]=manga&translatedLanguage[]=en";
             var chain = new IndexerPageableRequestChain();
             chain.Add(new[] { new IndexerRequest(url, HttpAccept.Json) });
             return chain;

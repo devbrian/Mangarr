@@ -114,5 +114,53 @@ namespace NzbDrone.Core.Test.Indexers.MangaDex
             var chain = Subject.GetSearchRequests(criteria);
             chain.GetAllTiers().Should().BeEmpty();
         }
+
+        // Regression — berserk-no-chapters debug session (2026-05-13):
+        // The MangaDex /feed and /chapter endpoints filter by the PARENT manga's
+        // contentRating when contentRating[] is set. A hardcoded `safe + suggestive`
+        // allow-list silently dropped every chapter for any erotica/pornographic
+        // manga the user added (Berserk is rated `erotica`). The filter has been
+        // removed across all 3 URL builders + their fallback URLs so MangaDex
+        // returns all ratings; if editorial-policy gating is re-introduced it must
+        // be a user-visible setting, not a hardcoded default. These three tests
+        // pin the absence so the regression cannot reappear silently.
+        [Test]
+        public void GetRecentRequests_must_not_filter_by_contentRating()
+        {
+            var url = Subject.GetRecentRequests().GetAllTiers().First().First().Url.FullUri;
+            url.Should().NotContain("contentRating",
+                "MangaDex feed must return all parent-manga ratings; the hardcoded safe+suggestive filter silently dropped chapters for erotica/pornographic-rated manga the user already added (berserk-no-chapters, 2026-05-13)");
+        }
+
+        [Test]
+        public void GetSearchRequests_MangaSearchCriteria_must_not_filter_by_contentRating()
+        {
+            var manga = new Manga.Manga
+            {
+                MangaDexId = Guid.Parse("a1c7c817-4e59-43b7-9365-09675a149a6f")
+            };
+            var criteria = new MangaSearchCriteria { Manga = manga };
+            var url = Subject.GetSearchRequests(criteria).GetAllTiers().First().First().Url.FullUri;
+            url.Should().NotContain("contentRating",
+                "see GetRecentRequests_must_not_filter_by_contentRating — same root cause, same fix");
+        }
+
+        [Test]
+        public void GetSearchRequests_ChapterSearchCriteria_must_not_filter_by_contentRating()
+        {
+            var manga = new Manga.Manga
+            {
+                MangaDexId = Guid.Parse("a1c7c817-4e59-43b7-9365-09675a149a6f")
+            };
+            var chapter = new Manga.Chapter { ChapterNumber = 1m };
+            var criteria = new ChapterSearchCriteria
+            {
+                Manga = manga,
+                Chapters = new System.Collections.Generic.List<Manga.Chapter> { chapter }
+            };
+            var url = Subject.GetSearchRequests(criteria).GetAllTiers().First().First().Url.FullUri;
+            url.Should().NotContain("contentRating",
+                "see GetRecentRequests_must_not_filter_by_contentRating — same root cause, same fix");
+        }
     }
 }
