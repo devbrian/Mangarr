@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Security;
@@ -166,7 +167,36 @@ namespace NzbDrone.Common.Http.Dispatchers
                 handler.Proxy = _createManagedWebProxy.GetWebProxy(proxySettings);
             }
 
-            var client = new System.Net.Http.HttpClient(handler)
+            // PHASE 18 TEST HOOK — Automation cassette interceptor.
+            // Activated only when MANGARR_TEST_CASSETTE_MODE env var is set (Replay|Record|ReplayOrRecord).
+            // Production paths always have the env var unset, so this branch is dead code in prod.
+            // Per 18-RESEARCH.md §"Cassette injection mechanism" + Phase 18 D-09.
+            HttpMessageHandler effectiveHandler = handler;
+            var cassetteMode = Environment.GetEnvironmentVariable("MANGARR_TEST_CASSETTE_MODE");
+            var cassetteDir = Environment.GetEnvironmentVariable("MANGARR_TEST_CASSETTE_DIR");
+            var sentinelPath = Environment.GetEnvironmentVariable("MANGARR_TEST_SENTINEL_PNG");
+            if (!string.IsNullOrEmpty(cassetteMode) && !string.IsNullOrEmpty(cassetteDir))
+            {
+                // Reflection load to avoid taking a hard dep from Mangarr.Common on the test assembly.
+                const string asmName = "Mangarr.Automation.Test";
+                const string typeName = "NzbDrone.Automation.Test.TestKit.CassetteHandler";
+                const string modeTypeName = "NzbDrone.Automation.Test.TestKit.CassetteMode";
+                var asm = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == asmName);
+                if (asm != null)
+                {
+                    var type = asm.GetType(typeName);
+                    var modeEnumType = asm.GetType(modeTypeName);
+                    if (type != null && modeEnumType != null)
+                    {
+                        var modeValue = Enum.Parse(modeEnumType, cassetteMode);
+                        effectiveHandler = (HttpMessageHandler)Activator.CreateInstance(
+                            type, cassetteDir, modeValue, sentinelPath ?? string.Empty, handler);
+                    }
+                }
+            }
+
+            var client = new System.Net.Http.HttpClient(effectiveHandler)
             {
                 DefaultRequestVersion = HttpVersion.Version20,
                 DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower,
