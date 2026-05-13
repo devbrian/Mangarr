@@ -450,7 +450,16 @@ interface SaveMangaEditorPayload {
   translationProfileId?: number;
   customFormatProfileId?: number;
   rootFolderPath?: string;
+  // issue #81: parity with backend MangaEditorResource.MoveFiles. The bulk
+  // EditMangaModalContent already populates payload.moveFiles when
+  // rootFolderPath changes; this just plumbs it through TypeScript.
+  moveFiles?: boolean;
   tags?: number[];
+  // issue #81 follow-up: parity with backend MangaEditorResource.ApplyTags.
+  // Currently the bulk modal does not surface the tag-apply selector; the
+  // field is on the wire shape for forward-compat with a future tags-apply
+  // bulk control.
+  applyTags?: string;
 }
 
 // fix(manga-edit-button-no-op): consistency — route by id so the URL matches

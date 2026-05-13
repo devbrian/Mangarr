@@ -10,6 +10,7 @@ import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
 import { inputTypes } from 'Helpers/Props';
+import MoveMangaModal from 'Manga/MoveManga/MoveMangaModal';
 import { InputChanged } from 'typings/inputs';
 import translate from 'Utilities/String/translate';
 import styles from './EditMangaModalContent.css';
@@ -32,6 +33,14 @@ import styles from './EditMangaModalContent.css';
 // `qualityProfileId` to the bulk Manga editor, where backend `MangaEditorResource`
 // only accepts `TranslationProfileId`. Both ends have been repointed to the
 // `translationProfileId` axis (wire shape per `Mangarr.Api.V5/Manga/MangaEditorResource.cs:34`).
+//
+// issue #81 (2026-05-13): re-introduces the MoveManga confirmation gate that
+// Phase 17.3 Plan 17.3-03 D-11 had stubbed out. When the user changes
+// RootFolder, save() opens MoveMangaModal which routes to either
+// onDoNotMoveMangaPress (save with moveFiles=false -- DB only) or
+// onMoveMangaPress (save with moveFiles=true -- backend enqueues
+// BulkMoveMangaCommand on the MangaEditorController). Mirrors upstream
+// Series/Index/Select/Edit/EditSeriesModalContent.tsx verbatim.
 interface SavePayload {
   monitored?: boolean;
   monitorNewItems?: string;
@@ -86,6 +95,7 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
   // inherited `seriesType` + `seasonFolder` useState hooks were removed; the
   // backing fields no longer exist on Manga.ts per Plan 17.3-07 D-13 trim.
   const [rootFolderPath, setRootFolderPath] = useState(NO_CHANGE);
+  const [isConfirmMoveModalOpen, setIsConfirmMoveModalOpen] = useState(false);
   const { selectedCount } = useSelect();
 
   const save = useCallback(
@@ -160,13 +170,31 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
     [setMonitored]
   );
 
-  // Sonarr divergence: Phase 17.3 Plan 17.3-03 (D-11) — the inherited "Move
-  // Series" confirmation modal (ask whether to move files on disk when the
-  // root folder changes) was a no-op stub and has been deleted. The real
-  // "MoveManga to root folder" feature is tracked as a v1.x GitHub issue.
-  // Until that ships, root-folder edits save with moveFiles=false (no on-disk move).
+  // issue #81: re-wire the MoveManga confirmation gate. If the user changed
+  // root folder, open MoveMangaModal which asks whether to physically move
+  // files. Mirrors upstream Index/Select/Edit/EditSeriesModalContent.tsx
+  // onSavePressWrapper + onDoNotMoveSeriesPress + onMoveSeriesPress trio
+  // verbatim (Series -> Manga rename only).
   const onSavePressWrapper = useCallback(() => {
+    if (rootFolderPath === NO_CHANGE) {
+      save(false);
+    } else {
+      setIsConfirmMoveModalOpen(true);
+    }
+  }, [rootFolderPath, save]);
+
+  const onCancelPress = useCallback(() => {
+    setIsConfirmMoveModalOpen(false);
+  }, []);
+
+  const onDoNotMoveMangaPress = useCallback(() => {
+    setIsConfirmMoveModalOpen(false);
     save(false);
+  }, [save]);
+
+  const onMoveMangaPress = useCallback(() => {
+    setIsConfirmMoveModalOpen(false);
+    save(true);
   }, [save]);
 
   return (
@@ -250,6 +278,14 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
           </Button>
         </div>
       </ModalFooter>
+
+      <MoveMangaModal
+        isOpen={isConfirmMoveModalOpen}
+        destinationRootFolder={rootFolderPath}
+        onModalClose={onCancelPress}
+        onSavePress={onDoNotMoveMangaPress}
+        onMoveMangaPress={onMoveMangaPress}
+      />
     </ModalContent>
   );
 }
