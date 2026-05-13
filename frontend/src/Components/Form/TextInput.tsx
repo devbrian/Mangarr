@@ -25,6 +25,11 @@ export interface CommonTextInputProps {
   step?: number;
   min?: number;
   max?: number;
+  // Phase 18 Plan-04 wrapper sweep: `data-testid` propagation to the
+  // underlying <input> element. TextInput uses explicit prop destructure
+  // (no {...otherProps} spread) so this needs an explicit plumb-through.
+  // See data-testid-spec.md §"Wrapper-Component Sweep Ledger".
+  'data-testid'?: string;
   onFocus?: (event: FocusEvent<HTMLInputElement, Element>) => void;
   onBlur?: (event: SyntheticEvent) => void;
   onCopy?: (event: SyntheticEvent) => void;
@@ -57,6 +62,7 @@ const TextInput = forwardRef<HTMLInputElement, TextInputProps | FileInputProps>(
       step,
       min,
       max,
+      'data-testid': dataTestId,
       onBlur,
       onFocus,
       onCopy,
@@ -176,6 +182,7 @@ const TextInput = forwardRef<HTMLInputElement, TextInputProps | FileInputProps>(
         step={step}
         min={min}
         max={max}
+        data-testid={dataTestId}
         onChange={handleChange}
         onFocus={handleFocus}
         onBlur={onBlur}

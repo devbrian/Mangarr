@@ -24,6 +24,9 @@ interface SelectInputProps<T> {
   hasError?: boolean;
   hasWarning?: boolean;
   autoFocus?: boolean;
+  // Phase 18 Plan-04 wrapper sweep: `data-testid` propagation to the underlying
+  // <select> element. See data-testid-spec.md §"Wrapper-Component Sweep Ledger".
+  'data-testid'?: string;
   onChange: (change: InputChanged<T>) => void;
   onBlur?: (event: SyntheticEvent) => void;
 }
@@ -38,6 +41,7 @@ function SelectInput<T>({
   hasError,
   hasWarning,
   autoFocus = false,
+  'data-testid': dataTestId,
   onBlur,
   onChange,
 }: SelectInputProps<T>) {
@@ -63,6 +67,7 @@ function SelectInput<T>({
       name={name}
       value={value}
       autoFocus={autoFocus}
+      data-testid={dataTestId}
       onChange={handleChange}
       onBlur={onBlur}
     >

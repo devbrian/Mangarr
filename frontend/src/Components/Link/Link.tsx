@@ -1,3 +1,11 @@
+// Phase 18 Plan-04 wrapper sweep: `data-testid` is supported here via the
+// ComponentPropsWithoutRef<C> intersection in LinkProps below — any caller
+// can pass `data-testid="..."` and it lands on the underlying DOM element
+// because all three render branches (<a>, <RouterLink>, <Component>) spread
+// `{...otherProps}`. This is the canonical propagation path used by Button,
+// IconButton, and SpinnerIconButton (each extends LinkProps + spreads). See
+// .planning/phases/18-automated-ui-integration-test-suite-playwright-net/inventory/data-testid-spec.md
+// §"Wrapper-Component Sweep Ledger" for the audit trail.
 import classNames from 'classnames';
 import React, {
   ComponentPropsWithoutRef,
@@ -16,6 +24,10 @@ export type LinkProps<C extends ElementType = 'button'> =
     isDisabled?: LinkProps<C>['disabled'];
     noRouter?: boolean;
     onPress?(event: SyntheticEvent): void;
+    // 'data-testid' is accepted via ComponentPropsWithoutRef<C> (HTML attribute
+    // passthrough). Listed here explicitly so the LinkProps surface
+    // documents the supported test-harness contract.
+    'data-testid'?: string;
   };
 
 export default function Link<C extends ElementType = 'button'>({
