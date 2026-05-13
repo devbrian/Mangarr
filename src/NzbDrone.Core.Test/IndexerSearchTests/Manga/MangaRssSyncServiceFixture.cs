@@ -4,6 +4,8 @@ using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.DecisionEngine.Manga;
+using NzbDrone.Core.Download.Pending;
+using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.Messaging.Events;
@@ -26,6 +28,18 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
             Mocker.GetMock<IMakeMangaDownloadDecision>()
                 .Setup(d => d.GetRssDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<bool>()))
                 .Returns(new List<MangaDownloadDecision>());
+
+            // Debug-session queue-items-not-downloading (2026-05-13) — default pending-queue + process pipeline mocks.
+            Mocker.GetMock<IMangaPendingReleaseService>()
+                .Setup(s => s.GetPending())
+                .Returns(new List<ReleaseInfo>());
+
+            Mocker.GetMock<IProcessMangaDownloadDecisions>()
+                .Setup(p => p.ProcessDecisions(It.IsAny<List<MangaDownloadDecision>>()))
+                .ReturnsAsync(new ProcessedMangaDecisions(
+                    new List<MangaDownloadDecision>(),
+                    new List<MangaDownloadDecision>(),
+                    new List<MangaDownloadDecision>()));
         }
 
         private Mock<IIndexer> BuildHttpIndexer(
@@ -289,6 +303,101 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
                 .Verify(f => f.Update(It.IsAny<IndexerDefinition>()), Times.Once);
             Mocker.GetMock<IEventAggregator>()
                 .Verify(e => e.PublishEvent(It.IsAny<MangaRssSyncCompleteEvent>()), Times.Once);
+        }
+
+        // ---------------- Debug-session queue-items-not-downloading (2026-05-13) — CONCAT-PENDING + GRAB-DECISIONS ----------------
+
+        [Test]
+        public void Execute_should_concat_pending_releases_into_reports_before_decision_making()
+        {
+            // CONCAT-PENDING: mirror TV RssSyncService.Sync() lines 41-43. Pending releases
+            // (e.g. previously queued with PendingReleaseReason.DownloadClientUnavailable)
+            // must be re-fed into the decision-maker on every RSS tick so the underlying
+            // blocker can clear and the release can be grabbed on the next pass.
+            var fresh = new List<ReleaseInfo>
+            {
+                new() { Title = "Fresh-A", Guid = "fresh-a" },
+                new() { Title = "Fresh-B", Guid = "fresh-b" }
+            };
+            var pending = new List<ReleaseInfo>
+            {
+                new() { Title = "Pending-X", Guid = "pending-x", PendingReleaseReason = PendingReleaseReason.DownloadClientUnavailable },
+                new() { Title = "Pending-Y", Guid = "pending-y", PendingReleaseReason = PendingReleaseReason.Delay }
+            };
+
+            var indexer = BuildHttpIndexer(1, "MangaDex", fresh);
+            Mocker.GetMock<IIndexerFactory>()
+                .Setup(f => f.RssEnabled(true))
+                .Returns(new List<IIndexer> { indexer.Object });
+
+            Mocker.GetMock<IMangaPendingReleaseService>()
+                .Setup(s => s.GetPending())
+                .Returns(pending);
+
+            Subject.Execute(new MangaRssSyncCommand());
+
+            // Decision-maker should see all 4 reports (2 fresh + 2 pending).
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                .Verify(
+                    d => d.GetRssDecision(
+                        It.Is<List<ReleaseInfo>>(r =>
+                            r.Count == 4
+                            && r.Exists(x => x.Guid == "fresh-a")
+                            && r.Exists(x => x.Guid == "fresh-b")
+                            && r.Exists(x => x.Guid == "pending-x")
+                            && r.Exists(x => x.Guid == "pending-y")),
+                        It.IsAny<bool>()),
+                    Times.Once);
+        }
+
+        [Test]
+        public void Execute_should_hand_decisions_to_ProcessDecisions_grab_pipeline()
+        {
+            // GRAB-DECISIONS: mirror TV RssSyncService.Sync() line 44. Without this call the
+            // decision list is discarded — RSS finds releases but never grabs them. This is
+            // the actual user-visible symptom in debug-session queue-items-not-downloading.
+            var decisions = new List<MangaDownloadDecision> { new MangaDownloadDecision(null) };
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                .Setup(d => d.GetRssDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<bool>()))
+                .Returns(decisions);
+
+            var indexer = BuildHttpIndexer(1, "MangaDex");
+            Mocker.GetMock<IIndexerFactory>()
+                .Setup(f => f.RssEnabled(true))
+                .Returns(new List<IIndexer> { indexer.Object });
+
+            Subject.Execute(new MangaRssSyncCommand());
+
+            Mocker.GetMock<IProcessMangaDownloadDecisions>()
+                .Verify(p => p.ProcessDecisions(It.Is<List<MangaDownloadDecision>>(d => ReferenceEquals(d, decisions))),
+                    Times.Once);
+        }
+
+        [Test]
+        public void Execute_should_still_publish_MangaRssSyncCompleteEvent_after_grab_pipeline_runs()
+        {
+            // The event payload remains the pre-process decision list so
+            // MangaPendingReleaseService.Handle(MangaRssSyncCompleteEvent) can still
+            // filter `.Rejected` to prune stale pending rows (Plan 09-10 wiring).
+            var decisions = new List<MangaDownloadDecision>();
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                .Setup(d => d.GetRssDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<bool>()))
+                .Returns(decisions);
+
+            var indexer = BuildHttpIndexer(1, "MangaDex");
+            Mocker.GetMock<IIndexerFactory>()
+                .Setup(f => f.RssEnabled(true))
+                .Returns(new List<IIndexer> { indexer.Object });
+
+            Subject.Execute(new MangaRssSyncCommand());
+
+            Mocker.GetMock<IProcessMangaDownloadDecisions>()
+                .Verify(p => p.ProcessDecisions(It.IsAny<List<MangaDownloadDecision>>()), Times.Once);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(
+                    e => e.PublishEvent(It.Is<MangaRssSyncCompleteEvent>(
+                        evt => ReferenceEquals(evt.ProcessedDecisions, decisions))),
+                    Times.Once);
         }
     }
 }
