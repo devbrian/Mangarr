@@ -33,6 +33,16 @@ namespace NzbDrone.Core.MetadataSource.MangaDex.Resource
     /// MangaDex stores cross-source IDs (al = AniList, mal = MyAnimeList) as strings;
     /// callers MUST run <c>int.TryParse</c> before persisting to <c>Manga.AniListId</c>
     /// or <c>Manga.MalId</c> (D-19).
+    ///
+    /// PITFALL 7b (debug session add-manga-lookup-null-path, 2026-05-12): MangaDex also
+    /// ships <see cref="LastVolume"/> and <see cref="LastChapter"/> as JSON STRING
+    /// values — including non-integer chapter numbers like <c>"1.2"</c> for half/extra
+    /// chapters. Newtonsoft cannot coerce <c>"1.2"</c> to <c>int?</c>, which crashes
+    /// the entire <c>/api/v5/manga/lookup</c> response on any page that contains a
+    /// half-chapter entry. Both fields are typed as <c>string</c> here; consumers run
+    /// <c>decimal.TryParse(InvariantCulture)</c> + <c>(int)Math.Truncate</c> at the
+    /// mapping boundary (mirrors <c>ChapterFeedResource</c>'s string-typed Chapter
+    /// field convention).
     /// </summary>
     public class MangaAttributes
     {
@@ -45,8 +55,13 @@ namespace NzbDrone.Core.MetadataSource.MangaDex.Resource
         public Dictionary<string, string> Links { get; set; }
 
         public string OriginalLanguage { get; set; }
-        public int? LastVolume { get; set; }
-        public int? LastChapter { get; set; }                    // total-chapter-count axis (D-21)
+
+        // PITFALL 7b: STRING per MangaDex API (was int? — crashed on "1.2"
+        // half-chapters in lookup responses). Parse via decimal.TryParse +
+        // Math.Truncate at consumption.
+        public string LastVolume { get; set; }
+        public string LastChapter { get; set; }                  // total-chapter-count axis (D-21); STRING per Pitfall 7b
+
         public string PublicationDemographic { get; set; }
         public string Status { get; set; }                       // ongoing | completed | hiatus | cancelled
         public int? Year { get; set; }                           // publication-year axis (D-21)

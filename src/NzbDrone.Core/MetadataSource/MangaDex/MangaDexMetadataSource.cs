@@ -181,7 +181,12 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
                 Status = attrs.Status,
                 ContentRating = attrs.ContentRating,
                 PublicationYear = attrs.Year,
-                TotalChapterCount = attrs.LastChapter,
+
+                // Pitfall 7b (debug session add-manga-lookup-null-path, 2026-05-12):
+                // attrs.LastChapter is STRING per MangaDex API (e.g. "1.2" for half-chapters);
+                // parse defensively + truncate to int (TotalChapterCount is the D-21
+                // similarity-bucketing axis; integer truncation is fine for that purpose).
+                TotalChapterCount = ParseLastChapterCount(attrs.LastChapter),
                 Genres = attrs.Tags?
                     .Select(t => (t.Attributes?.Name != null && t.Attributes.Name.TryGetValue("en", out var n))
                         ? n
@@ -240,6 +245,28 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             }
 
             return manga;
+        }
+
+        // Pitfall 7b helper (debug session add-manga-lookup-null-path, 2026-05-12):
+        // MangaDex returns attrs.lastChapter as a JSON STRING (e.g. "1.2", "12.5"
+        // for half/extra chapters). Newtonsoft cannot coerce non-integer strings to
+        // int?, which crashed the entire /api/v5/manga/lookup response on any page
+        // containing a half-chapter entry. Parse via decimal.TryParse (InvariantCulture)
+        // + Math.Truncate to land an int? for the D-21 multi-axis confirm
+        // similarity-bucketing axis (see CrossSourceIdResolver.cs:130-135 — the math
+        // is "within 10%" bucketing, not chapter-NUMBER arithmetic, so truncation is
+        // the right fidelity loss). Mirrors ChapterFeedResource's string-typed Chapter
+        // field convention.
+        private static int? ParseLastChapterCount(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            return decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var v)
+                ? (int?)Math.Truncate(v)
+                : null;
         }
 
         // Phase 16.1 Wave 3 (REVERT-03): each MangaDex feed entry maps to a single
