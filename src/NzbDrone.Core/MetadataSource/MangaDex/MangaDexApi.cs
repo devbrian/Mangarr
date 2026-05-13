@@ -137,13 +137,17 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             // server keeps returning a full page forever).
             for (var page = 0; page < MaxFeedPages; page++)
             {
+                // No contentRating[] filter — MangaDex defaults to returning all ratings.
+                // The previous `safe + suggestive` allow-list silently dropped chapters for
+                // any erotica/pornographic-rated manga the user added (see
+                // .planning/debug/berserk-no-chapters.md). If editorial-policy gating is
+                // re-introduced later, it must be a user-visible setting, not a hardcoded
+                // default.
                 var rb = new HttpRequestBuilder($"{_baseUrl}/manga/{mangaDexId:D}/feed")
                     .AddQueryParam("limit", pageSize.ToString())
                     .AddQueryParam("offset", offset.ToString())
                     .AddQueryParam("order[chapter]", "asc")
-                    .AddQueryParam("includes[]", "scanlation_group")
-                    .AddQueryParam("contentRating[]", "safe")
-                    .AddQueryParam("contentRating[]", "suggestive");
+                    .AddQueryParam("includes[]", "scanlation_group");
 
                 foreach (var lang in translatedLanguages)
                 {

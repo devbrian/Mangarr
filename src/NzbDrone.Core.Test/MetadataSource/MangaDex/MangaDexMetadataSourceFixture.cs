@@ -661,6 +661,54 @@ namespace NzbDrone.Core.Test.MetadataSource.MangaDex
             chapter1.Title.Should().Be("Mixed-Case English Title");
         }
 
+        // Regression — berserk-no-chapters debug session (2026-05-13): the MangaDex
+        // /manga/{id}/feed endpoint filters by the parent manga's contentRating when
+        // contentRating[] is supplied. A hardcoded `safe + suggestive` allow-list
+        // silently returned 0 chapters for any erotica/pornographic-rated manga the
+        // user added (Berserk's contentRating is `erotica`, total chapters upstream
+        // = 4544). The filter has been removed; this test pins the absence by
+        // capturing the outbound HttpRequest and asserting its URL carries no
+        // contentRating query param.
+        [Test]
+        public void GetMangaInfo_feed_request_must_not_filter_by_contentRating()
+        {
+            var mangaResource = new MangaResource
+            {
+                Data = new MangaDataItem
+                {
+                    Id = "801513ba-a712-498c-8f57-cae55b38cc92",
+                    Type = "manga",
+                    Attributes = new MangaAttributes
+                    {
+                        Title = new Dictionary<string, string> { { "en", "Berserk" } },
+                        ContentRating = "erotica",
+                    },
+                },
+            };
+            SetupGetByIdMock(mangaResource);
+
+            HttpRequest capturedFeedRequest = null;
+            Mocker.GetMock<IHttpClient>()
+                  .Setup(c => c.Get<ChapterFeedResource>(It.IsAny<HttpRequest>()))
+                  .Returns<HttpRequest>(req =>
+                  {
+                      capturedFeedRequest = req;
+                      var headers = new HttpHeader { ContentType = "application/json" };
+                      var body = JsonConvert.SerializeObject(new ChapterFeedResource
+                      {
+                          Data = new List<ChapterFeedEntry>(),
+                      });
+                      var raw = new HttpResponse(req, headers, body, HttpStatusCode.OK);
+                      return new HttpResponse<ChapterFeedResource>(raw);
+                  });
+
+            Subject.GetMangaInfo("801513ba-a712-498c-8f57-cae55b38cc92");
+
+            capturedFeedRequest.Should().NotBeNull("the feed must be requested even for erotica-rated manga");
+            capturedFeedRequest.Url.FullUri.Should().NotContain("contentRating",
+                "MangaDex /feed must return all parent-manga ratings; the hardcoded safe+suggestive filter silently dropped chapters for erotica/pornographic-rated manga the user already added (berserk-no-chapters, 2026-05-13)");
+        }
+
         // ---- Helpers ----
 
         private void SetupGetByIdMock(MangaResource resource)
