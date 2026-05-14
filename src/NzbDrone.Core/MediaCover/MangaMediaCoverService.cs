@@ -178,6 +178,17 @@ namespace NzbDrone.Core.MediaCover
                 return;
             }
 
+            // DEFENSE-IN-DEPTH (debug wrong-cover-image-after-add): drop any on-disk cover
+            // file whose cover type the CURRENT manga does not have. The `Manga` table has
+            // no AUTOINCREMENT, so a reused SQLite rowid can inherit the previous tenant's
+            // MediaCover/manga/{id}/ folder. HandleAsync(MangaDeletedEvent) is supposed to
+            // wipe that folder, but it is fire-and-forget and can lose the race with this
+            // handler — or fail transiently and swallow the error. Pruning orphans here
+            // makes a reused Id start from a clean slate regardless of delete-handler
+            // timing. The primary fix (EnsureResized regenerate) handles the same-cover-type
+            // case; this catches orphaned cover TYPES the new manga no longer carries.
+            PruneOrphanedCovers(manga);
+
             // PHASE 9 PLAN 09-13 (audit gap-03): track whether at least one cover was
             // newly downloaded (AlreadyExists short-circuit leaves it false). The event's
             // `Updated` flag drives MangaController's SignalR push — only fires when a
@@ -248,6 +259,60 @@ namespace NzbDrone.Core.MediaCover
             if (!_diskProvider.FolderExists(folder))
             {
                 _diskProvider.CreateFolder(folder);
+            }
+        }
+
+        // DEFENSE-IN-DEPTH (debug wrong-cover-image-after-add): delete on-disk cover files
+        // (base + resized variants) for cover TYPES the current manga no longer has. Guards
+        // against a reused SQLite rowid inheriting a previous tenant's cover folder when the
+        // MangaDeletedEvent folder-delete loses the race with this handler or fails. Best
+        // effort — a failure here must never abort the cover sync, so it is fully swallowed.
+        private void PruneOrphanedCovers(Manga.Manga manga)
+        {
+            try
+            {
+                var folder = Path.Combine(_coverRootFolder, manga.Id.ToString());
+                if (!_diskProvider.FolderExists(folder))
+                {
+                    return;
+                }
+
+                // Filename prefixes the current manga legitimately owns, e.g. "poster" for a
+                // Poster cover — matches both the base "poster.jpg" and resized "poster-250.jpg".
+                var ownedPrefixes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var cover in manga.Images ?? new List<MediaCover>())
+                {
+                    if (cover.CoverType != MediaCoverTypes.Unknown)
+                    {
+                        ownedPrefixes.Add(cover.CoverType.ToString().ToLowerInvariant());
+                    }
+                }
+
+                foreach (var file in _diskProvider.GetFiles(folder, recursive: false))
+                {
+                    var name = Path.GetFileNameWithoutExtension(file).ToLowerInvariant();
+
+                    // "poster-250" -> "poster"; "poster" -> "poster".
+                    var dashIndex = name.IndexOf('-');
+                    var prefix = dashIndex >= 0 ? name.Substring(0, dashIndex) : name;
+
+                    if (!ownedPrefixes.Contains(prefix))
+                    {
+                        try
+                        {
+                            _diskProvider.DeleteFile(file);
+                            _logger.Debug("Pruned orphaned cover file {0} for manga {1}", file, manga.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Debug(ex, "Couldn't prune orphaned cover file {0} for manga {1}", file, manga.Id);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "Failed to prune orphaned cover files for manga {0}", manga.Id);
             }
         }
 

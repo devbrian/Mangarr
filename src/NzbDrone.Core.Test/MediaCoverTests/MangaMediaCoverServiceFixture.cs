@@ -45,6 +45,13 @@ namespace NzbDrone.Core.Test.MediaCoverTests
                 .Setup(d => d.FolderExists(It.IsAny<string>()))
                 .Returns(true);
 
+            // Default: cover folder holds only this manga's own poster files, so the
+            // defense-in-depth PruneOrphanedCovers pass is a no-op. Tests that exercise the
+            // prune (or assert it never runs) override this.
+            Mocker.GetMock<IDiskProvider>()
+                .Setup(d => d.GetFiles(It.IsAny<string>(), false))
+                .Returns(new[] { "poster.jpg", "poster-250.jpg", "poster-500.jpg" });
+
             Mocker.GetMock<IConfigFileProvider>()
                 .SetupGet(c => c.UrlBase)
                 .Returns(string.Empty);
@@ -254,12 +261,80 @@ namespace NzbDrone.Core.Test.MediaCoverTests
                 .Setup(d => d.FileExists(It.IsAny<string>()))
                 .Returns(true);
 
+            // No orphaned files — every on-disk file belongs to the manga's poster cover.
+            Mocker.GetMock<IDiskProvider>()
+                .Setup(d => d.GetFiles(It.IsAny<string>(), false))
+                .Returns(new[] { "poster.jpg", "poster-250.jpg", "poster-500.jpg" });
+
             Subject.HandleAsync(new MangaUpdatedEvent(_manga));
 
             Mocker.GetMock<IDiskProvider>()
                 .Verify(d => d.DeleteFile(It.IsAny<string>()), Times.Never);
             Mocker.GetMock<IImageResizer>()
                 .Verify(r => r.Resize(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()), Times.Never);
+        }
+
+        // ===================== debug wrong-cover-image-after-add — orphaned cover-type prune =====================
+
+        // Defense-in-depth: a reused SQLite rowid can inherit a previous tenant's cover
+        // folder. If the prior manga had a Banner cover and the new one only has a Poster,
+        // the orphaned banner.jpg / banner-70.jpg / banner-110.jpg must be pruned before
+        // the cover sync — the primary EnsureResized-regenerate fix only covers cover TYPES
+        // the new manga still carries.
+        [Test]
+        public void HandleAsync_should_prune_orphaned_cover_type_files_from_reused_folder()
+        {
+            Mocker.GetMock<ICoverExistsSpecification>()
+                .Setup(s => s.AlreadyExists(It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(true);
+
+            // _manga has only a Poster cover. The folder still holds the prior tenant's
+            // Banner files (orphaned cover type).
+            Mocker.GetMock<IDiskProvider>()
+                .Setup(d => d.GetFiles(It.IsAny<string>(), false))
+                .Returns(new[]
+                {
+                    "poster.jpg", "poster-250.jpg", "poster-500.jpg",
+                    "banner.jpg", "banner-70.jpg", "banner-110.jpg"
+                });
+
+            Subject.HandleAsync(new MangaUpdatedEvent(_manga));
+
+            // Orphaned banner files are pruned...
+            Mocker.GetMock<IDiskProvider>()
+                .Verify(d => d.DeleteFile("banner.jpg"), Times.Once);
+            Mocker.GetMock<IDiskProvider>()
+                .Verify(d => d.DeleteFile("banner-70.jpg"), Times.Once);
+            Mocker.GetMock<IDiskProvider>()
+                .Verify(d => d.DeleteFile("banner-110.jpg"), Times.Once);
+
+            // ...and the manga's own poster files are left alone by the prune.
+            Mocker.GetMock<IDiskProvider>()
+                .Verify(d => d.DeleteFile(It.Is<string>(p => p.Contains("poster"))), Times.Never);
+        }
+
+        [Test]
+        public void HandleAsync_prune_failure_is_swallowed_and_does_not_abort_cover_sync()
+        {
+            Mocker.GetMock<ICoverExistsSpecification>()
+                .Setup(s => s.AlreadyExists(It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(false);
+
+            // GetFiles throws — prune must swallow it (Warn) and the cover sync must still run.
+            Mocker.GetMock<IDiskProvider>()
+                .Setup(d => d.GetFiles(It.IsAny<string>(), false))
+                .Throws(new System.IO.IOException("simulated enumeration failure"));
+
+            Subject.HandleAsync(new MangaUpdatedEvent(_manga));
+
+            // Cover download still happened despite the prune failure.
+            Mocker.GetMock<IHttpClient>()
+                .Verify(h => h.DownloadFile(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<MangaCoversUpdatedEvent>()), Times.Once);
+
+            // Production Warn-logs the swallowed IOException; declare it so AssertNoUnexpectedLogs passes.
+            ExceptionVerification.ExpectedWarns(1);
         }
     }
 }
