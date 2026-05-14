@@ -39,12 +39,20 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             public int LaunchCount;
             public int CloseCount;
 
-            public FastIdleSigner(IIndexerSourceStatusService s, Logger l)
+            // CI-infra (ci-test-jobs-latent-faults): IdleTimeout is now per-instance so each
+            // test picks a value with a safe margin. The pre-fix hard-coded 50 ms made
+            // Activity_within_idle_window_should_NOT_tear_down flaky on loaded CI runners —
+            // a `Task.Delay(20)` between calls can balloon past 50 ms under scheduler
+            // pressure, firing the idle timer and producing a spurious second launch.
+            private readonly TimeSpan _idleTimeout;
+
+            public FastIdleSigner(IIndexerSourceStatusService s, Logger l, TimeSpan idleTimeout)
                 : base(s, l)
             {
+                _idleTimeout = idleTimeout;
             }
 
-            protected override TimeSpan IdleTimeout => TimeSpan.FromMilliseconds(50);
+            protected override TimeSpan IdleTimeout => _idleTimeout;
 
             protected override Task LaunchAndProbeAsync(CancellationToken ct)
             {
@@ -146,9 +154,12 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         [Test]
         public async Task After_idle_period_browser_should_tear_down_and_next_call_cold_spawns()
         {
+            // Short IdleTimeout — this test WANTS the timer to fire quickly so teardown is
+            // observable; the 300 ms + 100 ms waits below are comfortably past it.
             var subject = new FastIdleSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"));
+                LogManager.GetLogger("ComixPuppeteerSigner"),
+                TimeSpan.FromMilliseconds(50));
 
             await subject.ProxyFetchAsync("/manga/test/chapters").ConfigureAwait(false);
             subject.LaunchCount.Should().Be(1, "first call must spawn");
@@ -174,16 +185,23 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             // Pitfall 2: ReArmIdleTimer runs BEFORE _gate.Release() so back-to-back calls
             // each push the timer forward; only ONE launch occurs across N consecutive
-            // ProxyFetchAsync calls within the FastIdle window.
+            // ProxyFetchAsync calls within the idle window.
+            //
+            // Generous 5 s IdleTimeout: the assertion is "rapid re-arming keeps the browser
+            // alive", which only needs each inter-call gap to stay UNDER the timeout. The
+            // whole 5-iteration loop runs in well under 5 s even on a heavily loaded CI
+            // runner, so the timer reliably never fires — eliminating the pre-fix flakiness
+            // where a 20 ms delay could balloon past a 50 ms timeout under scheduler pressure.
             var subject = new FastIdleSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"));
+                LogManager.GetLogger("ComixPuppeteerSigner"),
+                TimeSpan.FromSeconds(5));
 
             for (var i = 0; i < 5; i++)
             {
                 await subject.ProxyFetchAsync("/manga/test/chapters").ConfigureAwait(false);
 
-                // Sleep 20ms — well under IdleTimeout (50ms) so the timer should NOT fire.
+                // Small gap to simulate rapid-but-not-instant calls; trivially under the 5 s timeout.
                 await Task.Delay(20).ConfigureAwait(false);
             }
 

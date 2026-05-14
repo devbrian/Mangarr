@@ -94,6 +94,13 @@ runs:
       shell: bash
       run: |
         find ./_tests \( -name 'Mangarr.Test.Dummy' -o -name 'ffprobe' -o -name 'ffmpeg' \) -type f -print -exec chmod +x {} +
+        # CI-infra F9 fix (ci-test-jobs-latent-faults): the Microsoft.Playwright .NET driver's
+        # bundled Node runtime (.playwright/node/<rid>/node) also loses its exec bit through
+        # artifact upload/download. F9 part 1 (include-hidden-files on publish-test-artifact)
+        # got the hidden .playwright/ dir INTO the artifact; without +x here, the automation_test_*
+        # jobs' PlaywrightSetUpFixture.SetUpAsync still fails — Microsoft.Playwright.Program.Main
+        # cannot spawn the driver and Browser stays null.
+        find ./_tests -type f -path '*/.playwright/node/*' -name 'node' -print -exec chmod +x {} +
 
     - name: Run tests
       shell: bash

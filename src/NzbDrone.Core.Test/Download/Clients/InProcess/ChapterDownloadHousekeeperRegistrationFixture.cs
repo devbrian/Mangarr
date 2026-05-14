@@ -35,8 +35,14 @@ namespace NzbDrone.Core.Test.Download.Clients.InProcess
         {
             using (var conn = Db.OpenConnection())
             {
+                // CI-infra F8 fix (ci-test-jobs-latent-faults): quote the table + column
+                // identifiers. Unquoted, Postgres folds them to lowercase (`scheduledtasks`
+                // / `typename`) and the migrated schema's mixed-case `"ScheduledTasks"` /
+                // `"TypeName"` are not found — `42P01: relation "scheduledtasks" does not
+                // exist` in the unit_test_postgres job. Double-quoted identifiers are valid
+                // on SQLite too, so this works on both backends.
                 return conn.ExecuteScalar<int>(
-                    "SELECT COUNT(*) FROM ScheduledTasks WHERE TypeName = @t",
+                    "SELECT COUNT(*) FROM \"ScheduledTasks\" WHERE \"TypeName\" = @t",
                     new { t = typeName });
             }
         }
