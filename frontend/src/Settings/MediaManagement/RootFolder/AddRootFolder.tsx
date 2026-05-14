@@ -48,10 +48,14 @@ function AddRootFolder() {
       ) : null}
 
       <div className={styles.addRootFolderButtonContainer}>
+        {/* Phase 18 Plan 18-07: D-08 catalog item — SettingsFlow.AddRootFolderAsync
+            uses this button as the entry point. Button extends Link, which propagates
+            data-testid via ...otherProps (data-testid-spec Wrapper-Component Sweep Ledger). */}
         <Button
           kind={kinds.PRIMARY}
           size={sizes.LARGE}
           onPress={onAddNewRootFolderPress}
+          data-testid="settings-root-folders-add-button"
         >
           <Icon className={styles.importButtonIcon} name={icons.DRIVE} />
           {translate('AddRootFolder')}

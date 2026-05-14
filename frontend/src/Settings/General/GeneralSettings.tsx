@@ -100,6 +100,11 @@ function GeneralSettings() {
     }
   }, [isResettingApiKey, wasResettingApiKey]);
 
+  // Phase 18 Plan 18-07: page testid wraps the body. SettingsSaveRoundTripFixture
+  // (UI-07) toggles the instanceName field — that input keeps its existing
+  // `name="instanceName"` attribute on the rendered <input>, which the fixture
+  // selects via Page.Locator("input[name='instanceName']") since the TextInput
+  // wrapper data-testid passthrough lands in Plan-04.
   return (
     <PageContent title={translate('GeneralSettings')}>
       <SettingsToolbar
@@ -109,6 +114,7 @@ function GeneralSettings() {
       />
 
       <PageContentBody>
+        <div data-testid="settings-general-page">
         {isFetching && !isFetched ? <LoadingIndicator /> : null}
 
         {!isFetching && error ? (
@@ -189,6 +195,7 @@ function GeneralSettings() {
             />
           </Form>
         ) : null}
+        </div>
       </PageContentBody>
 
       <ConfirmModal

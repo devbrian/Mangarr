@@ -132,7 +132,10 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
   };
 
   return (
-    <div className={styles.content}>
+    <div
+      className={styles.content}
+      data-testid={`manga-card-${titleSlug ?? mangaId}`}
+    >
       <div className={styles.posterContainer} title={title}>
         {isSelectMode ? (
           <MangaIndexPosterSelect mangaId={mangaId} titleSlug={titleSlug} />

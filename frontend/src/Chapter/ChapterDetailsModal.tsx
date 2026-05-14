@@ -58,18 +58,20 @@ function ChapterDetailsModal({
     >
       <ModalContent onModalClose={onModalClose}>
         <ModalHeader>
-          {chapter ? (
-            <span>
-              <ChapterNumber
-                chapterNumber={chapter.chapterNumber}
-                volumeNumber={chapter.volumeNumber}
-                showVolumeNumber={chapter.volumeNumber != null}
-              />
-              {chapter.title || chapterTitle ? ` — ${chapter.title || chapterTitle}` : null}
-            </span>
-          ) : (
-            chapterTitle ?? translate('Chapter')
-          )}
+          <span data-testid="chapter-details-modal-header">
+            {chapter ? (
+              <span>
+                <ChapterNumber
+                  chapterNumber={chapter.chapterNumber}
+                  volumeNumber={chapter.volumeNumber}
+                  showVolumeNumber={chapter.volumeNumber != null}
+                />
+                {chapter.title || chapterTitle ? ` — ${chapter.title || chapterTitle}` : null}
+              </span>
+            ) : (
+              chapterTitle ?? translate('Chapter')
+            )}
+          </span>
         </ModalHeader>
 
         <ModalBody>

@@ -223,6 +223,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
               spinningName={icons.REFRESH}
               title={translate('RefreshAndScanTooltip')}
               isSpinning={isRefreshing}
+              data-testid="manga-details-refresh-button"
               onPress={handleRefreshPress}
             />
 
@@ -231,6 +232,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
               iconName={icons.SEARCH}
               isDisabled={!monitored || chapterCount === 0}
               isSpinning={isSearching}
+              data-testid="manga-details-manual-search-button"
               onPress={handleSearchPress}
             />
 
@@ -239,12 +241,14 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
             <PageToolbarButton
               label={translate('Edit')}
               iconName={icons.EDIT}
+              data-testid="manga-details-edit-button"
               onPress={handleEditPress}
             />
 
             <PageToolbarButton
               label={translate('Delete')}
               iconName={icons.DELETE}
+              data-testid="manga-details-delete-button"
               onPress={handleDeletePress}
             />
 
@@ -252,13 +256,14 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
               label={translate('History')}
               iconName={icons.HISTORY}
               isDisabled={chapterCount === 0}
+              data-testid="manga-details-history-button"
               onPress={handleHistoryPress}
             />
           </PageToolbarSection>
         </PageToolbar>
 
         <PageContentBody innerClassName={styles.innerContentBody}>
-          <div className={styles.header}>
+          <div className={styles.header} data-testid="manga-details-page">
             <div className={styles.headerContent}>
               <MangaPoster
                 className={styles.poster}
@@ -278,6 +283,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
                         isSaving={isTogglingMangaMonitored}
                         size={40}
                         onPress={handleMonitorTogglePress}
+                        data-testid="manga-details-monitor-toggle"
                       />
                     </div>
 

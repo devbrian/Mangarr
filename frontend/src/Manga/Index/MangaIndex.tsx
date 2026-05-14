@@ -292,7 +292,10 @@ function MangaIndex() {
               />
             </PageToolbarSection>
           </PageToolbar>
-          <div className={styles.pageContentBodyWrapper}>
+          <div
+            className={styles.pageContentBodyWrapper}
+            data-testid="manga-index-page"
+          >
             <PageContentBody
               ref={scrollerRef}
               className={styles.contentBody}
@@ -311,7 +314,10 @@ function MangaIndex() {
               ) : null}
 
               {isLoaded ? (
-                <div className={styles.contentBodyContainer}>
+                <div
+                  className={styles.contentBodyContainer}
+                  data-testid="manga-index-grid"
+                >
                   <ViewComponent
                     scrollerRef={scrollerRef}
                     items={data}

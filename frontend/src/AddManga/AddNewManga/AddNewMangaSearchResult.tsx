@@ -118,13 +118,26 @@ function AddNewMangaSearchResult({ manga }: AddNewMangaSearchResultProps) {
       }
     : { onPress: handlePress };
 
+  // Phase 18 Plan-04: row-scoping testid. Tests target an individual result via
+  // `getByTestId('add-manga-result-{id}').getByTestId('add-manga-add-button')`.
+  // The id source is MangaDex / AniList / MAL in that priority order; falls
+  // back to titleSlug for offline cassettes that may not carry an external id.
+  const resultRowTestId = mangaDexId
+    ? `add-manga-result-${mangaDexId}`
+    : aniListId != null
+    ? `add-manga-result-al-${aniListId}`
+    : malId != null
+    ? `add-manga-result-mal-${malId}`
+    : `add-manga-result-${titleSlug ?? 'unknown'}`;
+
   return (
-    <div className={styles.searchResult}>
+    <div className={styles.searchResult} data-testid={resultRowTestId}>
       <Link
         className={styles.underlay}
         aria-label={
           isExistingManga ? title : translate('AddMangaWithTitle', { title })
         }
+        data-testid="add-manga-add-button"
         {...linkProps}
       />
 

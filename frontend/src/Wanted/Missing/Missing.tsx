@@ -317,6 +317,7 @@ function MissingContent({ mediaType = 'manga' }: MissingProps) {
         </PageToolbar>
 
         <PageContentBody>
+          <div data-testid="manga-missing-page">
           {isFetching && isLoading ? <LoadingIndicator /> : null}
 
           {!isFetching && error ? (
@@ -332,7 +333,7 @@ function MissingContent({ mediaType = 'manga' }: MissingProps) {
           ) : null}
 
           {!isLoading && !error && !!records.length ? (
-            <div>
+            <div data-testid="manga-missing-table">
               <Table
                 selectAll={true}
                 allSelected={allSelected}
@@ -385,6 +386,7 @@ function MissingContent({ mediaType = 'manga' }: MissingProps) {
               />
             </div>
           ) : null}
+          </div>
         </PageContentBody>
 
         {/* Phase 12 Plan 12-11 LOCK guard — sub-wave-B-addition (audit row 4 secondary closure):

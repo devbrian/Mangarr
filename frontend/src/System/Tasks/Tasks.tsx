@@ -8,10 +8,12 @@ import ScheduledTasks from './Scheduled/ScheduledTasks';
 function Tasks() {
   return (
     <PageContent title={translate('Tasks')}>
-      <PageContentBody>
-        <ScheduledTasks />
-        <QueuedTasks />
-      </PageContentBody>
+      <div data-testid="system-tasks-page">
+        <PageContentBody>
+          <ScheduledTasks />
+          <QueuedTasks />
+        </PageContentBody>
+      </div>
     </PageContent>
   );
 }

@@ -210,7 +210,7 @@ function AddNewMangaModalContent({
       </ModalHeader>
 
       <ModalBody>
-        <div className={styles.container}>
+        <div className={styles.container} data-testid="add-manga-modal">
           {isSmallScreen ? null : (
             <div className={styles.poster}>
               <MangaPoster
@@ -336,6 +336,7 @@ function AddNewMangaModalContent({
           className={styles.addButton}
           kind={kinds.SUCCESS}
           isSpinning={isAdding}
+          data-testid="add-manga-modal-add-button"
           onPress={handleAddMangaPress}
         >
           {translate('AddMangaWithTitle', { title })}

@@ -933,6 +933,8 @@ function InteractiveImportModalContentInner(
         {error ? <div>{errorMessage}</div> : null}
 
         {isPopulated && !!items.length && !isFetching && !isFetching ? (
+          // Phase 18 Plan-08 -- interactive-import-modal-table testid wrapper.
+          <div data-testid="interactive-import-modal-table">
           <Table
             columns={columns}
             horizontalScroll={true}
@@ -962,6 +964,7 @@ function InteractiveImportModalContentInner(
               })}
             </TableBody>
           </Table>
+          </div>
         ) : null}
 
         {isPopulated && !items.length && !isFetching

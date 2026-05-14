@@ -36,7 +36,12 @@ User picks Root Folder, Monitor, TranslationProfile, CustomFormatProfile,
   -> useAddManga -> POST /api/v5/manga { ...AddMangaPayload }
   -> Backend MangaController.AddManga persists + queues refresh
   -> SignalR pushes `manga` (action=added) -> SignalRListener invalidates ['/manga']
-Navigate to /manga (library) or /manga/:titleSlug (detail page) — Plan 07-05
+  -> useAddManga.onSuccess writes the new manga into the ['/manga'] queryCache
+  -> Modal auto-closes; user stays on /add/manga (the result row gets a
+     green "already in library" checkmark — Sonarr-mirror UX verified
+     against pre-Phase-15-delete useAddSeries.ts, issue #102 close-out).
+     To reach detail page, user clicks the sidebar /manga link or the
+     in-place result-row indicator.
 ```
 
 ## Form-Field Divergence (Mangarr -> Mangarr)

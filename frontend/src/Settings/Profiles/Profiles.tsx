@@ -31,16 +31,22 @@ import ReleaseProfiles from './Release/ReleaseProfiles';  // Phase 12 sub-wave C
 // translation profile language-rank drag-lists.
 
 function Profiles() {
+  // Phase 18 Plan 18-07: the /settings/profiles route renders the manga-canonical
+  // TranslationProfiles editor as its primary; the testid lives here, on the parent
+  // route. TranslationProfile rows are per-profile cards with `settings-translation-
+  // profiles-row-{id}` testids inside TranslationProfile.tsx.
   return (
     <PageContent title={translate('TranslationProfiles')}>
       <SettingsToolbar showSave={false} />
 
       <PageContentBody>
-        <DndProvider options={HTML5toTouch}>
-          <TranslationProfiles />
-          <DelayProfiles />
-          <ReleaseProfiles />
-        </DndProvider>
+        <div data-testid="settings-translation-profiles-page">
+          <DndProvider options={HTML5toTouch}>
+            <TranslationProfiles />
+            <DelayProfiles />
+            <ReleaseProfiles />
+          </DndProvider>
+        </div>
       </PageContentBody>
     </PageContent>
   );

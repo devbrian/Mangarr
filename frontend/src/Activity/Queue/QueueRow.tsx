@@ -215,7 +215,7 @@ function QueueRow(props: QueueRowProps) {
     status === 'delay' || status === 'downloadClientUnavailable';
 
   return (
-    <TableRow>
+    <TableRow data-testid={`manga-queue-row-${id}`}>
       <TableSelectCell
         id={id}
         isSelected={isSelected}
@@ -243,6 +243,7 @@ function QueueRow(props: QueueRowProps) {
               }
               statusMessages={statusMessages}
               errorMessage={errorMessage}
+              data-testid={`manga-queue-row-${id}-status`}
             />
           );
         }
@@ -253,8 +254,14 @@ function QueueRow(props: QueueRowProps) {
         // a localStorage migration — labels are relabeled in the store.
         // Phase 8 cleanup: rename keys to manga.X / chapter.X when Tv/ deletes.
         if (name === 'series.sortTitle') {
+          // Phase 18 Plan-05: column key `series.sortTitle` is the upgrade-path
+          // Zustand key — the data-testid uses the canonical manga-shape name
+          // (`-manga`) per the data-testid-spec naming convention.
           return (
-            <TableRowCell key={name}>
+            <TableRowCell
+              key={name}
+              data-testid={`manga-queue-row-${id}-manga`}
+            >
               {manga ? (
                 <MangaTitleLink
                   titleSlug={
@@ -273,11 +280,19 @@ function QueueRow(props: QueueRowProps) {
 
         if (name === 'episode') {
           if (!chapter) {
-            return <TableRowCell key={name} />;
+            return (
+              <TableRowCell
+                key={name}
+                data-testid={`manga-queue-row-${id}-chapter`}
+              />
+            );
           }
 
           return (
-            <TableRowCell key={name}>
+            <TableRowCell
+              key={name}
+              data-testid={`manga-queue-row-${id}-chapter`}
+            >
               <ChapterNumber chapterNumber={chapter.chapterNumber} />
             </TableRowCell>
           );
@@ -359,7 +374,11 @@ function QueueRow(props: QueueRowProps) {
 
         if (name === 'progress') {
           return (
-            <TableRowCell key={name} className={styles.progress}>
+            <TableRowCell
+              key={name}
+              className={styles.progress}
+              data-testid={`manga-queue-row-${id}-progress`}
+            >
               {!!progress && (
                 <ProgressBar
                   progress={progress}

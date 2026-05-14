@@ -53,6 +53,10 @@ function IndexerSettings() {
     testAllIndexers();
   }, [testAllIndexers]);
 
+  // Phase 18 Plan 18-07: page container testid wraps the body for the SettingsIndexersPage
+  // PageObject. SettingsToolbar's primary Save button is the global save flow — the
+  // additional ManageIndexers / TestAllIndexers PageToolbarButtons are wave-2 noise here.
+  // PageToolbarButton extends Link, which propagates data-testid via ...otherProps.
   return (
     <PageContent title={translate('IndexerSettings')}>
       <SettingsToolbar
@@ -67,12 +71,14 @@ function IndexerSettings() {
               iconName={icons.TEST}
               isSpinning={isTestingAllIndexers}
               onPress={handleTestAllIndexersPress}
+              data-testid="settings-indexers-test-all-button"
             />
 
             <PageToolbarButton
               label={translate('ManageIndexers')}
               iconName={icons.MANAGE}
               onPress={handleManageIndexersPress}
+              data-testid="settings-indexers-manage-button"
             />
           </>
         }
@@ -80,17 +86,19 @@ function IndexerSettings() {
       />
 
       <PageContentBody>
-        <Indexers />
+        <div data-testid="settings-indexers-page">
+          <Indexers />
 
-        <IndexerOptions
-          setChildSave={handleSetChildSave}
-          onChildStateChange={handleChildStateChange}
-        />
+          <IndexerOptions
+            setChildSave={handleSetChildSave}
+            onChildStateChange={handleChildStateChange}
+          />
 
-        <ManageIndexersModal
-          isOpen={isManageIndexersModalOpen}
-          onModalClose={handleManageIndexersModalClose}
-        />
+          <ManageIndexersModal
+            isOpen={isManageIndexersModalOpen}
+            onModalClose={handleManageIndexersModalClose}
+          />
+        </div>
       </PageContentBody>
     </PageContent>
   );

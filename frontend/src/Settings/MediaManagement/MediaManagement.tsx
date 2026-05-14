@@ -147,6 +147,7 @@ function MediaManagement() {
       />
 
       <PageContentBody>
+        <div data-testid="settings-root-folders-page">
         {/* Sonarr divergence: Phase 7 D-05 manga sibling; Phase 15 Plan 15-12 fix-forward
             removed the TV `<Naming />` sibling that called the deleted /api/v5/settings/naming.
             Wires Phase 5 Plan 05-06 `/api/v5/config/manganaming` + presets endpoints. */}
@@ -533,6 +534,7 @@ function MediaManagement() {
           <RootFolders />
           <AddRootFolder />
         </FieldSet>
+        </div>
       </PageContentBody>
     </PageContent>
   );

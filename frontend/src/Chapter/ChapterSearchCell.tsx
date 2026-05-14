@@ -79,6 +79,7 @@ function ChapterSearchCell({
         isSpinning={isSearching}
         title={translate('AutomaticSearch')}
         onPress={handleAutoSearchPress}
+        data-testid={`chapter-row-${chapterId}-search-button`}
       />
 
       <IconButton

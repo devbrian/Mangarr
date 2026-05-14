@@ -61,6 +61,8 @@ function DownloadClientSettings() {
     dispatch(testAllDownloadClients());
   }, [dispatch]);
 
+  // Phase 18 Plan 18-07: page container testid wraps the body for the
+  // SettingsDownloadClientsPage PageObject. Save lives in the global SettingsToolbar.
   return (
     <PageContent title={translate('DownloadClientSettings')}>
       <SettingsToolbar
@@ -75,12 +77,14 @@ function DownloadClientSettings() {
               iconName={icons.TEST}
               isSpinning={isTestingAll}
               onPress={handleTestAllIndexersPress}
+              data-testid="settings-download-clients-test-all-button"
             />
 
             <PageToolbarButton
               label={translate('ManageClients')}
               iconName={icons.MANAGE}
               onPress={handleManageDownloadClientsPress}
+              data-testid="settings-download-clients-manage-button"
             />
           </>
         }
@@ -88,19 +92,21 @@ function DownloadClientSettings() {
       />
 
       <PageContentBody>
-        <DownloadClients />
+        <div data-testid="settings-download-clients-page">
+          <DownloadClients />
 
-        <DownloadClientOptions
-          setChildSave={handleSetChildSave}
-          onChildStateChange={handleChildStateChange}
-        />
+          <DownloadClientOptions
+            setChildSave={handleSetChildSave}
+            onChildStateChange={handleChildStateChange}
+          />
 
-        <RemotePathMappings />
+          <RemotePathMappings />
 
-        <ManageDownloadClientsModal
-          isOpen={isManageDownloadClientsModalOpen}
-          onModalClose={handleManageDownloadClientsModalClose}
-        />
+          <ManageDownloadClientsModal
+            isOpen={isManageDownloadClientsModalOpen}
+            onModalClose={handleManageDownloadClientsModalClose}
+          />
+        </div>
       </PageContentBody>
     </PageContent>
   );

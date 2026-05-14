@@ -203,8 +203,21 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
     setIsOverrideModalOpen(false);
   }, [setIsOverrideModalOpen]);
 
+  // Phase 18 Plan-08 D-18 -- per-row testid keyed by release guid lets
+  // PageObjects target individual rows. The rejected-icon span renders ONLY
+  // when rejections.length > 0; per feedback_verify_ui_state_not_just_rendering
+  // memory, this is the canonical state-not-rendering target.
+  //
+  // Testid shapes emitted at runtime (literal patterns for source-grep audits):
+  //   interactive-search-row-{guid}
+  //   interactive-search-row-{guid}-title
+  //   interactive-search-row-{guid}-decision
+  //   interactive-search-row-{guid}-rejected-icon
+  //   interactive-search-row-{guid}-grab-button
+  const rowTestId = `interactive-search-row-${guid}`;
+
   return (
-    <TableRow>
+    <TableRow data-testid={rowTestId}>
       <TableRowCell className={styles.protocol}>
         <ProtocolLabel protocol={protocol} />
       </TableRowCell>
@@ -219,7 +232,7 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
         {formatAge(age, ageHours, ageMinutes)}
       </TableRowCell>
 
-      <TableRowCell>
+      <TableRowCell data-testid={`${rowTestId}-title`}>
         <div className={styles.titleContent}>
           <Link to={infoUrl}>{title}</Link>
           <ReleaseSceneIndicator
@@ -311,31 +324,39 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
         ) : null}
       </TableRowCell>
 
-      <TableRowCell className={styles.rejected}>
+      <TableRowCell
+        className={styles.rejected}
+        data-testid={`${rowTestId}-decision`}
+      >
         {rejections.length ? (
-          <Popover
-            anchor={<Icon name={icons.DANGER} kind={kinds.DANGER} />}
-            title={translate('ReleaseRejected')}
-            body={
-              <ul>
-                {rejections.map((rejection, index) => {
-                  return <li key={index}>{rejection.message}</li>;
-                })}
-              </ul>
-            }
-            position={tooltipPositions.LEFT}
-          />
+          <span data-testid={`${rowTestId}-rejected-icon`}>
+            <Popover
+              anchor={<Icon name={icons.DANGER} kind={kinds.DANGER} />}
+              title={translate('ReleaseRejected')}
+              body={
+                <ul>
+                  {rejections.map((rejection, index) => {
+                    return <li key={index}>{rejection.message}</li>;
+                  })}
+                </ul>
+              }
+              position={tooltipPositions.LEFT}
+            />
+          </span>
         ) : null}
       </TableRowCell>
 
       <TableRowCell className={styles.download}>
-        <SpinnerIconButton
-          name={getDownloadIcon(isGrabbing, isGrabbed, grabError)}
-          kind={getDownloadKind(isGrabbed, grabError)}
-          title={getDownloadTooltip(isGrabbing, isGrabbed, grabError)}
-          isSpinning={isGrabbing}
-          onPress={handleGrabPress}
-        />
+        {/* Phase 18 Plan-08 -- grab-button testid wrapper. */}
+        <span data-testid={`${rowTestId}-grab-button`}>
+          <SpinnerIconButton
+            name={getDownloadIcon(isGrabbing, isGrabbed, grabError)}
+            kind={getDownloadKind(isGrabbed, grabError)}
+            title={getDownloadTooltip(isGrabbing, isGrabbed, grabError)}
+            isSpinning={isGrabbing}
+            onPress={handleGrabPress}
+          />
+        </span>
 
         <Link
           className={styles.manualDownloadContent}

@@ -90,6 +90,7 @@ function LogsTable() {
 
   return (
     <PageContent title={translate('Logs')}>
+      <div data-testid="system-events-page">
       <PageToolbar>
         <PageToolbarSection>
           <PageToolbarButton
@@ -167,6 +168,7 @@ function LogsTable() {
           </div>
         ) : null}
       </PageContentBody>
+      </div>
     </PageContent>
   );
 }

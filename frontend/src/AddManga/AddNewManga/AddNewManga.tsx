@@ -72,7 +72,7 @@ function AddNewManga() {
   return (
     <PageContent title={translate('AddNewManga')}>
       <PageContentBody>
-        <div className={styles.searchContainer}>
+        <div className={styles.searchContainer} data-testid="add-manga-page">
           <div className={styles.searchIconContainer}>
             <Icon name={icons.SEARCH} size={20} />
           </div>
@@ -84,11 +84,13 @@ function AddNewManga() {
             value={term}
             placeholder={translate('SearchMangaDex')}
             autoFocus={true}
+            data-testid="add-manga-search-input"
             onChange={handleSearchInputChange}
           />
 
           <Button
             className={styles.clearLookupButton}
+            data-testid="add-manga-search-clear-button"
             onPress={handleClearMangaLookupPress}
           >
             <Icon name={icons.REMOVE} size={20} />

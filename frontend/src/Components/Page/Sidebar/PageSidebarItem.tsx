@@ -15,6 +15,12 @@ export interface PageSidebarItemProps {
   statusComponent?: React.ElementType;
   children?: React.ReactNode;
   onPress?: () => void;
+  // Phase 18 Plan-03 — additive data-testid plumb-through to the rendered <Link>.
+  // Used by PageSidebar.tsx links config to expose nav-{section} testids on the
+  // 6 top-nav items per inventory/data-testid-spec.md. <Link> already propagates
+  // data-testid via ...otherProps (verified Phase 18 Plan-01 Wrapper Ledger),
+  // so the testid lands on the underlying DOM <a> / RouterLink element.
+  dataTestId?: string;
 }
 
 function PageSidebarItem({
@@ -28,6 +34,7 @@ function PageSidebarItem({
   statusComponent: StatusComponent,
   children,
   onPress,
+  dataTestId,
 }: PageSidebarItemProps) {
   const handlePress = useCallback(() => {
     if (isChildItem || !isParentItem) {
@@ -48,6 +55,7 @@ function PageSidebarItem({
         to={to}
         aria-current={isActive ? 'page' : undefined}
         onPress={handlePress}
+        data-testid={dataTestId}
       >
         {!!iconName && (
           <span className={styles.iconContainer}>

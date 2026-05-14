@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Security;
@@ -166,7 +168,83 @@ namespace NzbDrone.Common.Http.Dispatchers
                 handler.Proxy = _createManagedWebProxy.GetWebProxy(proxySettings);
             }
 
-            var client = new System.Net.Http.HttpClient(handler)
+            // PHASE 18 TEST HOOK — Automation cassette interceptor.
+            // Activated only when MANGARR_TEST_CASSETTE_MODE env var is set (Replay|Record|ReplayOrRecord).
+            // Production paths always have the env var unset, so this branch is dead code in prod.
+            // Per 18-RESEARCH.md §"Cassette injection mechanism" + Phase 18 D-09.
+            HttpMessageHandler effectiveHandler = handler;
+            var cassetteMode = Environment.GetEnvironmentVariable("MANGARR_TEST_CASSETTE_MODE");
+            var cassetteDir = Environment.GetEnvironmentVariable("MANGARR_TEST_CASSETTE_DIR");
+            var sentinelPath = Environment.GetEnvironmentVariable("MANGARR_TEST_SENTINEL_PNG");
+            if (!string.IsNullOrEmpty(cassetteMode) && !string.IsNullOrEmpty(cassetteDir))
+            {
+                // Reflection load to avoid taking a hard dep from Mangarr.Common on the test assembly.
+                const string asmName = "Mangarr.Automation.Test";
+                const string typeName = "NzbDrone.Automation.Test.TestKit.CassetteHandler";
+                const string modeTypeName = "NzbDrone.Automation.Test.TestKit.CassetteMode";
+                var asm = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == asmName);
+
+                // Cross-process fallback (18-14 D-B fix): the Mangarr backend is spawned by
+                // NzbDroneRunner as a separate process whose AppDomain never loads the test
+                // assembly. The test runner sets MANGARR_TEST_ASSEMBLY_PATH to the absolute
+                // .dll path so the backend can Assembly.LoadFrom it on demand. Production
+                // never sets this env var, so the branch is dead code outside test runs.
+                if (asm == null)
+                {
+                    var asmPath = Environment.GetEnvironmentVariable("MANGARR_TEST_ASSEMBLY_PATH");
+                    if (!string.IsNullOrEmpty(asmPath) && File.Exists(asmPath))
+                    {
+                        try
+                        {
+                            asm = System.Reflection.Assembly.LoadFrom(asmPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Trace.WriteLine(
+                                $"MANGARR_TEST_ASSEMBLY_PATH='{asmPath}' load failed: {ex.Message}; falling through to production handler.");
+                        }
+                    }
+                }
+
+                if (asm != null)
+                {
+                    var type = asm.GetType(typeName);
+                    var modeEnumType = asm.GetType(modeTypeName);
+                    if (type != null && modeEnumType != null)
+                    {
+                        // BL-01 fix (18-13): Enum.Parse throws on a typo'd env-var value,
+                        // crashing every production HTTP path. Use the reflection-friendly
+                        // Enum.TryParse(Type, string, bool, out object) overload instead;
+                        // on failure, log via Trace and fall through to the production
+                        // handler. modeEnumType is loaded reflectively across an assembly
+                        // boundary so we can't take a static dep on CassetteMode here.
+                        var tryParseMethod = typeof(Enum).GetMethods()
+                            .First(m => m.Name == "TryParse"
+                                        && m.IsGenericMethodDefinition == false
+                                        && m.GetParameters().Length == 4
+                                        && m.GetParameters()[0].ParameterType == typeof(Type)
+                                        && m.GetParameters()[1].ParameterType == typeof(string)
+                                        && m.GetParameters()[2].ParameterType == typeof(bool)
+                                        && m.GetParameters()[3].ParameterType.IsByRef);
+                        var parseArgs = new object[] { modeEnumType, cassetteMode, true, null };
+                        var parsed = (bool)tryParseMethod.Invoke(null, parseArgs);
+                        if (parsed)
+                        {
+                            var modeValue = parseArgs[3];
+                            effectiveHandler = (HttpMessageHandler)Activator.CreateInstance(
+                                type, cassetteDir, modeValue, sentinelPath ?? string.Empty, handler);
+                        }
+                        else
+                        {
+                            System.Diagnostics.Trace.WriteLine(
+                                $"MANGARR_TEST_CASSETTE_MODE='{cassetteMode}' is not a valid CassetteMode; ignoring.");
+                        }
+                    }
+                }
+            }
+
+            var client = new System.Net.Http.HttpClient(effectiveHandler)
             {
                 DefaultRequestVersion = HttpVersion.Version20,
                 DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower,

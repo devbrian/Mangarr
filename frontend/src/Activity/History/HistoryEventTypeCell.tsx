@@ -84,15 +84,29 @@ function getTooltip(eventType: HistoryEventType, data: HistoryData) {
 interface HistoryEventTypeCellProps {
   eventType: HistoryEventType;
   data: HistoryData;
+  // Phase 18 Plan-05: optional data-testid for row-cell state assertions
+  // (feedback_verify_ui_state_not_just_rendering.md — the decision/event-type
+  // cell is the one that hides silent rejections; Playwright fixtures pull
+  // the icon's `name` attribute or the cell's title text to verify state).
+  'data-testid'?: string;
 }
 
-function HistoryEventTypeCell({ eventType, data }: HistoryEventTypeCellProps) {
+function HistoryEventTypeCell({
+  eventType,
+  data,
+  'data-testid': dataTestId,
+}: HistoryEventTypeCellProps) {
   const iconName = getIconName(eventType, data);
   const iconKind = getIconKind(eventType);
   const tooltip = getTooltip(eventType, data);
 
   return (
-    <TableRowCell className={styles.cell} title={tooltip}>
+    <TableRowCell
+      className={styles.cell}
+      title={tooltip}
+      data-testid={dataTestId}
+      data-event-type={eventType}
+    >
       <Icon name={iconName} kind={iconKind} />
     </TableRowCell>
   );
