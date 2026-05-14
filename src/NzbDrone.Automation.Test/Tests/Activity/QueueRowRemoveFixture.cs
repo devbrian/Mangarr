@@ -48,15 +48,17 @@ public class QueueRowRemoveFixture : AutomationTest
 
         if (countBefore == 0)
         {
-            // Empty queue under current cassette — the chained grab flow that
-            // populates the queue lives in Plan 18-15 InteractiveSearchGrabFixture.
-            // Fall through to the empty-state contract.
+            // WR-05 (18-REVIEW): silent `return` reported as PASSED, even
+            // though the DELETE /api/v5/queue/{id} contract (INVENTORY
+            // v5-endpoint row 91) was never exercised. Assert.Inconclusive
+            // surfaces the un-exercised contract; the [Explicit] gate on the
+            // class still defends the upstream-dependency story. When the
+            // chained-grab seed propagates, this branch stops firing and the
+            // populated path takes over inline.
             Page.Url.Should().EndWith("/manga/activity/queue");
-            TestContext.WriteLine(
-                "[Plan 18-18] QueueRowRemoveFixture — empty queue under current cassette. " +
-                "The chained grab → queue-row seed activates once Plan 18-15+ InteractiveSearchGrabFixture " +
-                "seed-state propagates (requires #102 fix).");
-            return;
+            Assert.Inconclusive(
+                "Queue empty under current cassette state — DELETE /api/v5/queue/{id} contract NOT exercised. " +
+                "DEF-18-18-01 / issue #102: chained-grab seed activates once InteractiveSearchGrabFixture upstream lands.");
         }
 
         // Populated path: click the per-row Remove button. QueueRow.tsx
