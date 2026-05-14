@@ -39,7 +39,11 @@ public class TaskListFixture : AutomationTest
         // an actual row prevents that.
         var pageText = await Page.GetByTestId("system-tasks-page").TextContentAsync();
         pageText.Should().NotBeNullOrEmpty();
-        pageText.Should().MatchRegex(@"(Refresh Manga|Backup|Housekeeping|Rss Sync|Check For Finished Download)");
+
+        // WR-09 (18-REVIEW): "Backup" appears in the side-nav nav entry
+        // (always present). Anchor only on data-bearing alternatives that
+        // require the scheduled-task table to actually have rows.
+        pageText.Should().MatchRegex(@"(Refresh Manga|Housekeeping|Rss Sync)");
 
         Page.Url.Should().EndWith("/system/tasks");
     }

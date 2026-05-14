@@ -34,7 +34,13 @@ public class LogFilesListFixture : AutomationTest
         // a populated table from a stuck spinner.
         var pageText = await Page.GetByTestId("system-logs-page").TextContentAsync();
         pageText.Should().NotBeNullOrEmpty();
-        pageText.Should().MatchRegex(@"(mangarr|No log files|Filename|Refresh|Clear)");
+
+        // WR-09 (18-REVIEW): "Refresh" / "Clear" are always-present toolbar
+        // buttons; "Filename" is the column header (also always present
+        // unless the empty-state alert is showing). Anchor only on the
+        // data-bearing alternatives: the actual log file name "mangarr"
+        // (case-insensitive guard for path variants) or the empty-state alert.
+        pageText.Should().MatchRegex(@"(?i)(mangarr|No log files)");
 
         Page.Url.Should().EndWith("/system/logs/files");
     }

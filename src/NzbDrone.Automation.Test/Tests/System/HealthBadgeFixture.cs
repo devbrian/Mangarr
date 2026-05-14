@@ -37,7 +37,14 @@ public class HealthBadgeFixture : AutomationTest
         // FieldSet exists but no terminal state was reached.
         var pageBodyText = await Page.GetByTestId("system-status-page").TextContentAsync();
         pageBodyText.Should().NotBeNullOrEmpty();
-        pageBodyText.Should().MatchRegex(@"(No issues with your configuration|Test All|Wiki|Health)");
+
+        // WR-09 (18-REVIEW): "Test All" / "Wiki" / "Health" are always-present
+        // toolbar/page-title tokens. Anchor only on data-bearing alternatives
+        // (empty-state message OR a populated row indicator). A populated
+        // health table renders the issue severity label ("Warning" /
+        // "Error" / "Info") and the source string — at least one of those
+        // text strings will be present when there is an issue.
+        pageBodyText.Should().MatchRegex(@"(No issues with your configuration|Warning|Notice|Error)");
 
         // URL stability — confirms no spurious nav and serves as the
         // shell-level state anchor.

@@ -33,7 +33,13 @@ public class BackupListFixture : AutomationTest
         // makes empty the dominant case). Match either pattern.
         var pageText = await Page.GetByTestId("system-backups-page").TextContentAsync();
         pageText.Should().NotBeNullOrEmpty();
-        pageText.Should().MatchRegex(@"(No backups are available|Backup Now|Restore Backup)");
+
+        // WR-09 (18-REVIEW): "Backup Now" / "Restore Backup" are always-present
+        // toolbar buttons that defeat the state-assertion purpose. Anchor
+        // only on the data-bearing alternative (empty-state message); a
+        // populated list will also expose the timestamp/filename text that
+        // distinguishes it from the empty state.
+        pageText.Should().MatchRegex(@"(No backups are available|\.zip)");
 
         Page.Url.Should().EndWith("/system/backup");
     }
