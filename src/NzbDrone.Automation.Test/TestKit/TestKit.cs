@@ -40,7 +40,11 @@ public class TestKit
                 $"TestKit.SeedBaselineAsync: rootfolder POST failed [{(int)rfResponse.StatusCode}] body={rfResponse.Content}");
         }
 
-        // 2. InProcess download client enabled
+        // 2. InProcess download client enabled. Priority defaults to 0; the
+        // download-client validator requires 1-50 (FluentValidation
+        // InclusiveBetweenValidator), so set it explicitly to 1. Surfaced
+        // when the Plan 18-review BL-03 hardening flipped silent-swallow
+        // failures into thrown exceptions.
         var dlRequest = BuildRequest("downloadclient", Method.POST);
         dlRequest.AddJsonBody(new
         {
@@ -48,6 +52,7 @@ public class TestKit
             implementation = "InProcessImageDownloadClient",
             configContract = "InProcessImageDownloadClientSettings",
             name = "InProcess (test seed)",
+            priority = 1,
             fields = new object[] { }
         });
         var dlResponse = await _client.ExecuteAsync(dlRequest);
