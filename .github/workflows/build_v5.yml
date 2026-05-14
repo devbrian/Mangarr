@@ -178,7 +178,12 @@ jobs:
           artifact: tests-linux-x64
           pattern: Mangarr.*.Test.dll
           # CI-infra F2 fix (ci-test-jobs-latent-faults): see unit_test job above.
-          filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory!=IntegrationTest&TestCategory!=AutomationTest&TestCategory!=LiveComix
+          # CI-infra F8 fix: &TestCategory!=SqliteOnly excludes mangarr_baselineFixture's
+          # SQLite schema-introspection tests (PRAGMA table_info / sqlite_master) — they
+          # are SQLite-only by construction. Postgres baseline parity is covered by the
+          # mangarr_baseline_postgres_parityFixture ([Category("Postgres")]) which DOES
+          # run here.
+          filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory!=IntegrationTest&TestCategory!=AutomationTest&TestCategory!=LiveComix&TestCategory!=SqliteOnly
           use_postgres: true
           postgres-version: ${{ matrix.postgres-version }}
 
