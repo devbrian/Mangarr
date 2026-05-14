@@ -58,7 +58,18 @@ public class EditMangaModalCrudFixture : AutomationTest
         // Force-click the hidden input (CheckInput renders the styled icon overlay
         // which intercepts pointer events otherwise).
         await monitoredInput.ClickAsync(new LocatorClickOptions { Force = true });
-        await Page.WaitForTimeoutAsync(300);
+
+        // WR-07 (18-REVIEW): wait for the flipped checked-state explicitly via
+        // expect.toBeChecked / toBeUnchecked (auto-retrying), replacing a
+        // 300 ms static sleep that races React's controlled-input commit.
+        if (flippedChecked)
+        {
+            await Assertions.Expect(monitoredInput).ToBeCheckedAsync(new LocatorAssertionsToBeCheckedOptions { Timeout = 5_000 });
+        }
+        else
+        {
+            await Assertions.Expect(monitoredInput).Not.ToBeCheckedAsync(new LocatorAssertionsToBeCheckedOptions { Timeout = 5_000 });
+        }
 
         // STATE assertion 1: the click toggled the value pre-save.
         var afterClick = await monitoredInput.IsCheckedAsync();

@@ -86,12 +86,16 @@ public class MangaIndexBulkActionsFixture : AutomationTest
         await confirmButton.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
         await confirmButton.ClickAsync();
 
-        // Wait for the bulk-delete to complete: the SelectFooter unmounts and
-        // the grid re-renders empty. Use a re-fetched count locator (the
-        // original `allCardsBefore` was scoped to the pre-delete DOM).
-        await Page.WaitForTimeoutAsync(2_500);
-
+        // WR-07 (18-REVIEW): replace static 2.5s sleep with an explicit
+        // detach-wait on the first card. The bulk-delete completes when the
+        // last manga-card disappears; under CI load the static sleep can
+        // race past the actual delete RTT or fire prematurely.
         var allCardsAfter = Page.Locator("[data-testid^='manga-card-']");
+        await allCardsAfter.First.WaitForAsync(new LocatorWaitForOptions
+        {
+            State = WaitForSelectorState.Detached,
+            Timeout = 30_000
+        });
 
         // STATE assertion 2: card count goes from 2 → 0 after bulk delete
         // (the DELETE /api/v5/manga/editor contract — INVENTORY row 75).

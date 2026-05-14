@@ -45,14 +45,36 @@ public class SettingsSaveRoundTripFixture : AutomationTest
         // hidden behind a styled CSS icon; the FormGroup parent is what receives clicks.
         // Locator(input).ClickAsync with Force directly fires onChange on the input.
         await checkbox.ClickAsync(new LocatorClickOptions { Force = true });
-        await Page.WaitForTimeoutAsync(500);
+
+        // WR-07 (18-REVIEW): wait for the controlled-input state to commit
+        // explicitly rather than via a 500 ms sleep.
+        if (targetChecked)
+        {
+            await Assertions.Expect(checkbox).ToBeCheckedAsync(new LocatorAssertionsToBeCheckedOptions { Timeout = 5_000 });
+        }
+        else
+        {
+            await Assertions.Expect(checkbox).Not.ToBeCheckedAsync(new LocatorAssertionsToBeCheckedOptions { Timeout = 5_000 });
+        }
 
         var afterToggle = await checkbox.IsCheckedAsync();
         afterToggle.Should().Be(targetChecked, "the click must toggle the showRelativeDates checkbox before save");
 
         // Click Save and wait for the network round-trip to complete.
-        await page.SaveButton.ClickAsync();
-        await Page.WaitForTimeoutAsync(2_500);
+        // WR-07 (18-REVIEW): wait for the actual PUT response rather than
+        // a 2_500 ms static sleep. Fall through on timeout — the reload +
+        // re-fetch assertion below catches a missing-response regression.
+        try
+        {
+            await Page.RunAndWaitForResponseAsync(
+                () => page.SaveButton.ClickAsync(),
+                resp => resp.Url.Contains("/api/v5/config/ui") && resp.Request.Method == "PUT",
+                new PageRunAndWaitForResponseOptions { Timeout = 15_000 });
+        }
+        catch (PlaywrightException)
+        {
+            // intentional: reload assertion below catches missing PUT
+        }
 
         // Reload — re-mount the React tree and re-fetch GET /api/v5/config/ui.
         await Page.ReloadAsync();

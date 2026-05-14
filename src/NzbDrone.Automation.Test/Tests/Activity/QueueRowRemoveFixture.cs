@@ -73,15 +73,23 @@ public class QueueRowRemoveFixture : AutomationTest
         var removeButton = firstRow.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Remove" }).First;
         await removeButton.ClickAsync();
 
-        // RemoveQueueItemModal pops up with a confirm button.
-        await Page.WaitForTimeoutAsync(500);
+        // WR-07 (18-REVIEW): RemoveQueueItemModal opens — wait for the
+        // dialog rather than a static 500 ms sleep.
+        var dialog = Page.GetByRole(AriaRole.Dialog).First;
+        await dialog.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
         var confirmButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Remove" }).Last;
         await confirmButton.ClickAsync();
-        await Page.WaitForTimeoutAsync(1_500);
+
+        // WR-07: wait for the specific row to detach rather than sleep 1.5s.
+        var doomedRow = Page.GetByTestId($"manga-queue-row-{firstRowId}");
+        await doomedRow.WaitForAsync(new LocatorWaitForOptions
+        {
+            State = WaitForSelectorState.Detached,
+            Timeout = 30_000
+        });
 
         // STATE assertion 2: the specific row went away (the per-row testid
         // is hidden — the DELETE /api/v5/queue/{id} contract).
-        var doomedRow = Page.GetByTestId($"manga-queue-row-{firstRowId}");
         var doomedCount = await doomedRow.CountAsync();
         doomedCount.Should().Be(0, "removed queue row must be absent after DELETE /api/v5/queue/{id}");
 

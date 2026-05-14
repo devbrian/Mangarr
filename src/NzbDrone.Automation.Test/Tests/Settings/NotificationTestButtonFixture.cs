@@ -56,8 +56,10 @@ public class NotificationTestButtonFixture : AutomationTest
             // edit modal, click Test, assert toast or button state.
             var targetCard = komgaCount > 0 ? komgaCard.First : kavitaCard.First;
             await targetCard.ClickAsync();
-            await Page.WaitForTimeoutAsync(500);
 
+            // WR-07 (18-REVIEW): wait for the dialog explicitly (replaces a
+            // 500 ms static sleep). ToBeVisibleAsync auto-retries up to its
+            // timeout — the sleep was redundant flake budget.
             var dialog = Page.GetByRole(AriaRole.Dialog).First;
             await Assertions.Expect(dialog).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions
             {
@@ -70,7 +72,21 @@ public class NotificationTestButtonFixture : AutomationTest
             if (hasTestButton)
             {
                 await testButton.ClickAsync();
-                await Page.WaitForTimeoutAsync(3_000);
+
+                // WR-07 (18-REVIEW): wait for the POST response rather than
+                // a 3_000 ms static sleep — same primitive as
+                // IndexerTestButtonFixture. Fall through on timeout so the
+                // assertion below catches the missing-response case.
+                try
+                {
+                    await Page.WaitForResponseAsync(
+                        resp => resp.Url.Contains("/api/v5/notification/test") && resp.Request.Method == "POST",
+                        new PageWaitForResponseOptions { Timeout = 30_000 });
+                }
+                catch (PlaywrightException)
+                {
+                    // intentional: assertion below catches missing-response
+                }
 
                 // STATE assertion: a toast appears with success/failure state.
                 var toasts = Page.Locator("[role='alert'], [role='status']");

@@ -50,7 +50,10 @@ public class CustomFormatExportImportFixture : AutomationTest
             // formatted JSON (ExportCustomFormatModalContent.tsx) inside a
             // <pre>/<textarea> surface.
             await exportButton.First.ClickAsync();
-            await Page.WaitForTimeoutAsync(500);
+
+            // WR-07 (18-REVIEW): redundant 500 ms sleep dropped — the
+            // ToBeVisibleAsync auto-retry below already polls for the
+            // dialog state up to its timeout.
 
             // STATE assertion: a dialog opens.
             var dialog = Page.GetByRole(AriaRole.Dialog).First;

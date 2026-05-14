@@ -61,8 +61,11 @@ public class IndexerTestButtonFixture : AutomationTest
 
         // Click the MangaDex card → EditIndexerModal opens.
         await mangaDexCard.ClickAsync();
-        await Page.WaitForTimeoutAsync(500);
 
+        // WR-07 (18-REVIEW): wait for the modal-dialog state explicitly
+        // (replaces a 500 ms static sleep). The ToBeVisibleAsync below is
+        // an auto-retry assertion so it already polls — the redundant sleep
+        // was pure flake budget.
         var dialog = Page.GetByRole(AriaRole.Dialog).First;
         await Assertions.Expect(dialog).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions
         {
@@ -75,10 +78,23 @@ public class IndexerTestButtonFixture : AutomationTest
         await testButton.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
         await testButton.ClickAsync();
 
-        // Wait for the test to complete. The POST /api/v5/indexer/test
-        // round-trip can take up to 30s for live MangaDex API. The button's
-        // isSpinning state transitions back to idle when the request returns.
-        await Page.WaitForTimeoutAsync(5_000);
+        // WR-07 (18-REVIEW): wait for the POST /api/v5/indexer/test response
+        // explicitly (replaces a 5_000 ms static sleep — CI under load can
+        // exceed that for the live API hop). 30_000 ms ceiling matches the
+        // LiveService budget for upstream-API probes.
+        try
+        {
+            await Page.WaitForResponseAsync(
+                resp => resp.Url.Contains("/api/v5/indexer/test") && resp.Request.Method == "POST",
+                new PageWaitForResponseOptions { Timeout = 30_000 });
+        }
+        catch (PlaywrightException)
+        {
+            // Fall through to the toast/spinner state assertion below — if
+            // the response never landed, the assertion will catch it.
+            // PlaywrightException is the base for Microsoft.Playwright.TimeoutException
+            // and the wait-timeout class on this version.
+        }
 
         // STATE assertion: either a toast appeared with success/failure state
         // OR the button's spinning state is back to idle (POST returned).
