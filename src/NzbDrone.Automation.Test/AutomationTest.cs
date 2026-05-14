@@ -75,6 +75,15 @@ public abstract class AutomationTest
     [TearDown]
     public async Task TearDownAsync()
     {
+        // BL-02 (18-REVIEW): when OneTimeSetUp fails before `Page = await Context.NewPageAsync()`
+        // (e.g. SeedBaselineAsync rejected by a 4xx, or Browser.NewContextAsync threw), individual
+        // [Test] methods still receive a TearDown attempt. Without this null-guard, ScreenshotAsync
+        // NREs and masks the original setup failure in CI artifacts.
+        if (Page == null)
+        {
+            return;
+        }
+
         if (TestContext.CurrentContext.Result.FailCount > 0)
         {
             var screenshotPath = Path.Combine(
@@ -91,12 +100,19 @@ public abstract class AutomationTest
     {
         try
         {
-            var tracePath = Path.Combine(
-                TestContext.CurrentContext.TestDirectory,
-                "traces",
-                $"{GetType().Name}.zip");
-            Directory.CreateDirectory(Path.GetDirectoryName(tracePath)!);
-            await Context.Tracing.StopAsync(new TracingStopOptions { Path = tracePath });
+            // BL-01 (18-REVIEW): guard Context inside the try so a failed OneTimeSetUp
+            // (before Context = NewContextAsync) doesn't NRE on `Context.Tracing.StopAsync`
+            // and mask the underlying setup exception. The finally block still runs
+            // _runner?.KillAll() either way, so process cleanup is unaffected.
+            if (Context != null)
+            {
+                var tracePath = Path.Combine(
+                    TestContext.CurrentContext.TestDirectory,
+                    "traces",
+                    $"{GetType().Name}.zip");
+                Directory.CreateDirectory(Path.GetDirectoryName(tracePath)!);
+                await Context.Tracing.StopAsync(new TracingStopOptions { Path = tracePath });
+            }
         }
         finally
         {
