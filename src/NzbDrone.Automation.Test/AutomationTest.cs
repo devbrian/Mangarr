@@ -127,24 +127,14 @@ public abstract class AutomationTest
         }
         finally
         {
+            // issue #133 RESOLVED: the #132 try/catch (EntryPointNotFoundException) workaround was
+            // removed here once the Microsoft.Bcl.AsyncInterfaces shared-_tests/-dir polyfill was
+            // properly fixed (explicit netstandard2.1 type-forwarder pin in src/Directory.Build.props
+            // so coverlet.collector's bundled netstandard2.0 polyfill no longer ships into _tests/).
+            // Context.DisposeAsync() now binds the in-box .NET 10 IAsyncDisposable and no longer throws.
             if (Context != null)
             {
-                try
-                {
-                    await Context.DisposeAsync();
-                }
-                catch (EntryPointNotFoundException)
-                {
-                    // CI-infra workaround (issue #133): on .NET 10 the Microsoft.Bcl.AsyncInterfaces
-                    // polyfill DLL deployed into the shared _tests/ output dir shadows the in-box
-                    // IAsyncDisposable, so Playwright's IBrowserContext.DisposeAsync() throws a bare
-                    // System.EntryPointNotFoundException. The backend + browser processes are
-                    // force-killed by _runner.KillAll() below + the CI runner's orphan-process
-                    // cleanup, so this async dispose is cosmetic — swallow it so a teardown interop
-                    // quirk cannot fail a suite where every test passed. Catching this here (rather
-                    // than letting it propagate) also ensures _runner.KillAll() actually runs.
-                    // Removing this guard is the acceptance criterion of #133.
-                }
+                await Context.DisposeAsync();
             }
 
             _runner?.KillAll();
