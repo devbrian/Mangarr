@@ -60,10 +60,14 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         }
 
         // ============================================================
-        // Test 3 — History gets nullable MangaId / ChapterId columns (D-07)
+        // Test 3 — History gets NotNullable MangaId / ChapterId columns.
+        // Phase 1 D-07 originally specified nullable; Phase 15 D-23 flipped both
+        // to NotNullable() once the TV codepaths were deleted ("every row IS manga
+        // post-Phase-15; NULL becomes meaningless"). See 001_mangarr_baseline.cs:541-552
+        // and commit 5a545156f.
         // ============================================================
         [Test]
-        public void should_create_history_with_nullable_manga_columns()
+        public void should_create_history_with_notnullable_manga_columns()
         {
             var db = WithDapperMigrationTestDb();
 
@@ -72,27 +76,34 @@ namespace NzbDrone.Core.Test.Datastore.Migration
             var mangaIdCol = rows.SingleOrDefault(r => r.name == "MangaId");
             var chapterIdCol = rows.SingleOrDefault(r => r.name == "ChapterId");
 
-            mangaIdCol.Should().NotBeNull("History.MangaId column must exist for D-07");
-            mangaIdCol.notnull.Should().Be(0, "History.MangaId must be nullable");
+            mangaIdCol.Should().NotBeNull("History.MangaId column must exist (Phase 15 D-23)");
+            mangaIdCol.notnull.Should().Be(1, "History.MangaId must be NOT NULL per Phase 15 D-23 (every row IS manga post-Phase-15)");
 
-            chapterIdCol.Should().NotBeNull("History.ChapterId column must exist for D-07");
-            chapterIdCol.notnull.Should().Be(0, "History.ChapterId must be nullable");
+            chapterIdCol.Should().NotBeNull("History.ChapterId column must exist (Phase 15 D-23)");
+            chapterIdCol.notnull.Should().Be(1, "History.ChapterId must be NOT NULL per Phase 15 D-23");
         }
 
         // ============================================================
-        // Test 4 — Blocklist gets nullable MangaId column (D-07)
+        // Test 4 — Blocklist gets NotNullable MangaId column.
+        // Phase 1 D-07 originally specified nullable; Phase 15 D-23 flipped to
+        // NotNullable() (and added Blocklist.ChapterId NotNullable in the same pass).
+        // See 001_mangarr_baseline.cs:541-552 and commit 5a545156f.
         // ============================================================
         [Test]
-        public void should_create_blocklist_with_nullable_mangaid()
+        public void should_create_blocklist_with_notnullable_mangaid()
         {
             var db = WithDapperMigrationTestDb();
 
             var rows = db.Query<TableInfoRow>("PRAGMA table_info(\"Blocklist\");").ToList();
 
             var mangaIdCol = rows.SingleOrDefault(r => r.name == "MangaId");
+            var chapterIdCol = rows.SingleOrDefault(r => r.name == "ChapterId");
 
-            mangaIdCol.Should().NotBeNull("Blocklist.MangaId column must exist for D-07");
-            mangaIdCol.notnull.Should().Be(0, "Blocklist.MangaId must be nullable");
+            mangaIdCol.Should().NotBeNull("Blocklist.MangaId column must exist (Phase 15 D-23)");
+            mangaIdCol.notnull.Should().Be(1, "Blocklist.MangaId must be NOT NULL per Phase 15 D-23 (every row IS manga post-Phase-15)");
+
+            chapterIdCol.Should().NotBeNull("Blocklist.ChapterId column must exist (Phase 15 D-23 — added in same pass as NotNullable flip)");
+            chapterIdCol.notnull.Should().Be(1, "Blocklist.ChapterId must be NOT NULL per Phase 15 D-23");
         }
 
         // ============================================================
@@ -139,20 +150,24 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         }
 
         // ============================================================
-        // Test 6 — Series/Seasons/Episodes/EpisodeFiles recreated for compile compat (D-02)
+        // Test 6 — TV-domain tables MUST NOT exist post-Phase-15 D-22.
+        // Phase 1 D-02 originally recreated Series/Seasons/Episodes/EpisodeFiles as
+        // empty compile-compat shims; Phase 15 D-22 dropped them entirely once the Tv/
+        // C# subtree was deleted (Plan 15-03). The baseline must not resurrect them.
+        // See 001_mangarr_baseline.cs:199-203 and commit 5a545156f.
         // ============================================================
         [Test]
-        public void should_recreate_tv_tables_for_compile_compat()
+        public void should_not_create_tv_tables_per_phase_15_d22()
         {
             var db = WithDapperMigrationTestDb();
 
             var tableNames = db.Query<string>(
                 "SELECT name FROM sqlite_master WHERE type='table'").ToList();
 
-            tableNames.Should().Contain("Series", "Series table must be recreated per D-02");
-            tableNames.Should().Contain("Seasons", "Seasons table must be recreated per D-02");
-            tableNames.Should().Contain("Episodes", "Episodes table must be recreated per D-02");
-            tableNames.Should().Contain("EpisodeFiles", "EpisodeFiles table must be recreated per D-02");
+            tableNames.Should().NotContain("Series", "Series table dropped per Phase 15 D-22 (TV-only; manga uses Manga table)");
+            tableNames.Should().NotContain("Seasons", "Seasons table dropped per Phase 15 D-22 (manga has no season concept per DOMAIN-02)");
+            tableNames.Should().NotContain("Episodes", "Episodes table dropped per Phase 15 D-22 (manga uses Chapters table)");
+            tableNames.Should().NotContain("EpisodeFiles", "EpisodeFiles table dropped per Phase 15 D-22 (manga uses ChapterFiles table)");
         }
 
         // ============================================================
@@ -205,7 +220,9 @@ namespace NzbDrone.Core.Test.Datastore.Migration
 
             tableNames.Should().Contain("Manga");
             tableNames.Should().Contain("Chapters");
-            tableNames.Should().Contain("Series");
+
+            // Phase 15 D-22 — Series table dropped; assert manga peer + ThingiProvider sentinel instead.
+            tableNames.Should().Contain("ChapterFiles");
             tableNames.Should().Contain("Indexers");
         }
 
