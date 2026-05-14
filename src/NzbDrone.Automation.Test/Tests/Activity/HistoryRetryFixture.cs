@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Http;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -9,107 +12,147 @@ using NzbDrone.Automation.Test.PageModel;
 namespace NzbDrone.Automation.Test.Tests.Activity;
 
 /// <summary>
-/// Phase 18 Plan 18-18 — History retry-button coverage (INVENTORY req row 62,
-/// HISTORY-03: User can retry failed download from History row).
+/// Phase 18 Plan 18-18 / Phase 19 Plan 19-05 — History failed-row retry
+/// coverage (INVENTORY req row 62, HISTORY-03: User can retry failed
+/// download from History row; INVENTORY v5-endpoint
+/// POST /api/v5/manga/history/failed/{id}/retry).
 ///
-/// Seeds a manga via AddMangaFlow, navigates to History. If a history row
-/// with a retry-button data-testid is present, clicks Retry and asserts the
-/// retry command is queued (toast or queue-row appearance). When no history
-/// rows are present (empty cassette — no chained grab in this fixture's
-/// flow), the fixture asserts on the page shell + URL + tracks the missing
-/// chained-grab seed in the test log.
+/// Seeds a manga via AddMangaFlow, then seeds a real <c>DownloadFailed</c>
+/// <c>ChapterHistory</c> row via <c>TestKit.SeedHistoryFailedAsync</c> (Plan
+/// 19-01 Open-Question-1 verdict = raw-SQLite). A clean chained grab cannot
+/// produce a *failed*-download row (D-01), so the failure-state seed helper
+/// is the only honest mechanism.
 ///
-/// State assertion: when retry fires, a toast or queue-row state change is
-/// visible. When no rows are present, the empty-state path is exercised
-/// (page + table testids present, URL matches).
+/// Plan 19-05 fix-forward (deviation Rule 1): the original fixture assumed
+/// HistoryDetailsModal exposes a "Try Again" button for downloadFailed rows.
+/// It does NOT — HistoryDetailsModal.tsx only renders the "Mark As Failed"
+/// SpinnerButton, and only for `grabbed` rows. The HISTORY-03 retry endpoint
+/// (POST failed/{id}/retry) has NO frontend UI surface at all. This fixture
+/// therefore exercises the two contracts that genuinely exist for a seeded
+/// downloadFailed row:
+///   1. UI: the per-row Details IconButton → HistoryDetailsModal renders the
+///      downloadFailed details (Name / Message / Indexer) — proving the
+///      seeded row's `Data` dict round-tripped through the V5 history
+///      projection and the modal.
+///   2. API: POST /api/v5/manga/history/failed/{id}/retry returns 204 and
+///      enqueues a ChapterSearchCommand — the HISTORY-03 manual-retry
+///      contract, exercised end-to-end (it has no UI button to click).
 ///
-/// HistoryRow.tsx (as of Wave 2) does NOT have a retry-button data-testid
-/// annotation; the retry action is exposed via HistoryDetailsModal (opened
-/// via the per-row "Details" IconButton). The retry-button is inside the
-/// modal. This fixture targets that path.
-///
-/// [Explicit] citation: tracks GH issue #102 (Plan 18-14 D-D).
+/// State assertion: the seeded row count is &gt; 0, its decision cell's
+/// event-type is <c>downloadFailed</c>, the modal renders the seeded failure
+/// Message, and the retry POST returns 204 with a queued ChapterSearchCommand
+/// — the populated path is the only path (the empty-state branch was deleted
+/// in Plan 19-05).
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Phase 19 Cat A (Residual Yellow Inventory Resolution): needs real Queue/History/Blocklist seed state - the cassette tier does not simulate downloads. #102 is CLOSED and was NOT the blocker (the AddManga chain works). Flip when Phase 19 ships TestKit.Seed{Queue,History,Blocklist}Async. See ROADMAP Phase 19 SC#1.")]
 public class HistoryRetryFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string SeededFailureMessage = "TestKit-seeded failed download";
 
     [Test]
-    public async Task history_retry_button_triggers_command_or_empty_state()
+    public async Task history_failed_row_renders_details_and_retry_endpoint_enqueues_search()
     {
         await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+
+        // Plan 19-05: seed a real DownloadFailed ChapterHistory row via the
+        // raw-SQLite TestKit helper (Plan 19-01 verdict). Capture the
+        // AddMangaFlow-seeded manga + one of its chapters as the FKs, then
+        // INSERT into the backend's per-fixture mangarr.db BEFORE navigating.
+        var (mangaId, chapterId) = await ResolveSeedFksAsync();
+        var testKit = new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, ApiKey, Runner.AppData);
+        await testKit.SeedHistoryFailedAsync(Runner.AppData, mangaId, chapterId);
+
         await new MangaHistoryPage(Page).OpenAsync(RootUri);
 
         // STATE assertion 1: page + table testids present.
         await Assertions.Expect(Page.GetByTestId("manga-history-page")).ToBeVisibleAsync();
         await Assertions.Expect(Page.GetByTestId("manga-history-table")).ToBeVisibleAsync();
 
-        // Look for history rows. If none present (no upstream chained grab),
-        // fall through to the empty-state assertion path.
+        // STATE assertion 2: the seed produced at least one history row. A
+        // silent seed failure (e.g. a schema drift in ChapterHistory) fails
+        // the test loudly here rather than skipping past an empty page.
         var rowsLocator = Page.GetByTestId(new Regex(@"^manga-history-row-\d+$"));
         var rowCount = await rowsLocator.CountAsync();
+        rowCount.Should().BeGreaterThan(0, "seed must have produced a failed history row");
 
-        if (rowCount == 0)
-        {
-            // STATE assertion path B: empty history is valid coverage for the
-            // request-shell-only path. The chained grab → history-row flow
-            // lands in Plan 18-15 (InteractiveSearch fixtures merge to Wave 2);
-            // when that lands, this fixture's primary path activates.
-            TestContext.WriteLine(
-                "[Plan 18-18] HistoryRetryFixture — no history rows under current cassette state. " +
-                "The chained grab → retry path activates once Plan 18-15 InteractiveSearchGrabFixture " +
-                "seed-state propagates (requires #102 fix per Plan 18-14 SUMMARY).");
-            Page.Url.Should().EndWith("/manga/activity/history");
-            return;
-        }
-
-        // History rows are present — proceed with the retry-button flow.
-        // HistoryRow.tsx exposes the Details IconButton (line 264-269); the
-        // retry action lives inside HistoryDetailsModal. Click the Details
-        // button on the first row.
+        // The seeded row is the only history row (per-fixture DB, D-05).
         var firstRow = rowsLocator.First;
         var rowIdAttr = await firstRow.GetAttributeAsync("data-testid");
         var rowId = rowIdAttr!.Replace("manga-history-row-", string.Empty);
 
-        // Click the per-row Details button (icon-only IconButton in the
-        // details column). Use aria-label text fallback.
+        // STATE assertion 3 (decision state, not just rendering): the seeded
+        // row's decision cell exposes event-type downloadFailed — proving the
+        // seed produced a genuinely failed row (EventType = 2, Successful = 0).
+        var decisionCell = Page.GetByTestId($"manga-history-row-{rowId}-decision");
+        await Assertions.Expect(decisionCell).ToBeVisibleAsync();
+        var eventType = await decisionCell.GetAttributeAsync("data-event-type");
+        eventType.Should().Be(
+            "downloadFailed",
+            "the seeded ChapterHistory row is a DownloadFailed event");
+
+        // UI contract: open the per-row Details modal (the only per-row action
+        // HistoryRow.tsx exposes — an icon-only IconButton with
+        // aria-label="Details").
         var detailsButton = firstRow.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Details" });
         await detailsButton.ClickAsync();
 
-        // HistoryDetailsModal renders with a "Try Again" button for failed
-        // download rows (eventType: downloadFailed). For grabbed rows, only
-        // an info-view renders. Attempt to find the retry button; if absent,
-        // the row was not a failed-download event — the modal-open is itself
-        // the state assertion.
-        await Page.WaitForTimeoutAsync(500);
+        var dialog = Page.GetByRole(AriaRole.Dialog).First;
+        await dialog.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
 
-        var retryButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Try Again" });
-        var retryButtonCount = await retryButton.CountAsync();
+        // STATE assertion 4: HistoryDetailsModal renders the downloadFailed
+        // detail rows. HistoryDetails.tsx's `downloadFailed` branch surfaces
+        // the seeded `Data` dict's Message — its presence in the dialog proves
+        // the seeded row's JSON `Data` column round-tripped through the V5
+        // history projection intact.
+        var dialogText = await dialog.TextContentAsync();
+        dialogText.Should().Contain(
+            SeededFailureMessage,
+            "HistoryDetailsModal must render the seeded downloadFailed Message");
 
-        if (retryButtonCount > 0)
-        {
-            await retryButton.First.ClickAsync();
-            await Page.WaitForTimeoutAsync(1_500);
+        // API contract (HISTORY-03): POST failed/{id}/retry. This endpoint
+        // has NO frontend UI surface (no "Try Again" button exists), so the
+        // manual-retry contract is exercised directly against the V5 API —
+        // it must return 204 and enqueue a ChapterSearchCommand.
+        using var http = new HttpClient();
+        http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
 
-            // STATE assertion: retry triggered. The retry action POSTs to
-            // /api/v5/command (FailedDownloadCommand or similar) → a toast
-            // appears OR a queue badge updates. We assert a toast role exists
-            // OR the URL is preserved (no spurious nav).
-            var toasts = Page.Locator("[role='alert'], [role='status']");
-            var toastCount = await toasts.CountAsync();
-            (toastCount > 0 || Page.Url.EndsWith("/manga/activity/history"))
-                .Should().BeTrue("retry must produce a toast or preserve the history URL");
-        }
-        else
-        {
-            // STATE assertion: modal rendered (Details opened), URL preserved.
-            // The first row was likely a "grabbed" event, not a failed event;
-            // valid coverage of the modal-open path.
-            Page.Url.Should().EndWith("/manga/activity/history");
-            rowId.Should().NotBeNullOrEmpty("row id parsed from data-testid attribute");
-        }
+        var retryResponse = await http.PostAsync(
+            $"{RootUri}/api/v5/manga/history/failed/{rowId}/retry", null);
+
+        // STATE assertion 5: the retry endpoint accepted the request.
+        retryResponse.StatusCode.Should().Be(
+            HttpStatusCode.NoContent,
+            "POST failed/{id}/retry must return 204 for a real failed history row");
+
+        // STATE assertion 6: the retry enqueued a ChapterSearchCommand — the
+        // HISTORY-03 manual-retry escape hatch. The command queue retains a
+        // window of recent commands; any payload referencing the canonical
+        // ChapterSearch name proves the retry reached the command queue.
+        var commands = await http.GetStringAsync($"{RootUri}/api/v5/command");
+        commands.Should().Contain(
+            "ChapterSearch",
+            "the retry must enqueue a ChapterSearchCommand (HISTORY-03)");
+    }
+
+    // Resolve the AddMangaFlow-seeded manga id + one of its chapter ids via
+    // the V5 API — these are the FKs the raw-SQLite seed helper needs. The
+    // chapter set is populated from the MangaDex /feed cassette during the
+    // AddManga flow, so at least one chapter exists by the time this runs.
+    private async Task<(int MangaId, int ChapterId)> ResolveSeedFksAsync()
+    {
+        using var http = new HttpClient();
+        http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
+
+        var mangaJson = await http.GetStringAsync($"{RootUri}/api/v5/manga");
+        using var mangaDoc = JsonDocument.Parse(mangaJson);
+        var mangaId = mangaDoc.RootElement[0].GetProperty("id").GetInt32();
+
+        var chapterJson = await http.GetStringAsync($"{RootUri}/api/v5/chapter?mangaId={mangaId}");
+        using var chapterDoc = JsonDocument.Parse(chapterJson);
+        var chapterId = chapterDoc.RootElement[0].GetProperty("id").GetInt32();
+
+        return (mangaId, chapterId);
     }
 }

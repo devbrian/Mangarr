@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -21,9 +22,6 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 ///
 /// Per feedback_verify_ui_state_not_just_rendering: count-based assertions
 /// hide silent-row-shape regressions. Per-row cell presence is the gate.
-///
-/// [Explicit] citation: tracks GH issue #102 (Plan 18-14 D-D — AddManga modal
-/// nav race in ConfirmAddAsync).
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
@@ -39,33 +37,27 @@ public class ChapterFileColumnFixture : AutomationTest
         // STATE assertion 1: MangaDetails page shell present.
         await Assertions.Expect(details.MainContainer).ToBeVisibleAsync();
 
-        // The chapter rows render under MangaDetailsChapters → ChapterRow.tsx.
-        // Each chapter row is keyed by chapterId. Wait for at least one chapter
-        // row OR confirm an empty-chapters state — the cassette-seeded Komi
-        // manga has chapters per Plan 18-14's recording-attempt evidence, so
-        // we expect rows.
-        //
-        // ChapterRow does not yet have a data-testid annotation (no testid in
-        // ChapterRow.tsx as of Wave 2). Use a Locator that matches any element
-        // with a testid starting with "chapter-row-" — when the frontend
-        // annotation sweep lands, this regex will match. Until then, fall back
-        // to asserting the chapter section is present and visible (the
-        // section's containing testid is what we anchor against).
-        //
-        // Since the chapter-table region rendering is the v5-endpoint contract
-        // (GET /api/v5/chapterfile is fetched alongside GET /api/v5/chapter
-        // when MangaDetails renders), we anchor on the visible-shell + URL.
+        // Phase 19 fix-forward: MangaDetails lands on the 'overview' tab by
+        // default — the chapter table only renders under the 'Chapters' tab.
+        // The green analogs (MangaDetailsFlatChapterListFixture,
+        // ChapterDetailsModalFixture) both click this tab before asserting on
+        // chapter rows; this fixture omitted the step, so the chapter-row
+        // selector matched 0 elements and the BL-05 silent-empty guard fired.
+        await Page.GetByRole(AriaRole.Tab, new PageGetByRoleOptions { Name = "Chapters" })
+                  .ClickAsync();
+
+        await Page.GetByTestId("manga-details-chapter-table")
+                  .WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
 
         Page.Url.Should().MatchRegex(@"/manga/[^/]+$");
 
-        // BL-05 (18-REVIEW): match only the row root, NOT descendant cells.
-        // The companion fix on ChapterRow.tsx adds `chapter-row-{id}-file` to
-        // the status (file) cell. A loose `data-testid^='chapter-row-'`
-        // selector would now match BOTH the row AND every per-row file cell,
-        // doubling the count and corrupting the per-row-file-cell loop. Anchor
-        // on the row id by excluding the suffixed cells via an attribute
-        // value regex.
-        var chapterRows = Page.Locator("[data-testid^='chapter-row-']:not([data-testid$='-file']):not([data-testid$='-monitor-toggle'])");
+        // Phase 19 fix-forward: match ONLY the chapter-row root via the
+        // `^chapter-row-\d+$` regex — the canonical pattern the green analogs
+        // use. The prior `[data-testid^='chapter-row-']:not(...)` CSS chain
+        // was a fragile attempt to exclude the per-row suffixed cells
+        // (`-file`, `-monitor-toggle`, `-title`, `-search-button`); the
+        // digits-anchored regex excludes every suffixed cell by construction.
+        var chapterRows = Page.GetByTestId(new Regex(@"^chapter-row-\d+$"));
         var rowCount = await chapterRows.CountAsync();
 
         // BL-05 (18-REVIEW): seeded manga MUST have at least one chapter row.

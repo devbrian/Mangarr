@@ -18,8 +18,6 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 // toast surface — see Plan 18-15 read pass on frontend/src/Components/). The
 // command queue retains a record of the refresh, which we GET after the click
 // and assert contains a `RefreshManga` entry.
-//
-// [Explicit] cite: blocked by AddMangaFlow D-D nav race (issue #102).
 [TestFixture]
 [Category("AutomationTest")]
 public class MangaDetailsRefreshFixture : AutomationTest

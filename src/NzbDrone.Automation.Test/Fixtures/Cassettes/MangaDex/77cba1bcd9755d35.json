@@ -1,0 +1,40 @@
+{
+  "Request": {
+    "Method": "GET",
+    "Url": "https://api.mangadex.org/at-home/server/0c911f08-c4be-440c-b784-fb58e77872ad"
+  },
+  "Response": {
+    "Status": 200,
+    "Body": "{\u0022result\u0022:\u0022ok\u0022,\u0022baseUrl\u0022:\u0022https:\\/\\/cmdxd98sb0x3yprd.mangadex.network\u0022,\u0022chapter\u0022:{\u0022hash\u0022:\u00222591970deeace79e21e888b6e7bbdcdb\u0022,\u0022data\u0022:[\u00221-00ad171f2deb4560aaf85f7f32667b09137eafe682ea6a8fff6f51db09def7c1.png\u0022,\u00222-a660a767f21eba0f3c8cfc8c316bf0a599c48162c5cd0798b3740428963bfd9b.png\u0022,\u00223-740617937c333d5d3ec05e1a52ed8b49b753fa741064cad1b35ba2399763085c.png\u0022,\u00224-fdcea1f5e38275fc429e1901d374db9108d09330fcb41785cabfb6802031e09d.png\u0022,\u00225-43ba71307e4a33e5b4146daf1e5d097eca36dd5e11b2fe3be3aa6173d813d3a8.png\u0022,\u00226-47a8be56a985aef2cfe74fe999c31ff1943213fbb206f57bdeb185d04a96e2a1.png\u0022,\u00227-0ab79e106c24702972548d216bee8f2059aa20469fbb58deb613d070f56a5c59.png\u0022,\u00228-cdb057ec654e193524d69c50a67587d8c253acee79d0a18167536ca7624b8ad8.png\u0022,\u00229-52e9fc719a3f7d47a8f2b3bfd266470a2cd818d8bc0986ba6ec2a40bd3073839.png\u0022,\u002210-4a1a9c65ee16c4bad513f5671db6d22c56629f0911bc31fc4c3f67889ee16564.png\u0022,\u002211-9c5dc2cf5c2e5652ac756e1e4fa8bbf7834a918143fd5ea669f0cebfc657e7a8.png\u0022,\u002212-185b89997fd7b6e36c698c0a51c94cb34f3b7fca27a88cb1fde844af8c1abda8.png\u0022],\u0022dataSaver\u0022:[\u00221-21565c4a2508f6d8b451eedf015975fc45e43f4d09e36fc82e76c4bca0cc9b32.jpg\u0022,\u00222-f4e33cbe96c23470367313a4272d1f9898dcf4cf191edc77ddf65f51ed43881d.jpg\u0022,\u00223-012e048f166ecf96f3055107ee5ef7d078e5a543c415ec019bb2400e6d6ce45c.jpg\u0022,\u00224-eda9d684c52015a963c4ceae901397fd97c3e66453b00e65b26f169ca07f34a6.jpg\u0022,\u00225-00799440e690c6488940027f56b156d83a8f8da9437f457276091cc6fe72b993.jpg\u0022,\u00226-7bddffe0070f1e618cdc649db203de46234ac2b902d6e5f36d9f0cc0abd57967.jpg\u0022,\u00227-fca4e3df42dffecab8d0db97907963434d52297e7fa4d06d8857620260964386.jpg\u0022,\u00228-f34dfe8c65d09ffef5d18fbd5801c039d412c07abceae4a43cac86e32fd6e511.jpg\u0022,\u00229-49c49ea57a8152160e2a891ea17d6f180d726ceb24d3484c0a9cf30829d36318.jpg\u0022,\u002210-cde882f7791b1e58c054df9094306783a9384faed0677fe0f3c43d6c709eac80.jpg\u0022,\u002211-16069e43c4d07fab9798b297627fbb110116dcabe8e1ef266ddb50058931f9bd.jpg\u0022,\u002212-404a28e14aae938d7e0a06b6ac480566635a9ed9715b99a70f350a5b78b180fd.jpg\u0022]}}",
+    "BodyIsBase64": false,
+    "Headers": {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-cache, private",
+      "Date": "Thu, 14 May 2026 12:11:24 GMT",
+      "x-ratelimit-remaining": "38",
+      "x-ratelimit-retry-after": "1778760684",
+      "x-ratelimit-limit": "40",
+      "x-ratelimit-retry-in": "0",
+      "X-Cache": "MISS",
+      "Accept-Ranges": "bytes",
+      "Access-Control-Allow-Credentials": "true",
+      "Access-Control-Expose-Headers": "*",
+      "Vary": "Origin",
+      "md-edge-crs": "Tk9ORQ",
+      "Server": "MangaDex",
+      "Via": "HTTP/2.0 EU-WEST-U2x1",
+      "X-Request-ID": "ed5dab96-0a38-41c7-9a08-94a2006dce26",
+      "permissions-policy": "fullscreen=(self)",
+      "Referrer-Policy": "strict-origin",
+      "X-Content-Type-Options": "nosniff",
+      "X-XSS-Protection": "1; mode=block",
+      "X-Frame-Options": "DENY",
+      "cross-origin-embedder-policy": "unsafe-none",
+      "cross-origin-opener-policy": "same-origin-allow-popups",
+      "Cross-Origin-Resource-Policy": "cross-origin",
+      "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+      "Alt-Svc": "h3=\u0022:443\u0022",
+      "md-progressive-rollout-bucket": "4111702069"
+    }
+  }
+}

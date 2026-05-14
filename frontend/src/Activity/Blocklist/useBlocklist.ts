@@ -83,15 +83,23 @@ export const useFilters = () => {
   return FILTERS;
 };
 
+// Phase 19 Plan 19-05 (Rule 1 fix-forward): the GH #73 migration repointed
+// the blocklist GET hook (`useBlocklist`) onto the `/manga/blocklist`
+// endpoint but left both DELETE hooks below pointing at the dead TV
+// `/blocklist` routes — the per-row DELETE 404'd and the bulk DELETE 405'd
+// (`/api/v5/blocklist/bulk` has no manga peer; the manga controller is
+// `[V5ApiController("manga/blocklist")]`). Repointed to `/manga/blocklist/*`
+// and the invalidation key fixed to `['/manga/blocklist']` so a successful
+// remove actually refreshes the manga blocklist view.
 export const useRemoveBlocklistItem = (id: number) => {
   const queryClient = useQueryClient();
 
   const { mutate, isPending } = useApiMutation<unknown, void>({
-    path: `/blocklist/${id}`,
+    path: `/manga/blocklist/${id}`,
     method: 'DELETE',
     mutationOptions: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/blocklist'] });
+        queryClient.invalidateQueries({ queryKey: ['/manga/blocklist'] });
       },
     },
   });
@@ -106,11 +114,11 @@ export const useRemoveBlocklistItems = () => {
   const queryClient = useQueryClient();
 
   const { mutate, isPending } = useApiMutation<unknown, BulkBlocklistData>({
-    path: `/blocklist/bulk`,
+    path: `/manga/blocklist/bulk`,
     method: 'DELETE',
     mutationOptions: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/blocklist'] });
+        queryClient.invalidateQueries({ queryKey: ['/manga/blocklist'] });
       },
     },
   });

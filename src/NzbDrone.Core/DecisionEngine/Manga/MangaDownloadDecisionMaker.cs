@@ -133,8 +133,20 @@ namespace NzbDrone.Core.DecisionEngine.Manga
 
                     if (parsedChapterInfo != null && !parsedChapterInfo.MangaTitle.IsNullOrWhiteSpace())
                     {
-                        var manga = _parsingService.GetManga(parsedChapterInfo.MangaTitle);
-                        var remoteChapter = _parsingService.Map(parsedChapterInfo, manga, null);
+                        // BL-03 (DEF-19-02-01): on a search path the target manga is KNOWN —
+                        // MangaSearchCriteria.Manga carries it. Resolve against that manga
+                        // directly instead of fuzzy title-normalize matching the release
+                        // title against Manga.CleanTitle. The indexer feed's release title
+                        // (e.g. MangaDex's romanized attributes.title) routinely differs from
+                        // the stored Manga.Title (synced from the English altTitles), so the
+                        // title-match path silently fails every release as UnknownManga. This
+                        // mirrors the Sonarr-canonical contract where a search knows its
+                        // Series and only RSS sync resolves by title. RSS (GetRssDecision)
+                        // carries no criteria and still falls back to title resolution below.
+                        var searchCriteria = info?.MangaSearchCriteria;
+                        var manga = searchCriteria?.Manga
+                                    ?? _parsingService.GetManga(parsedChapterInfo.MangaTitle);
+                        var remoteChapter = _parsingService.Map(parsedChapterInfo, manga, searchCriteria?.Chapters);
 
                         if (remoteChapter == null)
                         {
@@ -179,10 +191,31 @@ namespace NzbDrone.Core.DecisionEngine.Manga
                             // profiles.
                             var cfProfileId = remoteChapter.Manga?.CustomFormatProfileId ?? _configService.DefaultCustomFormatProfileId;
                             remoteChapter.ResolvedCustomFormatProfileId = cfProfileId;
-                            if (cfProfileId.HasValue)
+
+                            // BL-03 (DEF-19-02-01): degrade gracefully when the resolved id is
+                            // not a real profile FK. A Manga can carry CustomFormatProfileId == 0
+                            // (the int default — the AddManga modal sends 0 when no CF profile is
+                            // picked and none is the global default), and the id could also point
+                            // at a since-deleted profile. CustomFormatProfileService.Get throws
+                            // ModelNotFoundException on a missing row — left unguarded that
+                            // exception is caught by the outer try/catch and turns EVERY release
+                            // into a DecisionError rejection, so the InteractiveSearch modal
+                            // renders a results table the React row code then crashes on. A
+                            // missing/zero profile means "no CF scoring" — score 0, same as the
+                            // no-profile branch. Mirrors the Sonarr-canonical posture where a
+                            // release with no usable profile is still a renderable decision.
+                            if (cfProfileId.HasValue && cfProfileId.Value > 0)
                             {
-                                var cfProfile = _customFormatProfileService.Get(cfProfileId.Value);
-                                remoteChapter.CustomFormatScore = cfProfile?.CalculateCustomFormatScore(remoteChapter.CustomFormats) ?? 0;
+                                try
+                                {
+                                    var cfProfile = _customFormatProfileService.Get(cfProfileId.Value);
+                                    remoteChapter.CustomFormatScore = cfProfile?.CalculateCustomFormatScore(remoteChapter.CustomFormats) ?? 0;
+                                }
+                                catch (Datastore.ModelNotFoundException)
+                                {
+                                    _logger.Warn("CustomFormatProfile {0} not found (orphaned FK); scoring release 0", cfProfileId.Value);
+                                    remoteChapter.CustomFormatScore = 0;
+                                }
                             }
                             else
                             {

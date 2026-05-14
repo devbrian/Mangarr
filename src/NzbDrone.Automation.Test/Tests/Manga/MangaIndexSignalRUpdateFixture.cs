@@ -22,8 +22,6 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 // the backend /api/v5/command stream and assert the RefreshManga entry is
 // visible — this proves the SignalR push hit the server (the round-trip via
 // the UI alone could silently no-op).
-//
-// [Explicit] cite: blocked by AddMangaFlow D-D nav race (issue #102).
 [TestFixture]
 [Category("AutomationTest")]
 public class MangaIndexSignalRUpdateFixture : AutomationTest

@@ -16,10 +16,6 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 // /manga/{slug}, so this fixture exercises the toggle at the page where it ships
 // always-visible. The toggle dispatches PUT /api/v5/manga/{id} via
 // useToggleMangaMonitored.
-//
-// [Explicit] cite: AddMangaFlow.AddByMangaDexIdAsync currently times out at
-// AddMangaModal.ConfirmAddAsync due to the WaitForURLAsync race documented in
-// Plan 18-14 D-D (issue #102). Removes when D-D ships.
 [TestFixture]
 [Category("AutomationTest")]
 public class MangaIndexMonitorToggleFixture : AutomationTest

@@ -30,7 +30,12 @@ function ChapterTitleLink({
 
   return (
     <>
-      <Link onPress={handlePress}>{chapterTitle}</Link>
+      <Link
+        data-testid={`chapter-row-${chapterId}-title`}
+        onPress={handlePress}
+      >
+        {chapterTitle}
+      </Link>
 
       <ChapterDetailsModal
         isOpen={isOpen}

@@ -20,11 +20,8 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 // modal-header testid materializes AND the InteractiveSearch surface inside
 // the modal renders (interactive-search-modal testid). Both prove the modal
 // body is functional, not just the shell.
-//
-// [Explicit] cite: blocked by AddMangaFlow D-D nav race (issue #102).
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Phase 19 Cat C (Residual Yellow Inventory Resolution): fixture-level bug surfaced once the AddManga flow worked end-to-end post-#102. #102 is CLOSED and was NOT the blocker. Flip after the focused fix-forward. See ROADMAP Phase 19 SC#3.")]
 public class ChapterDetailsModalFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
@@ -41,17 +38,20 @@ public class ChapterDetailsModalFixture : AutomationTest
         await Page.GetByTestId("manga-details-chapter-table")
                   .WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
 
-        // Find a chapter row and click its title link. The title cell is an
-        // anchor (ChapterTitleLink.tsx wraps it in Link) — clicking opens
-        // the ChapterDetailsModal.
+        // Find a chapter row and click its title link. ChapterTitleLink.tsx
+        // wraps the title in <Link onPress=...> with NO `to` prop, so Link
+        // renders a <button> (not an <a>); the Phase 19 fix-forward added
+        // `data-testid=chapter-row-{id}-title` to that Link so the fixture can
+        // target it precisely. Clicking it opens the ChapterDetailsModal.
         var rows = Page.GetByTestId(new Regex(@"^chapter-row-\d+$"));
         var rowCount = await rows.CountAsync();
         rowCount.Should().BeGreaterThan(0, "the seeded manga must have at least one chapter row");
 
-        // ChapterTitleLink renders a Link element wrapping the title text;
-        // a role-based click on the link text picks it up.
+        // Derive the first row's id, then target its title link by testid.
         var firstRow = rows.First;
-        var titleLink = firstRow.Locator("a").First;
+        var rowTestId = await firstRow.GetAttributeAsync("data-testid");
+        var rowId = rowTestId!.Replace("chapter-row-", string.Empty);
+        var titleLink = Page.GetByTestId($"chapter-row-{rowId}-title");
         await Assertions.Expect(titleLink).ToBeVisibleAsync();
         await titleLink.ClickAsync();
 

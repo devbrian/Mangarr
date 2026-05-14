@@ -16,8 +16,6 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 // ChapterSearchCell dispatches POST /api/v5/chapter/{id}/search (Plan 07-01
 // + 06 D-12); the backend returns 202 Accepted + command id, with the
 // queued ChapterSearchCommand visible on /api/v5/command.
-//
-// [Explicit] cite: blocked by AddMangaFlow D-D nav race (issue #102).
 [TestFixture]
 [Category("AutomationTest")]
 public class ChapterSearchFixture : AutomationTest

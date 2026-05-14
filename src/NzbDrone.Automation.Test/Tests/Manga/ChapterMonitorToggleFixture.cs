@@ -13,8 +13,6 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 // Per-chapter monitor toggle from the MangaDetails chapters tab. The toggle is
 // the leftmost cell of every ChapterRow (frontend/src/Manga/Details/ChapterRow.tsx)
 // and dispatches via useToggleChapterMonitored → PUT /api/v5/chapter/monitor.
-//
-// [Explicit] cite: blocked by AddMangaFlow D-D nav race (issue #102, Plan 18-14).
 [TestFixture]
 [Category("AutomationTest")]
 public class ChapterMonitorToggleFixture : AutomationTest

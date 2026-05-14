@@ -19,8 +19,6 @@ namespace NzbDrone.Automation.Test.Tests.Wanted;
 /// Without those, a silent search-button click would pass a naive
 /// visibility check — exactly the regression
 /// feedback_verify_ui_state_not_just_rendering guards against.
-///
-/// [Explicit] citation: tracks GH issue #102 (Plan 18-14 D-D).
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]

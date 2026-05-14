@@ -5,6 +5,12 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Playwright" Version="1.59.0" />
     <PackageReference Include="Microsoft.Playwright.NUnit" Version="1.59.0" />
+    <!-- Plan 19-01 Open Question 1 verdict = raw-SQLite seed helpers. Version
+         matched to the backend's canonical SQLite ADO pin in
+         NzbDrone.Common/Mangarr.Common.csproj (System.Data.SQLite 2.0.3) so the
+         TestKit.Seed{HistoryFailed,Blocklist,PendingQueueItem}Async helpers open
+         <AppData>/mangarr.db with the same provider the backend itself uses. -->
+    <PackageReference Include="System.Data.SQLite" Version="2.0.3" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NzbDrone.Test.Common\Mangarr.Test.Common.csproj" />

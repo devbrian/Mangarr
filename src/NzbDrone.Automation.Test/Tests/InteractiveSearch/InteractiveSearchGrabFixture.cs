@@ -13,22 +13,59 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 // this fixture with a local SeedMangaAsync helper; Plan 18-15 replaces the
 // helper with the canonical AddMangaFlow.AddByMangaDexIdAsync call.
 //
-// The fixture remains [Explicit] because Plan 18-14 D-D
-// (AddMangaModal.ConfirmAddAsync nav race, GitHub issue #102) blocks every
-// fixture that goes through AddMangaFlow. Flips automatically when D-D ships.
-//
 // This is THE state-not-rendering regression catcher per memory
 // feedback_verify_ui_state_not_just_rendering.md: a grab that 404s, returns
 // silently, or fails to write history would leave the row visible AND the
 // no-results placeholder absent — a count-based assertion misses both. The
 // chained-system history-row assertion proves the pipeline end-to-end.
+//
+// Phase 19 Cat B (DEF-18-19-01): Plan 19-02 wired the Comix-disable
+// OneTimeSetUp (Phase 19 D-05) and recorded the InteractiveSearch indexer
+// feed cassette. The recording session uncovered DEF-19-02-01 (the
+// InteractiveSearch 0-render defect), which the Phase 19 in-phase debug
+// session then RESOLVED — see .planning/debug/resolved/
+// interactive-search-0-rows-def-19-02-01.md. With the DecisionEngine
+// manga-resolution / CustomFormatProfile-degradation fixes, the empty
+// customFormats list, the OpenForMangaAsync settle-wait, and the GrabAsync
+// POST-response wait, the full open → search → grab → history pipeline runs
+// offline — so [Explicit] is removed and this fixture rejoins the suite.
+// [Category("PRSmoke")] is PRESERVED — this is a core top-nav user path.
+//
+// ── Cassette recording loop (precedent: AddMangaSearchFixture.cs:14-16) ──
+// Indexer-feed cassette recorded 2026-05-14 (Plan 19-02); the grab-path
+// GET /at-home/server/{chapterId} cassette (77cba1bcd9755d35.json) recorded
+// 2026-05-14 (DEF-19-02-01 debug session, ReplayOrRecord mode) once the
+// 0-render defect fix made the grab reachable. Both recorded via:
+//   MANGARR_TEST_CASSETTE_MODE=Record|ReplayOrRecord
+//   MANGARR_TEST_CASSETTE_DIR=src/NzbDrone.Automation.Test/Fixtures/Cassettes/MangaDex
+//   MANGARR_TEST_ASSEMBLY_PATH=_tests/net10.0/Mangarr.Automation.Test.dll
+// driving the real open → search → grab flow against api.mangadex.org.
+// Per-page image GETs to uploads.mangadex.org are sentinel-PNG'd by
+// CassetteHandler.IsImageContentType and NOT persisted. CI runs Replay mode.
 [TestFixture]
 [Category("AutomationTest")]
 [Category("PRSmoke")]
-[Explicit("Phase 19 Cat B (Residual Yellow Inventory Resolution): needs indexer-side cassettes - the grab path hits indexers, not the /manga/{id} metadata endpoint the existing cassette set covers. #102 is CLOSED and was NOT the blocker. Flip when Phase 19 extends the cassette dir per DEF-18-19-01. See ROADMAP Phase 19 SC#2.")]
 public class InteractiveSearchGrabFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+
+    [OneTimeSetUp]
+    public async Task DisableComixAsync()
+    {
+        // Phase 19 D-05: Comix cannot be HTTP-cassette'd (Phase 18 D-11 — the
+        // runtime signer hits comix.to live). Disable it BEFORE the first
+        // InteractiveSearch so the fan-out is MangaDex-only. NUnit runs the
+        // base AutomationTest [OneTimeSetUp] (which boots the backend + seeds
+        // the baseline) before this derived [OneTimeSetUp], so RootUri/ApiKey
+        // are wired by the time this runs.
+        //
+        // FOLLOW-UP: https://github.com/devbrian/Mangarr/issues/116 — restore
+        // Comix search/grab coverage here once a Comix offline-tier cassette
+        // mechanism exists OR the IComixIndexer boundary-mock pattern
+        // (Phase 18 D-11) is applied to this fixture.
+        await new TestKit.TestKit(RootUri, ApiKey, string.Empty)
+            .DisableComixIndexerAsync();
+    }
 
     [Test]
     public async Task grab_writes_to_history()
