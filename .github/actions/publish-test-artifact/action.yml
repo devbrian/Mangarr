@@ -16,3 +16,13 @@ runs:
       with:
         name: tests-${{ inputs.runtime }}
         path: _tests/${{ inputs.framework }}/${{ inputs.runtime }}/publish/**/*
+        # CI-infra F9 fix (automation-test-pr-smoke / issue #131): the Microsoft.Playwright
+        # .NET driver ships in a HIDDEN `.playwright/` directory next to the test assemblies.
+        # actions/upload-artifact@v4+ excludes hidden files by default, so `.playwright/` was
+        # silently dropped from every tests-* artifact — the automation jobs then had no
+        # Playwright driver to launch a browser with. include-hidden-files only changes WHAT
+        # IS PACKAGED into the artifact, never what is executed, so it is safe to apply
+        # unconditionally: a non-automation job that downloads a `.playwright/` dir but never
+        # chmods/launches it is completely unaffected. (The dangerous half — chmod +x on the
+        # driver's bundled Node — lives in the automation-gated step in actions/test/action.yml.)
+        include-hidden-files: true

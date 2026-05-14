@@ -36,10 +36,20 @@ public class PlaywrightSetUpFixture
     {
         try
         {
-            // Auto-install browser binaries if missing — keeps CI cold-start single-step.
-            // Honors PLAYWRIGHT_BROWSERS_PATH per 18-RESEARCH.md line 147.
-            Microsoft.Playwright.Program.Main(new[] { "install", "chromium" });
-
+            // Browser binaries are provisioned by the CI workflow's "Provision Playwright
+            // browsers" step (.github/actions/test/action.yml), which runs the shipped
+            // playwright.ps1 driver script as its OWN process before the test run.
+            //
+            // CI-infra fix (automation-test-pr-smoke / issue #131): this method used to call
+            // `Microsoft.Playwright.Program.Main(["install","chromium"])` to self-install at
+            // test time. That is an anti-pattern — Program.Main is the playwright CLI's
+            // process entry point, not a library API; invoking it inside a live test host
+            // left the .NET<->driver transport half-initialized, so the [OneTimeTearDown]'s
+            // Playwright.Dispose() P/Invoked an unbound entry point and threw
+            // System.EntryPointNotFoundException. With provisioning moved to the workflow,
+            // SetUpAsync only needs to CreateAsync() + LaunchAsync() against an
+            // already-provisioned browser. Locally, `pwsh playwright.ps1 install chromium`
+            // (or `dotnet test` after a build) provisions the same way.
             Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
             Browser = await Playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
         }

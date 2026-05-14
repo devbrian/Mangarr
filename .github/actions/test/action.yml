@@ -20,10 +20,12 @@ inputs:
     required: true
   integration_tests:
     description: 'True if running integration tests'
+  automation_tests:
+    description: 'True if running Playwright automation (UI) tests'
   binary_artifact:
-    description: 'Binary artifact for integration tests'
+    description: 'Binary artifact for integration / automation tests'
   binary_path:
-    description: 'Path witin binary artifact for integration tests'
+    description: 'Path witin binary artifact for integration / automation tests'
 
 runs:
   using: 'composite'
@@ -57,8 +59,14 @@ runs:
         name: ${{ inputs.artifact }}
         path: _tests
 
+    # CI-infra F11 fix (automation-test-pr-smoke / issue #131): the automation jobs boot a
+    # real Mangarr backend via NzbDroneRunner (which execs _tests/bin/Mangarr), exactly like
+    # the integration tests do — so the backend-binary download must fire for BOTH
+    # integration_tests AND automation_tests. Previously gated on integration_tests only,
+    # which left automation_test_pr_smoke with no backend binary
+    # (Win32Exception: '_tests/bin/Mangarr' ... No such file or directory).
     - name: Download Binary Artifact
-      if: ${{ inputs.integration_tests }}
+      if: ${{ inputs.integration_tests || inputs.automation_tests }}
       uses: actions/download-artifact@v5
       with:
         name: ${{ inputs.binary_artifact }}
@@ -69,8 +77,10 @@ runs:
       shell: bash
       run: mv ./_output/${{inputs.binary_path}} _tests/bin
 
+    # CI-infra F11 fix (issue #131): un-gated from integration_tests to also cover
+    # automation_tests — the automation jobs exec the same _tests/bin/Mangarr binary.
     - name: Make Mangarr binary executable
-      if: ${{ inputs.integration_tests && !startsWith(inputs.os, 'windows') }}
+      if: ${{ (inputs.integration_tests || inputs.automation_tests) && !startsWith(inputs.os, 'windows') }}
       shell: bash
       run: chmod +x ./_tests/bin/Mangarr
 
@@ -94,6 +104,38 @@ runs:
       shell: bash
       run: |
         find ./_tests \( -name 'Mangarr.Test.Dummy' -o -name 'ffprobe' -o -name 'ffmpeg' \) -type f -print -exec chmod +x {} +
+
+    # CI-infra F9 fix (automation-test-pr-smoke / issue #131): the Microsoft.Playwright .NET
+    # driver ships its own bundled Node runtime at .playwright/node/<rid>/node. It now reaches
+    # the artifact (include-hidden-files: true in publish-test-artifact/action.yml) but
+    # actions/download-artifact does not preserve the Unix exec bit on it — same root cause as
+    # the F4/F5 helper-binary fix above. This step is AUTOMATION-GATED on purpose: a prior
+    # attempt put this chmod in the shared path and it regressed unit_test/unit_test_postgres
+    # (making the driver executable there caused PlaywrightSetUpFixture to launch a real
+    # browser, and TearDownAsync threw EntryPointNotFoundException). Gating on automation_tests
+    # structurally prevents that regression — unit_test/unit_test_postgres/integration_test
+    # never pass automation_tests, so this step never runs in their jobs.
+    - name: Make Playwright driver executable
+      if: ${{ inputs.automation_tests && !startsWith(inputs.os, 'windows') }}
+      shell: bash
+      run: |
+        find ./_tests -path '*/.playwright/node/*' -name node -type f -print -exec chmod +x {} +
+
+    # CI-infra fix (automation-test-pr-smoke / issue #131): provision the Playwright browser
+    # binaries as their OWN process before the test run. This replaces the in-process
+    # `Microsoft.Playwright.Program.Main(["install","chromium"])` call that PlaywrightSetUpFixture
+    # used to make — Program.Main is the playwright CLI's process entry point, not a library
+    # API, and invoking it inside a live test host left the .NET<->driver transport
+    # half-initialized so Playwright.Dispose() later P/Invoked an unbound entry point
+    # (System.EntryPointNotFoundException). The supported provisioning path is the generated
+    # playwright.ps1 driver script that ships next to the test assemblies; ubuntu-latest
+    # runners have pwsh preinstalled. The automation jobs' "Cache Playwright browsers" step
+    # restores ~/.cache/ms-playwright, so this is a fast no-op on warm runs.
+    - name: Provision Playwright browsers
+      if: ${{ inputs.automation_tests }}
+      shell: pwsh
+      working-directory: _tests
+      run: ./playwright.ps1 install --with-deps chromium
 
     - name: Run tests
       shell: bash
