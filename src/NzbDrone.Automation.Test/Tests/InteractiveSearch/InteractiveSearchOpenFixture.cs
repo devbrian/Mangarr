@@ -14,10 +14,6 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 // AddMangaFlow.AddByMangaDexIdAsync was not yet on the integration branch.
 // Plan 18-04 / Plan 18-14 closed those gaps — AddMangaFlow is canonical now,
 // so this plan replaces the inline helper with the canonical seed call.
-//
-// The fixture remains [Explicit] because Plan 18-14 D-D
-// (AddMangaModal.ConfirmAddAsync nav race, GitHub issue #102) blocks every
-// fixture that goes through AddMangaFlow. Flips automatically when D-D ships.
 [TestFixture]
 [Category("AutomationTest")]
 public class InteractiveSearchOpenFixture : AutomationTest

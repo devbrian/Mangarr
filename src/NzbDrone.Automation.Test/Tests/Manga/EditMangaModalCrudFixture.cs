@@ -24,11 +24,6 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 /// native input behind a styled icon — selected via the input[name=...]
 /// CSS selector, same approach as SettingsSaveRoundTripFixture which has
 /// the same hidden-native-input shape).
-///
-/// [Explicit] citation: tracks GH issue #102 (Plan 18-14 D-D — AddManga modal
-/// nav race in ConfirmAddAsync). Every fixture in this plan that calls
-/// AddMangaFlow.AddByMangaDexIdAsync remains [Explicit] until #102 lands.
-/// Promotes to live [Test] (delete-the-attribute change) when #102 closes.
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]

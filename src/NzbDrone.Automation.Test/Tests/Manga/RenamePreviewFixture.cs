@@ -23,9 +23,6 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 ///
 /// State assertion: the preview modal renders SOMETHING — either a list-
 /// state or an empty-state — and the URL pattern remains on MangaDetails.
-///
-/// [Explicit] citation: tracks GH issue #102 (Plan 18-14 D-D — AddManga modal
-/// nav race in ConfirmAddAsync).
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]

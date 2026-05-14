@@ -15,8 +15,6 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 // sortable table with no volume-grouping or seasonal-grouping headers. The
 // upstream Sonarr SeriesDetailsSeason nests Episode rows under collapsible
 // Season cards; manga must NOT mirror that shape.
-//
-// [Explicit] cite: blocked by AddMangaFlow D-D nav race (issue #102).
 [TestFixture]
 [Category("AutomationTest")]
 public class MangaDetailsFlatChapterListFixture : AutomationTest
