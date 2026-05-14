@@ -20,11 +20,10 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 /// the just-deleted manga should be 0 (or absent — Locator.CountAsync()
 /// returns 0 when the selector matches nothing).
 ///
-/// Cassette deferral: see AddMangaSearchFixture for the [Explicit] rationale.
+/// Cassettes recorded in Plan 18-14 gap closure; runs LIVE under default CI Replay mode.
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Phase 18 Plan-04 Task 3 cassette deferral — MangaDex cassette not yet recorded. See AddMangaSearchFixture for full deferral context.")]
 public class DeleteMangaModalFixture : AutomationTest
 {
     private const string KnownMangaDexId = "a96676e5-8ae2-425e-b549-7f15dd34a6d8";

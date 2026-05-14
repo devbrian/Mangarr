@@ -21,11 +21,10 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 /// auto-closes if useSaveManga's onSuccess fires, which only fires on a 2xx
 /// response from the PUT.
 ///
-/// Cassette deferral: see AddMangaSearchFixture for the [Explicit] rationale.
+/// Cassettes recorded in Plan 18-14 gap closure; runs LIVE under default CI Replay mode.
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Phase 18 Plan-04 Task 3 cassette deferral — MangaDex cassette not yet recorded. See AddMangaSearchFixture for full deferral context.")]
 public class EditMangaModalFixture : AutomationTest
 {
     private const string KnownMangaDexId = "a96676e5-8ae2-425e-b549-7f15dd34a6d8";

@@ -1,0 +1,29 @@
+{
+  "Request": {
+    "Method": "HEAD",
+    "Url": "https://uploads.mangadex.org/covers/a96676e5-8ae2-425e-b549-7f15dd34a6d8/f8f44329-1dd7-4301-9ec7-a4a76182e8eb.jpg"
+  },
+  "Response": {
+    "Status": 405,
+    "Body": "",
+    "Headers": {
+      "Content-Length": "14",
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Server": "MangaDex",
+      "Via": "HTTP/2.0 EU-WEST-U1x2",
+      "X-Request-ID": "c23b2a3b-7ed4-4e97-a92d-8ab827f77658",
+      "permissions-policy": "fullscreen=(self)",
+      "Referrer-Policy": "strict-origin",
+      "X-Content-Type-Options": "nosniff",
+      "X-XSS-Protection": "1; mode=block",
+      "X-Frame-Options": "DENY",
+      "cross-origin-embedder-policy": "unsafe-none",
+      "cross-origin-opener-policy": "same-origin-allow-popups",
+      "Cross-Origin-Resource-Policy": "cross-origin",
+      "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+      "Alt-Svc": "clear",
+      "md-progressive-rollout-bucket": "4111702069"
+    }
+  }
+}
