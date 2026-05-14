@@ -6,8 +6,8 @@
 .path {
   margin-left: 5px;
   color: var(--dangerColor);
-  font-weight: bold;
   word-break: break-all;
+  font-weight: bold;
 }
 
 .statistics {

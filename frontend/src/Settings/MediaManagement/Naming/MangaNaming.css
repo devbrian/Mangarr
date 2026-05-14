@@ -17,7 +17,7 @@
   border-radius: 4px;
   background-color: var(--inputBackgroundColor);
   color: var(--textColor);
-  font-family: $monoSpaceFontFamily;
-  font-size: 13px;
   word-break: break-all;
+  font-size: 13px;
+  font-family: $monoSpaceFontFamily;
 }
