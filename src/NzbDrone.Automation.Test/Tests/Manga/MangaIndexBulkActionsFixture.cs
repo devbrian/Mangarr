@@ -32,14 +32,9 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 /// gate. The richer Save round-trip is deferred to a follow-up fixture.
 ///
 /// Per-fixture DB (D-05) means bulk-delete is isolated.
-///
-/// [Explicit] citation: tracks GH issue #102 (Plan 18-14 D-D — AddManga modal
-/// nav race in ConfirmAddAsync). AddMangaFlow.AddByMangaDexIdAsync times out
-/// until #102 lands.
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Phase 19 Cat C (Residual Yellow Inventory Resolution): fixture-level bug surfaced once the AddManga flow worked end-to-end post-#102. #102 is CLOSED and was NOT the blocker. Flip after the focused fix-forward. See ROADMAP Phase 19 SC#3.")]
 public class MangaIndexBulkActionsFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
@@ -80,10 +75,20 @@ public class MangaIndexBulkActionsFixture : AutomationTest
         await deleteButton.ClickAsync();
 
         // The DeleteMangaModal (multi-manga variant) opens with a confirm button.
-        // Modal body lists the count of manga to delete. Click the modal's
-        // confirm Delete button.
-        var confirmButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Delete" }).Last;
-        await confirmButton.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+        // Phase 19 fix-forward: the prior code clicked the confirm button as
+        // soon as it resolved, but the modal backdrop (Modal-modalBackdrop)
+        // animates in and intercepts the pointer event mid-transition. The
+        // Modal renders role="dialog" with aria-labelledby pointing at the
+        // ModalHeader, so the dialog's accessible name is the header text
+        // ("Delete Selected Manga" per DeleteMangaModalContent). Wait for that
+        // dialog to be visible — proving the modal is fully rendered and the
+        // backdrop transition has settled — then scope the confirm click to it.
+        var deleteModal = Page.GetByRole(AriaRole.Dialog,
+            new PageGetByRoleOptions { Name = "Delete Selected Manga" });
+        await Assertions.Expect(deleteModal).ToBeVisibleAsync(new() { Timeout = 10_000 });
+
+        var confirmButton = deleteModal.GetByRole(AriaRole.Button,
+            new LocatorGetByRoleOptions { Name = "Delete", Exact = true });
         await confirmButton.ClickAsync();
 
         // WR-07 (18-REVIEW): replace static 2.5s sleep with an explicit
