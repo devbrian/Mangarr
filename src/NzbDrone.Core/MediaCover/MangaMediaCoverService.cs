@@ -195,7 +195,15 @@ namespace NzbDrone.Core.MediaCover
                     }
 
                     DownloadCover(localPath, cover.RemoteUrl);
-                    EnsureResized(localPath, manga.Id, cover.CoverType);
+
+                    // Reaching this line means DownloadCover just rewrote the base file
+                    // (AlreadyExists returned false). Force-regenerate the resized variants
+                    // from the fresh base file so a reused manga Id cannot keep serving the
+                    // previous tenant's poster-{h}.jpg. See debug session
+                    // wrong-cover-image-after-add: the `Manga` table has no AUTOINCREMENT,
+                    // so SQLite reuses a deleted row's rowid; without this regenerate the
+                    // skip-if-exists branch in EnsureResized leaves stale resized covers.
+                    EnsureResized(localPath, manga.Id, cover.CoverType, regenerate: true);
 
                     // Per-cover write succeeded — flag the batch as containing genuine changes.
                     updated = true;
@@ -249,7 +257,12 @@ namespace NzbDrone.Core.MediaCover
             _httpClient.DownloadFile(remoteUrl, localPath);
         }
 
-        private void EnsureResized(string localPath, int mangaId, MediaCoverTypes coverType)
+        // <paramref name="regenerate"/> — when true, an existing resized variant is deleted
+        // before re-resizing instead of being skipped. The MangaUpdatedEvent path passes true
+        // because it only reaches EnsureResized after DownloadCover rewrote the base file:
+        // skipping a resized variant that already exists would serve a stale cover on a reused
+        // manga Id (see debug session wrong-cover-image-after-add).
+        private void EnsureResized(string localPath, int mangaId, MediaCoverTypes coverType, bool regenerate = false)
         {
             // Heights mirror the precedent set in MediaCoverService.EnsureResizedCovers.
             var heights = coverType switch
@@ -263,7 +276,22 @@ namespace NzbDrone.Core.MediaCover
             foreach (var h in heights)
             {
                 var resizedPath = GetMangaCoverPath(mangaId, coverType, h);
-                if (!_diskProvider.FileExists(resizedPath))
+                var resizedExists = _diskProvider.FileExists(resizedPath);
+
+                if (resizedExists && regenerate)
+                {
+                    try
+                    {
+                        _diskProvider.DeleteFile(resizedPath);
+                        resizedExists = false;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Debug(ex, "Couldn't delete stale resized manga cover {0}-{1} for manga {2}", coverType, h, mangaId);
+                    }
+                }
+
+                if (!resizedExists)
                 {
                     try
                     {
