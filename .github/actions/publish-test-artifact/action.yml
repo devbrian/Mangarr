@@ -16,10 +16,3 @@ runs:
       with:
         name: tests-${{ inputs.runtime }}
         path: _tests/${{ inputs.framework }}/${{ inputs.runtime }}/publish/**/*
-        # CI-infra F9 fix (ci-test-jobs-latent-faults): actions/upload-artifact@v4+
-        # excludes hidden files/dirs by default. The Microsoft.Playwright .NET driver
-        # ships in a `.playwright/` directory (hidden) next to the test assemblies —
-        # without this flag it was silently dropped from the tests-* artifact, so
-        # PlaywrightSetUpFixture.SetUpAsync's `Microsoft.Playwright.Program.Main(["install",
-        # "chromium"])` failed with "Driver not found" in the automation_test_* jobs.
-        include-hidden-files: true
