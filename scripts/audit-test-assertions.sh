@@ -36,10 +36,24 @@ path = sys.argv[1]
 with open(path, encoding='utf-8') as f:
     src = f.read()
 
+# BL-04 fix (Plan 18-13): pre-strip line comments AND block comments BEFORE
+# the class_explicit_pat check, so an `// [Explicit] ...` mention in a
+# comment block above the class declaration cannot accidentally exempt the
+# fixture from the gate. (Previously this strip happened later, AFTER the
+# class_explicit_pat search, which made the bypass trivial.)
+src_no_comments = re.sub(r'^\s*//.*$', '', src, flags=re.MULTILINE)
+src_no_comments = re.sub(r'/\*[\s\S]*?\*/', '', src_no_comments)
+
 # Class-level [Explicit] attribute exempts every method in the fixture.
 # These are documented deferrals (Plan-04 cassette, Plan-08 dependencies).
-class_explicit_pat = re.compile(r'\[Explicit[^\]]*\][\s\S]*?\bpublic\s+class\s+\w+', re.DOTALL)
-if class_explicit_pat.search(src):
+# The attribute must be on its own line directly above the `public class`
+# declaration, with only other attribute lines (e.g. [TestFixture], [Category])
+# allowed between. MULTILINE-anchored; no DOTALL so [\s\S] won't span the body.
+class_explicit_pat = re.compile(
+    r'^\s*\[Explicit[^\]]*\]\s*\n(?:\s*\[[^\]]+\][^\n]*\n)*\s*public\s+class\s+\w+',
+    re.MULTILINE
+)
+if class_explicit_pat.search(src_no_comments):
     sys.exit(0)
 
 # Fixtures whose path ends in PageLoadFixture are intentional rendering-only
@@ -80,8 +94,9 @@ state_assertion_tokens = [
 ]
 visibility_only_tokens = ['ToBeVisibleAsync', 'ToBeAttachedAsync']
 
-# Pre-strip line comments to avoid self-invalidating-grep (planner-antipatterns.md).
-src_no_comments = re.sub(r'^\s*//.*$', '', src, flags=re.MULTILINE)
+# Note: `src_no_comments` is defined above (before the class_explicit_pat
+# check) as part of the BL-04 fix from Plan 18-13. The downstream method_pat
+# scan uses the same comment-stripped source.
 
 anti_methods = []
 for m in method_pat.finditer(src_no_comments):

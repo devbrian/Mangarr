@@ -189,9 +189,33 @@ namespace NzbDrone.Common.Http.Dispatchers
                     var modeEnumType = asm.GetType(modeTypeName);
                     if (type != null && modeEnumType != null)
                     {
-                        var modeValue = Enum.Parse(modeEnumType, cassetteMode);
-                        effectiveHandler = (HttpMessageHandler)Activator.CreateInstance(
-                            type, cassetteDir, modeValue, sentinelPath ?? string.Empty, handler);
+                        // BL-01 fix (18-13): Enum.Parse throws on a typo'd env-var value,
+                        // crashing every production HTTP path. Use the reflection-friendly
+                        // Enum.TryParse(Type, string, bool, out object) overload instead;
+                        // on failure, log via Trace and fall through to the production
+                        // handler. modeEnumType is loaded reflectively across an assembly
+                        // boundary so we can't take a static dep on CassetteMode here.
+                        var tryParseMethod = typeof(Enum).GetMethods()
+                            .First(m => m.Name == "TryParse"
+                                        && m.IsGenericMethodDefinition == false
+                                        && m.GetParameters().Length == 4
+                                        && m.GetParameters()[0].ParameterType == typeof(Type)
+                                        && m.GetParameters()[1].ParameterType == typeof(string)
+                                        && m.GetParameters()[2].ParameterType == typeof(bool)
+                                        && m.GetParameters()[3].ParameterType.IsByRef);
+                        var parseArgs = new object[] { modeEnumType, cassetteMode, true, null };
+                        var parsed = (bool)tryParseMethod.Invoke(null, parseArgs);
+                        if (parsed)
+                        {
+                            var modeValue = parseArgs[3];
+                            effectiveHandler = (HttpMessageHandler)Activator.CreateInstance(
+                                type, cassetteDir, modeValue, sentinelPath ?? string.Empty, handler);
+                        }
+                        else
+                        {
+                            System.Diagnostics.Trace.WriteLine(
+                                $"MANGARR_TEST_CASSETTE_MODE='{cassetteMode}' is not a valid CassetteMode; ignoring.");
+                        }
                     }
                 }
             }
