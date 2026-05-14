@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Playwright;
 using NzbDrone.Automation.Test.PageModel;
@@ -68,10 +69,29 @@ public static class AddMangaFlow
         // AddNewMangaSearchResult.tsx).
         await resultRow.GetByTestId("add-manga-add-button").ClickAsync();
 
-        // Confirm the modal (accepts defaults: rootFolderPath/monitor/translationProfileId
-        // are pre-populated from store + Settings). Navigation to /manga/{slug} happens
-        // because useAddManga.onSuccess in useAddManga.ts pushes history after the POST.
+        // Confirm the modal. Per Sonarr-mirror UX (useAddManga.onSuccess only updates
+        // the React Query cache — no history.push, matching Sonarr's useAddSeries shape
+        // verified pre-Phase-15-delete), the modal auto-closes on add success but the
+        // user stays on /add/manga. Issue #102 close-out 2026-05-14.
         var modal = new AddMangaModal(page);
-        return await modal.ConfirmAddAsync();
+        await modal.ConfirmAddAsync();
+
+        // Navigate explicitly to /manga/{slug} via the library index, since the frontend
+        // doesn't auto-navigate. The freshly-added card is now in the cache (onSuccess
+        // wrote it to the ['/manga'] queryKey synchronously). Click-through takes us to
+        // MangaDetailsPage. This adapter preserves the existing fixture contract
+        // (callers still get a MangaDetailsPage) without forcing a frontend divergence
+        // from Sonarr.
+        await new MangaIndexPage(page).OpenAsync(rootUri);
+
+        // First card on the index — testid is `manga-card-{titleSlug}` per
+        // MangaIndexPoster.tsx:137. We don't know the slug ahead of time
+        // (it's derived backend-side from the manga title) so match the prefix.
+        var card = page.Locator("[data-testid^='manga-card-']").First;
+        await card.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
+        await Task.WhenAll(
+            page.WaitForURLAsync(new Regex(@"/manga/[^/]+$")),
+            card.ClickAsync());
+        return new MangaDetailsPage(page);
     }
 }

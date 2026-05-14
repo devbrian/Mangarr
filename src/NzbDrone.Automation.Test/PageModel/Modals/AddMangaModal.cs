@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Playwright;
 
@@ -21,24 +20,26 @@ public class AddMangaModal : PageBase
     public ILocator CancelButton => Page.GetByTestId("add-manga-modal-cancel-button");
 
     /// <summary>
-    /// Click the modal's Add button and wait for the resulting navigation to
-    /// /manga/{slug}. Returns the MangaDetailsPage object for chaining.
+    /// Click the modal's Add button and wait for the modal to close.
     ///
-    /// Issue #102 fix: arm the URL wait BEFORE the click triggers the
-    /// navigation. The previous shape (`await click; await WaitForURL`)
-    /// raced — in cassette-replay / fast-POST mode the navigation event
-    /// fired before the wait was armed and every AddManga flow fixture
-    /// timed out at this line. RunAndWaitForUrlAsync wraps both sides
-    /// of the navigation in a single atomic wait.
+    /// Issue #102 close-out 2026-05-14: Sonarr-mirror UX verified against
+    /// pre-Phase-15-delete useAddSeries.ts — `onSuccess` only updates the
+    /// React Query cache; no history.push. The modal auto-closes on add
+    /// success but the user stays on /add/manga. Callers needing the
+    /// MangaDetailsPage should use AddMangaFlow.AddByMangaDexIdAsync, which
+    /// adapts via an explicit MangaIndex → card click navigation step.
     /// </summary>
-    public async Task<MangaDetailsPage> ConfirmAddAsync()
+    public async Task ConfirmAddAsync()
     {
-        // Arm the URL wait BEFORE triggering the click. WaitForURLAsync returns a
-        // hot Task immediately; Task.WhenAll then runs the click in parallel with
-        // the wait so the navigation event can't fire before the watcher exists.
-        await Task.WhenAll(
-            Page.WaitForURLAsync(new Regex(@"/manga/[^/]+$")),
-            AddButton.ClickAsync());
-        return new MangaDetailsPage(Page);
+        await AddButton.ClickAsync();
+
+        // Wait for the modal to disappear from the DOM (the AddManga component
+        // unmounts the side-panel modal when isNewAddMangaModalOpen flips to false
+        // inside useAddManga.onSuccess). 30 s ceiling matches the search-row timeout.
+        await ModalRoot.WaitForAsync(new LocatorWaitForOptions
+        {
+            State = WaitForSelectorState.Hidden,
+            Timeout = 30_000
+        });
     }
 }
