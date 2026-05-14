@@ -119,13 +119,18 @@ function AddNewMangaSearchResult({ manga }: AddNewMangaSearchResultProps) {
   // `getByTestId('add-manga-result-{id}').getByTestId('add-manga-add-button')`.
   // The id source is MangaDex / AniList / MAL in that priority order; falls
   // back to titleSlug for offline cassettes that may not carry an external id.
-  const resultRowTestId = mangaDexId
-    ? `add-manga-result-${mangaDexId}`
-    : aniListId != null
-    ? `add-manga-result-al-${aniListId}`
-    : malId != null
-    ? `add-manga-result-mal-${malId}`
-    : `add-manga-result-${titleSlug ?? 'unknown'}`;
+  const resultRowTestId = useMemo(() => {
+    if (mangaDexId) {
+      return `add-manga-result-${mangaDexId}`;
+    }
+    if (aniListId != null) {
+      return `add-manga-result-al-${aniListId}`;
+    }
+    if (malId != null) {
+      return `add-manga-result-mal-${malId}`;
+    }
+    return `add-manga-result-${titleSlug ?? 'unknown'}`;
+  }, [mangaDexId, aniListId, malId, titleSlug]);
 
   return (
     <div className={styles.searchResult} data-testid={resultRowTestId}>

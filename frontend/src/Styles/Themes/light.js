@@ -2,7 +2,6 @@
 // Use these consts instead of inlining the hex values so any future tweak to
 // the manga accent only touches the const declaration.
 const sonarrBlue = '#35c5f4'; // retained for legacy infoColor / sonarrBlue export keys
-const sonarrAlternateBlue = '#2193b5'; // retained for legacy export key only
 const mangarrPink = '#f06292';
 const mangarrPinkDark = '#c2185b';
 const darkGray = '#888';

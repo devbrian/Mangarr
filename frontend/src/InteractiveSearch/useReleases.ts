@@ -434,7 +434,8 @@ const useReleases = (payload: InteractiveSearchPayload) => {
   // server-side point query is unavailable; defaulting chapter searches to
   // 'not-rejected' hides the chapter-mismatch rejections that would otherwise
   // dwarf the matching releases. User can toggle to 'all' to inspect rejections.
-  let selectedFilterKey: typeof episodeSelectedFilterKey;
+  let selectedFilterKey: typeof episodeSelectedFilterKey =
+    episodeSelectedFilterKey;
 
   if ('chapterId' in payload) {
     selectedFilterKey = chapterSelectedFilterKey;
@@ -442,8 +443,6 @@ const useReleases = (payload: InteractiveSearchPayload) => {
     selectedFilterKey = mangaSelectedFilterKey;
   } else if ('seriesId' in payload) {
     selectedFilterKey = seasonSelectedFilterKey;
-  } else {
-    selectedFilterKey = episodeSelectedFilterKey;
   }
 
   const { data, queryKey, ...result } = useApiQuery<Release[]>({

@@ -115,5 +115,3 @@ export const useDeleteChapterFiles = () => {
     deleteError: error,
   };
 };
-
-export default useChapterFilesByManga;

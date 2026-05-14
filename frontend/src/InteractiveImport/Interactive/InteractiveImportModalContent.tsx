@@ -283,10 +283,17 @@ function InteractiveImportModalContentInner(
   // useUpdateEpisodeFiles no-op stub hooks replaced with inline no-op
   // call-site shape (TV InteractiveImport flow gated for v1; no Chapter
   // peer ships in v1). v1.x cleanup at ChapterFile peer dir authoring.
+  // Wrapped in useCallback so the no-op identities are stable across renders
+  // — the downstream useCallback deps (handleDeleteSelectedPress /
+  // handleSelectModalSelect) would otherwise change every render
+  // (react-hooks/exhaustive-deps).
   const isDeleting = false;
   const deleteError: unknown = null;
-  const deleteEpisodeFiles = (_args: { episodeFileIds: number[] }) => undefined;
-  const updateEpisodeFiles = (_files: unknown[]) => undefined;
+  const deleteEpisodeFiles = useCallback(
+    (_args: { episodeFileIds: number[] }) => undefined,
+    []
+  );
+  const updateEpisodeFiles = useCallback((_files: unknown[]) => undefined, []);
 
   const [invalidRowsSelected, setInvalidRowsSelected] = useState<number[]>([]);
   const [

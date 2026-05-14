@@ -164,5 +164,3 @@ export const useBulkToggleChaptersMonitored = () => {
  * the discriminator-driven query-key map ships.
  */
 export const setChapterQueryKey = (..._args: unknown[]) => undefined;
-
-export default useChaptersByManga;

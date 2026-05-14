@@ -90,6 +90,107 @@ function defaultProfile(): TranslationProfileResource {
   };
 }
 
+// Per-row sub-component for the ranked language list. Extracted so the parent's
+// .map() does not allocate fresh arrow handlers per render (react/jsx-no-bind);
+// each row binds its own rank into stable useCallback handlers here.
+interface LanguageRankRowProps {
+  lang: TranslationProfileResource['languages'][number];
+  idx: number;
+  isLast: boolean;
+  isOnly: boolean;
+  languageValues: { key: string; value: string }[];
+  onCodeChange: (rank: number, language: string) => void;
+  onAllowedChange: (rank: number, allowed: boolean) => void;
+  onMove: (rank: number, direction: -1 | 1) => void;
+  onRemove: (rank: number) => void;
+}
+
+function LanguageRankRow({
+  lang,
+  idx,
+  isLast,
+  isOnly,
+  languageValues,
+  onCodeChange,
+  onAllowedChange,
+  onMove,
+  onRemove,
+}: LanguageRankRowProps) {
+  const handleCodeChange = useCallback(
+    (c: InputChangedHandler<string>) => {
+      onCodeChange(lang.rank, c.value);
+    },
+    [lang.rank, onCodeChange]
+  );
+
+  const handleAllowedChange = useCallback(
+    (c: InputChangedHandler<boolean>) => {
+      onAllowedChange(lang.rank, c.value);
+    },
+    [lang.rank, onAllowedChange]
+  );
+
+  const handleMoveUp = useCallback(() => {
+    onMove(lang.rank, -1);
+  }, [lang.rank, onMove]);
+
+  const handleMoveDown = useCallback(() => {
+    onMove(lang.rank, 1);
+  }, [lang.rank, onMove]);
+
+  const handleRemove = useCallback(() => {
+    onRemove(lang.rank);
+  }, [lang.rank, onRemove]);
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        marginBottom: 6,
+        gap: 6,
+      }}
+    >
+      <span style={{ minWidth: 30 }}>{lang.rank}.</span>
+      <div style={{ minWidth: 150 }}>
+        <FormInputGroup
+          type={inputTypes.SELECT}
+          name={`language-${lang.rank}`}
+          value={lang.language}
+          values={languageValues}
+          onChange={handleCodeChange}
+        />
+      </div>
+      <div style={{ minWidth: 90 }}>
+        <FormInputGroup
+          type={inputTypes.CHECK}
+          name={`allowed-${lang.rank}`}
+          value={lang.allowed}
+          onChange={handleAllowedChange}
+        />
+      </div>
+      <IconButton
+        name={icons.SORT_ASCENDING}
+        title={translate('MoveUp')}
+        isDisabled={idx === 0}
+        onPress={handleMoveUp}
+      />
+      <IconButton
+        name={icons.SORT_DESCENDING}
+        title={translate('MoveDown')}
+        isDisabled={isLast}
+        onPress={handleMoveDown}
+      />
+      <IconButton
+        name={icons.REMOVE}
+        title={translate('Remove')}
+        isDisabled={isOnly}
+        onPress={handleRemove}
+      />
+    </div>
+  );
+}
+
 function EditTranslationProfileModalContent({
   id,
   onContentHeightChange,
@@ -352,56 +453,18 @@ function EditTranslationProfileModalContent({
                 </FormLabel>
                 <div>
                   {sortedLanguages.map((lang, idx) => (
-                    <div
+                    <LanguageRankRow
                       key={`${lang.rank}-${lang.language}`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        marginBottom: 6,
-                        gap: 6,
-                      }}
-                    >
-                      <span style={{ minWidth: 30 }}>{lang.rank}.</span>
-                      <div style={{ minWidth: 150 }}>
-                        <FormInputGroup
-                          type={inputTypes.SELECT}
-                          name={`language-${lang.rank}`}
-                          value={lang.language}
-                          values={languageValues}
-                          onChange={(c: InputChangedHandler<string>) =>
-                            handleLanguageCodeChange(lang.rank, c.value)
-                          }
-                        />
-                      </div>
-                      <div style={{ minWidth: 90 }}>
-                        <FormInputGroup
-                          type={inputTypes.CHECK}
-                          name={`allowed-${lang.rank}`}
-                          value={lang.allowed}
-                          onChange={(c: InputChangedHandler<boolean>) =>
-                            handleLanguageAllowedChange(lang.rank, c.value)
-                          }
-                        />
-                      </div>
-                      <IconButton
-                        name={icons.SORT_ASCENDING}
-                        title={translate('MoveUp')}
-                        isDisabled={idx === 0}
-                        onPress={() => handleMoveLanguage(lang.rank, -1)}
-                      />
-                      <IconButton
-                        name={icons.SORT_DESCENDING}
-                        title={translate('MoveDown')}
-                        isDisabled={idx === sortedLanguages.length - 1}
-                        onPress={() => handleMoveLanguage(lang.rank, 1)}
-                      />
-                      <IconButton
-                        name={icons.REMOVE}
-                        title={translate('Remove')}
-                        isDisabled={sortedLanguages.length === 1}
-                        onPress={() => handleRemoveLanguage(lang.rank)}
-                      />
-                    </div>
+                      lang={lang}
+                      idx={idx}
+                      isLast={idx === sortedLanguages.length - 1}
+                      isOnly={sortedLanguages.length === 1}
+                      languageValues={languageValues}
+                      onCodeChange={handleLanguageCodeChange}
+                      onAllowedChange={handleLanguageAllowedChange}
+                      onMove={handleMoveLanguage}
+                      onRemove={handleRemoveLanguage}
+                    />
                   ))}
                   <Button onPress={handleAddLanguage}>
                     {translate('AddLanguage')}

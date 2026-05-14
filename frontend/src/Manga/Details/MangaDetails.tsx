@@ -160,6 +160,19 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
     setActiveTab('history');
   }, []);
 
+  // Single stable handler for the tab strip — reads the target tab key off the
+  // button's data-tab attribute so the .map() below does not allocate a fresh
+  // arrow per render (react/jsx-no-bind).
+  const handleTabSelect = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      const { tab } = event.currentTarget.dataset;
+      if (tab) {
+        setActiveTab(tab as TabKey);
+      }
+    },
+    []
+  );
+
   const handleEditPress = useCallback(() => setIsEditModalOpen(true), []);
   const handleEditModalClose = useCallback(() => setIsEditModalOpen(false), []);
 
@@ -440,7 +453,8 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
                       ? styles.tabButtonActive
                       : styles.tabButton
                   }
-                  onClick={() => setActiveTab(tab.key)}
+                  data-tab={tab.key}
+                  onClick={handleTabSelect}
                 >
                   {tab.label}
                 </button>

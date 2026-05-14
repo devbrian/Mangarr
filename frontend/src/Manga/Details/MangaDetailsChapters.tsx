@@ -22,7 +22,7 @@
 //     number, title, status, actions.
 //
 // Phase 8 cleanup: nothing to collapse — this stays.
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import Chapter from 'Chapter/Chapter';
 import { useChaptersByManga } from 'Chapter/useChapter';
 import Alert from 'Components/Alert';
@@ -136,16 +136,19 @@ function MangaDetailsChapters({ mangaId }: MangaDetailsChaptersProps) {
     });
   }, [chapters, sortKey, sortDirection]);
 
-  const handleSortPress = (name: string, direction?: SortDirection) => {
-    setSortKey(name);
-    if (direction) {
-      setSortDirection(direction);
-    } else {
-      setSortDirection((prev) =>
-        sortKey === name && prev === 'ascending' ? 'descending' : 'ascending'
-      );
-    }
-  };
+  const handleSortPress = useCallback(
+    (name: string, direction?: SortDirection) => {
+      setSortKey(name);
+      if (direction) {
+        setSortDirection(direction);
+      } else {
+        setSortDirection((prev) =>
+          sortKey === name && prev === 'ascending' ? 'descending' : 'ascending'
+        );
+      }
+    },
+    [sortKey, setSortKey, setSortDirection]
+  );
 
   if (isFetching && !isFetched) {
     return <LoadingIndicator />;
