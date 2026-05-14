@@ -113,10 +113,23 @@ public class CassetteHandler : DelegatingHandler
     {
         var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
         var dto = JsonSerializer.Deserialize<CassetteDto>(json);
-        var response = new HttpResponseMessage((System.Net.HttpStatusCode)dto.Response.Status)
+        var response = new HttpResponseMessage((System.Net.HttpStatusCode)dto.Response.Status);
+
+        // WR-14 (18-REVIEW): decode the body using the dto.Response.BodyIsBase64
+        // flag. Text payloads (text/*, json, xml, javascript) round-trip via
+        // StringContent verbatim; binary payloads (CBZ archives, gzip-pre-
+        // decompression bytes, signed-binary responses) round-trip via
+        // Base64 → ByteArrayContent so byte-level fidelity is preserved.
+        if (dto.Response.BodyIsBase64 && dto.Response.Body != null)
         {
-            Content = new StringContent(dto.Response.Body ?? string.Empty)
-        };
+            var bytes = Convert.FromBase64String(dto.Response.Body);
+            response.Content = new ByteArrayContent(bytes);
+        }
+        else
+        {
+            response.Content = new StringContent(dto.Response.Body ?? string.Empty);
+        }
+
         if (dto.Response.Headers != null)
         {
             foreach (var kv in dto.Response.Headers)
@@ -137,7 +150,37 @@ public class CassetteHandler : DelegatingHandler
 
     private static async Task WriteToDiskAsync(string path, HttpRequestMessage request, HttpResponseMessage response)
     {
-        var body = response.Content == null ? null : await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        // WR-14 (18-REVIEW): detect binary content types and base64-encode the
+        // body instead of lossy-decoding through ReadAsStringAsync. Without
+        // this guard a CBZ download or gzip-pre-decompression payload would
+        // be silently corrupted on the record→replay round-trip and the
+        // failure would surface as a cryptic decoding error at runtime read
+        // time, not as a clean cassette-miss.
+        var contentType = response.Content?.Headers?.ContentType?.MediaType;
+        var isText = contentType != null && (
+            contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase) ||
+            contentType.Contains("json", StringComparison.OrdinalIgnoreCase) ||
+            contentType.Contains("xml", StringComparison.OrdinalIgnoreCase) ||
+            contentType.Contains("javascript", StringComparison.OrdinalIgnoreCase));
+
+        string body;
+        bool bodyIsBase64;
+        if (response.Content == null)
+        {
+            body = null;
+            bodyIsBase64 = false;
+        }
+        else if (isText)
+        {
+            body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            bodyIsBase64 = false;
+        }
+        else
+        {
+            var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+            body = Convert.ToBase64String(bytes);
+            bodyIsBase64 = true;
+        }
 
         // BL-02 fix (18-13): persist Content-Type + non-sensitive response headers so
         // LoadFromDiskAsync replay produces the same MediaType the live response had.
@@ -174,6 +217,7 @@ public class CassetteHandler : DelegatingHandler
             {
                 Status = (int)response.StatusCode,
                 Body = body,
+                BodyIsBase64 = bodyIsBase64,
                 Headers = headers.Count > 0 ? headers : null
             }
         };
@@ -202,6 +246,14 @@ public class CassetteHandler : DelegatingHandler
     {
         public int Status { get; set; }
         public string Body { get; set; }
+
+        // WR-14 (18-REVIEW): when true, Body is a Base64-encoded byte sequence
+        // (binary payload — CBZ, signed-binary, gzip-pre-decompression bytes,
+        // etc.); when false, Body is a UTF-8 string (text/*, json, xml,
+        // javascript). LoadFromDiskAsync decodes accordingly so byte-level
+        // fidelity is preserved through the record→replay round-trip.
+        public bool BodyIsBase64 { get; set; }
+
         public Dictionary<string, string> Headers { get; set; }
     }
 }
