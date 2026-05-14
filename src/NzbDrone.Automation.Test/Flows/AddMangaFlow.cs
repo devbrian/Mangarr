@@ -29,6 +29,20 @@ namespace NzbDrone.Automation.Test.Flows;
 public static class AddMangaFlow
 {
     /// <summary>
+    /// Canonical first test-anchor MangaDex UUID — Komi Can't Communicate
+    /// (Komi-san wa Komyushou Desu.). Used as the default seed in single-manga fixtures.
+    /// </summary>
+    public const string KnownMangaDexId = "a96676e5-8ae2-425e-b549-7f15dd34a6d8";
+
+    /// <summary>
+    /// Canonical second test-anchor MangaDex UUID — Chainsaw Man. Used by
+    /// MangaIndexBulkActionsFixture and any future fixture that requires 2
+    /// distinct manga in the seed state (avoids unique-key collision on the
+    /// Manga.MangaDexId column).
+    /// </summary>
+    public const string KnownMangaDexId2 = "a77742b1-befd-49a4-bff5-1ad4e6b0ef7b";
+
+    /// <summary>
     /// Add a manga by MangaDex ID, accepting the modal defaults (root folder, monitor,
     /// translation profile from Settings). Returns the resulting MangaDetailsPage where
     /// the user lands after the post-add navigation.
