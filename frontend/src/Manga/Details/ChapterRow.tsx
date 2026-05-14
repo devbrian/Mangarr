@@ -107,8 +107,18 @@ function ChapterRow({ chapter, columns }: ChapterRowProps) {
         }
 
         if (name === 'status') {
+          // BL-05 (18-REVIEW): annotate the status (file) cell with a per-row
+          // testid so the Phase 18 ChapterFileColumnFixture can assert column
+          // shape integrity per chapter row. The status pill carries the
+          // file-state predicate (Phase 16.1 REVERT-07 + Pitfall 5: 6-state
+          // precedence; "File" pill fires when chapterFileId != null), making
+          // it the canonical anchor for the GET /api/v5/chapterfile contract.
           return (
-            <TableRowCell key={name} className={styles.status}>
+            <TableRowCell
+              key={name}
+              className={styles.status}
+              data-testid={`chapter-row-${chapter.id}-file`}
+            >
               <ChapterStatus chapter={chapter} />
             </TableRowCell>
           );

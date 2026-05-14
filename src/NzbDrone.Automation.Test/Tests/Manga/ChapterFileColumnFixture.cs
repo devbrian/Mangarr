@@ -58,33 +58,36 @@ public class ChapterFileColumnFixture : AutomationTest
 
         Page.Url.Should().MatchRegex(@"/manga/[^/]+$");
 
-        // STATE assertion 2: any rendered chapter-row exposes its file cell.
-        // The chapter table renders inside MangaDetailsChapters; rows that
-        // emit `chapter-row-{id}-file` cells satisfy the column-contract.
-        // If no chapter rows render (empty cassette), this loop is a no-op
-        // (valid empty-state coverage). If chapter rows render but no file
-        // cell renders, the assertion catches the row-shape regression.
-        var chapterRows = Page.Locator("[data-testid^='chapter-row-']");
+        // BL-05 (18-REVIEW): match only the row root, NOT descendant cells.
+        // The companion fix on ChapterRow.tsx adds `chapter-row-{id}-file` to
+        // the status (file) cell. A loose `data-testid^='chapter-row-'`
+        // selector would now match BOTH the row AND every per-row file cell,
+        // doubling the count and corrupting the per-row-file-cell loop. Anchor
+        // on the row id by excluding the suffixed cells via an attribute
+        // value regex.
+        var chapterRows = Page.Locator("[data-testid^='chapter-row-']:not([data-testid$='-file']):not([data-testid$='-monitor-toggle'])");
         var rowCount = await chapterRows.CountAsync();
 
-        // ChapterRow.tsx does not yet annotate `data-testid={chapter-row-${id}}`;
-        // the Wave 2 frontend-annotation sweep handles that. Until then the
-        // rowCount is 0 and the loop is a no-op — the fixture still acts as
-        // a green guard for the page-load + URL contract above. When the
-        // chapter-row testids land, the loop activates and the column
-        // assertion kicks in for free.
+        // BL-05 (18-REVIEW): seeded manga MUST have at least one chapter row.
+        // The fresh-DB Komi seed (KnownMangaDexId) is the canonical fixture
+        // anchor; if rowCount is zero the cassette tier regressed and the
+        // fixture must fail loudly (silent-empty is the bug class BL-05
+        // closes).
+        rowCount.Should().BeGreaterThan(0, "seeded manga must have at least one chapter row (BL-05 fix — silent-empty guard)");
+
         for (var i = 0; i < rowCount; i++)
         {
             var row = chapterRows.Nth(i);
             var idAttr = await row.GetAttributeAsync("data-testid");
             var rowId = idAttr!.Replace("chapter-row-", string.Empty);
 
-            // STATE assertion 3: each row has a file cell (column shape is
-            // intact — empty file string is OK, missing cell is NOT).
-            // Frontend annotation needed: `chapter-row-{id}-file` testid on
-            // the chapter-file column cell. Until that lands, the assertion
-            // is conservative (just check the row itself rendered).
-            await Assertions.Expect(row).ToBeVisibleAsync();
+            // STATE assertion 3 (BL-05 closure): each chapter row exposes a
+            // file cell per the GET /api/v5/chapterfile column contract.
+            // Frontend annotation `chapter-row-{id}-file` lives on the status
+            // (file) cell in ChapterRow.tsx; a regression that drops the cell
+            // or rewrites the testid breaks this assertion immediately.
+            var fileCell = Page.GetByTestId($"chapter-row-{rowId}-file");
+            await Assertions.Expect(fileCell).ToBeVisibleAsync();
         }
 
         // STATE assertion 4: URL stability — confirms no spurious nav.
