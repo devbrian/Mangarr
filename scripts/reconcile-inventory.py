@@ -50,9 +50,16 @@ INVENTORY_PATH = (
 )
 
 
-def strip_comments(src: str) -> str:
-    """Strip // line and /* block */ comments so [Explicit]-in-comments doesn't false-positive."""
-    src = re.sub(r"//.*", "", src)
+def strip_csharp_comments(src: str) -> str:
+    """Strip C# // line and /* block */ comments. Caller MUST pass C# source.
+
+    BL-04 (18-REVIEW): the line-regex below ignores `//` when preceded by `:` or
+    `/` so it spares `http://`, `https://`, `file:///`-style URLs inside string
+    literals. The function is renamed (was: `strip_comments`) so a future caller
+    can't accidentally hand it markdown/JSON/YAML and silently mangle URLs.
+    """
+    # Match // only when NOT preceded by `:` or `/` (spares http:// / https://, file:///).
+    src = re.sub(r"(?<![:/])//[^\n]*", "", src)
     src = re.sub(r"/\*[\s\S]*?\*/", "", src)
     return src
 
@@ -66,7 +73,7 @@ def scan_fixtures() -> dict:
     fixtures = {}
     for cs in TESTS_DIR.rglob("*.cs"):
         raw = cs.read_text(encoding="utf-8")
-        src_nc = strip_comments(raw)
+        src_nc = strip_csharp_comments(raw)
         rel = str(cs.relative_to(ASSEMBLY_DIR)).replace("\\", "/")
         class_match = re.search(r"public\s+class\s+(\w+)", src_nc)
         # Collect [Test]-attributed method names (signature follows on next line or two)
