@@ -74,6 +74,18 @@ public static class AddMangaFlow
         // verified pre-Phase-15-delete), the modal auto-closes on add success but the
         // user stays on /add/manga. Issue #102 close-out 2026-05-14.
         var modal = new AddMangaModal(page);
+
+        // Debug session pr-smoke-add-manga-timeout (2026-05-14): the modal's
+        // RootFolderSelectInput replaces the zustand store's default empty
+        // rootFolderPath with the first real root folder only once the async
+        // useRootFolders() query resolves. On a loaded CI runner, clicking Add
+        // before that lands POSTs /api/v5/manga with rootFolderPath: '' and the
+        // backend PathValidator 400s — the modal then correctly stays open and
+        // ConfirmAddAsync's hidden-wait times out. AddNewMangaModalContent now
+        // disables the Add button while rootFolderPath is empty, so wait for the
+        // button to be enabled (root folder populated) before confirming. This
+        // removes the timing race from the test side regardless of query latency.
+        await modal.WaitForReadyToAddAsync();
         await modal.ConfirmAddAsync();
 
         // Navigate explicitly to /manga/{slug} via the library index, since the frontend

@@ -20,6 +20,25 @@ public class AddMangaModal : PageBase
     public ILocator CancelButton => Page.GetByTestId("add-manga-modal-cancel-button");
 
     /// <summary>
+    /// Wait for the modal's Add button to become enabled.
+    ///
+    /// Debug session pr-smoke-add-manga-timeout (2026-05-14): AddNewMangaModalContent
+    /// disables `add-manga-modal-add-button` while `rootFolderPath` is empty. The
+    /// RootFolderSelectInput only replaces the zustand store's default empty
+    /// rootFolderPath with the first real root folder once the async useRootFolders()
+    /// query resolves — so "button enabled" is the deterministic signal that the
+    /// root-folder select has a non-empty selected value. Waiting on it here removes
+    /// the timing race from the test side regardless of frontend query latency.
+    /// </summary>
+    public async Task WaitForReadyToAddAsync()
+    {
+        await Assertions.Expect(AddButton).ToBeEnabledAsync(new LocatorAssertionsToBeEnabledOptions
+        {
+            Timeout = 30_000
+        });
+    }
+
+    /// <summary>
     /// Click the modal's Add button and wait for the modal to close.
     ///
     /// Issue #102 close-out 2026-05-14: Sonarr-mirror UX verified against
@@ -28,9 +47,17 @@ public class AddMangaModal : PageBase
     /// success but the user stays on /add/manga. Callers needing the
     /// MangaDetailsPage should use AddMangaFlow.AddByMangaDexIdAsync, which
     /// adapts via an explicit MangaIndex → card click navigation step.
+    ///
+    /// Debug session pr-smoke-add-manga-timeout (2026-05-14): waits for the Add
+    /// button to be enabled (root folder populated) before clicking — see
+    /// WaitForReadyToAddAsync. Without this the click could fire while
+    /// rootFolderPath is still empty, the POST 400s, and the modal correctly
+    /// stays open until this wait times out.
     /// </summary>
     public async Task ConfirmAddAsync()
     {
+        await WaitForReadyToAddAsync();
+
         await AddButton.ClickAsync();
 
         // Wait for the modal to disappear from the DOM (the AddManga component

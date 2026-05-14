@@ -129,7 +129,30 @@ namespace NzbDrone.Core.Download.Clients.InProcess
         protected override void Test(List<ValidationFailure> failures)
         {
             // Settings validate via IValidator; here we test the DownloadScratchPath is usable.
-            failures.AddIfNotNull(TestFolder(_configService.DownloadScratchPath, "DownloadScratchPath"));
+            //
+            // DownloadScratchPath is a Mangarr-OWNED internal path (D-06 default
+            // <DataDir>/scratch/downloads — not a user-supplied path like RecycleBin), and
+            // ChapterDownloadService already CreateFolder()s its per-row subdirs on demand at
+            // download time. Nothing, however, provisions the scratch ROOT on backend startup, so
+            // on a fresh install (or a fresh per-fixture automation-test data dir) the bare
+            // TestFolder() FolderExists check fails with "Folder does not exist" before the client
+            // has ever been used. EnsureFolder here is idempotent and makes the client
+            // self-provision its own working directory — fixing both the Settings UI "Test" button
+            // on a fresh install and the flaky automation_test_pr_smoke seed
+            // (.planning/debug/pr-smoke-add-manga-timeout.md Fault 2). The subsequent TestFolder
+            // call still catches the genuine failure modes (path not writable, EnsureFolder threw).
+            var scratchPath = _configService.DownloadScratchPath;
+
+            try
+            {
+                _diskProvider.EnsureFolder(scratchPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "Could not ensure DownloadScratchPath '{0}' exists; falling back to validation.", scratchPath);
+            }
+
+            failures.AddIfNotNull(TestFolder(scratchPath, "DownloadScratchPath"));
         }
 
         private static DownloadItemStatus MapStatus(ChapterDownloadStatus s) => s switch
