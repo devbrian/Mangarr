@@ -71,11 +71,24 @@ public class PlaywrightSetUpFixture
     [OneTimeTearDown]
     public async Task TearDownAsync()
     {
-        if (Browser != null)
+        try
         {
-            await Browser.DisposeAsync();
-        }
+            if (Browser != null)
+            {
+                await Browser.DisposeAsync();
+            }
 
-        Playwright?.Dispose();
+            Playwright?.Dispose();
+        }
+        catch (EntryPointNotFoundException)
+        {
+            // CI-infra workaround (issue #133): on .NET 10 the Microsoft.Bcl.AsyncInterfaces
+            // polyfill DLL deployed into the shared _tests/ output dir shadows the in-box
+            // IAsyncDisposable, so Playwright's IBrowser.DisposeAsync() throws a bare
+            // System.EntryPointNotFoundException. The browser + driver processes are reaped by
+            // the CI runner's orphan-process cleanup, so this dispose is cosmetic — swallow it
+            // so a teardown interop quirk cannot fail an otherwise-green suite. Removing this
+            // guard is the acceptance criterion of #133.
+        }
     }
 }

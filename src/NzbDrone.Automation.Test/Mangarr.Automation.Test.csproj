@@ -5,43 +5,15 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Playwright" Version="1.59.0" />
     <PackageReference Include="Microsoft.Playwright.NUnit" Version="1.59.0" />
-    <!-- CI-infra FAULT B fix (automation-test-pr-smoke / issue #131): Microsoft.Playwright
-         1.59.0 is a netstandard2.0 library that depends on Microsoft.Bcl.AsyncInterfaces
-         6.0.0 — the legacy POLYFILL for IAsyncDisposable. On .NET 10 IAsyncDisposable is an
-         in-box runtime type (System.Private.CoreLib).
-
-         ROOT CAUSE (IL-confirmed): the Microsoft.Bcl.AsyncInterfaces 6.0.0 package ships TWO
-         lib variants — lib/netstandard2.1/ is a pure TYPE-FORWARDER (forwards
-         System.IAsyncDisposable to the runtime, harmless) while lib/netstandard2.0/ carries a
-         REAL System.IAsyncDisposable typedef. The build's copy-local of the 6.0.0 *compile*
-         asset deployed the netstandard2.0 variant (the one with the real typedef) into the
-         test output dir, where it SHADOWS the in-box .NET 10 type: Playwright's
-         IBrowserContext inherits its IAsyncDisposable.DisposeAsync() slot, the loader binds
-         that slot through the polyfill assembly's mismatched layout, and the JIT cannot
-         resolve the actual method body — `System.EntryPointNotFoundException : Entry point
-         was not found.` (bare message, `at System.IAsyncDisposable.DisposeAsync()` with no
-         frames below) on every `await Context.DisposeAsync()` in
-         AutomationTest.OneTimeTearDownAsync. CI runs 25879196315 + 25880541230 hit this 11x
-         deterministically.
-
-         WHY THE PRIOR ExcludeAssets="runtime" FIX FAILED: it only strips the package's
-         *runtime* asset from deps.json — but the 6.0.0 *compile* asset is still copy-local'd
-         to output by MSBuild's ResolveAssemblyReference, so the real-typedef DLL kept landing
-         in the publish closure (CI run 25880541230's tests-linux-x64 artifact still carried
-         it, 24912 bytes — IL-confirmed netstandard2.0 variant, 13 real typedefs).
-
-         FIX: bump the explicit reference to 10.0.7 (the package version matching the CI
-         runtime's Microsoft.NETCore.App 10.0.7; verified to exist on nuget.org). NuGet
-         "highest version wins" unifies the whole graph to 10.0.7, and for a net10.0 TFM the
-         resolved lib asset is lib/netstandard2.1/ — IL-confirmed a pure TYPE-FORWARDER
-         (System.IAsyncDisposable forwards to System.Private.CoreLib, 0 real shadowing
-         typedefs). The forwarder DLL is still copy-local'd to output, but it is HARMLESS:
-         the in-box .NET 10 IAsyncDisposable is the type actually used at runtime.
-         Playwright's `Microsoft.Bcl.AsyncInterfaces, Version=6.0.0.0` assembly reference
-         binds against 10.0.0.7 via .NET's default assembly-version roll-forward.
-         Locally verified: `dotnet publish -c Release -f net10.0` of this project deploys the
-         20744-byte netstandard2.1 forwarder (NOT the 24912-byte netstandard2.0 polyfill). -->
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.7" />
+    <!-- NOTE (issue #133): Microsoft.Playwright 1.59.0 is a netstandard2.0 library that pulls
+         the Microsoft.Bcl.AsyncInterfaces polyfill; on .NET 10 the polyfill DLL deployed into
+         the shared _tests/ output dir shadows the in-box IAsyncDisposable and makes Playwright's
+         IBrowser/IBrowserContext DisposeAsync() throw EntryPointNotFoundException. An explicit
+         csproj-level package ref does NOT fix this (the deployed DLL is independent of this
+         project's resolved version — md5-identical across version bumps — because all 11 test
+         projects share one _tests/ output dir). It is worked around with a try/catch in
+         AutomationTest.OneTimeTearDownAsync + PlaywrightSetUpFixture.TearDownAsync; the proper
+         shared-output-dir fix is tracked in issue #133. -->
     <!-- Plan 19-01 Open Question 1 verdict = raw-SQLite seed helpers. Version
          matched to the backend's canonical SQLite ADO pin in
          NzbDrone.Common/Mangarr.Common.csproj (System.Data.SQLite 2.0.3) so the
