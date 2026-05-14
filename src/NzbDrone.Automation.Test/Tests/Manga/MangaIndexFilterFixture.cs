@@ -21,10 +21,15 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 // filter dropdown opens (rendering check) AND the visible poster count
 // matches a verifiable predicate after applying a filter — both gates fire.
 //
-// [Explicit] cite: blocked by AddMangaFlow D-D nav race (issue #102).
+// Phase 19 Cat C triage: the Mangarr Menu component (Components/Menu/Menu.tsx)
+// renders dropdown items as plain <button> elements via MenuItem → Link; no
+// product code emits role="menuitem". The original fixture queried
+// AriaRole.Menuitem for the "Monitored Only" item and never found it — a
+// fixture-logic bug, not a product bug. Corrected to scope AriaRole.Button
+// to the FloatingPortal (#portal-root) that Menu renders the open dropdown
+// into. The card-locator at the seed-count assertion was already correct.
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Phase 19 Cat C (Residual Yellow Inventory Resolution): fixture-level bug surfaced once the AddManga flow worked end-to-end post-#102. #102 is CLOSED and was NOT the blocker. Flip after the focused fix-forward. See ROADMAP Phase 19 SC#3.")]
 public class MangaIndexFilterFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
@@ -53,8 +58,12 @@ public class MangaIndexFilterFixture : AutomationTest
         // STATE assertion 2: the filter dropdown surface materializes a
         // selectable "Monitored Only" item. MangaIndexFilterMenu wires the
         // FILTERS array from useManga.ts which includes a key='monitored'
-        // entry labeled translate('MonitoredOnly').
-        var monitoredOnlyItem = Page.GetByRole(AriaRole.Menuitem, new PageGetByRoleOptions { NameRegex = new Regex("Monitored Only", RegexOptions.IgnoreCase) });
+        // entry labeled translate('MonitoredOnly'). The Menu component
+        // renders the open dropdown into a FloatingPortal id="portal-root"
+        // (Components/Menu/Menu.tsx L156); each preset filter is a plain
+        // <button> there (MenuItem → Link → <button>; no role="menuitem").
+        var menuPortal = Page.Locator("#portal-root");
+        var monitoredOnlyItem = menuPortal.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("Monitored Only", RegexOptions.IgnoreCase) });
         await Assertions.Expect(monitoredOnlyItem.First).ToBeVisibleAsync(new()
         {
             Timeout = 10_000
