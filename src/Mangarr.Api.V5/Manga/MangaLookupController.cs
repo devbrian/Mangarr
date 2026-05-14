@@ -28,6 +28,14 @@ public class MangaLookupController : Controller
     [Produces("application/json")]
     public Ok<IEnumerable<MangaResource>> Search([FromQuery] string term)
     {
+        // WR-02 (18-REVIEW): empty/whitespace term must short-circuit BEFORE
+        // we ask any provider — SearchForNewManga("") behavior is provider-
+        // dependent and the new UUID-vs-title branch widens that surface.
+        if (string.IsNullOrWhiteSpace(term))
+        {
+            return TypedResults.Ok<IEnumerable<MangaResource>>(Enumerable.Empty<MangaResource>());
+        }
+
         // D-15: resolve primary at REQUEST TIME — user can change primary without restart.
         var primaryDef = _metaFactory.GetPrimary();
         var primary = _metaFactory.GetInstance(primaryDef);
@@ -36,9 +44,27 @@ public class MangaLookupController : Controller
         // route to the by-id lookup instead of fuzzy title search (which won't match a UUID).
         // The provider returns an empty list on 404 so an unknown UUID falls back to the
         // existing no-match UX (zero results). Mirrors the Sonarr-shape "paste TVDB id" UX.
-        var hits = Guid.TryParse(term, out _)
-            ? primary.SearchForNewMangaByMangaDexId(term)
-            : primary.SearchForNewManga(term);
+        List<NzbDrone.Core.Manga.Manga> hits;
+        if (Guid.TryParse(term, out _))
+        {
+            try
+            {
+                hits = primary.SearchForNewMangaByMangaDexId(term);
+            }
+            catch (Exception)
+            {
+                // WR-02 (18-REVIEW): defensive fallback — only MangaDexMetadataSource
+                // is contractually known to swallow 404s into an empty list. AniList /
+                // MAL / Comix providers may throw on an unrecognized UUID. Fall
+                // through to the title search so the user sees the no-match UX
+                // instead of a 500.
+                hits = primary.SearchForNewManga(term);
+            }
+        }
+        else
+        {
+            hits = primary.SearchForNewManga(term);
+        }
 
         return TypedResults.Ok<IEnumerable<MangaResource>>(MapAll(hits));
     }
