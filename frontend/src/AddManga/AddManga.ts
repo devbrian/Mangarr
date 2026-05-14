@@ -73,5 +73,3 @@ export interface AddMangaPayload {
   aniListId?: number;
   malId?: number;
 }
-
-export default AddMangaResult;

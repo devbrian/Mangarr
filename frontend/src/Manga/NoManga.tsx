@@ -36,9 +36,7 @@ function NoManga(props: NoMangaProps) {
 
   return (
     <div>
-      <div className={styles.message}>
-        {translate('NoMangaAddedYet')}
-      </div>
+      <div className={styles.message}>{translate('NoMangaAddedYet')}</div>
 
       <div className={styles.buttonContainer}>
         <Button to="/add/manga" kind={kinds.PRIMARY}>

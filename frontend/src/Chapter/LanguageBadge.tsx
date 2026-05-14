@@ -35,14 +35,14 @@ export interface LanguageBadgeProps {
 }
 
 function LanguageBadge({ language, className }: LanguageBadgeProps) {
-  const { data: translationProfiles } = useApiQuery<TranslationProfileResource[]>(
-    {
-      path: '/translationprofile',
-      queryOptions: {
-        staleTime: Infinity,
-      },
-    }
-  );
+  const { data: translationProfiles } = useApiQuery<
+    TranslationProfileResource[]
+  >({
+    path: '/translationprofile',
+    queryOptions: {
+      staleTime: Infinity,
+    },
+  });
 
   if (!language) {
     return null;

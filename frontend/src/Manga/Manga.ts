@@ -24,12 +24,7 @@
 import ModelBase from 'App/ModelBase';
 import ReleaseType from 'InteractiveImport/ReleaseType';
 
-export type MangaMonitor =
-  | 'all'
-  | 'future'
-  | 'missing'
-  | 'latest'
-  | 'none';
+export type MangaMonitor = 'all' | 'future' | 'missing' | 'latest' | 'none';
 
 export type MangaStatus =
   | 'ongoing'

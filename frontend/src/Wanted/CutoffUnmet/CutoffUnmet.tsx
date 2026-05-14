@@ -65,13 +65,13 @@ import {
   unregisterPagePopulator,
 } from 'Utilities/pagePopulator';
 import translate from 'Utilities/String/translate';
+import CutoffUnmetFilterModal from './CutoffUnmetFilterModal';
 import {
   setCutoffUnmetOption,
   setCutoffUnmetOptions,
   setCutoffUnmetSort,
   useCutoffUnmetOptions,
 } from './cutoffUnmetOptionsStore';
-import CutoffUnmetFilterModal from './CutoffUnmetFilterModal';
 import CutoffUnmetRow from './CutoffUnmetRow';
 import useCutoffUnmet, { FILTERS } from './useCutoffUnmet';
 
@@ -124,10 +124,8 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
   const [isConfirmSearchAllModalOpen, setIsConfirmSearchAllModalOpen] =
     useState(false);
 
-  const {
-    bulkToggleChaptersMonitored,
-    isBulkToggling: isToggling,
-  } = useBulkToggleChaptersMonitored();
+  const { bulkToggleChaptersMonitored, isBulkToggling: isToggling } =
+    useBulkToggleChaptersMonitored();
 
   const isShowingMonitored = getMonitoredValue(FILTERS, selectedFilterKey);
   const isSearchingForEpisodes =
@@ -296,78 +294,78 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
 
         <PageContentBody>
           <div data-testid="manga-cutoff-unmet-page">
-          {isFetching && isLoading ? <LoadingIndicator /> : null}
+            {isFetching && isLoading ? <LoadingIndicator /> : null}
 
-          {!isFetching && error ? (
-            <Alert kind={kinds.DANGER}>
-              {translate('CutoffUnmetLoadError')}
-            </Alert>
-          ) : null}
+            {!isFetching && error ? (
+              <Alert kind={kinds.DANGER}>
+                {translate('CutoffUnmetLoadError')}
+              </Alert>
+            ) : null}
 
-          {!isLoading && !error && !records.length ? (
-            <Alert kind={kinds.INFO}>
-              {mediaType === 'manga'
-                ? translate('NothingWanted')
-                : translate('CutoffUnmetNoItems')}
-            </Alert>
-          ) : null}
+            {!isLoading && !error && !records.length ? (
+              <Alert kind={kinds.INFO}>
+                {mediaType === 'manga'
+                  ? translate('NothingWanted')
+                  : translate('CutoffUnmetNoItems')}
+              </Alert>
+            ) : null}
 
-          {!isLoading && !error && !!records.length ? (
-            <div data-testid="manga-cutoff-unmet-table">
-              <Table
-                selectAll={true}
-                allSelected={allSelected}
-                allUnselected={allUnselected}
-                columns={columns}
-                pageSize={pageSize}
-                sortKey={sortKey}
-                sortDirection={sortDirection}
-                onTableOptionChange={handleTableOptionChange}
-                onSelectAllChange={handleSelectAllChange}
-                onSortPress={handleSortPress}
-              >
-                <TableBody>
-                  {records.map((item) => {
-                    return (
-                      <CutoffUnmetRow
-                        key={item.id}
-                        columns={columns}
-                        {...item}
-                      />
-                    );
-                  })}
-                </TableBody>
-              </Table>
+            {!isLoading && !error && !!records.length ? (
+              <div data-testid="manga-cutoff-unmet-table">
+                <Table
+                  selectAll={true}
+                  allSelected={allSelected}
+                  allUnselected={allUnselected}
+                  columns={columns}
+                  pageSize={pageSize}
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onTableOptionChange={handleTableOptionChange}
+                  onSelectAllChange={handleSelectAllChange}
+                  onSortPress={handleSortPress}
+                >
+                  <TableBody>
+                    {records.map((item) => {
+                      return (
+                        <CutoffUnmetRow
+                          key={item.id}
+                          columns={columns}
+                          {...item}
+                        />
+                      );
+                    })}
+                  </TableBody>
+                </Table>
 
-              <TablePager
-                page={page}
-                totalPages={totalPages}
-                totalRecords={totalRecords}
-                isFetching={isFetching}
-                onPageSelect={goToPage}
-              />
+                <TablePager
+                  page={page}
+                  totalPages={totalPages}
+                  totalRecords={totalRecords}
+                  isFetching={isFetching}
+                  onPageSelect={goToPage}
+                />
 
-              <ConfirmModal
-                isOpen={isConfirmSearchAllModalOpen}
-                kind={kinds.DANGER}
-                title={translate('SearchForCutoffUnmetChapters')}
-                message={
-                  <div>
+                <ConfirmModal
+                  isOpen={isConfirmSearchAllModalOpen}
+                  kind={kinds.DANGER}
+                  title={translate('SearchForCutoffUnmetChapters')}
+                  message={
                     <div>
-                      {translate(
-                        'SearchForCutoffUnmetChaptersConfirmationCount',
-                        { totalRecords }
-                      )}
+                      <div>
+                        {translate(
+                          'SearchForCutoffUnmetChaptersConfirmationCount',
+                          { totalRecords }
+                        )}
+                      </div>
+                      <div>{translate('MassSearchCancelWarning')}</div>
                     </div>
-                    <div>{translate('MassSearchCancelWarning')}</div>
-                  </div>
-                }
-                confirmLabel={translate('Search')}
-                onConfirm={handleSearchAllCutoffUnmetConfirmed}
-                onCancel={handleConfirmSearchAllCutoffUnmetModalClose}
-              />
-            </div>
-          ) : null}
+                  }
+                  confirmLabel={translate('Search')}
+                  onConfirm={handleSearchAllCutoffUnmetConfirmed}
+                  onCancel={handleConfirmSearchAllCutoffUnmetModalClose}
+                />
+              </div>
+            ) : null}
           </div>
         </PageContentBody>
       </PageContent>
@@ -375,9 +373,7 @@ function CutoffUnmetContent({ mediaType = 'manga' }: CutoffUnmetProps) {
   );
 }
 
-export default function CutoffUnmet({
-  mediaType = 'manga',
-}: CutoffUnmetProps) {
+export default function CutoffUnmet({ mediaType = 'manga' }: CutoffUnmetProps) {
   const { records } = useCutoffUnmet(mediaType);
 
   return (

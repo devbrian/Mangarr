@@ -59,19 +59,47 @@ interface MangaNamingProps {
 }
 
 const colonReplacementOptions: EnhancedSelectInputValue<number>[] = [
-  { key: 0, get value() { return translate('Delete'); } },
-  { key: 1, get value() { return translate('ReplaceWithDash'); } },
-  { key: 2, get value() { return translate('ReplaceWithSpaceDash'); } },
-  { key: 3, get value() { return translate('ReplaceWithSpaceDashSpace'); } },
+  {
+    key: 0,
+    get value() {
+      return translate('Delete');
+    },
+  },
+  {
+    key: 1,
+    get value() {
+      return translate('ReplaceWithDash');
+    },
+  },
+  {
+    key: 2,
+    get value() {
+      return translate('ReplaceWithSpaceDash');
+    },
+  },
+  {
+    key: 3,
+    get value() {
+      return translate('ReplaceWithSpaceDashSpace');
+    },
+  },
   {
     key: 4,
-    get value() { return translate('SmartReplace'); },
-    get hint() { return translate('SmartReplaceHint'); },
+    get value() {
+      return translate('SmartReplace');
+    },
+    get hint() {
+      return translate('SmartReplaceHint');
+    },
   },
   {
     key: 5,
-    get value() { return translate('Custom'); },
-    get hint() { return translate('CustomColonReplacementFormatHint'); },
+    get value() {
+      return translate('Custom');
+    },
+    get hint() {
+      return translate('CustomColonReplacementFormatHint');
+    },
   },
 ];
 
@@ -127,10 +155,7 @@ function MangaNaming({ setChildSave, onChildStateChange }: MangaNamingProps) {
     (change: InputChanged) => {
       const key = change.name as keyof MangaNamingSettingsModel;
 
-      updateSetting(
-        key,
-        change.value as MangaNamingSettingsModel[typeof key]
-      );
+      updateSetting(key, change.value as MangaNamingSettingsModel[typeof key]);
       // Manual edits clear the active preset selection.
       setSelectedPreset('');
     },

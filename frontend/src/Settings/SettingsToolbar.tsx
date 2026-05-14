@@ -158,8 +158,8 @@ function SettingsToolbar({
             iconName={icons.SAVE}
             isSpinning={isSaving}
             isDisabled={!hasPendingChanges}
-            onPress={onSavePress}
             data-testid="settings-save-button"
+            onPress={onSavePress}
           />
         ) : null}
 

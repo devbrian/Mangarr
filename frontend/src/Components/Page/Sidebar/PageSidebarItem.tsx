@@ -54,8 +54,8 @@ function PageSidebarItem({
         )}
         to={to}
         aria-current={isActive ? 'page' : undefined}
-        onPress={handlePress}
         data-testid={dataTestId}
+        onPress={handlePress}
       >
         {!!iconName && (
           <span className={styles.iconContainer}>

@@ -19,7 +19,9 @@ import { TranslationProfileResource } from './TranslationProfile';
 
 const PATH = '/translationprofile';
 
-export function useTranslationProfileName(id: number | undefined): string | undefined {
+export function useTranslationProfileName(
+  id: number | undefined
+): string | undefined {
   const { data } = useApiQuery<TranslationProfileResource[]>({
     path: PATH,
     queryOptions: {

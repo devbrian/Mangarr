@@ -81,61 +81,63 @@ function Backups() {
   return (
     <PageContent title={translate('Backups')}>
       <div data-testid="system-backups-page">
-      <PageToolbar>
-        <PageToolbarSection>
-          <PageToolbarButton
-            label={translate('BackupNow')}
-            iconName={icons.BACKUP}
-            isSpinning={isBackupExecuting}
-            onPress={handleBackupPress}
-          />
+        <PageToolbar>
+          <PageToolbarSection>
+            <PageToolbarButton
+              label={translate('BackupNow')}
+              iconName={icons.BACKUP}
+              isSpinning={isBackupExecuting}
+              onPress={handleBackupPress}
+            />
 
-          <PageToolbarButton
-            label={translate('RestoreBackup')}
-            iconName={icons.RESTORE}
-            onPress={handleRestorePress}
-          />
-        </PageToolbarSection>
-      </PageToolbar>
+            <PageToolbarButton
+              label={translate('RestoreBackup')}
+              iconName={icons.RESTORE}
+              onPress={handleRestorePress}
+            />
+          </PageToolbarSection>
+        </PageToolbar>
 
-      <PageContentBody>
-        {isFetching ? <LoadingIndicator /> : null}
+        <PageContentBody>
+          {isFetching ? <LoadingIndicator /> : null}
 
-        {!isFetching && !!error ? (
-          <Alert kind={kinds.DANGER}>{translate('BackupsLoadError')}</Alert>
-        ) : null}
+          {!isFetching && !!error ? (
+            <Alert kind={kinds.DANGER}>{translate('BackupsLoadError')}</Alert>
+          ) : null}
 
-        {noBackups ? (
-          <Alert kind={kinds.INFO}>{translate('NoBackupsAreAvailable')}</Alert>
-        ) : null}
+          {noBackups ? (
+            <Alert kind={kinds.INFO}>
+              {translate('NoBackupsAreAvailable')}
+            </Alert>
+          ) : null}
 
-        {hasBackups ? (
-          <Table columns={columns}>
-            <TableBody>
-              {items.map((item) => {
-                const { id, type, name, path, size, time } = item;
+          {hasBackups ? (
+            <Table columns={columns}>
+              <TableBody>
+                {items.map((item) => {
+                  const { id, type, name, path, size, time } = item;
 
-                return (
-                  <BackupRow
-                    key={id}
-                    id={id}
-                    type={type}
-                    name={name}
-                    path={path}
-                    size={size}
-                    time={time}
-                  />
-                );
-              })}
-            </TableBody>
-          </Table>
-        ) : null}
-      </PageContentBody>
+                  return (
+                    <BackupRow
+                      key={id}
+                      id={id}
+                      type={type}
+                      name={name}
+                      path={path}
+                      size={size}
+                      time={time}
+                    />
+                  );
+                })}
+              </TableBody>
+            </Table>
+          ) : null}
+        </PageContentBody>
 
-      <RestoreBackupModal
-        isOpen={isRestoreModalOpen}
-        onModalClose={handleRestoreModalClose}
-      />
+        <RestoreBackupModal
+          isOpen={isRestoreModalOpen}
+          onModalClose={handleRestoreModalClose}
+        />
       </div>
     </PageContent>
   );

@@ -9,9 +9,7 @@ interface MangaIndexSelectAllMenuItemProps {
   isSelectMode: boolean;
 }
 
-function MangaIndexSelectAllMenuItem(
-  props: MangaIndexSelectAllMenuItemProps
-) {
+function MangaIndexSelectAllMenuItem(props: MangaIndexSelectAllMenuItemProps) {
   const { isSelectMode } = props;
   const { allSelected, allUnselected, selectAll, unselectAll } = useSelect();
 

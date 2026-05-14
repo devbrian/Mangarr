@@ -69,61 +69,61 @@ function LogFiles({
   return (
     <PageContent title={translate('LogFiles')}>
       <div data-testid="system-logs-page">
-      <PageToolbar>
-        <PageToolbarSection>
-          <LogsNavMenu current={currentLogView} />
+        <PageToolbar>
+          <PageToolbarSection>
+            <LogsNavMenu current={currentLogView} />
 
-          <PageToolbarSeparator />
+            <PageToolbarSeparator />
 
-          <PageToolbarButton
-            label={translate('Refresh')}
-            iconName={icons.REFRESH}
-            spinningName={icons.REFRESH}
-            isSpinning={isFetching}
-            onPress={onRefreshPress}
-          />
+            <PageToolbarButton
+              label={translate('Refresh')}
+              iconName={icons.REFRESH}
+              spinningName={icons.REFRESH}
+              isSpinning={isFetching}
+              onPress={onRefreshPress}
+            />
 
-          <PageToolbarButton
-            label={translate('Clear')}
-            iconName={icons.CLEAR}
-            isSpinning={isDeleteFilesExecuting}
-            onPress={onDeleteFilesPress}
-          />
-        </PageToolbarSection>
-      </PageToolbar>
-      <PageContentBody>
-        <Alert>
-          <div>
-            {translate('LogFilesLocation', {
-              location,
-            })}
-          </div>
-
-          {currentLogView === 'Log Files' ? (
+            <PageToolbarButton
+              label={translate('Clear')}
+              iconName={icons.CLEAR}
+              isSpinning={isDeleteFilesExecuting}
+              onPress={onDeleteFilesPress}
+            />
+          </PageToolbarSection>
+        </PageToolbar>
+        <PageContentBody>
+          <Alert>
             <div>
-              <InlineMarkdown data={translate('TheLogLevelDefault')} />
+              {translate('LogFilesLocation', {
+                location,
+              })}
+            </div>
+
+            {currentLogView === 'Log Files' ? (
+              <div>
+                <InlineMarkdown data={translate('TheLogLevelDefault')} />
+              </div>
+            ) : null}
+          </Alert>
+
+          {isFetching ? <LoadingIndicator /> : null}
+
+          {!isFetching && items.length ? (
+            <div>
+              <Table columns={columns} {...otherProps}>
+                <TableBody>
+                  {items.map((item) => {
+                    return <LogFilesTableRow key={item.id} {...item} />;
+                  })}
+                </TableBody>
+              </Table>
             </div>
           ) : null}
-        </Alert>
 
-        {isFetching ? <LoadingIndicator /> : null}
-
-        {!isFetching && items.length ? (
-          <div>
-            <Table columns={columns} {...otherProps}>
-              <TableBody>
-                {items.map((item) => {
-                  return <LogFilesTableRow key={item.id} {...item} />;
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        ) : null}
-
-        {!isFetching && !items.length ? (
-          <Alert kind={kinds.INFO}>{translate('NoLogFiles')}</Alert>
-        ) : null}
-      </PageContentBody>
+          {!isFetching && !items.length ? (
+            <Alert kind={kinds.INFO}>{translate('NoLogFiles')}</Alert>
+          ) : null}
+        </PageContentBody>
       </div>
     </PageContent>
   );

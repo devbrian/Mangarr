@@ -26,10 +26,7 @@ import Manga from 'Manga/Manga';
 import translate from 'Utilities/String/translate';
 import styles from './MangaDetailsLinks.css';
 
-type MangaDetailsLinksProps = Pick<
-  Manga,
-  'mangaDexId' | 'aniListId' | 'malId'
->;
+type MangaDetailsLinksProps = Pick<Manga, 'mangaDexId' | 'aniListId' | 'malId'>;
 
 interface MangaDetailsLink {
   externalId: string | number;

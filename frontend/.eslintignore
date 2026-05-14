@@ -1,2 +1,4 @@
 **/JsLibraries/**
 **/*.css.d.ts
+**/*.test.ts
+**/*.test.tsx

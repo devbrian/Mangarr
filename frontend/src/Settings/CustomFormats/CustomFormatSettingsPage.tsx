@@ -32,9 +32,15 @@ function CustomFormatSettingsPage() {
   const [mediaTypeFilter, setMediaTypeFilter] =
     useState<CustomFormatMediaType>('manga');
 
-  const handleMediaTypeFilterChange = useCallback(
-    (next: CustomFormatMediaType) => {
-      setMediaTypeFilter(next);
+  // Single stable handler for the filter button row — reads the target media
+  // type off the button's data-media-type attribute so the .map() below does
+  // not allocate a fresh arrow per render (react/jsx-no-bind).
+  const handleMediaTypeButtonClick = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      const { mediaType } = event.currentTarget.dataset;
+      if (mediaType) {
+        setMediaTypeFilter(mediaType as CustomFormatMediaType);
+      }
     },
     []
   );
@@ -72,7 +78,6 @@ function CustomFormatSettingsPage() {
                 <button
                   key={key}
                   type="button"
-                  onClick={() => handleMediaTypeFilterChange(key)}
                   style={{
                     // WR-08 fix: var fallbacks must reflect the manga pink
                     // accent (Phase 7 D-06), not the original Sonarr cyan
@@ -91,6 +96,8 @@ function CustomFormatSettingsPage() {
                     borderRadius: '3px',
                     fontSize: '13px',
                   }}
+                  data-media-type={key}
+                  onClick={handleMediaTypeButtonClick}
                 >
                   {translate(labelKey)}
                 </button>

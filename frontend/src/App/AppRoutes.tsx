@@ -80,7 +80,11 @@ function AppRoutes() {
         `exact={true}` is safe. See .planning/phases/07-api-v5-frontend-
         manga-shell/07-10-SUMMARY.md "Auto-fixed Issues" for the trace.
       */}
-      <Route exact={true} path="/manga/:titleSlug" component={MangaDetailsPage} />
+      <Route
+        exact={true}
+        path="/manga/:titleSlug"
+        component={MangaDetailsPage}
+      />
 
       <Route path="/add/manga" component={AddNewManga} />
 
@@ -115,10 +119,7 @@ function AppRoutes() {
 
       <Route path="/manga/wanted/missing" component={MangaMissing} />
 
-      <Route
-        path="/manga/wanted/cutoffunmet"
-        component={MangaCutoffUnmet}
-      />
+      <Route path="/manga/wanted/cutoffunmet" component={MangaCutoffUnmet} />
 
       {/*
         Settings

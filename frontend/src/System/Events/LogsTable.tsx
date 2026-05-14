@@ -91,83 +91,83 @@ function LogsTable() {
   return (
     <PageContent title={translate('Logs')}>
       <div data-testid="system-events-page">
-      <PageToolbar>
-        <PageToolbarSection>
-          <PageToolbarButton
-            label={translate('Refresh')}
-            iconName={icons.REFRESH}
-            spinningName={icons.REFRESH}
-            isSpinning={isFetching}
-            onPress={handleRefreshPress}
-          />
-
-          <PageToolbarButton
-            label={translate('Clear')}
-            iconName={icons.CLEAR}
-            isSpinning={isClearLogExecuting}
-            onPress={handleClearLogsPress}
-          />
-        </PageToolbarSection>
-
-        <PageToolbarSection alignContent={align.RIGHT}>
-          <TableOptionsModalWrapper
-            canModifyColumns={false}
-            columns={columns}
-            pageSize={pageSize}
-            onTableOptionChange={handleTableOptionChange}
-          >
+        <PageToolbar>
+          <PageToolbarSection>
             <PageToolbarButton
-              label={translate('Options')}
-              iconName={icons.TABLE}
+              label={translate('Refresh')}
+              iconName={icons.REFRESH}
+              spinningName={icons.REFRESH}
+              isSpinning={isFetching}
+              onPress={handleRefreshPress}
             />
-          </TableOptionsModalWrapper>
 
-          <FilterMenu
-            alignMenu={align.RIGHT}
-            selectedFilterKey={selectedFilterKey}
-            filters={filters}
-            customFilters={[]}
-            onFilterSelect={handleFilterSelect}
-          />
-        </PageToolbarSection>
-      </PageToolbar>
+            <PageToolbarButton
+              label={translate('Clear')}
+              iconName={icons.CLEAR}
+              isSpinning={isClearLogExecuting}
+              onPress={handleClearLogsPress}
+            />
+          </PageToolbarSection>
 
-      <PageContentBody>
-        {isLoading ? <LoadingIndicator /> : null}
-
-        {isFetched && !error && !records.length ? (
-          <Alert kind={kinds.INFO}>{translate('NoEventsFound')}</Alert>
-        ) : null}
-
-        {isFetched && !error && records.length ? (
-          <div>
-            <Table
+          <PageToolbarSection alignContent={align.RIGHT}>
+            <TableOptionsModalWrapper
+              canModifyColumns={false}
               columns={columns}
               pageSize={pageSize}
-              sortKey={sortKey}
-              sortDirection={sortDirection}
               onTableOptionChange={handleTableOptionChange}
-              onSortPress={handleSortPress}
             >
-              <TableBody>
-                {records.map((item) => {
-                  return (
-                    <LogsTableRow key={item.id} columns={columns} {...item} />
-                  );
-                })}
-              </TableBody>
-            </Table>
+              <PageToolbarButton
+                label={translate('Options')}
+                iconName={icons.TABLE}
+              />
+            </TableOptionsModalWrapper>
 
-            <TablePager
-              page={page}
-              totalPages={totalPages}
-              totalRecords={totalRecords}
-              isFetching={isFetching}
-              onPageSelect={goToPage}
+            <FilterMenu
+              alignMenu={align.RIGHT}
+              selectedFilterKey={selectedFilterKey}
+              filters={filters}
+              customFilters={[]}
+              onFilterSelect={handleFilterSelect}
             />
-          </div>
-        ) : null}
-      </PageContentBody>
+          </PageToolbarSection>
+        </PageToolbar>
+
+        <PageContentBody>
+          {isLoading ? <LoadingIndicator /> : null}
+
+          {isFetched && !error && !records.length ? (
+            <Alert kind={kinds.INFO}>{translate('NoEventsFound')}</Alert>
+          ) : null}
+
+          {isFetched && !error && records.length ? (
+            <div>
+              <Table
+                columns={columns}
+                pageSize={pageSize}
+                sortKey={sortKey}
+                sortDirection={sortDirection}
+                onTableOptionChange={handleTableOptionChange}
+                onSortPress={handleSortPress}
+              >
+                <TableBody>
+                  {records.map((item) => {
+                    return (
+                      <LogsTableRow key={item.id} columns={columns} {...item} />
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              <TablePager
+                page={page}
+                totalPages={totalPages}
+                totalRecords={totalRecords}
+                isFetching={isFetching}
+                onPageSelect={goToPage}
+              />
+            </div>
+          ) : null}
+        </PageContentBody>
       </div>
     </PageContent>
   );

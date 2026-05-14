@@ -19,7 +19,10 @@ interface QualityDefinitionLimitsProps {
   message: string;
 }
 
-function QualityDefinitionLimits({ bytes, message }: QualityDefinitionLimitsProps) {
+function QualityDefinitionLimits({
+  bytes,
+  message,
+}: QualityDefinitionLimitsProps) {
   if (!bytes) {
     return <div>{message}</div>;
   }

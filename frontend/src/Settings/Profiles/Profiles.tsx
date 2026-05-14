@@ -22,10 +22,10 @@ import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import SettingsToolbar from 'Settings/SettingsToolbar';
 import translate from 'Utilities/String/translate';
-import TranslationProfiles from './Translations/TranslationProfiles';
-import DelayProfiles from './Delay/DelayProfiles';        // Phase 12 sub-wave C (Plan 12-07) — F-01 closure: re-exposed after Phase 7 D-05
+import DelayProfiles from './Delay/DelayProfiles'; // Phase 12 sub-wave C (Plan 12-07) — F-01 closure: re-exposed after Phase 7 D-05
 // import QualityProfiles from './Quality/QualityProfiles'; // Phase 7 Lock #2 retained — Quality deletion lives in Phase 15 (Pitfall 8 grep-fidelity)
-import ReleaseProfiles from './Release/ReleaseProfiles';  // Phase 12 sub-wave C (Plan 12-07) — Release/ closure: re-exposed alongside Delay/
+import ReleaseProfiles from './Release/ReleaseProfiles'; // Phase 12 sub-wave C (Plan 12-07) — Release/ closure: re-exposed alongside Delay/
+import TranslationProfiles from './Translations/TranslationProfiles';
 
 // Only a single DragDrop Context can exist so it's done here to allow editing
 // translation profile language-rank drag-lists.

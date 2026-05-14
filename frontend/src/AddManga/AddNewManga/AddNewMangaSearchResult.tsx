@@ -25,8 +25,8 @@ import Label from 'Components/Label';
 import Link from 'Components/Link/Link';
 import MetadataAttribution from 'Components/MetadataAttribution';
 import { icons, kinds, sizes } from 'Helpers/Props';
-import useManga from 'Manga/useManga';
 import MangaPoster from 'Manga/MangaPoster';
+import useManga from 'Manga/useManga';
 import translate from 'Utilities/String/translate';
 import AddNewMangaModal from './AddNewMangaModal';
 import styles from './AddNewMangaSearchResult.css';
@@ -83,12 +83,9 @@ function AddNewMangaSearchResult({ manga }: AddNewMangaSearchResultProps) {
     setIsNewAddMangaModalOpen(false);
   }, []);
 
-  const handleExternalLinkPress = useCallback(
-    (event: React.SyntheticEvent) => {
-      event.stopPropagation();
-    },
-    []
-  );
+  const handleExternalLinkPress = useCallback((event: React.SyntheticEvent) => {
+    event.stopPropagation();
+  }, []);
 
   const externalLink = useMemo(() => {
     if (mangaDexId) {
@@ -122,13 +119,18 @@ function AddNewMangaSearchResult({ manga }: AddNewMangaSearchResultProps) {
   // `getByTestId('add-manga-result-{id}').getByTestId('add-manga-add-button')`.
   // The id source is MangaDex / AniList / MAL in that priority order; falls
   // back to titleSlug for offline cassettes that may not carry an external id.
-  const resultRowTestId = mangaDexId
-    ? `add-manga-result-${mangaDexId}`
-    : aniListId != null
-    ? `add-manga-result-al-${aniListId}`
-    : malId != null
-    ? `add-manga-result-mal-${malId}`
-    : `add-manga-result-${titleSlug ?? 'unknown'}`;
+  const resultRowTestId = useMemo(() => {
+    if (mangaDexId) {
+      return `add-manga-result-${mangaDexId}`;
+    }
+    if (aniListId != null) {
+      return `add-manga-result-al-${aniListId}`;
+    }
+    if (malId != null) {
+      return `add-manga-result-mal-${malId}`;
+    }
+    return `add-manga-result-${titleSlug ?? 'unknown'}`;
+  }, [mangaDexId, aniListId, malId, titleSlug]);
 
   return (
     <div className={styles.searchResult} data-testid={resultRowTestId}>
@@ -247,9 +249,7 @@ function AddNewMangaSearchResult({ manga }: AddNewMangaSearchResultProps) {
             ) : null}
           </div>
 
-          {overview ? (
-            <div className={styles.overview}>{overview}</div>
-          ) : null}
+          {overview ? <div className={styles.overview}>{overview}</div> : null}
 
           <MetadataAttribution />
         </div>

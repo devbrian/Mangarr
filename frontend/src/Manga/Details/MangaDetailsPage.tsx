@@ -29,7 +29,9 @@ function MangaDetailsPage() {
   const { titleSlug } = useParams<{ titleSlug: string }>();
   const history = useHistory();
 
-  const mangaIndex = allManga.findIndex((manga) => manga.titleSlug === titleSlug);
+  const mangaIndex = allManga.findIndex(
+    (manga) => manga.titleSlug === titleSlug
+  );
   const previousIndex = usePrevious(mangaIndex);
 
   useEffect(() => {

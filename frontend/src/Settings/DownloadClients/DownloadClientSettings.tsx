@@ -76,15 +76,15 @@ function DownloadClientSettings() {
               label={translate('TestAllClients')}
               iconName={icons.TEST}
               isSpinning={isTestingAll}
-              onPress={handleTestAllIndexersPress}
               data-testid="settings-download-clients-test-all-button"
+              onPress={handleTestAllIndexersPress}
             />
 
             <PageToolbarButton
               label={translate('ManageClients')}
               iconName={icons.MANAGE}
-              onPress={handleManageDownloadClientsPress}
               data-testid="settings-download-clients-manage-button"
+              onPress={handleManageDownloadClientsPress}
             />
           </>
         }

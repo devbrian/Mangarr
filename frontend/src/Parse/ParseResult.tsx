@@ -210,7 +210,7 @@ function ParseResult(props: ParseResultProps) {
                   // Episode/Episode rewritten to Chapter/Chapter; cast
                   // preserves runtime episodeNumber emission until parser is
                   // forked.
-                  (e: typeof episodes[0] & { episodeNumber?: number }) => {
+                  (e: (typeof episodes)[0] & { episodeNumber?: number }) => {
                     return (
                       <div key={e.id}>
                         {e.episodeNumber}

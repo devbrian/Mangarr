@@ -70,15 +70,15 @@ function IndexerSettings() {
               label={translate('TestAllIndexers')}
               iconName={icons.TEST}
               isSpinning={isTestingAllIndexers}
-              onPress={handleTestAllIndexersPress}
               data-testid="settings-indexers-test-all-button"
+              onPress={handleTestAllIndexersPress}
             />
 
             <PageToolbarButton
               label={translate('ManageIndexers')}
               iconName={icons.MANAGE}
-              onPress={handleManageIndexersPress}
               data-testid="settings-indexers-manage-button"
+              onPress={handleManageIndexersPress}
             />
           </>
         }

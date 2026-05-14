@@ -55,9 +55,7 @@ function OrganizeMangaModalContent({
 
   return (
     <ModalContent onModalClose={onModalClose}>
-      <ModalHeader>
-        {translate('OrganizeSelectedMangaModalHeader')}
-      </ModalHeader>
+      <ModalHeader>{translate('OrganizeSelectedMangaModalHeader')}</ModalHeader>
 
       <ModalBody>
         <Alert>

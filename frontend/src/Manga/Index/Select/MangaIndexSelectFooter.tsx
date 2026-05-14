@@ -73,7 +73,11 @@ function MangaIndexSelectFooter() {
   const [isDeleteFilesModalOpen, setIsDeleteFilesModalOpen] = useState(false);
   const [isSavingSeries, setIsSavingSeries] = useState(false);
   const [isSavingTags, setIsSavingTags] = useState(false);
-  const [isSavingMonitoring] = useState(false);
+  // WR-11: bulk-monitor flow is not wired in v1; the "Update Monitoring"
+  // button is gated DISABLED below. This is a fixed false (no setter) rather
+  // than useState since nothing can flip it until a future plan lands the
+  // manga bulk-monitor surface.
+  const isSavingMonitoring = false;
   const previousIsDeleting = usePrevious(isDeleting);
   const { selectedCount, unselectAll, useSelectedIds } = useSelect<Manga>();
   const mangaIds = useSelectedIds();

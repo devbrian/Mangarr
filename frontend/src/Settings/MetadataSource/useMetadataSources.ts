@@ -117,7 +117,11 @@ export const useSetPrimaryMetadataSource = (
 ) => {
   const queryClient = useQueryClient();
 
-  const { mutate, isPending, error } = useMutation<void, ApiError, number | void>({
+  const { mutate, isPending, error } = useMutation<
+    void,
+    ApiError,
+    number | void
+  >({
     mutationFn: async (idArg) => {
       const id = typeof idArg === 'number' ? idArg : defaultId;
 
@@ -137,13 +141,11 @@ export const useSetPrimaryMetadataSource = (
     onSuccess: (_data, idArg) => {
       const id = typeof idArg === 'number' ? idArg : defaultId;
 
-      queryClient.setQueryData<MetadataSourceModel[]>(
-        [PATH],
-        (oldData = []) =>
-          oldData.map((source) => ({
-            ...source,
-            isPrimary: source.id === id,
-          }))
+      queryClient.setQueryData<MetadataSourceModel[]>([PATH], (oldData = []) =>
+        oldData.map((source) => ({
+          ...source,
+          isPrimary: source.id === id,
+        }))
       );
       onSuccess?.();
     },

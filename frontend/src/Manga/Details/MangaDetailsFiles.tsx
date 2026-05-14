@@ -11,7 +11,7 @@
 // (sort state, error/loading/empty branches, column definitions).
 //
 // Phase 8 cleanup: collapse with the Series equivalent when Tv/ deletes.
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import ChapterFile from 'ChapterFile/ChapterFile';
 import ChapterFileRow from 'ChapterFile/ChapterFileRow';
 import { useChapterFilesByManga } from 'ChapterFile/useChapterFile';
@@ -103,7 +103,7 @@ function MangaDetailsFiles({ mangaId }: MangaDetailsFilesProps) {
         return 0;
       }
       if (aValue == null) {
-        return 1 * direction;
+        return Number(direction);
       }
       if (bValue == null) {
         return -1 * direction;
@@ -112,22 +112,25 @@ function MangaDetailsFiles({ mangaId }: MangaDetailsFilesProps) {
         return -1 * direction;
       }
       if (aValue > bValue) {
-        return 1 * direction;
+        return Number(direction);
       }
       return 0;
     });
   }, [files, sortKey, sortDirection]);
 
-  const handleSortPress = (name: string, direction?: SortDirection) => {
-    setSortKey(name);
-    if (direction) {
-      setSortDirection(direction);
-    } else {
-      setSortDirection((prev) =>
-        sortKey === name && prev === 'ascending' ? 'descending' : 'ascending'
-      );
-    }
-  };
+  const handleSortPress = useCallback(
+    (name: string, direction?: SortDirection) => {
+      setSortKey(name);
+      if (direction) {
+        setSortDirection(direction);
+      } else {
+        setSortDirection((prev) =>
+          sortKey === name && prev === 'ascending' ? 'descending' : 'ascending'
+        );
+      }
+    },
+    [sortKey, setSortKey, setSortDirection]
+  );
 
   if (isFetching && !isFetched) {
     return <LoadingIndicator />;

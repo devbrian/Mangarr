@@ -27,6 +27,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import QueueDetailsProvider from 'Activity/Queue/Details/QueueDetailsProvider';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
+import Chapter from 'Chapter/Chapter';
 import { useBulkToggleChaptersMonitored } from 'Chapter/useChapter';
 import CommandNames from 'Commands/CommandNames';
 import { useCommandExecuting, useExecuteCommand } from 'Commands/useCommands';
@@ -44,7 +45,6 @@ import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableOptionsModalWrapper from 'Components/Table/TableOptions/TableOptionsModalWrapper';
 import TablePager from 'Components/Table/TablePager';
-import Chapter from 'Chapter/Chapter';
 import { Filter } from 'Filters/Filter';
 import { useCustomFiltersList } from 'Filters/useCustomFilters';
 import { align, icons, kinds } from 'Helpers/Props';
@@ -123,10 +123,8 @@ function MissingContent({ mediaType = 'manga' }: MissingProps) {
   const [isInteractiveImportModalOpen, setIsInteractiveImportModalOpen] =
     useState(false);
 
-  const {
-    bulkToggleChaptersMonitored,
-    isBulkToggling: isToggling,
-  } = useBulkToggleChaptersMonitored();
+  const { bulkToggleChaptersMonitored, isBulkToggling: isToggling } =
+    useBulkToggleChaptersMonitored();
 
   const isShowingMonitored = getMonitoredValue(FILTERS, selectedFilterKey);
   const isSearchingForEpisodes =
@@ -318,74 +316,74 @@ function MissingContent({ mediaType = 'manga' }: MissingProps) {
 
         <PageContentBody>
           <div data-testid="manga-missing-page">
-          {isFetching && isLoading ? <LoadingIndicator /> : null}
+            {isFetching && isLoading ? <LoadingIndicator /> : null}
 
-          {!isFetching && error ? (
-            <Alert kind={kinds.DANGER}>{translate('MissingLoadError')}</Alert>
-          ) : null}
+            {!isFetching && error ? (
+              <Alert kind={kinds.DANGER}>{translate('MissingLoadError')}</Alert>
+            ) : null}
 
-          {!isLoading && !error && !records.length ? (
-            <Alert kind={kinds.INFO}>
-              {mediaType === 'manga'
-                ? translate('NothingWanted')
-                : translate('MissingNoItems')}
-            </Alert>
-          ) : null}
+            {!isLoading && !error && !records.length ? (
+              <Alert kind={kinds.INFO}>
+                {mediaType === 'manga'
+                  ? translate('NothingWanted')
+                  : translate('MissingNoItems')}
+              </Alert>
+            ) : null}
 
-          {!isLoading && !error && !!records.length ? (
-            <div data-testid="manga-missing-table">
-              <Table
-                selectAll={true}
-                allSelected={allSelected}
-                allUnselected={allUnselected}
-                columns={columns}
-                pageSize={pageSize}
-                sortKey={sortKey}
-                sortDirection={sortDirection}
-                onTableOptionChange={handleTableOptionChange}
-                onSelectAllChange={handleSelectAllChange}
-                onSortPress={handleSortPress}
-              >
-                <TableBody>
-                  {records.map((item) => {
-                    return (
-                      <MissingRow key={item.id} columns={columns} {...item} />
-                    );
-                  })}
-                </TableBody>
-              </Table>
+            {!isLoading && !error && !!records.length ? (
+              <div data-testid="manga-missing-table">
+                <Table
+                  selectAll={true}
+                  allSelected={allSelected}
+                  allUnselected={allUnselected}
+                  columns={columns}
+                  pageSize={pageSize}
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onTableOptionChange={handleTableOptionChange}
+                  onSelectAllChange={handleSelectAllChange}
+                  onSortPress={handleSortPress}
+                >
+                  <TableBody>
+                    {records.map((item) => {
+                      return (
+                        <MissingRow key={item.id} columns={columns} {...item} />
+                      );
+                    })}
+                  </TableBody>
+                </Table>
 
-              <TablePager
-                page={page}
-                totalPages={totalPages}
-                totalRecords={totalRecords}
-                isFetching={isFetching}
-                onPageSelect={goToPage}
-              />
+                <TablePager
+                  page={page}
+                  totalPages={totalPages}
+                  totalRecords={totalRecords}
+                  isFetching={isFetching}
+                  onPageSelect={goToPage}
+                />
 
-              <ConfirmModal
-                isOpen={isConfirmSearchAllModalOpen}
-                kind={kinds.DANGER}
-                title={translate('SearchForAllMissingChapters')}
-                message={
-                  <div>
+                <ConfirmModal
+                  isOpen={isConfirmSearchAllModalOpen}
+                  kind={kinds.DANGER}
+                  title={translate('SearchForAllMissingChapters')}
+                  message={
                     <div>
-                      {translate(
-                        'SearchForAllMissingChaptersConfirmationCount',
-                        {
-                          totalRecords,
-                        }
-                      )}
+                      <div>
+                        {translate(
+                          'SearchForAllMissingChaptersConfirmationCount',
+                          {
+                            totalRecords,
+                          }
+                        )}
+                      </div>
+                      <div>{translate('MassSearchCancelWarning')}</div>
                     </div>
-                    <div>{translate('MassSearchCancelWarning')}</div>
-                  </div>
-                }
-                confirmLabel={translate('Search')}
-                onConfirm={handleSearchAllMissingConfirmed}
-                onCancel={handleConfirmSearchAllMissingModalClose}
-              />
-            </div>
-          ) : null}
+                  }
+                  confirmLabel={translate('Search')}
+                  onConfirm={handleSearchAllMissingConfirmed}
+                  onCancel={handleConfirmSearchAllMissingModalClose}
+                />
+              </div>
+            ) : null}
           </div>
         </PageContentBody>
 

@@ -4,10 +4,7 @@ import Column from 'Components/Table/Column';
 import VirtualTable from 'Components/Table/VirtualTable';
 import { SortDirection } from 'Helpers/Props/sortDirections';
 import Manga from 'Manga/Manga';
-import {
-  useMangaOption,
-  useMangaTableOptions,
-} from 'Manga/mangaOptionsStore';
+import { useMangaOption, useMangaTableOptions } from 'Manga/mangaOptionsStore';
 import getIndexOfFirstCharacter from 'Utilities/Array/getIndexOfFirstCharacter';
 import MangaIndexRow from './MangaIndexRow';
 import MangaIndexTableHeader from './MangaIndexTableHeader';

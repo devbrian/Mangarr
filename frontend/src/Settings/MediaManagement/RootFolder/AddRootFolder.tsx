@@ -54,8 +54,8 @@ function AddRootFolder() {
         <Button
           kind={kinds.PRIMARY}
           size={sizes.LARGE}
-          onPress={onAddNewRootFolderPress}
           data-testid="settings-root-folders-add-button"
+          onPress={onAddNewRootFolderPress}
         >
           <Icon className={styles.importButtonIcon} name={icons.DRIVE} />
           {translate('AddRootFolder')}

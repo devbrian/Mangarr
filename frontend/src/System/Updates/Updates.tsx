@@ -112,168 +112,173 @@ function Updates() {
   return (
     <PageContent title={translate('Updates')}>
       <div data-testid="system-updates-page">
-      <PageContentBody>
-        {isPopulated || hasError ? null : <LoadingIndicator />}
+        <PageContentBody>
+          {isPopulated || hasError ? null : <LoadingIndicator />}
 
-        {noUpdates ? (
-          <Alert kind={kinds.INFO}>{translate('NoUpdatesAreAvailable')}</Alert>
-        ) : null}
+          {noUpdates ? (
+            <Alert kind={kinds.INFO}>
+              {translate('NoUpdatesAreAvailable')}
+            </Alert>
+          ) : null}
 
-        {hasUpdateToInstall ? (
-          <div className={styles.messageContainer}>
-            {updateMechanism === 'builtIn' || updateMechanism === 'script' ? (
-              <SpinnerButton
-                kind={kinds.PRIMARY}
-                isSpinning={isInstallingUpdate}
-                onPress={handleInstallLatestPress}
-              >
-                {translate('InstallLatest')}
-              </SpinnerButton>
-            ) : (
-              <>
-                <Icon name={icons.WARNING} kind={kinds.WARNING} size={30} />
+          {hasUpdateToInstall ? (
+            <div className={styles.messageContainer}>
+              {updateMechanism === 'builtIn' || updateMechanism === 'script' ? (
+                <SpinnerButton
+                  kind={kinds.PRIMARY}
+                  isSpinning={isInstallingUpdate}
+                  onPress={handleInstallLatestPress}
+                >
+                  {translate('InstallLatest')}
+                </SpinnerButton>
+              ) : (
+                <>
+                  <Icon name={icons.WARNING} kind={kinds.WARNING} size={30} />
 
-                <div className={styles.message}>
-                  {externalUpdaterPrefix}{' '}
+                  <div className={styles.message}>
+                    {externalUpdaterPrefix}{' '}
+                    <InlineMarkdown
+                      data={
+                        packageUpdateMechanismMessage ||
+                        externalUpdaterMessages[updateMechanism] ||
+                        externalUpdaterMessages.external
+                      }
+                    />
+                  </div>
+                </>
+              )}
+
+              {isFetching ? (
+                <LoadingIndicator className={styles.loading} size={20} />
+              ) : null}
+            </div>
+          ) : null}
+
+          {noUpdateToInstall && (
+            <div className={styles.messageContainer}>
+              <Icon
+                className={styles.upToDateIcon}
+                name={icons.CHECK_CIRCLE}
+                size={30}
+              />
+              <div className={styles.message}>
+                {translate('OnLatestVersion')}
+              </div>
+
+              {isFetching && (
+                <LoadingIndicator className={styles.loading} size={20} />
+              )}
+            </div>
+          )}
+
+          {hasUpdates && (
+            <div>
+              {updates.map((update) => {
+                return (
+                  <div key={update.version} className={styles.update}>
+                    <div className={styles.info}>
+                      <div className={styles.version}>{update.version}</div>
+                      <div className={styles.space}>&mdash;</div>
+                      <div
+                        className={styles.date}
+                        title={formatDateTime(
+                          update.releaseDate,
+                          longDateFormat,
+                          timeFormat
+                        )}
+                      >
+                        {formatDate(update.releaseDate, shortDateFormat)}
+                      </div>
+
+                      {update.branch === 'main' ? null : (
+                        <Label className={styles.label}>{update.branch}</Label>
+                      )}
+
+                      {update.version === currentVersion ? (
+                        <Label
+                          className={styles.label}
+                          kind={kinds.SUCCESS}
+                          title={formatDateTime(
+                            update.installedOn,
+                            longDateFormat,
+                            timeFormat
+                          )}
+                        >
+                          {translate('CurrentlyInstalled')}
+                        </Label>
+                      ) : null}
+
+                      {update.version !== currentVersion &&
+                      update.installedOn ? (
+                        <Label
+                          className={styles.label}
+                          kind={kinds.INVERSE}
+                          title={formatDateTime(
+                            update.installedOn,
+                            longDateFormat,
+                            timeFormat
+                          )}
+                        >
+                          {translate('PreviouslyInstalled')}
+                        </Label>
+                      ) : null}
+                    </div>
+
+                    {update.changes ? (
+                      <div>
+                        <UpdateChanges
+                          title={translate('New')}
+                          changes={update.changes.new}
+                        />
+
+                        <UpdateChanges
+                          title={translate('Fixed')}
+                          changes={update.changes.fixed}
+                        />
+                      </div>
+                    ) : (
+                      <div>{translate('MaintenanceRelease')}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {updatesError ? (
+            <Alert kind={kinds.WARNING}>
+              {translate('FailedToFetchUpdates')}
+            </Alert>
+          ) : null}
+
+          {settingsError ? (
+            <Alert kind={kinds.DANGER}>
+              {translate('FailedToFetchSettings')}
+            </Alert>
+          ) : null}
+
+          <ConfirmModal
+            isOpen={isMajorUpdateModalOpen}
+            kind={kinds.WARNING}
+            title={translate('InstallMajorVersionUpdate')}
+            message={
+              <div>
+                <div>{translate('InstallMajorVersionUpdateMessage')}</div>
+                <div>
                   <InlineMarkdown
-                    data={
-                      packageUpdateMechanismMessage ||
-                      externalUpdaterMessages[updateMechanism] ||
-                      externalUpdaterMessages.external
-                    }
+                    data={translate('InstallMajorVersionUpdateMessageLink', {
+                      domain: 'sonarr.tv',
+                      url: 'https://sonarr.tv/#downloads',
+                    })}
                   />
                 </div>
-              </>
-            )}
-
-            {isFetching ? (
-              <LoadingIndicator className={styles.loading} size={20} />
-            ) : null}
-          </div>
-        ) : null}
-
-        {noUpdateToInstall && (
-          <div className={styles.messageContainer}>
-            <Icon
-              className={styles.upToDateIcon}
-              name={icons.CHECK_CIRCLE}
-              size={30}
-            />
-            <div className={styles.message}>{translate('OnLatestVersion')}</div>
-
-            {isFetching && (
-              <LoadingIndicator className={styles.loading} size={20} />
-            )}
-          </div>
-        )}
-
-        {hasUpdates && (
-          <div>
-            {updates.map((update) => {
-              return (
-                <div key={update.version} className={styles.update}>
-                  <div className={styles.info}>
-                    <div className={styles.version}>{update.version}</div>
-                    <div className={styles.space}>&mdash;</div>
-                    <div
-                      className={styles.date}
-                      title={formatDateTime(
-                        update.releaseDate,
-                        longDateFormat,
-                        timeFormat
-                      )}
-                    >
-                      {formatDate(update.releaseDate, shortDateFormat)}
-                    </div>
-
-                    {update.branch === 'main' ? null : (
-                      <Label className={styles.label}>{update.branch}</Label>
-                    )}
-
-                    {update.version === currentVersion ? (
-                      <Label
-                        className={styles.label}
-                        kind={kinds.SUCCESS}
-                        title={formatDateTime(
-                          update.installedOn,
-                          longDateFormat,
-                          timeFormat
-                        )}
-                      >
-                        {translate('CurrentlyInstalled')}
-                      </Label>
-                    ) : null}
-
-                    {update.version !== currentVersion && update.installedOn ? (
-                      <Label
-                        className={styles.label}
-                        kind={kinds.INVERSE}
-                        title={formatDateTime(
-                          update.installedOn,
-                          longDateFormat,
-                          timeFormat
-                        )}
-                      >
-                        {translate('PreviouslyInstalled')}
-                      </Label>
-                    ) : null}
-                  </div>
-
-                  {update.changes ? (
-                    <div>
-                      <UpdateChanges
-                        title={translate('New')}
-                        changes={update.changes.new}
-                      />
-
-                      <UpdateChanges
-                        title={translate('Fixed')}
-                        changes={update.changes.fixed}
-                      />
-                    </div>
-                  ) : (
-                    <div>{translate('MaintenanceRelease')}</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {updatesError ? (
-          <Alert kind={kinds.WARNING}>
-            {translate('FailedToFetchUpdates')}
-          </Alert>
-        ) : null}
-
-        {settingsError ? (
-          <Alert kind={kinds.DANGER}>
-            {translate('FailedToFetchSettings')}
-          </Alert>
-        ) : null}
-
-        <ConfirmModal
-          isOpen={isMajorUpdateModalOpen}
-          kind={kinds.WARNING}
-          title={translate('InstallMajorVersionUpdate')}
-          message={
-            <div>
-              <div>{translate('InstallMajorVersionUpdateMessage')}</div>
-              <div>
-                <InlineMarkdown
-                  data={translate('InstallMajorVersionUpdateMessageLink', {
-                    domain: 'sonarr.tv',
-                    url: 'https://sonarr.tv/#downloads',
-                  })}
-                />
               </div>
-            </div>
-          }
-          confirmLabel={translate('Install')}
-          onConfirm={handleInstallLatestMajorVersionPress}
-          onCancel={handleCancelMajorVersionPress}
-        />
-      </PageContentBody>
+            }
+            confirmLabel={translate('Install')}
+            onConfirm={handleInstallLatestMajorVersionPress}
+            onCancel={handleCancelMajorVersionPress}
+          />
+        </PageContentBody>
       </div>
     </PageContent>
   );

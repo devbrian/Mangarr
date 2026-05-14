@@ -22,7 +22,9 @@
 //     number, title, status, actions.
 //
 // Phase 8 cleanup: nothing to collapse — this stays.
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import Chapter from 'Chapter/Chapter';
+import { useChaptersByManga } from 'Chapter/useChapter';
 import Alert from 'Components/Alert';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import Column from 'Components/Table/Column';
@@ -30,8 +32,6 @@ import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import { kinds } from 'Helpers/Props';
 import { SortDirection } from 'Helpers/Props/sortDirections';
-import Chapter from 'Chapter/Chapter';
-import { useChaptersByManga } from 'Chapter/useChapter';
 import getErrorMessage from 'Utilities/Object/getErrorMessage';
 import translate from 'Utilities/String/translate';
 import ChapterRow from './ChapterRow';
@@ -100,11 +100,16 @@ function MangaDetailsChapters({ mangaId }: MangaDetailsChaptersProps) {
   // Backend: GET /api/v5/chapter?mangaId={mangaId} (Plan 07-01 endpoint).
   // The useApiQuery composes the same URL via path '/chapter' + queryParams
   // { mangaId } — see useChaptersByManga in Chapter/useChapter.ts.
-  const { data: chapters, isFetching, isFetched, error } =
-    useChaptersByManga(mangaId);
+  const {
+    data: chapters,
+    isFetching,
+    isFetched,
+    error,
+  } = useChaptersByManga(mangaId);
 
   const [sortKey, setSortKey] = useState<string>('chapterNumber');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('descending');
+  const [sortDirection, setSortDirection] =
+    useState<SortDirection>('descending');
 
   const sortedChapters = useMemo(() => {
     const direction = sortDirection === 'ascending' ? 1 : -1;
@@ -116,7 +121,7 @@ function MangaDetailsChapters({ mangaId }: MangaDetailsChaptersProps) {
         return 0;
       }
       if (aValue == null) {
-        return 1 * direction;
+        return Number(direction);
       }
       if (bValue == null) {
         return -1 * direction;
@@ -125,22 +130,25 @@ function MangaDetailsChapters({ mangaId }: MangaDetailsChaptersProps) {
         return -1 * direction;
       }
       if (aValue > bValue) {
-        return 1 * direction;
+        return Number(direction);
       }
       return 0;
     });
   }, [chapters, sortKey, sortDirection]);
 
-  const handleSortPress = (name: string, direction?: SortDirection) => {
-    setSortKey(name);
-    if (direction) {
-      setSortDirection(direction);
-    } else {
-      setSortDirection((prev) =>
-        sortKey === name && prev === 'ascending' ? 'descending' : 'ascending'
-      );
-    }
-  };
+  const handleSortPress = useCallback(
+    (name: string, direction?: SortDirection) => {
+      setSortKey(name);
+      if (direction) {
+        setSortDirection(direction);
+      } else {
+        setSortDirection((prev) =>
+          sortKey === name && prev === 'ascending' ? 'descending' : 'ascending'
+        );
+      }
+    },
+    [sortKey, setSortKey, setSortDirection]
+  );
 
   if (isFetching && !isFetched) {
     return <LoadingIndicator />;

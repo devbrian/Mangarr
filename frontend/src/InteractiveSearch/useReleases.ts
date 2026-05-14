@@ -13,12 +13,12 @@ import { FilterType } from 'Helpers/Props/filterTypes';
 import getFilterTypePredicate from 'Helpers/Props/getFilterTypePredicate';
 import { SortDirection } from 'Helpers/Props/sortDirections';
 import Language from 'Language/Language';
-import { QualityModel } from 'Quality/Quality';
 // Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
 // `{ AlternateTitle } from 'Series/Series'` rewritten to `'Manga/Manga'` peer
 // (Series/Series stub re-exported AlternateTitle from Manga/Manga; direct
 // import shortens the chain).
 import { AlternateTitle } from 'Manga/Manga';
+import { QualityModel } from 'Quality/Quality';
 import CustomFormat from 'typings/CustomFormat';
 import Rejection from 'typings/Rejection';
 import sortByProp from 'Utilities/Array/sortByProp';
@@ -434,7 +434,8 @@ const useReleases = (payload: InteractiveSearchPayload) => {
   // server-side point query is unavailable; defaulting chapter searches to
   // 'not-rejected' hides the chapter-mismatch rejections that would otherwise
   // dwarf the matching releases. User can toggle to 'all' to inspect rejections.
-  let selectedFilterKey: typeof episodeSelectedFilterKey;
+  let selectedFilterKey: typeof episodeSelectedFilterKey =
+    episodeSelectedFilterKey;
 
   if ('chapterId' in payload) {
     selectedFilterKey = chapterSelectedFilterKey;
@@ -442,8 +443,6 @@ const useReleases = (payload: InteractiveSearchPayload) => {
     selectedFilterKey = mangaSelectedFilterKey;
   } else if ('seriesId' in payload) {
     selectedFilterKey = seasonSelectedFilterKey;
-  } else {
-    selectedFilterKey = episodeSelectedFilterKey;
   }
 
   const { data, queryKey, ...result } = useApiQuery<Release[]>({

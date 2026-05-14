@@ -78,6 +78,79 @@ function defaultProfile(): CustomFormatProfileResource {
   };
 }
 
+// Per-row sub-component for the formatItems list. Extracted so the parent's
+// .map() does not allocate fresh arrow handlers per render (react/jsx-no-bind);
+// each row binds its own idx into stable useCallback handlers here.
+interface FormatItemRowProps {
+  idx: number;
+  formatItem: CustomFormatProfileResource['formatItems'][number];
+  customFormatValues: { key: string; value: string }[];
+  onFormatChange: (idx: number, customFormatId: number) => void;
+  onScoreChange: (idx: number, score: number) => void;
+  onRemove: (idx: number) => void;
+}
+
+function FormatItemRow({
+  idx,
+  formatItem,
+  customFormatValues,
+  onFormatChange,
+  onScoreChange,
+  onRemove,
+}: FormatItemRowProps) {
+  const handleFormatChange = useCallback(
+    (c: InputChangedHandler<string>) => {
+      onFormatChange(idx, Number(c.value));
+    },
+    [idx, onFormatChange]
+  );
+
+  const handleScoreChange = useCallback(
+    (c: NumberInputChangedLocal) => {
+      onScoreChange(idx, c.value ?? 0);
+    },
+    [idx, onScoreChange]
+  );
+
+  const handleRemove = useCallback(() => {
+    onRemove(idx);
+  }, [idx, onRemove]);
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        marginBottom: 6,
+        gap: 6,
+      }}
+    >
+      <div style={{ minWidth: 200 }}>
+        <FormInputGroup
+          type={inputTypes.SELECT}
+          name={`customFormatId-${idx}`}
+          value={String(formatItem.customFormatId)}
+          values={customFormatValues}
+          onChange={handleFormatChange}
+        />
+      </div>
+      <div style={{ minWidth: 100 }}>
+        <FormInputGroup
+          type={inputTypes.NUMBER}
+          name={`score-${idx}`}
+          value={formatItem.score}
+          onChange={handleScoreChange}
+        />
+      </div>
+      <IconButton
+        name={icons.REMOVE}
+        title={translate('Remove')}
+        onPress={handleRemove}
+      />
+    </div>
+  );
+}
+
 function EditCustomFormatProfileModalContent({
   id,
   onContentHeightChange,
@@ -115,8 +188,8 @@ function EditCustomFormatProfileModalContent({
     return profiles.find((p) => p.id === id);
   }, [id, profiles]);
 
-  const [item, setItem] = useState<CustomFormatProfileResource>(() =>
-    existing ?? defaultProfile()
+  const [item, setItem] = useState<CustomFormatProfileResource>(
+    () => existing ?? defaultProfile()
   );
 
   useEffect(() => {
@@ -132,8 +205,7 @@ function EditCustomFormatProfileModalContent({
       return 0;
     }
     return mangaList.filter(
-      (m: { customFormatProfileId?: number }) =>
-        m.customFormatProfileId === id
+      (m: { customFormatProfileId?: number }) => m.customFormatProfileId === id
     ).length;
   }, [id, mangaList]);
   const isInUse = inUseCount > 0;
@@ -145,10 +217,7 @@ function EditCustomFormatProfileModalContent({
     mutate: save,
     isPending: isSaving,
     error: saveError,
-  } = useApiMutation<
-    CustomFormatProfileResource,
-    CustomFormatProfileResource
-  >({
+  } = useApiMutation<CustomFormatProfileResource, CustomFormatProfileResource>({
     path: isEditing ? `${PATH}/${id}` : PATH,
     method: isEditing ? 'PUT' : 'POST',
     mutationOptions: {
@@ -375,46 +444,19 @@ function EditCustomFormatProfileModalContent({
                 </FormLabel>
                 <div>
                   {item.formatItems.map((fi, idx) => (
-                    <div
+                    <FormatItemRow
                       key={idx}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        marginBottom: 6,
-                        gap: 6,
-                      }}
-                    >
-                      <div style={{ minWidth: 200 }}>
-                        <FormInputGroup
-                          type={inputTypes.SELECT}
-                          name={`customFormatId-${idx}`}
-                          value={String(fi.customFormatId)}
-                          values={customFormatValues}
-                          onChange={(c: InputChangedHandler<string>) =>
-                            handleFormatItemFormatChange(idx, Number(c.value))
-                          }
-                        />
-                      </div>
-                      <div style={{ minWidth: 100 }}>
-                        <FormInputGroup
-                          type={inputTypes.NUMBER}
-                          name={`score-${idx}`}
-                          value={fi.score}
-                          onChange={(c: NumberInputChangedLocal) =>
-                            handleFormatItemScoreChange(idx, c.value ?? 0)
-                          }
-                        />
-                      </div>
-                      <IconButton
-                        name={icons.REMOVE}
-                        title={translate('Remove')}
-                        onPress={() => handleRemoveFormatItem(idx)}
-                      />
-                    </div>
+                      idx={idx}
+                      formatItem={fi}
+                      customFormatValues={customFormatValues}
+                      onFormatChange={handleFormatItemFormatChange}
+                      onScoreChange={handleFormatItemScoreChange}
+                      onRemove={handleRemoveFormatItem}
+                    />
                   ))}
                   <Button
-                    onPress={handleAddFormatItem}
                     isDisabled={customFormats.length === 0}
+                    onPress={handleAddFormatItem}
                   >
                     {translate('AddFormatItem')}
                   </Button>

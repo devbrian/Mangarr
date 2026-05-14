@@ -199,8 +199,8 @@ function BlocklistRow({
               <IconButton
                 name={icons.INFO}
                 aria-label={translate('Details')}
-                onPress={handleDetailsPress}
                 data-testid={`manga-blocklist-row-${id}-details-button`}
+                onPress={handleDetailsPress}
               />
 
               <IconButton
@@ -209,8 +209,8 @@ function BlocklistRow({
                 name={icons.REMOVE}
                 kind={kinds.DANGER}
                 isSpinning={isRemoving}
-                onPress={handleRemovePress}
                 data-testid={`manga-blocklist-row-${id}-remove-button`}
+                onPress={handleRemovePress}
               />
             </TableRowCell>
           );

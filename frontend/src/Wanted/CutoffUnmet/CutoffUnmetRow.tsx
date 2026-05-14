@@ -120,7 +120,10 @@ function CutoffUnmetRow({
         // the TV peer deletes).
         if (name === 'series.sortTitle') {
           return (
-            <TableRowCell key={name} data-testid={`manga-cutoff-unmet-row-${id}-manga`}>
+            <TableRowCell
+              key={name}
+              data-testid={`manga-cutoff-unmet-row-${id}-manga`}
+            >
               <MangaTitleLink
                 titleSlug={manga?.titleSlug}
                 title={manga?.title ?? ''}
@@ -140,7 +143,11 @@ function CutoffUnmetRow({
           // is the chapter cell. Languages cell is `isVisible: false` by
           // default so it can't host this testid reliably.
           return (
-            <TableRowCell key={name} className={styles.episode} data-testid={`manga-cutoff-unmet-row-${id}-cutoff-quality`}>
+            <TableRowCell
+              key={name}
+              className={styles.episode}
+              data-testid={`manga-cutoff-unmet-row-${id}-cutoff-quality`}
+            >
               <ChapterNumber
                 chapterNumber={chapterNumber}
                 absoluteChapterNumber={absoluteChapterNumber}
@@ -169,7 +176,13 @@ function CutoffUnmetRow({
         if (name === 'episodes.lastSearchTime') {
           // ChapterResource v1 does not emit lastSearchTime — see twin
           // MissingRow.tsx note for the backfill plan.
-          return <RelativeDateCell key={name} date={undefined} includeSeconds={true} />;
+          return (
+            <RelativeDateCell
+              key={name}
+              date={undefined}
+              includeSeconds={true}
+            />
+          );
         }
 
         if (name === 'languages') {
@@ -196,7 +209,11 @@ function CutoffUnmetRow({
           // state is the closest analog to "current quality" (TV-peer
           // dropped Phase 5 D-04). ChapterStatus is always-visible.
           return (
-            <TableRowCell key={name} className={styles.status} data-testid={`manga-cutoff-unmet-row-${id}-current-quality`}>
+            <TableRowCell
+              key={name}
+              className={styles.status}
+              data-testid={`manga-cutoff-unmet-row-${id}-current-quality`}
+            >
               <ChapterStatus chapter={chapter} />
             </TableRowCell>
           );

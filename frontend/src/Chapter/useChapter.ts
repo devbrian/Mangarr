@@ -103,7 +103,9 @@ export const useToggleChapterMonitored = (chapter: Chapter | undefined) => {
               return prev;
             }
 
-            return prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c));
+            return prev.map((c) =>
+              c.id === updated.id ? { ...c, ...updated } : c
+            );
           }
         );
       },
@@ -162,5 +164,3 @@ export const useBulkToggleChaptersMonitored = () => {
  * the discriminator-driven query-key map ships.
  */
 export const setChapterQueryKey = (..._args: unknown[]) => undefined;
-
-export default useChaptersByManga;

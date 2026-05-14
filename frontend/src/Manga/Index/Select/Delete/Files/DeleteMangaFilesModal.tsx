@@ -4,8 +4,7 @@ import DeleteMangaModalContent, {
   DeleteMangaFilesModalContentProps,
 } from './DeleteMangaFilesModalContent';
 
-interface DeleteMangaFilesModalProps
-  extends DeleteMangaFilesModalContentProps {
+interface DeleteMangaFilesModalProps extends DeleteMangaFilesModalContentProps {
   isOpen: boolean;
 }
 
