@@ -90,14 +90,22 @@ public class NotificationTestButtonFixture : AutomationTest
         }
         else
         {
-            // Empty-notifications path: assert the Add surface is reachable
-            // so the user has a path to wire their first notification
-            // (precondition for POST /api/v5/notification/test).
+            // WR-04 (18-REVIEW): the empty-notifications branch never
+            // exercises the POST /api/v5/notification/test contract this
+            // fixture claims to cover (INVENTORY v5-endpoint row 109).
+            // Verifying that an Add button exists is a page-shell check, not
+            // endpoint coverage. Surface the gap explicitly via
+            // Assert.Inconclusive so dashboards distinguish "ran the
+            // notification-test path" from "didn't"; the surface-reachable
+            // check remains as a precondition before marking inconclusive.
             var addButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Add" });
             var addCount = await addButton.CountAsync();
-
-            // STATE assertion: an Add surface is reachable on the page.
             addCount.Should().BeGreaterThan(0, "Settings/Connect must expose an Add surface for the user to wire their first notification (req NOTIFY-01/02)");
+
+            Assert.Inconclusive(
+                "No Komga/Kavita notifications seeded — POST /api/v5/notification/test contract NOT exercised. " +
+                "Mirror DEF-18-18-01: needs a seeded fake-host notification (TestKit hook) or [Explicit] gate. " +
+                "Page-shell precondition (Add surface visible) verified.");
         }
     }
 }
