@@ -283,6 +283,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
                         isSaving={isTogglingMangaMonitored}
                         size={40}
                         onPress={handleMonitorTogglePress}
+                        data-testid="manga-details-monitor-toggle"
                       />
                     </div>
 

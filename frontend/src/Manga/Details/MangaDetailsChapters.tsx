@@ -168,22 +168,24 @@ function MangaDetailsChapters({ mangaId }: MangaDetailsChaptersProps) {
   }
 
   return (
-    <Table
-      columns={DEFAULT_COLUMNS}
-      sortKey={sortKey}
-      sortDirection={sortDirection}
-      onSortPress={handleSortPress}
-    >
-      <TableBody>
-        {sortedChapters.map((chapter) => (
-          <ChapterRow
-            key={chapter.id}
-            chapter={chapter}
-            columns={DEFAULT_COLUMNS}
-          />
-        ))}
-      </TableBody>
-    </Table>
+    <div data-testid="manga-details-chapter-table">
+      <Table
+        columns={DEFAULT_COLUMNS}
+        sortKey={sortKey}
+        sortDirection={sortDirection}
+        onSortPress={handleSortPress}
+      >
+        <TableBody>
+          {sortedChapters.map((chapter) => (
+            <ChapterRow
+              key={chapter.id}
+              chapter={chapter}
+              columns={DEFAULT_COLUMNS}
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
