@@ -43,13 +43,16 @@ public class KeyboardShortcutsModalFixture : AutomationTest
         var headingText = await heading.TextContentAsync();
         headingText.Should().Be("Keyboard Shortcuts");
 
-        // STATE assertion 2: modal body lists at least one shortcut row. The
-        // shortcuts map (Helpers/Hooks/useKeyboardShortcuts.ts L14-L49)
-        // surfaces 5 entries; "?" is the openKeyboardShortcutsModal key, so
-        // the rendered row text contains "?" verbatim.
-        var bodyText = await Page.Locator("body").TextContentAsync();
-        bodyText.Should().NotBeNull();
-        bodyText!.Should().Contain("?", "because the openKeyboardShortcutsModal shortcut row renders the literal `?` key");
+        // WR-10 (18-REVIEW): the prior assertion ran against
+        // Page.Locator("body").TextContentAsync() — `?` appears in many
+        // places on a typical page (help links, FAQ prompts, etc.) and the
+        // contain-check was trivially-true regardless of modal state.
+        // Scope to .modal-content so the assertion actually reflects modal
+        // body content, not the whole document.
+        var modalContent = Page.Locator(".modal-content").First;
+        var modalText = await modalContent.TextContentAsync();
+        modalText.Should().NotBeNull();
+        modalText!.Should().Contain("?", "the keyboard-shortcuts modal must enumerate the `?` shortcut entry");
 
         // STATE assertion 3: Escape dismisses the modal — the heading should
         // no longer be in the DOM. Use ToBeHiddenAsync to assert removal.
