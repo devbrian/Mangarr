@@ -7,12 +7,14 @@ on:
       - v5-main
       - Mangarr-v0                       # Phase 18 D-13: per-PR smoke on Mangarr-v0 push
     paths-ignore:
+      - ".planning/**"                   # GSD planning docs — no build impact, skip the pipeline
       - "src/Sonarr.Api.*/openapi.json"
   pull_request:
     branches:
       - v5-develop
       - Mangarr-v0                       # Phase 18 D-13: PR-smoke triggers on Mangarr-v0 PRs
     paths-ignore:
+      - ".planning/**"                   # GSD planning docs — no build impact, skip the pipeline
       - "src/NzbDrone.Core/Localization/Core/**"
       - "src/Sonarr.Api.*/openapi.json"
   schedule:                              # Phase 18 D-13/D-16 nightly cadences
