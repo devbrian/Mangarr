@@ -155,6 +155,17 @@ function AddNewMangaModalContent({
     tags,
   } = settings;
 
+  // Bug fix pr-smoke-add-manga-timeout (2026-05-14): RootFolderSelectInput
+  // replaces the zustand store's default `rootFolderPath: ''` with the first
+  // real root folder only inside useEffects gated on the async useRootFolders()
+  // query. If the user (or an automation flow) clicks Add before that query
+  // resolves, the POST /api/v5/manga fires with rootFolderPath: '' and the
+  // backend PathValidator rejects the bare title with HTTP 400 — the modal then
+  // correctly stays open, but the add never lands. Gate the submit on a
+  // populated root folder; mirrors how Sonarr's AddNewSeries gated submit on a
+  // chosen root folder.
+  const isRootFolderMissing = !rootFolderPath.value;
+
   const handleInputChange = useCallback(
     ({ name, value }: InputChanged<string | number | boolean | number[]>) => {
       setAddMangaOption(name as keyof AddMangaOptions, value);
@@ -163,6 +174,15 @@ function AddNewMangaModalContent({
   );
 
   const handleAddMangaPress = useCallback(() => {
+    // Bug fix pr-smoke-add-manga-timeout (2026-05-14): defense-in-depth guard —
+    // never POST while the root folder is still unpopulated (see
+    // isRootFolderMissing above). The SpinnerButton is also disabled in this
+    // state, but guarding the handler too closes any window where a press lands
+    // before the disabled state has rendered.
+    if (isRootFolderMissing) {
+      return;
+    }
+
     // Bug fix new-manga-default-monitored (2026-05-08): send `monitored: true`
     // explicitly + nest the per-Chapter Monitor cascade fields under `addOptions`
     // so they survive backend MangaResource → Manga.AddOptions deserialization.
@@ -190,6 +210,7 @@ function AddNewMangaModalContent({
     });
   }, [
     manga,
+    isRootFolderMissing,
     rootFolderPath,
     monitor,
     translationProfileId,
@@ -336,6 +357,7 @@ function AddNewMangaModalContent({
           className={styles.addButton}
           kind={kinds.SUCCESS}
           isSpinning={isAdding}
+          isDisabled={isRootFolderMissing}
           data-testid="add-manga-modal-add-button"
           onPress={handleAddMangaPress}
         >
