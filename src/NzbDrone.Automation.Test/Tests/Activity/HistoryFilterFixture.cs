@@ -27,7 +27,7 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Phase 18 Plan 18-14 D-D dependency (#102): AddMangaModal.ConfirmAddAsync click→nav race. AddMangaFlow.AddByMangaDexIdAsync times out at WaitForURLAsync until that lands. Drop this attribute when #102 closes.")]
+[Explicit("Phase 19 Cat A (Residual Yellow Inventory Resolution): needs real Queue/History/Blocklist seed state - the cassette tier does not simulate downloads. #102 is CLOSED and was NOT the blocker (the AddManga chain works). Flip when Phase 19 ships TestKit.Seed{Queue,History,Blocklist}Async. See ROADMAP Phase 19 SC#1.")]
 public class HistoryFilterFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;

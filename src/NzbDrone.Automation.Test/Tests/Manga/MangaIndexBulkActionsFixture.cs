@@ -39,7 +39,7 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Phase 18 Plan 18-14 D-D dependency (#102): AddMangaModal.ConfirmAddAsync click→nav race. AddMangaFlow.AddByMangaDexIdAsync times out at WaitForURLAsync until that lands. Drop this attribute when #102 closes.")]
+[Explicit("Phase 19 Cat C (Residual Yellow Inventory Resolution): fixture-level bug surfaced once the AddManga flow worked end-to-end post-#102. #102 is CLOSED and was NOT the blocker. Flip after the focused fix-forward. See ROADMAP Phase 19 SC#3.")]
 public class MangaIndexBulkActionsFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
