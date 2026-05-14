@@ -49,12 +49,16 @@ public class InteractiveSearchModal : PageBase
 
     /// <summary>
     /// Count the visible release rows. Matches testids of shape
-    /// `interactive-search-row-{guid}` (excludes the suffixed cell testids by
-    /// requiring no trailing `-` segment).
+    /// `interactive-search-row-{guid}` (UUIDs contain hyphens, so the regex
+    /// uses a negative lookahead that excludes only the known suffixed cell
+    /// testids: -title, -decision, -rejected-icon, -grab-button).
     /// </summary>
     public async Task<int> GetReleaseCountAsync()
     {
-        var rows = Page.GetByTestId(new Regex(@"^interactive-search-row-[^-]+$"));
+        // BL-03 fix (18-13): the prior `[^-]+$` regex rejected UUID-shaped GUIDs
+        // because UUIDs contain hyphens. Match any suffix except the four known
+        // cell-testid tokens emitted by InteractiveSearchRow.tsx.
+        var rows = Page.GetByTestId(new Regex(@"^interactive-search-row-(?!.*-(title|decision|rejected-icon|grab-button)$).+$"));
         return await rows.CountAsync();
     }
 
@@ -65,7 +69,8 @@ public class InteractiveSearchModal : PageBase
     /// </summary>
     public async Task GrabAsync(int releaseIndex)
     {
-        var rows = Page.GetByTestId(new Regex(@"^interactive-search-row-[^-]+$"));
+        // BL-03 fix (18-13): UUID-aware row regex (see GetReleaseCountAsync).
+        var rows = Page.GetByTestId(new Regex(@"^interactive-search-row-(?!.*-(title|decision|rejected-icon|grab-button)$).+$"));
         var row = rows.Nth(releaseIndex);
         var idAttr = await row.GetAttributeAsync("data-testid");
         if (string.IsNullOrEmpty(idAttr))
