@@ -29,6 +29,16 @@ public abstract class AutomationTest
         _runner.KillAll();
         _runner.Start(enableAuth: true);
 
+        // D-07 pre-seed baseline (Plan 18-14 D-C fix): root folder + InProcess
+        // download client must exist before the browser opens or the AddManga
+        // modal's Add button POST fails its required-field validation
+        // (RootFolderPath is mandatory; TranslationProfile/CustomFormatProfile
+        // come from Phase 5 baseline migration). Without this seed, every
+        // AddMangaFlow.AddByMangaDexIdAsync call times out at ConfirmAddAsync.
+        var seedRoot = Path.Combine(_runner.AppData, "MangaLibrary");
+        Directory.CreateDirectory(seedRoot);
+        await new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, _runner.ApiKey, seedRoot).SeedBaselineAsync();
+
         Context = await PlaywrightSetUpFixture.Browser.NewContextAsync(new BrowserNewContextOptions
         {
             ViewportSize = new ViewportSize { Width = 1920, Height = 1080 },
