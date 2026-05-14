@@ -60,7 +60,7 @@ function ChapterRow({ chapter, columns }: ChapterRowProps) {
   );
 
   return (
-    <TableRow>
+    <TableRow data-testid={`chapter-row-${chapter.id}`}>
       {columns.map((column) => {
         const { name, isVisible } = column;
 
@@ -76,6 +76,7 @@ function ChapterRow({ chapter, columns }: ChapterRowProps) {
                 isDisabled={!mangaMonitored}
                 isSaving={isToggling}
                 onPress={handleMonitorPress}
+                data-testid={`chapter-row-${chapter.id}-monitor-toggle`}
               />
             </TableRowCell>
           );
