@@ -68,7 +68,7 @@ This project is a **fork/migration of [Sonarr](https://github.com/Sonarr/Sonarr)
 | ORM | Dapper (micro-ORM) over FluentMigrator schema migrations |
 | State Management | Redux 4.2 + Zustand 5 + TanStack React Query 5.61 |
 | Real-time | SignalR 10 |
-| Build | MSBuild (backend), Webpack 5 + Babel (frontend), Yarn 4 |
+| Build | MSBuild (backend), Webpack 5 + Babel (frontend), Yarn 1.22 (pinned via `package.json` `packageManager`) |
 | Testing | NUnit |
 | DI Container | DryIoc |
 | Logging | NLog |
@@ -78,7 +78,7 @@ This project is a **fork/migration of [Sonarr](https://github.com/Sonarr/Sonarr)
 
 - .NET SDK 10.0.203 (`winget install Microsoft.DotNet.SDK.10 --source winget`)
 - Node.js 20.x or higher
-- Yarn (enable with `corepack enable`)
+- Yarn 1.22.x (npm install -g yarn, or via Node's bundled npm). The `packageManager` field in `package.json` pins `yarn@1.22.22+sha512.…`; do NOT switch to Yarn 4/Berry without a documented migration — `yarn.lock`, `.yarnrc`, and the project's scripts assume Yarn 1 classic.
 
 ## Running Locally
 
