@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -19,7 +20,7 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 ///   2. UI settings have NO restart-required keys — saving never triggers the
 ///      RestartRequiredModal that would interfere with reload.
 ///   3. Toggling a boolean is the simplest round-trip target.
-///   4. UI settings persist via /api/v5/config/ui which has no side-effects on the
+///   4. UI settings persist via /api/v5/settings/ui which has no side-effects on the
 ///      Mangarr core process.
 ///   5. The underlying <c>&lt;input type="checkbox" name="showRelativeDates"&gt;</c>
 ///      selector works today without depending on Plan-04's CheckInput wrapper
@@ -68,15 +69,19 @@ public class SettingsSaveRoundTripFixture : AutomationTest
         {
             await Page.RunAndWaitForResponseAsync(
                 () => page.SaveButton.ClickAsync(),
-                resp => resp.Url.Contains("/api/v5/config/ui") && resp.Request.Method == "PUT",
+                resp => resp.Url.Contains("/api/v5/settings/ui") && resp.Request.Method == "PUT",
                 new PageRunAndWaitForResponseOptions { Timeout = 15_000 });
         }
-        catch (PlaywrightException)
+        catch (Exception ex) when (ex is PlaywrightException or TimeoutException)
         {
-            // intentional: reload assertion below catches missing PUT
+            // intentional: reload assertion below catches missing PUT.
+            // Both Microsoft.Playwright.TimeoutException (a PlaywrightException) AND
+            // System.TimeoutException (raised by RunAndWaitForResponseAsync when the
+            // predicate never matches within Timeout) are caught here — mirrors the
+            // precedent in AutomationTest.cs OneTimeSetUpAsync.
         }
 
-        // Reload — re-mount the React tree and re-fetch GET /api/v5/config/ui.
+        // Reload — re-mount the React tree and re-fetch GET /api/v5/settings/ui.
         await Page.ReloadAsync();
         await page.WaitForLoadedAsync();
         var reloadedCheckbox = Page.Locator("input[type='checkbox'][name='showRelativeDates']");
