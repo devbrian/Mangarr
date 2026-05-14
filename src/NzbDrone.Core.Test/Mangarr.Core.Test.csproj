@@ -25,18 +25,15 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <!-- Phase 4 plan 04-04 — golden CBZ fixture for CbzChapterArchiverFixture. -->
-    <None Include="..\..\_tests\Fixtures\Phase04\golden-cbz\Chapter132.cbz">
-      <Link>Files\Phase04\golden-cbz\Chapter132.cbz</Link>
+    <None Update="Files\Phase04\golden-cbz\Chapter132.cbz">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <!-- Phase 4 plan 04-05 — golden folder-format reference fixture (Komga/Kavita compat). -->
-    <None Include="..\..\_tests\Fixtures\Phase04\golden-folder\Chapter132\0001.jpg">
-      <Link>Files\Phase04\golden-folder\Chapter132\0001.jpg</Link>
+    <None Update="Files\Phase04\golden-folder\Chapter132\0001.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <!-- Phase 4 plan 04-07 — golden ComicInfo.xml fixture for ComicInfoXmlBuilderFixture. -->
-    <None Include="..\..\_tests\Fixtures\Phase04\golden-cbz\ComicInfo.xml">
-      <Link>Files\Phase04\golden-cbz\ComicInfo.xml</Link>
+    <None Update="Files\Phase04\golden-cbz\ComicInfo.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <!-- Phase 17 W-4 (revision iteration 1) — captured upstream keiyoushi Signer.kt
