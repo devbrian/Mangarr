@@ -27,12 +27,43 @@ namespace NzbDrone.Core.Test.JobTests
         [SetUp]
         public void Setup()
         {
-            // TestDirectory = <repo>/_tests/net10.0; src lives at <repo>/src/NzbDrone.Core.
-            var srcRoot = Path.GetFullPath(
-                Path.Combine(TestContext.CurrentContext.TestDirectory, "..", "..", "src", "NzbDrone.Core"));
+            // Anti-pattern C is a TEXTUAL guard — it reads the production .cs files and
+            // asserts on their content, so it needs the source tree on disk. That holds for
+            // every dev build and for any CI job that does a full checkout, but NOT for the
+            // unit_test job, which runs from a stripped, standalone test artifact (no src/).
+            // A hard-coded "../.." hop is also brittle: it is only correct for the local
+            // <repo>/_tests/net10.0 layout. Walk upward from TestDirectory looking for the
+            // src/NzbDrone.Core marker; if the source tree is not reachable, the structural
+            // guard cannot run here — mark inconclusive rather than failing the build. The
+            // guard still hard-runs locally and in checkout-based CI jobs.
+            var srcRoot = FindCoreSourceRoot(TestContext.CurrentContext.TestDirectory);
+            if (srcRoot == null)
+            {
+                Assert.Inconclusive(
+                    "src/NzbDrone.Core is not reachable from the test directory — the "
+                    + "sonarr-consistency-audit Anti-pattern C textual guard runs in dev builds "
+                    + "and checkout-based CI jobs, not from a standalone test artifact.");
+            }
 
             _taskManagerSource = File.ReadAllText(Path.Combine(srcRoot, "Jobs", "TaskManager.cs"));
             _migration001Source = File.ReadAllText(Path.Combine(srcRoot, "Datastore", "Migration", "001_mangarr_baseline.cs"));
+        }
+
+        // Walk up the directory chain from startDir, returning the first ancestor's
+        // src/NzbDrone.Core that actually contains Jobs/TaskManager.cs — or null if the
+        // source tree is not present in this layout.
+        private static string FindCoreSourceRoot(string startDir)
+        {
+            for (var dir = new DirectoryInfo(startDir); dir != null; dir = dir.Parent)
+            {
+                var candidate = Path.Combine(dir.FullName, "src", "NzbDrone.Core");
+                if (File.Exists(Path.Combine(candidate, "Jobs", "TaskManager.cs")))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
         }
 
         [Test]

@@ -133,15 +133,20 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         include:
+          # CI-infra F2 fix (ci-test-jobs-latent-faults): TestCategory!=LiveComix excludes the
+          # Mangarr.Comix.Live.Test.dll fixtures — they are [LiveComix]-gated, never run in CI
+          # (D-17), and would otherwise try to launch a real Chrome that the unit_test job does
+          # not provision. scripts/test.sh already excludes Category=LiveComix; this brings the
+          # workflow filters into parity.
           - os: ubuntu-latest
             artifact: tests-linux-x64
-            filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory!=IntegrationTest&TestCategory!=AutomationTest
+            filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory!=IntegrationTest&TestCategory!=AutomationTest&TestCategory!=LiveComix
           - os: macos-latest
             artifact: tests-osx-arm64
-            filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory!=IntegrationTest&TestCategory!=AutomationTest
+            filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory!=IntegrationTest&TestCategory!=AutomationTest&TestCategory!=LiveComix
           - os: windows-latest
             artifact: tests-win-x64
-            filter: TestCategory!=ManualTest&TestCategory!=LINUX&TestCategory!=IntegrationTest&TestCategory!=AutomationTest
+            filter: TestCategory!=ManualTest&TestCategory!=LINUX&TestCategory!=IntegrationTest&TestCategory!=AutomationTest&TestCategory!=LiveComix
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out
@@ -172,7 +177,13 @@ jobs:
           os: ubuntu-latest
           artifact: tests-linux-x64
           pattern: Mangarr.*.Test.dll
-          filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory!=IntegrationTest&TestCategory!=AutomationTest
+          # CI-infra F2 fix (ci-test-jobs-latent-faults): see unit_test job above.
+          # CI-infra F8 fix: &TestCategory!=SqliteOnly excludes mangarr_baselineFixture's
+          # SQLite schema-introspection tests (PRAGMA table_info / sqlite_master) — they
+          # are SQLite-only by construction. Postgres baseline parity is covered by the
+          # mangarr_baseline_postgres_parityFixture ([Category("Postgres")]) which DOES
+          # run here.
+          filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory!=IntegrationTest&TestCategory!=AutomationTest&TestCategory!=LiveComix&TestCategory!=SqliteOnly
           use_postgres: true
           postgres-version: ${{ matrix.postgres-version }}
 
@@ -182,6 +193,15 @@ jobs:
   # automation_test_nightly    — full Tier C offline, SQLite + Postgres 16/17/18 matrix, ~30-45 min
   # automation_test_liveservice — nightly contract-invariant probes against real MangaDex/AniList/MAL + comix.to (D-10)
   # See DIVERGENCE.md Phase 18 row (added in Plan-11).
+  #
+  # CI-infra F6 fix (ci-test-jobs-latent-faults): the previous dedicated "Install Playwright
+  # browsers" step ran ./src/NzbDrone.Automation.Test/bin/Debug/net10.0/playwright.sh — a path
+  # that never exists in these jobs (they are a fresh checkout that never builds; the test
+  # binaries arrive later via the Test composite action's artifact download), so the step died
+  # with exit 127. The step was also redundant: PlaywrightSetUpFixture.SetUpAsync already
+  # self-installs chromium at test time via Microsoft.Playwright.Program.Main(["install",
+  # "chromium"]). The "Cache Playwright browsers" step is kept so that self-install is a cache
+  # hit on warm runs (it persists ~/.cache/ms-playwright across runs).
   automation_test_pr_smoke:
     needs: [prepare, backend, frontend]
     if: github.event_name == 'pull_request' || github.event_name == 'push'
@@ -206,12 +226,6 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
           restore-keys: |
             ${{ runner.os }}-playwright-
-
-      - name: Install Playwright browsers (cache miss only)
-        if: steps.pw-cache.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          ./src/NzbDrone.Automation.Test/bin/Debug/net10.0/playwright.sh install --with-deps chromium
 
       - name: Test
         uses: ./.github/actions/test
@@ -284,12 +298,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
-      - name: Install Playwright browsers (cache miss only)
-        if: steps.pw-cache.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          ./src/NzbDrone.Automation.Test/bin/Debug/net10.0/playwright.sh install --with-deps chromium
-
       - name: Test
         uses: ./.github/actions/test
         with:
@@ -346,12 +354,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
-      - name: Install Playwright browsers (cache miss only)
-        if: steps.pw-cache.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          ./src/NzbDrone.Automation.Test/bin/Debug/net10.0/playwright.sh install --with-deps chromium
-
       - name: Test
         uses: ./.github/actions/test
         with:
@@ -403,19 +405,20 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         include:
+          # CI-infra F2 fix (ci-test-jobs-latent-faults): TestCategory!=LiveComix — see unit_test job.
           - os: ubuntu-latest
             artifact: tests-linux-x64
-            filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory=IntegrationTest
+            filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory=IntegrationTest&TestCategory!=LiveComix
             binary_artifact: build-linux-x64
             binary_path: linux-x64/${{ needs.prepare.outputs.framework }}/Mangarr
           - os: macos-latest
             artifact: tests-osx-arm64
-            filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory=IntegrationTest
+            filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory=IntegrationTest&TestCategory!=LiveComix
             binary_artifact: build-osx-arm64
             binary_path: osx-arm64/${{ needs.prepare.outputs.framework }}/Mangarr
           - os: windows-latest
             artifact: tests-win-x64
-            filter: TestCategory!=ManualTest&TestCategory!=LINUX&TestCategory=IntegrationTest
+            filter: TestCategory!=ManualTest&TestCategory!=LINUX&TestCategory=IntegrationTest&TestCategory!=LiveComix
             binary_artifact: build-win-x64
             binary_path: win-x64/${{ needs.prepare.outputs.framework }}/Mangarr
     runs-on: ${{ matrix.os }}

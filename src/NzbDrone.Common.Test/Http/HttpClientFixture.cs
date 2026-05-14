@@ -323,15 +323,21 @@ namespace NzbDrone.Common.Test.Http
         [Test]
         public async Task should_follow_redirects_to_https()
         {
+            // Redirect target is the httpbin host's own static /html page (deterministic
+            // Moby-Dick excerpt) — NOT a live third-party site. The pre-fork test redirected
+            // to https://sonarr.tv/ and asserted "Mangarr", which can never pass (sonarr.tv
+            // serves Sonarr content) and is network-fragile. The test's intent is only that
+            // an auto-redirect to an HTTPS page is followed; httpbin.servarr.com is already a
+            // hard dependency of every test in this fixture.
             var request = new HttpRequestBuilder($"https://{_httpBinHost}/redirect-to")
-                .AddQueryParam("url", $"https://sonarr.tv/")
+                .AddQueryParam("url", $"https://{_httpBinHost}/html")
                 .Build();
             request.AllowAutoRedirect = true;
 
             var response = await Subject.GetAsync(request);
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
-            response.Content.Should().Contain("Mangarr");
+            response.Content.Should().Contain("Herman Melville");
 
             ExceptionVerification.ExpectedErrors(0);
         }

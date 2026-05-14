@@ -25,6 +25,17 @@ public abstract class AutomationTest
     [OneTimeSetUp]
     public async Task OneTimeSetUpAsync()
     {
+        // CI-infra F1 fix (ci-test-jobs-latent-faults): PlaywrightSetUpFixture now tolerates a
+        // missing Playwright driver/browser (so the unit-tier TestKit fixtures pass in the
+        // unit_test job). The automation tier genuinely needs a Browser — fail fast here with a
+        // clear message instead of a bare NullReferenceException on Browser.NewContextAsync.
+        Assert.That(
+            PlaywrightSetUpFixture.BrowserAvailable,
+            Is.True,
+            "Playwright browser was not provisioned for this job. AutomationTest fixtures must run "
+            + "in a job that installs the Playwright driver/browser (automation_test_* jobs), not "
+            + "the unit_test job. See PlaywrightSetUpFixture.SetUpAsync.");
+
         _runner = new NzbDroneRunner(LogManager.GetCurrentClassLogger(), null);
         _runner.KillAll();
         _runner.Start(enableAuth: true);

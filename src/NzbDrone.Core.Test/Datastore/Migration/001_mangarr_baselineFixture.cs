@@ -7,7 +7,13 @@ using NzbDrone.Core.Test.Framework;
 
 namespace NzbDrone.Core.Test.Datastore.Migration
 {
+    // CI-infra F8 fix (ci-test-jobs-latent-faults): this fixture verifies the baseline
+    // migration's schema SHAPE via SQLite-only introspection (PRAGMA table_info / sqlite_master).
+    // Those statements throw `syntax error at or near "PRAGMA"` under Postgres, so the whole
+    // fixture is SqliteOnly and excluded from the unit_test_postgres job. Postgres baseline
+    // parity is covered by mangarr_baseline_postgres_parityFixture below.
     [TestFixture]
+    [Category("SqliteOnly")]
     public class mangarr_baselineFixture : MigrationTest<mangarr_baseline>
     {
         // ============================================================
@@ -189,41 +195,6 @@ namespace NzbDrone.Core.Test.Datastore.Migration
             tableNames.Should().Contain("Config");
             tableNames.Should().Contain("RootFolders");
             tableNames.Should().Contain("NamingConfig");
-        }
-
-        // ============================================================
-        // Test 8 — Postgres parity (DB-02). Tagged so the Postgres parity
-        // assertions only run when env vars target a real Postgres instance
-        // (postgres.runsettings or equivalent — see plan task 3 human-verify
-        // checkpoint). On SQLite the test is Ignored so the suite stays green
-        // for default local runs.
-        // ============================================================
-        [Test]
-        [Category("Postgres")]
-        public void should_apply_baseline_on_postgres()
-        {
-            var postgresHost = System.Environment.GetEnvironmentVariable("Sonarr__Postgres__Host");
-            if (string.IsNullOrWhiteSpace(postgresHost))
-            {
-                Assert.Ignore("Skipped: requires PostgreSQL backend (set Sonarr__Postgres__Host env var or use postgres.runsettings).");
-                return;
-            }
-
-            var db = WithDapperMigrationTestDb();
-
-            // On Postgres backend, query information_schema instead of sqlite_master.
-            // This same test, run with postgres.runsettings, exercises the Postgres-specific
-            // DDL pathway for the entire baseline migration.
-            var tableNames = db.Query<string>(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
-                .ToList();
-
-            tableNames.Should().Contain("Manga");
-            tableNames.Should().Contain("Chapters");
-
-            // Phase 15 D-22 — Series table dropped; assert manga peer + ThingiProvider sentinel instead.
-            tableNames.Should().Contain("ChapterFiles");
-            tableNames.Should().Contain("Indexers");
         }
 
         // ============================================================
@@ -498,6 +469,53 @@ namespace NzbDrone.Core.Test.Datastore.Migration
             public string Name { get; set; }
             public string TableName { get; set; }
             public string Sql { get; set; }
+        }
+    }
+
+    // ============================================================
+    // Postgres parity (DB-02) — the baseline migration's Postgres DDL pathway.
+    //
+    // CI-infra F8 fix (ci-test-jobs-latent-faults): split out of mangarr_baselineFixture
+    // (now [Category("SqliteOnly")]) so this Postgres-specific test is NOT excluded from
+    // the unit_test_postgres job. On a SQLite backend (the default unit_test job) the
+    // test Assert.Ignore's; on a Postgres backend it queries information_schema and
+    // asserts the baseline produced the expected tables.
+    //
+    // The env-var name was also corrected here: the pre-fork test probed the stale
+    // `Sonarr__Postgres__Host`, but the test action exports `Mangarr__Postgres__Host`
+    // (see .github/actions/test/action.yml "Setup Postgres Environment Variables").
+    // With the stale name the test always Assert.Ignore'd — and under unit_test_postgres
+    // the DbTest harness was still in Postgres mode, so the early `return` left no DB for
+    // TearDown to drop, surfacing as a 3D000 "database does not exist" failure.
+    // ============================================================
+    [TestFixture]
+    [Category("Postgres")]
+    public class mangarr_baseline_postgres_parityFixture : MigrationTest<mangarr_baseline>
+    {
+        [Test]
+        public void should_apply_baseline_on_postgres()
+        {
+            var postgresHost = System.Environment.GetEnvironmentVariable("Mangarr__Postgres__Host");
+            if (string.IsNullOrWhiteSpace(postgresHost))
+            {
+                Assert.Ignore("Skipped: requires PostgreSQL backend (set Mangarr__Postgres__Host env var or use postgres.runsettings).");
+                return;
+            }
+
+            var db = WithDapperMigrationTestDb();
+
+            // On Postgres backend, query information_schema instead of sqlite_master.
+            // This exercises the Postgres-specific DDL pathway for the entire baseline migration.
+            var tableNames = db.Query<string>(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+                .ToList();
+
+            tableNames.Should().Contain("Manga");
+            tableNames.Should().Contain("Chapters");
+
+            // Phase 15 D-22 — Series table dropped; assert manga peer + ThingiProvider sentinel instead.
+            tableNames.Should().Contain("ChapterFiles");
+            tableNames.Should().Contain("Indexers");
         }
     }
 }
