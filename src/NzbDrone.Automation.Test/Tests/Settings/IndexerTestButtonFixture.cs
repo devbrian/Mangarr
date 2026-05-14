@@ -48,14 +48,15 @@ public class IndexerTestButtonFixture : AutomationTest
 
         if (cardCount == 0)
         {
-            // Empty indexer list — no baseline seed visible. This is valid
-            // coverage of the empty-state path (the indexer-test surface is
-            // an opt-in, no test fires when no indexer exists).
-            Page.Url.Should().MatchRegex(@"/settings/indexers$");
-            TestContext.WriteLine(
-                "[Plan 18-18] IndexerTestButtonFixture — no MangaDex indexer card visible. " +
-                "Baseline seed via Phase 3 D-15 should populate this. Skipping the test-button path.");
-            return;
+            // WR-03 (18-REVIEW): NUnit reports a silent `return` as PASSED,
+            // so the prior empty-card path masked a baseline-seed regression
+            // as a green test. Assert.Inconclusive flags the missing
+            // precondition explicitly — fixture flips to "Inconclusive"
+            // (not "Passed") so dashboards distinguish "ran the test-button
+            // path" from "couldn't run it".
+            Assert.Inconclusive(
+                "Baseline MangaDex indexer card not present — Phase 3 D-15 seed regression? " +
+                "Skipping POST /api/v5/indexer/test coverage path.");
         }
 
         // Click the MangaDex card → EditIndexerModal opens.
