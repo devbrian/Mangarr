@@ -74,6 +74,27 @@ runs:
       shell: bash
       run: chmod +x ./_tests/bin/Mangarr
 
+    # CI-infra F4 + F5 fix (ci-test-jobs-latent-faults): actions/upload-artifact +
+    # download-artifact do not preserve the Unix executable bit. The test artifact
+    # bundles helper executables that the tests launch as child processes:
+    #   * Mangarr.Test.Dummy      — ProcessProviderFixture (F4): Should_be_able_to_start_process,
+    #                               kill_all_should_kill_all_process_with_name
+    #   * ffprobe / ffmpeg        — VideoFileInfoReaderFixture (F5): get_runtime, get_info,
+    #                               get_info_unicode. FFProbe.Analyse launches ffprobe from
+    #                               AppDomain.BaseDirectory; a non-executable binary throws,
+    #                               GetMediaInfo swallows it and returns null, and
+    #                               GetRunTime(path).Value then throws "Nullable object must
+    #                               have a value".
+    # Restore the exec bit on every bundled helper binary before the test run. Mirrors the
+    # existing "Make Mangarr binary executable" step that already does this for the
+    # integration-test binary. find -exec is a no-op when a given helper is not present in
+    # this particular artifact (e.g. ffprobe is win-x64 named ffprobe.exe).
+    - name: Make test helper binaries executable
+      if: ${{ !startsWith(inputs.os, 'windows') }}
+      shell: bash
+      run: |
+        find ./_tests \( -name 'Mangarr.Test.Dummy' -o -name 'ffprobe' -o -name 'ffmpeg' \) -type f -print -exec chmod +x {} +
+
     - name: Run tests
       shell: bash
       run: dotnet test ./_tests/${{ inputs.pattern }} --filter "${{ inputs.filter }}" --logger "trx;LogFileName=${{ env.RESULTS_NAME }}.trx" --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"
