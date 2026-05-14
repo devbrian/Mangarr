@@ -26,6 +26,8 @@ inputs:
     description: 'Binary artifact for integration / automation tests'
   binary_path:
     description: 'Path witin binary artifact for integration / automation tests'
+  ui_artifact:
+    description: 'Built frontend UI artifact for automation (UI) tests'
 
 runs:
   using: 'composite'
@@ -76,6 +78,24 @@ runs:
       if: ${{ inputs.binary_path != '' }}
       shell: bash
       run: mv ./_output/${{inputs.binary_path}} _tests/bin
+
+    # CI-infra FAULT A fix (automation-test-pr-smoke / issue #131): the automation jobs boot
+    # the real Mangarr backend, which serves the SPA from <StartUpFolder>/UI relative to the
+    # Mangarr binary (IndexHtmlMapper / StaticResourceMapper -> appFolderInfo.StartUpFolder +
+    # ConfigFileProvider.UiFolder, where UiFolder == "UI" in Release). The `build` composite
+    # action that produces build-linux-x64 is BACKEND-ONLY — it never runs `yarn build`, so the
+    # downloaded runtime tree has no UI/ dir. The `frontend` job builds the SPA and uploads it
+    # as the `build_ui` artifact (contents of _output/UI/**). Without this step `GET /` 404s,
+    # the page title is empty, and AutomationTest.OneTimeSetUpAsync's ToHaveTitleAsync(/Mangarr/)
+    # fails on every fixture. integration_test does not need this — it only exercises the API.
+    # The binary was just moved to _tests/bin (StartUpFolder), so the UI must land at
+    # _tests/bin/UI to be served.
+    - name: Download UI Artifact
+      if: ${{ inputs.automation_tests && inputs.ui_artifact != '' }}
+      uses: actions/download-artifact@v5
+      with:
+        name: ${{ inputs.ui_artifact }}
+        path: _tests/bin/UI
 
     # CI-infra F11 fix (issue #131): un-gated from integration_tests to also cover
     # automation_tests — the automation jobs exec the same _tests/bin/Mangarr binary.

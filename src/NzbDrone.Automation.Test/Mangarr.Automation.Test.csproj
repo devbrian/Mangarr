@@ -5,6 +5,25 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Playwright" Version="1.59.0" />
     <PackageReference Include="Microsoft.Playwright.NUnit" Version="1.59.0" />
+    <!-- CI-infra FAULT B fix (automation-test-pr-smoke / issue #131): Microsoft.Playwright
+         1.59.0 is a netstandard2.0 library that depends on Microsoft.Bcl.AsyncInterfaces
+         6.0.0 — the legacy POLYFILL for IAsyncDisposable. On .NET 10 IAsyncDisposable is an
+         in-box runtime type (System.Private.CoreLib). When the polyfill's
+         Microsoft.Bcl.AsyncInterfaces.dll is copied into the test output directory it
+         SHADOWS the in-box type: Playwright's IBrowserContext inherits its
+         IAsyncDisposable.DisposeAsync() slot, and at runtime the loader binds that slot
+         through the polyfill assembly's mismatched layout — the JIT then cannot resolve the
+         actual method body and throws `System.EntryPointNotFoundException : Entry point was
+         not found.` (bare message, `at System.IAsyncDisposable.DisposeAsync()` with no
+         frames below) on every `await Context.DisposeAsync()` in
+         AutomationTest.OneTimeTearDownAsync. CI run 25879196315 hit this 11× deterministically.
+         There is NO Playwright .NET version without this skew (1.58.0 ships driver 1.58.1
+         etc.) and Microsoft.Playwright 1.59.1 is not published, so a package bump is not a
+         fix. The supported fix is ExcludeAssets="runtime" on an explicit
+         Microsoft.Bcl.AsyncInterfaces reference: the compile-time reference still satisfies
+         Playwright's metadata dependency, but the polyfill DLL is NOT deployed to output, so
+         the in-box .NET 10 IAsyncDisposable is used at runtime. -->
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="6.0.0" ExcludeAssets="runtime" />
     <!-- Plan 19-01 Open Question 1 verdict = raw-SQLite seed helpers. Version
          matched to the backend's canonical SQLite ADO pin in
          NzbDrone.Common/Mangarr.Common.csproj (System.Data.SQLite 2.0.3) so the
