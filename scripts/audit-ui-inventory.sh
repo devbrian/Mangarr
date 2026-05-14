@@ -11,6 +11,10 @@
 #   3. New TV-shape controller in Mangarr.Api.V5 — Plan-10 Task 2 Gate 3 (forbidden-pattern)
 #   4. New TV-shape modal in frontend/src        — Plan-10 Task 2 Gate 4 (forbidden-pattern)
 #   5. Forbidden TV-shape data-testid           — Plan-10 Task 2 Gate 5
+#   6. Uncovered (⬜) row count > documented v2-deferred cap — Plan-19 Task 2 Gate 6
+#      (cap raised when the table itself has been verified to reflect disk state
+#       per the reconcile-inventory.py last-reconciled timestamp; prevents silent
+#       drift where uncovered rows accumulate without explicit deferral entries.)
 #
 # Per .planning/phases/18-automated-ui-integration-test-suite-playwright-net/18-VALIDATION.md
 # §"Meta-Validation: Smoke-the-Smokes" point 1.
@@ -150,6 +154,23 @@ if [[ -n "$FORBIDDEN_TESTID_HITS" ]]; then
   exit 1
 fi
 echo "PASS: Gate 5 — no forbidden TV-shape data-testid strings."
+
+# Gate 6 — uncovered (⬜) row count must stay under the documented v2-deferred cap.
+# Phase 18 close-out target: <= 130 uncovered rows (current reconciled state shows
+# ~126 ⬜; threshold gives ~5-row headroom for minor drift without immediate fail).
+# Above this, the inventory has drifted and the new uncovered rows must either:
+#   (a) ship as fixtures, OR
+#   (b) be documented in deferred-items.md with a GH issue reference.
+# Tighten this cap as fixtures land (target = 0 at v2 release).
+UNCOVERED_CAP=${UNCOVERED_CAP:-130}
+UNCOVERED_ROWS=$(grep -cE '\| ⬜ \|' "$INV_FILE" || true)
+if [[ "$UNCOVERED_ROWS" -gt "$UNCOVERED_CAP" ]]; then
+  echo "FAIL: Gate 6 — $UNCOVERED_ROWS uncovered (⬜) rows in INVENTORY.md exceeds cap ($UNCOVERED_CAP)." >&2
+  echo "Hint: either ship the fixture OR add a deferred-items.md entry with a GH issue ref." >&2
+  echo "Hint: cap can be overridden via UNCOVERED_CAP env var for documented one-off bumps." >&2
+  exit 1
+fi
+echo "PASS: Gate 6 — $UNCOVERED_ROWS uncovered (⬜) rows (cap: $UNCOVERED_CAP; tighten as fixtures land)."
 
 echo
 echo "INVENTORY.md coverage gates all GREEN — TEST-UI-01 satisfied."

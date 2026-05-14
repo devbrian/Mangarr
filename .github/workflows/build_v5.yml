@@ -219,7 +219,17 @@ jobs:
           os: ubuntu-latest
           artifact: tests-linux-x64
           pattern: Mangarr.*.Test.dll
-          filter: TestCategory=AutomationTest&TestCategory=PRSmoke
+          filter: TestCategory=AutomationTest&TestCategory=PRSmoke&TestCategory!=LiveService
+        env:
+          # Phase 18 Plan 18-19 (GAP-2): wire offline cassette tier for PR smoke
+          # so the per-PR gate stays cassette-free + deterministic. LiveService
+          # category is excluded defensively via filter above.
+          MANGARR_TEST_CASSETTE_MODE: Replay
+          MANGARR_TEST_CASSETTE_DIR: ${{ github.workspace }}/src/NzbDrone.Automation.Test/Fixtures/Cassettes/MangaDex
+          # Phase 18 Plan 18-14 D-B: ManagedHttpDispatcher loads the test assembly
+          # via Assembly.LoadFrom fallback when AppDomain probe returns null
+          # (backend runs in a separate process from the test runner).
+          MANGARR_TEST_ASSEMBLY_PATH: ${{ github.workspace }}/_tests/net10.0/Mangarr.Automation.Test.dll
 
       - name: Upload Playwright trace + screenshots + log on failure
         if: failure()
@@ -289,6 +299,15 @@ jobs:
           filter: TestCategory=AutomationTest&TestCategory!=LiveService
           use_postgres: ${{ matrix.use_postgres }}
           postgres-version: ${{ matrix.postgres-version }}
+        env:
+          # Phase 18 Plan 18-19 (GAP-2): nightly full Tier C also runs offline
+          # against cassettes. LiveService tier is segregated to the dedicated
+          # automation_test_liveservice job (real APIs).
+          MANGARR_TEST_CASSETTE_MODE: Replay
+          MANGARR_TEST_CASSETTE_DIR: ${{ github.workspace }}/src/NzbDrone.Automation.Test/Fixtures/Cassettes/MangaDex
+          # Phase 18 Plan 18-14 D-B: cross-process assembly load for the
+          # backend's HTTP dispatcher (see PR smoke job above for context).
+          MANGARR_TEST_ASSEMBLY_PATH: ${{ github.workspace }}/_tests/net10.0/Mangarr.Automation.Test.dll
 
       - name: Upload Playwright trace + screenshots + log on failure
         if: failure()
