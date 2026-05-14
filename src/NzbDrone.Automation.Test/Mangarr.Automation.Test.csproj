@@ -5,6 +5,15 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Playwright" Version="1.59.0" />
     <PackageReference Include="Microsoft.Playwright.NUnit" Version="1.59.0" />
+    <!-- NOTE (issue #133): Microsoft.Playwright 1.59.0 is a netstandard2.0 library that pulls
+         the Microsoft.Bcl.AsyncInterfaces polyfill; on .NET 10 the polyfill DLL deployed into
+         the shared _tests/ output dir shadows the in-box IAsyncDisposable and makes Playwright's
+         IBrowser/IBrowserContext DisposeAsync() throw EntryPointNotFoundException. An explicit
+         csproj-level package ref does NOT fix this (the deployed DLL is independent of this
+         project's resolved version — md5-identical across version bumps — because all 11 test
+         projects share one _tests/ output dir). It is worked around with a try/catch in
+         AutomationTest.OneTimeTearDownAsync + PlaywrightSetUpFixture.TearDownAsync; the proper
+         shared-output-dir fix is tracked in issue #133. -->
     <!-- Plan 19-01 Open Question 1 verdict = raw-SQLite seed helpers. Version
          matched to the backend's canonical SQLite ADO pin in
          NzbDrone.Common/Mangarr.Common.csproj (System.Data.SQLite 2.0.3) so the

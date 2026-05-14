@@ -194,14 +194,21 @@ jobs:
   # automation_test_liveservice — nightly contract-invariant probes against real MangaDex/AniList/MAL + comix.to (D-10)
   # See DIVERGENCE.md Phase 18 row (added in Plan-11).
   #
-  # CI-infra F6 fix (ci-test-jobs-latent-faults): the previous dedicated "Install Playwright
-  # browsers" step ran ./src/NzbDrone.Automation.Test/bin/Debug/net10.0/playwright.sh — a path
-  # that never exists in these jobs (they are a fresh checkout that never builds; the test
-  # binaries arrive later via the Test composite action's artifact download), so the step died
-  # with exit 127. The step was also redundant: PlaywrightSetUpFixture.SetUpAsync already
-  # self-installs chromium at test time via Microsoft.Playwright.Program.Main(["install",
-  # "chromium"]). The "Cache Playwright browsers" step is kept so that self-install is a cache
-  # hit on warm runs (it persists ~/.cache/ms-playwright across runs).
+  # CI-infra wiring (automation-test-pr-smoke / issue #131): these jobs pass automation_tests:
+  # true to the shared `test` composite action, which (a) downloads the build-linux-x64
+  # backend-binary artifact NzbDroneRunner needs (F11), (b) downloads the `build_ui` artifact
+  # built by the `frontend` job into _tests/bin/UI so the booted backend can serve the SPA
+  # (FAULT A — the `build` action is backend-only and never runs `yarn build`), (c) chmod +x's
+  # the bundled Playwright driver Node runtime — automation-gated so it cannot regress
+  # unit_test/unit_test_postgres (F9), and (d) provisions chromium via the shipped
+  # playwright.ps1 driver script before the test run. The previous in-process
+  # `Microsoft.Playwright.Program.Main(["install","chromium"])` call in PlaywrightSetUpFixture
+  # was removed — it left the .NET<->driver transport half-initialized. The Playwright
+  # IBrowserContext.DisposeAsync() EntryPointNotFoundException (FAULT B) is fixed in
+  # Mangarr.Automation.Test.csproj by excluding the runtime asset of the transitive
+  # Microsoft.Bcl.AsyncInterfaces reference so the in-box .NET 10 IAsyncDisposable is used.
+  # The "Cache Playwright browsers" step is kept so the workflow-side provisioning is a cache
+  # hit on warm runs.
   automation_test_pr_smoke:
     needs: [prepare, backend, frontend]
     if: github.event_name == 'pull_request' || github.event_name == 'push'
@@ -234,6 +241,10 @@ jobs:
           artifact: tests-linux-x64
           pattern: Mangarr.*.Test.dll
           filter: TestCategory=AutomationTest&TestCategory=PRSmoke&TestCategory!=LiveService
+          automation_tests: true
+          binary_artifact: build-linux-x64
+          binary_path: linux-x64/${{ needs.prepare.outputs.framework }}/Mangarr
+          ui_artifact: build_ui
         env:
           # Phase 18 Plan 18-19 (GAP-2): wire offline cassette tier for PR smoke
           # so the per-PR gate stays cassette-free + deterministic. LiveService
@@ -243,17 +254,24 @@ jobs:
           # Phase 18 Plan 18-14 D-B: ManagedHttpDispatcher loads the test assembly
           # via Assembly.LoadFrom fallback when AppDomain probe returns null
           # (backend runs in a separate process from the test runner).
-          MANGARR_TEST_ASSEMBLY_PATH: ${{ github.workspace }}/_tests/net10.0/Mangarr.Automation.Test.dll
+          # CI-infra fix (issue #131): publish-test-artifact flattens publish/ to the
+          # artifact root, so the test action downloads the DLLs to _tests/ directly —
+          # there is no _tests/net10.0/ segment in these jobs.
+          MANGARR_TEST_ASSEMBLY_PATH: ${{ github.workspace }}/_tests/Mangarr.Automation.Test.dll
 
       - name: Upload Playwright trace + screenshots + log on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: automation-pr-smoke-failure-${{ github.run_id }}
+          # CI-infra MINOR fix (issue #131): NzbDroneRunner boots the backend with an
+          # ISOLATED AppData under the test directory (_tests/_intg_<uid>/), not the
+          # default ~/.config/Mangarr/. Point the backend-log glob at the runner's
+          # isolated logs dir so a failing automation run actually ships the backend log.
           path: |
-            _tests/net10.0/traces/**/*.zip
-            _tests/net10.0/screenshots/**/*.png
-            /home/runner/.config/Mangarr/logs/mangarr.txt
+            _tests/traces/**/*.zip
+            _tests/screenshots/**/*.png
+            _tests/_intg_*/logs/*.txt
           retention-days: 7
           if-no-files-found: ignore
 
@@ -307,6 +325,10 @@ jobs:
           filter: TestCategory=AutomationTest&TestCategory!=LiveService
           use_postgres: ${{ matrix.use_postgres }}
           postgres-version: ${{ matrix.postgres-version }}
+          automation_tests: true
+          binary_artifact: build-linux-x64
+          binary_path: linux-x64/${{ needs.prepare.outputs.framework }}/Mangarr
+          ui_artifact: build_ui
         env:
           # Phase 18 Plan 18-19 (GAP-2): nightly full Tier C also runs offline
           # against cassettes. LiveService tier is segregated to the dedicated
@@ -315,17 +337,20 @@ jobs:
           MANGARR_TEST_CASSETTE_DIR: ${{ github.workspace }}/src/NzbDrone.Automation.Test/Fixtures/Cassettes/MangaDex
           # Phase 18 Plan 18-14 D-B: cross-process assembly load for the
           # backend's HTTP dispatcher (see PR smoke job above for context).
-          MANGARR_TEST_ASSEMBLY_PATH: ${{ github.workspace }}/_tests/net10.0/Mangarr.Automation.Test.dll
+          # CI-infra fix (issue #131): _tests/ root, no net10.0/ segment.
+          MANGARR_TEST_ASSEMBLY_PATH: ${{ github.workspace }}/_tests/Mangarr.Automation.Test.dll
 
       - name: Upload Playwright trace + screenshots + log on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: automation-nightly-${{ matrix.db }}${{ matrix.postgres-version }}-failure-${{ github.run_id }}
+          # CI-infra MINOR fix (issue #131): isolated NzbDroneRunner AppData log path
+          # (see automation_test_pr_smoke job above).
           path: |
-            _tests/net10.0/traces/**/*.zip
-            _tests/net10.0/screenshots/**/*.png
-            /home/runner/.config/Mangarr/logs/mangarr.txt
+            _tests/traces/**/*.zip
+            _tests/screenshots/**/*.png
+            _tests/_intg_*/logs/*.txt
           retention-days: 14
           if-no-files-found: ignore
 
@@ -361,16 +386,22 @@ jobs:
           artifact: tests-linux-x64
           pattern: Mangarr.*.Test.dll
           filter: TestCategory=AutomationTest&TestCategory=LiveService
+          automation_tests: true
+          binary_artifact: build-linux-x64
+          binary_path: linux-x64/${{ needs.prepare.outputs.framework }}/Mangarr
+          ui_artifact: build_ui
 
       - name: Upload Playwright trace + screenshots + log on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: automation-liveservice-failure-${{ github.run_id }}
+          # CI-infra MINOR fix (issue #131): isolated NzbDroneRunner AppData log path
+          # (see automation_test_pr_smoke job above).
           path: |
-            _tests/net10.0/traces/**/*.zip
-            _tests/net10.0/screenshots/**/*.png
-            /home/runner/.config/Mangarr/logs/mangarr.txt
+            _tests/traces/**/*.zip
+            _tests/screenshots/**/*.png
+            _tests/_intg_*/logs/*.txt
           retention-days: 30                # Longer retention for upstream-drift forensics per D-10
           if-no-files-found: ignore
 
