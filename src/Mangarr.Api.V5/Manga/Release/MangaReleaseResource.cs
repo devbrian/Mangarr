@@ -144,7 +144,15 @@ namespace Mangarr.Api.V5.Manga.Release
                 })
                 .ToList();
 
-            var customFormats = rc?.CustomFormats?.Select(cf => cf.ToResource(false)).ToList();
+            // DEF-19-02-01: emit an empty list, NEVER null. UnknownManga-rejected decisions
+            // build a RemoteChapter without running the CF augmentation step, so
+            // rc.CustomFormats is null on that branch. The frontend useReleases.ts `Release`
+            // contract types `customFormats` as a non-optional `CustomFormat[]`, and
+            // InteractiveSearchRow.tsx reads `customFormats.length` unguarded — a null here
+            // throws during row render, tearing down the whole results table (0 rows shown,
+            // and the no-results indicator is also absent because totalItems > 0).
+            var customFormats = rc?.CustomFormats?.Select(cf => cf.ToResource(false)).ToList()
+                                ?? new List<CustomFormatResource>();
 
             // Rejections-as-strings (legacy flat-shape consumers) are NO LONGER emitted at the
             // top level — the canonical surface is `Decision.Rejections` (structured objects).

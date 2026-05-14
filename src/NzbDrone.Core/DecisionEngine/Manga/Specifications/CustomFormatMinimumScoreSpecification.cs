@@ -1,6 +1,7 @@
 using NLog;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
+using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Profiles.CustomFormats;
 
@@ -41,18 +42,35 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
             var profileId = subject.ResolvedCustomFormatProfileId
                             ?? subject.Manga?.CustomFormatProfileId
                             ?? _configService.DefaultCustomFormatProfileId;
-            if (profileId == null)
+
+            // BL-03 (DEF-19-02-01): a Manga can carry CustomFormatProfileId == 0 — the int
+            // default the AddManga modal sends when no CF profile is chosen and none is the
+            // global default. 0 is never a real FK (ids start at 1); treat it the same as
+            // "no profile assigned" — Accept.
+            if (profileId == null || profileId.Value <= 0)
             {
                 return DownloadSpecDecision.Accept();
             }
 
-            var profile = _profileService.Get(profileId.Value);
+            // WR-02: orphaned FK guard. ICustomFormatProfileService.Get delegates to
+            // BasicRepository.Get which THROWS ModelNotFoundException on a missing row — the
+            // original `profile == null` guard never actually fired because Get throws
+            // rather than returning null. Left unguarded that throw is caught by
+            // MangaDownloadDecisionMaker.EvaluateSpec and turns EVERY release into a
+            // DecisionError rejection, so the InteractiveSearch modal renders a results
+            // table the React row code then crashes on. Catch the not-found exception and
+            // treat a stale / deleted profile id as "no profile assigned" — Accept.
+            CustomFormatProfile profile;
+            try
+            {
+                profile = _profileService.Get(profileId.Value);
+            }
+            catch (ModelNotFoundException)
+            {
+                _logger.Warn("CustomFormatProfile {0} not found (orphaned FK); accepting", profileId.Value);
+                return DownloadSpecDecision.Accept();
+            }
 
-            // WR-02: orphaned FK guard. The service's in-use protection blocks normal deletes,
-            // but cannot protect against direct DB edits, restore-from-backup that drops the
-            // referenced profile, or a stale Manga.CustomFormatProfileId after a deletion race.
-            // Treat null profile as "no profile assigned" (mirrors the profileId == null branch
-            // above) — falls through to Accept rather than NRE'ing on profile.MinFormatScore.
             if (profile == null)
             {
                 _logger.Warn("CustomFormatProfile {0} not found (orphaned FK); accepting", profileId.Value);

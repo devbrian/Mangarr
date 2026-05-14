@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using NLog;
 using NzbDrone.Core.Configuration;
+using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Profiles.Translations;
 
@@ -38,19 +39,35 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
         public DownloadSpecDecision IsSatisfiedBy(RemoteChapter subject, ReleaseDecisionInformation information)
         {
             var profileId = subject.Manga?.TranslationProfileId ?? _configService.DefaultTranslationProfileId;
-            if (profileId == null)
+
+            // BL-03 (DEF-19-02-01): a Manga can carry TranslationProfileId == 0 — the int
+            // default. 0 is never a real FK (ids start at 1); treat it the same as "no
+            // profile assigned" — Accept.
+            if (profileId == null || profileId.Value <= 0)
             {
-                _logger.Trace("No TranslationProfile assigned (per-Manga or global default); accepting.");
+                _logger.Trace("No usable TranslationProfile (per-Manga or global default); accepting.");
                 return DownloadSpecDecision.Accept();
             }
 
-            var profile = _translationProfileService.Get(profileId.Value);
+            // WR-02: orphaned FK guard. ITranslationProfileService.Get delegates to
+            // BasicRepository.Get which THROWS ModelNotFoundException on a missing row — the
+            // original `profile == null` guard never actually fired because Get throws
+            // rather than returning null. Left unguarded that throw is caught by
+            // MangaDownloadDecisionMaker.EvaluateSpec and turns EVERY release into a
+            // DecisionError rejection, so the InteractiveSearch modal renders a results
+            // table the React row code then crashes on. Catch the not-found exception and
+            // treat a stale / deleted profile id as "no profile assigned" — Accept.
+            TranslationProfile profile;
+            try
+            {
+                profile = _translationProfileService.Get(profileId.Value);
+            }
+            catch (ModelNotFoundException)
+            {
+                _logger.Warn("TranslationProfile {0} not found (orphaned FK); accepting", profileId.Value);
+                return DownloadSpecDecision.Accept();
+            }
 
-            // WR-02: orphaned FK guard. The service's in-use protection blocks normal deletes,
-            // but cannot protect against direct DB edits, restore-from-backup that drops the
-            // referenced profile, or a stale Manga.TranslationProfileId after a deletion race.
-            // Treat null profile as "no profile assigned" (mirrors the profileId == null branch
-            // above) — falls through to Accept rather than NRE'ing on profile.AllowLanguagesNotInProfile.
             if (profile == null)
             {
                 _logger.Warn("TranslationProfile {0} not found (orphaned FK); accepting", profileId.Value);
