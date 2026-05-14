@@ -138,6 +138,43 @@ public class CassetteHandlerHeadersFixture
         modeValue.Should().Be(CassetteMode.Replay);
     }
 
+    [Test]
+    public void reflective_enum_tryparse_matches_managed_dispatcher_resolution()
+    {
+        // WR-08 (18-REVIEW): ManagedHttpDispatcher.CreateHttpClient resolves
+        // Enum.TryParse(Type, string, bool, out object) by reflection across
+        // an assembly boundary (Mangarr.Common cannot take a static dep on
+        // CassetteMode, which lives in Mangarr.Automation.Test). The prior
+        // BL-01 fixture above tested System.Enum.TryParse directly; a future
+        // .NET runtime change that reorders or removes overloads would only
+        // be caught at integration-test time. This fixture exercises the
+        // exact reflective filter shape ManagedHttpDispatcher.cs:222-229
+        // builds against, so a runtime-API breakage fails fast in the unit
+        // tier.
+        var modeEnumType = typeof(CassetteMode);
+        var tryParseMethod = typeof(System.Enum).GetMethods()
+            .First(m => m.Name == "TryParse"
+                        && !m.IsGenericMethodDefinition
+                        && m.GetParameters().Length == 4
+                        && m.GetParameters()[0].ParameterType == typeof(System.Type)
+                        && m.GetParameters()[1].ParameterType == typeof(string)
+                        && m.GetParameters()[2].ParameterType == typeof(bool)
+                        && m.GetParameters()[3].ParameterType.IsByRef);
+
+        tryParseMethod.Should().NotBeNull("the reflective filter ManagedHttpDispatcher uses must resolve exactly one method on this runtime");
+
+        var args = new object[] { modeEnumType, "Replay", true, null };
+        var ok = (bool)tryParseMethod.Invoke(null, args);
+        ok.Should().BeTrue("reflective TryParse must succeed on a valid mode value");
+        args[3].Should().Be(CassetteMode.Replay, "the out-arg slot must carry the parsed enum value back through Invoke");
+
+        // Reflective invocation must also handle garbage gracefully (matches
+        // BL-01 contract — return false, do NOT throw).
+        var garbageArgs = new object[] { modeEnumType, "garbage-not-a-mode", true, null };
+        var garbageOk = (bool)tryParseMethod.Invoke(null, garbageArgs);
+        garbageOk.Should().BeFalse("reflective TryParse on garbage must return false (matches BL-01 fallthrough contract)");
+    }
+
     // Minimal inner handler -- returns a canned HttpResponseMessage with the
     // configured status, body, content-type, and any custom headers (placed
     // on the response.Headers collection via TryAddWithoutValidation so even
