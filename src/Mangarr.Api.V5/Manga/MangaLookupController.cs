@@ -32,7 +32,13 @@ public class MangaLookupController : Controller
         var primaryDef = _metaFactory.GetPrimary();
         var primary = _metaFactory.GetInstance(primaryDef);
 
-        var hits = primary.SearchForNewManga(term);
+        // UUID short-circuit: if the user pastes a MangaDex UUID into the search input,
+        // route to the by-id lookup instead of fuzzy title search (which won't match a UUID).
+        // The provider returns an empty list on 404 so an unknown UUID falls back to the
+        // existing no-match UX (zero results). Mirrors the Sonarr-shape "paste TVDB id" UX.
+        var hits = Guid.TryParse(term, out _)
+            ? primary.SearchForNewMangaByMangaDexId(term)
+            : primary.SearchForNewManga(term);
 
         return TypedResults.Ok<IEnumerable<MangaResource>>(MapAll(hits));
     }
