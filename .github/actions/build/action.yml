@@ -36,7 +36,7 @@ runs:
         DOTNET_VERSION=$(jq -r '.sdk.version' global.json)
 
         echo "SDK_PATH=${{ env.DOTNET_ROOT }}/sdk/${DOTNET_VERSION}" >> "$GITHUB_ENV"
-        echo "SONARR_VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+        echo "MANGARR_VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
         echo "BRANCH=${{ inputs.branch }}" >> "$GITHUB_ENV"
 
         if [ "$RUNNER_OS" == "Windows" ]; then
@@ -63,11 +63,11 @@ runs:
     - name: Update Version Number
       shell: bash
       run: |
-        if [ "$SONARR_VERSION" != "" ]; then
-          echo "Updating version info to: $SONARR_VERSION"
-          sed -i'' -e "s/<AssemblyVersion>[0-9.*]\+<\/AssemblyVersion>/<AssemblyVersion>$SONARR_VERSION<\/AssemblyVersion>/g" src/Directory.Build.props
+        if [ "$MANGARR_VERSION" != "" ]; then
+          echo "Updating version info to: $MANGARR_VERSION"
+          sed -i'' -e "s/<AssemblyVersion>[0-9.*]\+<\/AssemblyVersion>/<AssemblyVersion>$MANGARR_VERSION<\/AssemblyVersion>/g" src/Directory.Build.props
           sed -i'' -e "s/<AssemblyConfiguration>[\$()A-Za-z-]\+<\/AssemblyConfiguration>/<AssemblyConfiguration>${BRANCH}<\/AssemblyConfiguration>/g" src/Directory.Build.props
-          sed -i'' -e "s/<string>10.0.0.0<\/string>/<string>$SONARR_VERSION<\/string>/g" distribution/macOS/Sonarr.app/Contents/Info.plist
+          sed -i'' -e "s/<string>10.0.0.0<\/string>/<string>$MANGARR_VERSION<\/string>/g" distribution/macOS/Sonarr.app/Contents/Info.plist
         fi
 
     - name: Build Backend
@@ -75,7 +75,7 @@ runs:
       run: |
         runtime="${{ inputs.runtime }}"
         platform=Windows
-        slnFile=src/Sonarr.sln
+        slnFile=src/Mangarr.sln
         targetingWindows=false
 
         IFS='-' read -ra SPLIT <<< "$runtime"
@@ -90,7 +90,7 @@ runs:
         rm -rf _output
         rm -rf _tests
 
-        echo "Building Sonarr for $runtime, Platform: $platform"
+        echo "Building Mangarr for $runtime, Platform: $platform"
 
         dotnet msbuild -restore $slnFile -p:SelfContained=true -p:Configuration=Release -p:Platform=$platform -p:RuntimeIdentifiers=$runtime -p:EnableWindowsTargeting=true -t:PublishAllRids
 
@@ -104,68 +104,68 @@ runs:
 
         case "${SPLIT[0]}" in
           linux|freebsd*)
-            folder=_artifacts/$runtime/$framework/Sonarr
+            folder=_artifacts/$runtime/$framework/Mangarr
 
             echo "Packaging files"
             rm -rf $folder
             mkdir -p $folder
             cp -r _output/$framework/$runtime/publish/* $folder
-            cp -r _output/Sonarr.Update/$framework/$runtime/publish $folder/Sonarr.Update
+            cp -r _output/Mangarr.Update/$framework/$runtime/publish $folder/Mangarr.Update
             cp LICENSE.md $folder
 
             echo "Removing Service helpers"
             rm -f $folder/ServiceUninstall.*
             rm -f $folder/ServiceInstall.*
 
-            echo "Removing Sonarr.Windows"
-            rm $folder/Sonarr.Windows.*
+            echo "Removing Mangarr.Windows"
+            rm $folder/Mangarr.Windows.*
 
-            echo "Adding Sonarr.Mono to UpdatePackage"
-            cp $folder/Sonarr.Mono.* $folder/Sonarr.Update
-            cp $folder/Mono.Posix.NETStandard.* $folder/Sonarr.Update
-            cp $folder/libMonoPosixHelper.* $folder/Sonarr.Update
+            echo "Adding Mangarr.Mono to UpdatePackage"
+            cp $folder/Mangarr.Mono.* $folder/Mangarr.Update
+            cp $folder/Mono.Posix.NETStandard.* $folder/Mangarr.Update
+            cp $folder/libMonoPosixHelper.* $folder/Mangarr.Update
             ;;
           win)
-            folder=_artifacts/$runtime/$framework/Sonarr
+            folder=_artifacts/$runtime/$framework/Mangarr
 
             echo "Packaging files"
             rm -rf $folder
             mkdir -p $folder
             cp -r _output/$framework/$runtime/publish/* $folder
-            cp -r _output/Sonarr.Update/$framework/$runtime/publish $folder/Sonarr.Update
+            cp -r _output/Mangarr.Update/$framework/$runtime/publish $folder/Mangarr.Update
             cp LICENSE.md $folder
             cp -r _output/$framework-windows/$runtime/publish/* $folder
 
-            echo "Removing Sonarr.Mono"
-            rm -f $folder/Sonarr.Mono.*
+            echo "Removing Mangarr.Mono"
+            rm -f $folder/Mangarr.Mono.*
             rm -f $folder/Mono.Posix.NETStandard.*
             rm -f $folder/libMonoPosixHelper.*
 
-            echo "Adding Sonarr.Windows to UpdatePackage"
-            cp $folder/Sonarr.Windows.* $folder/Sonarr.Update
+            echo "Adding Mangarr.Windows to UpdatePackage"
+            cp $folder/Mangarr.Windows.* $folder/Mangarr.Update
 
             ;;
           osx)
-            folder=_artifacts/$runtime/$framework/Sonarr
+            folder=_artifacts/$runtime/$framework/Mangarr
 
             echo "Packaging files"
             rm -rf $folder
             mkdir -p $folder
             cp -r _output/$framework/$runtime/publish/* $folder
-            cp -r _output/Sonarr.Update/$framework/$runtime/publish $folder/Sonarr.Update
+            cp -r _output/Mangarr.Update/$framework/$runtime/publish $folder/Mangarr.Update
             cp LICENSE.md $folder
 
             echo "Removing Service helpers"
             rm -f $folder/ServiceUninstall.*
             rm -f $folder/ServiceInstall.*
 
-            echo "Removing Sonarr.Windows"
-            rm $folder/Sonarr.Windows.*
+            echo "Removing Mangarr.Windows"
+            rm $folder/Mangarr.Windows.*
 
-            echo "Adding Sonarr.Mono to UpdatePackage"
-            cp $folder/Sonarr.Mono.* $folder/Sonarr.Update
-            cp $folder/Mono.Posix.NETStandard.* $folder/Sonarr.Update
-            cp $folder/libMonoPosixHelper.* $folder/Sonarr.Update
+            echo "Adding Mangarr.Mono to UpdatePackage"
+            cp $folder/Mangarr.Mono.* $folder/Mangarr.Update
+            cp $folder/Mono.Posix.NETStandard.* $folder/Mangarr.Update
+            cp $folder/libMonoPosixHelper.* $folder/Mangarr.Update
             ;;
         esac
 

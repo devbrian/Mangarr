@@ -407,17 +407,17 @@ jobs:
             artifact: tests-linux-x64
             filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory=IntegrationTest
             binary_artifact: build-linux-x64
-            binary_path: linux-x64/${{ needs.prepare.outputs.framework }}/Sonarr
+            binary_path: linux-x64/${{ needs.prepare.outputs.framework }}/Mangarr
           - os: macos-latest
             artifact: tests-osx-arm64
             filter: TestCategory!=ManualTest&TestCategory!=WINDOWS&TestCategory=IntegrationTest
             binary_artifact: build-osx-arm64
-            binary_path: osx-arm64/${{ needs.prepare.outputs.framework }}/Sonarr
+            binary_path: osx-arm64/${{ needs.prepare.outputs.framework }}/Mangarr
           - os: windows-latest
             artifact: tests-win-x64
             filter: TestCategory!=ManualTest&TestCategory!=LINUX&TestCategory=IntegrationTest
             binary_artifact: build-win-x64
-            binary_path: win-x64/${{ needs.prepare.outputs.framework }}/Sonarr
+            binary_path: win-x64/${{ needs.prepare.outputs.framework }}/Mangarr
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out
@@ -445,6 +445,8 @@ jobs:
         unit_test_postgres,
         integration_test,
       ]
+    permissions:
+      contents: write                 # reusable deploy.yml release job creates a GitHub release; caller must grant the ceiling (repo default token perms are read-only)
     secrets: inherit
     uses: ./.github/workflows/deploy.yml
     with:
