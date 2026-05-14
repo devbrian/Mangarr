@@ -48,14 +48,13 @@ public class ParseModalFixture : AutomationTest
         modalText.Should().NotBeNullOrEmpty();
         modalText.Should().Contain("Test Parsing");
 
-        // STATE assertion 2 (modal-content contract): the help text block
-        // renders. ParseModalContent shows the help text when the input is
-        // empty (we just opened — input is empty). This is a state assertion
-        // on the dialog's INTERIOR content, not just open/close.
-        // The help-text resource key is ParseModalHelpText — the rendered
-        // English string starts with "Enter" / contains "release" or similar
-        // — we anchor on the input placeholder text since it's deterministic.
-        modalText.Should().MatchRegex(@"(Test Parsing|Series|release|Close)");
+        // BL-06 (18-REVIEW): the prior `(Test Parsing|Series|release|Close)`
+        // alternation contained the forbidden TV-shape token `Series` that
+        // TerminologyAuditFixture.ForbiddenTokens blocks. The Contain("Test
+        // Parsing") assertion on line 49 above is the canonical modal-opens
+        // contract; this alternation contributed nothing useful and actively
+        // documented `Series` as an acceptable modal string, contradicting
+        // the sonarr-consistency-audit invariant. Removed entirely.
 
         // STATE assertion 3 (modal-closes contract): pressing Escape closes
         // the modal — confirms the modal infrastructure is wired (not just
