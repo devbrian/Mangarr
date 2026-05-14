@@ -94,21 +94,19 @@ public class RenamePreviewFixture : AutomationTest
         }
         else
         {
-            // STATE assertion path B: when no rename-preview entry-point exists
-            // yet, assert the GET /api/v5/rename endpoint contract via a direct
-            // probe — confirms the v5 surface is wired even if the UI entry
-            // isn't. The MangaDetails page renders, which is the route+v5
-            // baseline; the rename-preview entry is a Wave-3 follow-up.
+            // WR-06 (18-REVIEW): the fallback URL + shell visibility check
+            // never exercises the GET /api/v5/rename contract (INVENTORY
+            // v5-endpoint row 85) — those assertions just verify the page
+            // loaded. NUnit reports the test as PASSED, masking the
+            // un-exercised contract. Assert.Inconclusive surfaces the
+            // un-annotated entry-point as a follow-up rather than fake-green.
             Page.Url.Should().MatchRegex(@"/manga/[^/]+$");
             await Assertions.Expect(details.MainContainer).ToBeVisibleAsync();
 
-            // Document the missing entry-point as a follow-up via the test
-            // log — this is the same pattern InteractiveImportOpenFixture
-            // uses for the missing-route case.
-            TestContext.WriteLine(
-                "[Plan 18-18] Rename Preview button entry-point not annotated on MangaDetails toolbar. " +
+            Assert.Inconclusive(
+                "Rename Preview entry-point not annotated on MangaDetails toolbar — see Plan 18-18 follow-up note. " +
                 "Wave-3 follow-up: add `manga-details-rename-preview-button` testid in frontend/src/Manga/Details/MangaDetails.tsx. " +
-                "Fixture asserts on MangaDetails shell + URL contract until then.");
+                "GET /api/v5/rename contract NOT exercised until the toolbar entry-point lands.");
         }
     }
 }
