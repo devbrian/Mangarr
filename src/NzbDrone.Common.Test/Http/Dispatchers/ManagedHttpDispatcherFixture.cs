@@ -41,10 +41,15 @@ namespace NzbDrone.Common.Test.Http.Dispatchers
         [Test]
         public void user_agent_header_should_replace_previously_set_default_not_append()
         {
-            // Arrange — pre-seed the request message with the Mangarr-default UA the way
+            // Arrange — pre-seed the request message with a distinctive default UA the way
             // GetResponseAsync does at line 52, then invoke AddRequestHeaders with an
             // explicit Mangarr UA. The post-condition is that ONLY the explicit value
-            // survives; no Mangarr/* product entry remains.
+            // survives; no segment from the default seed remains.
+            //
+            // Phase 15 D-13 honest-UA contract: an explicit HttpRequest UA must fully
+            // replace any pre-seeded default. We pin the assertion to the default seed's
+            // VERSION ("4.0.0") rather than its product name so the regression check
+            // remains meaningful regardless of future product-name rebrands.
             using var requestMessage = new HttpRequestMessage();
             requestMessage.Headers.UserAgent.ParseAdd("Mangarr/4.0.0");
 
@@ -53,9 +58,9 @@ namespace NzbDrone.Common.Test.Http.Dispatchers
 
             _subject.InvokeAddRequestHeaders(requestMessage, headers);
 
-            // The exact toString form is "Mangarr/1.2" with no leading "Mangarr/..." segment.
+            // The exact toString form is "Mangarr/1.2" with no leading "Mangarr/4.0.0" segment.
             requestMessage.Headers.UserAgent.ToString().Should().Be("Mangarr/1.2");
-            requestMessage.Headers.UserAgent.ToString().Should().NotContain("Mangarr");
+            requestMessage.Headers.UserAgent.ToString().Should().NotContain("4.0.0");
         }
 
         [Test]
