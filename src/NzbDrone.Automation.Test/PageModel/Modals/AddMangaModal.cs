@@ -23,11 +23,22 @@ public class AddMangaModal : PageBase
     /// <summary>
     /// Click the modal's Add button and wait for the resulting navigation to
     /// /manga/{slug}. Returns the MangaDetailsPage object for chaining.
+    ///
+    /// Issue #102 fix: arm the URL wait BEFORE the click triggers the
+    /// navigation. The previous shape (`await click; await WaitForURL`)
+    /// raced — in cassette-replay / fast-POST mode the navigation event
+    /// fired before the wait was armed and every AddManga flow fixture
+    /// timed out at this line. RunAndWaitForUrlAsync wraps both sides
+    /// of the navigation in a single atomic wait.
     /// </summary>
     public async Task<MangaDetailsPage> ConfirmAddAsync()
     {
-        await AddButton.ClickAsync();
-        await Page.WaitForURLAsync(new Regex(@"/manga/[^/]+$"));
+        // Arm the URL wait BEFORE triggering the click. WaitForURLAsync returns a
+        // hot Task immediately; Task.WhenAll then runs the click in parallel with
+        // the wait so the navigation event can't fire before the watcher exists.
+        await Task.WhenAll(
+            Page.WaitForURLAsync(new Regex(@"/manga/[^/]+$")),
+            AddButton.ClickAsync());
         return new MangaDetailsPage(Page);
     }
 }
