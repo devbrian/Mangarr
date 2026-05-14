@@ -136,10 +136,10 @@ function TranslationProfile(props: TranslationProfileProps) {
         <button
           type="button"
           className={styles.hiddenDeleteHook}
-          onClick={handleDeletePress}
           aria-hidden="true"
           tabIndex={-1}
           style={{ display: 'none' }}
+          onClick={handleDeletePress}
         />
       </div>
     </Card>

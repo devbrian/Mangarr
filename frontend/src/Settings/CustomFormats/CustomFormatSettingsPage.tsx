@@ -72,7 +72,6 @@ function CustomFormatSettingsPage() {
                 <button
                   key={key}
                   type="button"
-                  onClick={() => handleMediaTypeFilterChange(key)}
                   style={{
                     // WR-08 fix: var fallbacks must reflect the manga pink
                     // accent (Phase 7 D-06), not the original Sonarr cyan
@@ -91,6 +90,7 @@ function CustomFormatSettingsPage() {
                     borderRadius: '3px',
                     fontSize: '13px',
                   }}
+                  onClick={() => handleMediaTypeFilterChange(key)}
                 >
                   {translate(labelKey)}
                 </button>

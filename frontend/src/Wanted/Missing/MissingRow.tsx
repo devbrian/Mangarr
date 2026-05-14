@@ -141,7 +141,10 @@ function MissingRow({
         // keys to manga.X / chapters.X when the TV peer deletes.
         if (name === 'series.sortTitle') {
           return (
-            <TableRowCell key={name} data-testid={`manga-missing-row-${id}-manga`}>
+            <TableRowCell
+              key={name}
+              data-testid={`manga-missing-row-${id}-manga`}
+            >
               <MangaTitleLink
                 titleSlug={manga?.titleSlug}
                 title={manga?.title ?? ''}
@@ -156,7 +159,11 @@ function MissingRow({
           // prop. See header note dated 2026-05-10 for the prior bug
           // (rendered `Vol. 1 47` / `Vol. 2 48` clipped to "Vol. 48").
           return (
-            <TableRowCell key={name} className={styles.episode} data-testid={`manga-missing-row-${id}-chapter`}>
+            <TableRowCell
+              key={name}
+              className={styles.episode}
+              data-testid={`manga-missing-row-${id}-chapter`}
+            >
               <ChapterNumber
                 chapterNumber={chapterNumber}
                 absoluteChapterNumber={absoluteChapterNumber}
@@ -181,7 +188,13 @@ function MissingRow({
         if (name === 'episodes.airDateUtc') {
           // Sonarr-mirror: ChapterResource.firstReleaseDate is the manga
           // analog of EpisodeResource.airDateUtc per Phase 16 D-02.
-          return <RelativeDateCell key={name} date={firstReleaseDate} data-testid={`manga-missing-row-${id}-release-date`} />;
+          return (
+            <RelativeDateCell
+              key={name}
+              date={firstReleaseDate}
+              data-testid={`manga-missing-row-${id}-release-date`}
+            />
+          );
         }
 
         if (name === 'episodes.lastSearchTime') {
@@ -189,7 +202,13 @@ function MissingRow({
           // empty cell so the column slot is preserved when the user
           // toggles the "Last Searched" column visible. Backfill when
           // the wire shape grows the field.
-          return <RelativeDateCell key={name} date={undefined} includeSeconds={true} />;
+          return (
+            <RelativeDateCell
+              key={name}
+              date={undefined}
+              includeSeconds={true}
+            />
+          );
         }
 
         if (name === 'status') {

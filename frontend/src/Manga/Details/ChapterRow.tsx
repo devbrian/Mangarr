@@ -27,16 +27,16 @@
 //
 // Phase 8 cleanup: collapse with EpisodeRow when Tv/ deletes.
 import React, { useCallback } from 'react';
-import TableRowCell from 'Components/Table/Cells/TableRowCell';
-import Column from 'Components/Table/Column';
-import TableRow from 'Components/Table/TableRow';
-import MonitorToggleButton from 'Components/MonitorToggleButton';
 import Chapter from 'Chapter/Chapter';
 import ChapterNumber from 'Chapter/ChapterNumber';
 import ChapterSearchCell from 'Chapter/ChapterSearchCell';
 import ChapterStatus from 'Chapter/ChapterStatus';
 import ChapterTitleLink from 'Chapter/ChapterTitleLink';
 import { useToggleChapterMonitored } from 'Chapter/useChapter';
+import MonitorToggleButton from 'Components/MonitorToggleButton';
+import TableRowCell from 'Components/Table/Cells/TableRowCell';
+import Column from 'Components/Table/Column';
+import TableRow from 'Components/Table/TableRow';
 import { useSingleManga } from 'Manga/useManga';
 import styles from './ChapterRow.css';
 
@@ -75,8 +75,8 @@ function ChapterRow({ chapter, columns }: ChapterRowProps) {
                 monitored={chapter.monitored}
                 isDisabled={!mangaMonitored}
                 isSaving={isToggling}
-                onPress={handleMonitorPress}
                 data-testid={`chapter-row-${chapter.id}-monitor-toggle`}
+                onPress={handleMonitorPress}
               />
             </TableRowCell>
           );

@@ -17,8 +17,6 @@ import TableOptionsModalWrapper from 'Components/Table/TableOptions/TableOptions
 import { useCustomFiltersList } from 'Filters/useCustomFilters';
 import { align, icons, kinds } from 'Helpers/Props';
 import { DESCENDING } from 'Helpers/Props/sortDirections';
-import ParseToolbarButton from 'Parse/ParseToolbarButton';
-import NoManga from 'Manga/NoManga';
 // Sonarr divergence: NEW manga sibling per Phase 7 D-01/D-02 — see DIVERGENCE.md.
 // Role-match analog: frontend/src/Series/Index/SeriesIndex.tsx (verbatim port).
 //
@@ -38,23 +36,25 @@ import {
   setMangaTableOptions,
   useMangaOptions,
 } from 'Manga/mangaOptionsStore';
+import NoManga from 'Manga/NoManga';
 import { FILTERS, useMangaIndex } from 'Manga/useManga';
+import ParseToolbarButton from 'Parse/ParseToolbarButton';
 import { TableOptionsChangePayload } from 'typings/Table';
 import translate from 'Utilities/String/translate';
+import MangaIndexFooter from './MangaIndexFooter';
+import MangaIndexRefreshMangaButton from './MangaIndexRefreshMangaButton';
 import MangaIndexFilterMenu from './Menus/MangaIndexFilterMenu';
 import MangaIndexSortMenu from './Menus/MangaIndexSortMenu';
 import MangaIndexViewMenu from './Menus/MangaIndexViewMenu';
-import MangaIndexOverviewOptionsModal from './Overview/Options/MangaIndexOverviewOptionsModal';
 import MangaIndexOverviews from './Overview/MangaIndexOverviews';
-import MangaIndexPosterOptionsModal from './Posters/Options/MangaIndexPosterOptionsModal';
+import MangaIndexOverviewOptionsModal from './Overview/Options/MangaIndexOverviewOptionsModal';
 import MangaIndexPosters from './Posters/MangaIndexPosters';
+import MangaIndexPosterOptionsModal from './Posters/Options/MangaIndexPosterOptionsModal';
 import MangaIndexSelectAllButton from './Select/MangaIndexSelectAllButton';
 import MangaIndexSelectAllMenuItem from './Select/MangaIndexSelectAllMenuItem';
 import MangaIndexSelectFooter from './Select/MangaIndexSelectFooter';
 import MangaIndexSelectModeButton from './Select/MangaIndexSelectModeButton';
 import MangaIndexSelectModeMenuItem from './Select/MangaIndexSelectModeMenuItem';
-import MangaIndexFooter from './MangaIndexFooter';
-import MangaIndexRefreshMangaButton from './MangaIndexRefreshMangaButton';
 import MangaIndexTable from './Table/MangaIndexTable';
 import MangaIndexTableOptions from './Table/MangaIndexTableOptions';
 import styles from './MangaIndex.css';

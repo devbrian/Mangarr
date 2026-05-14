@@ -1,5 +1,6 @@
 // Sonarr divergence: Phase 15 Plan 15-12 — STUB Quality + QualityModel types.
 import ModelBase from 'App/ModelBase';
+
 interface Quality extends ModelBase {
   name: string;
   source?: string;

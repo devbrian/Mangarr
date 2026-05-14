@@ -16,7 +16,7 @@ function CalendarPage() {
         <div data-testid="calendar-page">
           <div data-testid="calendar-grid">
             <Alert kind={kinds.INFO}>
-              {translate('Calendar') + ' will arrive in v1.1+ for manga.'}
+              {`${translate('Calendar')} will arrive in v1.1+ for manga.`}
             </Alert>
           </div>
         </div>

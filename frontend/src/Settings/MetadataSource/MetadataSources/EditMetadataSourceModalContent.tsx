@@ -18,8 +18,8 @@ import { inputTypes, kinds } from 'Helpers/Props';
 import AdvancedSettingsButton from 'Settings/AdvancedSettingsButton';
 import { useShowAdvancedSettings } from 'Settings/advancedSettingsStore';
 import {
-  useMetadataSourcesData,
   useManageMetadataSource,
+  useMetadataSourcesData,
   useSetPrimaryMetadataSource,
 } from 'Settings/MetadataSource/useMetadataSources';
 import { SelectedSchema } from 'Settings/useProviderSchema';
@@ -198,11 +198,7 @@ function EditMetadataSourceModalContent({
 
   // SetPrimary completion handler: close modal once the chained promotion lands.
   useEffect(() => {
-    if (
-      wasSettingPrimary &&
-      !isSettingPrimary &&
-      !setPrimaryError
-    ) {
+    if (wasSettingPrimary && !isSettingPrimary && !setPrimaryError) {
       onModalClose();
     }
   }, [wasSettingPrimary, isSettingPrimary, setPrimaryError, onModalClose]);

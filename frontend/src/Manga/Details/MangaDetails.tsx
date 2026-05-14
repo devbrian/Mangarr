@@ -31,6 +31,7 @@
 //
 // Phase 8 cleanup: collapse with SeriesDetails when Tv/ deletes.
 import React, { useCallback, useMemo, useState } from 'react';
+import { useChaptersByManga } from 'Chapter/useChapter';
 import CommandNames from 'Commands/CommandNames';
 import { useCommandExecuting, useExecuteCommand } from 'Commands/useCommands';
 import Icon from 'Components/Icon';
@@ -49,11 +50,7 @@ import Tooltip from 'Components/Tooltip/Tooltip';
 import useApiQuery from 'Helpers/Hooks/useApiQuery';
 import { icons, kinds, sizes, tooltipPositions } from 'Helpers/Props';
 import InteractiveSearch from 'InteractiveSearch/InteractiveSearch';
-import MangaPoster from 'Manga/MangaPoster';
-import {
-  useSingleManga,
-  useToggleMangaMonitored,
-} from 'Manga/useManga';
+import DeleteMangaModal from 'Manga/Delete/DeleteMangaModal';
 // Sonarr divergence: Phase 15 Plan 15-12 — Series/Edit + Series/Delete modals
 // were inlined as stubs when the TV subtree was deleted in Plan 15-07. The
 // dedicated single-manga modals under Manga/Edit/ + Manga/Delete/ now ship
@@ -61,8 +58,8 @@ import {
 // the "v1.1+ Delete" path (fix(manga-delete-button-no-op), this PR). Both
 // Plan 15-12 stubs are now retired.
 import EditMangaModal from 'Manga/Edit/EditMangaModal';
-import DeleteMangaModal from 'Manga/Delete/DeleteMangaModal';
-import { useChaptersByManga } from 'Chapter/useChapter';
+import MangaPoster from 'Manga/MangaPoster';
+import { useSingleManga, useToggleMangaMonitored } from 'Manga/useManga';
 import formatBytes from 'Utilities/Number/formatBytes';
 import translate from 'Utilities/String/translate';
 import MangaAlternateTitles from './MangaAlternateTitles';
@@ -164,10 +161,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
   }, []);
 
   const handleEditPress = useCallback(() => setIsEditModalOpen(true), []);
-  const handleEditModalClose = useCallback(
-    () => setIsEditModalOpen(false),
-    []
-  );
+  const handleEditModalClose = useCallback(() => setIsEditModalOpen(false), []);
 
   const handleDeletePress = useCallback(() => {
     setIsEditModalOpen(false);
@@ -209,7 +203,9 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
   } = manga;
 
   const chapterCount = chapters.length;
-  const chapterFileCount = chapters.filter((c) => c.chapterFileId != null).length;
+  const chapterFileCount = chapters.filter(
+    (c) => c.chapterFileId != null
+  ).length;
   const sizeOnDisk = statistics.sizeOnDisk ?? 0;
 
   return (
@@ -282,8 +278,8 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
                         monitored={monitored}
                         isSaving={isTogglingMangaMonitored}
                         size={40}
-                        onPress={handleMonitorTogglePress}
                         data-testid="manga-details-monitor-toggle"
+                        onPress={handleMonitorTogglePress}
                       />
                     </div>
 
@@ -453,9 +449,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
 
             <div className={styles.tabBody}>
               {activeTab === 'overview' ? (
-                <div>
-                  {overview ? <div>{overview}</div> : null}
-                </div>
+                <div>{overview ? <div>{overview}</div> : null}</div>
               ) : null}
 
               {activeTab === 'chapters' ? (
@@ -471,10 +465,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
               ) : null}
 
               {activeTab === 'search' ? (
-                <InteractiveSearch
-                  type="manga"
-                  searchPayload={{ mangaId }}
-                />
+                <InteractiveSearch type="manga" searchPayload={{ mangaId }} />
               ) : null}
             </div>
 

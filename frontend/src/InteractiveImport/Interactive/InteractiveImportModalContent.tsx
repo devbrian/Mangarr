@@ -935,35 +935,35 @@ function InteractiveImportModalContentInner(
         {isPopulated && !!items.length && !isFetching && !isFetching ? (
           // Phase 18 Plan-08 -- interactive-import-modal-table testid wrapper.
           <div data-testid="interactive-import-modal-table">
-          <Table
-            columns={columns}
-            horizontalScroll={true}
-            selectAll={true}
-            allSelected={allSelected}
-            allUnselected={allUnselected}
-            sortKey={sortKey}
-            sortDirection={sortDirection}
-            onSortPress={handleSortPress}
-            onSelectAllChange={handleSelectAllChange}
-          >
-            <TableBody>
-              {items.map((item) => {
-                return (
-                  <InteractiveImportRow
-                    key={item.id}
-                    {...item}
-                    allowSeriesChange={allowSeriesChange}
-                    columns={columns}
-                    modalTitle={modalTitle}
-                    isReprocessing={reprocessingItems.has(item.id)}
-                    onReprocessItems={handleReprocessItems}
-                    onSelectedChange={handleSelectedChange}
-                    onValidRowChange={handleValidRowChange}
-                  />
-                );
-              })}
-            </TableBody>
-          </Table>
+            <Table
+              columns={columns}
+              horizontalScroll={true}
+              selectAll={true}
+              allSelected={allSelected}
+              allUnselected={allUnselected}
+              sortKey={sortKey}
+              sortDirection={sortDirection}
+              onSortPress={handleSortPress}
+              onSelectAllChange={handleSelectAllChange}
+            >
+              <TableBody>
+                {items.map((item) => {
+                  return (
+                    <InteractiveImportRow
+                      key={item.id}
+                      {...item}
+                      allowSeriesChange={allowSeriesChange}
+                      columns={columns}
+                      modalTitle={modalTitle}
+                      isReprocessing={reprocessingItems.has(item.id)}
+                      onReprocessItems={handleReprocessItems}
+                      onSelectedChange={handleSelectedChange}
+                      onValidRowChange={handleValidRowChange}
+                    />
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
         ) : null}
 

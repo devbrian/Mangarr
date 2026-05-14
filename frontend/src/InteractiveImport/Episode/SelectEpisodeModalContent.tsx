@@ -5,7 +5,10 @@
 // 17.3-14 i18n/doc sweep evaluation or a v1.x cleanup). Only the import path
 // + the `episodes` field type are migrated here.
 import Chapter from 'Chapter/Chapter';
-export default function SelectEpisodeModalContent(_props: Record<string, unknown>) {
+
+export default function SelectEpisodeModalContent(
+  _props: Record<string, unknown>
+) {
   return null;
 }
 export interface SelectedEpisode {

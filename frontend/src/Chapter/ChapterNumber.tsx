@@ -39,10 +39,7 @@ function formatChapterNumber(chapterNumber: number): string {
     return chapterNumber.toString();
   }
 
-  return chapterNumber
-    .toFixed(3)
-    .replace(/0+$/, '')
-    .replace(/\.$/, '');
+  return chapterNumber.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
 }
 
 function ChapterNumber({
@@ -61,7 +58,8 @@ function ChapterNumber({
 
       {display}
 
-      {absoluteChapterNumber != null && absoluteChapterNumber !== chapterNumber ? (
+      {absoluteChapterNumber != null &&
+      absoluteChapterNumber !== chapterNumber ? (
         <span>{` (${formatChapterNumber(absoluteChapterNumber)})`}</span>
       ) : null}
     </span>

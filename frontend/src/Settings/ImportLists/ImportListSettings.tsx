@@ -18,7 +18,7 @@ function ImportListSettings() {
     <PageContent title={translate('ImportLists')}>
       <PageContentBody>
         <Alert kind={kinds.INFO}>
-          {translate('ImportLists') + ' — not yet available for manga (v1.1+).'}
+          {`${translate('ImportLists')} — not yet available for manga (v1.1+).`}
         </Alert>
       </PageContentBody>
     </PageContent>

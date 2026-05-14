@@ -19,8 +19,8 @@
 //
 // Phase 8 cleanup: this stays — manga-canonical.
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Alert from 'Components/Alert';
 import Form from 'Components/Form/Form';
 import FormGroup from 'Components/Form/FormGroup';
@@ -115,8 +115,8 @@ function EditTranslationProfileModalContent({
     return profiles.find((p) => p.id === id);
   }, [id, profiles]);
 
-  const [item, setItem] = useState<TranslationProfileResource>(() =>
-    existing ?? defaultProfile()
+  const [item, setItem] = useState<TranslationProfileResource>(
+    () => existing ?? defaultProfile()
   );
 
   // Re-seed when the existing profile resolves after an initial undefined.
@@ -267,24 +267,21 @@ function EditTranslationProfileModalContent({
     }));
   }, []);
 
-  const handleMoveLanguage = useCallback(
-    (rank: number, direction: -1 | 1) => {
-      setItem((prev) => {
-        const sorted = [...prev.languages].sort((a, b) => a.rank - b.rank);
-        const idx = sorted.findIndex((l) => l.rank === rank);
-        const swapIdx = idx + direction;
-        if (idx < 0 || swapIdx < 0 || swapIdx >= sorted.length) {
-          return prev;
-        }
-        const a = sorted[idx];
-        const b = sorted[swapIdx];
-        sorted[idx] = { ...b, rank: a.rank };
-        sorted[swapIdx] = { ...a, rank: b.rank };
-        return { ...prev, languages: sorted };
-      });
-    },
-    []
-  );
+  const handleMoveLanguage = useCallback((rank: number, direction: -1 | 1) => {
+    setItem((prev) => {
+      const sorted = [...prev.languages].sort((a, b) => a.rank - b.rank);
+      const idx = sorted.findIndex((l) => l.rank === rank);
+      const swapIdx = idx + direction;
+      if (idx < 0 || swapIdx < 0 || swapIdx >= sorted.length) {
+        return prev;
+      }
+      const a = sorted[idx];
+      const b = sorted[swapIdx];
+      sorted[idx] = { ...b, rank: a.rank };
+      sorted[swapIdx] = { ...a, rank: b.rank };
+      return { ...prev, languages: sorted };
+    });
+  }, []);
 
   const handleSavePress = useCallback(() => {
     save(item);

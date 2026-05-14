@@ -291,98 +291,98 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
 
       <ModalBody>
         <div data-testid="edit-manga-modal">
-        <Form
-          validationErrors={validationErrors}
-          validationWarnings={validationWarnings}
-        >
-          <FormGroup size={sizes.MEDIUM}>
-            <FormLabel>{translate('Monitored')}</FormLabel>
+          <Form
+            validationErrors={validationErrors}
+            validationWarnings={validationWarnings}
+          >
+            <FormGroup size={sizes.MEDIUM}>
+              <FormLabel>{translate('Monitored')}</FormLabel>
 
-            <FormInputGroup
-              type={inputTypes.CHECK}
-              name="monitored"
-              helpText={translate('MonitoredChaptersHelpText')}
-              {...monitored}
-              onChange={handleInputChange}
-            />
-          </FormGroup>
+              <FormInputGroup
+                type={inputTypes.CHECK}
+                name="monitored"
+                helpText={translate('MonitoredChaptersHelpText')}
+                {...monitored}
+                onChange={handleInputChange}
+              />
+            </FormGroup>
 
-          <FormGroup size={sizes.MEDIUM}>
-            <FormLabel>{translate('MonitorNewItems')}</FormLabel>
+            <FormGroup size={sizes.MEDIUM}>
+              <FormLabel>{translate('MonitorNewItems')}</FormLabel>
 
-            <FormInputGroup
-              type={inputTypes.SELECT}
-              name="monitorNewItems"
-              values={monitorNewItemsValues}
-              helpText={translate('MonitorNewItemsHelpText')}
-              {...monitorNewItems}
-              onChange={handleInputChange}
-            />
-          </FormGroup>
+              <FormInputGroup
+                type={inputTypes.SELECT}
+                name="monitorNewItems"
+                values={monitorNewItemsValues}
+                helpText={translate('MonitorNewItemsHelpText')}
+                {...monitorNewItems}
+                onChange={handleInputChange}
+              />
+            </FormGroup>
 
-          <FormGroup size={sizes.MEDIUM}>
-            <FormLabel>{translate('TranslationProfile')}</FormLabel>
+            <FormGroup size={sizes.MEDIUM}>
+              <FormLabel>{translate('TranslationProfile')}</FormLabel>
 
-            <FormInputGroup
-              type={inputTypes.SELECT}
-              name="translationProfileId"
-              values={translationProfileValues}
-              {...translationProfileId}
-              onChange={handleInputChange}
-            />
-          </FormGroup>
+              <FormInputGroup
+                type={inputTypes.SELECT}
+                name="translationProfileId"
+                values={translationProfileValues}
+                {...translationProfileId}
+                onChange={handleInputChange}
+              />
+            </FormGroup>
 
-          <FormGroup size={sizes.MEDIUM}>
-            <FormLabel>{translate('CustomFormatProfile')}</FormLabel>
+            <FormGroup size={sizes.MEDIUM}>
+              <FormLabel>{translate('CustomFormatProfile')}</FormLabel>
 
-            <FormInputGroup
-              type={inputTypes.SELECT}
-              name="customFormatProfileId"
-              values={customFormatProfileValues}
-              {...customFormatProfileId}
-              onChange={handleInputChange}
-            />
-          </FormGroup>
+              <FormInputGroup
+                type={inputTypes.SELECT}
+                name="customFormatProfileId"
+                values={customFormatProfileValues}
+                {...customFormatProfileId}
+                onChange={handleInputChange}
+              />
+            </FormGroup>
 
-          <FormGroup size={sizes.MEDIUM}>
-            <FormLabel>{translate('Path')}</FormLabel>
+            <FormGroup size={sizes.MEDIUM}>
+              <FormLabel>{translate('Path')}</FormLabel>
 
-            {/* issue #81: replaced the prior "Path edit deferred" read-only
+              {/* issue #81: replaced the prior "Path edit deferred" read-only
                 <div> with an editable PATH FormInputGroup + RootFolder
                 picker button. Clicking the button opens RootFolderModal;
                 picking a destination updates path + rootFolderPath; the
                 Save handler then routes through MoveMangaModal if the
                 path actually changed. */}
-            <FormInputGroup
-              type={inputTypes.PATH}
-              name="path"
-              {...path}
-              buttons={[
-                <FormInputButton
-                  key="fileBrowser"
-                  kind={kinds.DEFAULT}
-                  title={translate('RootFolder')}
-                  onPress={handleRootFolderPress}
-                >
-                  <Icon name={icons.ROOT_FOLDER} />
-                </FormInputButton>,
-              ]}
-              includeFiles={false}
-              onChange={handleInputChange}
-            />
-          </FormGroup>
+              <FormInputGroup
+                type={inputTypes.PATH}
+                name="path"
+                {...path}
+                buttons={[
+                  <FormInputButton
+                    key="fileBrowser"
+                    kind={kinds.DEFAULT}
+                    title={translate('RootFolder')}
+                    onPress={handleRootFolderPress}
+                  >
+                    <Icon name={icons.ROOT_FOLDER} />
+                  </FormInputButton>,
+                ]}
+                includeFiles={false}
+                onChange={handleInputChange}
+              />
+            </FormGroup>
 
-          <FormGroup size={sizes.MEDIUM}>
-            <FormLabel>{translate('Tags')}</FormLabel>
+            <FormGroup size={sizes.MEDIUM}>
+              <FormLabel>{translate('Tags')}</FormLabel>
 
-            <FormInputGroup
-              type={inputTypes.TAG}
-              name="tags"
-              {...tags}
-              onChange={handleInputChange}
-            />
-          </FormGroup>
-        </Form>
+              <FormInputGroup
+                type={inputTypes.TAG}
+                name="tags"
+                {...tags}
+                onChange={handleInputChange}
+              />
+            </FormGroup>
+          </Form>
         </div>
       </ModalBody>
 

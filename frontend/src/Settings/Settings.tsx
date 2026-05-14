@@ -180,9 +180,7 @@ function Settings() {
             {translate('Ui')}
           </Link>
 
-          <div className={styles.summary}>
-            {translate('UiSettingsSummary')}
-          </div>
+          <div className={styles.summary}>{translate('UiSettingsSummary')}</div>
         </div>
       </PageContentBody>
     </PageContent>

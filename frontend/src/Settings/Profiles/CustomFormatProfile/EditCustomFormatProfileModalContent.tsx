@@ -115,8 +115,8 @@ function EditCustomFormatProfileModalContent({
     return profiles.find((p) => p.id === id);
   }, [id, profiles]);
 
-  const [item, setItem] = useState<CustomFormatProfileResource>(() =>
-    existing ?? defaultProfile()
+  const [item, setItem] = useState<CustomFormatProfileResource>(
+    () => existing ?? defaultProfile()
   );
 
   useEffect(() => {
@@ -132,8 +132,7 @@ function EditCustomFormatProfileModalContent({
       return 0;
     }
     return mangaList.filter(
-      (m: { customFormatProfileId?: number }) =>
-        m.customFormatProfileId === id
+      (m: { customFormatProfileId?: number }) => m.customFormatProfileId === id
     ).length;
   }, [id, mangaList]);
   const isInUse = inUseCount > 0;
@@ -145,10 +144,7 @@ function EditCustomFormatProfileModalContent({
     mutate: save,
     isPending: isSaving,
     error: saveError,
-  } = useApiMutation<
-    CustomFormatProfileResource,
-    CustomFormatProfileResource
-  >({
+  } = useApiMutation<CustomFormatProfileResource, CustomFormatProfileResource>({
     path: isEditing ? `${PATH}/${id}` : PATH,
     method: isEditing ? 'PUT' : 'POST',
     mutationOptions: {
@@ -413,8 +409,8 @@ function EditCustomFormatProfileModalContent({
                     </div>
                   ))}
                   <Button
-                    onPress={handleAddFormatItem}
                     isDisabled={customFormats.length === 0}
+                    onPress={handleAddFormatItem}
                   >
                     {translate('AddFormatItem')}
                   </Button>

@@ -13,12 +13,12 @@ import { FilterType } from 'Helpers/Props/filterTypes';
 import getFilterTypePredicate from 'Helpers/Props/getFilterTypePredicate';
 import { SortDirection } from 'Helpers/Props/sortDirections';
 import Language from 'Language/Language';
-import { QualityModel } from 'Quality/Quality';
 // Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
 // `{ AlternateTitle } from 'Series/Series'` rewritten to `'Manga/Manga'` peer
 // (Series/Series stub re-exported AlternateTitle from Manga/Manga; direct
 // import shortens the chain).
 import { AlternateTitle } from 'Manga/Manga';
+import { QualityModel } from 'Quality/Quality';
 import CustomFormat from 'typings/CustomFormat';
 import Rejection from 'typings/Rejection';
 import sortByProp from 'Utilities/Array/sortByProp';

@@ -22,12 +22,12 @@ export type ChapterType = 'Regular' | 'Special' | 'Oneshot' | 'Extra';
 interface Chapter extends ModelBase {
   mangaId: number;
   chapterFileId?: number;
-  chapterNumber: number;             // decimal projected to JS number
+  chapterNumber: number; // decimal projected to JS number
   absoluteChapterNumber?: number;
-  volumeNumber?: number;             // display-only — no Volumes table
+  volumeNumber?: number; // display-only — no Volumes table
   title?: string;
   chapterType?: ChapterType;
-  firstReleaseDate?: string;         // ISO 8601 — Sonarr-mirror of Episode.airDateUtc
+  firstReleaseDate?: string; // ISO 8601 — Sonarr-mirror of Episode.airDateUtc
   monitored: boolean;
   hasFile: boolean;
   externalId?: string;

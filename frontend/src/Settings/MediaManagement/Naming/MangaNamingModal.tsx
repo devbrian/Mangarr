@@ -104,8 +104,7 @@ const fileNameTokens = [
     example: 'Berserk #132',
   },
   {
-    token:
-      '{Manga.Title} - Chapter {Chapter.Number:000} - {Chapter.Title}',
+    token: '{Manga.Title} - Chapter {Chapter.Number:000} - {Chapter.Title}',
     example: 'Berserk - Chapter 132 - The Eclipse',
   },
 ];

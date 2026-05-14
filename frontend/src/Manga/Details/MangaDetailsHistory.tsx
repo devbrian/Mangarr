@@ -7,12 +7,12 @@
 import React, { useMemo } from 'react';
 import Alert from 'Components/Alert';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
+import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
+import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
 import TableRow from 'Components/Table/TableRow';
-import TableRowCell from 'Components/Table/Cells/TableRowCell';
-import RelativeDateCell from 'Components/Table/Cells/RelativeDateCell';
 import usePagedApiQuery from 'Helpers/Hooks/usePagedApiQuery';
 import { kinds } from 'Helpers/Props';
 import ChapterHistory from 'typings/ChapterHistory';
@@ -113,7 +113,9 @@ function MangaDetailsHistory({ mangaId }: MangaDetailsHistoryProps) {
   const rows: ChapterHistory[] = records;
 
   if (rows.length === 0) {
-    return <Alert kind={kinds.INFO}>{translate('NoHistoryForThisManga')}</Alert>;
+    return (
+      <Alert kind={kinds.INFO}>{translate('NoHistoryForThisManga')}</Alert>
+    );
   }
 
   return (
@@ -125,7 +127,9 @@ function MangaDetailsHistory({ mangaId }: MangaDetailsHistoryProps) {
             <TableRowCell>{row.sourceTitle ?? ''}</TableRowCell>
             <TableRowCell>
               {row.chapter
-                ? `Ch. ${row.chapter.chapterNumber}${row.chapter.title ? ` — ${row.chapter.title}` : ''}`
+                ? `Ch. ${row.chapter.chapterNumber}${
+                    row.chapter.title ? ` — ${row.chapter.title}` : ''
+                  }`
                 : ''}
             </TableRowCell>
             <TableRowCell>

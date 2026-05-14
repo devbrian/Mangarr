@@ -21,12 +21,12 @@
 // Phase 8 cleanup: collapse with EpisodeDetailsModal when Tv/ deletes; keep
 // the streamlined search-first shape as the canonical Mangarr default.
 import React from 'react';
+import Button from 'Components/Link/Button';
 import Modal from 'Components/Modal/Modal';
 import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
-import Button from 'Components/Link/Button';
 import { sizes } from 'Helpers/Props';
 import InteractiveSearch from 'InteractiveSearch/InteractiveSearch';
 import translate from 'Utilities/String/translate';
@@ -66,7 +66,9 @@ function ChapterDetailsModal({
                   volumeNumber={chapter.volumeNumber}
                   showVolumeNumber={chapter.volumeNumber != null}
                 />
-                {chapter.title || chapterTitle ? ` — ${chapter.title || chapterTitle}` : null}
+                {chapter.title || chapterTitle
+                  ? ` — ${chapter.title || chapterTitle}`
+                  : null}
               </span>
             ) : (
               chapterTitle ?? translate('Chapter')
@@ -75,10 +77,7 @@ function ChapterDetailsModal({
         </ModalHeader>
 
         <ModalBody>
-          <InteractiveSearch
-            type="chapter"
-            searchPayload={{ chapterId }}
-          />
+          <InteractiveSearch type="chapter" searchPayload={{ chapterId }} />
         </ModalBody>
 
         <ModalFooter>

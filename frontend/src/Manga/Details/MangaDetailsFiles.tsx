@@ -103,7 +103,7 @@ function MangaDetailsFiles({ mangaId }: MangaDetailsFilesProps) {
         return 0;
       }
       if (aValue == null) {
-        return 1 * direction;
+        return Number(direction);
       }
       if (bValue == null) {
         return -1 * direction;
@@ -112,7 +112,7 @@ function MangaDetailsFiles({ mangaId }: MangaDetailsFilesProps) {
         return -1 * direction;
       }
       if (aValue > bValue) {
-        return 1 * direction;
+        return Number(direction);
       }
       return 0;
     });

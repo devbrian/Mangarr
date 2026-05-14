@@ -115,86 +115,86 @@ function GeneralSettings() {
 
       <PageContentBody>
         <div data-testid="settings-general-page">
-        {isFetching && !isFetched ? <LoadingIndicator /> : null}
+          {isFetching && !isFetched ? <LoadingIndicator /> : null}
 
-        {!isFetching && error ? (
-          <Alert kind={kinds.DANGER}>
-            {translate('GeneralSettingsLoadError')}
-          </Alert>
-        ) : null}
+          {!isFetching && error ? (
+            <Alert kind={kinds.DANGER}>
+              {translate('GeneralSettingsLoadError')}
+            </Alert>
+          ) : null}
 
-        {settings && isFetched && !error ? (
-          <Form
-            id="generalSettings"
-            validationErrors={validationErrors}
-            validationWarnings={validationWarnings}
-          >
-            <HostSettings
-              bindAddress={settings.bindAddress}
-              port={settings.port}
-              urlBase={settings.urlBase}
-              instanceName={settings.instanceName}
-              applicationUrl={settings.applicationUrl}
-              enableSsl={settings.enableSsl}
-              sslPort={settings.sslPort}
-              sslCertPath={settings.sslCertPath}
-              sslKeyPath={settings.sslKeyPath}
-              sslCertPassword={settings.sslCertPassword}
-              launchBrowser={settings.launchBrowser}
-              onInputChange={handleInputChange}
-            />
+          {settings && isFetched && !error ? (
+            <Form
+              id="generalSettings"
+              validationErrors={validationErrors}
+              validationWarnings={validationWarnings}
+            >
+              <HostSettings
+                bindAddress={settings.bindAddress}
+                port={settings.port}
+                urlBase={settings.urlBase}
+                instanceName={settings.instanceName}
+                applicationUrl={settings.applicationUrl}
+                enableSsl={settings.enableSsl}
+                sslPort={settings.sslPort}
+                sslCertPath={settings.sslCertPath}
+                sslKeyPath={settings.sslKeyPath}
+                sslCertPassword={settings.sslCertPassword}
+                launchBrowser={settings.launchBrowser}
+                onInputChange={handleInputChange}
+              />
 
-            <SecuritySettings
-              authenticationMethod={settings.authenticationMethod}
-              authenticationRequired={settings.authenticationRequired}
-              username={settings.username}
-              password={settings.password}
-              passwordConfirmation={settings.passwordConfirmation}
-              apiKey={settings.apiKey}
-              certificateValidation={settings.certificateValidation}
-              isResettingApiKey={isResettingApiKey}
-              onInputChange={handleInputChange}
-            />
+              <SecuritySettings
+                authenticationMethod={settings.authenticationMethod}
+                authenticationRequired={settings.authenticationRequired}
+                username={settings.username}
+                password={settings.password}
+                passwordConfirmation={settings.passwordConfirmation}
+                apiKey={settings.apiKey}
+                certificateValidation={settings.certificateValidation}
+                isResettingApiKey={isResettingApiKey}
+                onInputChange={handleInputChange}
+              />
 
-            <ProxySettings
-              proxyEnabled={settings.proxyEnabled}
-              proxyType={settings.proxyType}
-              proxyHostname={settings.proxyHostname}
-              proxyPort={settings.proxyPort}
-              proxyUsername={settings.proxyUsername}
-              proxyPassword={settings.proxyPassword}
-              proxyBypassFilter={settings.proxyBypassFilter}
-              proxyBypassLocalAddresses={settings.proxyBypassLocalAddresses}
-              onInputChange={handleInputChange}
-            />
+              <ProxySettings
+                proxyEnabled={settings.proxyEnabled}
+                proxyType={settings.proxyType}
+                proxyHostname={settings.proxyHostname}
+                proxyPort={settings.proxyPort}
+                proxyUsername={settings.proxyUsername}
+                proxyPassword={settings.proxyPassword}
+                proxyBypassFilter={settings.proxyBypassFilter}
+                proxyBypassLocalAddresses={settings.proxyBypassLocalAddresses}
+                onInputChange={handleInputChange}
+              />
 
-            <LoggingSettings
-              logLevel={settings.logLevel}
-              logSizeLimit={settings.logSizeLimit}
-              onInputChange={handleInputChange}
-            />
+              <LoggingSettings
+                logLevel={settings.logLevel}
+                logSizeLimit={settings.logSizeLimit}
+                onInputChange={handleInputChange}
+              />
 
-            <AnalyticSettings
-              analyticsEnabled={settings.analyticsEnabled}
-              onInputChange={handleInputChange}
-            />
+              <AnalyticSettings
+                analyticsEnabled={settings.analyticsEnabled}
+                onInputChange={handleInputChange}
+              />
 
-            <UpdateSettings
-              branch={settings.branch}
-              updateAutomatically={settings.updateAutomatically}
-              updateMechanism={settings.updateMechanism}
-              updateScriptPath={settings.updateScriptPath}
-              onInputChange={handleInputChange}
-            />
+              <UpdateSettings
+                branch={settings.branch}
+                updateAutomatically={settings.updateAutomatically}
+                updateMechanism={settings.updateMechanism}
+                updateScriptPath={settings.updateScriptPath}
+                onInputChange={handleInputChange}
+              />
 
-            <BackupSettings
-              backupFolder={settings.backupFolder}
-              backupInterval={settings.backupInterval}
-              backupRetention={settings.backupRetention}
-              onInputChange={handleInputChange}
-            />
-          </Form>
-        ) : null}
+              <BackupSettings
+                backupFolder={settings.backupFolder}
+                backupInterval={settings.backupInterval}
+                backupRetention={settings.backupRetention}
+                onInputChange={handleInputChange}
+              />
+            </Form>
+          ) : null}
         </div>
       </PageContentBody>
 

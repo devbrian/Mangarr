@@ -126,158 +126,160 @@ function UISettings() {
 
       <PageContentBody>
         <div data-testid="settings-ui-page">
-        {isFetching && isPopulated ? <LoadingIndicator /> : null}
+          {isFetching && isPopulated ? <LoadingIndicator /> : null}
 
-        {!isFetching && error ? (
-          <Alert kind={kinds.DANGER}>{translate('UiSettingsLoadError')}</Alert>
-        ) : null}
+          {!isFetching && error ? (
+            <Alert kind={kinds.DANGER}>
+              {translate('UiSettingsLoadError')}
+            </Alert>
+          ) : null}
 
-        {hasSettings && isPopulated && !error ? (
-          <Form
-            id="uiSettings"
-            validationErrors={validationErrors}
-            validationWarnings={validationWarnings}
-          >
-            <FieldSet legend={translate('Calendar')}>
-              <FormGroup>
-                <FormLabel>{translate('FirstDayOfWeek')}</FormLabel>
+          {hasSettings && isPopulated && !error ? (
+            <Form
+              id="uiSettings"
+              validationErrors={validationErrors}
+              validationWarnings={validationWarnings}
+            >
+              <FieldSet legend={translate('Calendar')}>
+                <FormGroup>
+                  <FormLabel>{translate('FirstDayOfWeek')}</FormLabel>
 
-                <FormInputGroup
-                  type={inputTypes.SELECT}
-                  name="firstDayOfWeek"
-                  values={firstDayOfWeekOptions}
-                  onChange={handleInputChange}
-                  {...settings.firstDayOfWeek}
-                />
-              </FormGroup>
+                  <FormInputGroup
+                    type={inputTypes.SELECT}
+                    name="firstDayOfWeek"
+                    values={firstDayOfWeekOptions}
+                    onChange={handleInputChange}
+                    {...settings.firstDayOfWeek}
+                  />
+                </FormGroup>
 
-              <FormGroup>
-                <FormLabel>{translate('WeekColumnHeader')}</FormLabel>
+                <FormGroup>
+                  <FormLabel>{translate('WeekColumnHeader')}</FormLabel>
 
-                <FormInputGroup
-                  type={inputTypes.SELECT}
-                  name="calendarWeekColumnHeader"
-                  values={weekColumnOptions}
-                  helpText={translate('WeekColumnHeaderHelpText')}
-                  onChange={handleInputChange}
-                  {...settings.calendarWeekColumnHeader}
-                />
-              </FormGroup>
-            </FieldSet>
+                  <FormInputGroup
+                    type={inputTypes.SELECT}
+                    name="calendarWeekColumnHeader"
+                    values={weekColumnOptions}
+                    helpText={translate('WeekColumnHeaderHelpText')}
+                    onChange={handleInputChange}
+                    {...settings.calendarWeekColumnHeader}
+                  />
+                </FormGroup>
+              </FieldSet>
 
-            <FieldSet legend={translate('Dates')}>
-              <FormGroup>
-                <FormLabel>{translate('ShortDateFormat')}</FormLabel>
+              <FieldSet legend={translate('Dates')}>
+                <FormGroup>
+                  <FormLabel>{translate('ShortDateFormat')}</FormLabel>
 
-                <FormInputGroup
-                  type={inputTypes.SELECT}
-                  name="shortDateFormat"
-                  values={shortDateFormatOptions}
-                  onChange={handleInputChange}
-                  {...settings.shortDateFormat}
-                />
-              </FormGroup>
+                  <FormInputGroup
+                    type={inputTypes.SELECT}
+                    name="shortDateFormat"
+                    values={shortDateFormatOptions}
+                    onChange={handleInputChange}
+                    {...settings.shortDateFormat}
+                  />
+                </FormGroup>
 
-              <FormGroup>
-                <FormLabel>{translate('LongDateFormat')}</FormLabel>
+                <FormGroup>
+                  <FormLabel>{translate('LongDateFormat')}</FormLabel>
 
-                <FormInputGroup
-                  type={inputTypes.SELECT}
-                  name="longDateFormat"
-                  values={longDateFormatOptions}
-                  onChange={handleInputChange}
-                  {...settings.longDateFormat}
-                />
-              </FormGroup>
+                  <FormInputGroup
+                    type={inputTypes.SELECT}
+                    name="longDateFormat"
+                    values={longDateFormatOptions}
+                    onChange={handleInputChange}
+                    {...settings.longDateFormat}
+                  />
+                </FormGroup>
 
-              <FormGroup>
-                <FormLabel>{translate('TimeFormat')}</FormLabel>
+                <FormGroup>
+                  <FormLabel>{translate('TimeFormat')}</FormLabel>
 
-                <FormInputGroup
-                  type={inputTypes.SELECT}
-                  name="timeFormat"
-                  values={timeFormatOptions}
-                  onChange={handleInputChange}
-                  {...settings.timeFormat}
-                />
-              </FormGroup>
+                  <FormInputGroup
+                    type={inputTypes.SELECT}
+                    name="timeFormat"
+                    values={timeFormatOptions}
+                    onChange={handleInputChange}
+                    {...settings.timeFormat}
+                  />
+                </FormGroup>
 
-              <FormGroup>
-                <FormLabel>{translate('TimeZone')}</FormLabel>
+                <FormGroup>
+                  <FormLabel>{translate('TimeZone')}</FormLabel>
 
-                <FormInputGroup
-                  type={inputTypes.SELECT}
-                  name="timeZone"
-                  values={timeZoneOptions}
-                  onChange={handleInputChange}
-                  {...settings.timeZone}
-                />
-              </FormGroup>
+                  <FormInputGroup
+                    type={inputTypes.SELECT}
+                    name="timeZone"
+                    values={timeZoneOptions}
+                    onChange={handleInputChange}
+                    {...settings.timeZone}
+                  />
+                </FormGroup>
 
-              <FormGroup>
-                <FormLabel>{translate('ShowRelativeDates')}</FormLabel>
-                <FormInputGroup
-                  type={inputTypes.CHECK}
-                  name="showRelativeDates"
-                  helpText={translate('ShowRelativeDatesHelpText')}
-                  onChange={handleInputChange}
-                  {...settings.showRelativeDates}
-                />
-              </FormGroup>
-            </FieldSet>
+                <FormGroup>
+                  <FormLabel>{translate('ShowRelativeDates')}</FormLabel>
+                  <FormInputGroup
+                    type={inputTypes.CHECK}
+                    name="showRelativeDates"
+                    helpText={translate('ShowRelativeDatesHelpText')}
+                    onChange={handleInputChange}
+                    {...settings.showRelativeDates}
+                  />
+                </FormGroup>
+              </FieldSet>
 
-            <FieldSet legend={translate('Style')}>
-              <FormGroup>
-                <FormLabel>{translate('Theme')}</FormLabel>
-                <FormInputGroup
-                  type={inputTypes.SELECT}
-                  name="theme"
-                  helpText={translate('ThemeHelpText')}
-                  values={themeOptions}
-                  onChange={handleInputChange}
-                  {...settings.theme}
-                />
-              </FormGroup>
+              <FieldSet legend={translate('Style')}>
+                <FormGroup>
+                  <FormLabel>{translate('Theme')}</FormLabel>
+                  <FormInputGroup
+                    type={inputTypes.SELECT}
+                    name="theme"
+                    helpText={translate('ThemeHelpText')}
+                    values={themeOptions}
+                    onChange={handleInputChange}
+                    {...settings.theme}
+                  />
+                </FormGroup>
 
-              <FormGroup>
-                <FormLabel>{translate('EnableColorImpairedMode')}</FormLabel>
-                <FormInputGroup
-                  type={inputTypes.CHECK}
-                  name="enableColorImpairedMode"
-                  helpText={translate('EnableColorImpairedModeHelpText')}
-                  onChange={handleInputChange}
-                  {...settings.enableColorImpairedMode}
-                />
-              </FormGroup>
-            </FieldSet>
+                <FormGroup>
+                  <FormLabel>{translate('EnableColorImpairedMode')}</FormLabel>
+                  <FormInputGroup
+                    type={inputTypes.CHECK}
+                    name="enableColorImpairedMode"
+                    helpText={translate('EnableColorImpairedModeHelpText')}
+                    onChange={handleInputChange}
+                    {...settings.enableColorImpairedMode}
+                  />
+                </FormGroup>
+              </FieldSet>
 
-            <FieldSet legend={translate('Language')}>
-              <FormGroup>
-                <FormLabel>{translate('UiLanguage')}</FormLabel>
-                <FormInputGroup
-                  type={inputTypes.LANGUAGE_SELECT}
-                  name="uiLanguage"
-                  helpText={translate('UiLanguageHelpText')}
-                  helpTextWarning={translate('BrowserReloadRequired')}
-                  includeOriginal={false}
-                  includeUnknown={false}
-                  onChange={handleInputChange}
-                  {...settings.uiLanguage}
-                  errors={
-                    languages.some(
-                      (language) => language.key === settings.uiLanguage.value
-                    )
-                      ? settings.uiLanguage.errors
-                      : [
-                          ...settings.uiLanguage.errors,
-                          { message: translate('InvalidUILanguage') },
-                        ]
-                  }
-                />
-              </FormGroup>
-            </FieldSet>
-          </Form>
-        ) : null}
+              <FieldSet legend={translate('Language')}>
+                <FormGroup>
+                  <FormLabel>{translate('UiLanguage')}</FormLabel>
+                  <FormInputGroup
+                    type={inputTypes.LANGUAGE_SELECT}
+                    name="uiLanguage"
+                    helpText={translate('UiLanguageHelpText')}
+                    helpTextWarning={translate('BrowserReloadRequired')}
+                    includeOriginal={false}
+                    includeUnknown={false}
+                    onChange={handleInputChange}
+                    {...settings.uiLanguage}
+                    errors={
+                      languages.some(
+                        (language) => language.key === settings.uiLanguage.value
+                      )
+                        ? settings.uiLanguage.errors
+                        : [
+                            ...settings.uiLanguage.errors,
+                            { message: translate('InvalidUILanguage') },
+                          ]
+                    }
+                  />
+                </FormGroup>
+              </FieldSet>
+            </Form>
+          ) : null}
         </div>
       </PageContentBody>
     </PageContent>

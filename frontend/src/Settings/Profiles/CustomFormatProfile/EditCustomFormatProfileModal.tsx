@@ -34,9 +34,7 @@ function EditCustomFormatProfileModal({
   const [height, setHeight] = useState<'auto' | number>('auto');
 
   const handleOnModalClose = useCallback(() => {
-    dispatch(
-      clearPendingChanges({ section: 'settings.customFormatProfiles' })
-    );
+    dispatch(clearPendingChanges({ section: 'settings.customFormatProfiles' }));
     onModalClose();
   }, [dispatch, onModalClose]);
 

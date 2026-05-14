@@ -1,13 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelect } from 'App/Select/SelectContext';
-import Icon from 'Components/Icon';
-import LoadingIndicator from 'Components/Loading/LoadingIndicator';
-import TableRowCell from 'Components/Table/Cells/TableRowCell';
-import TableRowCellButton from 'Components/Table/Cells/TableRowCellButton';
-import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
-import Column from 'Components/Table/Column';
-import TableRow from 'Components/Table/TableRow';
-import Popover from 'Components/Tooltip/Popover';
 // Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
 // Episode/Episode rewritten to Chapter/Chapter peer (the TV-shape field names
 // episodeNumber + title + id on the row's `episodes` prop are runtime-emitted
@@ -19,6 +11,14 @@ import Popover from 'Components/Tooltip/Popover';
 // render output); JSX render sites below collapsed to plain inline displays.
 // Series/Series rewritten to Manga/Manga peer.
 import Chapter from 'Chapter/Chapter';
+import Icon from 'Components/Icon';
+import LoadingIndicator from 'Components/Loading/LoadingIndicator';
+import TableRowCell from 'Components/Table/Cells/TableRowCell';
+import TableRowCellButton from 'Components/Table/Cells/TableRowCellButton';
+import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
+import Column from 'Components/Table/Column';
+import TableRow from 'Components/Table/TableRow';
+import Popover from 'Components/Tooltip/Popover';
 import { icons, kinds, tooltipPositions } from 'Helpers/Props';
 import SelectEpisodeModal from 'InteractiveImport/Episode/SelectEpisodeModal';
 import { SelectedEpisode } from 'InteractiveImport/Episode/SelectEpisodeModalContent';
@@ -388,15 +388,17 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   // keeps tsc happy. v1.x cleanup: collapse with the chapter-shape
   // InteractiveImport flow when the discriminator ships (Plan 12-98 v1.1
   // roadmap).
-  const episodeInfo = episodes.map((episode: Chapter & { episodeNumber?: number }) => {
-    return (
-      <div key={episode.id}>
-        {episode.episodeNumber}
+  const episodeInfo = episodes.map(
+    (episode: Chapter & { episodeNumber?: number }) => {
+      return (
+        <div key={episode.id}>
+          {episode.episodeNumber}
 
-        {` - ${episode.title}`}
-      </div>
-    );
-  });
+          {` - ${episode.title}`}
+        </div>
+      );
+    }
+  );
 
   const requiresSeasonNumber = isNaN(Number(seasonNumber));
   const showSeriesPlaceholder = isSelected && !series;

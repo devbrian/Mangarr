@@ -67,12 +67,8 @@ interface MangaIndexRowProps {
 function MangaIndexRow(props: MangaIndexRowProps) {
   const { mangaId, columns, isSelectMode } = props;
 
-  const {
-    manga,
-    qualityProfile,
-    isRefreshingManga,
-    isSearchingManga,
-  } = useMangaIndexItem(mangaId);
+  const { manga, qualityProfile, isRefreshingManga, isSearchingManga } =
+    useMangaIndexItem(mangaId);
 
   const { showBanners, showSearchAction } = useMangaTableOptions();
 
@@ -147,11 +143,7 @@ function MangaIndexRow(props: MangaIndexRowProps) {
     tags = [],
   } = manga;
 
-  const {
-    sizeOnDisk = 0,
-    releaseGroups = [],
-    releaseTypes = [],
-  } = statistics;
+  const { sizeOnDisk = 0, releaseGroups = [], releaseTypes = [] } = statistics;
 
   return (
     <>
