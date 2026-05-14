@@ -71,7 +71,7 @@
 
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
-  
+
   <!-- Test projects need bindingRedirects -->
   <PropertyGroup Condition="'$(MangarrOutputType)'=='Test'">
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -86,7 +86,7 @@
     <Product>Sonarr</Product>
     <Company>sonarr.tv</Company>
     <Copyright>Copyright 2014-$([System.DateTime]::Now.ToString('yyyy')) sonarr.tv (GNU General Public v3)</Copyright>
-    
+
     <!-- Should be replaced by CI -->
     <AssemblyVersion>10.0.0.*</AssemblyVersion>
     <AssemblyConfiguration>$(Configuration)-dev</AssemblyConfiguration>
@@ -120,7 +120,7 @@
   <!-- Sentry specific configuration: Only in Release mode -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <!-- https://docs.sentry.io/platforms/dotnet/configuration/msbuild/ -->
-    <!-- OrgSlug, ProjectSlug and AuthToken are required. 
+    <!-- OrgSlug, ProjectSlug and AuthToken are required.
     They can be set below, via argument to 'msbuild -p:' or environment variable -->
     <SentryOrg></SentryOrg>
     <SentryProject></SentryProject>
@@ -143,6 +143,24 @@
     <PackageReference Include="NUnit" Version="3.14.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="5.2.0" />
     <PackageReference Include="NunitXml.TestLogger" Version="3.1.20" />
+    <!-- Sonarr divergence / issue #133 — Microsoft.Bcl.AsyncInterfaces shared-_tests/-dir polyfill fix.
+         coverlet.collector 6.0.4 bundles a netstandard2.0 Microsoft.Bcl.AsyncInterfaces.dll (24912 bytes,
+         md5 e28d89e3e7a7d6a31b2b49163c422616 — a REAL System.IAsyncDisposable typedef, NOT a forwarder)
+         inside its build/netstandard2.0/ folder. coverlet's CopyCoverletDataCollectorFiles target
+         (AfterTargets=ComputeFilesToPublish, in coverlet.collector.targets) unconditionally copies that
+         DLL into $(PublishDir) — which, because the OutputPath rules above build all 11 test projects
+         into the single shared _tests/ dir, is how the polyfill lands in the CI test artifact and shadows
+         the in-box .NET 10 System.IAsyncDisposable (Playwright IBrowser/IBrowserContext DisposeAsync()
+         binds through the polyfill's mismatched layout -> bare EntryPointNotFoundException at teardown).
+         coverlet's target Removes from its copy-set any file whose name already appears in
+         ResolvedFileToPublish; pinning an explicit Microsoft.Bcl.AsyncInterfaces reference here puts the
+         harmless netstandard2.1 type-forwarder DLL into ResolvedFileToPublish for EVERY test project, so
+         coverlet's own dedup strips its bundled polyfill and the forwarder is what ships. Version 10.0.7
+         matches the CI runtime's Microsoft.NETCore.App 10.0.7; its net10.0-resolved lib asset is
+         lib/netstandard2.1/ (IL-confirmed pure type-forwarder — System.IAsyncDisposable forwards to
+         System.Private.CoreLib). This is the proper fix that lets the #132 teardown try/catch guards in
+         AutomationTest.OneTimeTearDownAsync + PlaywrightSetUpFixture.TearDownAsync be removed. -->
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.7" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(MangarrProject)'=='true' and '$(EnableAnalyzers)'=='false'">
