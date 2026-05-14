@@ -50,7 +50,7 @@ public class MangaIndexSignalRUpdateFixture : AutomationTest
         http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
         var payload = new StringContent(
             "{\"name\":\"RefreshManga\"}",
-            System.Text.Encoding.UTF8,
+            global::System.Text.Encoding.UTF8,
             "application/json");
         var response = await http.PostAsync($"{RootUri}/api/v5/command", payload);
         response.IsSuccessStatusCode.Should().BeTrue(
