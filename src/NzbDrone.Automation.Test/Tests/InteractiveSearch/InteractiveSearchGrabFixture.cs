@@ -25,7 +25,7 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 [TestFixture]
 [Category("AutomationTest")]
 [Category("PRSmoke")]
-[Explicit("Plan 18-14 D-D blocker (issue #102): AddMangaFlow.ConfirmAddAsync nav race times out. Flip when D-D fix lands.")]
+[Explicit("Phase 19 Cat B (Residual Yellow Inventory Resolution): needs indexer-side cassettes - the grab path hits indexers, not the /manga/{id} metadata endpoint the existing cassette set covers. #102 is CLOSED and was NOT the blocker. Flip when Phase 19 extends the cassette dir per DEF-18-19-01. See ROADMAP Phase 19 SC#2.")]
 public class InteractiveSearchGrabFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;

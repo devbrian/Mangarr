@@ -24,7 +24,7 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 // [Explicit] cite: blocked by AddMangaFlow D-D nav race (issue #102).
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Plan 18-14 D-D blocker (issue #102): AddMangaFlow.ConfirmAddAsync nav race times out. Flip when D-D fix lands.")]
+[Explicit("Phase 19 Cat C (Residual Yellow Inventory Resolution): fixture-level bug surfaced once the AddManga flow worked end-to-end post-#102. #102 is CLOSED and was NOT the blocker. Flip after the focused fix-forward. See ROADMAP Phase 19 SC#3.")]
 public class ChapterDetailsModalFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
