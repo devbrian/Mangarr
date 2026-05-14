@@ -22,7 +22,6 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 // Plan 18-14 D-D (issue #102). Removes when D-D ships.
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Plan 18-14 D-D blocker (issue #102): AddMangaFlow.ConfirmAddAsync nav race times out. Flip when D-D fix lands.")]
 public class MangaIndexMonitorToggleFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;

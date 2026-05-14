@@ -22,7 +22,6 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 // [Explicit] cite: blocked by AddMangaFlow D-D nav race (issue #102).
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Plan 18-14 D-D blocker (issue #102): AddMangaFlow.ConfirmAddAsync nav race times out. Flip when D-D fix lands.")]
 public class MangaDetailsRefreshFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;

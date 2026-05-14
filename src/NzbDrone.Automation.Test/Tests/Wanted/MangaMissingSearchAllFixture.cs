@@ -24,7 +24,6 @@ namespace NzbDrone.Automation.Test.Tests.Wanted;
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Phase 18 Plan 18-14 D-D dependency (#102): AddMangaModal.ConfirmAddAsync click→nav race. AddMangaFlow.AddByMangaDexIdAsync times out at WaitForURLAsync until that lands. Drop this attribute when #102 closes.")]
 public class MangaMissingSearchAllFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;

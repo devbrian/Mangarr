@@ -20,7 +20,6 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 // fixture that goes through AddMangaFlow. Flips automatically when D-D ships.
 [TestFixture]
 [Category("AutomationTest")]
-[Explicit("Plan 18-14 D-D blocker (issue #102): AddMangaFlow.ConfirmAddAsync nav race times out. Flip when D-D fix lands.")]
 public class InteractiveSearchOpenFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
