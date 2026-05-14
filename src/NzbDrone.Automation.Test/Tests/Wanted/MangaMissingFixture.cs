@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -31,7 +32,7 @@ public class MangaMissingFixture : AutomationTest
         // STATE assertion (per feedback_verify_ui_state_not_just_rendering): row
         // shells are not enough — every rendered row must expose its chapter cell
         // so we know the row interior is populated, not just the <tr> count.
-        var rows = Page.GetByTestId(new System.Text.RegularExpressions.Regex(@"^manga-missing-row-\d+$"));
+        var rows = Page.GetByTestId(new Regex(@"^manga-missing-row-\d+$"));
         var count = await rows.CountAsync();
         for (var i = 0; i < count; i++)
         {

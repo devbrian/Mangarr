@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -21,7 +22,7 @@ public class MangaCutoffUnmetFixture : AutomationTest
 
         await Assertions.Expect(Page.GetByTestId("manga-cutoff-unmet-table")).ToBeVisibleAsync();
 
-        var rows = Page.GetByTestId(new System.Text.RegularExpressions.Regex(@"^manga-cutoff-unmet-row-\d+$"));
+        var rows = Page.GetByTestId(new Regex(@"^manga-cutoff-unmet-row-\d+$"));
         var count = await rows.CountAsync();
         for (var i = 0; i < count; i++)
         {
