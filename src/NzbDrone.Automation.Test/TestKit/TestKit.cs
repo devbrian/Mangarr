@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using RestSharp;
 
@@ -23,10 +24,21 @@ public class TestKit
 
     public async Task SeedBaselineAsync()
     {
+        // BL-03 (18-REVIEW): every ExecuteAsync call must check IsSuccessful and throw
+        // on 4xx/5xx. Silent seed failure -> downstream AddMangaFlow.AddByMangaDexIdAsync
+        // times out at 30s with no diagnostic (exactly the symptom Plan 18-14 D-D /
+        // issue #102 was chasing). The seed contract is "baseline must exist before
+        // browser opens"; without status-checking, that contract is unenforced.
+
         // 1. Root folder
         var rfRequest = BuildRequest("rootfolder", Method.POST);
         rfRequest.AddJsonBody(new { path = _tempFolderRoot });
-        await _client.ExecuteAsync(rfRequest);
+        var rfResponse = await _client.ExecuteAsync(rfRequest);
+        if (!rfResponse.IsSuccessful)
+        {
+            throw new InvalidOperationException(
+                $"TestKit.SeedBaselineAsync: rootfolder POST failed [{(int)rfResponse.StatusCode}] body={rfResponse.Content}");
+        }
 
         // 2. InProcess download client enabled
         var dlRequest = BuildRequest("downloadclient", Method.POST);
@@ -38,7 +50,12 @@ public class TestKit
             name = "InProcess (test seed)",
             fields = new object[] { }
         });
-        await _client.ExecuteAsync(dlRequest);
+        var dlResponse = await _client.ExecuteAsync(dlRequest);
+        if (!dlResponse.IsSuccessful)
+        {
+            throw new InvalidOperationException(
+                $"TestKit.SeedBaselineAsync: downloadclient POST failed [{(int)dlResponse.StatusCode}] body={dlResponse.Content}");
+        }
 
         // 3. Default TranslationProfile is already seeded by Phase 5 baseline migration; no-op.
     }
