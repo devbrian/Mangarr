@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -183,6 +184,29 @@ namespace NzbDrone.Common.Http.Dispatchers
                 const string modeTypeName = "NzbDrone.Automation.Test.TestKit.CassetteMode";
                 var asm = AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == asmName);
+
+                // Cross-process fallback (18-14 D-B fix): the Mangarr backend is spawned by
+                // NzbDroneRunner as a separate process whose AppDomain never loads the test
+                // assembly. The test runner sets MANGARR_TEST_ASSEMBLY_PATH to the absolute
+                // .dll path so the backend can Assembly.LoadFrom it on demand. Production
+                // never sets this env var, so the branch is dead code outside test runs.
+                if (asm == null)
+                {
+                    var asmPath = Environment.GetEnvironmentVariable("MANGARR_TEST_ASSEMBLY_PATH");
+                    if (!string.IsNullOrEmpty(asmPath) && File.Exists(asmPath))
+                    {
+                        try
+                        {
+                            asm = System.Reflection.Assembly.LoadFrom(asmPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Trace.WriteLine(
+                                $"MANGARR_TEST_ASSEMBLY_PATH='{asmPath}' load failed: {ex.Message}; falling through to production handler.");
+                        }
+                    }
+                }
+
                 if (asm != null)
                 {
                     var type = asm.GetType(typeName);
