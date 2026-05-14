@@ -21,36 +21,30 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 //
 // Phase 19 Cat B (DEF-18-19-01): Plan 19-02 wired the Comix-disable
 // OneTimeSetUp (Phase 19 D-05) and recorded the InteractiveSearch indexer
-// feed cassette (see recording-loop header below) — but the fixture stays
-// [Explicit]. Plan 19-02's recording session uncovered a SEPARATE, larger
-// blocker that is NOT a cassette gap: with Comix disabled, the MangaDex-only
-// InteractiveSearch for the seeded manga fetches releases (the backend logs
-// `MangaDownloadDecisionMaker: Processing 3 manga releases`) but the modal
-// renders ZERO release rows — so SearchAndGrabFlow throws "0 releases" and
-// the grab path is never reached. The 3 indexer-feed chapters (Komi 288,
-// 500, 500.5) do not map onto the Chapter rows the AddManga *metadata* feed
-// synced, so the DecisionEngine produces nothing the React modal renders.
-// This is an InteractiveSearch decision/render defect tracked as a Phase 19
-// follow-up issue — flip [Explicit] when that defect is fixed.
+// feed cassette. The recording session uncovered DEF-19-02-01 (the
+// InteractiveSearch 0-render defect), which the Phase 19 in-phase debug
+// session then RESOLVED — see .planning/debug/resolved/
+// interactive-search-0-rows-def-19-02-01.md. With the DecisionEngine
+// manga-resolution / CustomFormatProfile-degradation fixes, the empty
+// customFormats list, the OpenForMangaAsync settle-wait, and the GrabAsync
+// POST-response wait, the full open → search → grab → history pipeline runs
+// offline — so [Explicit] is removed and this fixture rejoins the suite.
 // [Category("PRSmoke")] is PRESERVED — this is a core top-nav user path.
 //
 // ── Cassette recording loop (precedent: AddMangaSearchFixture.cs:14-16) ──
-// Recorded 2026-05-14 (Plan 19-02) via:
-//   MANGARR_TEST_CASSETTE_MODE=Record
+// Indexer-feed cassette recorded 2026-05-14 (Plan 19-02); the grab-path
+// GET /at-home/server/{chapterId} cassette (77cba1bcd9755d35.json) recorded
+// 2026-05-14 (DEF-19-02-01 debug session, ReplayOrRecord mode) once the
+// 0-render defect fix made the grab reachable. Both recorded via:
+//   MANGARR_TEST_CASSETTE_MODE=Record|ReplayOrRecord
 //   MANGARR_TEST_CASSETTE_DIR=src/NzbDrone.Automation.Test/Fixtures/Cassettes/MangaDex
 //   MANGARR_TEST_ASSEMBLY_PATH=_tests/net10.0/Mangarr.Automation.Test.dll
-// The fixture drove the real open → search flow against api.mangadex.org;
-// the InteractiveSearch indexer feed GET
-// (GET /manga/{id}/feed?...&includes[]=manga&translatedLanguage[]=en) was
-// persisted as a SHA1-keyed {key}.json cassette. The grab path's
-// GET /at-home/server/{chapterId} could NOT be recorded because the modal
-// renders 0 rows (see above) so GrabAsync is never reached. Per-page image
-// GETs to uploads.mangadex.org are sentinel-PNG'd by
+// driving the real open → search → grab flow against api.mangadex.org.
+// Per-page image GETs to uploads.mangadex.org are sentinel-PNG'd by
 // CassetteHandler.IsImageContentType and NOT persisted. CI runs Replay mode.
 [TestFixture]
 [Category("AutomationTest")]
 [Category("PRSmoke")]
-[Explicit("Phase 19 Cat B (DEF-18-19-01): Plan 19-02 wired Comix-disable + recorded the InteractiveSearch indexer-feed cassette, but uncovered a separate non-cassette blocker — MangaDex-only InteractiveSearch fetches 3 releases yet the modal renders 0 rows (DecisionEngine/render path), so the grab is never reached. Flip when the InteractiveSearch 0-render defect is fixed (Phase 19 follow-up issue).")]
 public class InteractiveSearchGrabFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
