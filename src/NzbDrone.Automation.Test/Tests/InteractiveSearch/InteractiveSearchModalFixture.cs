@@ -67,6 +67,11 @@ public class InteractiveSearchModalFixture : AutomationTest
         // base AutomationTest [OneTimeSetUp] (which boots the backend + seeds
         // the baseline) before this derived [OneTimeSetUp], so RootUri/ApiKey
         // are wired by the time this runs.
+        //
+        // FOLLOW-UP: https://github.com/devbrian/Mangarr/issues/116 — restore
+        // Comix search/grab coverage here once a Comix offline-tier cassette
+        // mechanism exists OR the IComixIndexer boundary-mock pattern
+        // (Phase 18 D-11) is applied to this fixture.
         await new TestKit.TestKit(RootUri, ApiKey, string.Empty)
             .DisableComixIndexerAsync();
     }
