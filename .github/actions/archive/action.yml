@@ -15,10 +15,10 @@ inputs:
     description: 'Git branch used for this build'
     required: true
   major_version:
-    description: 'Sonarr major version'
+    description: 'Mangarr major version'
     required: true
   version:
-    description: 'Sonarr version'
+    description: 'Mangarr version'
     required: true
 
 runs:
@@ -26,4 +26,3 @@ runs:
   steps:
     - name: Archive Artifact
       uses: thedoctor0/zip-release@0.7.5
-      
