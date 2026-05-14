@@ -8,14 +8,25 @@
 // (id ? Delete) button row.
 //
 // Manga sibling diverges from EditQualityProfileModalContent:
-//   * No schema fetch — TranslationProfile is a simple shape (name + isDefault + languages[] + fallback);
-//     Phase 5 baseline ships entities directly without a /schema endpoint
-//   * Languages list rendered as a flat ordered list of {language, rank, allowed} rows with up/down rank buttons
-//     (DnD reorder deferred — the DnDProvider context is wired in Profiles.tsx for forward compatibility)
-//   * Fallback radio (allowed-low-rank | rejected) replaces cutoff/upgrade-allowed quality concepts
+//   * No schema fetch — TranslationProfile is a simple shape (name + languages[] +
+//     allowLanguagesNotInProfile); Phase 5 baseline ships entities directly without a /schema endpoint
+//   * Languages list rendered as a flat ordered list of BCP-47 string rows with up/down move buttons;
+//     the array index IS the preference rank (Phase 5 D-03), so the rendered "1." / "2." labels are
+//     1-based array positions and reorder/remove just splices the array
+//   * `allowLanguagesNotInProfile` checkbox (Phase 5 D-02 strict-mode bool) replaces the
+//     cutoff/upgrade-allowed quality concepts
 //   * Save button label uses i18n key 'SaveTranslationProfile' per UI-SPEC §Page-level CTAs
 //   * Delete button copy uses 'Delete Profile' per UI-SPEC §Destructive confirmation
 //   * In-use error rendered inline (UI-SPEC §Error states): 'This Translation Profile is in use by {N} manga.'
+//
+// GH #127 (debug gh127-tprofile-langs-mismatch, 2026-05-14): this modal was built in
+// Phase 7 D-05 against a speculative `{language,rank,allowed}[]` + `isDefault` + `fallback`
+// shape the Phase 5 backend never implemented — `GET /api/v5/translationprofile` returns
+// `languages` as a flat `string[]`, so `lang.rank` / `lang.allowed` were `undefined` and
+// `handleAddLanguage` computed `NaN`. Fixed Frontend→backend (user-decided): the modal now
+// treats `languages` as `string[]`, derives rank from the array index, and replaces the
+// phantom `isDefault` checkbox + `fallback` select with the real `allowLanguagesNotInProfile`
+// checkbox. The backend is untouched.
 //
 // Phase 8 cleanup: this stays — manga-canonical.
 
@@ -45,11 +56,6 @@ import translate from 'Utilities/String/translate';
 import { TranslationProfileResource } from './TranslationProfile';
 
 const PATH = '/translationprofile';
-
-const FALLBACK_VALUES = [
-  { key: 'allowed-low-rank', value: 'Allowed (low rank)' },
-  { key: 'rejected', value: 'Rejected' },
-];
 
 // Common BCP-47 codes for manga translations (extensible; user can type any value).
 const COMMON_LANGUAGE_CODES = [
@@ -84,63 +90,58 @@ function defaultProfile(): TranslationProfileResource {
   return {
     id: 0,
     name: '',
-    isDefault: false,
-    languages: [{ language: 'en', rank: 1, allowed: true }],
-    fallback: 'rejected',
+    languages: ['en'],
+    allowLanguagesNotInProfile: false,
   };
 }
 
-// Per-row sub-component for the ranked language list. Extracted so the parent's
+// Per-row sub-component for the ordered language list. Extracted so the parent's
 // .map() does not allocate fresh arrow handlers per render (react/jsx-no-bind);
-// each row binds its own rank into stable useCallback handlers here.
+// each row binds its own array index into stable useCallback handlers here.
+//
+// GH #127: the backend `languages` payload is a flat `string[]`, so a row has no
+// stable identity of its own — its preference rank IS its array index. Handlers
+// therefore key off `idx` (not a phantom `lang.rank`), and the rendered "{idx + 1}."
+// label is the 1-based rank.
 interface LanguageRankRowProps {
-  lang: TranslationProfileResource['languages'][number];
+  language: string;
   idx: number;
   isLast: boolean;
   isOnly: boolean;
   languageValues: { key: string; value: string }[];
-  onCodeChange: (rank: number, language: string) => void;
-  onAllowedChange: (rank: number, allowed: boolean) => void;
-  onMove: (rank: number, direction: -1 | 1) => void;
-  onRemove: (rank: number) => void;
+  onCodeChange: (idx: number, language: string) => void;
+  onMove: (idx: number, direction: -1 | 1) => void;
+  onRemove: (idx: number) => void;
 }
 
 function LanguageRankRow({
-  lang,
+  language,
   idx,
   isLast,
   isOnly,
   languageValues,
   onCodeChange,
-  onAllowedChange,
   onMove,
   onRemove,
 }: LanguageRankRowProps) {
   const handleCodeChange = useCallback(
     (c: InputChangedHandler<string>) => {
-      onCodeChange(lang.rank, c.value);
+      onCodeChange(idx, c.value);
     },
-    [lang.rank, onCodeChange]
-  );
-
-  const handleAllowedChange = useCallback(
-    (c: InputChangedHandler<boolean>) => {
-      onAllowedChange(lang.rank, c.value);
-    },
-    [lang.rank, onAllowedChange]
+    [idx, onCodeChange]
   );
 
   const handleMoveUp = useCallback(() => {
-    onMove(lang.rank, -1);
-  }, [lang.rank, onMove]);
+    onMove(idx, -1);
+  }, [idx, onMove]);
 
   const handleMoveDown = useCallback(() => {
-    onMove(lang.rank, 1);
-  }, [lang.rank, onMove]);
+    onMove(idx, 1);
+  }, [idx, onMove]);
 
   const handleRemove = useCallback(() => {
-    onRemove(lang.rank);
-  }, [lang.rank, onRemove]);
+    onRemove(idx);
+  }, [idx, onRemove]);
 
   return (
     <div
@@ -151,22 +152,14 @@ function LanguageRankRow({
         gap: 6,
       }}
     >
-      <span style={{ minWidth: 30 }}>{lang.rank}.</span>
+      <span style={{ minWidth: 30 }}>{idx + 1}.</span>
       <div style={{ minWidth: 150 }}>
         <FormInputGroup
           type={inputTypes.SELECT}
-          name={`language-${lang.rank}`}
-          value={lang.language}
+          name={`language-${idx}`}
+          value={language}
           values={languageValues}
           onChange={handleCodeChange}
-        />
-      </div>
-      <div style={{ minWidth: 90 }}>
-        <FormInputGroup
-          type={inputTypes.CHECK}
-          name={`allowed-${lang.rank}`}
-          value={lang.allowed}
-          onChange={handleAllowedChange}
         />
       </div>
       <IconButton
@@ -306,42 +299,23 @@ function EditTranslationProfileModalContent({
     []
   );
 
-  const handleIsDefaultChange = useCallback(
+  const handleAllowLanguagesNotInProfileChange = useCallback(
     (change: InputChangedHandler<boolean>) => {
-      setItem((prev) => ({ ...prev, isDefault: change.value }));
-    },
-    []
-  );
-
-  const handleFallbackChange = useCallback(
-    (change: InputChangedHandler<string>) => {
       setItem((prev) => ({
         ...prev,
-        fallback: change.value as 'allowed-low-rank' | 'rejected',
+        allowLanguagesNotInProfile: change.value,
       }));
     },
     []
   );
 
+  // `languages` is a flat string[]; rank = array index, so all mutations operate
+  // on the index directly. Editing a code replaces the entry at `idx`.
   const handleLanguageCodeChange = useCallback(
-    (rank: number, language: string) => {
+    (idx: number, language: string) => {
       setItem((prev) => ({
         ...prev,
-        languages: prev.languages.map((l) =>
-          l.rank === rank ? { ...l, language } : l
-        ),
-      }));
-    },
-    []
-  );
-
-  const handleLanguageAllowedChange = useCallback(
-    (rank: number, allowed: boolean) => {
-      setItem((prev) => ({
-        ...prev,
-        languages: prev.languages.map((l) =>
-          l.rank === rank ? { ...l, allowed } : l
-        ),
+        languages: prev.languages.map((l, i) => (i === idx ? language : l)),
       }));
     },
     []
@@ -349,38 +323,34 @@ function EditTranslationProfileModalContent({
 
   const handleAddLanguage = useCallback(() => {
     setItem((prev) => {
-      const nextRank =
-        prev.languages.reduce((max, l) => Math.max(max, l.rank), 0) + 1;
+      // Default the new row to the first common code not already in the profile,
+      // falling back to 'en' if every common code is already present.
+      const nextCode =
+        COMMON_LANGUAGE_CODES.find((c) => !prev.languages.includes(c)) ?? 'en';
       return {
         ...prev,
-        languages: [
-          ...prev.languages,
-          { language: 'en', rank: nextRank, allowed: true },
-        ],
+        languages: [...prev.languages, nextCode],
       };
     });
   }, []);
 
-  const handleRemoveLanguage = useCallback((rank: number) => {
+  const handleRemoveLanguage = useCallback((idx: number) => {
     setItem((prev) => ({
       ...prev,
-      languages: prev.languages.filter((l) => l.rank !== rank),
+      languages: prev.languages.filter((_, i) => i !== idx),
     }));
   }, []);
 
-  const handleMoveLanguage = useCallback((rank: number, direction: -1 | 1) => {
+  const handleMoveLanguage = useCallback((idx: number, direction: -1 | 1) => {
     setItem((prev) => {
-      const sorted = [...prev.languages].sort((a, b) => a.rank - b.rank);
-      const idx = sorted.findIndex((l) => l.rank === rank);
       const swapIdx = idx + direction;
-      if (idx < 0 || swapIdx < 0 || swapIdx >= sorted.length) {
+      if (idx < 0 || swapIdx < 0 || swapIdx >= prev.languages.length) {
         return prev;
       }
-      const a = sorted[idx];
-      const b = sorted[swapIdx];
-      sorted[idx] = { ...b, rank: a.rank };
-      sorted[swapIdx] = { ...a, rank: b.rank };
-      return { ...prev, languages: sorted };
+      const languages = [...prev.languages];
+      const [moved] = languages.splice(idx, 1);
+      languages.splice(swapIdx, 0, moved);
+      return { ...prev, languages };
     });
   }, []);
 
@@ -400,11 +370,6 @@ function EditTranslationProfileModalContent({
   const handleCancelDelete = useCallback(() => {
     setIsDeleteConfirmOpen(false);
   }, []);
-
-  const sortedLanguages = useMemo(
-    () => [...item.languages].sort((a, b) => a.rank - b.rank),
-    [item.languages]
-  );
 
   const languageValues = COMMON_LANGUAGE_CODES.map((c) => ({
     key: c,
@@ -437,31 +402,18 @@ function EditTranslationProfileModalContent({
 
               <FormGroup size={sizes.EXTRA_SMALL}>
                 <FormLabel size={sizes.SMALL}>
-                  {translate('DefaultProfile')}
-                </FormLabel>
-                <FormInputGroup
-                  type={inputTypes.CHECK}
-                  name="isDefault"
-                  value={item.isDefault}
-                  onChange={handleIsDefaultChange}
-                />
-              </FormGroup>
-
-              <FormGroup size={sizes.EXTRA_SMALL}>
-                <FormLabel size={sizes.SMALL}>
                   {translate('Languages')}
                 </FormLabel>
                 <div>
-                  {sortedLanguages.map((lang, idx) => (
+                  {item.languages.map((language, idx) => (
                     <LanguageRankRow
-                      key={`${lang.rank}-${lang.language}`}
-                      lang={lang}
+                      key={`${idx}-${language}`}
+                      language={language}
                       idx={idx}
-                      isLast={idx === sortedLanguages.length - 1}
-                      isOnly={sortedLanguages.length === 1}
+                      isLast={idx === item.languages.length - 1}
+                      isOnly={item.languages.length === 1}
                       languageValues={languageValues}
                       onCodeChange={handleLanguageCodeChange}
-                      onAllowedChange={handleLanguageAllowedChange}
                       onMove={handleMoveLanguage}
                       onRemove={handleRemoveLanguage}
                     />
@@ -474,14 +426,14 @@ function EditTranslationProfileModalContent({
 
               <FormGroup size={sizes.EXTRA_SMALL}>
                 <FormLabel size={sizes.SMALL}>
-                  {translate('Fallback')}
+                  {translate('AllowLanguagesNotInProfile')}
                 </FormLabel>
                 <FormInputGroup
-                  type={inputTypes.SELECT}
-                  name="fallback"
-                  value={item.fallback}
-                  values={FALLBACK_VALUES}
-                  onChange={handleFallbackChange}
+                  type={inputTypes.CHECK}
+                  name="allowLanguagesNotInProfile"
+                  value={item.allowLanguagesNotInProfile}
+                  helpText={translate('AllowLanguagesNotInProfileHelpText')}
+                  onChange={handleAllowLanguagesNotInProfileChange}
                 />
               </FormGroup>
 

@@ -8,7 +8,7 @@
 //
 // Manga sibling diverges from QualityProfiles:
 //   * Wires /api/v5/translationprofile (Phase 5 Plan 05-02) instead of /api/v5/qualityprofile
-//   * Renders TranslationProfile cards (language list + isDefault + fallback) instead of quality-items
+//   * Renders TranslationProfile cards (ordered BCP-47 language list) instead of quality-items
 //   * No clone-profile flow in v1 (deferred — TranslationProfiles are simple enough a fresh add is faster than cloning)
 //
 // Phase 8 cleanup: this stays — manga-canonical.
