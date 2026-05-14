@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using RestSharp;
 
@@ -63,6 +65,70 @@ public class TestKit
         }
 
         // 3. Default TranslationProfile is already seeded by Phase 5 baseline migration; no-op.
+    }
+
+    /// <summary>
+    /// Disables the seeded Comix indexer via the indexer controller's real PUT
+    /// endpoint (genuinely API-driven — unlike History/Blocklist/Queue which have
+    /// no create-API). Plan 19-02's Cat B InteractiveSearch fixtures call this from
+    /// their OneTimeSetUp BEFORE the first InteractiveSearch: an InteractiveSearch
+    /// fans out to every enabled indexer, and ComixIndexer's PuppeteerSharp runtime
+    /// signer never goes through ManagedHttpDispatcher, so CassetteHandler cannot
+    /// replay it — the request would either hit live network or fail in CI Replay
+    /// mode (RESEARCH Pitfall 3).
+    ///
+    /// Mechanism (RESEARCH §"Pattern: disabling the Comix indexer"): GET the indexer
+    /// list, find the entry whose implementation == "ComixIndexer", flip all three
+    /// enable flags (EnableRss / EnableAutomaticSearch / EnableInteractiveSearch) to
+    /// false on the full JSON object, and PUT it back to indexer/{id}. The full
+    /// object is round-tripped verbatim (parse → mutate → reserialize) so Fields /
+    /// ConfigContract / Tags survive. `skipTesting=true` is passed defensively —
+    /// flipping every flag false already makes ProviderDefinition.Enable false
+    /// (no Test() call per ProviderControllerBase.UpdateProvider), but the query
+    /// param guarantees no live Comix probe even if the seed shape changes.
+    /// </summary>
+    public async Task DisableComixIndexerAsync()
+    {
+        // 1. GET the indexer list.
+        var listReq = BuildRequest("indexer", Method.GET);
+        var listResponse = await _client.ExecuteAsync(listReq);
+        if (!listResponse.IsSuccessful)
+        {
+            throw new InvalidOperationException(
+                $"TestKit.DisableComixIndexerAsync: indexer GET failed [{(int)listResponse.StatusCode}] body={listResponse.Content}");
+        }
+
+        // 2. Find the ComixIndexer entry by its implementation field.
+        var indexers = JsonNode.Parse(listResponse.Content).AsArray();
+        var comix = indexers.FirstOrDefault(
+            n => n != null
+                 && string.Equals(n["implementation"]?.GetValue<string>(), "ComixIndexer", StringComparison.Ordinal));
+
+        if (comix == null)
+        {
+            throw new InvalidOperationException(
+                "TestKit.DisableComixIndexerAsync: no ComixIndexer found in /api/v5/indexer — fresh-DB seed regressed?");
+        }
+
+        var comixId = (int)comix["id"]!;
+
+        // 3. Flip every enable flag off on the full object, then PUT it back verbatim.
+        comix["enableRss"] = false;
+        comix["enableAutomaticSearch"] = false;
+        comix["enableInteractiveSearch"] = false;
+
+        var putReq = BuildRequest($"indexer/{comixId}?skipTesting=true", Method.PUT);
+
+        // RestSharp 106: AddJsonBody(string) would re-serialize the string as a
+        // JSON string literal. Send the already-serialized object as a raw
+        // request body with the application/json content type instead.
+        putReq.AddParameter("application/json", comix.ToJsonString(), ParameterType.RequestBody);
+        var putResponse = await _client.ExecuteAsync(putReq);
+        if (!putResponse.IsSuccessful)
+        {
+            throw new InvalidOperationException(
+                $"TestKit.DisableComixIndexerAsync: indexer/{comixId} PUT failed [{(int)putResponse.StatusCode}] body={putResponse.Content}");
+        }
     }
 
     private RestRequest BuildRequest(string resource, Method method)
