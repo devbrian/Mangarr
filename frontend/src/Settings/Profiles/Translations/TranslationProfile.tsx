@@ -7,10 +7,18 @@
 // EditModal mounted-by-card-state pattern.
 //
 // Manga sibling diverges from QualityProfile:
-//   * Renders ranked language list (BCP-47 codes + allowed flag) instead of quality items + cutoff highlight
-//   * isDefault badge replaces the cutoff/upgrade-allowed logic
+//   * Renders an ordered language list (flat BCP-47 string[]; array index = preference rank, Phase 5 D-03)
+//     instead of quality items + cutoff highlight
+//   * `allowLanguagesNotInProfile` (Phase 5 D-02 strict-mode bool) replaces the cutoff/upgrade-allowed logic
 //   * No clone button in v1 (TranslationProfiles are simple enough; deferred)
 //   * Delete-confirm uses UI-SPEC §Destructive confirmation copy: 'Delete the Translation Profile "{Name}"?' + 'Delete Profile'
+//
+// GH #127 (debug gh127-tprofile-langs-mismatch, 2026-05-14): the TS type below was
+// built speculatively in Phase 7 D-05 against a `{language,rank,allowed}[]` + `isDefault`
+// + `fallback` shape the Phase 5 backend never implemented. The shipped
+// `/api/v5/translationprofile` resource serializes ONLY
+// `{ id, name, languages: string[], allowLanguagesNotInProfile: bool }`. Fixed
+// Frontend→backend (user-decided): the type + card now match the real API.
 //
 // Phase 8 cleanup: this stays — manga-canonical.
 
@@ -24,18 +32,18 @@ import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import styles from './TranslationProfile.css';
 
-export interface TranslationProfileLanguage {
-  language: string;
-  rank: number;
-  allowed: boolean;
-}
-
+// Matches the shipped backend TranslationProfileResource
+// (src/Mangarr.Api.V5/Profiles/Translations/TranslationProfileResource.cs):
+//   - `languages` is a flat ordered BCP-47 string[]; array index = preference rank (Phase 5 D-03).
+//   - `allowLanguagesNotInProfile` is the Phase 5 D-02 strict-mode bool (default false).
+// The backend has NO per-profile `isDefault` flag — the default profile is the
+// global `Config.DefaultTranslationProfileId` config key — and NO `fallback` enum
+// or per-language `allowed`/`rank` fields. Those are not surfaced here.
 export interface TranslationProfileResource {
   id: number;
   name: string;
-  isDefault: boolean;
-  languages: TranslationProfileLanguage[];
-  fallback: 'allowed-low-rank' | 'rejected';
+  languages: string[];
+  allowLanguagesNotInProfile: boolean;
 }
 
 interface TranslationProfileProps extends TranslationProfileResource {
@@ -45,7 +53,7 @@ interface TranslationProfileProps extends TranslationProfileResource {
 const PATH = '/translationprofile';
 
 function TranslationProfile(props: TranslationProfileProps) {
-  const { id, name, isDefault, languages, onEditPress } = props;
+  const { id, name, languages, onEditPress } = props;
 
   const queryClient = useQueryClient();
   const { mutate: deleteProfile, isPending: isDeleting } = useApiMutation<
@@ -80,10 +88,8 @@ function TranslationProfile(props: TranslationProfileProps) {
     setIsDeleteModalOpen(false);
   }, [deleteProfile]);
 
-  // Sort by rank ascending; only show allowed languages on the card chips (mirrors Quality cutoff highlight).
-  const allowedLanguages = languages
-    ? [...languages].filter((l) => l.allowed).sort((a, b) => a.rank - b.rank)
-    : [];
+  // `languages` is already in preference-rank order (array index = rank); render as-is.
+  const orderedLanguages = languages ?? [];
 
   // Phase 18 Plan 18-07: per-row testid for SettingsFlow.SetTranslationProfileOrderAsync
   // (D-08 catalog). The inner wrapper <div data-testid="settings-translation-profiles-
@@ -103,17 +109,13 @@ function TranslationProfile(props: TranslationProfileProps) {
           >
             {name}
           </div>
-
-          {isDefault ? (
-            <Label kind={kinds.INFO}>{translate('Default')}</Label>
-          ) : null}
         </div>
 
         <div className={styles.languages}>
-          {allowedLanguages.map((lang) => {
+          {orderedLanguages.map((language) => {
             return (
-              <Label key={lang.language} kind={kinds.DEFAULT}>
-                {lang.language}
+              <Label key={language} kind={kinds.DEFAULT}>
+                {language}
               </Label>
             );
           })}

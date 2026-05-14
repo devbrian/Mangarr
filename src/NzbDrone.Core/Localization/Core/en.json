@@ -81,6 +81,8 @@
   "AllMangaAreHiddenByTheAppliedFilter": "All results are hidden by the applied filter",
   "AllResultsAreHiddenByTheAppliedFilter": "All results are hidden by the applied filter",
   "AllTitles": "All Titles",
+  "AllowLanguagesNotInProfile": "Allow Languages Not in Profile",
+  "AllowLanguagesNotInProfileHelpText": "Accept releases whose language is not listed in this profile (a low-priority fallback). When disabled, only the languages above are accepted.",
   "AllowedFormatsCount": "{count} formats allowed",
   "AlreadyInYourLibrary": "Already in your library",
   "AlternateTitles": "Alternate Titles",
