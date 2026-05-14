@@ -178,8 +178,15 @@ function AddNewMangaModalContent({
     // never POST while the root folder is still unpopulated (see
     // isRootFolderMissing above). The SpinnerButton is also disabled in this
     // state, but guarding the handler too closes any window where a press lands
-    // before the disabled state has rendered.
+    // before the disabled state has rendered. This branch should be
+    // unreachable: `isDisabled={isRootFolderMissing}` is enforced both by the
+    // native `<button disabled>` attribute and by Link.onClick's own
+    // `if (isDisabled) return`. The console.error is a free regression tripwire
+    // — if it ever fires, the button-gating above has silently broken.
     if (isRootFolderMissing) {
+      console.error(
+        'AddNewMangaModalContent: handleAddMangaPress invoked with an empty rootFolderPath — the Add-button isDisabled gating has regressed.'
+      );
       return;
     }
 
