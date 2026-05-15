@@ -68,7 +68,7 @@ namespace NzbDrone.Core.Datastore
                 UseJitter = true,
                 OnRetry = args =>
                 {
-                    Logger.Warn(args.Outcome.Exception, "Failed writing to database. Retry #{0}", args.AttemptNumber);
+                    Logger.Warn(args.Outcome.Exception, "Database operation contended; retrying (attempt #{0})", args.AttemptNumber);
 
                     return default;
                 }
