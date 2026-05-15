@@ -8,6 +8,14 @@ interface CardProps extends Pick<LinkProps, 'onPress'> {
   overlayClassName?: string;
   overlayContent?: boolean;
   children: React.ReactNode;
+  // Phase 18 / gh152-uat fix-forward: `data-testid` is propagated to the
+  // underlay <Link> (the actual interactive <button>) when `overlayContent`
+  // is true, and to the wrapping <Link> in the non-overlay branch. This
+  // guarantees `Page.GetByTestId(...)` resolves to a clickable element —
+  // clicking the inner text div on an overlay card otherwise triggers the
+  // "Card-underlay intercepts pointer events" Playwright failure mode
+  // (see .planning/debug/live-indexer-card-click.md).
+  'data-testid'?: string;
 }
 
 function Card(props: CardProps) {
@@ -17,12 +25,17 @@ function Card(props: CardProps) {
     overlayContent = false,
     children,
     onPress,
+    'data-testid': dataTestId,
   } = props;
 
   if (overlayContent) {
     return (
       <div className={className}>
-        <Link className={styles.underlay} onPress={onPress} />
+        <Link
+          className={styles.underlay}
+          data-testid={dataTestId}
+          onPress={onPress}
+        />
 
         <div className={overlayClassName}>{children}</div>
       </div>
@@ -30,7 +43,7 @@ function Card(props: CardProps) {
   }
 
   return (
-    <Link className={className} onPress={onPress}>
+    <Link className={className} data-testid={dataTestId} onPress={onPress}>
       {children}
     </Link>
   );

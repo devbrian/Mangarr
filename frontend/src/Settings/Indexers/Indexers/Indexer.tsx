@@ -63,10 +63,21 @@ function Indexer({
     onCloneIndexerPress(id);
   }, [id, onCloneIndexerPress]);
 
+  // gh152-uat fix-forward (live-indexer-card-click) — annotate the Card so
+  // Playwright tests can target the underlay <button> directly. Without this,
+  // `Page.GetByText("MangaDex")` resolves to the inner text <div> whose
+  // clicks are intercepted by the Card-underlay button (Card.tsx overlay
+  // shape). `settings-*` prefix is on the allowed list (D-18 selector
+  // strategy, src/NzbDrone.Automation.Test/CLAUDE.md). Slug = lowercased
+  // name with whitespace collapsed to dashes (mirrors MangaIndexPoster's
+  // titleSlug pattern at frontend/src/Manga/Index/Posters/MangaIndexPoster.tsx).
+  const testIdSlug = name.toLowerCase().replace(/\s+/g, '-');
+
   return (
     <Card
       className={styles.indexer}
       overlayContent={true}
+      data-testid={`settings-indexer-card-${testIdSlug}`}
       onPress={handleEditIndexerPress}
     >
       <div className={styles.nameContainer}>

@@ -18,6 +18,17 @@ public class SettingsIndexersPage : PageBase
     public ILocator TestAllButton    => Page.GetByTestId("settings-indexers-test-all-button");
     public ILocator ManageButton     => Page.GetByTestId("settings-indexers-manage-button");
 
+    // gh152-uat fix-forward (live-indexer-card-click) — D-18 selector for an
+    // indexer card. The testid lands on the Card-underlay <button>
+    // (Card.tsx overlay branch), so ClickAsync() targets the actual
+    // interactive surface rather than the inner text <div>. Slug = lowercase
+    // name with whitespace collapsed to dashes (see Indexer.tsx).
+    public ILocator CardByName(string name)
+        => Page.GetByTestId($"settings-indexer-card-{Slugify(name)}");
+
+    private static string Slugify(string name)
+        => Regex.Replace(name.ToLowerInvariant(), @"\s+", "-");
+
     public async Task<SettingsIndexersPage> OpenAsync(string rootUri)
     {
         await Page.GotoAsync($"{rootUri}/settings/indexers");

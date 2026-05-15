@@ -40,10 +40,14 @@ public class IndexerTestButtonFixture : AutomationTest
         await Assertions.Expect(page.PageContainer).ToBeVisibleAsync();
         Page.Url.Should().MatchRegex(@"/settings/indexers$");
 
-        // Indexer cards are rendered without data-testid attributes (Indexer.tsx
-        // as of Wave 2). Locate by visible name — MangaDex is the canonical
-        // baseline-seeded indexer (Phase 3 D-15 — IsPrimary).
-        var mangaDexCard = Page.GetByText("MangaDex", new PageGetByTextOptions { Exact = true }).First;
+        // gh152-uat fix-forward (live-indexer-card-click): the prior locator
+        // `Page.GetByText("MangaDex")` resolved to the inner <div> whose
+        // clicks were intercepted by the Card-underlay <button>. D-18 +
+        // Indexer.tsx now expose a `settings-indexer-card-<slug>` testid on
+        // the underlay button itself, so ClickAsync lands on the actual
+        // interactive surface. MangaDex is the canonical baseline-seeded
+        // indexer (Phase 3 D-15 — IsPrimary).
+        var mangaDexCard = page.CardByName("MangaDex");
         var cardCount = await mangaDexCard.CountAsync();
 
         if (cardCount == 0)
