@@ -47,7 +47,7 @@ public class BlocklistBulkRemoveFixture : AutomationTest
         // manga + one of its chapters as the FKs, then INSERT into the
         // backend's per-fixture mangarr.db BEFORE navigating.
         var (mangaId, chapterId) = await ResolveSeedFksAsync();
-        var testKit = new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, ApiKey, Runner.AppData);
+        var testKit = new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, ApiKey, Runner.AppData, Runner.PostgresOptions);
         await testKit.SeedBlocklistAsync(Runner.AppData, mangaId, chapterId);
 
         await new MangaBlocklistPage(Page).OpenAsync(RootUri);

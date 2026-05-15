@@ -61,7 +61,7 @@ public class HistoryRetryFixture : AutomationTest
         // AddMangaFlow-seeded manga + one of its chapters as the FKs, then
         // INSERT into the backend's per-fixture mangarr.db BEFORE navigating.
         var (mangaId, chapterId) = await ResolveSeedFksAsync();
-        var testKit = new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, ApiKey, Runner.AppData);
+        var testKit = new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, ApiKey, Runner.AppData, Runner.PostgresOptions);
         await testKit.SeedHistoryFailedAsync(Runner.AppData, mangaId, chapterId);
 
         await new MangaHistoryPage(Page).OpenAsync(RootUri);

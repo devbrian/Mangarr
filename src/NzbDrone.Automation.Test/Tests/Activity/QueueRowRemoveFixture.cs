@@ -52,7 +52,7 @@ public class QueueRowRemoveFixture : AutomationTest
         // also triggers the static _pendingReleases cache rebuild so the row
         // surfaces in GET /api/v5/manga/queue.
         var (mangaId, mangaTitle) = await ResolveSeededMangaAsync();
-        var testKit = new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, ApiKey, Runner.AppData);
+        var testKit = new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, ApiKey, Runner.AppData, Runner.PostgresOptions);
         await testKit.SeedPendingQueueItemAsync(Runner.AppData, mangaId, mangaTitle);
 
         await new MangaQueuePage(Page).OpenAsync(RootUri);
