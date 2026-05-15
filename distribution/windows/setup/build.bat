@@ -4,4 +4,4 @@
 @REM SET FRAMEWORK=net8.0
 @REM SET RUNTIME=win-x64
 
-inno\ISCC.exe sonarr.iss
+inno\ISCC.exe mangarr.iss

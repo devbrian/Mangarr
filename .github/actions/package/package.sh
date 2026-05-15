@@ -38,17 +38,17 @@ do
     rm -rf $packageFolder
     mkdir $packageFolder
 
-    cp -r distribution/macOS/Sonarr.app $packageFolder
-    mkdir -p $packageFolder/Sonarr.app/Contents/MacOS
+    cp -r distribution/macOS/Mangarr.app $packageFolder
+    mkdir -p $packageFolder/Mangarr.app/Contents/MacOS
 
     echo "Copying Binaries"
-    cp -r $mangarrFolder/* $packageFolder/Sonarr.app/Contents/MacOS
+    cp -r $mangarrFolder/* $packageFolder/Mangarr.app/Contents/MacOS
 
     echo "Removing Update Folder"
-    rm -r $packageFolder/Sonarr.app/Contents/MacOS/Mangarr.Update
+    rm -r $packageFolder/Mangarr.app/Contents/MacOS/Mangarr.Update
 
     echo "Packaging macOS app Artifact"
-    (cd $packageFolder; zip -rq "../../$artifactsFolder/$archiveName-app.zip" ./Sonarr.app)
+    (cd $packageFolder; zip -rq "../../$artifactsFolder/$archiveName-app.zip" ./Mangarr.app)
   fi
 
   echo "Packaging Artifact"
