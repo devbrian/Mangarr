@@ -9,13 +9,17 @@ namespace NzbDrone.Automation.Test.Tests.Global;
 
 /// <summary>
 /// Phase 18 Plan 18-16 Task 1 — Tests/Global/ queue badge (v5-endpoint
-/// GET /api/v5/queue/status, INVENTORY row 96). Verifies the contract
+/// GET /api/v5/manga/queue/status, INVENTORY row 96). Verifies the contract
 /// behind the top-nav queue-count badge:
 ///
 /// 1. The nav-activity sidebar anchor renders (PageSidebar.tsx attaches
 ///    data-testid="nav-activity") — the badge piggybacks on this entry.
-/// 2. GET /api/v5/queue/status returns a well-formed JSON payload that
+/// 2. GET /api/v5/manga/queue/status returns a well-formed JSON payload that
 ///    PageSidebarStatus consumes to decide kind/count/render-or-null.
+///    (The TV /api/v5/queue/status route was deleted in the Phase 5/13
+///    cutover — see .planning/debug/resolved/queue-status-404-stale-route.md.
+///    Frontend useQueueStatus.ts:32 repointed 2026-05-10; this fixture
+///    repointed 2026-05-15 to close gh-152 Class 5.)
 ///
 /// Why the fallback approach (per Plan 18-16 Task 1 "NOTE"):
 /// PageSidebarStatus returns null when count === 0 (PageSidebarStatus.tsx L18-L20),
@@ -48,9 +52,14 @@ public class QueueBadgeFixture : AutomationTest
         // seed creates a root folder + InProcess client but no queued
         // chapters), the payload's `count` is 0 — but the field MUST be
         // present and numeric. This is the STATE check.
+        //
+        // Endpoint: /api/v5/manga/queue/status (MangaQueueStatusController,
+        // Phase 13 Plan 13-09). MangaQueueStatusResource mirrors the retired
+        // QueueStatusResource field-for-field, so the JSON contract check
+        // below is unchanged.
         using var http = new HttpClient();
         http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
-        var json = await http.GetStringAsync($"{RootUri}/api/v5/queue/status");
+        var json = await http.GetStringAsync($"{RootUri}/api/v5/manga/queue/status");
 
         json.Should().NotBeNullOrEmpty();
 
