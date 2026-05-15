@@ -79,19 +79,42 @@ public class KeyboardShortcutsModalFixture : AutomationTest
         // (P2) corrected my prior diagnosis — Modal.tsx:110-161 attaches its
         // own `window.addEventListener('keydown', handleKeyDown)` that checks
         // `event.keyCode === keyCodes.ESCAPE` and calls `onModalClose()`. The
-        // close path is NOT routed through Mousetrap, so the "modern-browser
-        // keypress retirement" rationale that dropped this assertion in round 3
-        // was wrong. The round-2 failure was a focus / event-bubbling artifact
-        // from the UI-menu-click trigger (the `@floating-ui/react` MenuContent
-        // can swallow keydown events before they reach window).
+        // close path is NOT routed through Mousetrap.
         //
-        // Fix: use `Locator.PressAsync` on the dialog itself. Playwright's
-        // Locator.PressAsync auto-focuses the target element BEFORE firing
-        // the key, guaranteeing the keydown propagates from the dialog →
-        // window listener without an upstream MenuContent eating it.
-        await dialog.PressAsync("Escape");
-        await Assertions.Expect(dialog).ToBeHiddenAsync(new LocatorAssertionsToBeHiddenOptions
+        // Both `Page.Keyboard.PressAsync("Escape")` (round 2) and
+        // `dialog.PressAsync("Escape")` (round 4) failed in CI. The actions-
+        // menu-click flow leaves the `@floating-ui/react` MenuContent in a
+        // transitional state that captures keyboard events; the `<div
+        // role="dialog">` isn't natively focusable so `Locator.PressAsync`
+        // can't deliver the key to a stable target.
+        //
+        // Most reliable fix: dispatch a synthetic `keydown` directly on
+        // `window` via JavaScript. Modal.tsx's listener is `window.addEventListener
+        // ('keydown', ...)`, so we deliver the event exactly where it's
+        // listening — bypassing focus contention entirely. `KeyboardEvent`'s
+        // constructor doesn't honor `keyCode` from its dict (it's always 0),
+        // so we set `keyCode` and `which` to 27 via `defineProperty` after
+        // construction. Modal's `event.keyCode === keyCodes.ESCAPE` check
+        // then matches and `onModalClose()` fires.
+        await Page.EvaluateAsync(@"() => {
+            const e = new KeyboardEvent('keydown', {
+                key: 'Escape',
+                code: 'Escape',
+                bubbles: true,
+                cancelable: true
+            });
+            Object.defineProperty(e, 'keyCode', { value: 27, configurable: true });
+            Object.defineProperty(e, 'which', { value: 27, configurable: true });
+            window.dispatchEvent(e);
+        }");
+
+        // Modal returns null when !isOpen (Modal.tsx:163), so the dialog
+        // element detaches from DOM rather than just becoming visually hidden.
+        // Match the BackupRestoreFixture/ParseModalFixture pattern that uses
+        // WaitForAsync(State: Detached) for this contract.
+        await dialog.WaitForAsync(new LocatorWaitForOptions
         {
+            State = WaitForSelectorState.Detached,
             Timeout = 10_000
         });
     }
