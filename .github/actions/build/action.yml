@@ -33,7 +33,10 @@ runs:
       id: variables
       shell: bash
       run: |
-        DOTNET_VERSION=$(jq -r '.sdk.version' global.json)
+        # Resolve the SDK actually selected by global.json rollForward (e.g. pinned 10.0.203
+        # may roll forward to 10.0.300 when the runner image no longer ships the pinned patch).
+        # See .planning/debug/ci-soak-two-main-entry.md for the surfacing incident.
+        DOTNET_VERSION=$(dotnet --version)
 
         echo "SDK_PATH=${{ env.DOTNET_ROOT }}/sdk/${DOTNET_VERSION}" >> "$GITHUB_ENV"
         echo "MANGARR_VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
