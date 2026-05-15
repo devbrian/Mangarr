@@ -101,7 +101,7 @@ function EditIndexerModalContent({
   }, [isSaving, wasSaving, saveError, onModalClose]);
 
   return (
-    <ModalContent onModalClose={onModalClose}>
+    <ModalContent data-testid="edit-indexer-modal" onModalClose={onModalClose}>
       <ModalHeader>
         {id
           ? translate('EditIndexerImplementation', { implementationName })
@@ -248,6 +248,7 @@ function EditIndexerModalContent({
           <Button
             className={styles.deleteButton}
             kind={kinds.DANGER}
+            data-testid="delete-button"
             onPress={onDeleteIndexerPress}
           >
             {translate('Delete')}
@@ -269,6 +270,7 @@ function EditIndexerModalContent({
         <SpinnerErrorButton
           isSpinning={isSaving}
           error={saveError}
+          data-testid="save-button"
           onPress={handleSavePress}
         >
           {translate('Save')}

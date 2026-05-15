@@ -27,7 +27,7 @@ function AddIndexerModalContent({
     useIndexerSchema();
 
   return (
-    <ModalContent onModalClose={onModalClose}>
+    <ModalContent data-testid="add-indexer-modal" onModalClose={onModalClose}>
       <ModalHeader>{translate('AddIndexer')}</ModalHeader>
 
       <ModalBody>
