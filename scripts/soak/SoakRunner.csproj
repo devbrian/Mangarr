@@ -5,6 +5,11 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Mangarr.Soak</RootNamespace>
     <AssemblyName>Mangarr.Soak.Runner</AssemblyName>
+    <!-- Both SoakRunner.cs and SoakThresholdChecker.cs co-locate in this directory and SDK-style
+         projects implicitly include **/*.cs from the project dir. Without StartupObject, the C#
+         compiler emits CS8892 and silently picks the synchronous Main (SoakThresholdChecker) as
+         the entry point for BOTH csproj files. See .planning/debug/ci-soak-two-main-entry.md. -->
+    <StartupObject>Mangarr.Soak.SoakRunner</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\NzbDrone.Core\Mangarr.Core.csproj" />
