@@ -247,6 +247,10 @@ jobs:
           binary_artifact: build-linux-x64
           binary_path: linux-x64/${{ needs.prepare.outputs.framework }}/Mangarr
           ui_artifact: build_ui
+          # Codex P1 fix on PR #150 — disambiguate the automation-family TRX artifacts
+          # so they don't collide with each other or with unit_test (ubuntu). See
+          # .github/actions/test/action.yml inputs.results_suffix.
+          results_suffix: pr-smoke
         env:
           # Phase 18 Plan 18-19 (GAP-2): wire offline cassette tier for PR smoke
           # so the per-PR gate stays cassette-free + deterministic. LiveService
@@ -331,6 +335,8 @@ jobs:
           binary_artifact: build-linux-x64
           binary_path: linux-x64/${{ needs.prepare.outputs.framework }}/Mangarr
           ui_artifact: build_ui
+          # Codex P1 fix on PR #150 — see automation_test_pr_smoke job above.
+          results_suffix: nightly
         env:
           # Phase 18 Plan 18-19 (GAP-2): nightly full Tier C also runs offline
           # against cassettes. LiveService tier is segregated to the dedicated
@@ -392,6 +398,8 @@ jobs:
           binary_artifact: build-linux-x64
           binary_path: linux-x64/${{ needs.prepare.outputs.framework }}/Mangarr
           ui_artifact: build_ui
+          # Codex P1 fix on PR #150 — see automation_test_pr_smoke job above.
+          results_suffix: liveservice
 
       - name: Upload Playwright trace + screenshots + log on failure
         if: failure()

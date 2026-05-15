@@ -6,7 +6,11 @@ using System.Threading.Tasks;
 using Microsoft.Playwright;
 using NLog;
 using NUnit.Framework;
+using NzbDrone.Common.Extensions;
+using NzbDrone.Core.Datastore;
+using NzbDrone.Core.Datastore.Migration.Framework;
 using NzbDrone.Test.Common;
+using NzbDrone.Test.Common.Datastore;
 
 namespace NzbDrone.Automation.Test;
 
@@ -15,6 +19,7 @@ namespace NzbDrone.Automation.Test;
 public abstract class AutomationTest
 {
     private NzbDroneRunner _runner;
+    private PostgresOptions _postgresOptions;
 
     protected IBrowserContext Context { get; private set; }
     protected IPage Page { get; private set; }
@@ -36,7 +41,36 @@ public abstract class AutomationTest
             + "in a job that installs the Playwright driver/browser (automation_test_* jobs), not "
             + "the unit_test job. See PlaywrightSetUpFixture.SetUpAsync.");
 
-        _runner = new NzbDroneRunner(LogManager.GetCurrentClassLogger(), null);
+        // /gsd-debug nightly-automation-fail Pattern B3 fix: the automation_test_nightly
+        // postgres matrix entries set Mangarr__Postgres__Host/Port/User/Password env vars
+        // via the composite action, but NOT MainDb/LogDb. Previously this harness passed
+        // PostgresOptions=null into NzbDroneRunner, which made the runner skip its env-var
+        // setup block (`if (PostgresOptions?.Host != null)` at NzbDroneRunner.cs:212). The
+        // child Mangarr process then fell back to ConfigFileProvider's hardcoded defaults
+        // (`"mangarr-main"` / `"mangarr-log"` post-Phase-15 rebrand) — but the postgres
+        // server in CI has only the default `postgres` DB, and nothing in production code
+        // calls CREATE DATABASE. Kestrel never bound, the readiness probe timed out for
+        // 60s × N tests, and the job hit GH's 1h job-level cancel.
+        //
+        // Mirror the unit_test_postgres pattern in NzbDrone.Core.Test/Framework/DbTest.cs:
+        //   1. PostgresDatabase.GetTestOptions() reads env vars, derives unique-per-run
+        //      MainDb/LogDb names from TestBase.GetUID() (PID+ticks+seq) so parallel
+        //      matrix runs cannot collide.
+        //   2. When Host is populated (postgres mode), pre-create both DBs server-side.
+        //      When Host is null/empty (sqlite mode), GetTestOptions returns a sentinel
+        //      that the runner detects and skips the entire env-var block — sqlite path
+        //      is unchanged.
+        //   3. Pass the populated options into NzbDroneRunner so its env-var block fires
+        //      and the child Mangarr inherits MainDb/LogDb pointing at the just-created
+        //      databases.
+        _postgresOptions = PostgresDatabase.GetTestOptions();
+        if (_postgresOptions.Host.IsNotNullOrWhiteSpace())
+        {
+            PostgresDatabase.Create(_postgresOptions, MigrationType.Main);
+            PostgresDatabase.Create(_postgresOptions, MigrationType.Log);
+        }
+
+        _runner = new NzbDroneRunner(LogManager.GetCurrentClassLogger(), _postgresOptions);
         _runner.KillAll();
         _runner.Start(enableAuth: true);
 
@@ -138,6 +172,33 @@ public abstract class AutomationTest
             }
 
             _runner?.KillAll();
+
+            // /gsd-debug nightly-automation-fail Pattern B3 fix: drop the per-run postgres
+            // databases that OneTimeSetUp created so the postgres server doesn't accumulate
+            // <run-uid>_main / <run-uid>_log DBs across nightly runs. Mirrors DbTest's
+            // OneTimeTearDown DropPostgresDb call. Guard on Host so the sqlite path is a
+            // no-op. Wrap in try so a Drop failure (e.g. open connection still draining)
+            // does not mask the underlying test outcome.
+            if (_postgresOptions != null && _postgresOptions.Host.IsNotNullOrWhiteSpace())
+            {
+                try
+                {
+                    PostgresDatabase.Drop(_postgresOptions, MigrationType.Main);
+                }
+                catch (Exception ex)
+                {
+                    TestContext.Progress.WriteLine($"Drop Main DB failed (non-fatal): {ex.Message}");
+                }
+
+                try
+                {
+                    PostgresDatabase.Drop(_postgresOptions, MigrationType.Log);
+                }
+                catch (Exception ex)
+                {
+                    TestContext.Progress.WriteLine($"Drop Log DB failed (non-fatal): {ex.Message}");
+                }
+            }
         }
     }
 }
