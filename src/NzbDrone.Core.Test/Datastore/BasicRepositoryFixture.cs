@@ -103,6 +103,35 @@ namespace NzbDrone.Core.Test.Datastore
         }
 
         [Test]
+        public void upsert_insert_path_assigns_id_and_returns_model()
+        {
+            // WR-01 regression: Upsert no longer wraps Insert in its own RetryStrategy.
+            // Verify the insert branch (Id == 0) still returns the model with its
+            // DB-assigned Id populated — same contract as calling Insert directly.
+            var model = _basicList[0];
+            model.Id = 0;
+
+            var result = Subject.Upsert(model);
+
+            result.Id.Should().BeGreaterThan(0);
+            Subject.Find(result.Id).Should().NotBeNull();
+        }
+
+        [Test]
+        public void upsert_update_path_persists_changes()
+        {
+            // WR-01 regression: verify the update branch (Id != 0) still persists changes
+            // after removing the outer retry wrapper — delegates to Update which retries
+            // internally.
+            var inserted = Subject.Insert(_basicList[0]);
+            inserted.Interval = 42;
+
+            Subject.Upsert(inserted);
+
+            Subject.Find(inserted.Id).Interval.Should().Be(42);
+        }
+
+        [Test]
         public void should_be_able_to_update_single_field()
         {
             Subject.InsertMany(_basicList);
