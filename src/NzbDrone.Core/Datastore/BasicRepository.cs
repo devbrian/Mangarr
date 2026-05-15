@@ -350,22 +350,16 @@ namespace NzbDrone.Core.Datastore
 
         public TModel Upsert(TModel model)
         {
-            // Upsert defensive wrap (Plan 01-05 Task 2): Insert / Update already retry,
-            // but a top-level wrap is cheap insurance against future refactors that might
-            // inline-SQL the upsert path (RESEARCH Open Question #2).
-            return RetryStrategy.Execute(
-                static (state, _) =>
-                {
-                    if (state.model.Id == 0)
-                    {
-                        state.self.Insert(state.model);
-                        return state.model;
-                    }
+            // WR-01: do NOT wrap with RetryStrategy.Execute here. Insert and Update each
+            // carry their own Polly retry (MaxRetryAttempts=3). A nested outer wrap would
+            // produce 4×4=16 worst-case SQLITE_BUSY attempts — far exceeding the ~15s
+            // combined budget that BusyTimeout=5000 × MaxRetryAttempts=3 was sized for.
+            if (model.Id == 0)
+            {
+                return Insert(model);
+            }
 
-                    state.self.Update(state.model);
-                    return state.model;
-                },
-                (self: this, model));
+            return Update(model);
         }
 
         public void Purge(bool vacuum = false)
