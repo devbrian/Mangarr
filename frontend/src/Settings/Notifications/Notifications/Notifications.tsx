@@ -59,6 +59,7 @@ function Notifications() {
 
           <Card
             className={styles.addNotification}
+            data-testid="settings-notification-add-card"
             onPress={handleAddNotificationPress}
           >
             <div className={styles.center}>

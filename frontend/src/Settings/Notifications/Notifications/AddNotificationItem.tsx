@@ -31,8 +31,22 @@ function AddNotificationItem({
     onNotificationSelect({ implementation, implementationName });
   }, [implementation, implementationName, onNotificationSelect]);
 
+  // Phase 20 Plan 20-06: testid slug matches the Mangarr implementation key
+  // lowercased + suffix-stripped (same strip pattern as Plans 20-04/20-05 —
+  // strips Indexer/DownloadClient/Notification suffix only). For
+  // "KomgaNotification" → "komga"; "KavitaNotification" → "kavita". Stable for
+  // Playwright targeting in SettingsProviderFlow.OpenPickerAndSelectAsync.
+  const itemTestIdSlug = implementation
+    .replace(/Indexer$/i, '')
+    .replace(/DownloadClient$/i, '')
+    .replace(/Notification$/i, '')
+    .toLowerCase();
+
   return (
-    <div className={styles.notification}>
+    <div
+      className={styles.notification}
+      data-testid={`add-notification-${itemTestIdSlug}`}
+    >
       <Link className={styles.underlay} onPress={handleNotificationSelect} />
 
       <div className={styles.overlay}>
