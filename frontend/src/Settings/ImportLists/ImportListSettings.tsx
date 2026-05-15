@@ -17,9 +17,13 @@ function ImportListSettings() {
   return (
     <PageContent title={translate('ImportLists')}>
       <PageContentBody>
-        <Alert kind={kinds.INFO}>
-          {`${translate('ImportLists')} — not yet available for manga (v1.1+).`}
-        </Alert>
+        {/* Phase 20 Plan 20-02 — route-load testid (D-18 selector strategy).
+            v1.1+ placeholder per Phase 20 D-06 — no concrete providers ship pre-v1. */}
+        <div data-testid="settings-importlists-page">
+          <Alert kind={kinds.INFO}>
+            {`${translate('ImportLists')} — not yet available for manga (v1.1+).`}
+          </Alert>
+        </div>
       </PageContentBody>
     </PageContent>
   );

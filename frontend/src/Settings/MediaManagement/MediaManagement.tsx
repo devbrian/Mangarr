@@ -142,6 +142,10 @@ function MediaManagement() {
       />
 
       <PageContentBody>
+        {/* Phase 20 Plan 20-02 — top-level route-load testid (D-18 selector strategy).
+            Coexists with the existing `settings-root-folders-page` sub-section testid
+            below, which Phase 18's SettingsRootFoldersPage fixtures continue to use. */}
+        <div data-testid="settings-mediamanagement-page">
         <div data-testid="settings-root-folders-page">
           {/* Sonarr divergence: Phase 7 D-05 manga sibling; Phase 15 Plan 15-12 fix-forward
             removed the TV `<Naming />` sibling that called the deleted /api/v5/settings/naming.
@@ -531,6 +535,7 @@ function MediaManagement() {
             <RootFolders />
             <AddRootFolder />
           </FieldSet>
+        </div>
         </div>
       </PageContentBody>
     </PageContent>

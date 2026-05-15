@@ -73,6 +73,8 @@ function CustomFormatProfileSettings() {
       <SettingsToolbar showSave={false} />
 
       <PageContentBody>
+        {/* Phase 20 Plan 20-02 — route-load testid (D-18 selector strategy). */}
+        <div data-testid="settings-customformatprofiles-page">
         <DndProvider options={HTML5toTouch}>
           <FieldSet legend={translate('CustomFormatProfiles')}>
             <PageSectionContent
@@ -110,6 +112,7 @@ function CustomFormatProfileSettings() {
             </PageSectionContent>
           </FieldSet>
         </DndProvider>
+        </div>
       </PageContentBody>
     </PageContent>
   );
