@@ -106,22 +106,42 @@ namespace NzbDrone.Core.Manga
                 return pagingSpec;
             }
 
+            // gh #153 fix-forward: WhereBuilder requires a CONCRETE comparison in each
+            // FilterExpression; a bare member-access (e.g. `c.Monitored`) emits
+            // `"Chapters"."Monitored"` with no comparator and trips
+            // WhereBuilderSqlite.cs:391-395 ("WhereBuilder requires a concrete condition").
+            // Pin the comparator explicitly (`== true`) so SqlBuilder always sees a binary
+            // expression with a constant on the right.
             pagingSpec.FilterExpressions.Add(c => c.ChapterFileId != null);
-            pagingSpec.FilterExpressions.Add(c => c.Monitored);
+            pagingSpec.FilterExpressions.Add(c => c.Monitored == true);
 
             // Project to Manga.Id list of "candidate" mangas — the union of mangas whose
             // TranslationProfileId or CustomFormatProfileId appears in the below-cutoff sets.
             // We compute this in C# via a small Manga lookup (the candidate set is bounded by
             // library size and amortizes well — same approach as Tv/EpisodeRepository's per-call
             // qualitiesBelowCutoff projection at line 232-241).
-            var translationProfileIds = belowCutoffTranslationProfileIds ?? new List<int>();
-            var customFormatProfileIds = belowCutoffCustomFormatProfileIds ?? new List<int>();
+            // gh #153 fix-forward: the SqlBuilder's WhereBuilderSqlite/Postgres
+            // VisitMemberAccess cannot translate `.Value` on a `Nullable<int>` —
+            // it emits `NULL` in place of the column reference, so
+            // `translationProfileIds.Contains(m.TranslationProfileId.Value)` projects
+            // to `IN (NULL)` and never matches any row. Casting the below-cutoff
+            // id list to `List<int?>` lets us drop the `.Value` and call Contains
+            // directly on the nullable column, which the WhereBuilder DOES
+            // translate to the correct `"Manga"."TranslationProfileId" IN (...)`
+            // SQL. This unblocks the only call site of
+            // ChaptersWhereCutoffUnmet (the /api/v5/manga/wanted/cutoff endpoint);
+            // until this fix landed, the endpoint returned 0 rows for every
+            // input, masking a real test-coverage gap that gh #153 closes.
+            var translationProfileIds = (belowCutoffTranslationProfileIds ?? new List<int>())
+                .Select(id => (int?)id).ToList();
+            var customFormatProfileIds = (belowCutoffCustomFormatProfileIds ?? new List<int>())
+                .Select(id => (int?)id).ToList();
 
             var candidateMangaIds = _database.Query<Manga>(
                     new SqlBuilder(_database.DatabaseType)
                         .Where<Manga>(m =>
-                            (m.TranslationProfileId != null && translationProfileIds.Contains(m.TranslationProfileId.Value)) ||
-                            (m.CustomFormatProfileId != null && customFormatProfileIds.Contains(m.CustomFormatProfileId.Value))))
+                            (m.TranslationProfileId != null && translationProfileIds.Contains(m.TranslationProfileId)) ||
+                            (m.CustomFormatProfileId != null && customFormatProfileIds.Contains(m.CustomFormatProfileId))))
                 .Select(m => m.Id)
                 .ToList();
 

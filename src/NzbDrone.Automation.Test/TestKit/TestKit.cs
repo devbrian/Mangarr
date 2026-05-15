@@ -488,6 +488,200 @@ public class TestKit
         await TriggerPendingReleaseRebuildAsync();
     }
 
+    /// <summary>
+    /// Seeds a below-cutoff chapter for the given <paramref name="mangaId"/> + <paramref name="chapterId"/>
+    /// pair, satisfying the <c>ChapterCutoffService.ChaptersWhereCutoffUnmet</c>
+    /// eligibility predicate (gh #153). The cutoff-unmet feed
+    /// (<c>GET /api/v5/manga/wanted/cutoff</c>) returns only chapters whose:
+    /// <list type="number">
+    /// <item><c>ChapterFile</c> is non-null (chapter has an imported file)</item>
+    /// <item><c>Chapter.Monitored == true</c></item>
+    /// <item>parent <c>Manga</c> is assigned to a <c>TranslationProfile</c> with
+    /// <c>Languages.Count &gt; 1</c> <em>OR</em> a <c>CustomFormatProfile</c> with
+    /// <c>MinFormatScore &gt; 0 || MaxFormatScore.HasValue</c>
+    /// (per <c>ChapterCutoffService.cs:63-104</c>).</item>
+    /// </list>
+    /// <para>The fresh-DB baseline ships an <c>"English Only"</c> TranslationProfile
+    /// (single language ⇒ NOT below cutoff) and a default CustomFormatProfile with
+    /// <c>MinFormatScore=0</c> + <c>MaxFormatScore=null</c> (no score window ⇒ NOT below cutoff),
+    /// so no manga is ever eligible without explicit mutation. This helper:</para>
+    /// <list type="number">
+    /// <item>Creates a multi-language <c>TranslationProfile</c> via <c>POST /api/v5/translationprofile</c>
+    /// (Languages = ["en", "ja"] — both BCP-47-valid via <c>IsoLanguages.Find</c>).</item>
+    /// <item>Re-assigns the seeded manga to the new profile via <c>PUT /api/v5/manga/{id}</c>
+    /// (<c>MangaResource.ApplyChanges</c> round-trips <c>TranslationProfileId</c>).</item>
+    /// <item>Inserts a <c>ChapterFile</c> row via raw-SQLite (mirroring the
+    /// <c>SeedHistoryFailedAsync</c> / <c>SeedPendingQueueItemAsync</c> precedent).</item>
+    /// <item>Updates the target Chapter's <c>ChapterFileId</c> FK + forces <c>Monitored = true</c>
+    /// in the same UPDATE so the cutoff service's <c>c.Monitored</c> filter holds
+    /// regardless of any chapter-level monitor toggle.</item>
+    /// </list>
+    /// <para>Cat A's <c>MangaCutoffUnmetFixture</c> calls this so the populated-row
+    /// branch (per-row <c>current-quality</c> + <c>cutoff-quality</c> testids) is
+    /// reachable deterministically — the populated path is the only path
+    /// (the empty-state branch was deleted per gh #153 / Plan 19-05 D-03 precedent).</para>
+    /// </summary>
+    /// <param name="appDataPath">The backend's per-fixture data dir — pass <c>Runner.AppData</c>.</param>
+    /// <param name="mangaId">FK to a manga the fixture already seeded via AddMangaFlow.</param>
+    /// <param name="chapterId">FK to a chapter of that manga.</param>
+    public async Task SeedCutoffUnmetChapterAsync(string appDataPath, int mangaId, int chapterId)
+    {
+        // 1. POST a multi-language TranslationProfile. Languages.Count > 1 is the
+        //    canonical cutoff predicate (ChapterCutoffService:68-76). "en"+"ja"
+        //    both pass IsoLanguages.Find and stay under the 50-entry / 32-char-each
+        //    validator caps. The new profile id round-trips back so step 2 can swap
+        //    the manga's TranslationProfileId in.
+        var profileRequest = BuildRequest("translationprofile", Method.POST);
+        profileRequest.AddJsonBody(new
+        {
+            name = $"TestKit Cutoff Multi-Lang {Guid.NewGuid():N}",
+            languages = new[] { "en", "ja" },
+            allowLanguagesNotInProfile = false,
+            upgradeAllowed = true
+        });
+        var profileResponse = await _client.ExecuteAsync(profileRequest);
+        if (!profileResponse.IsSuccessful)
+        {
+            throw new InvalidOperationException(
+                $"TestKit.SeedCutoffUnmetChapterAsync: translationprofile POST failed " +
+                $"[{(int)profileResponse.StatusCode}] body={profileResponse.Content}");
+        }
+
+        int translationProfileId;
+        using (var profileDoc = JsonDocument.Parse(profileResponse.Content ?? "{}"))
+        {
+            translationProfileId = profileDoc.RootElement.GetProperty("id").GetInt32();
+        }
+
+        // 2. GET the manga, swap its TranslationProfileId, PUT it back. PUT
+        //    round-trips the full resource through Manga.ApplyChanges; issue #96
+        //    fix preserves existing.Path if the inbound body omits it, but we
+        //    round-trip the full GET body so every field stays canonical.
+        var mangaGet = await _client.ExecuteAsync(BuildRequest($"manga/{mangaId}", Method.GET));
+        if (!mangaGet.IsSuccessful)
+        {
+            throw new InvalidOperationException(
+                $"TestKit.SeedCutoffUnmetChapterAsync: manga GET failed " +
+                $"[{(int)mangaGet.StatusCode}] body={mangaGet.Content}");
+        }
+
+        var mangaResource = JsonNode.Parse(mangaGet.Content).AsObject();
+        mangaResource["translationProfileId"] = translationProfileId;
+
+        var mangaPut = BuildRequest($"manga/{mangaId}", Method.PUT);
+        mangaPut.AddParameter("application/json", mangaResource.ToJsonString(), ParameterType.RequestBody);
+        var mangaPutResponse = await _client.ExecuteAsync(mangaPut);
+        if (!mangaPutResponse.IsSuccessful)
+        {
+            throw new InvalidOperationException(
+                $"TestKit.SeedCutoffUnmetChapterAsync: manga PUT failed " +
+                $"[{(int)mangaPutResponse.StatusCode}] body={mangaPutResponse.Content}");
+        }
+
+        // 3. Raw-SQLite INSERT into ChapterFiles + UPDATE Chapters. Identifiers
+        //    double-quoted for postgres-case-preserve (same pattern as the other
+        //    seed helpers). Wrap both writes in a transaction so they fail-fast
+        //    together if either trips a schema drift.
+        using var connection = OpenDatabase(appDataPath);
+        using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            // INSERT ChapterFile. Schema (001_mangarr_baseline.cs:641-650):
+            //   MangaId(NN) + ChapterId(NN) + RelativePath(NN) + Path(NN) +
+            //   Size(NN) + DateAdded(NN) + OriginalFilePath(null) +
+            //   TranslatedLanguage(null) + ScanlationGroup(null).
+            // No JSON columns — no EmbeddedDocumentSettings serialization needed.
+            // RETURNING the new id round-trips on both SQLite and postgres (SQLite
+            // supports RETURNING since 3.35; the project's bundled SQLite is well
+            // above that floor).
+            var relativePath = $"Chapter {chapterId}.cbz";
+            var fullPath = $"/testkit/cutoff-unmet/manga-{mangaId}/chapter-{chapterId}.cbz";
+            int chapterFileId;
+
+            using (var insertFile = connection.CreateCommand())
+            {
+                insertFile.Transaction = transaction;
+                insertFile.CommandText =
+                    "INSERT INTO \"ChapterFiles\" " +
+                    "(\"MangaId\", \"ChapterId\", \"RelativePath\", \"Path\", \"Size\", \"DateAdded\", " +
+                    " \"OriginalFilePath\", \"TranslatedLanguage\", \"ScanlationGroup\") " +
+                    "VALUES " +
+                    "(@MangaId, @ChapterId, @RelativePath, @Path, @Size, @DateAdded, " +
+                    " @OriginalFilePath, @TranslatedLanguage, @ScanlationGroup); " +
+                    "SELECT last_insert_rowid();";
+
+                // Postgres path: last_insert_rowid() is SQLite-specific. Branch on
+                // _postgresOptions for the id-recovery hop.
+                if (_postgresOptions != null && _postgresOptions.Host.IsNotNullOrWhiteSpace())
+                {
+                    insertFile.CommandText =
+                        "INSERT INTO \"ChapterFiles\" " +
+                        "(\"MangaId\", \"ChapterId\", \"RelativePath\", \"Path\", \"Size\", \"DateAdded\", " +
+                        " \"OriginalFilePath\", \"TranslatedLanguage\", \"ScanlationGroup\") " +
+                        "VALUES " +
+                        "(@MangaId, @ChapterId, @RelativePath, @Path, @Size, @DateAdded, " +
+                        " @OriginalFilePath, @TranslatedLanguage, @ScanlationGroup) " +
+                        "RETURNING \"Id\";";
+                }
+
+                AddParam(insertFile, "@MangaId", mangaId);
+                AddParam(insertFile, "@ChapterId", chapterId);
+                AddParam(insertFile, "@RelativePath", relativePath);
+                AddParam(insertFile, "@Path", fullPath);
+                AddParam(insertFile, "@Size", 1024L);
+                AddParam(insertFile, "@DateAdded", DateTime.UtcNow);
+                AddParam(insertFile, "@OriginalFilePath", DBNull.Value);
+
+                // TranslatedLanguage = "en" so the imported file lands on the
+                // top-rank language of the new multi-language profile (en > ja);
+                // makes the row a genuine "imported in en, ja-upgrade available"
+                // below-cutoff case rather than a synthetic stub.
+                AddParam(insertFile, "@TranslatedLanguage", "en");
+                AddParam(insertFile, "@ScanlationGroup", DBNull.Value);
+
+                var newId = insertFile.ExecuteScalar();
+                if (newId == null || newId is DBNull)
+                {
+                    throw new InvalidOperationException(
+                        "TestKit.SeedCutoffUnmetChapterAsync: ChapterFiles INSERT returned no id");
+                }
+
+                chapterFileId = Convert.ToInt32(newId);
+            }
+
+            // UPDATE Chapter.ChapterFileId + force Monitored=true so the cutoff
+            // service's c.Monitored filter holds regardless of any chapter-level
+            // monitor toggle the AddManga flow may have applied.
+            using (var updateChapter = connection.CreateCommand())
+            {
+                updateChapter.Transaction = transaction;
+                updateChapter.CommandText =
+                    "UPDATE \"Chapters\" " +
+                    "SET \"ChapterFileId\" = @ChapterFileId, \"Monitored\" = @Monitored " +
+                    "WHERE \"Id\" = @ChapterId";
+                AddParam(updateChapter, "@ChapterFileId", chapterFileId);
+                AddParam(updateChapter, "@Monitored", true);
+                AddParam(updateChapter, "@ChapterId", chapterId);
+
+                var updated = updateChapter.ExecuteNonQuery();
+                if (updated != 1)
+                {
+                    throw new InvalidOperationException(
+                        $"TestKit.SeedCutoffUnmetChapterAsync: expected 1 Chapters row updated " +
+                        $"for id={chapterId}, got {updated}");
+                }
+            }
+
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
     private async Task TriggerPendingReleaseRebuildAsync()
     {
         var getReq = BuildRequest("config/downloadclient", Method.GET);
