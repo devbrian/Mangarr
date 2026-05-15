@@ -194,8 +194,17 @@ runs:
       shell: bash
       run: dotnet test ./_tests/${{ inputs.pattern }} --filter "${{ inputs.filter }}" --logger "trx;LogFileName=${{ env.RESULTS_NAME }}.trx" --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"
 
+    # /gsd-debug gh149-trx-upload-on-cancel: changed `if: ${{ !cancelled() }}` to
+    # `if: always()` so the TRX artifact is preserved when a job is cancelled by GH
+    # job-timeout (the 60-min ceiling on automation_test_nightly entries flipped the
+    # runner to `cancelled` and skipped this step, losing the child Mangarr
+    # stdout/stderr captured by AutomationTest.OneTimeSetUpAsync). Safe because
+    # upload-artifact@v7 no-ops on missing source paths (dotnet test that crashed
+    # before producing any TRX still won't upload), and RESULTS_NAME is already
+    # job-scoped so there's no clobbering risk on retries. See issue #149 and the
+    # surfacing debug session at .planning/debug/resolved/nightly-automation-fail.md.
     - name: Upload Test Results
-      if: ${{ !cancelled() }}
+      if: always()
       uses: actions/upload-artifact@v7
       with:
         name: results-${{ env.RESULTS_NAME }}
