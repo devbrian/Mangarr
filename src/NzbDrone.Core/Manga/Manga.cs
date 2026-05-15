@@ -139,6 +139,11 @@ namespace NzbDrone.Core.Manga
             TotalChapterCount = other.TotalChapterCount;
             PublicationYear = other.PublicationYear;
             PrimaryAuthor = other.PrimaryAuthor;
+
+            // GH #118 — metadata-sourced alt-title set; refresh-merged like other
+            // metadata fields above. Populated by MangaDex/AniList/MAL MapManga
+            // and consumed by MangaParsingService.GetManga Strategy 2.
+            AlternativeTitles = other.AlternativeTitles;
             LastInfoSync = DateTime.UtcNow;
 
             // User-mutable persistence fields — gap-02 backfill.
