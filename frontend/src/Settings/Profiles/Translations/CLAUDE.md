@@ -8,7 +8,7 @@ TranslationProfile editor sub-tree — wires the Phase 5 `TranslationProfile` en
 
 ## Mangarr Inheritance
 
-This sub-tree is the manga sibling of `frontend/src/Settings/Profiles/Quality/`. Every file ports the role-match analog file from `Quality/` with manga-domain divergence at the form-fields layer (an ordered BCP-47 language list + an `allowLanguagesNotInProfile` strict-mode bool replace quality items + `cutoff` + `upgradeAllowed`). All files carry the Pattern S2 sibling-divergence header.
+This sub-tree is the manga sibling of `frontend/src/Settings/Profiles/Quality/`. Every file ports the role-match analog file from `Quality/` with manga-domain divergence at the form-fields layer (an ordered BCP-47 language list + an `allowLanguagesNotInProfile` strict-mode bool + an `upgradeAllowed` flag replace quality items + `cutoff`). All files carry the Pattern S2 sibling-divergence header.
 
 ## Files
 
@@ -21,7 +21,7 @@ This sub-tree is the manga sibling of `frontend/src/Settings/Profiles/Quality/`.
 | `TranslationProfileName.tsx` | Name resolver hook + component for column rendering elsewhere | `QualityProfileName.tsx` |
 | `useTranslationProfiles.ts` | Read-side data hook powering the select + filter consumers | `useQualityProfiles.ts` |
 | `EditTranslationProfileModal.tsx` | Modal scaffold wrapper | `EditQualityProfileModal.tsx` |
-| `EditTranslationProfileModalContent.tsx` | Form: name + ordered language list + `allowLanguagesNotInProfile` checkbox + Save/Delete | `EditQualityProfileModalContent.tsx` |
+| `EditTranslationProfileModalContent.tsx` | Form: name + ordered language list + `allowLanguagesNotInProfile` checkbox + `upgradeAllowed` checkbox + Save/Delete | `EditQualityProfileModalContent.tsx` |
 | `CLAUDE.md` | This documentation | — |
 
 ## API Wiring
@@ -33,7 +33,7 @@ This sub-tree is the manga sibling of `frontend/src/Settings/Profiles/Quality/`.
 
 React Query cache key: `['/translationprofile']` (singular `path`-shaped — matches the `useApiQuery` `path` argument; SignalR auto-invalidation NOT wired in v1 since Phase 5 controllers do not extend `RestControllerWithSignalR<T>` for profiles).
 
-## Data Shape (Phase 5 D-01..D-04)
+## Data Shape (Phase 5 D-01..D-04 + Phase 6 D-10)
 
 The frontend `TranslationProfileResource` type (in `TranslationProfile.tsx`) matches the
 shipped backend resource at `src/Mangarr.Api.V5/Profiles/Translations/TranslationProfileResource.cs`
@@ -45,6 +45,7 @@ interface TranslationProfileResource {
   name: string;
   languages: string[]; // flat ordered BCP-47 codes; array index = preference rank (Phase 5 D-03)
   allowLanguagesNotInProfile: boolean; // Phase 5 D-02 strict-mode bool, default false
+  upgradeAllowed: boolean; // Phase 6 D-10 per-profile upgrade flag, default true (GH #138)
 }
 ```
 
@@ -61,13 +62,23 @@ interface TranslationProfileResource {
 > per-language `allowed`/`rank` fields. Preference rank is purely the language's position
 > in the array.
 >
-> Known backend finding (NOT fixed in #127, out of scope): the entity
-> `TranslationProfile.cs` carries an `UpgradeAllowed` bool that the V5 resource does not
-> expose. Left as a finding for a future backend pass.
+> **GH #138 history (debug `gh138-tprofile-upgradeallowed`, 2026-05-14):** the entity
+> `TranslationProfile.cs` carries an `UpgradeAllowed` bool (Phase 6 D-10, default `true`)
+> that `MediaFiles/MangaImport/Specifications/UpgradeSpecification.cs` reads as the OUTER
+> half of the D-10 three-state effective-upgrade-allowed AND-merge
+> (`manga.UpgradeAllowedOverride ?? (translationProfile.UpgradeAllowed && customFormatProfile.UpgradeAllowed)`).
+> Phase 5 D-01 shipped `TranslationProfileResource` without the field, so `ToResource`
+> never returned it and `ToModel` left it at the C# default `true` on every write —
+> effectively frozen and unconfigurable from the UI (it was a real decision-engine knob,
+> not a cosmetic gap). Fixed **Backend↔Frontend** (the canonical Sonarr pattern — Sonarr's
+> `QualityProfile.UpgradeAllowed` is exposed the same way): the V5 resource now round-trips
+> `upgradeAllowed` in both mapper directions, the TS type carries it, and the edit modal
+> exposes it as a checkbox. No migration needed — the `TranslationProfiles.UpgradeAllowed`
+> column already exists in `001_mangarr_baseline.cs` (Phase 6 D-10).
 
-## i18n Keys Referenced (deferred to Plan 11 en.json additions)
+## i18n Keys Referenced
 
-The `translate()` calls fall back to the key string at runtime if the key is missing — no crash. Plan 07-11 lands en.json additions:
+The `translate()` calls fall back to the key string at runtime if the key is missing — no crash. en.json keys live in `src/NzbDrone.Core/Localization/Core/en.json`:
 
 - `TranslationProfiles` (page legend + nav label)
 - `TranslationProfilesSettingsSummary` (nav row summary)
@@ -81,6 +92,7 @@ The `translate()` calls fall back to the key string at runtime if the key is mis
 - `TranslationProfileInUseHelpText` (in-use error — UI-SPEC §Error states)
 - `Languages` / `AddLanguage` / `MoveUp` / `MoveDown` / `Remove`
 - `AllowLanguagesNotInProfile` / `AllowLanguagesNotInProfileHelpText` (strict-mode checkbox — added GH #127, 2026-05-14)
+- `UpgradeAllowed` / `UpgradeAllowedHelpText` (per-profile upgrade checkbox — added GH #138, 2026-05-14)
 
 ## Phase 8 Cleanup
 
@@ -95,3 +107,4 @@ This sub-tree is manga-canonical and stays. The legacy `Settings/Profiles/Qualit
 - [../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-07-PLAN.md](../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-07-PLAN.md) — plan body
 - [../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md) — TranslationProfile entity decisions
 - [../../../../.planning/debug/gh127-tprofile-langs-mismatch.md](../../../../.planning/debug/gh127-tprofile-langs-mismatch.md) — GH #127 contract-mismatch debug session
+- [../../../../.planning/debug/gh138-tprofile-upgradeallowed.md](../../../../.planning/debug/gh138-tprofile-upgradeallowed.md) — GH #138 UpgradeAllowed plumbing debug session

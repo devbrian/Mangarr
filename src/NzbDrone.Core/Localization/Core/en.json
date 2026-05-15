@@ -2077,6 +2077,8 @@
   "UpdateUiNotWritableHealthCheckMessage": "Cannot install update because UI folder '{uiFolder}' is not writable by the  user '{userName}'.",
   "UpdaterLogFiles": "Updater Log Files",
   "Updates": "Updates",
+  "UpgradeAllowed": "Upgrade Allowed",
+  "UpgradeAllowedHelpText": "If enabled, {appName} will replace an existing chapter file when a release with a better-ranked translation language (or a higher custom format score at the same language) is found. When disabled, the first imported file is kept.",
   "UpgradeUntil": "Upgrade Until",
   "UpgradeUntilChapterHelpText": "Once this quality is reached {appName} will no longer download chapters after the custom format cutoff score is met or exceeded",
   "UpgradeUntilCustomFormatScore": "Upgrade Until Custom Format Score",

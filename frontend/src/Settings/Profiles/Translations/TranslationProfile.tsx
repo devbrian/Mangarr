@@ -9,7 +9,9 @@
 // Manga sibling diverges from QualityProfile:
 //   * Renders an ordered language list (flat BCP-47 string[]; array index = preference rank, Phase 5 D-03)
 //     instead of quality items + cutoff highlight
-//   * `allowLanguagesNotInProfile` (Phase 5 D-02 strict-mode bool) replaces the cutoff/upgrade-allowed logic
+//   * `allowLanguagesNotInProfile` (Phase 5 D-02 strict-mode bool) replaces the cutoff logic
+//   * `upgradeAllowed` (Phase 6 D-10 per-profile upgrade flag) is the manga peer of QualityProfile's
+//     upgrade-allowed bool (GH #138 — surfaced in the edit modal, not on the card)
 //   * No clone button in v1 (TranslationProfiles are simple enough; deferred)
 //   * Delete-confirm uses UI-SPEC §Destructive confirmation copy: 'Delete the Translation Profile "{Name}"?' + 'Delete Profile'
 //
@@ -19,6 +21,13 @@
 // `/api/v5/translationprofile` resource serializes ONLY
 // `{ id, name, languages: string[], allowLanguagesNotInProfile: bool }`. Fixed
 // Frontend→backend (user-decided): the type + card now match the real API.
+//
+// GH #138 (debug gh138-tprofile-upgradeallowed, 2026-05-14): the entity carries an
+// `UpgradeAllowed` bool (Phase 6 D-10, default true) that `UpgradeSpecification.cs`
+// reads as the OUTER half of the D-10 three-state effective-upgrade-allowed AND-merge.
+// The V5 resource originally dropped it, freezing it at `true`. The resource now
+// round-trips `upgradeAllowed` and the edit modal exposes it as a checkbox; the type
+// below carries the field.
 //
 // Phase 8 cleanup: this stays — manga-canonical.
 
@@ -36,6 +45,8 @@ import styles from './TranslationProfile.css';
 // (src/Mangarr.Api.V5/Profiles/Translations/TranslationProfileResource.cs):
 //   - `languages` is a flat ordered BCP-47 string[]; array index = preference rank (Phase 5 D-03).
 //   - `allowLanguagesNotInProfile` is the Phase 5 D-02 strict-mode bool (default false).
+//   - `upgradeAllowed` is the Phase 6 D-10 per-profile upgrade flag (default true) — the
+//     OUTER half of UpgradeSpecification's D-10 three-state AND-merge (GH #138).
 // The backend has NO per-profile `isDefault` flag — the default profile is the
 // global `Config.DefaultTranslationProfileId` config key — and NO `fallback` enum
 // or per-language `allowed`/`rank` fields. Those are not surfaced here.
@@ -44,6 +55,7 @@ export interface TranslationProfileResource {
   name: string;
   languages: string[];
   allowLanguagesNotInProfile: boolean;
+  upgradeAllowed: boolean;
 }
 
 interface TranslationProfileProps extends TranslationProfileResource {
