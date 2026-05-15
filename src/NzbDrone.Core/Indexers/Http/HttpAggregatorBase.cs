@@ -46,16 +46,28 @@ namespace NzbDrone.Core.Indexers.Http
         // Phase 4 D-01 — promoted to public for IHttpAggregator interface contract.
         // ChapterPageFetcher (plan 04-03) reads aggregator.SourceKey via the interface to set
         // request.RateLimitKey on every image GET (Pitfall 1 / F-01 class regression guard).
-        public string SourceKey => string.IsNullOrWhiteSpace(Settings.SourceKey)
-            ? DefaultSourceKey
-            : Settings.SourceKey;
+        public string SourceKey
+        {
+            get
+            {
+                // WR-04 (#147): defend against early-construction call where Definition
+                // (or Definition.Settings) is not yet wired. Fall back to a fresh default
+                // settings instance so SourceKey resolves to DefaultSourceKey rather than
+                // throwing NullReferenceException.
+                var settings = SettingsOrDefault;
+                return string.IsNullOrWhiteSpace(settings.SourceKey)
+                    ? DefaultSourceKey
+                    : settings.SourceKey;
+            }
+        }
 
         /// <summary>
         /// User-overridable rate limit (D-12). Falls back to the base
         /// <see cref="HttpIndexerBase{TSettings}.RateLimit"/> (2 seconds) when the user has not
         /// configured a value.
         /// </summary>
-        public override TimeSpan RateLimit => Settings.Rate ?? base.RateLimit;
+        // WR-04 (#147): null-safe Settings access (Definition may be null pre-wire).
+        public override TimeSpan RateLimit => SettingsOrDefault.Rate ?? base.RateLimit;
 
         protected HttpAggregatorBase(
             IHttpClient httpClient,
@@ -113,9 +125,23 @@ namespace NzbDrone.Core.Indexers.Http
         /// </summary>
         // Phase 4 D-01 — promoted to public for IHttpAggregator interface contract.
         public string ResolveUserAgent()
-            => string.IsNullOrWhiteSpace(Settings.UserAgentOverride)
+        {
+            // WR-04 (#147): null-safe Settings access (Definition may be null pre-wire).
+            var settings = SettingsOrDefault;
+            return string.IsNullOrWhiteSpace(settings.UserAgentOverride)
                 ? BuildUserAgent()
-                : Settings.UserAgentOverride;
+                : settings.UserAgentOverride;
+        }
+
+        // WR-04 (#147): null-safe accessor for use by the three callers above
+        // (SourceKey, RateLimit, ResolveUserAgent). DI / persistence layers can
+        // construct a provider instance before Definition is hydrated; falling
+        // back to a fresh TSettings keeps all three properties NRE-free and
+        // preserves the original "use default" semantics. The base
+        // <see cref="IndexerBase{TSettings}.Settings"/> intentionally throws when
+        // Definition is wired but malformed — we only paper over the unwired case.
+        protected TSettings SettingsOrDefault
+            => Definition?.Settings is TSettings hydrated ? hydrated : new TSettings();
 
         /// <summary>
         /// Override the base dispatch hook to inject our SourceKey-keyed rate limit and honest UA.
