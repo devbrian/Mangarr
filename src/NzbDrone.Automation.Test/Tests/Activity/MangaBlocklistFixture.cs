@@ -52,7 +52,7 @@ public class MangaBlocklistFixture : AutomationTest
         // testid-wrapped table — making the shell assertions below
         // unsatisfiable.
         var (mangaId, chapterId) = await ResolveSeedFksAsync();
-        var testKit = new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, ApiKey, Runner.AppData);
+        var testKit = new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, ApiKey, Runner.AppData, Runner.PostgresOptions);
         await testKit.SeedBlocklistAsync(Runner.AppData, mangaId, chapterId);
 
         await new MangaBlocklistPage(Page).OpenAsync(RootUri);

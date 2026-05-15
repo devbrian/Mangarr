@@ -31,20 +31,31 @@ public class HealthBadgeFixture : AutomationTest
         // resolves into ONE of two terminal states after the /api/v5/health
         // query completes:
         //   (a) "No issues with your configuration" message (zero health items), OR
-        //   (b) a Health table with N>=1 row(s).
-        // The page-content body text exposes both cases; assert the regex match
-        // rather than visibility so we catch a stuck/empty render where the
-        // FieldSet exists but no terminal state was reached.
-        var pageBodyText = await Page.GetByTestId("system-status-page").TextContentAsync();
-        pageBodyText.Should().NotBeNullOrEmpty();
+        //   (b) a Health table + populated-state Alert footer ("wiki link" /
+        //       "support" / "logs" phrases from `HealthMessagesInfoBox` i18n).
+        //
+        // We scope to the FieldSet (legend "Health") rather than the whole
+        // `system-status-page` testid. The page wrapper concatenates Health +
+        // DiskSpace + About + MoreInfo into one text run with no separator —
+        // matching the regex on that blob is meaningless because tokens
+        // like "Warning" / "Error" elsewhere on the page would falsely satisfy
+        // a Health-specific contract.
+        //
+        // 2026-05-15 gh-152 verification fix: the prior regex
+        // `(No issues with your configuration|Warning|Notice|Error)` never
+        // matched the populated state because `Health.tsx:111` stores the
+        // severity ("Warning"/"Notice"/"Error") in the Icon's `title` HTML
+        // attribute, NOT in text content. The populated table renders the
+        // raw message body + the `HealthMessagesInfoBox` Alert footer which
+        // contains the phrases "wiki link" / "logs" / "support". Match
+        // against the empty-state message OR a unique populated-state
+        // footer token instead.
+        var healthSection = Page.Locator("fieldset:has(legend:has-text('Health'))");
+        await healthSection.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
 
-        // WR-09 (18-REVIEW): "Test All" / "Wiki" / "Health" are always-present
-        // toolbar/page-title tokens. Anchor only on data-bearing alternatives
-        // (empty-state message OR a populated row indicator). A populated
-        // health table renders the issue severity label ("Warning" /
-        // "Error" / "Info") and the source string — at least one of those
-        // text strings will be present when there is an issue.
-        pageBodyText.Should().MatchRegex(@"(No issues with your configuration|Warning|Notice|Error)");
+        var healthText = await healthSection.TextContentAsync();
+        healthText.Should().NotBeNullOrEmpty();
+        healthText.Should().MatchRegex(@"(No issues with your configuration|wiki link)");
 
         // URL stability — confirms no spurious nav and serves as the
         // shell-level state anchor.

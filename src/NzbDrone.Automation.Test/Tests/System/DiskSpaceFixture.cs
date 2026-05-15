@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -26,15 +27,34 @@ public class DiskSpaceFixture : AutomationTest
         // STATE assertion 1: page shell is the system-status-page testid.
         await Assertions.Expect(Page.GetByTestId("system-status-page")).ToBeVisibleAsync();
 
-        // STATE assertion 2: page body text contains a byte unit (B / KB / MB /
-        // GB / TB) — `formatBytes` output is the contract here. If the
-        // /api/v5/diskspace call were to return an empty array (would only
-        // happen on a host with no detectable drives — practically impossible),
-        // this assertion catches the silent-empty regression that pure
-        // visibility tests would miss.
-        var pageBody = await Page.GetByTestId("system-status-page").TextContentAsync();
-        pageBody.Should().NotBeNullOrEmpty();
-        pageBody.Should().MatchRegex(@"\d+(\.\d+)?\s*(B|KB|MB|GB|TB)");
+        // STATE assertion 2: the Disk Space FieldSet body contains a byte-
+        // formatted size cell. We scope to the FieldSet (legend "Disk Space")
+        // rather than the whole page so the regex doesn't drown in unrelated
+        // tokens from Health/About/MoreInfo sections.
+        //
+        // `formatBytes` (frontend/src/Utilities/Number/formatBytes.ts) calls
+        // `filesize({base: 2, round: 1})` which emits IEC binary units —
+        // `B`/`KiB`/`MiB`/`GiB`/`TiB`. The regex accepts both the IEC binary
+        // form (the actual current output) and the decimal SI form (defensive
+        // against a future formatter swap).
+        var diskSpaceSection = Page.Locator("fieldset:has(legend:has-text('Disk Space'))");
+        await diskSpaceSection.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+
+        // 2026-05-15 gh-152 round-2 fix: postgres-16 flaked once with the
+        // FieldSet rendered but body empty ("Disk Space" was the entire
+        // text content — table hadn't hydrated yet). Wait for the actual
+        // disk-row content (table row cells with byte-formatted text)
+        // before reading text so the regex isn't racing the /api/v5/diskspace
+        // network round-trip on a slow runner. Auto-retrying assertion via
+        // ToContainTextAsync handles the race naturally.
+        await Assertions.Expect(diskSpaceSection)
+            .ToContainTextAsync(
+                new Regex(@"\d+(\.\d+)?\s*(B|[KMGT]i?B)"),
+                new LocatorAssertionsToContainTextOptions { Timeout = 15_000 });
+
+        var diskSpaceText = await diskSpaceSection.TextContentAsync();
+        diskSpaceText.Should().NotBeNullOrEmpty();
+        diskSpaceText.Should().MatchRegex(@"\d+(\.\d+)?\s*(B|[KMGT]i?B)");
 
         Page.Url.Should().EndWith("/system/status");
     }

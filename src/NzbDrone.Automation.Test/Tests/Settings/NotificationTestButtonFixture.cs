@@ -109,19 +109,32 @@ public class NotificationTestButtonFixture : AutomationTest
             // WR-04 (18-REVIEW): the empty-notifications branch never
             // exercises the POST /api/v5/notification/test contract this
             // fixture claims to cover (INVENTORY v5-endpoint row 109).
-            // Verifying that an Add button exists is a page-shell check, not
-            // endpoint coverage. Surface the gap explicitly via
+            // Verifying that the Add surface exists is a page-shell check,
+            // not endpoint coverage. Surface the gap explicitly via
             // Assert.Inconclusive so dashboards distinguish "ran the
             // notification-test path" from "didn't"; the surface-reachable
             // check remains as a precondition before marking inconclusive.
-            var addButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Add" });
-            var addCount = await addButton.CountAsync();
-            addCount.Should().BeGreaterThan(0, "Settings/Connect must expose an Add surface for the user to wire their first notification (req NOTIFY-01/02)");
+            //
+            // gh #152 (Class 3 — assertion count = 0) fix-forward: the
+            // prior fixture located the Add surface via
+            // Page.GetByRole(AriaRole.Button, name="Add") — but
+            // Notifications.tsx renders the Add entry as a `<Card>`
+            // containing just an `<Icon name={icons.ADD}>` with NO text
+            // label (Notifications.tsx L60-L68). The Card chains through
+            // Link → `<button>` with no accessible name set, so the
+            // Button-with-name locator returned zero matches. Re-anchored
+            // to the "Connections" FieldSet legend which proves the section
+            // (and therefore the Add Card) rendered.
+            var fieldsetLegend = Page.Locator("legend").GetByText("Connections");
+            var fieldsetLegendCount = await fieldsetLegend.CountAsync();
+            fieldsetLegendCount.Should().BeGreaterThan(
+                0,
+                "Settings/Connect must expose the Connections FieldSet section for the user to wire their first notification (req NOTIFY-01/02)");
 
             Assert.Inconclusive(
                 "No Komga/Kavita notifications seeded — POST /api/v5/notification/test contract NOT exercised. " +
                 "Mirror DEF-18-18-01: needs a seeded fake-host notification (TestKit hook) or [Explicit] gate. " +
-                "Page-shell precondition (Add surface visible) verified.");
+                "Page-shell precondition (Connections section visible) verified.");
         }
     }
 }

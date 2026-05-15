@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
@@ -7,6 +8,9 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using Npgsql;
+using NzbDrone.Common.Extensions;
+using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Download.Pending;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Parser.Manga.Model;
@@ -25,12 +29,19 @@ public class TestKit
     private readonly RestClient _client;
     private readonly string _apiKey;
     private readonly string _tempFolderRoot;
+    private readonly PostgresOptions _postgresOptions;
 
-    public TestKit(string rootUri, string apiKey, string tempFolderRoot)
+    public TestKit(string rootUri, string apiKey, string tempFolderRoot, PostgresOptions postgresOptions = null)
     {
         _client = new RestClient($"{rootUri}/api/v5");
         _apiKey = apiKey;
         _tempFolderRoot = tempFolderRoot;
+
+        // gh-152 Class 6: when the harness is configured for postgres (PR #150
+        // populates NzbDroneRunner.PostgresOptions), the backend writes to the
+        // per-run-uid postgres DB and no SQLite file ever exists under AppData.
+        // OpenDatabase branches on this; null = sqlite mode (existing behavior).
+        _postgresOptions = postgresOptions;
     }
 
     public async Task SeedBaselineAsync()
@@ -305,25 +316,34 @@ public class TestKit
 
         using var connection = OpenDatabase(appDataPath);
         using var command = connection.CreateCommand();
+
+        // Identifiers double-quoted so postgres preserves case (unquoted postgres
+        // folds `ChapterHistory` -> `chapterhistory` and the relation isn't found).
+        // SQLite accepts double-quoted identifiers per ANSI SQL. Mirrors the
+        // canonical pattern at `BasicRepository.cs:125` (`FROM "{state.table}"`).
         command.CommandText =
-            "INSERT INTO ChapterHistory " +
-            "(MangaId, ChapterId, EventType, Date, SourceTitle, DownloadId, " +
-            " TranslatedLanguage, ScanlationGroup, SourceKey, ReleaseGuid, Data, Successful) " +
+            "INSERT INTO \"ChapterHistory\" " +
+            "(\"MangaId\", \"ChapterId\", \"EventType\", \"Date\", \"SourceTitle\", \"DownloadId\", " +
+            " \"TranslatedLanguage\", \"ScanlationGroup\", \"SourceKey\", \"ReleaseGuid\", \"Data\", \"Successful\") " +
             "VALUES " +
             "(@MangaId, @ChapterId, @EventType, @Date, @SourceTitle, @DownloadId, " +
             " @TranslatedLanguage, @ScanlationGroup, @SourceKey, @ReleaseGuid, @Data, @Successful)";
-        command.Parameters.AddWithValue("@MangaId", mangaId);
-        command.Parameters.AddWithValue("@ChapterId", chapterId);
-        command.Parameters.AddWithValue("@EventType", 2); // ChapterHistoryEventType.DownloadFailed
-        command.Parameters.AddWithValue("@Date", FormatUtc(DateTime.UtcNow));
-        command.Parameters.AddWithValue("@SourceTitle", "TestKit Seeded Release - Chapter");
-        command.Parameters.AddWithValue("@DownloadId", "testkit-failed-download-id");
-        command.Parameters.AddWithValue("@TranslatedLanguage", "en");
-        command.Parameters.AddWithValue("@ScanlationGroup", DBNull.Value);
-        command.Parameters.AddWithValue("@SourceKey", "MangaDex");
-        command.Parameters.AddWithValue("@ReleaseGuid", "testkit-failed-release-guid");
-        command.Parameters.AddWithValue("@Data", JsonSerializer.Serialize(data, EmbeddedDocumentSettings));
-        command.Parameters.AddWithValue("@Successful", 0);
+        AddParam(command, "@MangaId", mangaId);
+        AddParam(command, "@ChapterId", chapterId);
+        AddParam(command, "@EventType", 2); // ChapterHistoryEventType.DownloadFailed
+        AddParam(command, "@Date", DateTime.UtcNow);
+        AddParam(command, "@SourceTitle", "TestKit Seeded Release - Chapter");
+        AddParam(command, "@DownloadId", "testkit-failed-download-id");
+        AddParam(command, "@TranslatedLanguage", "en");
+        AddParam(command, "@ScanlationGroup", DBNull.Value);
+        AddParam(command, "@SourceKey", "MangaDex");
+        AddParam(command, "@ReleaseGuid", "testkit-failed-release-guid");
+        AddParam(command, "@Data", JsonSerializer.Serialize(data, EmbeddedDocumentSettings));
+
+        // Successful column is AsBoolean(): postgres has a native boolean type
+        // (rejects int->bool implicit casts); SQLite stores 0/1 as INTEGER but
+        // accepts bool fine via System.Data.SQLite. Pass `false` so both work.
+        AddParam(command, "@Successful", false);
 
         var inserted = command.ExecuteNonQuery();
         if (inserted != 1)
@@ -356,21 +376,21 @@ public class TestKit
         using var connection = OpenDatabase(appDataPath);
         using var command = connection.CreateCommand();
         command.CommandText =
-            "INSERT INTO MangaBlocklist " +
-            "(MangaId, ChapterIds, SourceTitle, SourceKey, ReleaseGuid, " +
-            " ReleaseInfoJson, Date, Reason, Source) " +
+            "INSERT INTO \"MangaBlocklist\" " +
+            "(\"MangaId\", \"ChapterIds\", \"SourceTitle\", \"SourceKey\", \"ReleaseGuid\", " +
+            " \"ReleaseInfoJson\", \"Date\", \"Reason\", \"Source\") " +
             "VALUES " +
             "(@MangaId, @ChapterIds, @SourceTitle, @SourceKey, @ReleaseGuid, " +
             " @ReleaseInfoJson, @Date, @Reason, @Source)";
-        command.Parameters.AddWithValue("@MangaId", mangaId);
-        command.Parameters.AddWithValue("@ChapterIds", JsonSerializer.Serialize(chapterIds, EmbeddedDocumentSettings));
-        command.Parameters.AddWithValue("@SourceTitle", "TestKit Seeded Release - Chapter");
-        command.Parameters.AddWithValue("@SourceKey", "MangaDex");
-        command.Parameters.AddWithValue("@ReleaseGuid", "testkit-blocklist-release-guid");
-        command.Parameters.AddWithValue("@ReleaseInfoJson", DBNull.Value);
-        command.Parameters.AddWithValue("@Date", FormatUtc(DateTime.UtcNow));
-        command.Parameters.AddWithValue("@Reason", "TestKit-seeded blocklist entry");
-        command.Parameters.AddWithValue("@Source", "TestKit");
+        AddParam(command, "@MangaId", mangaId);
+        AddParam(command, "@ChapterIds", JsonSerializer.Serialize(chapterIds, EmbeddedDocumentSettings));
+        AddParam(command, "@SourceTitle", "TestKit Seeded Release - Chapter");
+        AddParam(command, "@SourceKey", "MangaDex");
+        AddParam(command, "@ReleaseGuid", "testkit-blocklist-release-guid");
+        AddParam(command, "@ReleaseInfoJson", DBNull.Value);
+        AddParam(command, "@Date", DateTime.UtcNow);
+        AddParam(command, "@Reason", "TestKit-seeded blocklist entry");
+        AddParam(command, "@Source", "TestKit");
 
         var inserted = command.ExecuteNonQuery();
         if (inserted != 1)
@@ -436,16 +456,16 @@ public class TestKit
         {
             using var command = connection.CreateCommand();
             command.CommandText =
-                "INSERT INTO MangaPendingReleases " +
-                "(MangaId, Title, Added, ParsedChapterInfo, Release, Reason) " +
+                "INSERT INTO \"MangaPendingReleases\" " +
+                "(\"MangaId\", \"Title\", \"Added\", \"ParsedChapterInfo\", \"Release\", \"Reason\") " +
                 "VALUES " +
                 "(@MangaId, @Title, @Added, @ParsedChapterInfo, @Release, @Reason)";
-            command.Parameters.AddWithValue("@MangaId", mangaId);
-            command.Parameters.AddWithValue("@Title", releaseTitle);
-            command.Parameters.AddWithValue("@Added", FormatUtc(DateTime.UtcNow));
-            command.Parameters.AddWithValue("@ParsedChapterInfo", JsonSerializer.Serialize(parsedChapterInfo, EmbeddedDocumentSettings));
-            command.Parameters.AddWithValue("@Release", JsonSerializer.Serialize(release, EmbeddedDocumentSettings));
-            command.Parameters.AddWithValue("@Reason", (int)PendingReleaseReason.Delay);
+            AddParam(command, "@MangaId", mangaId);
+            AddParam(command, "@Title", releaseTitle);
+            AddParam(command, "@Added", DateTime.UtcNow);
+            AddParam(command, "@ParsedChapterInfo", JsonSerializer.Serialize(parsedChapterInfo, EmbeddedDocumentSettings));
+            AddParam(command, "@Release", JsonSerializer.Serialize(release, EmbeddedDocumentSettings));
+            AddParam(command, "@Reason", (int)PendingReleaseReason.Delay);
 
             var inserted = command.ExecuteNonQuery();
             if (inserted != 1)
@@ -495,8 +515,35 @@ public class TestKit
         }
     }
 
-    private static SQLiteConnection OpenDatabase(string appDataPath)
+    private DbConnection OpenDatabase(string appDataPath)
     {
+        // gh-152 Class 6: branch on backend type. The 4 automation_test_nightly
+        // postgres matrix entries (PR #150) configure the child Mangarr to
+        // persist to a per-run-uid postgres MainDb — no SQLite file is ever
+        // written. When PostgresOptions.Host is populated, open an Npgsql
+        // connection to that MainDb instead of looking for mangarr.db on disk.
+        // The sqlite path is structurally unchanged.
+        if (_postgresOptions != null && _postgresOptions.Host.IsNotNullOrWhiteSpace())
+        {
+            // Mirror PostgresDatabase.GetConnectionString (the canonical Mangarr
+            // postgres builder) plus the per-run MainDb. Enlist=false +
+            // IncludeErrorDetail=true match the test-common helper verbatim.
+            var builder = new NpgsqlConnectionStringBuilder
+            {
+                Host = _postgresOptions.Host,
+                Port = _postgresOptions.Port,
+                Username = _postgresOptions.User,
+                Password = _postgresOptions.Password,
+                Database = _postgresOptions.MainDb,
+                Enlist = false,
+                IncludeErrorDetail = true
+            };
+
+            var npgsqlConnection = new NpgsqlConnection(builder.ConnectionString);
+            npgsqlConnection.Open();
+            return npgsqlConnection;
+        }
+
         // T-19-01: derive the DB path from the harness-owned AppData dir only —
         // never a test-controlled string that could escape the per-fixture
         // sandbox. Phase 18 D-05 wipes this file per fixture so seeded rows
@@ -513,12 +560,17 @@ public class TestKit
         return connection;
     }
 
-    private static string FormatUtc(DateTime value)
+    // gh-152 Class 6: AddWithValue is a concrete-class convenience on
+    // SQLiteParameterCollection / NpgsqlParameterCollection — not part of the
+    // abstract DbParameterCollection contract. This helper builds a parameter
+    // via DbCommand.CreateParameter so the seed INSERTs work on either provider
+    // unchanged.
+    private static void AddParam(DbCommand command, string name, object value)
     {
-        // Mirror the backend's DapperUtcConverter round-trip shape — a plain
-        // "yyyy-MM-dd HH:mm:ss" UTC string is what Dapper reads back into a
-        // DateTime column.
-        return value.ToString("yyyy-MM-dd HH:mm:ss");
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = value ?? DBNull.Value;
+        command.Parameters.Add(parameter);
     }
 
     private RestRequest BuildRequest(string resource, Method method)

@@ -35,7 +35,11 @@ public class ParseModalFixture : AutomationTest
         // The Parse toolbar button is labelled "Test Parsing" (per
         // ParseToolbarButton.tsx → translate('TestParsing')). Use the role
         // selector since the button has no dedicated testid yet.
-        var parseButton = Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Test Parsing" });
+        //
+        // gh #152 (Class 1) fix-forward: PageToolbarButton renders Link with no
+        // `to` prop, which falls through to `<button>` (Link.tsx line 91-104).
+        // The prior AriaRole.Link locator never matched; use AriaRole.Button.
+        var parseButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Test Parsing" });
         await Assertions.Expect(parseButton).ToBeVisibleAsync();
         await parseButton.ClickAsync();
 

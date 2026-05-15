@@ -32,7 +32,11 @@ public class BackupRestoreFixture : AutomationTest
         // STATE assertion 1: toolbar exposes the Restore Backup button (text
         // match — the button has no dedicated testid yet; per D-18 we fall
         // back to GetByRole for pure assertion targets).
-        var restoreButton = Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Restore Backup" });
+        //
+        // gh #152 (Class 1) fix-forward: PageToolbarButton renders Link with no
+        // `to` prop, which falls through to `<button>` (Link.tsx line 91-104).
+        // The prior AriaRole.Link locator never matched; use AriaRole.Button.
+        var restoreButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Restore Backup" });
         await Assertions.Expect(restoreButton).ToBeVisibleAsync();
 
         // Click to open the RestoreBackupModal. Threat T-18-17-01 mitigation:
