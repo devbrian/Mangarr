@@ -9,12 +9,15 @@
 //
 // Manga sibling diverges from EditQualityProfileModalContent:
 //   * No schema fetch — TranslationProfile is a simple shape (name + languages[] +
-//     allowLanguagesNotInProfile); Phase 5 baseline ships entities directly without a /schema endpoint
+//     allowLanguagesNotInProfile + upgradeAllowed); Phase 5 baseline ships entities directly
+//     without a /schema endpoint
 //   * Languages list rendered as a flat ordered list of BCP-47 string rows with up/down move buttons;
 //     the array index IS the preference rank (Phase 5 D-03), so the rendered "1." / "2." labels are
 //     1-based array positions and reorder/remove just splices the array
 //   * `allowLanguagesNotInProfile` checkbox (Phase 5 D-02 strict-mode bool) replaces the
-//     cutoff/upgrade-allowed quality concepts
+//     cutoff quality concept
+//   * `upgradeAllowed` checkbox (Phase 6 D-10 per-profile upgrade flag, default true) is the manga
+//     peer of QualityProfile's upgrade-allowed bool (GH #138)
 //   * Save button label uses i18n key 'SaveTranslationProfile' per UI-SPEC §Page-level CTAs
 //   * Delete button copy uses 'Delete Profile' per UI-SPEC §Destructive confirmation
 //   * In-use error rendered inline (UI-SPEC §Error states): 'This Translation Profile is in use by {N} manga.'
@@ -27,6 +30,12 @@
 // treats `languages` as `string[]`, derives rank from the array index, and replaces the
 // phantom `isDefault` checkbox + `fallback` select with the real `allowLanguagesNotInProfile`
 // checkbox. The backend is untouched.
+//
+// GH #138 (debug gh138-tprofile-upgradeallowed, 2026-05-14): the entity carries an
+// `UpgradeAllowed` bool (Phase 6 D-10, default true) that `UpgradeSpecification.cs` reads
+// as the OUTER half of the D-10 three-state effective-upgrade-allowed AND-merge. The V5
+// resource originally dropped it, freezing it at `true`. The resource now round-trips
+// `upgradeAllowed`; this modal exposes it as a checkbox below the strict-mode checkbox.
 //
 // Phase 8 cleanup: this stays — manga-canonical.
 
@@ -92,6 +101,8 @@ function defaultProfile(): TranslationProfileResource {
     name: '',
     languages: ['en'],
     allowLanguagesNotInProfile: false,
+    // Phase 6 D-10: per-profile upgrade flag defaults TRUE (language rank ordered, *arr promise).
+    upgradeAllowed: true,
   };
 }
 
@@ -309,6 +320,18 @@ function EditTranslationProfileModalContent({
     []
   );
 
+  // GH #138: per-profile upgrade gate (Phase 6 D-10). Round-trips through
+  // TranslationProfileResource.UpgradeAllowed and is read by UpgradeSpecification.cs.
+  const handleUpgradeAllowedChange = useCallback(
+    (change: InputChangedHandler<boolean>) => {
+      setItem((prev) => ({
+        ...prev,
+        upgradeAllowed: change.value,
+      }));
+    },
+    []
+  );
+
   // `languages` is a flat string[]; rank = array index, so all mutations operate
   // on the index directly. Editing a code replaces the entry at `idx`.
   const handleLanguageCodeChange = useCallback(
@@ -434,6 +457,19 @@ function EditTranslationProfileModalContent({
                   value={item.allowLanguagesNotInProfile}
                   helpText={translate('AllowLanguagesNotInProfileHelpText')}
                   onChange={handleAllowLanguagesNotInProfileChange}
+                />
+              </FormGroup>
+
+              <FormGroup size={sizes.EXTRA_SMALL}>
+                <FormLabel size={sizes.SMALL}>
+                  {translate('UpgradeAllowed')}
+                </FormLabel>
+                <FormInputGroup
+                  type={inputTypes.CHECK}
+                  name="upgradeAllowed"
+                  value={item.upgradeAllowed}
+                  helpText={translate('UpgradeAllowedHelpText')}
+                  onChange={handleUpgradeAllowedChange}
                 />
               </FormGroup>
 
