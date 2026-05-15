@@ -151,6 +151,14 @@ namespace NzbDrone.Common.Test.Http
             response.Content.Should().NotBeNullOrWhiteSpace();
         }
 
+        // [Retry(3)] absorbs transient TCP-timeout flakes reaching expired.badssl.com:443
+        // from CI runners (notably Azure westus windows-latest). When the runner can't reach
+        // the host, the SocketException short-circuits TLS validation, so the test sees 0
+        // logged SSL errors (the Enabled case) or a connection-timeout HttpRequestException
+        // (the Disabled case) instead of the expected cert-expired path. Established pattern
+        // for genuinely external-network-dependent tests, alongside DiskProviderFixture/
+        // ProcessProviderFixture/DebouncerFixture retries. Surfaced via PR #161 CI flake.
+        [Retry(3)]
         [TestCase(CertificateValidationType.Enabled)]
         [TestCase(CertificateValidationType.DisabledForLocalAddresses)]
         public void bad_ssl_should_fail_when_remote_validation_enabled(CertificateValidationType validationType)
@@ -162,6 +170,7 @@ namespace NzbDrone.Common.Test.Http
             ExceptionVerification.ExpectedErrors(1);
         }
 
+        [Retry(3)]
         [Test]
         public async Task bad_ssl_should_pass_if_remote_validation_disabled()
         {
