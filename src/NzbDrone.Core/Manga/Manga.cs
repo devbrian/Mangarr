@@ -22,6 +22,7 @@ namespace NzbDrone.Core.Manga
             Images = new List<MediaCover.MediaCover>();
             Genres = new List<string>();
             Tags = new HashSet<int>();
+            AlternativeTitles = new List<string>();
         }
 
         // External IDs — singular per CONTEXT specifics; manga is 1:1 across sources.
@@ -48,6 +49,28 @@ namespace NzbDrone.Core.Manga
         public string Title { get; set; }
         public string CleanTitle { get; set; }
         public string SortTitle { get; set; }
+
+        // GH #118 fix — persisted alt-title set, the Mangarr analog of Sonarr's
+        // SceneMappingService alias dataset (Sonarr SceneMapping is a community-
+        // curated separate table; Mangarr's alt-titles come from the same metadata
+        // refresh as everything else on this entity, so a JSON column on Manga is
+        // sufficient). Stored pre-normalized via MangaTitleNormalizer.Normalize at
+        // write-time so MangaParsingService.GetManga can do an O(1) exact-match
+        // lookup against the canonicalized release title (Strategy 2 of the
+        // 3-strategy resolution mirroring Sonarr's ParsingService.GetSeries).
+        //
+        // Populated by MangaDex/AniList/MyAnimeList metadata sources from each
+        // provider's alt-title field set (MangaDex attributes.title + altTitles,
+        // AniList romaji/english/native + synonyms, MAL alternative_titles).
+        // Includes the romanized attributes.title that SelectPreferredTitle
+        // currently discards — that romanization is what the indexer feed emits
+        // (DEF-19-02-01 root cause), so persisting it here is what restores
+        // GetManga's ability to resolve MangaDex search-path releases without
+        // the 77a114221 force-assign short-circuit.
+        //
+        // Serialized via the global StringListConverter<List<string>>
+        // registration at TableMapping.cs (same shape as Manga.Genres).
+        public List<string> AlternativeTitles { get; set; }
 
         // URL-safe identifier — mirrors Tv/Series.cs:47 TitleSlug. Computed from
         // Title via StringExtensions.ToUrlSlug() in AddMangaService.PrepareForAdd
