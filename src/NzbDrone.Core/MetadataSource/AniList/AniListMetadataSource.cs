@@ -170,6 +170,15 @@ namespace NzbDrone.Core.MetadataSource.AniList
                 PublicationYear = m.StartDate?.Year,
                 TotalChapterCount = m.Chapters,
                 Genres = m.Genres ?? new List<string>(),
+
+                // GH #118 — Mangarr's analog of Sonarr's SceneMapping alias dataset.
+                // AniList exposes four title variants (romaji / english / native /
+                // userPreferred) plus a synonyms list. All entries pre-normalized via
+                // MangaTitleNormalizer.Normalize at write-time. Consumed by
+                // MangaParsingService.GetManga Strategy 2 (alt-title match) to resolve
+                // search-path releases whose feed-title diverges from the stored
+                // Manga.Title pick.
+                AlternativeTitles = CollectAlternativeTitles(m.Title, m.Synonyms),
             };
 
             // Primary author from staff edges role="Story" per D-21
@@ -178,6 +187,50 @@ namespace NzbDrone.Core.MetadataSource.AniList
                 ?.Node?.Name?.Full;
 
             return manga;
+        }
+
+        /// <summary>
+        /// GH #118 — Collect every distinct AniList title variant + synonym,
+        /// pre-normalized via <see cref="MangaTitleNormalizer.Normalize"/>, for
+        /// storage in <see cref="NzbDrone.Core.Manga.Manga.AlternativeTitles"/>.
+        /// Sources: <c>title.romaji</c>, <c>title.english</c>, <c>title.native</c>,
+        /// <c>title.userPreferred</c>, and every entry in <c>synonyms</c>.
+        /// </summary>
+        private static List<string> CollectAlternativeTitles(AniListTitleBlock title, List<string> synonyms)
+        {
+            var collected = new List<string>();
+
+            if (title != null)
+            {
+                AddNormalized(collected, title.Romaji);
+                AddNormalized(collected, title.English);
+                AddNormalized(collected, title.Native);
+                AddNormalized(collected, title.UserPreferred);
+            }
+
+            if (synonyms != null)
+            {
+                foreach (var syn in synonyms)
+                {
+                    AddNormalized(collected, syn);
+                }
+            }
+
+            return collected.Distinct().ToList();
+        }
+
+        private static void AddNormalized(List<string> bucket, string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return;
+            }
+
+            var normalized = MangaTitleNormalizer.Normalize(raw);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                bucket.Add(normalized);
+            }
         }
     }
 }
