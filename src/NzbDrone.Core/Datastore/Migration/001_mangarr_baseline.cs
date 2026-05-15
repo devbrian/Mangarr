@@ -58,7 +58,7 @@ namespace NzbDrone.Core.Datastore.Migration
 
             Create.TableForModel("ScheduledTasks")
                 .WithColumn("TypeName").AsString().Unique()
-                .WithColumn("Interval").AsDouble()
+                .WithColumn("Interval").AsInt32()
                 .WithColumn("LastExecution").AsDateTime()
                 .WithColumn("LastStartTime").AsDateTime().Nullable();
 
