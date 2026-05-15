@@ -57,13 +57,15 @@ public static class SoakRunner
             try
             {
                 // For each source, hit the documented public endpoint with the title query.
-                // Phase 3-minimal: hit MangaDex /manga search; comix.to /api/v2/manga search.
+                // Phase 3-minimal: hit MangaDex /manga search; comix.to /api/v1/manga search
+                // (camelCase under /api/v1/, not the Phase 3 plan literal /api/v2/ —
+                // see ComixParser.cs and ComixRequestGenerator.cs).
                 // Real implementation reuses MangaDexIndexer / ComixIndexer via DI — this CLI's
                 // simplified version probes the public endpoints directly.
                 var url = source switch
                 {
                     "mangadex" => $"https://api.mangadex.org/manga?title={Uri.EscapeDataString(title)}&limit=1",
-                    "comix.to" => $"https://comix.to/api/v2/manga?keyword={Uri.EscapeDataString(title)}&limit=1&page=1",
+                    "comix.to" => $"https://comix.to/api/v1/manga?keyword={Uri.EscapeDataString(title)}&limit=1&page=1",
                     _ => null
                 };
                 if (url == null) continue;
