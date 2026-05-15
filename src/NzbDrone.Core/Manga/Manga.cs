@@ -140,10 +140,22 @@ namespace NzbDrone.Core.Manga
             PublicationYear = other.PublicationYear;
             PrimaryAuthor = other.PrimaryAuthor;
 
-            // GH #118 — metadata-sourced alt-title set; refresh-merged like other
-            // metadata fields above. Populated by MangaDex/AniList/MAL MapManga
-            // and consumed by MangaParsingService.GetManga Strategy 2.
-            AlternativeTitles = other.AlternativeTitles;
+            // GH #118 — metadata-sourced alt-title set; refresh-merged when the
+            // incoming Manga carries a populated list. ApplyChanges is dual-purpose
+            // (refresh-merge from MangaDex/AniList/MAL MapManga AND user-PUT merge
+            // from MangaResourceMapper.ToModel) — the metadata-source path supplies
+            // a fully-populated list, but the user-PUT path leaves AlternativeTitles
+            // at the constructor-default empty list (the API resource intentionally
+            // does NOT expose AlternativeTitles since it is parser-internal). Without
+            // the IsNullOrEmpty guard, a plain UI Edit would clobber persisted
+            // aliases on every PUT and break Strategy-2 resolution in
+            // MangaParsingService.GetManga until the next RefreshMangaCommand.
+            // Mirrors the Path save/restore defense at MangaController.UpdateManga:212.
+            if (other.AlternativeTitles != null && other.AlternativeTitles.Count > 0)
+            {
+                AlternativeTitles = other.AlternativeTitles;
+            }
+
             LastInfoSync = DateTime.UtcNow;
 
             // User-mutable persistence fields — gap-02 backfill.

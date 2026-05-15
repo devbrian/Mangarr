@@ -72,6 +72,17 @@ namespace NzbDrone.Core.Manga
             //
             // SQLite uses `instr`; PostgreSQL uses `strpos`. Mirrors the
             // FindByTitleInexact dual-dialect branch above.
+            //
+            // Ambiguity safety (gh118 code-review followup): alt-title entries
+            // are NOT uniqueness-guaranteed across the library — two manga can
+            // legitimately share a romanized synonym (e.g. a doujinshi and its
+            // parent series both list the romanized parent title in their
+            // attributes.altTitles). Returning FirstOrDefault would be
+            // nondeterministic — the first-row ordering depends on insert
+            // order. Return null on ambiguous (>1 candidate) matches so the
+            // caller (MangaParsingService.GetManga) falls through to
+            // FindByTitleInexact, matching the Sonarr-canonical posture and
+            // the existing FindByTitleInexact contract.
             if (string.IsNullOrWhiteSpace(normalizedTitle))
             {
                 return null;
@@ -90,7 +101,8 @@ namespace NzbDrone.Core.Manga
                 builder = Builder().Where($"(strpos(\"Manga\".\"AlternativeTitles\", @pattern) > 0)", new { pattern });
             }
 
-            return Query(builder).FirstOrDefault();
+            var candidates = Query(builder).Take(2).ToList();
+            return candidates.Count == 1 ? candidates[0] : null;
         }
 
         public List<Manga> FindByTitleInexact(string cleanTitle)
