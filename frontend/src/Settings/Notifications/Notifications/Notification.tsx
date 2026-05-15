@@ -74,10 +74,20 @@ function Notification({
     deleteConnection();
   }, [deleteConnection]);
 
+  // gh157 fix-forward (mirrors PR #156 / live-indexer-card-click). Without
+  // this annotation, `Page.GetByText("Komga"|"Kavita")` resolves to the inner
+  // text <div> and the wrapping <button class="Card-underlay"> intercepts
+  // pointer events (Card.tsx overlayContent shape). `settings-*` prefix is on
+  // the allowed list (D-18 selector strategy, src/NzbDrone.Automation.Test/CLAUDE.md).
+  // Slug = lowercased name with whitespace collapsed to dashes (matches
+  // Indexer.tsx / MangaIndexPoster's titleSlug pattern).
+  const testIdSlug = name.toLowerCase().replace(/\s+/g, '-');
+
   return (
     <Card
       className={styles.notification}
       overlayContent={true}
+      data-testid={`settings-notification-card-${testIdSlug}`}
       onPress={handleEditNotificationPress}
     >
       <div className={styles.name}>{name}</div>
