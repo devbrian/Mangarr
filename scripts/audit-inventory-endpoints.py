@@ -14,8 +14,16 @@ Pairs with reconcile-inventory.py + audit-ui-inventory.sh + audit-test-assertion
 as a recurring sanity gate (v2+ phases re-run on each post-merge cycle).
 
 Exit codes:
-  0 = no drift
-  1 = drift detected (one or more rows missing/drifted)
+  0 = no drift in catalogued rows (missing-from-INVENTORY is informational only;
+      INVENTORY's "most specific axis" dedup rule means many backend-only by-id
+      routes are intentionally subsumed by their modal-action row).
+  1 = drifted-in-INVENTORY detected — a catalogued row points to a route that
+      no longer exists on disk. Wave-2/3 cluster plans must not author fixtures
+      against a stale path. This is the primary D-12 gate condition.
+
+The Missing-from-INVENTORY block is always emitted (informational signal) so
+future phases can spot newly-introduced user-visible routes that warrant a row;
+it does NOT fail the gate.
 """
 import re
 import sys
@@ -94,6 +102,13 @@ PROVIDER_BASE_PARENT = re.compile(
     r"class\s+\w+Controller\s*:\s*ProviderControllerBase<"
 )
 
+# Generic parent extraction for controllers that inherit HTTP attributes from a
+# non-Provider abstract base (e.g. LogFileControllerBase). Captures the parent
+# identifier so the caller can locate the base file and parse its [Http*] attrs.
+PARENT_CLASS = re.compile(
+    r"class\s+\w+Controller\s*:\s*([A-Za-z_][\w]*)"
+)
+
 # ProviderControllerBase contributes a known set of inherited routes. Captured once
 # from ProviderControllerBase.cs (lines 60-273) so the script does not re-parse the
 # base on every subclass.
@@ -135,6 +150,27 @@ def derive_resource(class_name: str, src: str) -> str | None:
     return None
 
 
+def _collect_base_class_attrs(parent_id: str) -> list[tuple[str, str]]:
+    """Look up `<parent_id>.cs` anywhere under V5_DIR and parse its [Http*] attrs.
+
+    Returns a list of (verb, sub_path) tuples. Empty list if the base file is not
+    found or carries no HTTP attributes. Used for non-Provider abstract bases like
+    LogFileControllerBase where the concrete controller inherits routes without
+    re-declaring them.
+    """
+    routes = []
+    for candidate in V5_DIR.rglob(f"{parent_id}.cs"):
+        try:
+            base_src = strip_csharp_comments(candidate.read_text(encoding="utf-8"))
+        except OSError:
+            continue
+        for m in HTTP_ATTR.finditer(base_src):
+            verb = m.group(1).upper()
+            sub = m.group(2) or ""
+            routes.append((verb, sub))
+    return routes
+
+
 def extract_controller_routes(cs_path: Path):
     """Yield (verb, full_path) tuples for one controller .cs file."""
     raw = cs_path.read_text(encoding="utf-8")
@@ -151,25 +187,49 @@ def extract_controller_routes(cs_path: Path):
 
     base = f"/api/v5/{resource}".rstrip("/")
 
+    own_http = list(HTTP_ATTR.finditer(src))
+    own_rest = list(REST_BY_ID.finditer(src))
+
     # 1. Explicit [HttpGet/Post/Put/Delete("...")] or bare [Http*].
-    for m in HTTP_ATTR.finditer(src):
+    for m in own_http:
         verb = m.group(1).upper()
         sub = m.group(2) or ""
         path = f"{base}/{sub}".rstrip("/") if sub else base
         yield (verb, path)
 
     # 2. [RestPostById] / [RestPutById] / [RestDeleteById] on the controller itself.
-    for m in REST_BY_ID.finditer(src):
+    for m in own_rest:
         attr = m.group(1)
         verb, sub = REST_BY_ID_MAP[attr]
         path = f"{base}/{sub}".rstrip("/") if sub else base
         yield (verb, path)
 
     # 3. ProviderControllerBase inherited routes — only if the class extends it.
-    if PROVIDER_BASE_PARENT.search(src):
+    is_provider = bool(PROVIDER_BASE_PARENT.search(src))
+    if is_provider:
         for verb, sub in PROVIDER_BASE_ROUTES:
             path = f"{base}/{sub}".rstrip("/") if sub else base
             yield (verb, path)
+
+    # 4. Non-Provider abstract base: when the class itself declares NO HTTP or
+    #    REST-by-id attributes AND inherits from something other than the bare
+    #    `Controller` / `RestController*` / `ProviderControllerBase`, try to locate
+    #    the parent .cs file and parse its [Http*] attrs. Closes the LogFileController
+    #    -> LogFileControllerBase inheritance gap.
+    if not own_http and not own_rest and not is_provider:
+        parent_match = PARENT_CLASS.search(src)
+        if parent_match:
+            parent_id = parent_match.group(1)
+            # Skip well-known framework bases that ship no HTTP attrs of their own.
+            if parent_id not in {
+                "Controller",
+                "ControllerBase",
+                "RestController",
+                "RestControllerWithSignalR",
+            }:
+                for verb, sub in _collect_base_class_attrs(parent_id):
+                    path = f"{base}/{sub}".rstrip("/") if sub else base
+                    yield (verb, path)
 
 
 def extract_inventory_v5_rows(inv_text: str):
@@ -239,22 +299,28 @@ def main() -> int:
     print("=== audit-inventory-endpoints.py ===")
     print(f"Actual V5 routes:        {len(actual):>4}")
     print(f"Catalogued in INVENTORY: {len(inventoried):>4}")
-    print(f"Missing from INVENTORY:  {len(missing_from_inv):>4}")
-    print(f"Drifted in INVENTORY:    {len(drifted_in_inv):>4}")
+    print(f"Missing from INVENTORY:  {len(missing_from_inv):>4}  (informational)")
+    print(f"Drifted in INVENTORY:    {len(drifted_in_inv):>4}  (gate)")
     print()
     if missing_from_inv:
         print("--- Missing from INVENTORY (actual route, no row) ---")
+        print("    Informational: many of these are subsumed by their modal-action")
+        print("    row per INVENTORY's most-specific-axis dedup rule (line 12).")
         for verb, np in missing_from_inv:
             orig = actual_originals.get((verb, np), np)
             print(f"  {verb:>6} {orig}")
         print()
     if drifted_in_inv:
-        print("--- Drifted in INVENTORY (row exists, route gone) ---")
+        print("--- Drifted in INVENTORY (row exists, route gone) — GATE FAILURE ---")
         for verb, np in drifted_in_inv:
             orig = inv_originals.get((verb, np), np)
             print(f"  {verb:>6} {orig}")
         print()
-    return 1 if (missing_from_inv or drifted_in_inv) else 0
+    # Gate semantics per D-12: only DRIFTED entries (catalogued -> route gone) fail.
+    # Missing-from-INVENTORY is informational because INVENTORY's "most specific axis"
+    # dedup rule (line 12) means many actual routes are intentionally subsumed by
+    # their modal-action row and don't need a standalone v5-endpoint row.
+    return 1 if drifted_in_inv else 0
 
 
 if __name__ == "__main__":
