@@ -18,6 +18,30 @@ namespace NzbDrone.Test.Common
 {
     public class NzbDroneRunner
     {
+        // GH #113: the readiness loop polls an AUTHENTICATED endpoint and requires
+        // both transport completion (ResponseStatus.Completed) AND a non-error HTTP
+        // status (response.IsSuccessful). RestSharp's ResponseStatus is transport-
+        // level only — 401 / 404 / 500 all surface as ResponseStatus.Completed, so
+        // checking it in isolation silently green-lights a host that has bound its
+        // listener but not yet wired ApiKeyAuthenticationHandler (race window b).
+        //
+        // The loop further requires TWO consecutive successful probes spaced
+        // ~250 ms apart so a single moment of "good" doesn't fool us through a
+        // Kestrel listener-flap (race window a) where the probe succeeds and the
+        // very next caller hits a torn-down listener (StatusCode == 0).
+        //
+        // The probe base URL must point at the LIVE API surface — Phase 15 Plan
+        // 15-06 deleted Sonarr.Api.V3 entirely, so the historical /api/v3 base
+        // returns 404 for every request. Switched to /api/v5 (the current primary
+        // API surface, matching what TestKit and the React frontend consume) so
+        // the IsSuccessful check actually has a real endpoint to validate against.
+        //
+        // TestKit.ExecuteWithStartupRetryAsync is retained as defence-in-depth.
+        private const string ApiBasePath = "api/v5";
+        private const int ReadinessStableSuccessesRequired = 2;
+        private const int ReadinessPollIntervalMs = 250;
+        private static readonly TimeSpan ReadinessTimeout = TimeSpan.FromSeconds(60);
+
         private readonly IProcessProvider _processProvider;
         private readonly IRestClient _restClient;
         private Process _nzbDroneProcess;
@@ -30,7 +54,7 @@ namespace NzbDrone.Test.Common
         public NzbDroneRunner(Logger logger, PostgresOptions postgresOptions, int port = 8989)
         {
             _processProvider = new ProcessProvider(logger);
-            _restClient = new RestClient($"http://localhost:{port}/api/v3");
+            _restClient = new RestClient($"http://localhost:{port}/{ApiBasePath}");
 
             PostgresOptions = postgresOptions;
             Port = port;
@@ -62,6 +86,14 @@ namespace NzbDrone.Test.Common
                 Start(Path.Combine(TestContext.CurrentContext.TestDirectory, "bin", consoleExe));
             }
 
+            WaitForReady();
+        }
+
+        private void WaitForReady()
+        {
+            var deadline = DateTime.UtcNow + ReadinessTimeout;
+            var consecutiveSuccesses = 0;
+
             while (true)
             {
                 _nzbDroneProcess.Refresh();
@@ -71,22 +103,62 @@ namespace NzbDrone.Test.Common
                     Assert.Fail("Process has exited");
                 }
 
-                var request = new RestRequest("system/status");
-                request.AddHeader("Authorization", ApiKey);
-                request.AddHeader("X-Api-Key", ApiKey);
-
-                var statusCall = _restClient.Get(request);
-
-                if (statusCall.ResponseStatus == ResponseStatus.Completed)
+                if (DateTime.UtcNow >= deadline)
                 {
-                    TestContext.Progress.WriteLine($"Mangarr {Port} is started. Running Tests");
-                    return;
+                    Assert.Fail(
+                        $"Mangarr {Port} did not become ready within {ReadinessTimeout.TotalSeconds:F0}s " +
+                        $"(needed {ReadinessStableSuccessesRequired} consecutive authenticated 200s; " +
+                        $"got {consecutiveSuccesses}).");
                 }
 
-                TestContext.Progress.WriteLine("Waiting for Mangarr to start. Response Status : {0}  [{1}] {2}", statusCall.ResponseStatus, statusCall.StatusDescription, statusCall.ErrorException.Message);
+                var statusCall = ProbeAuthenticatedStatus();
 
-                Thread.Sleep(500);
+                if (statusCall.IsSuccessful)
+                {
+                    consecutiveSuccesses++;
+
+                    if (consecutiveSuccesses >= ReadinessStableSuccessesRequired)
+                    {
+                        TestContext.Progress.WriteLine(
+                            $"Mangarr {Port} is started (authenticated probe stable). Running Tests");
+                        return;
+                    }
+                }
+                else
+                {
+                    if (consecutiveSuccesses > 0)
+                    {
+                        TestContext.Progress.WriteLine(
+                            "Mangarr {0} readiness window broken at success #{1}; restarting stability count.",
+                            Port,
+                            consecutiveSuccesses);
+                    }
+
+                    consecutiveSuccesses = 0;
+
+                    TestContext.Progress.WriteLine(
+                        "Waiting for Mangarr to start. Response Status : {0}  HTTP {1} [{2}] {3}",
+                        statusCall.ResponseStatus,
+                        (int)statusCall.StatusCode,
+                        statusCall.StatusDescription,
+                        statusCall.ErrorException?.Message ?? "<no transport exception>");
+                }
+
+                Thread.Sleep(ReadinessPollIntervalMs);
             }
+        }
+
+        private IRestResponse ProbeAuthenticatedStatus()
+        {
+            // Authenticated probe — system/status is the lightest endpoint that
+            // exercises the auth handler. Passing both Authorization and X-Api-Key
+            // matches the historical request shape so legacy auth wiring is
+            // exercised identically.
+            var request = new RestRequest("system/status");
+            request.AddHeader("Authorization", ApiKey);
+            request.AddHeader("X-Api-Key", ApiKey);
+
+            return _restClient.Get(request);
         }
 
         public void Kill()
