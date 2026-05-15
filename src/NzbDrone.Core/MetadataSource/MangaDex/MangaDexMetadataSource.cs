@@ -194,6 +194,19 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
                     .Where(n => !string.IsNullOrEmpty(n))
                     .ToList()
                     ?? new List<string>(),
+
+                // GH #118 — Mangarr's analog of Sonarr's SceneMapping alias dataset.
+                // Capture every alt-title string MangaDex carries (canonical title
+                // dict values + every entry in attributes.altTitles), pre-normalized
+                // via MangaTitleNormalizer.Normalize at write-time. Critically
+                // includes the romanized attributes.title that SelectPreferredTitle
+                // currently discards when an English alt-title is available — that
+                // romanization is what the indexer feed emits (DEF-19-02-01 root
+                // cause), so persisting it here is what restores GetManga's ability
+                // to resolve search-path releases via Strategy 2 (alt-title match)
+                // when the indexer-feed title diverges from the stored canonical
+                // Manga.Title.
+                AlternativeTitles = CollectAlternativeTitles(attrs.Title, attrs.AltTitles),
             };
 
             // PER PITFALL 7: links values are JSON STRINGS (not ints). Run int.TryParse
@@ -426,6 +439,79 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// GH #118 — Collect every distinct title string MangaDex carries for a
+        /// manga, pre-normalized via <see cref="MangaTitleNormalizer.Normalize"/>
+        /// at write-time, for storage in <see cref="NzbDrone.Core.Manga.Manga.AlternativeTitles"/>.
+        ///
+        /// <para>Sources consulted (in order):</para>
+        /// <list type="number">
+        ///   <item><description>Every non-empty value of <c>attributes.title</c> —
+        ///     critically includes the romanized form (e.g. <c>"ja-ro"</c> /
+        ///     <c>"ko-ro"</c>) that <see cref="SelectPreferredTitle"/> discards
+        ///     when an English alt-title wins. The indexer feed emits this
+        ///     romanization (DEF-19-02-01 root cause), so persisting it here
+        ///     is what allows <see cref="Parser.Manga.MangaParsingService.GetManga"/>
+        ///     Strategy 2 to resolve the search-path mismatch.</description></item>
+        ///   <item><description>Every non-empty entry from every dictionary in
+        ///     <c>attributes.altTitles</c> — across all languages. MangaDex
+        ///     maintainers seed alternate spellings, fan translations, and
+        ///     official titles for each supported language.</description></item>
+        /// </list>
+        ///
+        /// <para>All values pass through <see cref="MangaTitleNormalizer.Normalize"/>
+        /// before storage so <see cref="Manga.IMangaService.FindByAlternativeTitle"/>
+        /// can do a direct canonical-vs-canonical comparison at read-time.
+        /// Empty/whitespace results are filtered; duplicates are deduped via
+        /// <see cref="Enumerable.Distinct{T}(IEnumerable{T})"/>.</para>
+        /// </summary>
+        private static List<string> CollectAlternativeTitles(
+            Dictionary<string, string> title,
+            List<Dictionary<string, string>> altTitles)
+        {
+            var collected = new List<string>();
+
+            if (title != null)
+            {
+                foreach (var value in title.Values)
+                {
+                    AddNormalized(collected, value);
+                }
+            }
+
+            if (altTitles != null)
+            {
+                foreach (var alt in altTitles)
+                {
+                    if (alt == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var value in alt.Values)
+                    {
+                        AddNormalized(collected, value);
+                    }
+                }
+            }
+
+            return collected.Distinct().ToList();
+        }
+
+        private static void AddNormalized(List<string> bucket, string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return;
+            }
+
+            var normalized = MangaTitleNormalizer.Normalize(raw);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                bucket.Add(normalized);
+            }
         }
 
         private static string PreferredString(Dictionary<string, string> bag, string preferredKey)

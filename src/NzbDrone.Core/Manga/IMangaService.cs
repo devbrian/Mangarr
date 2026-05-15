@@ -23,6 +23,14 @@ namespace NzbDrone.Core.Manga
         Manga FindByTitle(string title);
         Manga FindByTitle(string title, int year);
         List<Manga> FindByTitleInexact(string title);
+
+        // GH #118 — service-level wrapper for the parser's alt-title resolution path.
+        // Strategy 2 of MangaParsingService.GetManga multi-strategy resolution
+        // (Sonarr-canonical mirror of ParsingService.GetSeries). Normalizes the
+        // input via MangaTitleNormalizer (D-05 single source of truth) then
+        // delegates to IMangaRepository.FindByAlternativeTitle. Returns null on
+        // no match.
+        Manga FindByAlternativeTitle(string title);
         Manga FindByPath(string path);
         void DeleteManga(List<int> mangaIds, bool deleteFiles);
         List<Manga> GetAllManga();

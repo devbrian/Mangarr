@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
 using NUnit.Framework;
@@ -122,6 +123,87 @@ namespace NzbDrone.Core.Test.MangaTests
             Subject.Insert(BuildManga("Bleach"));
 
             Subject.All().ToList().Should().HaveCount(2);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // GH #118 — FindByAlternativeTitle coverage (Strategy 2 of the
+        // multi-strategy GetManga). Ambiguity safety added per code-review
+        // followup: return null on multi-candidate matches so the caller falls
+        // through to FindByTitleInexact (matching the Sonarr-canonical posture
+        // and the existing FindByTitleInexact contract).
+        // ─────────────────────────────────────────────────────────────────────
+
+        private MangaModel BuildWithAltTitles(string title, params string[] altTitles)
+        {
+            var manga = BuildManga(title);
+            manga.AlternativeTitles = new List<string>(altTitles);
+            return manga;
+        }
+
+        [Test]
+        public void FindByAlternativeTitle_returns_single_match()
+        {
+            Subject.Insert(BuildWithAltTitles("Attack on Titan", "shingeki no kyojin", "snk"));
+            Subject.Insert(BuildWithAltTitles("Bleach", "burichi"));
+
+            var found = Subject.FindByAlternativeTitle("shingeki no kyojin");
+
+            found.Should().NotBeNull();
+            found.Title.Should().Be("Attack on Titan");
+        }
+
+        [Test]
+        public void FindByAlternativeTitle_returns_null_on_no_match()
+        {
+            Subject.Insert(BuildWithAltTitles("Attack on Titan", "shingeki no kyojin"));
+
+            Subject.FindByAlternativeTitle("naruto").Should().BeNull();
+        }
+
+        [Test]
+        public void FindByAlternativeTitle_returns_null_when_no_alt_titles_populated()
+        {
+            // Manga added before metadata refresh has empty AlternativeTitles.
+            Subject.Insert(BuildManga("Naruto"));
+
+            Subject.FindByAlternativeTitle("naruto").Should().BeNull();
+        }
+
+        [Test]
+        public void FindByAlternativeTitle_returns_null_when_normalized_input_empty()
+        {
+            Subject.Insert(BuildWithAltTitles("Attack on Titan", "shingeki no kyojin"));
+
+            Subject.FindByAlternativeTitle(null).Should().BeNull();
+            Subject.FindByAlternativeTitle("").Should().BeNull();
+            Subject.FindByAlternativeTitle("   ").Should().BeNull();
+        }
+
+        [Test]
+        public void FindByAlternativeTitle_does_not_match_substring_overlap_between_distinct_entries()
+        {
+            // Defense against substring-match false positives — the entry is
+            // stored as JSON-quoted "snk", and a search for "sn" must not match.
+            // The repo wraps the lookup pattern in JSON-element quotes to ensure
+            // an exact entry-level match, not a substring within an entry.
+            Subject.Insert(BuildWithAltTitles("Attack on Titan", "snk"));
+
+            Subject.FindByAlternativeTitle("sn").Should().BeNull();
+        }
+
+        [Test]
+        public void FindByAlternativeTitle_returns_null_on_ambiguous_multi_candidate_match()
+        {
+            // Two manga can legitimately share an alt-title — e.g. a doujinshi
+            // and its parent series both list a romanized synonym. Return null
+            // rather than nondeterministically picking one; the caller
+            // (MangaParsingService.GetManga Strategy 2 -> Strategy 3) treats
+            // null as "no match" and falls through to FindByTitleInexact.
+            Subject.Insert(BuildWithAltTitles("Attack on Titan", "shingeki no kyojin"));
+            Subject.Insert(BuildWithAltTitles("Attack on Titan Doujinshi", "shingeki no kyojin"));
+
+            Subject.FindByAlternativeTitle("shingeki no kyojin").Should().BeNull(
+                "ambiguous alt-title resolution must return null so the caller falls through to Strategy 3 (FindByTitleInexact) — Sonarr-canonical posture");
         }
     }
 }

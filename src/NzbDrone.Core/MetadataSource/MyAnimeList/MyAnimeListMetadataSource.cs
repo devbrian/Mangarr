@@ -119,6 +119,14 @@ namespace NzbDrone.Core.MetadataSource.MyAnimeList
                 PublicationYear = ParseYear(r.StartDate),
                 TotalChapterCount = r.NumChapters,
                 Genres = r.Genres?.Select(g => g.Name).ToList() ?? new List<string>(),
+
+                // GH #118 — Mangarr's analog of Sonarr's SceneMapping alias dataset.
+                // MAL exposes alternative_titles.en / .ja + a synonyms list. All
+                // entries pre-normalized via MangaTitleNormalizer.Normalize at
+                // write-time. Consumed by MangaParsingService.GetManga Strategy 2
+                // (alt-title match) to resolve search-path releases whose feed-title
+                // diverges from the stored Manga.Title pick.
+                AlternativeTitles = CollectAlternativeTitles(r.AlternativeTitles),
             };
 
             // Primary author from authors edges role="Story" per D-21
@@ -129,6 +137,48 @@ namespace NzbDrone.Core.MetadataSource.MyAnimeList
             }
 
             return manga;
+        }
+
+        /// <summary>
+        /// GH #118 — Collect every distinct MAL alt-title entry, pre-normalized via
+        /// <see cref="MangaTitleNormalizer.Normalize"/>, for storage in
+        /// <see cref="NzbDrone.Core.Manga.Manga.AlternativeTitles"/>.
+        /// Sources: <c>alternative_titles.en</c>, <c>alternative_titles.ja</c>,
+        /// and every entry in <c>alternative_titles.synonyms</c>.
+        /// </summary>
+        private static List<string> CollectAlternativeTitles(AlternativeTitlesBlock alt)
+        {
+            var collected = new List<string>();
+
+            if (alt != null)
+            {
+                AddNormalized(collected, alt.En);
+                AddNormalized(collected, alt.Ja);
+
+                if (alt.Synonyms != null)
+                {
+                    foreach (var syn in alt.Synonyms)
+                    {
+                        AddNormalized(collected, syn);
+                    }
+                }
+            }
+
+            return collected.Distinct().ToList();
+        }
+
+        private static void AddNormalized(List<string> bucket, string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return;
+            }
+
+            var normalized = MangaTitleNormalizer.Normalize(raw);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                bucket.Add(normalized);
+            }
         }
 
         private static string MapContentRating(string nsfw)

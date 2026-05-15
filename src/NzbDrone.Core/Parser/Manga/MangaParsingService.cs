@@ -94,6 +94,24 @@ namespace NzbDrone.Core.Parser.Manga
 
         public NzbDrone.Core.Manga.Manga GetManga(string title)
         {
+            // GH #118 — Sonarr-canonical multi-strategy resolution mirroring
+            // ParsingService.GetSeries (deleted in Phase 15; preserved logic at
+            // commit 2832eecb^). Sonarr layers SceneMapping → FindByTitle →
+            // AllTitles variants → year-aware → FindByTitleInexact. Mangarr's
+            // analog is FindByTitle → AlternativeTitles → FindByTitleInexact,
+            // with AlternativeTitles standing in for Sonarr's SceneMapping
+            // alias dataset (populated by metadata sources from each provider's
+            // alt-title field set).
+            //
+            // The 77a114221 fix for DEF-19-02-01 short-circuited THIS method on
+            // the search path with `searchCriteria.Manga ?? GetManga(...)` in
+            // MangaDownloadDecisionMaker, precisely because Strategy 1 alone
+            // could not resolve MangaDex's romanized attributes.title against
+            // the English-stored Manga.CleanTitle. Adding Strategy 2 (alt-title
+            // match) restores GetManga as the correct resolver and lets the
+            // existing MangaSpecification do its designed Id-cross-check job
+            // (catching cross-title indexer noise where a release belongs to a
+            // different manga than the search target).
             var parsed = MangaParser.ParseChapterTitle(title);
 
             // If parsing failed entirely, search the raw title — preserves
@@ -123,13 +141,56 @@ namespace NzbDrone.Core.Parser.Manga
                 return null;
             }
 
+            // Strategy 1: direct CleanTitle match (existing path).
             var hit = _mangaService.FindByTitle(clean);
-            if (hit == null)
+            if (hit != null)
             {
-                _logger.Debug("MangaParsingService.GetManga: no match for normalized title '{0}' (raw='{1}')", clean, title);
+                return hit;
             }
 
-            return hit;
+            // Strategy 2: alt-title match. Mangarr's analog of Sonarr's
+            // _sceneMappingService.FindTvdbId step in ParsingService.GetSeries.
+            // The metadata source persists each provider's alt-title set
+            // pre-normalized at write-time, so this lookup is a direct
+            // canonical-vs-canonical comparison.
+            hit = _mangaService.FindByAlternativeTitle(clean);
+            if (hit != null)
+            {
+                _logger.Debug(
+                    "MangaParsingService.GetManga: resolved '{0}' via AlternativeTitles match on Manga '{1}' (id={2})",
+                    clean,
+                    hit.Title,
+                    hit.Id);
+                return hit;
+            }
+
+            // Strategy 3: substring/fuzzy fallback. Mirrors the
+            // FindByTitleInexact branch at the bottom of Sonarr's GetSeries
+            // (lines 333-338 of the pre-deletion file). Returns the resolved
+            // manga only when EXACTLY ONE candidate matches — ambiguous
+            // resolution returns null, matching Sonarr's posture where the
+            // DownloadDecisionMaker treats null as UnknownManga rather than
+            // arbitrarily picking one. FindByTitleInexact takes the raw
+            // searchTitle (the repo's own LIKE pattern handles partial-
+            // substring containment against each Manga.CleanTitle in the DB).
+            var inexactCandidates = _mangaService.FindByTitleInexact(searchTitle);
+            if (inexactCandidates != null && inexactCandidates.Count == 1)
+            {
+                _logger.Debug(
+                    "MangaParsingService.GetManga: resolved '{0}' via FindByTitleInexact substring match on Manga '{1}' (id={2})",
+                    clean,
+                    inexactCandidates[0].Title,
+                    inexactCandidates[0].Id);
+                return inexactCandidates[0];
+            }
+
+            _logger.Debug(
+                "MangaParsingService.GetManga: no match for normalized title '{0}' (raw='{1}'; inexact candidates={2})",
+                clean,
+                title,
+                inexactCandidates?.Count ?? 0);
+
+            return null;
         }
 
         public RemoteChapter Map(ParsedChapterInfo parsedChapterInfo, NzbDrone.Core.Manga.Manga manga, IList<Chapter> existingChapters)

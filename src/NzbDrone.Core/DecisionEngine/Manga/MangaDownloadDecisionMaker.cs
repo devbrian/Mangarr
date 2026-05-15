@@ -133,19 +133,50 @@ namespace NzbDrone.Core.DecisionEngine.Manga
 
                     if (parsedChapterInfo != null && !parsedChapterInfo.MangaTitle.IsNullOrWhiteSpace())
                     {
-                        // BL-03 (DEF-19-02-01): on a search path the target manga is KNOWN —
-                        // MangaSearchCriteria.Manga carries it. Resolve against that manga
-                        // directly instead of fuzzy title-normalize matching the release
-                        // title against Manga.CleanTitle. The indexer feed's release title
-                        // (e.g. MangaDex's romanized attributes.title) routinely differs from
-                        // the stored Manga.Title (synced from the English altTitles), so the
-                        // title-match path silently fails every release as UnknownManga. This
-                        // mirrors the Sonarr-canonical contract where a search knows its
-                        // Series and only RSS sync resolves by title. RSS (GetRssDecision)
-                        // carries no criteria and still falls back to title resolution below.
+                        // GH #118 — Sonarr-canonical contract restored: MangaParsingService.GetManga
+                        // is the primary resolver on both RSS and search paths. The pre-77a114221
+                        // `searchCriteria?.Manga ?? GetManga(...)` short-circuit was introduced to
+                        // fix DEF-19-02-01 (MangaDex romanized attributes.title vs English
+                        // Manga.CleanTitle silently failing every release as UnknownManga) but
+                        // rendered the existing MangaSpecification Id-equality check structurally
+                        // tautological — `subject.Manga.Id == searchCriteria.Manga.Id` is trivially
+                        // true after the force-assign, so cross-title indexer noise was force-
+                        // attributed to the searched manga and grabbable.
+                        //
+                        // The DEF-19-02-01 fix now lives one layer down: MangaParsingService.GetManga
+                        // is multi-strategy (FindByTitle → FindByAlternativeTitle → FindByTitleInexact),
+                        // Mangarr's mirror of Sonarr's ParsingService.GetSeries (preserved code at
+                        // commit 2832eecb^). The alt-title strategy reads the JSON column populated
+                        // by metadata sources from each provider's alt-title field set, which
+                        // includes MangaDex's romanized attributes.title that SelectPreferredTitle
+                        // discards. Search-path releases now resolve correctly, and the existing
+                        // MangaSpecification (already wired) does its designed Id-cross-check job
+                        // on the resulting RemoteChapter.Manga.
                         var searchCriteria = info?.MangaSearchCriteria;
-                        var manga = searchCriteria?.Manga
-                                    ?? _parsingService.GetManga(parsedChapterInfo.MangaTitle);
+                        var manga = _parsingService.GetManga(parsedChapterInfo.MangaTitle);
+
+                        // GH #118 observability — surface cross-manga GetManga resolutions on
+                        // the search path. When the parsed release title resolves to a different
+                        // manga than the searched manga, that release is cross-title indexer
+                        // noise: MangaSpecification will permanently reject it as
+                        // MatchesAnotherSeries. The Warn log makes this audit-able from the log
+                        // file during the first release cycle so we can spot regressions or
+                        // alt-title-coverage gaps before complaints land. Logged BEFORE Map() so
+                        // every cross-manga case is captured, even for releases whose Chapters
+                        // resolution would later fail.
+                        if (searchCriteria?.Manga != null
+                            && manga != null
+                            && manga.Id != searchCriteria.Manga.Id)
+                        {
+                            _logger.Warn(
+                                "Search-path release '{0}' resolved to manga '{1}' (id={2}) but search target is manga '{3}' (id={4}); MangaSpecification will reject as wrong manga.",
+                                report.Title,
+                                manga.Title,
+                                manga.Id,
+                                searchCriteria.Manga.Title,
+                                searchCriteria.Manga.Id);
+                        }
+
                         var remoteChapter = _parsingService.Map(parsedChapterInfo, manga, searchCriteria?.Chapters);
 
                         if (remoteChapter == null)

@@ -28,12 +28,27 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
     //   1. MangaDexParser builds ReleaseInfo.Title from MangaDex attributes.title (the
     //      ja-ro romanization "Komi-san wa Komyushou Desu." for Komi — no "en" key) while
     //      MangaDexMetadataSource stores Manga.Title from the English altTitles ("Komi
-    //      Can't Communicate"). The normalized forms do not match, so the OLD code path
-    //      (`_parsingService.GetManga(parsedChapterInfo.MangaTitle)`) returned null and
-    //      EVERY release became an UnknownSeries-rejected decision with
-    //      RemoteChapter.Manga == null. The fix resolves the searched manga from
-    //      MangaSearchCriteria.Manga directly (a search KNOWS its manga; only RSS sync
-    //      resolves by title).
+    //      Can't Communicate"). The normalized forms do not match, so the original failure
+    //      shape was: `_parsingService.GetManga(parsedChapterInfo.MangaTitle)` returned
+    //      null and EVERY release became an UnknownSeries-rejected decision with
+    //      RemoteChapter.Manga == null.
+    //
+    //      Initial fix (commit 77a114221): short-circuit GetManga with
+    //      `searchCriteria.Manga ?? GetManga(...)` on the search path. This regressed in
+    //      gh118 — every search-path release was force-attributed to the searched manga,
+    //      including cross-title indexer noise.
+    //
+    //      gh118 fix (this fixture's current pinned behavior): Sonarr-canonical multi-
+    //      strategy MangaParsingService.GetManga that consults a persisted
+    //      AlternativeTitles set populated by metadata sources from each provider's
+    //      alt-title field set. The romanized attributes.title that SelectPreferredTitle
+    //      discards as the canonical Manga.Title is captured in AlternativeTitles, so
+    //      Strategy 2 (FindByAlternativeTitle) resolves the romanized indexer-feed title
+    //      back to the English-stored Manga. The force-assign is reverted; the existing
+    //      MangaSpecification is restored to its designed Id-cross-check role.
+    //
+    //      This fixture's seeding pre-populates AlternativeTitles with the normalized
+    //      romanization to simulate what MangaDexMetadataSource.MapManga now writes.
     //   2. A Manga can carry CustomFormatProfileId == 0 (the int default the AddManga
     //      modal sends when no CF profile is chosen). The maker's CF-score step called
     //      ICustomFormatProfileService.Get(0), which throws ModelNotFoundException — caught
@@ -73,6 +88,17 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
                 // The real-world trigger for the second half of the bug: the AddManga modal
                 // sends 0 when no CF profile is chosen and none is the global default.
                 CustomFormatProfileId = 0,
+
+                // gh118 — AlternativeTitles is now populated by MangaDexMetadataSource.MapManga
+                // from attributes.title + attributes.altTitles. The seeded value mirrors what
+                // CollectAlternativeTitles would write in production: the ja-ro romanization
+                // that SelectPreferredTitle discarded when choosing the English Manga.Title.
+                // MangaParsingService.GetManga Strategy 2 (FindByAlternativeTitle) reads this
+                // to resolve the romanized indexer-feed title back to the English-stored manga.
+                AlternativeTitles = new List<string>
+                {
+                    MangaTitleNormalizer.Normalize("Komi-san wa Komyushou Desu."),
+                },
             });
 
             // DB-seed the chapters the AddManga metadata feed would have synced. The recorded
@@ -108,6 +134,17 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
             // REAL MangaParsingService — the component under test for the title-resolution
             // half of the bug. Resolved from the container so it gets the real
             // IMangaService / IChapterService / repos against the seeded DB.
+            //
+            // gh118: explicitly register real repos + services so the 3-strategy
+            // GetManga (FindByTitle / FindByAlternativeTitle / FindByTitleInexact)
+            // actually queries the DB. Default AutoMoq would inject mocked
+            // IMangaRepository / IMangaService that return null for everything,
+            // so GetManga would resolve null even with the alt-title populated on
+            // the seeded manga. Cascade order: repo → service.
+            Mocker.SetConstant<IMangaRepository>(Mocker.Resolve<MangaRepository>());
+            Mocker.SetConstant<IChapterRepository>(Mocker.Resolve<ChapterRepository>());
+            Mocker.SetConstant<IMangaService>(Mocker.Resolve<MangaService>());
+            Mocker.SetConstant<IChapterService>(Mocker.Resolve<ChapterService>());
             var parsingService = Mocker.Resolve<MangaParsingService>();
 
             // Controlled spec list: the LanguageInTranslationProfile + CustomFormatMinimumScore
