@@ -1,0 +1,15 @@
+{
+  "Request": {
+    "Method": "GET",
+    "Url": "https://uploads.mangadex.org/covers/a96676e5-8ae2-425e-b549-7f15dd34a6d8/f8f44329-1dd7-4301-9ec7-a4a76182e8eb.jpg"
+  },
+  "Response": {
+    "Status": 200,
+    "Body": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=",
+    "BodyIsBase64": true,
+    "Headers": {
+      "Content-Type": "image/png",
+      "Content-Length": "68"
+    }
+  }
+}
