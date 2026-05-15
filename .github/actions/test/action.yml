@@ -28,6 +28,13 @@ inputs:
     description: 'Path witin binary artifact for integration / automation tests'
   ui_artifact:
     description: 'Built frontend UI artifact for automation (UI) tests'
+  # Mangarr-specific divergence from Sonarr's action.yml: discriminator for the
+  # automation_tests family (pr-smoke / nightly / liveservice) so their TRX uploads
+  # don't collide on the same artifact name across jobs in a run. See DIVERGENCE.md
+  # Phase 18 row and the Codex P1 finding on PR #150.
+  results_suffix:
+    description: 'Optional suffix appended to RESULTS_NAME for cross-job disambiguation (e.g. pr-smoke / nightly / liveservice)'
+    default: ''
 
 runs:
   using: 'composite'
@@ -53,10 +60,19 @@ runs:
     # use_postgres is the string "false", producing colliding RESULTS_NAME values
     # (e.g. unit-tests-linux-x64-postgres for what should be the sqlite job) and
     # mis-named TRX artifacts.
+    #
+    # Mangarr divergence: Sonarr upstream has only `integration_tests` and an implicit
+    # unit arm, which guarantees unique RESULTS_NAMEs across its 3 job families.
+    # Phase 18 added `automation_tests` without extending this formula, so the
+    # automation jobs collapsed onto the `unit-` prefix and collided with the real
+    # unit_test artifacts (Codex P1 on PR #150). Two-part fix: (1) explicit
+    # `automation-` arm parallel to the `integration-` arm; (2) optional
+    # `results_suffix` to discriminate within the automation family (pr-smoke /
+    # nightly / liveservice).
     - name: Setup Test Variables
       shell: bash
       run: |
-        echo "RESULTS_NAME=${{ inputs.integration_tests == 'true' && 'integration-' || 'unit-' }}${{ inputs.artifact }}${{ inputs.use_postgres == 'true' && '-postgres' || '' }}${{ inputs.use_postgres == 'true' && inputs.postgres-version && inputs.postgres-version || '' }}" >> "$GITHUB_ENV"
+        echo "RESULTS_NAME=${{ inputs.automation_tests == 'true' && 'automation-' || (inputs.integration_tests == 'true' && 'integration-' || 'unit-') }}${{ inputs.artifact }}${{ inputs.use_postgres == 'true' && '-postgres' || '' }}${{ inputs.use_postgres == 'true' && inputs.postgres-version && inputs.postgres-version || '' }}${{ inputs.results_suffix != '' && format('-{0}', inputs.results_suffix) || '' }}" >> "$GITHUB_ENV"
 
     - name: Setup Postgres Environment Variables
       if: ${{ inputs.use_postgres == 'true' }}
