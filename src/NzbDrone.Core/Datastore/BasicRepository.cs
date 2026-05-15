@@ -68,7 +68,7 @@ namespace NzbDrone.Core.Datastore
                 UseJitter = true,
                 OnRetry = args =>
                 {
-                    Logger.Warn(args.Outcome.Exception, "Failed writing to database. Retry #{0}", args.AttemptNumber);
+                    Logger.Warn(args.Outcome.Exception, "Database operation contended; retrying (attempt #{0})", args.AttemptNumber);
 
                     return default;
                 }
@@ -154,16 +154,25 @@ namespace NzbDrone.Core.Datastore
 
         public IEnumerable<TModel> Get(IEnumerable<int> ids)
         {
-            if (!ids.Any())
+            // WR-05 (#147): materialize the input once. The previous shape enumerated
+            // the source IEnumerable up to four times (Any, Contains, Count x2), which
+            // for deferred / one-shot sequences (LINQ query results, yield-returns)
+            // either re-executed the upstream query or threw on second pass. Distinct
+            // also makes the row-count gate honest: an input like [1,1,2] previously
+            // expected 3 rows but the SQL IN(...) returns 2 (correctly de-duped),
+            // raising a spurious ApplicationException.
+            var idList = ids.Distinct().ToList();
+
+            if (idList.Count == 0)
             {
                 return Array.Empty<TModel>();
             }
 
-            var result = Query(x => ids.Contains(x.Id));
+            var result = Query(x => idList.Contains(x.Id));
 
-            if (result.Count != ids.Count())
+            if (result.Count != idList.Count)
             {
-                throw new ApplicationException($"Expected query to return {ids.Count()} rows but returned {result.Count}");
+                throw new ApplicationException($"Expected query to return {idList.Count} rows but returned {result.Count}");
             }
 
             return result;

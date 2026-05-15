@@ -1,4 +1,5 @@
 using System;
+using System.Data.SQLite;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +21,12 @@ namespace NzbDrone.Core.Test.Datastore
     ///
     /// Reuses the ScheduledTask model so the existing DbTest harness can wire the
     /// real SQLite database without bespoke TableMapping registration.
+    ///
+    /// WR-02 (#147): catch blocks are narrowed to <see cref="SQLiteException"/> so
+    /// only the contention class the BusyTimeout + Polly stack is designed to
+    /// swallow is counted. Any other exception type propagates and fails the test,
+    /// preventing silent regressions (e.g. mapper / connection-string drift) from
+    /// being mistaken for "no SQLITE_BUSY surfaced".
     /// </summary>
     [TestFixture]
     [Category("IntegrationTest")]
@@ -53,8 +60,10 @@ namespace NzbDrone.Core.Test.Datastore
 
                         Subject.Insert(task);
                     }
-                    catch
+                    catch (SQLiteException)
                     {
+                        // WR-02 (#147): only count SQLite contention surfacing; any
+                        // other exception type propagates and fails the test.
                         Interlocked.Increment(ref failures);
                     }
                 }
@@ -105,8 +114,9 @@ namespace NzbDrone.Core.Test.Datastore
                                 .With(x => x.LastStartTime = DateTime.UtcNow)
                                 .Build());
                         }
-                        catch
+                        catch (SQLiteException)
                         {
+                            // WR-02 (#147): only count SQLite contention surfacing.
                             Interlocked.Increment(ref writeFailures);
                         }
                     }
@@ -123,8 +133,9 @@ namespace NzbDrone.Core.Test.Datastore
                             rows.Should().HaveCountGreaterOrEqualTo(0);
                             rowCount.Should().BeGreaterOrEqualTo(0);
                         }
-                        catch
+                        catch (SQLiteException)
                         {
+                            // WR-02 (#147): only count SQLite contention surfacing.
                             Interlocked.Increment(ref readFailures);
                         }
                     }
