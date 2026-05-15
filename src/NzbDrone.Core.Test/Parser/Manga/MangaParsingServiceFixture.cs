@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using FizzWare.NBuilder;
 using FluentAssertions;
+using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Parser.Manga;
@@ -162,6 +163,105 @@ namespace NzbDrone.Core.Test.MangaParserTests
         public void Map_disambiguates_multi_language_candidates_via_TranslationProfile_when_no_language_signal()
         {
             // Coverage moved to DecisionEngine spec fixtures (Plan 16-04).
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // GH #118 — GetManga 3-strategy resolution coverage. Sonarr-canonical
+        // mirror of the deleted ParsingService.GetSeries multi-strategy shape
+        // (commit 2832eecb^, lines 43-100). Each strategy is exercised in
+        // isolation by gating the lower-strategy calls with empty / null
+        // returns from the mocked IMangaService.
+        // ─────────────────────────────────────────────────────────────────────
+
+        [Test]
+        public void GetManga_strategy1_resolves_via_FindByTitle_when_CleanTitle_matches()
+        {
+            // Direct CleanTitle match wins; Strategy 2 / 3 are not consulted.
+            var mangaService = Mocker.GetMock<IMangaService>();
+            mangaService.Setup(s => s.FindByTitle(It.IsAny<string>())).Returns(_manga);
+
+            var result = Subject.GetManga("Naruto");
+
+            result.Should().Be(_manga);
+            mangaService.Verify(s => s.FindByTitle(It.IsAny<string>()), Times.Once);
+            mangaService.Verify(s => s.FindByAlternativeTitle(It.IsAny<string>()), Times.Never);
+            mangaService.Verify(s => s.FindByTitleInexact(It.IsAny<string>()), Times.Never);
+        }
+
+        [Test]
+        public void GetManga_strategy2_falls_through_to_FindByAlternativeTitle_when_CleanTitle_misses()
+        {
+            // DEF-19-02-01 regression preservation: MangaDex romanized
+            // "Shingeki no Kyojin" doesn't normalize-match the English-stored
+            // Manga.CleanTitle "attack on titan", but DOES match an entry in
+            // AlternativeTitles populated from attributes.altTitles.
+            var mangaService = Mocker.GetMock<IMangaService>();
+            mangaService.Setup(s => s.FindByTitle(It.IsAny<string>())).Returns((NzbDrone.Core.Manga.Manga)null);
+            mangaService.Setup(s => s.FindByAlternativeTitle(It.IsAny<string>())).Returns(_manga);
+
+            var result = Subject.GetManga("Shingeki no Kyojin");
+
+            result.Should().Be(_manga);
+            mangaService.Verify(s => s.FindByTitle(It.IsAny<string>()), Times.Once);
+            mangaService.Verify(s => s.FindByAlternativeTitle(It.IsAny<string>()), Times.Once);
+            mangaService.Verify(s => s.FindByTitleInexact(It.IsAny<string>()), Times.Never);
+        }
+
+        [Test]
+        public void GetManga_strategy3_falls_through_to_FindByTitleInexact_when_both_higher_strategies_miss()
+        {
+            // Substring fallback: release title contains the manga's
+            // CleanTitle but isn't an exact match (e.g. "[GroupName] Naruto - Chapter 042").
+            // FindByTitleInexact returns exactly one candidate → resolved.
+            var mangaService = Mocker.GetMock<IMangaService>();
+            mangaService.Setup(s => s.FindByTitle(It.IsAny<string>())).Returns((NzbDrone.Core.Manga.Manga)null);
+            mangaService.Setup(s => s.FindByAlternativeTitle(It.IsAny<string>())).Returns((NzbDrone.Core.Manga.Manga)null);
+            mangaService.Setup(s => s.FindByTitleInexact(It.IsAny<string>()))
+                .Returns(new List<NzbDrone.Core.Manga.Manga> { _manga });
+
+            var result = Subject.GetManga("[GroupName] Naruto - Chapter 042");
+
+            result.Should().Be(_manga);
+            mangaService.Verify(s => s.FindByTitleInexact(It.IsAny<string>()), Times.Once);
+        }
+
+        [Test]
+        public void GetManga_returns_null_when_FindByTitleInexact_yields_multiple_candidates()
+        {
+            // Ambiguous resolution → null. Matches Sonarr's posture: when
+            // GetSeries can't pick exactly one, MapInexact returns null and
+            // the DownloadDecisionMaker treats null as UnknownManga rather
+            // than arbitrarily picking one.
+            var mangaService = Mocker.GetMock<IMangaService>();
+            mangaService.Setup(s => s.FindByTitle(It.IsAny<string>())).Returns((NzbDrone.Core.Manga.Manga)null);
+            mangaService.Setup(s => s.FindByAlternativeTitle(It.IsAny<string>())).Returns((NzbDrone.Core.Manga.Manga)null);
+
+            var manga2 = Builder<NzbDrone.Core.Manga.Manga>
+                .CreateNew()
+                .With(m => m.Id = _manga.Id + 1)
+                .With(m => m.Title = "Naruto Spin-Off")
+                .With(m => m.CleanTitle = "naruto spin off")
+                .Build();
+            mangaService.Setup(s => s.FindByTitleInexact(It.IsAny<string>()))
+                .Returns(new List<NzbDrone.Core.Manga.Manga> { _manga, manga2 });
+
+            var result = Subject.GetManga("Naruto");
+
+            result.Should().BeNull("ambiguous inexact resolution returns null; caller handles as UnknownManga");
+        }
+
+        [Test]
+        public void GetManga_returns_null_when_all_strategies_miss()
+        {
+            var mangaService = Mocker.GetMock<IMangaService>();
+            mangaService.Setup(s => s.FindByTitle(It.IsAny<string>())).Returns((NzbDrone.Core.Manga.Manga)null);
+            mangaService.Setup(s => s.FindByAlternativeTitle(It.IsAny<string>())).Returns((NzbDrone.Core.Manga.Manga)null);
+            mangaService.Setup(s => s.FindByTitleInexact(It.IsAny<string>()))
+                .Returns(new List<NzbDrone.Core.Manga.Manga>());
+
+            var result = Subject.GetManga("Completely Unknown Title");
+
+            result.Should().BeNull();
         }
     }
 }

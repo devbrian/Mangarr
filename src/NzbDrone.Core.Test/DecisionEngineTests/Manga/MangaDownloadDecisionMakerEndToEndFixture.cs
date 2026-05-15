@@ -11,6 +11,7 @@ using NzbDrone.Core.DecisionEngine;
 using NzbDrone.Core.DecisionEngine.Manga;
 using NzbDrone.Core.DecisionEngine.Manga.Specifications;
 using NzbDrone.Core.Indexers;
+using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Manga.Model;
@@ -67,10 +68,15 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             // gates the F-01 fixture proves fire end-to-end. Other operational specs (MonitoredManga,
             // MonitoredChapter, etc.) are exercised by their own per-spec fixtures; what matters here
             // is that TPROFILE outer + CF inner gates ACTUALLY EVALUATE on real components.
+            //
+            // GH #118 extension: MangaSpecification is included so the end-to-end fixture asserts
+            // the post-fix wiring (force-assign reverted → GetManga is resolver → MangaSpecification
+            // is structurally meaningful again) end-to-end against the REAL spec instance.
             _specs = new List<IMangaDecisionEngineSpecification>
             {
                 new LanguageInTranslationProfileSpecification(_translationProfileService.Object, _configService.Object, LogManager.GetLogger("test")),
-                new CustomFormatMinimumScoreSpecification(_customFormatProfileService.Object, _configService.Object, LogManager.GetLogger("test"))
+                new CustomFormatMinimumScoreSpecification(_customFormatProfileService.Object, _configService.Object, LogManager.GetLogger("test")),
+                new MangaSpecification(LogManager.GetLogger("test")),
             };
 
             _maker = new MangaDownloadDecisionMaker(
@@ -227,6 +233,97 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             // Compare(b, a) > 0 means b sorts first under OrderByDescending.
             _comparer.Compare(bDec, aDec).Should().BeGreaterThan(0, "D-08: IndexerPriority promoted above Age (b is older) and Size (a is bigger)");
             _comparer.Compare(aDec, bDec).Should().BeLessThan(0);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // GH #118 end-to-end assertions — cross-title noise rejection +
+        // DEF-19-02-01 regression preservation. Both exercise the REAL
+        // MangaSpecification instance + REAL MangaDownloadDecisionMaker
+        // (the parsing service is mocked, mirroring this fixture's pattern).
+        // ─────────────────────────────────────────────────────────────────────
+
+        [Test]
+        public void GH118_search_path_rejects_release_when_GetManga_resolves_to_different_manga_than_searchCriteria()
+        {
+            // Core gh118 scenario: indexer fan-out returns a release for manga B;
+            // the user searched for manga A. Pre-fix (77a114221 force-assign),
+            // MangaDownloadDecisionMaker baked manga = searchCriteria.Manga,
+            // so subject.Manga.Id == searchCriteria.Manga.Id was tautologically
+            // true and MangaSpecification accepted. Post-fix, GetManga is the
+            // resolver and returns mangaB; MangaSpecification's Id-equality
+            // catches mangaA.Id != mangaB.Id and permanently rejects.
+            _translationProfileService.Setup(s => s.Get(7))
+                .Returns(new TranslationProfile { Id = 7, Languages = new List<string> { "en" } });
+
+            var mangaA = new NzbDrone.Core.Manga.Manga { Id = 1, Title = "Search Target Manga", CleanTitle = "search target manga", Monitored = true, TranslationProfileId = 7 };
+            var mangaB = new NzbDrone.Core.Manga.Manga { Id = 999, Title = "Unrelated Manga", CleanTitle = "unrelated manga", Monitored = true, TranslationProfileId = 7 };
+
+            // The release's parsed title belongs to manga B. GetManga (mocked)
+            // resolves to manga B as it would in production via Strategy 1 / 2 / 3.
+            _parsingService.Setup(p => p.GetManga(It.IsAny<string>())).Returns(mangaB);
+            _parsingService.Setup(p => p.Map(It.IsAny<ParsedChapterInfo>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<IList<Chapter>>()))
+                .Returns<ParsedChapterInfo, NzbDrone.Core.Manga.Manga, IList<Chapter>>((parsed, m, _) => new RemoteChapter
+                {
+                    Manga = m,
+                    Chapters = new List<Chapter> { new() { Id = 100, Monitored = true, ChapterNumber = 42m } },
+                    ParsedChapterInfo = parsed,
+                });
+            _formatCalculator.Setup(f => f.ParseCustomFormat(It.IsAny<MangaCustomFormatInput>())).Returns(new List<CustomFormat>());
+
+            var release = new ReleaseInfo { Title = "Unrelated Manga - Chapter 042", TranslatedLanguage = "en" };
+
+            // Search path: search target is manga A.
+            var searchCriteria = new MangaSearchCriteria { Manga = mangaA, Chapters = new List<Chapter>() };
+            var decisions = _maker.GetSearchDecision(new List<ReleaseInfo> { release }, searchCriteria);
+
+            decisions.Should().HaveCount(1);
+            decisions[0].Approved.Should().BeFalse("GH #118: cross-title indexer noise must be rejected — release belongs to manga B but search target is manga A");
+            decisions[0].Rejections.Should().Contain(r => r.Reason == DownloadRejectionReason.MatchesAnotherSeries);
+        }
+
+        [Test]
+        public void GH118_DEF_19_02_01_regression_preserved_search_path_accepts_release_when_GetManga_resolves_to_search_target()
+        {
+            // DEF-19-02-01 regression preservation: the original defect was that
+            // MangaDex's romanized attributes.title in ReleaseInfo could not
+            // normalize-match the English-stored Manga.CleanTitle, so GetManga
+            // returned null and every release became UnknownManga. The 77a114221
+            // force-assign fixed this by short-circuiting GetManga.
+            //
+            // Post-GH-118 fix the force-assign is reverted but GetManga is now
+            // multi-strategy with an alt-title fallback (parts 3+4 of the fix).
+            // In production: GetManga consults FindByAlternativeTitle and resolves
+            // the romanized title to the correct manga. Here we simulate that
+            // resolution by having the mocked GetManga return the searched manga
+            // — the assertion is that with GetManga resolving correctly, the
+            // pipeline approves (no UnknownManga, no MatchesAnotherSeries).
+            _translationProfileService.Setup(s => s.Get(7))
+                .Returns(new TranslationProfile { Id = 7, Languages = new List<string> { "en" } });
+
+            var manga = new NzbDrone.Core.Manga.Manga { Id = 1, Title = "Attack on Titan", CleanTitle = "attack on titan", Monitored = true, TranslationProfileId = 7 };
+
+            // GetManga resolves the romanized title back to the English-stored manga
+            // via the new AlternativeTitles strategy.
+            _parsingService.Setup(p => p.GetManga(It.IsAny<string>())).Returns(manga);
+            _parsingService.Setup(p => p.Map(It.IsAny<ParsedChapterInfo>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<IList<Chapter>>()))
+                .Returns<ParsedChapterInfo, NzbDrone.Core.Manga.Manga, IList<Chapter>>((parsed, m, _) => new RemoteChapter
+                {
+                    Manga = m,
+                    Chapters = new List<Chapter> { new() { Id = 100, Monitored = true, ChapterNumber = 42m } },
+                    ParsedChapterInfo = parsed,
+                });
+            _formatCalculator.Setup(f => f.ParseCustomFormat(It.IsAny<MangaCustomFormatInput>())).Returns(new List<CustomFormat>());
+
+            var release = new ReleaseInfo { Title = "Shingeki no Kyojin - Chapter 042 [EN]", TranslatedLanguage = "en" };
+
+            var searchCriteria = new MangaSearchCriteria { Manga = manga, Chapters = new List<Chapter>() };
+            var decisions = _maker.GetSearchDecision(new List<ReleaseInfo> { release }, searchCriteria);
+
+            decisions.Should().HaveCount(1);
+            decisions[0].Rejections.Should().NotContain(r => r.Reason == DownloadRejectionReason.MatchesAnotherSeries,
+                "DEF-19-02-01 regression: MangaSpecification must NOT reject when GetManga successfully resolves the romanized title to the searched manga via the alt-title strategy");
+            decisions[0].Rejections.Should().NotContain(r => r.Reason == DownloadRejectionReason.UnknownSeries,
+                "DEF-19-02-01 regression: GetManga must successfully resolve (not return null) when an alt-title match exists");
         }
 
         [Test]
