@@ -64,10 +64,20 @@ public class CassetteHandler : DelegatingHandler
         // Record mode (or ReplayOrRecord miss): pass through, then persist.
         var response = await base.SendAsync(request, ct).ConfigureAwait(false);
 
-        // D-12: sentinel-PNG substitution for image content types
+        // D-12 / T-18-01: image content types are substituted for the inline
+        // sentinel PNG. Persist the SENTINEL (not the upstream image bytes) so
+        // future Replay-mode runs find the cassette on disk and serve the same
+        // sentinel without the original short-circuit. Only safe sentinel bytes
+        // ever reach disk — record→replay is byte-equivalent.
+        // GH #114: closes DEF-19-02-03 generally (so future image GETs are
+        // self-cassetting; the hand-crafted 80dc439a3313d362.json is preserved
+        // for CI's default Replay tier and is byte-identical to what this
+        // branch now produces under Record / ReplayOrRecord).
         if (IsImageContentType(response.Content?.Headers?.ContentType))
         {
-            return await BuildSentinelResponseAsync(_sentinelPngPath, response).ConfigureAwait(false);
+            var sentinelResponse = await BuildSentinelResponseAsync(_sentinelPngPath, response).ConfigureAwait(false);
+            await WriteToDiskAsync(path, request, sentinelResponse).ConfigureAwait(false);
+            return sentinelResponse;
         }
 
         await WriteToDiskAsync(path, request, response).ConfigureAwait(false);
