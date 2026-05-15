@@ -75,15 +75,47 @@ public class KeyboardShortcutsModalFixture : AutomationTest
         modalText.Should().NotBeNull();
         modalText!.Should().Contain("?", "the keyboard-shortcuts modal must enumerate the `?` shortcut entry");
 
-        // STATE assertion 3 dropped 2026-05-15 (gh-152 round-2 verification):
-        // The prior assertion fired `Page.Keyboard.PressAsync("Escape")` and
-        // expected `ToBeHiddenAsync()` within 5s. Mousetrap's `Esc` binding hits
-        // the same modern-browser `keypress`-retirement issue as the `?`
-        // binding documented above — the Escape keydown reaches the document
-        // but Mousetrap's character-key path doesn't fire on the CI runner.
-        // The modal-open + render contract (assertions 1+2) is the core
-        // shortcut-enumeration UAT; dismiss-via-keyboard is a Mousetrap
-        // behavior, not a Mangarr contract. Filing the close-on-Escape
-        // coverage gap as gh-155 follow-up so it stays visible.
+        // STATE assertion 3: Escape dismisses the modal. Codex PR #154 review
+        // (P2) corrected my prior diagnosis — Modal.tsx:110-161 attaches its
+        // own `window.addEventListener('keydown', handleKeyDown)` that checks
+        // `event.keyCode === keyCodes.ESCAPE` and calls `onModalClose()`. The
+        // close path is NOT routed through Mousetrap.
+        //
+        // Both `Page.Keyboard.PressAsync("Escape")` (round 2) and
+        // `dialog.PressAsync("Escape")` (round 4) failed in CI. The actions-
+        // menu-click flow leaves the `@floating-ui/react` MenuContent in a
+        // transitional state that captures keyboard events; the `<div
+        // role="dialog">` isn't natively focusable so `Locator.PressAsync`
+        // can't deliver the key to a stable target.
+        //
+        // Most reliable fix: dispatch a synthetic `keydown` directly on
+        // `window` via JavaScript. Modal.tsx's listener is `window.addEventListener
+        // ('keydown', ...)`, so we deliver the event exactly where it's
+        // listening — bypassing focus contention entirely. `KeyboardEvent`'s
+        // constructor doesn't honor `keyCode` from its dict (it's always 0),
+        // so we set `keyCode` and `which` to 27 via `defineProperty` after
+        // construction. Modal's `event.keyCode === keyCodes.ESCAPE` check
+        // then matches and `onModalClose()` fires.
+        await Page.EvaluateAsync(@"() => {
+            const e = new KeyboardEvent('keydown', {
+                key: 'Escape',
+                code: 'Escape',
+                bubbles: true,
+                cancelable: true
+            });
+            Object.defineProperty(e, 'keyCode', { value: 27, configurable: true });
+            Object.defineProperty(e, 'which', { value: 27, configurable: true });
+            window.dispatchEvent(e);
+        }");
+
+        // Modal returns null when !isOpen (Modal.tsx:163), so the dialog
+        // element detaches from DOM rather than just becoming visually hidden.
+        // Match the BackupRestoreFixture/ParseModalFixture pattern that uses
+        // WaitForAsync(State: Detached) for this contract.
+        await dialog.WaitForAsync(new LocatorWaitForOptions
+        {
+            State = WaitForSelectorState.Detached,
+            Timeout = 10_000
+        });
     }
 }
