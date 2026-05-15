@@ -60,10 +60,16 @@ function DownloadClient({
     dispatch(deleteDownloadClient({ id }));
   }, [id, dispatch]);
 
+  // Phase 20 Plan 20-05: testid slug = lowercased name, whitespace collapsed
+  // to dashes (mirrors Indexer.tsx pattern from Plan 20-04). Used by
+  // SettingsDownloadClientsPage.CardByName + SettingsProviderFlow.DeleteByNameAsync.
+  const testIdSlug = name.toLowerCase().replace(/\s+/g, '-');
+
   return (
     <Card
       className={styles.downloadClient}
       overlayContent={true}
+      data-testid={`settings-downloadclient-card-${testIdSlug}`}
       onPress={handleEditDownloadClientPress}
     >
       <div className={styles.name}>{name}</div>

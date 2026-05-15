@@ -210,7 +210,10 @@ function ManageDownloadClientsModalContentInner({
   );
 
   return (
-    <ModalContent onModalClose={onModalClose}>
+    <ModalContent
+      data-testid="manage-downloadclients-modal"
+      onModalClose={onModalClose}
+    >
       <ModalHeader>{translate('ManageDownloadClients')}</ModalHeader>
       <ModalBody>
         {isFetching ? <LoadingIndicator /> : null}

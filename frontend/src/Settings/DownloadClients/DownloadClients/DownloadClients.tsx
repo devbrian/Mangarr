@@ -68,6 +68,7 @@ function DownloadClients() {
 
           <Card
             className={styles.addDownloadClient}
+            data-testid="settings-downloadclient-add-card"
             onPress={handleAddDownloadClientPress}
           >
             <div className={styles.center}>

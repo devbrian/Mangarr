@@ -40,8 +40,22 @@ function AddDownloadClientItem({
     onDownloadClientSelect();
   }, [implementation, implementationName, dispatch, onDownloadClientSelect]);
 
+  // Phase 20 Plan 20-05: testid slug matches the Mangarr implementation key
+  // lowercased + suffix-stripped (same strip pattern as Plan 20-04's
+  // AddIndexerItem.tsx — strips Indexer/DownloadClient/Notification suffix only).
+  // For "InProcessImageDownloadClient" this yields "inprocessimage". Stable for
+  // Playwright targeting in SettingsProviderFlow.OpenPickerAndSelectAsync.
+  const itemTestIdSlug = implementation
+    .replace(/Indexer$/i, '')
+    .replace(/DownloadClient$/i, '')
+    .replace(/Notification$/i, '')
+    .toLowerCase();
+
   return (
-    <div className={styles.downloadClient}>
+    <div
+      className={styles.downloadClient}
+      data-testid={`add-downloadclient-${itemTestIdSlug}`}
+    >
       <Link className={styles.underlay} onPress={handleDownloadClientSelect} />
 
       <div className={styles.overlay}>
