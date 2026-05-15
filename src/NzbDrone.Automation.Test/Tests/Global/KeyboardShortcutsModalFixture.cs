@@ -75,15 +75,24 @@ public class KeyboardShortcutsModalFixture : AutomationTest
         modalText.Should().NotBeNull();
         modalText!.Should().Contain("?", "the keyboard-shortcuts modal must enumerate the `?` shortcut entry");
 
-        // STATE assertion 3 dropped 2026-05-15 (gh-152 round-2 verification):
-        // The prior assertion fired `Page.Keyboard.PressAsync("Escape")` and
-        // expected `ToBeHiddenAsync()` within 5s. Mousetrap's `Esc` binding hits
-        // the same modern-browser `keypress`-retirement issue as the `?`
-        // binding documented above — the Escape keydown reaches the document
-        // but Mousetrap's character-key path doesn't fire on the CI runner.
-        // The modal-open + render contract (assertions 1+2) is the core
-        // shortcut-enumeration UAT; dismiss-via-keyboard is a Mousetrap
-        // behavior, not a Mangarr contract. Filing the close-on-Escape
-        // coverage gap as gh-155 follow-up so it stays visible.
+        // STATE assertion 3: Escape dismisses the modal. Codex PR #154 review
+        // (P2) corrected my prior diagnosis — Modal.tsx:110-161 attaches its
+        // own `window.addEventListener('keydown', handleKeyDown)` that checks
+        // `event.keyCode === keyCodes.ESCAPE` and calls `onModalClose()`. The
+        // close path is NOT routed through Mousetrap, so the "modern-browser
+        // keypress retirement" rationale that dropped this assertion in round 3
+        // was wrong. The round-2 failure was a focus / event-bubbling artifact
+        // from the UI-menu-click trigger (the `@floating-ui/react` MenuContent
+        // can swallow keydown events before they reach window).
+        //
+        // Fix: use `Locator.PressAsync` on the dialog itself. Playwright's
+        // Locator.PressAsync auto-focuses the target element BEFORE firing
+        // the key, guaranteeing the keydown propagates from the dialog →
+        // window listener without an upstream MenuContent eating it.
+        await dialog.PressAsync("Escape");
+        await Assertions.Expect(dialog).ToBeHiddenAsync(new LocatorAssertionsToBeHiddenOptions
+        {
+            Timeout = 10_000
+        });
     }
 }

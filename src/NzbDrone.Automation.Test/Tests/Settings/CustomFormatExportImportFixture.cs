@@ -85,21 +85,29 @@ public class CustomFormatExportImportFixture : AutomationTest
             // Empty-state path: no existing CFs. CustomFormats.tsx renders an
             // icon-only `<Card>` (Card → Link → `<button>` containing only a
             // FontAwesome plus icon — NO accessible text label). A
-            // Button-by-name locator therefore cannot reach it; assert on
-            // structural surfaces that prove the user has a UI path to the
-            // Add modal: (1) the "Custom Formats" FieldSet legend (proves
-            // the section rendered), and (2) the page-shell testid (proves
-            // the route loaded successfully).
+            // Button-by-name locator therefore cannot reach it.
             //
-            // The Add modal → Import menu surface (CF-04) is reachable from
-            // the Add Card; once a populated seed exists for CFs, this
-            // fixture's primary export-side branch above activates and the
-            // import-side empty branch is bypassed entirely.
+            // Codex PR #154 review (P2) flagged the prior legend-only assertion
+            // as a coverage regression — verifying only that the section
+            // rendered allows the test to pass even if the Add Card is removed
+            // or its onPress is broken. Strengthened assertion: locate the
+            // Add Card itself via the FontAwesome plus icon. `icons.ADD` is
+            // `fasPlus` (Helpers/Props/icons.ts:123), which FontAwesome
+            // renders as `<svg data-icon="plus">`. Card with `onPress` (no
+            // `to` prop) renders through Link as `<button>`, so the actionable
+            // empty-state affordance is `button:has(svg[data-icon='plus'])`.
+            // If the Add Card disappears or the icon changes, the test fails.
             var fieldsetLegend = Page.Locator("legend").GetByText("Custom Formats");
             var fieldsetLegendCount = await fieldsetLegend.CountAsync();
             fieldsetLegendCount.Should().BeGreaterThan(
                 0,
-                "Settings/CustomFormats must expose the Custom Formats FieldSet section for CF-04 round-trip");
+                "Settings/CustomFormats must expose the Custom Formats FieldSet section");
+
+            var addCard = Page.Locator("button:has(svg[data-icon='plus'])");
+            var addCardCount = await addCard.CountAsync();
+            addCardCount.Should().BeGreaterThan(
+                0,
+                "Settings/CustomFormats must expose an Add Card (the empty-state import affordance) for CF-04 round-trip");
         }
     }
 }
