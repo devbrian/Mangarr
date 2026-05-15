@@ -35,19 +35,31 @@ runs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
 
+    # /gsd-debug nightly-automation-fail Pattern A fix: GitHub Actions composite-action
+    # inputs are STRINGS. In `${{ }}` expressions the string "false" is TRUTHY (only the
+    # empty string is falsey), so `if: ${{ inputs.use_postgres }}` runs this step even
+    # when callers pass `use_postgres: false`. The sqlite matrix entry of
+    # automation_test_nightly then trips the setup-postgres action's empty-version
+    # validation and fast-fails the entire job in ~18s. Explicit string comparison
+    # `== 'true'` is the canonical pattern for boolean composite-action inputs.
     - name: Setup Postgres
-      if: ${{ inputs.use_postgres }}
+      if: ${{ inputs.use_postgres == 'true' }}
       uses: ikalnytskyi/action-setup-postgres@v8
       with:
         postgres-version: ${{ inputs.postgres-version }}
 
+    # Same truthy-string sweep as the if: guards. Without an explicit comparison,
+    # `${{ inputs.use_postgres && '-postgres' }}` resolves to '-postgres' even when
+    # use_postgres is the string "false", producing colliding RESULTS_NAME values
+    # (e.g. unit-tests-linux-x64-postgres for what should be the sqlite job) and
+    # mis-named TRX artifacts.
     - name: Setup Test Variables
       shell: bash
       run: |
-        echo "RESULTS_NAME=${{ inputs.integration_tests && 'integration-' || 'unit-' }}${{ inputs.artifact }}${{ inputs.use_postgres && '-postgres' }}${{ inputs.use_postgres && inputs.postgres-version && inputs.postgres-version }}" >> "$GITHUB_ENV"
+        echo "RESULTS_NAME=${{ inputs.integration_tests == 'true' && 'integration-' || 'unit-' }}${{ inputs.artifact }}${{ inputs.use_postgres == 'true' && '-postgres' || '' }}${{ inputs.use_postgres == 'true' && inputs.postgres-version && inputs.postgres-version || '' }}" >> "$GITHUB_ENV"
 
     - name: Setup Postgres Environment Variables
-      if: ${{ inputs.use_postgres }}
+      if: ${{ inputs.use_postgres == 'true' }}
       shell: bash
       run: |
         echo "Mangarr__Postgres__Host=localhost" >> "$GITHUB_ENV"
@@ -67,8 +79,13 @@ runs:
     # integration_tests AND automation_tests. Previously gated on integration_tests only,
     # which left automation_test_pr_smoke with no backend binary
     # (Win32Exception: '_tests/bin/Mangarr' ... No such file or directory).
+    #
+    # /gsd-debug nightly-automation-fail Pattern A sweep: explicit `== 'true'` for the
+    # same truthy-string reason documented at the Setup Postgres step. These two
+    # inputs are dormant w.r.t. the original bug (callers only ever pass literal
+    # `true`, never `false`), but the sweep removes a latent foot-gun.
     - name: Download Binary Artifact
-      if: ${{ inputs.integration_tests || inputs.automation_tests }}
+      if: ${{ inputs.integration_tests == 'true' || inputs.automation_tests == 'true' }}
       uses: actions/download-artifact@v5
       with:
         name: ${{ inputs.binary_artifact }}
@@ -91,7 +108,7 @@ runs:
     # The binary was just moved to _tests/bin (StartUpFolder), so the UI must land at
     # _tests/bin/UI to be served.
     - name: Download UI Artifact
-      if: ${{ inputs.automation_tests && inputs.ui_artifact != '' }}
+      if: ${{ inputs.automation_tests == 'true' && inputs.ui_artifact != '' }}
       uses: actions/download-artifact@v5
       with:
         name: ${{ inputs.ui_artifact }}
@@ -100,7 +117,7 @@ runs:
     # CI-infra F11 fix (issue #131): un-gated from integration_tests to also cover
     # automation_tests — the automation jobs exec the same _tests/bin/Mangarr binary.
     - name: Make Mangarr binary executable
-      if: ${{ (inputs.integration_tests || inputs.automation_tests) && !startsWith(inputs.os, 'windows') }}
+      if: ${{ (inputs.integration_tests == 'true' || inputs.automation_tests == 'true') && !startsWith(inputs.os, 'windows') }}
       shell: bash
       run: chmod +x ./_tests/bin/Mangarr
 
@@ -136,7 +153,7 @@ runs:
     # structurally prevents that regression — unit_test/unit_test_postgres/integration_test
     # never pass automation_tests, so this step never runs in their jobs.
     - name: Make Playwright driver executable
-      if: ${{ inputs.automation_tests && !startsWith(inputs.os, 'windows') }}
+      if: ${{ inputs.automation_tests == 'true' && !startsWith(inputs.os, 'windows') }}
       shell: bash
       run: |
         find ./_tests -path '*/.playwright/node/*' -name node -type f -print -exec chmod +x {} +
@@ -152,7 +169,7 @@ runs:
     # runners have pwsh preinstalled. The automation jobs' "Cache Playwright browsers" step
     # restores ~/.cache/ms-playwright, so this is a fast no-op on warm runs.
     - name: Provision Playwright browsers
-      if: ${{ inputs.automation_tests }}
+      if: ${{ inputs.automation_tests == 'true' }}
       shell: pwsh
       working-directory: _tests
       run: ./playwright.ps1 install --with-deps chromium
