@@ -112,6 +112,18 @@ namespace NzbDrone.Core.Manga
         // MangaTitleNormalizer (D-05's single source of truth) before delegating to
         // IMangaRepository.FindByTitleInexact. Empty / null / whitespace input yields
         // an empty list (the repository BL-02 guard returns empty on missing input).
+        // GH #118 — service-level wrapper for the parser's alt-title resolution
+        // path. Strategy 2 of MangaParsingService.GetManga multi-strategy
+        // resolution (Sonarr-canonical mirror of ParsingService.GetSeries).
+        // Normalizes the input title via MangaTitleNormalizer (D-05 single
+        // source of truth) before delegating to IMangaRepository — same
+        // canonicalization the metadata sources used at write-time, so the
+        // comparison is between two equally-normalized strings.
+        public Manga FindByAlternativeTitle(string title)
+        {
+            return _mangaRepository.FindByAlternativeTitle(MangaTitleNormalizer.Normalize(title));
+        }
+
         public List<Manga> FindByTitleInexact(string title)
         {
             var cleanTitle = MangaTitleNormalizer.Normalize(title);

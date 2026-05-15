@@ -54,6 +54,45 @@ namespace NzbDrone.Core.Manga
             return Query(m => m.CleanTitle == cleanTitle && m.PublicationYear == year).SingleOrDefault();
         }
 
+        public Manga FindByAlternativeTitle(string normalizedTitle)
+        {
+            // GH #118 — Strategy 2 of MangaParsingService.GetManga multi-strategy
+            // resolution (Sonarr-canonical mirror of ParsingService.GetSeries).
+            //
+            // Matches against the AlternativeTitles JSON column written by the
+            // metadata sources. Entries are pre-normalized at write-time
+            // (MangaTitleNormalizer.Normalize), so an exact substring match
+            // wrapped in JSON-element quotes (e.g. `"shingeki no kyojin"`)
+            // uniquely identifies a stored entry without false positives —
+            // the surrounding quotes prevent matching a value that is a
+            // substring of another normalized entry.
+            //
+            // Inherits the BL-02 null-input guard from FindByTitle for the
+            // parser short-path that may pass a malformed/empty title.
+            //
+            // SQLite uses `instr`; PostgreSQL uses `strpos`. Mirrors the
+            // FindByTitleInexact dual-dialect branch above.
+            if (string.IsNullOrWhiteSpace(normalizedTitle))
+            {
+                return null;
+            }
+
+            // Wrap in JSON-element quotes — the StringListConverter serializes
+            // List<string> as a JSON array (e.g. ["abc","def"]), so each
+            // entry is enclosed in double quotes. Matching '"abc"' (with quotes)
+            // uniquely identifies the entry "abc" within the JSON array.
+            var pattern = "\"" + normalizedTitle + "\"";
+
+            var builder = Builder().Where($"instr(\"Manga\".\"AlternativeTitles\", @pattern) > 0", new { pattern });
+
+            if (_database.DatabaseType == DatabaseType.PostgreSQL)
+            {
+                builder = Builder().Where($"(strpos(\"Manga\".\"AlternativeTitles\", @pattern) > 0)", new { pattern });
+            }
+
+            return Query(builder).FirstOrDefault();
+        }
+
         public List<Manga> FindByTitleInexact(string cleanTitle)
         {
             // Phase 8 audit gap-02 (SeriesRepository-vs-MangaRepository.md): mirrors
