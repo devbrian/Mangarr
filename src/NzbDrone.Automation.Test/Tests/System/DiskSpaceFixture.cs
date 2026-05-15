@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -38,6 +39,18 @@ public class DiskSpaceFixture : AutomationTest
         // against a future formatter swap).
         var diskSpaceSection = Page.Locator("fieldset:has(legend:has-text('Disk Space'))");
         await diskSpaceSection.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+
+        // 2026-05-15 gh-152 round-2 fix: postgres-16 flaked once with the
+        // FieldSet rendered but body empty ("Disk Space" was the entire
+        // text content — table hadn't hydrated yet). Wait for the actual
+        // disk-row content (table row cells with byte-formatted text)
+        // before reading text so the regex isn't racing the /api/v5/diskspace
+        // network round-trip on a slow runner. Auto-retrying assertion via
+        // ToContainTextAsync handles the race naturally.
+        await Assertions.Expect(diskSpaceSection)
+            .ToContainTextAsync(
+                new Regex(@"\d+(\.\d+)?\s*(B|[KMGT]i?B)"),
+                new LocatorAssertionsToContainTextOptions { Timeout = 15_000 });
 
         var diskSpaceText = await diskSpaceSection.TextContentAsync();
         diskSpaceText.Should().NotBeNullOrEmpty();
