@@ -45,16 +45,26 @@ public class NotificationTestButtonFixture : AutomationTest
         // Komga + Kavita are the v1 ship-list (Phase 6 NOTIFY-01/02/03);
         // they're created by the user, not seeded — so on fresh-DB the
         // notification list is empty.
-        var komgaCard = Page.GetByText("Komga", new PageGetByTextOptions { Exact = true });
+        //
+        // gh157 fix-forward (mirrors PR #156 / live-indexer-card-click): the
+        // prior locator `Page.GetByText("Komga"|"Kavita")` resolved to the
+        // inner <div> whose clicks were intercepted by the Card-underlay
+        // <button> (Card.tsx overlayContent shape). D-18 + Notification.tsx
+        // now expose a `settings-notification-card-<slug>` testid on the
+        // underlay button itself, so ClickAsync lands on the actual
+        // interactive surface. This bug was masked while the empty-list
+        // branch ran (Assert.Inconclusive); it would have surfaced as a
+        // 30 s timeout the moment a populated-notifications seed landed.
+        var komgaCard = page.CardByName("Komga");
         var komgaCount = await komgaCard.CountAsync();
-        var kavitaCard = Page.GetByText("Kavita", new PageGetByTextOptions { Exact = true });
+        var kavitaCard = page.CardByName("Kavita");
         var kavitaCount = await kavitaCard.CountAsync();
 
         if (komgaCount > 0 || kavitaCount > 0)
         {
             // Populated-notifications path: click the first card, open the
             // edit modal, click Test, assert toast or button state.
-            var targetCard = komgaCount > 0 ? komgaCard.First : kavitaCard.First;
+            var targetCard = komgaCount > 0 ? komgaCard : kavitaCard;
             await targetCard.ClickAsync();
 
             // WR-07 (18-REVIEW): wait for the dialog explicitly (replaces a

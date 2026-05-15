@@ -18,6 +18,18 @@ public class SettingsNotificationsPage : PageBase
 
     public ILocator PageContainer => Page.GetByTestId("settings-notifications-page");
 
+    // gh157 fix-forward (mirrors SettingsIndexersPage.CardByName / PR #156) —
+    // D-18 selector for a notification card. The testid lands on the
+    // Card-underlay <button> (Card.tsx overlay branch), so ClickAsync()
+    // targets the actual interactive surface rather than the inner text <div>.
+    // Slug = lowercase name with whitespace collapsed to dashes (see
+    // Notification.tsx).
+    public ILocator CardByName(string name)
+        => Page.GetByTestId($"settings-notification-card-{Slugify(name)}");
+
+    private static string Slugify(string name)
+        => Regex.Replace(name.ToLowerInvariant(), @"\s+", "-");
+
     public async Task<SettingsNotificationsPage> OpenAsync(string rootUri)
     {
         await Page.GotoAsync($"{rootUri}/settings/connect");
