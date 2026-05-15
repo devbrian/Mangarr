@@ -64,12 +64,13 @@ public class FilterModalFixture : AutomationTest
         // The Wanted/Missing FILTERS list seeds at least "All" + "Monitored
         // Only" entries, so the count is deterministic regardless of library
         // contents.
+        //
+        // 2026-05-15 gh-152 verification fix: the wrapper `<div id="portal-root">`
+        // is always Attached but Playwright reports it as Hidden when empty
+        // (no width/height) — `WaitForAsync` with default `Visible` state times
+        // out. Wait for menu items inside the portal directly; they are visible
+        // once @floating-ui mounts the dropdown content.
         var portal = Page.Locator("#portal-root");
-        await portal.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
-
-        // Wait briefly for the floating-ui open animation to commit the
-        // children into the portal. The dropdown items are buttons —
-        // role=button inside #portal-root.
         var menuItems = portal.GetByRole(AriaRole.Button);
         await menuItems.First.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
         var count = await menuItems.CountAsync();

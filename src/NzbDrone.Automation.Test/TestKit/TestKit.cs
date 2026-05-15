@@ -316,10 +316,15 @@ public class TestKit
 
         using var connection = OpenDatabase(appDataPath);
         using var command = connection.CreateCommand();
+
+        // Identifiers double-quoted so postgres preserves case (unquoted postgres
+        // folds `ChapterHistory` -> `chapterhistory` and the relation isn't found).
+        // SQLite accepts double-quoted identifiers per ANSI SQL. Mirrors the
+        // canonical pattern at `BasicRepository.cs:125` (`FROM "{state.table}"`).
         command.CommandText =
-            "INSERT INTO ChapterHistory " +
-            "(MangaId, ChapterId, EventType, Date, SourceTitle, DownloadId, " +
-            " TranslatedLanguage, ScanlationGroup, SourceKey, ReleaseGuid, Data, Successful) " +
+            "INSERT INTO \"ChapterHistory\" " +
+            "(\"MangaId\", \"ChapterId\", \"EventType\", \"Date\", \"SourceTitle\", \"DownloadId\", " +
+            " \"TranslatedLanguage\", \"ScanlationGroup\", \"SourceKey\", \"ReleaseGuid\", \"Data\", \"Successful\") " +
             "VALUES " +
             "(@MangaId, @ChapterId, @EventType, @Date, @SourceTitle, @DownloadId, " +
             " @TranslatedLanguage, @ScanlationGroup, @SourceKey, @ReleaseGuid, @Data, @Successful)";
@@ -371,9 +376,9 @@ public class TestKit
         using var connection = OpenDatabase(appDataPath);
         using var command = connection.CreateCommand();
         command.CommandText =
-            "INSERT INTO MangaBlocklist " +
-            "(MangaId, ChapterIds, SourceTitle, SourceKey, ReleaseGuid, " +
-            " ReleaseInfoJson, Date, Reason, Source) " +
+            "INSERT INTO \"MangaBlocklist\" " +
+            "(\"MangaId\", \"ChapterIds\", \"SourceTitle\", \"SourceKey\", \"ReleaseGuid\", " +
+            " \"ReleaseInfoJson\", \"Date\", \"Reason\", \"Source\") " +
             "VALUES " +
             "(@MangaId, @ChapterIds, @SourceTitle, @SourceKey, @ReleaseGuid, " +
             " @ReleaseInfoJson, @Date, @Reason, @Source)";
@@ -451,8 +456,8 @@ public class TestKit
         {
             using var command = connection.CreateCommand();
             command.CommandText =
-                "INSERT INTO MangaPendingReleases " +
-                "(MangaId, Title, Added, ParsedChapterInfo, Release, Reason) " +
+                "INSERT INTO \"MangaPendingReleases\" " +
+                "(\"MangaId\", \"Title\", \"Added\", \"ParsedChapterInfo\", \"Release\", \"Reason\") " +
                 "VALUES " +
                 "(@MangaId, @Title, @Added, @ParsedChapterInfo, @Release, @Reason)";
             AddParam(command, "@MangaId", mangaId);
