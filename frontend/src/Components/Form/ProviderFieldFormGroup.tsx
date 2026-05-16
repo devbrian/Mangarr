@@ -141,6 +141,13 @@ function ProviderFieldFormGroup<T>({
         warnings={warnings}
         pending={pending}
         includeFiles={providerType === 'filePath' ? true : undefined}
+        // Re-emit `provider` explicitly — scope C destructures it for the testid
+        // derivation, which removes it from `{...otherProps}`. The dynamicSelect
+        // path (ProviderOptionSelectInput → useProviderOptions({ provider, ... }))
+        // needs it to fetch provider-specific dropdown options; without explicit
+        // forwarding the dropdowns silently break for any future provider that
+        // adds a `SelectOptionsProviderAction` field.
+        provider={provider}
         data-testid={fieldTestId}
         onChange={onChange}
         {...otherProps}
