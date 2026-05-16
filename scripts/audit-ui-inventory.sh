@@ -142,7 +142,9 @@ echo "PASS: Gate 4 — no NEW TV-shape modals (3 allowlisted residues from GH #8
 
 # Gate 5 — forbidden TV-shape data-testid strings in frontend/src.
 # Filter out comments first to avoid self-invalidating-grep-gate (planner-antipatterns.md).
-FORBIDDEN_TESTID_HITS=$(grep -rnE 'data-testid="(series|episode|season|add-series)-' "$FRONTEND_DIR" 2>/dev/null \
+# WR-09 (20-REVIEW): expand the separator class to [-_] so underscore-separated
+# TV-shape testids (e.g. data-testid="series_card") cannot slip through the gate.
+FORBIDDEN_TESTID_HITS=$(grep -rnE 'data-testid="(series|episode|season|add-series)[-_]' "$FRONTEND_DIR" 2>/dev/null \
   | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
   | grep -vE '^[^:]+:[0-9]+:[[:space:]]*\*' \
   || true)
