@@ -1100,17 +1100,10 @@ public class TestKit
             using (var insertFile = connection.CreateCommand())
             {
                 insertFile.Transaction = transaction;
-                insertFile.CommandText =
-                    "INSERT INTO \"ChapterFiles\" " +
-                    "(\"MangaId\", \"ChapterId\", \"RelativePath\", \"Path\", \"Size\", \"DateAdded\", " +
-                    " \"OriginalFilePath\", \"TranslatedLanguage\", \"ScanlationGroup\") " +
-                    "VALUES " +
-                    "(@MangaId, @ChapterId, @RelativePath, @Path, @Size, @DateAdded, " +
-                    " @OriginalFilePath, @TranslatedLanguage, @ScanlationGroup); " +
-                    "SELECT last_insert_rowid();";
 
-                // Postgres path: last_insert_rowid() is SQLite-specific. Branch on
-                // _postgresOptions for the id-recovery hop.
+                // Branch on SQLite vs postgres for the id-recovery hop (last_insert_rowid
+                // vs RETURNING). Mirrors SeedChapterFileAsync L717-744 explicit if/else
+                // shape so neither branch carries a dead-write that masks intent (BL-01).
                 if (_postgresOptions != null && _postgresOptions.Host.IsNotNullOrWhiteSpace())
                 {
                     insertFile.CommandText =
@@ -1121,6 +1114,17 @@ public class TestKit
                         "(@MangaId, @ChapterId, @RelativePath, @Path, @Size, @DateAdded, " +
                         " @OriginalFilePath, @TranslatedLanguage, @ScanlationGroup) " +
                         "RETURNING \"Id\";";
+                }
+                else
+                {
+                    insertFile.CommandText =
+                        "INSERT INTO \"ChapterFiles\" " +
+                        "(\"MangaId\", \"ChapterId\", \"RelativePath\", \"Path\", \"Size\", \"DateAdded\", " +
+                        " \"OriginalFilePath\", \"TranslatedLanguage\", \"ScanlationGroup\") " +
+                        "VALUES " +
+                        "(@MangaId, @ChapterId, @RelativePath, @Path, @Size, @DateAdded, " +
+                        " @OriginalFilePath, @TranslatedLanguage, @ScanlationGroup); " +
+                        "SELECT last_insert_rowid();";
                 }
 
                 AddParam(insertFile, "@MangaId", mangaId);
