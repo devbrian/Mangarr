@@ -51,7 +51,8 @@ All endpoints are prefixed with **`/api/v5`** (configured by the `[V5ApiControll
 | Module | Controllers | Notes |
 |--------|-------------|-------|
 | `Indexers/` | `IndexerController` | Indexer plugin CRUD |
-| `Connections/` | `ConnectionController` | Download client CRUD (V5 unified name) |
+| `DownloadClient/` | `DownloadClientController` | Download client CRUD (backed by `IDownloadClient`) — route `/api/v5/downloadclient` |
+| `Connections/` | `ConnectionController` | Notification CRUD (backed by `INotification`) — route `/api/v5/connection`. Upstream Sonarr v5 renamed `Notification` → `Connection` at the API surface (commits `06c606253` "Add v5 Connection endpoints" + `6d49b41dd` "Use react-query for Connections" on `v5-develop`); Mangarr inherited verbatim. Frontend hook `useConnections.ts` uses `PATH='/connection'`. |
 | `Blocklist/` | `BlocklistController` | Blocked releases |
 | `Queue/` | `QueueController`, `QueueActionController`, `QueueDetailsController`, `QueueStatusController` | Active downloads |
 | `History/` | `HistoryController` | Grab/import history |
