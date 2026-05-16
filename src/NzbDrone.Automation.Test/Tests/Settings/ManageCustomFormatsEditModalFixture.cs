@@ -46,8 +46,12 @@ public class ManageCustomFormatsEditModalFixture : AutomationTest
         var cbCount = await rowCheckboxes.CountAsync();
         cbCount.Should().BeGreaterThan(1); // header select-all + ≥1 row
 
-        // Click the second checkbox (first row; index 0 is the table-header select-all).
-        await rowCheckboxes.Nth(1).ClickAsync();
+        // debug-30 (2026-05-16): CheckInput's visually-hidden <input> is
+        // covered by a <div class="CheckInput-isNotChecked"> visual surrogate
+        // that intercepts pointer events. Click the wrapping <label>
+        // (CheckInput.tsx:105) — the handler fires without the overlay race.
+        var rowLabels = manageDialog.Locator("label:has(input[type='checkbox'])");
+        await rowLabels.Nth(1).ClickAsync();
 
         // Click the bulk Edit button (label "Edit").
         await manageDialog.GetByRole(AriaRole.Button, new() { Name = "Edit", Exact = true }).First.ClickAsync();

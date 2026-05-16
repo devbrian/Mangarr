@@ -70,10 +70,19 @@ function CustomFormat({
     setIsExportCustomFormatModalOpen(false);
   }, []);
 
+  // debug-30 fix-forward (live-indexer-card-click precedent) — annotate the
+  // Card with a `settings-customformat-card-{slug}` testid so Playwright
+  // fixtures target the underlay <button> directly; without this,
+  // `Page.GetByText(name)` resolves to the inner text <div> whose clicks
+  // are intercepted by the Card-underlay button (Card.tsx overlay shape).
+  // `settings-*` prefix is on the allowed list (D-18 selector strategy).
+  const testIdSlug = name.toLowerCase().replace(/\s+/g, '-');
+
   return (
     <Card
       className={styles.customFormat}
       overlayContent={true}
+      data-testid={`settings-customformat-card-${testIdSlug}`}
       onPress={onEditCustomFormatPress}
     >
       <div className={styles.nameContainer}>

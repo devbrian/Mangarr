@@ -40,10 +40,12 @@ public class EditCustomFormatModalFixture : AutomationTest
         var page = await new SettingsCustomFormatsPage(Page).OpenAsync(RootUri);
         await Assertions.Expect(page.PageContainer).ToBeVisibleAsync();
 
-        // Open the EditCustomFormatModal by clicking the seeded CF card's name
-        // text (CustomFormat.tsx renders the name inside a click-through Card
-        // overlay). The dialog opens with the existing values populated.
-        await Page.GetByText(SeedName).First.ClickAsync();
+        // Open the EditCustomFormatModal by clicking the seeded CF card via its
+        // settings-customformat-card-{slug} testid (debug-30 fix-forward,
+        // live-indexer-card-click precedent — Card.tsx overlay routes clicks
+        // through a Card-underlay <button> that intercepts inner-div clicks).
+        var slug = SeedName.ToLowerInvariant().Replace(" ", "-");
+        await Page.GetByTestId($"settings-customformat-card-{slug}").ClickAsync();
         var dialog = Page.GetByRole(AriaRole.Dialog).First;
         await Assertions.Expect(dialog).ToBeVisibleAsync(new() { Timeout = 15_000 });
         var dialogText = await dialog.TextContentAsync();

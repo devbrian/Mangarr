@@ -45,12 +45,15 @@ public class ManageDownloadClientsEditModalFixture : AutomationTest
             1,
             "manage modal must show table-header select-all + at least one DC row");
 
-        // Select the first row's checkbox to enable the bulk-Edit button. The
-        // TableSelectCell renders a CheckInput input element; pick the first
-        // checkbox inside the manage modal table body.
-        var firstRowCheckbox = rowCheckboxes.Nth(1); // [0] is the table-header select-all
-        await Assertions.Expect(firstRowCheckbox).ToBeVisibleAsync();
-        await firstRowCheckbox.ClickAsync();
+        // Select the first row's checkbox to enable the bulk-Edit button.
+        // debug-30 (2026-05-16): CheckInput renders a visually-hidden <input>
+        // alongside a <div class="CheckInput-isNotChecked"> visual surrogate
+        // that intercepts pointer events. Clicking the wrapping <label>
+        // (CheckInput.tsx:105) triggers the handler without the overlay race.
+        var rowLabels = manageModal.Locator("label:has(input[type='checkbox'])");
+        var firstRowLabel = rowLabels.Nth(1); // [0] is the table-header select-all
+        await Assertions.Expect(firstRowLabel).ToBeVisibleAsync();
+        await firstRowLabel.ClickAsync();
 
         // Edit button is now enabled.
         var editButton = manageModal.GetByRole(AriaRole.Button, new() { Name = "Edit", Exact = true });
