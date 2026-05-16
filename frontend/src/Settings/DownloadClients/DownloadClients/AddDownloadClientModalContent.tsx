@@ -34,7 +34,10 @@ function AddDownloadClientModalContent({
   }, [dispatch]);
 
   return (
-    <ModalContent onModalClose={onModalClose}>
+    <ModalContent
+      data-testid="add-downloadclient-modal"
+      onModalClose={onModalClose}
+    >
       <ModalHeader>{translate('AddDownloadClient')}</ModalHeader>
 
       <ModalBody>

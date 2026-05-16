@@ -31,8 +31,21 @@ function AddIndexerItem({
     onIndexerSelect({ implementation, implementationName });
   }, [implementation, implementationName, onIndexerSelect]);
 
+  // Phase 20 Plan 20-04: testid slug matches the Mangarr implementation key
+  // lowercased + suffix-stripped (e.g. "MangaDexIndexer" -> "mangadex",
+  // "ComixIndexer" -> "comix"). Stable for Playwright targeting in
+  // SettingsProviderFlow.OpenPickerAndSelectAsync.
+  const itemTestIdSlug = implementation
+    .replace(/Indexer$/i, '')
+    .replace(/DownloadClient$/i, '')
+    .replace(/Notification$/i, '')
+    .toLowerCase();
+
   return (
-    <div className={styles.indexer}>
+    <div
+      className={styles.indexer}
+      data-testid={`add-indexer-${itemTestIdSlug}`}
+    >
       <Link className={styles.underlay} onPress={handleIndexerSelect} />
 
       <div className={styles.overlay}>

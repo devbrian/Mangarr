@@ -73,43 +73,46 @@ function CustomFormatProfileSettings() {
       <SettingsToolbar showSave={false} />
 
       <PageContentBody>
-        <DndProvider options={HTML5toTouch}>
-          <FieldSet legend={translate('CustomFormatProfiles')}>
-            <PageSectionContent
-              errorMessage={translate('CustomFormatProfilesLoadError')}
-              error={error}
-              isFetching={isFetching}
-              isPopulated={isFetched}
-            >
-              <div className={styles.customFormatProfiles}>
-                {sortedItems.map((item) => {
-                  return (
-                    <CustomFormatProfile
-                      key={item.id}
-                      {...item}
-                      onEditPress={handleEditPress}
-                    />
-                  );
-                })}
+        {/* Phase 20 Plan 20-02 — route-load testid (D-18 selector strategy). */}
+        <div data-testid="settings-customformatprofiles-page">
+          <DndProvider options={HTML5toTouch}>
+            <FieldSet legend={translate('CustomFormatProfiles')}>
+              <PageSectionContent
+                errorMessage={translate('CustomFormatProfilesLoadError')}
+                error={error}
+                isFetching={isFetching}
+                isPopulated={isFetched}
+              >
+                <div className={styles.customFormatProfiles}>
+                  {sortedItems.map((item) => {
+                    return (
+                      <CustomFormatProfile
+                        key={item.id}
+                        {...item}
+                        onEditPress={handleEditPress}
+                      />
+                    );
+                  })}
 
-                <Card
-                  className={styles.addCustomFormatProfile}
-                  onPress={handleAddPress}
-                >
-                  <div className={styles.center}>
-                    <Icon name={icons.ADD} size={45} />
-                  </div>
-                </Card>
-              </div>
+                  <Card
+                    className={styles.addCustomFormatProfile}
+                    onPress={handleAddPress}
+                  >
+                    <div className={styles.center}>
+                      <Icon name={icons.ADD} size={45} />
+                    </div>
+                  </Card>
+                </div>
 
-              <EditCustomFormatProfileModal
-                id={editId}
-                isOpen={isEditModalOpen}
-                onModalClose={handleModalClose}
-              />
-            </PageSectionContent>
-          </FieldSet>
-        </DndProvider>
+                <EditCustomFormatProfileModal
+                  id={editId}
+                  isOpen={isEditModalOpen}
+                  onModalClose={handleModalClose}
+                />
+              </PageSectionContent>
+            </FieldSet>
+          </DndProvider>
+        </div>
       </PageContentBody>
     </PageContent>
   );

@@ -142,7 +142,9 @@ echo "PASS: Gate 4 — no NEW TV-shape modals (3 allowlisted residues from GH #8
 
 # Gate 5 — forbidden TV-shape data-testid strings in frontend/src.
 # Filter out comments first to avoid self-invalidating-grep-gate (planner-antipatterns.md).
-FORBIDDEN_TESTID_HITS=$(grep -rnE 'data-testid="(series|episode|season|add-series)-' "$FRONTEND_DIR" 2>/dev/null \
+# WR-09 (20-REVIEW): expand the separator class to [-_] so underscore-separated
+# TV-shape testids (e.g. data-testid="series_card") cannot slip through the gate.
+FORBIDDEN_TESTID_HITS=$(grep -rnE 'data-testid="(series|episode|season|add-series)[-_]' "$FRONTEND_DIR" 2>/dev/null \
   | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
   | grep -vE '^[^:]+:[0-9]+:[[:space:]]*\*' \
   || true)
@@ -156,13 +158,11 @@ fi
 echo "PASS: Gate 5 — no forbidden TV-shape data-testid strings."
 
 # Gate 6 — uncovered (⬜) row count must stay under the documented v2-deferred cap.
-# Phase 18 close-out target: <= 130 uncovered rows (current reconciled state shows
-# ~126 ⬜; threshold gives ~5-row headroom for minor drift without immediate fail).
-# Above this, the inventory has drifted and the new uncovered rows must either:
-#   (a) ship as fixtures, OR
-#   (b) be documented in deferred-items.md with a GH issue reference.
-# Tighten this cap as fixtures land (target = 0 at v2 release).
-UNCOVERED_CAP=${UNCOVERED_CAP:-130}
+# Phase 20 close-out (2026-05-15): all 120 ⬜ rows greened or LiveService-tagged per D-08..D-10.
+# Threshold is 0; any new ⬜ requires either (a) a fixture, OR (b) a deferred-items.md entry
+# with a GH issue ref AND a UNCOVERED_CAP env override on the PR that adds the ⬜.
+# Atomic-with-the-last-⬜-greening-commit invariant honored per Phase 20 CONTEXT D-11.
+UNCOVERED_CAP=${UNCOVERED_CAP:-0}
 UNCOVERED_ROWS=$(grep -cE '\| ⬜ \|' "$INV_FILE" || true)
 if [[ "$UNCOVERED_ROWS" -gt "$UNCOVERED_CAP" ]]; then
   echo "FAIL: Gate 6 — $UNCOVERED_ROWS uncovered (⬜) rows in INVENTORY.md exceeds cap ($UNCOVERED_CAP)." >&2

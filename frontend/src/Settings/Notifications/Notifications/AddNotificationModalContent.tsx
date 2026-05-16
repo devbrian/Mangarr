@@ -26,7 +26,10 @@ function AddNotificationModalContent({
     useConnectionSchema();
 
   return (
-    <ModalContent onModalClose={onModalClose}>
+    <ModalContent
+      data-testid="add-notification-modal"
+      onModalClose={onModalClose}
+    >
       <ModalHeader>{translate('AddConnection')}</ModalHeader>
 
       <ModalBody>

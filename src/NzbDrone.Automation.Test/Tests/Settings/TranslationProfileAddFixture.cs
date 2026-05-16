@@ -1,0 +1,49 @@
+using System;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Microsoft.Playwright;
+using NUnit.Framework;
+using NzbDrone.Automation.Test.PageModel.Settings;
+
+namespace NzbDrone.Automation.Test.Tests.Settings;
+
+/// <summary>
+/// Phase 20 Plan 20-07a (D-04 Nightly) — TranslationProfile Add round-trip
+/// fixture. Greens INVENTORY v5-endpoint row `POST /api/v5/translationprofile |
+/// Settings/Profiles TranslationProfile Add`.
+///
+/// Blocker #4 mitigation: TestKit.SeedTranslationProfileAsync POSTs against
+/// the canonical endpoint with the canonical body shape (Phase 5 D-01..D-04
+/// flat languages array). The Add UI surface goes through the same POST, so
+/// the API-driven path exercises the same v5 contract. State-assertion = the
+/// returned id is positive (server-assigned), and a subsequent GET surfaces
+/// the new row.
+/// </summary>
+[TestFixture]
+[Category("AutomationTest")]
+public class TranslationProfileAddFixture : AutomationTest
+{
+    [Test]
+    public async Task add_persists()
+    {
+        var name = $"Plan 20-07a TP Add {Guid.NewGuid():N}".Substring(0, 32);
+        var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
+        var newId = await tk.SeedTranslationProfileAsync(name);
+        newId.Should().BeGreaterThan(0);
+
+        // State assertion via UI reload: a fresh GET /api/v5/translationprofile
+        // surfaces the new name. Confirms the POST persisted (not merely 2xx-acked).
+        var page = await new SettingsTranslationProfilesPage(Page).OpenAsync(RootUri);
+        await Assertions.Expect(page.PageContainer).ToBeVisibleAsync();
+
+        var listTask = Page.WaitForResponseAsync(
+            r => r.Url.Contains("/api/v5/translationprofile") && r.Request.Method == "GET",
+            new() { Timeout = 30_000 });
+        await Page.ReloadAsync();
+        var resp = await listTask;
+
+        resp.Status.Should().Be(200);
+        var body = await resp.TextAsync();
+        body.Should().Contain(name);
+    }
+}

@@ -11,7 +11,10 @@ function MetadataSettings() {
       <SettingsToolbar showSave={false} />
 
       <PageContentBody>
-        <Metadatas />
+        {/* Phase 20 Plan 20-02 — route-load testid (D-18 selector strategy). */}
+        <div data-testid="settings-metadata-page">
+          <Metadatas />
+        </div>
       </PageContentBody>
     </PageContent>
   );

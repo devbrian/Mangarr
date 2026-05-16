@@ -88,7 +88,10 @@ function EditNotificationModalContent({
   }, [isSaving, wasSaving, saveError, onModalClose]);
 
   return (
-    <ModalContent onModalClose={onModalClose}>
+    <ModalContent
+      data-testid="edit-notification-modal"
+      onModalClose={onModalClose}
+    >
       <ModalHeader>
         {id
           ? translate('EditConnectionImplementation', { implementationName })
@@ -153,6 +156,7 @@ function EditNotificationModalContent({
         {id ? (
           <Button
             className={styles.deleteButton}
+            data-testid="delete-button"
             kind={kinds.DANGER}
             onPress={onDeleteNotificationPress}
           >
@@ -173,6 +177,7 @@ function EditNotificationModalContent({
         <Button onPress={onModalClose}>{translate('Cancel')}</Button>
 
         <SpinnerErrorButton
+          data-testid="save-button"
           isSpinning={isSaving}
           error={saveError}
           onPress={handleSavePress}

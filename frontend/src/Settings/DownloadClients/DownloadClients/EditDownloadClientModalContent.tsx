@@ -106,7 +106,10 @@ function EditDownloadClientModalContent({
   }, [isSaving, wasSaving, saveError, onModalClose]);
 
   return (
-    <ModalContent onModalClose={onModalClose}>
+    <ModalContent
+      data-testid="edit-downloadclient-modal"
+      onModalClose={onModalClose}
+    >
       <ModalHeader>
         {id
           ? translate('EditDownloadClientImplementation', {
@@ -238,6 +241,7 @@ function EditDownloadClientModalContent({
           <Button
             className={styles.deleteButton}
             kind={kinds.DANGER}
+            data-testid="delete-button"
             onPress={onDeleteDownloadClientPress}
           >
             {translate('Delete')}
@@ -259,6 +263,7 @@ function EditDownloadClientModalContent({
         <SpinnerErrorButton
           isSpinning={isSaving}
           error={saveError}
+          data-testid="save-button"
           onPress={handleSavePress}
         >
           {translate('Save')}

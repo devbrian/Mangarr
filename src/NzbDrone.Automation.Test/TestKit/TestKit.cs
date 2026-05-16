@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Npgsql;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Datastore;
+using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Pending;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Parser.Manga.Model;
@@ -138,8 +139,14 @@ public class TestKit
             await Task.Delay(300);
         }
 
+        // BL-02 (20-REVIEW): include ErrorMessage / ErrorException / ResponseStatus so
+        // transport failures (StatusCode == 0, ResponseStatus != Completed) surface the
+        // real cause (DNS, connection refused, task canceled) instead of "failed [0]
+        // body=" with no hint — exactly the diagnostic regression Plan 18-14 chased.
         throw new InvalidOperationException(
-            $"TestKit.{callerLabel}: {label} failed [{(int)response.StatusCode}] body={response.Content}");
+            $"TestKit.{callerLabel}: {label} failed [{(int)response.StatusCode}] " +
+            $"status={response.ResponseStatus} body={response.Content} " +
+            $"error={response.ErrorMessage} exception={response.ErrorException?.Message}");
     }
 
     /// <summary>
@@ -237,6 +244,317 @@ public class TestKit
         }
 
         return System.Text.Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Phase 20 Plan 20-01 — API-driven Sonarr-canonical seeders (per D-06 / D-07).
+    // Each ProviderControllerBase-descendant POST carries `?skipTesting=true`
+    // (Pitfall 1 — avoids live MangaDex/Komga hit during seed). Every seeder
+    // calls ExecuteWithStartupRetryAsync (Pitfall 7 — 12-attempt 401/transport
+    // retry envelope). implementation/configContract strings are the canonical
+    // Mangarr shapes (Pattern κ — no Sonarr TV-shape carry-overs).
+    // ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Phase 20 Plan 20-01 (D-06) — Seeds a MangaDex Indexer via
+    /// <c>POST /api/v5/indexer?skipTesting=true</c>. Canonical implementation
+    /// <c>"MangaDexIndexer"</c> + configContract <c>"MangaDexIndexerSettings"</c>
+    /// (verified at src/NzbDrone.Core/Indexers/MangaDex/MangaDexIndexer.cs +
+    /// MangaDexIndexerSettings.cs). Default rate 1.5s per MangaDex ToS.
+    /// </summary>
+    public async Task<int> SeedIndexerAsync(string name = "MangaDex (test seed)")
+    {
+        var response = await ExecuteWithStartupRetryAsync(
+            nameof(SeedIndexerAsync),
+            "indexer POST",
+            () =>
+            {
+                var req = BuildRequest("indexer?skipTesting=true", Method.POST);
+                req.AddJsonBody(new
+                {
+                    enable = true,
+                    enableRss = true,
+                    enableAutomaticSearch = true,
+                    enableInteractiveSearch = true,
+                    name,
+                    implementation = "MangaDexIndexer",
+                    configContract = "MangaDexIndexerSettings",
+                    priority = 25,
+                    fields = new object[]
+                    {
+                        new { name = "baseUrl", value = "https://api.mangadex.org" },
+                        new { name = "sourceKey", value = "mangadex" },
+                        new { name = "rateSeconds", value = 1.5 }
+                    }
+                });
+                return req;
+            });
+
+        using var doc = JsonDocument.Parse(response.Content);
+        return doc.RootElement.GetProperty("id").GetInt32();
+    }
+
+    /// <summary>
+    /// Phase 20 Plan 20-01 (D-06) — Seeds an additional InProcess DownloadClient row
+    /// via <c>POST /api/v5/downloadclient?skipTesting=true</c>. SeedBaselineAsync
+    /// already seeds the baseline InProcess client; this helper is for fixtures that
+    /// need a second client (e.g., CRUD-test the EditDownloadClientModal). Canonical
+    /// implementation <c>"InProcessImageDownloadClient"</c> + configContract
+    /// <c>"InProcessImageDownloadClientSettings"</c> (matches SeedBaselineAsync L93-94).
+    /// </summary>
+    public async Task<int> SeedDownloadClientAsync(string name = "InProcess (Plan 20-01 seed)")
+    {
+        var response = await ExecuteWithStartupRetryAsync(
+            nameof(SeedDownloadClientAsync),
+            "downloadclient POST",
+            () =>
+            {
+                var req = BuildRequest("downloadclient?skipTesting=true", Method.POST);
+                req.AddJsonBody(new
+                {
+                    enable = true,
+                    implementation = "InProcessImageDownloadClient",
+                    configContract = "InProcessImageDownloadClientSettings",
+                    name,
+                    priority = 1,
+                    fields = new object[] { }
+                });
+                return req;
+            });
+
+        using var doc = JsonDocument.Parse(response.Content);
+        return doc.RootElement.GetProperty("id").GetInt32();
+    }
+
+    /// <summary>
+    /// Phase 20 Plan 20-01 (D-06) — Seeds a Komga Notification via
+    /// <c>POST /api/v5/notification?skipTesting=true</c>. Canonical implementation
+    /// <c>"KomgaNotification"</c> + configContract <c>"KomgaNotificationSettings"</c>
+    /// (verified at src/NzbDrone.Core/Notifications/Komga/KomgaNotification.cs +
+    /// KomgaNotificationSettings.cs). Pitfall 2: LibraryId is REQUIRED — pre-populated
+    /// with a placeholder int; Wave-2 fixtures override per-test if they need a
+    /// specific id.
+    /// </summary>
+    public async Task<int> SeedNotificationAsync(string name = "Komga (test seed)")
+    {
+        var response = await ExecuteWithStartupRetryAsync(
+            nameof(SeedNotificationAsync),
+            "notification POST",
+            () =>
+            {
+                var req = BuildRequest("notification?skipTesting=true", Method.POST);
+                req.AddJsonBody(new
+                {
+                    onGrab = false,
+                    onDownload = false,
+                    onUpgrade = false,
+                    onChapterImport = true,
+                    onRename = false,
+                    onMangaAdd = false,
+                    onMangaDelete = false,
+                    onHealthIssue = false,
+                    includeHealthWarnings = false,
+                    name,
+                    implementation = "KomgaNotification",
+                    configContract = "KomgaNotificationSettings",
+                    fields = new object[]
+                    {
+                        new { name = "url", value = "http://komga.local:25600" },
+                        new { name = "apiKey", value = "testkit-placeholder-key" },
+                        new { name = "libraryId", value = 1 }
+                    }
+                });
+                return req;
+            });
+
+        using var doc = JsonDocument.Parse(response.Content);
+        return doc.RootElement.GetProperty("id").GetInt32();
+    }
+
+    /// <summary>
+    /// Phase 20 Plan 20-01 (D-06) — Seeds a Tag via <c>POST /api/v5/tag</c>.
+    /// Tag is NOT a ProviderControllerBase descendant — direct CRUD entity
+    /// (label-only body; id server-assigned). No skipTesting query needed.
+    /// </summary>
+    public async Task<int> SeedTagAsync(string label)
+    {
+        var response = await ExecuteWithStartupRetryAsync(
+            nameof(SeedTagAsync),
+            "tag POST",
+            () =>
+            {
+                var req = BuildRequest("tag", Method.POST);
+                req.AddJsonBody(new { label });
+                return req;
+            });
+
+        using var doc = JsonDocument.Parse(response.Content);
+        return doc.RootElement.GetProperty("id").GetInt32();
+    }
+
+    /// <summary>
+    /// Phase 20 Plan 20-01 (D-06) — Seeds a TranslationProfile via
+    /// <c>POST /api/v5/translationprofile</c>. Mirrors the Phase-5 baseline-seeded
+    /// "English Only" profile shape (Languages = ["en"]) — Wave-2 fixtures that need
+    /// multi-language coverage call this with their own languages array.
+    /// </summary>
+    public async Task<int> SeedTranslationProfileAsync(string name = "English (test seed)")
+    {
+        var response = await ExecuteWithStartupRetryAsync(
+            nameof(SeedTranslationProfileAsync),
+            "translationprofile POST",
+            () =>
+            {
+                var req = BuildRequest("translationprofile", Method.POST);
+                req.AddJsonBody(new
+                {
+                    name,
+                    languages = new[] { "en" },
+                    allowLanguagesNotInProfile = false,
+                    upgradeAllowed = true
+                });
+                return req;
+            });
+
+        using var doc = JsonDocument.Parse(response.Content);
+        return doc.RootElement.GetProperty("id").GetInt32();
+    }
+
+    /// <summary>
+    /// Phase 20 Plan 20-01 (D-06) — Seeds a CustomFormatProfile via
+    /// <c>POST /api/v5/customformatprofile</c>. Empty formatItems + minFormatScore=0
+    /// + maxFormatScore=null = "no score window" (NOT below-cutoff by default).
+    /// Phase 16.1 D-04 default: UpgradeAllowed=false (manga CF scores subjective).
+    /// </summary>
+    public async Task<int> SeedCustomFormatProfileAsync(string name = "Default CF Profile (test seed)")
+    {
+        var response = await ExecuteWithStartupRetryAsync(
+            nameof(SeedCustomFormatProfileAsync),
+            "customformatprofile POST",
+            () =>
+            {
+                var req = BuildRequest("customformatprofile", Method.POST);
+                req.AddJsonBody(new
+                {
+                    name,
+                    formatItems = new object[] { },
+                    minFormatScore = 0,
+                    maxFormatScore = (int?)null,
+                    upgradeAllowed = false
+                });
+                return req;
+            });
+
+        using var doc = JsonDocument.Parse(response.Content);
+        return doc.RootElement.GetProperty("id").GetInt32();
+    }
+
+    /// <summary>
+    /// Phase 20 Plan 20-01 (D-06) — Seeds a CustomFormat via
+    /// <c>POST /api/v5/customformat</c>.
+    ///
+    /// PR #173 CI-fix (2026-05-15): the CustomFormat controller validator (Mangarr.Api.V5/
+    /// CustomFormats/CustomFormatController.cs:42-55) enforces BOTH
+    /// `SharedValidator.RuleFor(c => c.Specifications).NotEmpty()` AND a custom rule
+    /// "Must contain at least one Condition". The previous empty-specifications POST 400'd
+    /// in CI (real-app boot) with both messages, cascading every CustomFormat-dependent
+    /// Wave-2 fixture (List/BulkDelete/BulkEdit/Edit/Export/Manage/ManageEdit) at
+    /// OneTimeSetUp. Seed a single minimal valid spec — ReleaseTitleSpecification matching
+    /// the canonical `[a-z]` placeholder — so the POST clears validation. Wave-2 fixtures
+    /// that need a specific spec shape can call SeedCustomFormatAsync then PUT to update.
+    /// </summary>
+    public async Task<int> SeedCustomFormatAsync(string name = "Test CF")
+    {
+        var response = await ExecuteWithStartupRetryAsync(
+            nameof(SeedCustomFormatAsync),
+            "customformat POST",
+            () =>
+            {
+                var req = BuildRequest("customformat", Method.POST);
+                req.AddJsonBody(new
+                {
+                    name,
+                    includeCustomFormatWhenRenaming = false,
+                    specifications = new object[]
+                    {
+                        new
+                        {
+                            name = "Placeholder",
+                            implementation = "ReleaseTitleSpecification",
+                            implementationName = "Release Title",
+                            infoLink = "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
+                            negate = false,
+                            required = false,
+                            fields = new object[]
+                            {
+                                new { name = "value", value = "[a-z]" }
+                            }
+                        }
+                    }
+                });
+                return req;
+            });
+
+        using var doc = JsonDocument.Parse(response.Content);
+        return doc.RootElement.GetProperty("id").GetInt32();
+    }
+
+    /// <summary>
+    /// Phase 20 Plan 20-01 (D-06) — Seeds a MangaDex MetadataSource via
+    /// <c>POST /api/v5/metadatasource?skipTesting=true</c>. Canonical implementation
+    /// <c>"MangaDexMetadataSource"</c> + configContract
+    /// <c>"MangaDexMetadataSourceSettings"</c> (verified at
+    /// src/NzbDrone.Core/MetadataSource/MangaDex/MangaDexMetadataSource.cs +
+    /// MangaDexMetadataSourceSettings.cs). MetadataSource IS a ProviderControllerBase
+    /// descendant — skipTesting=true mandatory.
+    /// </summary>
+    public async Task<int> SeedMetadataSourceAsync(string name = "MangaDex (test seed)")
+    {
+        var response = await ExecuteWithStartupRetryAsync(
+            nameof(SeedMetadataSourceAsync),
+            "metadatasource POST",
+            () =>
+            {
+                var req = BuildRequest("metadatasource?skipTesting=true", Method.POST);
+                req.AddJsonBody(new
+                {
+                    enable = true,
+                    name,
+                    implementation = "MangaDexMetadataSource",
+                    configContract = "MangaDexMetadataSourceSettings",
+                    fields = new object[]
+                    {
+                        new { name = "baseUrl", value = "https://api.mangadex.org" },
+                        new { name = "sourceKey", value = "mangadex" }
+                    }
+                });
+                return req;
+            });
+
+        using var doc = JsonDocument.Parse(response.Content);
+        return doc.RootElement.GetProperty("id").GetInt32();
+    }
+
+    /// <summary>
+    /// Phase 20 Plan 20-01 (D-06) — Seeds an additional RootFolder via
+    /// <c>POST /api/v5/rootfolder</c>. SeedBaselineAsync already seeds the baseline
+    /// root folder at <c>_tempFolderRoot</c>; this helper is for fixtures that need
+    /// a SECOND root folder (e.g., the MoveManga modal between two folders).
+    /// </summary>
+    public async Task<int> SeedRootFolderAsync(string path)
+    {
+        var response = await ExecuteWithStartupRetryAsync(
+            nameof(SeedRootFolderAsync),
+            "rootfolder POST",
+            () =>
+            {
+                var req = BuildRequest("rootfolder", Method.POST);
+                req.AddJsonBody(new { path });
+                return req;
+            });
+
+        using var doc = JsonDocument.Parse(response.Content);
+        return doc.RootElement.GetProperty("id").GetInt32();
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -400,6 +718,216 @@ public class TestKit
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Phase 20 Plan 20-01 (D-04 / Blocker #4) — Seeds a ChapterFile row via
+    /// raw-SQLite. No public ChapterFile create-API exists (the import pipeline is
+    /// the only production code path and requires real downloaded files). Wave-3
+    /// fixtures (BulkRenamePreview, OrganizePreview, ChapterFileDelete,
+    /// ChapterFileBulkDelete) call this to assert against real state instead of
+    /// Assert.Inconclusive. Per Phase 19 D-04 precedent: parameterized SQLite +
+    /// canonical column set (verified at ChapterFile.cs + 001_mangarr_baseline.cs:641-650).
+    /// </summary>
+    /// <param name="appDataPath">The backend's per-fixture data dir — pass <c>Runner.AppData</c>.</param>
+    /// <param name="mangaId">FK to a manga the fixture already seeded via AddMangaFlow.</param>
+    /// <param name="chapterId">FK to a chapter of that manga.</param>
+    /// <param name="relativePath">CBZ relative path (e.g. "Chapter 1.cbz") used by the disk-name builder.</param>
+    /// <returns>The generated ChapterFile.Id.</returns>
+    public Task<int> SeedChapterFileAsync(string appDataPath, int mangaId, int chapterId, string relativePath)
+    {
+        // Schema (001_mangarr_baseline.cs:641-650): MangaId(NN) + ChapterId(NN) +
+        // RelativePath(NN) + Path(NN) + Size(NN) + DateAdded(NN) +
+        // OriginalFilePath(null) + TranslatedLanguage(null) + ScanlationGroup(null).
+        // No JSON columns — no EmbeddedDocumentSettings serialization needed.
+        // Mirrors SeedCutoffUnmetChapterAsync ChapterFiles INSERT shape exactly.
+        var fullPath = $"/testkit/chapterfile/manga-{mangaId}/{relativePath}";
+        int chapterFileId;
+
+        using (var connection = OpenDatabase(appDataPath))
+        {
+            using var command = connection.CreateCommand();
+
+            // Branch on SQLite vs postgres for the id-recovery hop (last_insert_rowid
+            // vs RETURNING). Mirrors SeedCutoffUnmetChapterAsync L605-625.
+            if (_postgresOptions != null && _postgresOptions.Host.IsNotNullOrWhiteSpace())
+            {
+                command.CommandText =
+                    "INSERT INTO \"ChapterFiles\" " +
+                    "(\"MangaId\", \"ChapterId\", \"RelativePath\", \"Path\", \"Size\", \"DateAdded\", " +
+                    " \"OriginalFilePath\", \"TranslatedLanguage\", \"ScanlationGroup\") " +
+                    "VALUES " +
+                    "(@MangaId, @ChapterId, @RelativePath, @Path, @Size, @DateAdded, " +
+                    " @OriginalFilePath, @TranslatedLanguage, @ScanlationGroup) " +
+                    "RETURNING \"Id\";";
+            }
+            else
+            {
+                command.CommandText =
+                    "INSERT INTO \"ChapterFiles\" " +
+                    "(\"MangaId\", \"ChapterId\", \"RelativePath\", \"Path\", \"Size\", \"DateAdded\", " +
+                    " \"OriginalFilePath\", \"TranslatedLanguage\", \"ScanlationGroup\") " +
+                    "VALUES " +
+                    "(@MangaId, @ChapterId, @RelativePath, @Path, @Size, @DateAdded, " +
+                    " @OriginalFilePath, @TranslatedLanguage, @ScanlationGroup); " +
+                    "SELECT last_insert_rowid();";
+            }
+
+            AddParam(command, "@MangaId", mangaId);
+            AddParam(command, "@ChapterId", chapterId);
+            AddParam(command, "@RelativePath", relativePath);
+            AddParam(command, "@Path", fullPath);
+            AddParam(command, "@Size", 1024L);
+            AddParam(command, "@DateAdded", DateTime.UtcNow);
+            AddParam(command, "@OriginalFilePath", DBNull.Value);
+            AddParam(command, "@TranslatedLanguage", "en");
+            AddParam(command, "@ScanlationGroup", DBNull.Value);
+
+            var newId = command.ExecuteScalar();
+            if (newId == null || newId is DBNull)
+            {
+                throw new InvalidOperationException(
+                    "TestKit.SeedChapterFileAsync: ChapterFiles INSERT returned no id");
+            }
+
+            chapterFileId = Convert.ToInt32(newId);
+        }
+
+        return Task.FromResult(chapterFileId);
+    }
+
+    /// <summary>
+    /// Phase 20 Plan 20-01 (D-04 / Blocker #4) — Creates an in-process-filesystem
+    /// folder populated with deterministic placeholder CBZ/image files so the
+    /// InteractiveImport modal can render rows without performing network IO.
+    /// No public create-API exists for "InteractiveImport folder" — it's a filesystem
+    /// path that the InteractiveImport scanner reads from. Per Phase 19 D-04 lineage:
+    /// the harness owns the path via the supplied <paramref name="folderPath"/>.
+    /// </summary>
+    /// <param name="folderPath">Absolute folder path to create + populate.</param>
+    /// <param name="mangaId">Optional manga id — when supplied, the folder encodes a
+    /// parseable manga title via Parser regex so InteractiveImport can suggest the
+    /// match. When null, the folder uses a generic deterministic title.</param>
+    /// <returns>The absolute folderPath (echo of input — provided so the caller can
+    /// pass it directly to the InteractiveImport modal without re-computing).</returns>
+    public Task<string> SeedInteractiveImportFolderAsync(string folderPath, int? mangaId = null)
+    {
+        // 1. Create the folder (idempotent — CreateDirectory no-ops if it exists).
+        Directory.CreateDirectory(folderPath);
+
+        // 2. Drop 1-2 placeholder files inside (deterministic names so fixtures can
+        //    assert exact entries). File names encode "Manga Title - Chapter N" so
+        //    the Parser regex sees them as parseable manga releases.
+        var titleSlug = mangaId.HasValue
+            ? $"TestKit Manga {mangaId.Value}"
+            : "TestKit Placeholder Manga";
+
+        var cbzPath = Path.Combine(folderPath, $"{titleSlug} - Chapter 001 [en].cbz");
+        if (!File.Exists(cbzPath))
+        {
+            // Minimal valid CBZ — empty ZIP signature so the file is recognized as
+            // a CBZ archive without bringing image decoders into the harness.
+            File.WriteAllBytes(cbzPath, new byte[] { 0x50, 0x4B, 0x05, 0x06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+        }
+
+        var imgPath = Path.Combine(folderPath, $"{titleSlug} - Chapter 002 [en].cbz");
+        if (!File.Exists(imgPath))
+        {
+            File.WriteAllBytes(imgPath, new byte[] { 0x50, 0x4B, 0x05, 0x06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+        }
+
+        return Task.FromResult(folderPath);
+    }
+
+    /// <summary>
+    /// Phase 20 Plan 20-01 (D-04 / Blocker #4) — Seeds a MangaPendingReleases row
+    /// (the live queue table — D-03 queue seam per SeedPendingQueueItemAsync) and
+    /// returns a deterministic download identifier string. Activity/Queue fixtures
+    /// (Plan 20-09) call this so their <c>DELETE /api/v5/manga/queue/{id}</c> + bulk
+    /// remove paths have a real queue row to act on. Per Phase 19 D-04 — no public
+    /// "Download" create-API beyond the indexer-grab path which requires live HTTP;
+    /// raw-SQLite is the only honest seed mechanism.
+    /// </summary>
+    /// <param name="appDataPath">The backend's per-fixture data dir — pass <c>Runner.AppData</c>.</param>
+    /// <param name="mangaId">FK to a manga the fixture already seeded via AddMangaFlow.</param>
+    /// <param name="chapterId">FK to a chapter of that manga (encoded in ParsedChapterInfo).</param>
+    /// <param name="status">The download status this row represents (Queued/Downloading/Completed/Failed/etc.).</param>
+    /// <returns>The deterministic downloadId string the fixture can assert against.</returns>
+    public async Task<string> SeedDownloadAsync(string appDataPath, int mangaId, int chapterId, DownloadItemStatus status)
+    {
+        // The MangaPendingReleases table is the only live queue source per
+        // SeedPendingQueueItemAsync comment block (the in-memory MangaQueueService._queue
+        // is structurally dead at runtime; TrackedDownloadRefreshedEvent never fires
+        // in production). We mirror that helper's shape exactly with a parameterized
+        // status so Wave-3 Activity fixtures can seed Downloading / Failed / Completed
+        // states without dragging the live indexer-grab path into the harness.
+        //
+        // NOTE: MangaPendingReleases does not have a DB-level Status column — the
+        // PendingReleaseReason enum (Delay/DownloadClientUnavailable/Fallback) is the
+        // closest persisted analog. We map DownloadItemStatus → PendingReleaseReason
+        // for the on-disk write (Queued/Paused → Delay; Downloading → Delay;
+        // Failed/Warning → DownloadClientUnavailable; Completed → Fallback) so the
+        // queue projection's pending-half presents a row in a sensible state.
+        var reason = status switch
+        {
+            DownloadItemStatus.Failed => PendingReleaseReason.DownloadClientUnavailable,
+            DownloadItemStatus.Warning => PendingReleaseReason.DownloadClientUnavailable,
+            DownloadItemStatus.Completed => PendingReleaseReason.Fallback,
+            _ => PendingReleaseReason.Delay
+        };
+
+        var downloadId = $"testkit-download-{mangaId}-{chapterId}-{Guid.NewGuid():N}";
+        var releaseTitle = $"TestKit Manga {mangaId} - Chapter {chapterId} [en]";
+
+        var parsedChapterInfo = new ParsedChapterInfo
+        {
+            ReleaseTitle = releaseTitle,
+            MangaTitle = $"TestKit Manga {mangaId}",
+            ChapterNumbers = new[] { (decimal)chapterId },
+            TranslatedLanguage = "en"
+        };
+
+        var release = new ReleaseInfo
+        {
+            Guid = downloadId,
+            Title = releaseTitle,
+            Size = 1024,
+            Indexer = "MangaDex",
+            IndexerId = 1,
+            DownloadProtocol = DownloadProtocol.Unknown,
+            PublishDate = DateTime.UtcNow,
+            TranslatedLanguage = "en"
+        };
+
+        using (var connection = OpenDatabase(appDataPath))
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText =
+                "INSERT INTO \"MangaPendingReleases\" " +
+                "(\"MangaId\", \"Title\", \"Added\", \"ParsedChapterInfo\", \"Release\", \"Reason\") " +
+                "VALUES " +
+                "(@MangaId, @Title, @Added, @ParsedChapterInfo, @Release, @Reason)";
+            AddParam(command, "@MangaId", mangaId);
+            AddParam(command, "@Title", releaseTitle);
+            AddParam(command, "@Added", DateTime.UtcNow);
+            AddParam(command, "@ParsedChapterInfo", JsonSerializer.Serialize(parsedChapterInfo, EmbeddedDocumentSettings));
+            AddParam(command, "@Release", JsonSerializer.Serialize(release, EmbeddedDocumentSettings));
+            AddParam(command, "@Reason", (int)reason);
+
+            var inserted = command.ExecuteNonQuery();
+            if (inserted != 1)
+            {
+                throw new InvalidOperationException(
+                    $"TestKit.SeedDownloadAsync: expected 1 MangaPendingReleases row inserted, got {inserted}");
+            }
+        }
+
+        // Trigger the in-memory pending-releases projection rebuild so the
+        // GET /api/v5/manga/queue caller sees the new row (mirrors
+        // SeedPendingQueueItemAsync). Without this, the static cache is stale.
+        await TriggerPendingReleaseRebuildAsync();
+
+        return downloadId;
     }
 
     /// <summary>
@@ -602,17 +1130,10 @@ public class TestKit
             using (var insertFile = connection.CreateCommand())
             {
                 insertFile.Transaction = transaction;
-                insertFile.CommandText =
-                    "INSERT INTO \"ChapterFiles\" " +
-                    "(\"MangaId\", \"ChapterId\", \"RelativePath\", \"Path\", \"Size\", \"DateAdded\", " +
-                    " \"OriginalFilePath\", \"TranslatedLanguage\", \"ScanlationGroup\") " +
-                    "VALUES " +
-                    "(@MangaId, @ChapterId, @RelativePath, @Path, @Size, @DateAdded, " +
-                    " @OriginalFilePath, @TranslatedLanguage, @ScanlationGroup); " +
-                    "SELECT last_insert_rowid();";
 
-                // Postgres path: last_insert_rowid() is SQLite-specific. Branch on
-                // _postgresOptions for the id-recovery hop.
+                // Branch on SQLite vs postgres for the id-recovery hop (last_insert_rowid
+                // vs RETURNING). Mirrors SeedChapterFileAsync L717-744 explicit if/else
+                // shape so neither branch carries a dead-write that masks intent (BL-01).
                 if (_postgresOptions != null && _postgresOptions.Host.IsNotNullOrWhiteSpace())
                 {
                     insertFile.CommandText =
@@ -623,6 +1144,17 @@ public class TestKit
                         "(@MangaId, @ChapterId, @RelativePath, @Path, @Size, @DateAdded, " +
                         " @OriginalFilePath, @TranslatedLanguage, @ScanlationGroup) " +
                         "RETURNING \"Id\";";
+                }
+                else
+                {
+                    insertFile.CommandText =
+                        "INSERT INTO \"ChapterFiles\" " +
+                        "(\"MangaId\", \"ChapterId\", \"RelativePath\", \"Path\", \"Size\", \"DateAdded\", " +
+                        " \"OriginalFilePath\", \"TranslatedLanguage\", \"ScanlationGroup\") " +
+                        "VALUES " +
+                        "(@MangaId, @ChapterId, @RelativePath, @Path, @Size, @DateAdded, " +
+                        " @OriginalFilePath, @TranslatedLanguage, @ScanlationGroup); " +
+                        "SELECT last_insert_rowid();";
                 }
 
                 AddParam(insertFile, "@MangaId", mangaId);

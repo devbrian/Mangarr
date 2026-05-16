@@ -123,7 +123,10 @@ function ManageDownloadClientsEditModalContent(
   const selectedCount = downloadClientIds.length;
 
   return (
-    <ModalContent onModalClose={onModalClose}>
+    <ModalContent
+      data-testid="manage-downloadclients-edit-modal"
+      onModalClose={onModalClose}
+    >
       <ModalHeader>{translate('EditSelectedDownloadClients')}</ModalHeader>
 
       <ModalBody>

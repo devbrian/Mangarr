@@ -70,7 +70,11 @@ function Indexers() {
             );
           })}
 
-          <Card className={styles.addIndexer} onPress={handleAddIndexerPress}>
+          <Card
+            className={styles.addIndexer}
+            data-testid="settings-indexer-add-card"
+            onPress={handleAddIndexerPress}
+          >
             <div className={styles.center}>
               <Icon name={icons.ADD} size={45} />
             </div>

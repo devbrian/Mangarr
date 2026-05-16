@@ -1,0 +1,14 @@
+{
+  "Request": {
+    "Method": "GET",
+    "Url": "https://komga.example/api/v1/libraries"
+  },
+  "Response": {
+    "Status": 200,
+    "Body": "[{\"id\":\"test-library-id\",\"name\":\"Test Library\",\"root\":\"/manga\",\"importComicInfoBook\":true,\"importComicInfoSeries\":true,\"importComicInfoCollection\":false,\"importComicInfoReadList\":false,\"importEpubBook\":true,\"importEpubSeries\":true,\"scanForceModifiedTime\":false,\"scanCbx\":true,\"scanPdf\":true,\"scanEpub\":true,\"unavailableDate\":null}]",
+    "BodyIsBase64": false,
+    "Headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

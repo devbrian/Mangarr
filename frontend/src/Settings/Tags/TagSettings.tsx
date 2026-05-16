@@ -12,8 +12,11 @@ function TagSettings() {
       <SettingsToolbar showSave={false} />
 
       <PageContentBody>
-        <Tags />
-        <AutoTaggings />
+        {/* Phase 20 Plan 20-02 — route-load testid (D-18 selector strategy). */}
+        <div data-testid="settings-tags-page">
+          <Tags />
+          <AutoTaggings />
+        </div>
       </PageContentBody>
     </PageContent>
   );
