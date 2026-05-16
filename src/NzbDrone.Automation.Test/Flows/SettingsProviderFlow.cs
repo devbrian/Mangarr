@@ -51,25 +51,23 @@ public static class SettingsProviderFlow
     }
 
     /// <summary>
-    /// Click the Save button on the open Edit modal and wait for the canonical
-    /// 2xx response. Asserts the modal closes afterwards.
+    /// Click the Save button on the open Edit modal, wait for the canonical
+    /// POST/PUT response, fail-fast if it is non-2xx, and assert the modal
+    /// closes afterwards.
     ///
-    /// gh178 sub-B (2026-05-16): for verticals whose backend <c>Test()</c>
-    /// makes a live outbound network call (notification — Komga/Kavita ping
-    /// the remote server on save), a fixture using a placeholder URL like
-    /// <c>https://komga.example</c> will see the first save POST come back
-    /// 400 with a connection-test failure. The Mangarr frontend explicitly
-    /// supports this: <c>useManageProviderSettings.saveProvider</c> compares
-    /// the just-sent payload against <c>lastSaveData.current</c> and, on
-    /// resave-of-identical-data, passes <c>?skipTesting=true</c> so the
-    /// second click bypasses the broker's <c>Test()</c> call
-    /// (ProviderControllerBase.CreateProvider:85). The helper mirrors this
-    /// user-visible flow: if the first response is non-2xx, click Save
-    /// again and wait for the next response. The second click takes the
-    /// frontend's isResave path and the backend takes the skipTesting
-    /// branch, so we get 201 without inventing a live Komga/Kavita server.
-    /// Verticals that succeed on the first POST (indexer/downloadclient)
-    /// pay one extra Status read; no extra click happens.
+    /// gh178 sub-B (2026-05-16): fail-fast (NOT click-twice retry). For
+    /// verticals whose backend <c>Test()</c> makes a live outbound network
+    /// call (notification — Komga/Kavita), a fixture using a placeholder URL
+    /// like <c>https://komga.example</c> will see the first save POST come
+    /// back 400 with a connection-test failure
+    /// (ProviderControllerBase.CreateProvider:85). For those fixtures, call
+    /// <see cref="BypassConnectionTestAsync"/> BEFORE the picker step so the
+    /// route handler injects <c>?skipTesting=true</c> on every save POST/PUT
+    /// — the first response is then 2xx and the close useEffect fires
+    /// cleanly. (A frontend isResave/click-twice approach was tried and
+    /// abandoned: empirically the modal's close-on-success useEffect did
+    /// not fire after the retry's 2xx, likely because usePrevious(isSaving)
+    /// races React's reconciliation of the first error.)
     /// </summary>
     public static async Task SaveAsync(IPage page, string vertical)
     {
@@ -99,9 +97,10 @@ public static class SettingsProviderFlow
             throw new Exception(
                 $"Save returned {saveResp.Status}; expected 2xx. URL: {saveResp.Url}. "
                 + $"For verticals whose backend Test() makes a live outbound call "
-                + $"(notification — Komga/Kavita), use BypassConnectionTestAsync(page) "
-                + $"before clicking Save to inject ?skipTesting=true so the broker Test() "
-                + $"is skipped server-side (ProviderControllerBase.CreateProvider:85).");
+                + $"(notification — Komga/Kavita), call "
+                + $"`SettingsProviderFlow.BypassConnectionTestAsync(Page, \"{vertical}\")` "
+                + $"before the picker step to inject ?skipTesting=true so the broker "
+                + $"Test() is skipped server-side (ProviderControllerBase.CreateProvider:85).");
         }
 
         await Assertions.Expect(editModal).ToBeHiddenAsync(new() { Timeout = 15_000 });
@@ -150,16 +149,28 @@ public static class SettingsProviderFlow
                     return;
                 }
 
+                // Upsert (not append): if the frontend ever sets
+                // ?skipTesting=false on the outgoing URL (no current path does
+                // — but the isResave branch in useProviderSettings could in
+                // principle), naively appending &skipTesting=true would leave
+                // duplicates and ASP.NET model binding takes the FIRST value,
+                // which would still be `false`. Strip any existing
+                // `skipTesting=...` entry first, then add `skipTesting=true`.
                 var url = req.Url;
-                if (url.Contains("skipTesting=true"))
+                var stripped = Regex.Replace(url, @"([?&])skipTesting=[^&]*&?", "$1");
+
+                // Regex.Replace can leave trailing `?` or `&`; tidy them.
+                stripped = stripped.TrimEnd('?', '&');
+
+                var newUrl = stripped.Contains('?')
+                    ? stripped + "&skipTesting=true"
+                    : stripped + "?skipTesting=true";
+
+                if (newUrl == url)
                 {
                     await route.ContinueAsync();
                     return;
                 }
-
-                var newUrl = url.Contains('?')
-                    ? (url.EndsWith('?') ? url + "skipTesting=true" : url + "&skipTesting=true")
-                    : url + "?skipTesting=true";
 
                 await route.ContinueAsync(new() { Url = newUrl });
             });

@@ -51,13 +51,16 @@ public class KomgaNotificationConfigFixture : AutomationTest
         // ?skipTesting=true to every POST/PUT to /api/v5/connection. The
         // fixture uses a placeholder Komga URL (https://komga.example) that
         // does NOT resolve; without skipTesting the backend
-        // ProviderControllerBase.CreateProvider:85 + UpdateProvider:114 fires
-        // KomgaProxy.GetLibraries(...) which fails DNS and returns 400 with
+        // ProviderControllerBase.CreateProvider:85 + UpdateProvider:114 invokes
+        // the Komga broker's Test() which makes a live outbound HTTPS call
+        // (the existing fixture docstring above identifies it as
+        // GET /api/v1/libraries with the X-API-Key header). DNS resolution
+        // fails and the response surfaces as a 400 with
         // "Unable to connect to Komga". This is a test-only bypass —
-        // production save flows always pass skipTesting=false (modulo the
-        // isResave UI path), so we are not masking real behavior, just
-        // making the CRUD round-trip deterministic without a live Komga
-        // server (no cassette is wired in for Komga's URL).
+        // production save flows always default to skipTesting=false, so we
+        // are not masking real behavior, just making the CRUD round-trip
+        // deterministic without a live Komga server (no cassette is wired
+        // in for Komga's URL at the time of writing).
         await SettingsProviderFlow.BypassConnectionTestAsync(Page, "notification");
 
         await new SettingsNotificationsPage(Page).OpenAsync(RootUri);

@@ -49,11 +49,13 @@ public class KavitaNotificationConfigFixture : AutomationTest
         // ?skipTesting=true to every POST/PUT to /api/v5/connection. The
         // fixture uses a placeholder Kavita URL (https://kavita.example)
         // that does NOT resolve; without skipTesting the backend
-        // ProviderControllerBase.CreateProvider:85 + UpdateProvider:114 fires
-        // KavitaProxy.Authenticate(...) which fails DNS and returns 400.
-        // This is a test-only bypass — production save flows always pass
-        // skipTesting=false (modulo the isResave UI path), so we're not
-        // masking real behavior, just making the CRUD round-trip
+        // ProviderControllerBase.CreateProvider:85 + UpdateProvider:114 invokes
+        // the Kavita broker's Test() which makes a live outbound HTTPS call
+        // (the existing fixture docstring above identifies it as the JWT
+        // auth POST /api/Plugin/authenticate). DNS resolution fails and the
+        // response surfaces as a 400. This is a test-only bypass —
+        // production save flows always default to skipTesting=false, so
+        // we're not masking real behavior, just making the CRUD round-trip
         // deterministic without a live Kavita server.
         await SettingsProviderFlow.BypassConnectionTestAsync(Page, "notification");
 
