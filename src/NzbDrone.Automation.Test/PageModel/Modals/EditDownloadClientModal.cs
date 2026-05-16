@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.Playwright;
 
 namespace NzbDrone.Automation.Test.PageModel.Modals;
@@ -24,7 +25,12 @@ public class EditDownloadClientModal : PageBase
     public ILocator ModalRoot                    => Page.GetByTestId("edit-downloadclient-modal");
     public ILocator NameInput                    => ModalRoot.GetByLabel("Name");
     public ILocator PriorityInput                => ModalRoot.GetByLabel("Client Priority");
-    public ILocator MaxConcurrentDownloadsInput  => ModalRoot.GetByLabel("InProcessDownloadsPerSource");
+
+    // WR-02 (20-REVIEW): no en.json translation key exists yet for
+    // "InProcessDownloadsPerSource", so translate() falls back to the raw key today.
+    // Match either the raw key OR a likely future English translation ("Downloads
+    // Per Source") so this locator survives the day someone adds an i18n entry.
+    public ILocator MaxConcurrentDownloadsInput  => ModalRoot.GetByLabel(new Regex(@"^(InProcessDownloadsPerSource|Downloads Per Source)$"));
     public ILocator SaveButton                   => ModalRoot.GetByTestId("save-button");
     public ILocator TestButton                   => ModalRoot.GetByRole(AriaRole.Button, new() { Name = "Test", Exact = true });
     public ILocator DeleteButton                 => ModalRoot.GetByTestId("delete-button");
