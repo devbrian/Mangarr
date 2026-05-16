@@ -44,10 +44,16 @@ public class AddSpecificationModalFixture : AutomationTest
         var addSpecDialog = Page.GetByRole(AriaRole.Dialog).Last;
         await Assertions.Expect(addSpecDialog).ToBeVisibleAsync();
 
-        // State assertion: dialog renders the spec catalog. Every CustomFormat
-        // specification class name ends in "Specification" (see
-        // src/NzbDrone.Core/CustomFormats/Specifications/).
-        var dialogText = await addSpecDialog.TextContentAsync();
-        dialogText.Should().Contain("Specification");
+        // State assertion: dialog renders the spec catalog. Schema is fetched
+        // asynchronously via GET /api/v5/customformat/schema; wait for the
+        // canonical "Release Title" spec (ReleaseTitleSpecification.cs:6 —
+        // ImplementationName = "Release Title") before reading the body so
+        // the assertion isn't racing the LoadingIndicator. debug-30
+        // (2026-05-16): prior assertion checked for "Specification" substring
+        // which never appears — the schema sends `implementationName` values
+        // like "Release Title" / "Language" / "Indexer Flag", NOT the C#
+        // class-name suffix.
+        await Assertions.Expect(addSpecDialog.GetByText("Release Title").First)
+            .ToBeVisibleAsync(new() { Timeout = 15_000 });
     }
 }

@@ -27,6 +27,13 @@ public class RemotePathMappingCrudFixture : AutomationTest
         var page = await new SettingsDownloadClientsPage(Page).OpenAsync(RootUri);
         await Assertions.Expect(page.PageContainer).ToBeVisibleAsync();
 
+        // debug-30 (2026-05-16): RemotePathMapping validator runs LocalPath
+        // through PathExistsValidator + SystemFolderValidator (see
+        // RemotePathMappingController.cs:35-42). "/local/data/" doesn't exist
+        // on the test runner → 400. Anchor on Runner.AppData (the isolated
+        // _intg_<uid>/ test dir, always exists, never a system folder).
+        var localPath = Runner.AppData;
+
         // POST a new mapping.
         var postResp = await Page.APIRequest.PostAsync(
             $"{RootUri}/api/v5/remotepathmapping",
@@ -36,7 +43,7 @@ public class RemotePathMappingCrudFixture : AutomationTest
                 {
                     host = "test-host.example",
                     remotePath = "/remote/data/",
-                    localPath = "/local/data/"
+                    localPath = localPath
                 }
             });
 

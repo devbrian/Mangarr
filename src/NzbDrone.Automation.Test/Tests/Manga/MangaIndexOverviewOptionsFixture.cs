@@ -97,7 +97,10 @@ public class MangaIndexOverviewOptionsFixture : AutomationTest
         await viewMenuTrigger.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
         await viewMenuTrigger.ClickAsync();
 
-        var overviewItem = Page.GetByRole(AriaRole.Menuitem, new() { Name = "Overview" });
+        // debug-30 (2026-05-16): MenuItem renders as <Link>→<button> (role=Button,
+        // NOT Menuitem) per MenuItem.tsx. Scope by exact-name "Overview" so we
+        // don't collide with the "Overview Options" modal Options button.
+        var overviewItem = Page.GetByRole(AriaRole.Button, new() { Name = "Overview", Exact = true });
         await Assertions.Expect(overviewItem).ToBeVisibleAsync(new() { Timeout = 5_000 });
         await overviewItem.ClickAsync();
 

@@ -55,6 +55,15 @@ public class MangaIndexBulkEditFixture : AutomationTest
         var modal = Page.GetByRole(AriaRole.Dialog, new() { Name = "Edit Selected Manga" });
         await Assertions.Expect(modal).ToBeVisibleAsync(new() { Timeout = 10_000 });
 
+        // debug-30 (2026-05-16): EditMangaModalContent.save() short-circuits
+        // when no field changed — no onSavePress → no PUT. Flip Monitored
+        // to a non-NO_CHANGE value so the PUT actually fires.
+        var monitoredTrigger = modal.GetByText("No Change").First;
+        await monitoredTrigger.ClickAsync();
+        var monitoredOption = Page.GetByText("Monitored", new() { Exact = true }).First;
+        await Assertions.Expect(monitoredOption).ToBeVisibleAsync(new() { Timeout = 5_000 });
+        await monitoredOption.ClickAsync();
+
         // STATE assertion: clicking Save inside the dialog fires PUT /api/v5/manga/editor.
         var putTask = Page.WaitForResponseAsync(
             r => r.Url.Contains("/api/v5/manga/editor") && r.Request.Method == "PUT",

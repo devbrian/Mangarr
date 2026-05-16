@@ -55,6 +55,12 @@ public class BulkEditMangaModalFixture : AutomationTest
         var modal = Page.GetByRole(AriaRole.Dialog, new() { Name = "Edit Selected Manga" });
         await Assertions.Expect(modal).ToBeVisibleAsync(new() { Timeout = 10_000 });
 
+        // debug-30 (2026-05-16): EditMangaModalContent.save() short-circuits
+        // when no field has changed (no `hasChanges` path → no onSavePress →
+        // no PUT). Flip the Monitored dropdown to "Monitored" before saving
+        // so the PUT actually fires.
+        await FlipMonitoredAsync(modal);
+
         var putTask = Page.WaitForResponseAsync(
             r => r.Url.Contains("/api/v5/manga/editor") && r.Request.Method == "PUT",
             new PageWaitForResponseOptions { Timeout = 30_000 });
@@ -83,5 +89,21 @@ public class BulkEditMangaModalFixture : AutomationTest
             "PUT /api/v5/manga/editor must return 2xx (v5-endpoint contract)");
         resp.Url.Should().Contain("/api/v5/manga/editor",
             "request URL must hit the manga/editor route precisely");
+    }
+
+    // EnhancedSelectInput with name="monitored" — open dropdown, pick "Monitored"
+    // (the dropdown button is the rendered EnhancedSelectInputSelectedValue;
+    // option entries appear in a portal'd menu with role=menu/menuitem).
+    private static async System.Threading.Tasks.Task FlipMonitoredAsync(ILocator modal)
+    {
+        // EnhancedSelectInput renders a clickable button bearing the current
+        // value's display text. Default value is "No Change". Click it, then
+        // pick "Monitored" from the popup options. Both option entries render
+        // as <Link>→<button> (role=Button) inside the modal's portal'd menu.
+        var monitoredTrigger = modal.GetByText("No Change").First;
+        await monitoredTrigger.ClickAsync();
+        var monitoredOption = modal.Page.GetByText("Monitored", new() { Exact = true }).First;
+        await Assertions.Expect(monitoredOption).ToBeVisibleAsync(new() { Timeout = 5_000 });
+        await monitoredOption.ClickAsync();
     }
 }

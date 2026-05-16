@@ -50,9 +50,27 @@ public class CustomFormatBulkEditFixture : AutomationTest
         var listResp = await Page.APIRequest.GetAsync($"{RootUri}/api/v5/customformat");
         listResp.Status.Should().Be(200);
 
+        // debug-30 (2026-05-16): GET /api/v5/customformat serializes pretty-
+        // printed JSON ("id": 1 with space). Parse to JSON DOM so the
+        // assertion is independent of formatting.
         var body = await listResp.TextAsync();
-        body.Should().Contain($"\"id\":{id1}");
-        body.Should().Contain($"\"id\":{id2}");
-        body.Should().Contain("\"includeCustomFormatWhenRenaming\":true");
+        using var doc = System.Text.Json.JsonDocument.Parse(body);
+
+        var bulkRows = new System.Collections.Generic.List<System.Text.Json.JsonElement>();
+        foreach (var row in doc.RootElement.EnumerateArray())
+        {
+            var rowId = row.GetProperty("id").GetInt32();
+            if (rowId == id1 || rowId == id2)
+            {
+                bulkRows.Add(row);
+            }
+        }
+
+        bulkRows.Should().HaveCount(2, "both bulk-edited rows must be returned by GET");
+        foreach (var row in bulkRows)
+        {
+            row.GetProperty("includeCustomFormatWhenRenaming").GetBoolean().Should().BeTrue(
+                "bulk PUT must have flipped includeCustomFormatWhenRenaming=true on every targeted row");
+        }
     }
 }

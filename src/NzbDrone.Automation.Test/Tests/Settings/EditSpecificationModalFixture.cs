@@ -38,15 +38,21 @@ public class EditSpecificationModalFixture : AutomationTest
         await editDialog.Locator("button:has(svg[data-icon='plus'])").First.ClickAsync();
         await Assertions.Expect(Page.GetByRole(AriaRole.Dialog)).ToHaveCountAsync(2, new() { Timeout = 15_000 });
 
-        // Click the first AddSpecificationItem in the spec picker — opens the
+        // Click an AddSpecificationItem in the spec picker — opens the
         // EditSpecificationModal in place of the AddSpecificationModal.
-        // AddSpecificationItem renders as a Link with the spec implementation
-        // name visible; we target the first link role inside the picker dialog.
+        // debug-30 (2026-05-16): AddSpecificationItem's clickable surface is
+        // a `<Link className=underlay>` that renders as <button> (NOT role=Link),
+        // and is absolutely positioned over an empty container with no
+        // accessible name. Anchor on the "Release Title" implementationName
+        // text inside the spec card (always present —
+        // ReleaseTitleSpecification.cs is the canonical default spec) and
+        // dispatch the click via JS to the sibling underlay button (sibling of
+        // .overlay, both inside .specification).
         var addSpecDialog = Page.GetByRole(AriaRole.Dialog).Last;
-        var specLinks = addSpecDialog.GetByRole(AriaRole.Link);
-        var linkCount = await specLinks.CountAsync();
-        linkCount.Should().BeGreaterThan(0);
-        await specLinks.First.ClickAsync();
+        var releaseTitleName = addSpecDialog.GetByText("Release Title").First;
+        await Assertions.Expect(releaseTitleName).ToBeVisibleAsync(new() { Timeout = 15_000 });
+        await releaseTitleName.EvaluateAsync(
+            "(nameDiv) => nameDiv.closest('div').parentElement.parentElement.querySelector('button, a').click()");
 
         // EditSpecificationModal opens. Assert the dialog body now contains
         // a "Name" form label (every spec exposes one).

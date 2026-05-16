@@ -791,6 +791,21 @@ public class TestKit
             }
 
             chapterFileId = Convert.ToInt32(newId);
+
+            // debug-30 (2026-05-16): also link the Chapter row to this file so
+            // downstream `RenameChapterFileService.GetPreviews()` (which filters
+            // `chapters.Where(c => c.ChapterFileId == file.Id)`) actually sees
+            // the seeded pair. Without this UPDATE the rename pipeline yields
+            // nothing — silently empty [] response. Mirrors SeedCutoffUnmetChapterAsync
+            // L1185+ which also does the Chapter-side UPDATE step.
+            using var updateChapter = connection.CreateCommand();
+            updateChapter.CommandText =
+                "UPDATE \"Chapters\" " +
+                "SET \"ChapterFileId\" = @ChapterFileId " +
+                "WHERE \"Id\" = @ChapterId;";
+            AddParam(updateChapter, "@ChapterFileId", chapterFileId);
+            AddParam(updateChapter, "@ChapterId", chapterId);
+            updateChapter.ExecuteNonQuery();
         }
 
         return Task.FromResult(chapterFileId);
