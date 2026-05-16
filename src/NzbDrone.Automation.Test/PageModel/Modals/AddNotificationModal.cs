@@ -5,7 +5,9 @@ namespace NzbDrone.Automation.Test.PageModel.Modals;
 /// <summary>
 /// AddNotification picker modal (frontend/src/Settings/Notifications/Notifications/AddNotificationModalContent.tsx).
 /// Owned by Phase 20 Plan 20-06. Opened by clicking the empty add card on
-/// /settings/connect; lists schema implementations from GET /api/v5/notification/schema.
+/// /settings/connect; lists schema implementations from GET /api/v5/connection/schema
+/// (the V5 surface is `connection` — see ConnectionController; the legacy
+/// "notification" resource was retired in Phase 15 Plan 15-10 — gh #187).
 ///
 /// Slug derivation mirrors Plans 20-04 + 20-05 (AddIndexerItem / AddDownloadClientItem
 /// suffix-strip pattern): implementation.replace(/Indexer$/i, '').replace(

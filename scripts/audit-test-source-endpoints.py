@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+# scripts/audit-test-source-endpoints.py
+"""
+gh #187 — test-source V5 endpoint drift gate.
+
+Sibling lint to `audit-inventory-endpoints.py`. That script audits INVENTORY.md
+rows against the live V5 controller surface. THIS script audits the inverse
+direction: it scans every `/api/v5/<resource>` literal that appears anywhere
+under `src/NzbDrone.*Test*/` (in code OR comments OR XML docs) and reports any
+literal whose `<resource>` segment does not exist on the live V5 controller
+surface.
+
+The motivating drift class (gh #187): Phase 15 Plan 15-10 renamed
+`/api/v5/notification*` → `/api/v5/connection*`. Test sources that referenced
+the old path in comments (or in latent never-called code like
+`TestKit.SeedNotificationAsync`) silently went stale. `audit-inventory-endpoints.py`
+did not catch this because it walks INVENTORY.md row-by-row, not test sources.
+
+Exit codes:
+  Default (informational):  always 0. Findings are printed but do not fail CI.
+                            This lets the lint roll out incrementally without
+                            blocking on the deep-cleanup pass tracked under
+                            the follow-up issue chain.
+  --enforce:                exit 1 if any stale references are found. Flip to
+                            this mode once the broader drift backlog (e.g.
+                            /api/v5/history and /api/v5/manualimport refs
+                            surfaced on the inaugural run) is fully resolved.
+
+Scope:
+  - Greps `src/NzbDrone.*Test*/**/*.cs` for `/api/v5/<word>` literals
+    (case-insensitive on the resource segment; ASP.NET routing is
+    case-insensitive). Captures the surrounding line for context.
+  - Builds the canonical set of V5 resource prefixes by parsing
+    `Mangarr.Api.V5/**/*Controller.cs` — same `[V5ApiController(...)]` + auto-
+    derive + `base(..., "<resource>", ...)` patterns as
+    `audit-inventory-endpoints.py`. Single source of truth.
+  - Reports a stale literal when its `<resource>` segment is not in the
+    canonical set.
+
+What this lint does NOT catch:
+  - Stale METHODS within a known resource (e.g. `/api/v5/connection/oldaction`
+    when the controller route is gone). Captured by
+    `audit-inventory-endpoints.py` for INVENTORY-row drift, but not here.
+  - Live REST requests built via string concatenation, reflection, or
+    `BuildRequest("connection?skipTesting=true")` where the literal does NOT
+    start with `/api/v5/`. Those should also be migrated when a resource
+    renames; this lint warns by reporting the resource-prefix shape only.
+"""
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).parent.parent.resolve()
+V5_DIR = REPO_ROOT / "src" / "Mangarr.Api.V5"
+TEST_GLOBS = [
+    "src/NzbDrone.Automation.Test",
+    "src/NzbDrone.Integration.Test",
+    "src/NzbDrone.Test.Common",
+    "src/NzbDrone.Api.Test",
+    "src/NzbDrone.Core.Test",
+    "src/NzbDrone.Common.Test",
+    "src/NzbDrone.Host.Test",
+    "src/NzbDrone.Mono.Test",
+    "src/NzbDrone.Windows.Test",
+]
+
+V5_CTRL_LITERAL = re.compile(r'\[V5ApiController\("([^"]+)"\)\]')
+V5_CTRL_AUTO = re.compile(r"\[V5ApiController\]")
+PROVIDER_BASE_CTOR = re.compile(r":\s*base\([^)]*?\"([a-z][a-z0-9/_-]*)\"[^)]*?\)")
+CLASS_DECL = re.compile(r"public\s+(?:abstract\s+)?class\s+(\w+)Controller\b")
+
+
+def strip_csharp_comments(src: str) -> str:
+    """Strip // line + /* */ block comments from C# source, preserving `://` URL
+    fragments (mirrors audit-inventory-endpoints.strip_csharp_comments).
+
+    Without this, controller source with a commented example like
+    `// [V5ApiController("queue/details")]` ahead of the real attribute would
+    poison the canonical-resource set with the commented literal (Codex P1
+    finding on PR #189: MangaQueueDetailsController.cs:25 carries exactly that
+    shape, which suppressed stale `/api/v5/queue*` test references).
+    """
+    src = re.sub(r"(?<![:/])//[^\n]*", "", src)
+    src = re.sub(r"/\*[\s\S]*?\*/", "", src)
+    return src
+
+# Match `/api/v5/<resource>` where <resource> is alphanum + dashes + underscores
+# (the first path segment after /api/v5/). Stops at the next `/`, whitespace,
+# quote, backtick, angle-bracket, paren, or end-of-string. Captures the
+# resource segment for canonical-set lookup.
+TEST_V5_REF = re.compile(
+    r"/api/v5/([A-Za-z][A-Za-z0-9_-]*)",
+)
+
+
+def derive_resource(class_name: str, src: str) -> str | None:
+    """Same precedence as audit-inventory-endpoints.derive_resource."""
+    m = V5_CTRL_LITERAL.search(src)
+    if m:
+        return m.group(1)
+    if V5_CTRL_AUTO.search(src):
+        pm = PROVIDER_BASE_CTOR.search(src)
+        if pm:
+            return pm.group(1)
+        return class_name.lower()
+    return None
+
+
+def collect_canonical_resources() -> set[str]:
+    """Walk V5 controllers and collect the set of FIRST-segment resource names.
+
+    `/api/v5/<resource>` is the contract; routes like
+    `/api/v5/manga/lookup` contribute `manga`. Subpaths handled by
+    `audit-inventory-endpoints.py` for INVENTORY-row drift.
+    """
+    resources: set[str] = set()
+    for cs in V5_DIR.rglob("*Controller.cs"):
+        try:
+            raw = cs.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        # Strip C# comments BEFORE matching V5ApiController / base() / class
+        # attrs — commented examples (e.g. doc-block illustrations) must not
+        # poison the canonical-resource set. See strip_csharp_comments() and
+        # the Codex P1 finding on PR #189.
+        src = strip_csharp_comments(raw)
+        cn = CLASS_DECL.search(src)
+        if not cn:
+            continue
+        res = derive_resource(cn.group(1), src)
+        if res is None:
+            continue
+        # The literal may itself contain a `/` (e.g. `manga/lookup`); the
+        # first segment is what the lint compares against.
+        resources.add(res.split("/")[0].lower())
+    return resources
+
+
+def scan_test_sources(canonical: set[str]) -> list[tuple[Path, int, str, str]]:
+    """Scan every .cs file under TEST_GLOBS for /api/v5/<resource> literals
+    whose <resource> is not in the canonical set.
+
+    Returns list of (path, line_no, resource_segment, full_line) tuples.
+    """
+    findings: list[tuple[Path, int, str, str]] = []
+    for relroot in TEST_GLOBS:
+        root = REPO_ROOT / relroot
+        if not root.exists():
+            continue
+        for cs in root.rglob("*.cs"):
+            try:
+                lines = cs.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                continue
+            for lineno, line in enumerate(lines, start=1):
+                for m in TEST_V5_REF.finditer(line):
+                    res = m.group(1).lower()
+                    if res not in canonical:
+                        findings.append((cs, lineno, res, line.rstrip()))
+    return findings
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Audit test-source /api/v5/<resource> literals against the live "
+            "V5 controller surface. Informational by default; pass --enforce "
+            "to exit 1 on any finding (CI-gate mode)."
+        )
+    )
+    parser.add_argument(
+        "--enforce",
+        action="store_true",
+        help=(
+            "Exit 1 if any stale /api/v5/<resource> references are found. "
+            "Default is exit 0 (informational reporting only)."
+        ),
+    )
+    args = parser.parse_args()
+
+    if not V5_DIR.exists():
+        print(f"ERROR: V5 controller dir not found at {V5_DIR}", file=sys.stderr)
+        return 2
+
+    canonical = collect_canonical_resources()
+    if not canonical:
+        print(
+            "ERROR: no canonical V5 resources discovered — V5 controller "
+            "directory empty or parse failed.",
+            file=sys.stderr,
+        )
+        return 2
+
+    findings = scan_test_sources(canonical)
+
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+    mode_label = "ENFORCE (gate)" if args.enforce else "informational"
+    print("=== audit-test-source-endpoints.py ===")
+    print(f"Mode:                     {mode_label}")
+    print(f"Canonical V5 resources:   {len(canonical):>4}  ({', '.join(sorted(canonical))})")
+    print(f"Test-source files scanned under {len(TEST_GLOBS)} roots")
+    print(f"Stale /api/v5/<resource> references: {len(findings):>4}")
+    print()
+
+    if findings:
+        header = (
+            "--- Stale /api/v5/<resource> references (GATE FAILURE) ---"
+            if args.enforce
+            else "--- Stale /api/v5/<resource> references (informational) ---"
+        )
+        print(header)
+        print("    Each line below references an /api/v5/<resource> whose")
+        print("    <resource> first-segment is not a live V5 controller.")
+        print("    Either the controller was renamed (update the comment / live")
+        print("    code) or a typo slipped past review.")
+        print()
+        for path, lineno, res, line in findings:
+            rel = path.relative_to(REPO_ROOT).as_posix()
+            print(f"  {rel}:{lineno}  [resource='{res}']")
+            print(f"    {line.strip()}")
+        print()
+        return 1 if args.enforce else 0
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

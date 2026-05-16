@@ -328,7 +328,9 @@ public class TestKit
 
     /// <summary>
     /// Phase 20 Plan 20-01 (D-06) — Seeds a Komga Notification via
-    /// <c>POST /api/v5/notification?skipTesting=true</c>. Canonical implementation
+    /// <c>POST /api/v5/connection?skipTesting=true</c> (the V5 surface is
+    /// `connection` — see ConnectionController; the legacy "notification"
+    /// resource was retired in Phase 15 Plan 15-10 — gh #187). Canonical implementation
     /// <c>"KomgaNotification"</c> + configContract <c>"KomgaNotificationSettings"</c>
     /// (verified at src/NzbDrone.Core/Notifications/Komga/KomgaNotification.cs +
     /// KomgaNotificationSettings.cs). Pitfall 2: LibraryId is REQUIRED — pre-populated
@@ -342,7 +344,7 @@ public class TestKit
             "notification POST",
             () =>
             {
-                var req = BuildRequest("notification?skipTesting=true", Method.POST);
+                var req = BuildRequest("connection?skipTesting=true", Method.POST);
                 req.AddJsonBody(new
                 {
                     onGrab = false,
