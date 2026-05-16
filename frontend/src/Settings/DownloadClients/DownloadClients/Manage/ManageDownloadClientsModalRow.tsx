@@ -61,6 +61,7 @@ function ManageDownloadClientsModalRow(
       <TableSelectCell
         id={id}
         isSelected={isSelected}
+        data-testid={`settings-downloadclient-row-${id}-checkbox`}
         onSelectedChange={handleSelectedChange}
       />
 
