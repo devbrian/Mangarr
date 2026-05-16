@@ -114,7 +114,9 @@ function ProviderFieldFormGroup<T>({
   // provider keep the testid unset (no contract drift). The propagation
   // lands on the wrapping <label> for CHECK inputs (per scope A) and on
   // the <input> for TEXT/NUMBER/PASSWORD/etc. (per TextInput.tsx:185).
-  const fieldTestId = provider ? `settings-${provider}-field-${name}` : undefined;
+  const fieldTestId = provider
+    ? `settings-${provider}-field-${name}`
+    : undefined;
 
   if (hidden === 'hidden' || (hidden === 'hiddenIfNotSet' && !value)) {
     return null;
