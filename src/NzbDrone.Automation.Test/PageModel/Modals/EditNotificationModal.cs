@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.Playwright;
 
 namespace NzbDrone.Automation.Test.PageModel.Modals;
@@ -29,12 +30,12 @@ public class EditNotificationModal : PageBase
 
     // Provider URL field: Komga renders "Komga URL", Kavita renders "Kavita URL".
     // Regex matches either to keep the PageObject provider-agnostic.
-    public ILocator UrlInput       => ModalRoot.GetByLabel(new System.Text.RegularExpressions.Regex(@"(Komga|Kavita) URL"));
+    public ILocator UrlInput       => ModalRoot.GetByLabel(new Regex(@"(Komga|Kavita) URL"));
 
     public ILocator ApiKeyInput    => ModalRoot.GetByLabel("API Key");
 
     // Komga: "Library ID"; Kavita: "Library ID (optional)". Regex catches both.
-    public ILocator LibraryIdInput => ModalRoot.GetByLabel(new System.Text.RegularExpressions.Regex(@"Library ID"));
+    public ILocator LibraryIdInput => ModalRoot.GetByLabel(new Regex(@"Library ID"));
 
     public ILocator SaveButton     => ModalRoot.GetByTestId("save-button");
     public ILocator TestButton     => ModalRoot.GetByRole(AriaRole.Button, new() { Name = "Test", Exact = true });
