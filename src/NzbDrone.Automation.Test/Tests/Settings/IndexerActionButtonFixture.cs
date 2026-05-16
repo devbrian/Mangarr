@@ -41,13 +41,23 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// against a positive whitelist of canonical names. Any button left over
 /// must be a providerAction-typed field button.
 ///
-/// LiveService tag retained for catalog continuity (Plan 20-01 enumeration row
-/// #3 stays in the catalog; status flips to `blocked` with cross-reference to
-/// this fixture's documenting role — see SUMMARY).
+/// GH #165 re-investigation 2026-05-16 (resolves liveservice-exemption tracker):
+/// Per Phase 20 D-09(a) the LiveService eligibility bar is "proven offline-
+/// impossible during recording — must be 'it does not work', not 'brittle'."
+/// This fixture's assertion is `nonStandardNames.Should().BeEmpty(...)` — a
+/// pure structural UI invariant on the seeded MangaDex modal. Opening the
+/// EditIndexerModal does NOT fire any outbound MangaDex request (the modal
+/// hydrates from the local /api/v5/indexer/{id} body; the schema-fetch is the
+/// picker path, not the edit path). The companion endpoint-coverage fixture
+/// IndexerActionEndpointApiFixture (GH #169 follow-up) exercises POST
+/// /api/v5/indexer/action/{name} at the wire level via the local API — so
+/// the action-endpoint family is now covered. The LiveService tag is
+/// therefore dropped; this fixture rides the default nightly tier (and is
+/// also valid offline via PR-smoke since no upstream is touched).
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
-[Category("LiveService")]
+[Category("PRSmoke")]
 public class IndexerActionButtonFixture : AutomationTest
 {
     private static readonly string[] CanonicalButtonNames = new[]

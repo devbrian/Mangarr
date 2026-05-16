@@ -1328,4 +1328,41 @@ public class TestKit
         request.AddHeader("X-Api-Key", _apiKey); // copied verbatim from NzbDroneRunner.cs:76
         return request;
     }
+
+    /// <summary>
+    /// GH #169 follow-up resolution — exercise the
+    /// <c>POST /api/v5/indexer/action/{name}</c> endpoint surface directly via the
+    /// API (independent of any provider-action-bearing UI field). The IndexerController
+    /// endpoint (ProviderControllerBase.RequestAction) GETs the indexer resource by id
+    /// from the seeded MangaDex row, POSTs it back to the action route, and the
+    /// indexer's <c>RequestAction(name, query)</c> dispatches. MangaDex inherits the
+    /// IndexerBase default (returns null), so the controller wraps null in a
+    /// ContentHttpResult with HTTP 200 + body "null". That is the deterministic
+    /// proof the controller dispatch path is wired end-to-end on the v5 surface,
+    /// regardless of whether a providerAction-bearing UI field is rendered.
+    ///
+    /// Returns the full IRestResponse so the caller can assert on status + body
+    /// shape per the fixture's contract.
+    /// </summary>
+    public async Task<IRestResponse> RequestIndexerActionAsync(int indexerId, string actionName)
+    {
+        var getResponse = await ExecuteWithStartupRetryAsync(
+            nameof(RequestIndexerActionAsync),
+            $"indexer/{indexerId} GET",
+            () => BuildRequest($"indexer/{indexerId}", Method.GET));
+
+        var resourceBody = getResponse.Content;
+        if (string.IsNullOrEmpty(resourceBody))
+        {
+            throw new InvalidOperationException(
+                $"TestKit.RequestIndexerActionAsync: indexer/{indexerId} GET returned empty body — seed regression?");
+        }
+
+        // ProviderControllerBase.RequestAction expects the full TProviderResource as
+        // [FromBody]. Pass the body verbatim with the application/json content type;
+        // RestSharp 106 AddJsonBody(string) would double-encode the string.
+        var actionRequest = BuildRequest($"indexer/action/{actionName}", Method.POST);
+        actionRequest.AddParameter("application/json", resourceBody, ParameterType.RequestBody);
+        return await _client.ExecuteAsync(actionRequest);
+    }
 }
