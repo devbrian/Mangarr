@@ -45,9 +45,21 @@ public class KomgaNotificationConfigFixture : AutomationTest
     private const string TestName = "Komga (CRUD test)";
 
     [Test]
-    [Explicit("GH #178 sub-B — Notification edit modal doesn't auto-close after successful POST; fixture greens once #178-B ships")]
     public async Task komga_form_roundtrip()
     {
+        // gh178 sub-B: register a route handler that appends
+        // ?skipTesting=true to every POST/PUT to /api/v5/connection. The
+        // fixture uses a placeholder Komga URL (https://komga.example) that
+        // does NOT resolve; without skipTesting the backend
+        // ProviderControllerBase.CreateProvider:85 + UpdateProvider:114 fires
+        // KomgaProxy.GetLibraries(...) which fails DNS and returns 400 with
+        // "Unable to connect to Komga". This is a test-only bypass —
+        // production save flows always pass skipTesting=false (modulo the
+        // isResave UI path), so we are not masking real behavior, just
+        // making the CRUD round-trip deterministic without a live Komga
+        // server (no cassette is wired in for Komga's URL).
+        await SettingsProviderFlow.BypassConnectionTestAsync(Page, "notification");
+
         await new SettingsNotificationsPage(Page).OpenAsync(RootUri);
         await SettingsProviderFlow.OpenPickerAndSelectAsync(Page, "notification", "komga");
 
@@ -73,6 +85,9 @@ public class KomgaNotificationConfigFixture : AutomationTest
 
         // debug-30 iter-2 (2026-05-16): notification picker/modal maps to V5
         // resource "connection" (ConnectionController + useConnections PATH).
+        // The route handler registered above also appends skipTesting=true
+        // to the PUT, so UpdateProvider:114 (`hasDefinitionChanged && !skipTesting`)
+        // skips the broker Test() and returns 2xx cleanly.
         var putTask = Page.WaitForResponseAsync(
             r => r.Url.Contains("/api/v5/connection/") && r.Request.Method == "PUT",
             new() { Timeout = 30_000 });
