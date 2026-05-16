@@ -1,6 +1,3 @@
-using System.IO;
-using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -8,122 +5,77 @@ using NUnit.Framework;
 
 namespace NzbDrone.Automation.Test.Tests.Routes;
 
-// Phase 20 Plan 20-02 — INVENTORY route-axis row: `/ (urlBase redirect)` —
-// RedirectWithUrlBase fires when window.Mangarr.urlBase is non-empty.
+// Phase 20 Plan 20-02 — INVENTORY route-axis row: `/ (urlBase redirect)`.
 // D-04: route axis ⇒ PR-smoke.
 //
-// Mechanism: window.Mangarr is populated from a runtime fetch of /initialize.json
-// (frontend/src/index.ts:5-10). AddInitScriptAsync cannot influence that — the
-// fetched JSON overwrites the window object. Instead, intercept the initialize.json
-// response with Playwright's route handler and inject urlBase=/mangarr. AppRoutes.tsx
-// (lines 59-68) then renders the RedirectWithUrlBase <Route> branch, which redirects
-// / to /mangarr.
+// GH #174 close-out (debug session gh174-urlbase-redirect-spa-bug):
+// the prior iteration of this fixture rewrote `initialize.json` via Playwright's
+// route handler to inject `urlBase=/mangarr`, expecting the SPA's
+// RedirectWithUrlBase <Route> to fire on initial render. That approach was
+// structurally broken: webpack publicPath is set from `window.Mangarr.urlBase`,
+// so once the bundle bootstraps it tries to fetch all dynamic chunks from
+// `/mangarr/*` — but the backend was started WITHOUT urlBase configured, so
+// every chunk 404s, React never renders, no redirect ever fires, and the page
+// stays blank with the URL stuck at `/`.
+//
+// The correct shape, locked in by this fixture: configure the runner with a
+// real UrlBase via config.xml (AutomationTest.ConfiguredUrlBase override →
+// NzbDroneRunner.Start(urlBase: ...) → ConfigFileProvider.UrlBase reads the
+// config XML, populates Mangarr.Http.Middleware.UrlBaseMiddleware, prepends
+// UrlBase to all served HTML attribute paths, and substitutes __URL_BASE__ in
+// index.ejs). Then navigate to the *unprefixed* root `/` and assert the
+// backend's UrlBaseMiddleware issues a 307 redirect to `/{urlBase}/`. The SPA
+// also carries a defensive in-app redirect (AppRoutes.tsx — redirect Route
+// hoisted above MangaIndex Route per GH #174), which acts as a belt-and-braces
+// guard if the request ever reaches the SPA with PathBase stripped by an
+// upstream proxy.
 [TestFixture]
 [Category("AutomationTest")]
 [Category("PRSmoke")]
 public class UrlBaseRedirectFixture : AutomationTest
 {
+    private const string TestUrlBase = "mangarr";
+
+    protected override string ConfiguredUrlBase => TestUrlBase;
+
     [Test]
-    [Explicit("GH #174 — UrlBase redirect production bug (route-or-bootstrap-order); fixture greens automatically once #174 ships")]
     public async Task redirects_when_urlbase_set()
     {
-        // Intercept the initialize.json fetch and inject urlBase. Fetch the original
-        // body first so other fields (apiKey, version, etc.) survive unchanged; only
-        // the urlBase field is overridden. Registered BEFORE the navigation that
-        // triggers the fetch.
-        await Page.RouteAsync("**/initialize.json**", async route =>
-        {
-            var response = await route.FetchAsync();
-            var originalBody = await response.TextAsync();
-            using var doc = JsonDocument.Parse(originalBody);
-            var root = doc.RootElement;
+        // OneTimeSetUp already navigated to HostBaseUrl ($"{RootUri}/{TestUrlBase}")
+        // and waited for the app shell. Sanity-check the post-boot URL is under
+        // /mangarr so a regression in OneTimeSetUp surfaces here distinctly from
+        // a redirect failure.
+        Page.Url.Should().Contain($"/{TestUrlBase}", "post-boot URL should already be under the configured urlBase");
 
-            // Re-emit JSON with urlBase overridden.
-            using var ms = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(ms))
-            {
-                writer.WriteStartObject();
-
-                foreach (var prop in root.EnumerateObject())
-                {
-                    if (prop.NameEquals("urlBase"))
-                    {
-                        writer.WriteString("urlBase", "/mangarr");
-                    }
-                    else
-                    {
-                        prop.WriteTo(writer);
-                    }
-                }
-
-                // If urlBase wasn't present, add it now.
-                if (!root.TryGetProperty("urlBase", out _))
-                {
-                    writer.WriteString("urlBase", "/mangarr");
-                }
-
-                writer.WriteEndObject();
-            }
-
-            var patched = Encoding.UTF8.GetString(ms.ToArray());
-
-            await route.FulfillAsync(new RouteFulfillOptions
-            {
-                Status = (int)response.Status,
-                ContentType = "application/json",
-                Body = patched,
-            });
-        });
-
-        // PR #173 CI-fix (2026-05-15 iteration 3): see GH issue #174 for the
-        // production SPA bug this fixture surfaces (route-declaration-order
-        // in frontend/src/App/AppRoutes.tsx). The fixture stays here as the
-        // authoritative failure marker; when the SPA bug is fixed, the
-        // WaitForFunctionAsync poll below turns green unchanged.
-        //
-        // Iteration 2 tried WaitUntil=DOMContentLoaded; still timed out on the
-        // subsequent WaitForURLAsync (Playwright defaults to waiting for a Load
-        // navigation event, which never fires for a React Router history.push
-        // soft navigation in this SPA shape).
-        //
-        // ROOT CAUSE (verified by reading AppRoutes.tsx:57-68 + Switch.tsx):
-        // The redirect Route is rendered SECOND in the Switch, after the
-        // unconditional MangaIndex Route. React Router v5 <Switch> uses
-        // first-match-wins; at initial render `window.Mangarr.urlBase` is empty,
-        // so Switch's wrapper prepends nothing — MangaIndex matches "/" and
-        // renders. After the intercepted initialize.json sets urlBase=/mangarr,
-        // React re-renders Switch — but MangaIndex still matches because the
-        // browser URL is still "/" (the route ordering means the redirect Route
-        // never gets a chance to run). This is a PRODUCTION bug in the SPA
-        // route declaration order, NOT a fixture bug.
-        //
-        // Per PR #173 task constraints: production code is OFF-LIMITS in this
-        // iteration. Filing a follow-up issue (label: bug, test) for the SPA
-        // route-ordering fix; this fixture stays in PRSmoke as an authoritative
-        // failure marker on the bug. The contract assertion is preserved
-        // verbatim — when the SPA bug is fixed, this fixture will turn green
-        // unchanged.
-        //
-        // The expected production fix: in AppRoutes.tsx, hoist the conditional
-        // redirect Route ABOVE the unconditional MangaIndex Route when
-        // window.Mangarr.urlBase is non-empty, so the first-match-wins Switch
-        // picks the redirect path before MangaIndex on a hosted-under-urlBase
-        // deployment.
-        //
-        // For now, switch to a polled URL check via WaitForFunctionAsync — this
-        // does NOT depend on a Playwright navigation event firing (no
-        // history.push event coupling). If the SPA does redirect (after the bug
-        // is fixed), the check turns green within polling cadence. If not, the
-        // 25-second budget (≤ harness 30s) gives the bug headroom to be flaky
-        // green if it ever races on a faster path.
+        // The actual assertion: an explicit navigation to the unprefixed root
+        // `/` must end up under `/{urlBase}` via either backend 307 or SPA
+        // redirect. WaitForFunctionAsync polls window.location.pathname (does
+        // NOT depend on a Playwright navigation event firing — react-router
+        // history.push for the SPA-side redirect doesn't emit a Load event).
         await Page.GotoAsync(
             $"{RootUri}/",
             new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 30_000 });
 
         await Page.WaitForFunctionAsync(
-            "() => window.location.pathname.includes('/mangarr')",
+            $"() => window.location.pathname.includes('/{TestUrlBase}')",
             null,
             new PageWaitForFunctionOptions { Timeout = 25_000, PollingInterval = 200 });
-        Page.Url.Should().Contain("/mangarr");
+
+        Page.Url.Should().Contain($"/{TestUrlBase}");
+
+        // Also assert that window.Mangarr.urlBase has been correctly injected by
+        // HtmlMapperBase.GetHtmlText's __URL_BASE__ substitution. This catches
+        // the case where the redirect fires but the SPA bootstrap is mis-wired.
+        var urlBaseFromWindow = await Page.EvaluateAsync<string>(
+            "() => (window.Mangarr && window.Mangarr.urlBase) || ''");
+        urlBaseFromWindow.Should().Be($"/{TestUrlBase}");
+
+        // Lock the full urlBase contract: apiRoot must also be prefixed
+        // (gh #174 CodeRabbit review). Catches the partial-bootstrap case
+        // where urlBase is set but apiRoot is not — every frontend API call
+        // would 404 silently while the redirect axis still looked green.
+        var apiRootFromWindow = await Page.EvaluateAsync<string>(
+            "() => (window.Mangarr && window.Mangarr.apiRoot) || ''");
+        apiRootFromWindow.Should().Be($"/{TestUrlBase}/api/v5");
     }
 }
