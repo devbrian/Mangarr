@@ -45,11 +45,11 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             FailDownloads = Array.Empty<int>();
         }
 
-        [FieldDefinition(0, Label = "URL", HelpText = "MangaDex API base URL — leave default unless mirroring.")]
+        [FieldDefinition(0, Label = "MangaDexMetadataSourceUrl", HelpText = "MangaDexMetadataSourceUrlHelpText")]
         public string BaseUrl { get; set; }
 
         // SourceKey is internal infrastructure; expose for advanced override only via hidden field.
-        [FieldDefinition(1, Label = "Rate-limit Source Key", Advanced = true, HelpText = "Override the per-SourceKey rate budget grouping. Leave 'mangadex' unless splitting budgets.")]
+        [FieldDefinition(1, Label = "MangaDexMetadataSourceSourceKey", Advanced = true, HelpText = "MangaDexMetadataSourceSourceKeyHelpText")]
         public string SourceKey { get; set; }
 
         // PER CONTEXT MangaDex constraints + Phase 1 D-13/D-14:
@@ -59,7 +59,7 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
         // override. Threat T-CONFIG-DRIFT-01 is mitigated by absence.
         public string UserAgentOverride { get; set; }   // intentionally NO [FieldDefinition]
 
-        [FieldDefinition(3, Label = "Rate Override", Type = FieldType.Number, Advanced = true, HelpText = "Override the default per-source rate (seconds between requests). Leave blank for MangaDex's published 40 req/min budget.")]
+        [FieldDefinition(3, Label = "MangaDexMetadataSourceRateOverride", Type = FieldType.Number, Advanced = true, HelpText = "MangaDexMetadataSourceRateOverrideHelpText")]
         public double? RateSeconds { get; set; }
 
         // D-12 bridge: TimeSpan? on the interface, persisted as numeric RateSeconds on disk

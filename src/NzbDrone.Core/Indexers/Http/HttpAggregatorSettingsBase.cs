@@ -65,16 +65,16 @@ namespace NzbDrone.Core.Indexers.Http
             FailDownloads = Array.Empty<int>();
         }
 
-        [FieldDefinition(0, Label = "URL")]
+        [FieldDefinition(0, Label = "HttpAggregatorUrl")]
         public string BaseUrl { get; set; }
 
-        [FieldDefinition(1, Label = "Source Key", HelpText = "Logical source name; rate budget is shared between indexer instances with the same key (e.g. \"mangadex\").")]
+        [FieldDefinition(1, Label = "HttpAggregatorSourceKey", HelpText = "HttpAggregatorSourceKeyHelpText")]
         public string SourceKey { get; set; }
 
-        [FieldDefinition(2, Label = "Rate (seconds)", Type = FieldType.Number, Advanced = true, HelpText = "Override the default per-source rate limit (seconds between requests).")]
+        [FieldDefinition(2, Label = "HttpAggregatorRateSeconds", Type = FieldType.Number, Advanced = true, HelpText = "HttpAggregatorRateSecondsHelpText")]
         public double? RateSeconds { get; set; }
 
-        [FieldDefinition(3, Label = "User-Agent Override", Advanced = true, HelpText = "Spoof a non-Mangarr User-Agent for sources that block honest UAs (e.g. Cloudflare-protected aggregators). Leave blank for honest default 'Mangarr/{version}'.")]
+        [FieldDefinition(3, Label = "HttpAggregatorUserAgentOverride", Advanced = true, HelpText = "HttpAggregatorUserAgentOverrideHelpText")]
         public string UserAgentOverride { get; set; }
 
         // D-12: Rate is exposed via the interface as TimeSpan? but persisted on disk as a numeric
