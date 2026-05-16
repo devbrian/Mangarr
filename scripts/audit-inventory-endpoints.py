@@ -52,10 +52,16 @@ def strip_csharp_comments(src: str) -> str:
 
 # INVENTORY v5-endpoint row pattern. Examples:
 #   | v5-endpoint | GET /api/v5/manga/lookup | AddManga search results | `Tests/AddManga/MangaLookupFixture.cs::lookup_returns_results` | ⬜ |
+# WR-05 (20-REVIEW): match any non-pipe sequence for the status column rather than
+# a fixed emoji whitelist — rows authored with ⚠️ / ✅ / 🚧 / arbitrary annotation
+# emojis would otherwise silently DROP from inventoried_rows, under-reporting the
+# drifted-in-INVENTORY set and producing false-passing gates. A warning is emitted
+# at parse time when an unknown status emoji is seen so authors notice drift early.
 V5_ROW = re.compile(
-    r"^\| v5-endpoint \| (\w+) ([^|]+?) \| ([^|]+?) \| (`[^|]+`) \| ([⬜🟢🟡🔴]+) \|",
+    r"^\| v5-endpoint \| (\w+) ([^|]+?) \| ([^|]+?) \| (`[^|]+`) \| ([^|]+?) \|",
     re.MULTILINE,
 )
+KNOWN_STATUS_EMOJIS = {"⬜", "🟢", "🟡", "🔴"}
 
 # Controller attribute patterns.
 #   [V5ApiController]                  -> auto-derive from class name minus "Controller"
@@ -237,9 +243,22 @@ def extract_inventory_v5_rows(inv_text: str):
 
     The fixture cell is returned verbatim (including backticks) so the caller can keep
     multi-fixture rows joined via ` + ` intact when reporting drift.
+
+    WR-05 (20-REVIEW): warn (to stderr) on rows whose status cell does not contain
+    any of KNOWN_STATUS_EMOJIS so a typo or new emoji surfaces immediately rather
+    than silently passing the gate. We do not drop the row — the gate is route-based,
+    not status-based — but the author gets a visible breadcrumb.
     """
     for m in V5_ROW.finditer(inv_text):
         verb, path, surface, fixture_cell, status = m.groups()
+        status = status.strip()
+        if not any(emoji in status for emoji in KNOWN_STATUS_EMOJIS):
+            print(
+                f"WARN: v5-endpoint row has unknown status '{status}' "
+                f"(expected one of {sorted(KNOWN_STATUS_EMOJIS)}): "
+                f"{verb} {path.strip()}",
+                file=sys.stderr,
+            )
         yield (verb.upper(), path.strip(), surface.strip(), fixture_cell.strip(), status)
 
 
