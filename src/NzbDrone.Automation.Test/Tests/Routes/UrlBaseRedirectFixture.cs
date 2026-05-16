@@ -69,5 +69,13 @@ public class UrlBaseRedirectFixture : AutomationTest
         var urlBaseFromWindow = await Page.EvaluateAsync<string>(
             "() => (window.Mangarr && window.Mangarr.urlBase) || ''");
         urlBaseFromWindow.Should().Be($"/{TestUrlBase}");
+
+        // Lock the full urlBase contract: apiRoot must also be prefixed
+        // (gh #174 CodeRabbit review). Catches the partial-bootstrap case
+        // where urlBase is set but apiRoot is not — every frontend API call
+        // would 404 silently while the redirect axis still looked green.
+        var apiRootFromWindow = await Page.EvaluateAsync<string>(
+            "() => (window.Mangarr && window.Mangarr.apiRoot) || ''");
+        apiRootFromWindow.Should().Be($"/{TestUrlBase}/api/v5");
     }
 }

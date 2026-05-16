@@ -70,9 +70,12 @@ namespace NzbDrone.Test.Common
             AppData = Path.Combine(TestContext.CurrentContext.TestDirectory, "_intg_" + TestBase.GetUID());
             Directory.CreateDirectory(AppData);
 
-            // Normalise: strip leading/trailing slashes; ConfigFileProvider.UrlBase
+            // Normalise: trim whitespace first so " " collapses to empty,
+            // then strip leading/trailing slashes; ConfigFileProvider.UrlBase
             // trims '/' then re-prefixes '/' so we keep the bare segment here.
-            UrlBase = (urlBase ?? string.Empty).Trim('/');
+            // (gh #174 CodeRabbit review — whitespace-only inputs must
+            // normalise to empty so GenerateConfigFile omits <UrlBase>.)
+            UrlBase = (urlBase ?? string.Empty).Trim().Trim('/');
 
             // Rebuild the readiness client against the urlBase-prefixed API path
             // when set; default empty path mirrors the legacy constructor URL.
