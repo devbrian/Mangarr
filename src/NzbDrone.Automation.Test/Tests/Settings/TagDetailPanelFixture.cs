@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -35,12 +36,19 @@ public class TagDetailPanelFixture : AutomationTest
         var page = await new SettingsTagsPage(Page).OpenAsync(RootUri);
         await Assertions.Expect(page.PageContainer).ToBeVisibleAsync();
 
-        var detailTask = Page.WaitForResponseAsync(
-            r => r.Url.Contains("/api/v5/tag/detail") && r.Request.Method == "GET",
-            new() { Timeout = 30_000 });
-        await Page.ReloadAsync();
-        var resp = await detailTask;
-
+        // Direct APIRequest avoids the WaitForResponseAsync+reload race that
+        // caused Playwright "No resource with given identifier found" failures
+        // across the Wave-2 Settings list/detail fixtures (Plan 20-07a/b — fixed
+        // in commit 4a139aefd; same pattern applied here).
+        var resp = await Page.APIRequest.GetAsync(
+            $"{RootUri}/api/v5/tag/detail",
+            new APIRequestContextOptions
+            {
+                Headers = new Dictionary<string, string>
+                {
+                    ["X-Api-Key"] = ApiKey
+                }
+            });
         resp.Status.Should().Be(200);
         var body = await resp.TextAsync();
 
