@@ -58,9 +58,15 @@ public class MangaIndexBulkEditFixture : AutomationTest
         // debug-30 (2026-05-16): EditMangaModalContent.save() short-circuits
         // when no field changed — no onSavePress → no PUT. Flip Monitored
         // to a non-NO_CHANGE value so the PUT actually fires.
+        // debug-30 iter-2 (2026-05-16): EnhancedSelectInput options render
+        // in <FloatingPortal id="portal-root"> (SIBLING of modal, not child).
+        // Scope to #portal-root to avoid colliding with the in-modal
+        // <FormLabel>"Monitored" (non-interactive — clicking it is a no-op).
         var monitoredTrigger = modal.GetByText("No Change").First;
         await monitoredTrigger.ClickAsync();
-        var monitoredOption = Page.GetByText("Monitored", new() { Exact = true }).First;
+        var monitoredOption = Page.Locator("#portal-root")
+            .GetByText("Monitored", new() { Exact = true })
+            .First;
         await Assertions.Expect(monitoredOption).ToBeVisibleAsync(new() { Timeout = 5_000 });
         await monitoredOption.ClickAsync();
 

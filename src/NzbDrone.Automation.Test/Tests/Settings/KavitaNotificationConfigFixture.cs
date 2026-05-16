@@ -69,8 +69,10 @@ public class KavitaNotificationConfigFixture : AutomationTest
         var editedName = TestName + " (edited)";
         await editAgain.NameInput.FillAsync(editedName);
 
+        // debug-30 iter-2 (2026-05-16): notification picker/modal maps to V5
+        // resource "connection" (ConnectionController + useConnections PATH).
         var putTask = Page.WaitForResponseAsync(
-            r => r.Url.Contains("/api/v5/notification/") && r.Request.Method == "PUT",
+            r => r.Url.Contains("/api/v5/connection/") && r.Request.Method == "PUT",
             new() { Timeout = 30_000 });
         await editAgain.SaveButton.ClickAsync();
         var putResp = await putTask;

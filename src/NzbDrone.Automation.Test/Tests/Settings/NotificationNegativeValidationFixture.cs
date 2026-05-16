@@ -49,8 +49,10 @@ public class NotificationNegativeValidationFixture : AutomationTest
 
         // Race a POST response against client-side blocking. Either outcome
         // proves validation surfaced.
+        // debug-30 iter-2 (2026-05-16): notification picker/modal maps to V5
+        // resource "connection" (ConnectionController + useConnections PATH).
         var postTask = Page.WaitForResponseAsync(
-            r => r.Url.Contains("/api/v5/notification") && r.Request.Method == "POST",
+            r => r.Url.Contains("/api/v5/connection") && r.Request.Method == "POST",
             new() { Timeout = 8_000 });
 
         await modal.SaveButton.ClickAsync();

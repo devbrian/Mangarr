@@ -63,8 +63,13 @@ public static class SettingsProviderFlow
         // create (POST /api/v5/{vertical}) or update (PUT /api/v5/{vertical}/{id}). Anchor
         // the predicate on the resource boundary so unrelated chain requests do not
         // resolve the wait early.
+        //
+        // debug-30 iter-2 (2026-05-16): the "notification" picker/modal vertical
+        // maps to the V5 resource "connection" (ConnectionController +
+        // frontend useConnections PATH='/connection'). Translate before matching.
+        var resourcePath = ResourcePathFor(vertical);
         var saveTask = page.WaitForResponseAsync(
-            r => Regex.IsMatch(r.Url, $@"/api/v5/{vertical}(/\d+)?(\?.*)?$")
+            r => Regex.IsMatch(r.Url, $@"/api/v5/{resourcePath}(/\d+)?(\?.*)?$")
                  && (r.Request.Method == "POST" || r.Request.Method == "PUT"),
             new() { Timeout = 30_000 });
 
@@ -73,6 +78,15 @@ public static class SettingsProviderFlow
 
         await Assertions.Expect(editModal).ToBeHiddenAsync(new() { Timeout = 15_000 });
     }
+
+    /// <summary>
+    /// Translate a Settings picker/modal vertical slug to its V5 resource path.
+    /// Most match 1:1 ("indexer" → "indexer", "downloadclient" → "downloadclient"),
+    /// but "notification" maps to "connection" per ConnectionController +
+    /// useConnections PATH='/connection'.
+    /// </summary>
+    public static string ResourcePathFor(string vertical) =>
+        vertical == "notification" ? "connection" : vertical;
 
     /// <summary>
     /// Delete the row with the given name from Settings/{vertical} — opens the
@@ -98,8 +112,10 @@ public static class SettingsProviderFlow
         // button while both are momentarily present in the DOM.
         await Assertions.Expect(editModal).ToBeHiddenAsync(new() { Timeout = 5_000 });
 
+        // debug-30 iter-2 (2026-05-16): notification → connection (see SaveAsync note).
+        var resourcePath = ResourcePathFor(vertical);
         var deleteTask = page.WaitForResponseAsync(
-            r => r.Url.Contains($"/api/v5/{vertical}/") && r.Request.Method == "DELETE",
+            r => r.Url.Contains($"/api/v5/{resourcePath}/") && r.Request.Method == "DELETE",
             new() { Timeout = 30_000 });
 
         var confirmDelete = page.GetByRole(AriaRole.Button, new() { Name = "Delete", Exact = true });

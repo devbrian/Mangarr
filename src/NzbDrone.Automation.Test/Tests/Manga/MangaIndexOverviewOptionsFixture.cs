@@ -73,10 +73,17 @@ public class MangaIndexOverviewOptionsFixture : AutomationTest
 
         // Hard reload — localStorage survives 'manga_options' (incl. view='overview').
         await Page.ReloadAsync();
-        await Page.Locator("[data-testid^='manga-card-']").First.WaitForAsync(
+
+        // debug-30 iter-2 (2026-05-16): manga-card-* testid is ONLY rendered
+        // by MangaIndexPoster (Posters view). After reload the view is
+        // restored from localStorage as 'overview', so MangaIndexOverviews
+        // mounts — no manga-card-* exists. Wait for the page-shell testid
+        // + the Options button (which is what we click next anyway).
+        await Page.GetByTestId("manga-index-page").WaitForAsync(
             new LocatorWaitForOptions { Timeout = 15_000 });
 
         var optionsButton2 = Page.GetByRole(AriaRole.Button, new() { Name = "Options" }).First;
+        await Assertions.Expect(optionsButton2).ToBeVisibleAsync(new() { Timeout = 15_000 });
         await optionsButton2.ClickAsync();
 
         var modal2 = Page.GetByRole(AriaRole.Dialog, new() { Name = "Overview Options" });

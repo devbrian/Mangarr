@@ -91,18 +91,21 @@ public class BulkEditMangaModalFixture : AutomationTest
             "request URL must hit the manga/editor route precisely");
     }
 
-    // EnhancedSelectInput with name="monitored" — open dropdown, pick "Monitored"
-    // (the dropdown button is the rendered EnhancedSelectInputSelectedValue;
-    // option entries appear in a portal'd menu with role=menu/menuitem).
+    // EnhancedSelectInput with name="monitored" — open dropdown, pick "Monitored".
+    // debug-30 iter-2 (2026-05-16): EnhancedSelectInput renders its options
+    // inside <FloatingPortal id="portal-root"> (EnhancedSelectInput.tsx:457),
+    // which is a SIBLING of the modal dialog — NOT a child. Page-scoped
+    // GetByText("Monitored").First collides with the in-modal <FormLabel>
+    // "Monitored" (EditMangaModalContent.tsx:206), which is a non-interactive
+    // <label> — clicking it doesn't fire the EnhancedSelectInputOption
+    // handler. Scope to #portal-root so we only see actual option entries.
     private static async Task FlipMonitoredAsync(ILocator modal)
     {
-        // EnhancedSelectInput renders a clickable button bearing the current
-        // value's display text. Default value is "No Change". Click it, then
-        // pick "Monitored" from the popup options. Both option entries render
-        // as <Link>→<button> (role=Button) inside the modal's portal'd menu.
         var monitoredTrigger = modal.GetByText("No Change").First;
         await monitoredTrigger.ClickAsync();
-        var monitoredOption = modal.Page.GetByText("Monitored", new() { Exact = true }).First;
+        var monitoredOption = modal.Page.Locator("#portal-root")
+            .GetByText("Monitored", new() { Exact = true })
+            .First;
         await Assertions.Expect(monitoredOption).ToBeVisibleAsync(new() { Timeout = 5_000 });
         await monitoredOption.ClickAsync();
     }

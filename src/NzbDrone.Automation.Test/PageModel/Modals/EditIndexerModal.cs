@@ -25,6 +25,7 @@ public class EditIndexerModal : PageBase
 
     public ILocator ModalRoot     => Page.GetByTestId("edit-indexer-modal");
     public ILocator NameInput     => ModalRoot.Locator("input[name='name']");
+
     // Priority lives inside a FormGroup gated `isAdvanced={true}` so it does not
     // render until `<AdvancedSettingsButton>` is toggled on. Use AdvancedToggle
     // first before locating PriorityInput.
