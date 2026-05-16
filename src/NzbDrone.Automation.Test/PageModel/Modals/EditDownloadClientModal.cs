@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Microsoft.Playwright;
 
 namespace NzbDrone.Automation.Test.PageModel.Modals;
@@ -23,14 +22,20 @@ public class EditDownloadClientModal : PageBase
     }
 
     public ILocator ModalRoot                    => Page.GetByTestId("edit-downloadclient-modal");
-    public ILocator NameInput                    => ModalRoot.GetByLabel("Name");
-    public ILocator PriorityInput                => ModalRoot.GetByLabel("Client Priority");
 
-    // WR-02 (20-REVIEW): no en.json translation key exists yet for
-    // "InProcessDownloadsPerSource", so translate() falls back to the raw key today.
-    // Match either the raw key OR a likely future English translation ("Downloads
-    // Per Source") so this locator survives the day someone adds an i18n entry.
-    public ILocator MaxConcurrentDownloadsInput  => ModalRoot.GetByLabel(new Regex(@"^(InProcessDownloadsPerSource|Downloads Per Source)$"));
+    // debug-30 (2026-05-16): GetByLabel-by-text fails because shared FormLabel
+    // does not propagate `htmlFor` (FormLabel.tsx:35 takes `name` prop, but the
+    // call site `<FormLabel>{translate('Name')}</FormLabel>` never passes it).
+    // Anchor on the underlying input's `name=` attribute (TextInput.tsx:180
+    // mirrors FormInputGroup's `name` prop onto the rendered <input>).
+    public ILocator NameInput                    => ModalRoot.Locator("input[name='name']");
+    public ILocator PriorityInput                => ModalRoot.Locator("input[name='priority']");
+
+    // debug-30 (2026-05-16): InProcessImageDownloadClientSettings.DownloadsPerSource
+    // serializes to JSON as `downloadsPerSource` (Newtonsoft camelCase default), which
+    // is what ProviderFieldFormGroup passes as the input `name=` attribute. Anchor on
+    // that contract (resilient to label-text rewording / future i18n key adoption).
+    public ILocator MaxConcurrentDownloadsInput  => ModalRoot.Locator("input[name='downloadsPerSource']");
     public ILocator SaveButton                   => ModalRoot.GetByTestId("save-button");
     public ILocator TestButton                   => ModalRoot.GetByRole(AriaRole.Button, new() { Name = "Test", Exact = true });
     public ILocator DeleteButton                 => ModalRoot.GetByTestId("delete-button");
