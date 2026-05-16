@@ -10,9 +10,13 @@ namespace NzbDrone.Automation.Test.Tests.System;
 // (`modal-action ParseModal → System/Status Parse diagnostic`).
 //
 // Non-cassette-dependent: the Parse modal is a self-contained diagnostic
-// that exercises Mangarr's local Parser against a user-typed string. It
-// makes a backend call to `/api/v5/parse` which returns a ParsedEpisodeInfo
-// shape entirely from local Parser.cs logic — no external API involved.
+// that exercises Mangarr's local Parser against a user-typed string. The
+// frontend ParseModal (frontend/src/Parse/useParse.ts) calls the `/parse`
+// path which would land on a V5 Parse controller — that controller has
+// not been ported to Mangarr yet (the upstream Sonarr `ParseController`
+// has no manga peer at `src/Mangarr.Api.V5/`). This fixture deliberately
+// asserts only on the modal-opens contract (no title typed → no fetch
+// triggered), so it remains green pending the controller port.
 //
 // The button is accessible from the Manga library page toolbar (per
 // MangaIndex.tsx → ParseToolbarButton import); the modal is also surfaced

@@ -21,8 +21,8 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// asserts the empty-state contract: page loads + Add surface reachable,
 /// confirming the user has a path to wire a notification through the v5
 /// /api/v5/connection + /api/v5/connection/test endpoints (renamed from
-/// /api/v5/notification* in Phase 15 Plan 15-10; ConnectionController is
-/// the canonical resource — gh #168).
+/// the legacy `notification*` route family in Phase 15 Plan 15-10;
+/// ConnectionController is the canonical resource — gh #168).
 ///
 /// No AddMangaFlow dependency — Settings/Connect operates on the
 /// notification registry. No #102 [Explicit] needed.

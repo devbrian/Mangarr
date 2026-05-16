@@ -16,7 +16,7 @@ namespace NzbDrone.Automation.Test.Tests.Global;
 ///    data-testid="nav-activity") — the badge piggybacks on this entry.
 /// 2. GET /api/v5/manga/queue/status returns a well-formed JSON payload that
 ///    PageSidebarStatus consumes to decide kind/count/render-or-null.
-///    (The TV /api/v5/queue/status route was deleted in the Phase 5/13
+///    (The TV `queue/status` route was deleted in the Phase 5/13
 ///    cutover — see .planning/debug/resolved/queue-status-404-stale-route.md.
 ///    Frontend useQueueStatus.ts:32 repointed 2026-05-10; this fixture
 ///    repointed 2026-05-15 to close gh-152 Class 5.)
@@ -24,7 +24,7 @@ namespace NzbDrone.Automation.Test.Tests.Global;
 /// Why the fallback approach (per Plan 18-16 Task 1 "NOTE"):
 /// PageSidebarStatus returns null when count === 0 (PageSidebarStatus.tsx L18-L20),
 /// so without seeding the queue, no badge node exists in DOM. The badge's
-/// behavioral contract is "renders count when /api/v5/queue/status returns
+/// behavioral contract is "renders count when /api/v5/manga/queue/status returns
 /// non-zero" — we exercise the endpoint + nav anchor (state) rather than
 /// driving an AddManga seed (which would require AddMangaFlow and hit issue
 /// #102 D-D race).
@@ -63,8 +63,8 @@ public class QueueBadgeFixture : AutomationTest
 
         json.Should().NotBeNullOrEmpty();
 
-        // Schema check — every consumer of GET /api/v5/queue/status (the badge
-        // included) expects `count` AND `errors` AND `warnings` keys. They drive
+        // Schema check — every consumer of GET /api/v5/manga/queue/status (the
+        // badge included) expects `count` AND `errors` AND `warnings` keys. They drive
         // PageSidebarStatus' kind/count/render-or-null branches verbatim
         // (PageSidebarStatus.tsx L11-L33).
         json.Should().Contain("\"count\"");

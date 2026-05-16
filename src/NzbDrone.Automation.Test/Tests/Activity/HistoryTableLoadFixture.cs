@@ -10,13 +10,13 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 
 /// <summary>
 /// Phase 18 Plan 18-18 — History table-load coverage (INVENTORY v5-endpoint
-/// row 87: GET /api/v5/history).
+/// row 87: GET /api/v5/manga/history).
 ///
 /// Different from Plan-05's MangaHistoryFixture (which asserts on row decision
 /// cells when rows are present, accepting an empty state). This fixture
-/// specifically asserts that GET /api/v5/history fires + returns table content
-/// after a real chained grab seeds a history row — the table-content load
-/// contract on a populated page.
+/// specifically asserts that GET /api/v5/manga/history fires + returns table
+/// content after a real chained grab seeds a history row — the table-content
+/// load contract on a populated page.
 ///
 /// Phase 19 Plan 19-06 (Cat A success-path): the fixture now seeds its history
 /// state via a real chained InteractiveSearch→Grab (D-01) — AddMangaFlow then
@@ -71,7 +71,7 @@ public class HistoryTableLoadFixture : AutomationTest
         await new MangaHistoryPage(Page).OpenAsync(RootUri);
 
         // STATE assertion 1: page + table testids present.
-        // GET /api/v5/history fires when manga-history-table renders.
+        // GET /api/v5/manga/history fires when manga-history-table renders.
         await Assertions.Expect(Page.GetByTestId("manga-history-page")).ToBeVisibleAsync();
         await Assertions.Expect(Page.GetByTestId("manga-history-table")).ToBeVisibleAsync();
 

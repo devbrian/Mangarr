@@ -182,9 +182,12 @@ namespace NzbDrone.Core.Test.MediaCoverTests
         [Test]
         public void ConvertToLocalUrls_returns_proxy_url_when_mangaId_is_zero()
         {
+            // MediaCoverProxy.RegisterUrl returns "<UrlBase>/MediaCoverProxy/{hash}/{filename}"
+            // (no /api/v5/ prefix — proxy mapper is mounted at /MediaCoverProxy/ by
+            // src/Mangarr.Http/Frontend/Mappers/MediaCoverProxyMapper.cs, NOT as a V5 controller).
             Mocker.GetMock<IMediaCoverProxy>()
                 .Setup(p => p.RegisterUrl(It.IsAny<string>()))
-                .Returns("/api/v5/MediaCoverProxy/abc123/poster.jpg");
+                .Returns("/MediaCoverProxy/abc123/poster.jpg");
 
             var covers = new List<MediaCover.MediaCover>
             {
@@ -193,7 +196,7 @@ namespace NzbDrone.Core.Test.MediaCoverTests
 
             Subject.ConvertToLocalUrls(0, covers);
 
-            covers[0].Url.Should().Be("/api/v5/MediaCoverProxy/abc123/poster.jpg");
+            covers[0].Url.Should().Be("/MediaCoverProxy/abc123/poster.jpg");
         }
 
         [Test]

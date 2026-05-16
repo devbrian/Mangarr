@@ -71,6 +71,33 @@ V5_CTRL_AUTO = re.compile(r"\[V5ApiController\]")
 PROVIDER_BASE_CTOR = re.compile(r":\s*base\([^)]*?\"([a-z][a-z0-9/_-]*)\"[^)]*?\)")
 CLASS_DECL = re.compile(r"public\s+(?:abstract\s+)?class\s+(\w+)Controller\b")
 
+# Lint-suppression pragmas. Two scopes:
+#
+#   Line-level — same line as the finding:
+#     // audit-allow: <resource> — <justification or GH#>
+#   Suppresses ONLY the named <resource> on that single line. Other
+#   resources on the same line stay flagged.
+#
+#   File-level — anywhere in the file (typically near the top, paired
+#   with a justification comment):
+#     // audit-allow-file: <resource> — <justification or GH#>
+#   Suppresses the named <resource> across every line in that file.
+#   Multiple file-level pragmas can stack (one per resource).
+#
+# These are the explicit-justification paths for endpoints intentionally
+# deferred to a future milestone (e.g. `manualimport` is scheduled for
+# v1.1 — gh #175 / gh #188). Do NOT use either pragma to silence a finding
+# without a written justification; they exist to make intentional
+# deferrals visible in code review, not to hide drift.
+AUDIT_ALLOW_PRAGMA = re.compile(
+    r"audit-allow:\s*([a-z][a-z0-9_-]*)",
+    re.IGNORECASE,
+)
+AUDIT_ALLOW_FILE_PRAGMA = re.compile(
+    r"audit-allow-file:\s*([a-z][a-z0-9_-]*)",
+    re.IGNORECASE,
+)
+
 
 def strip_csharp_comments(src: str) -> str:
     """Strip // line + /* */ block comments from C# source, preserving `://` URL
@@ -154,11 +181,22 @@ def scan_test_sources(canonical: set[str]) -> list[tuple[Path, int, str, str]]:
                 lines = cs.read_text(encoding="utf-8").splitlines()
             except OSError:
                 continue
+            file_text = "\n".join(lines)
+            file_allowed = {
+                m.group(1).lower() for m in AUDIT_ALLOW_FILE_PRAGMA.finditer(file_text)
+            }
             for lineno, line in enumerate(lines, start=1):
+                allow_match = AUDIT_ALLOW_PRAGMA.search(line)
+                allowed_res = allow_match.group(1).lower() if allow_match else None
                 for m in TEST_V5_REF.finditer(line):
                     res = m.group(1).lower()
-                    if res not in canonical:
-                        findings.append((cs, lineno, res, line.rstrip()))
+                    if res in canonical:
+                        continue
+                    if res == allowed_res:
+                        continue
+                    if res in file_allowed:
+                        continue
+                    findings.append((cs, lineno, res, line.rstrip()))
     return findings
 
 
