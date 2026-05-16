@@ -21,7 +21,9 @@ function ImportListSettings() {
             v1.1+ placeholder per Phase 20 D-06 — no concrete providers ship pre-v1. */}
         <div data-testid="settings-importlists-page">
           <Alert kind={kinds.INFO}>
-            {`${translate('ImportLists')} — not yet available for manga (v1.1+).`}
+            {`${translate(
+              'ImportLists'
+            )} — not yet available for manga (v1.1+).`}
           </Alert>
         </div>
       </PageContentBody>
