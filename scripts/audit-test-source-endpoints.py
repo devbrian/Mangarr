@@ -89,14 +89,50 @@ CLASS_DECL = re.compile(r"public\s+(?:abstract\s+)?class\s+(\w+)Controller\b")
 # v1.1 — gh #175 / gh #188). Do NOT use either pragma to silence a finding
 # without a written justification; they exist to make intentional
 # deferrals visible in code review, not to hide drift.
+#
+# Pragma matching is anchored to C# comment syntax (`//` / `///`) — a string
+# literal that happens to contain the pragma text (e.g. an assertion message
+# `"audit-allow: foo"`) must NOT silently suppress findings, or the
+# --enforce gate would have a false-negative path (Codex P2 finding on PR #190).
+# Both regexes require:
+#   1. `//` (one or more leading slashes — covers `//` line and `///` doc)
+#   2. only whitespace between the slashes and the literal pragma keyword
+# That tight shape rules out the bulk of false-positive cases. As a further
+# guard, `scan_test_sources` strips C# string literals before applying these
+# regexes so a `// audit-allow: x` substring inside a quoted string can't
+# trigger suppression.
 AUDIT_ALLOW_PRAGMA = re.compile(
-    r"audit-allow:\s*([a-z][a-z0-9_-]*)",
+    r"//+\s*audit-allow:\s*([a-z][a-z0-9_-]*)",
     re.IGNORECASE,
 )
 AUDIT_ALLOW_FILE_PRAGMA = re.compile(
-    r"audit-allow-file:\s*([a-z][a-z0-9_-]*)",
+    r"//+\s*audit-allow-file:\s*([a-z][a-z0-9_-]*)",
     re.IGNORECASE,
 )
+
+# Strip C# string literals (regular `"..."`, interpolated `$"..."`, verbatim
+# `@"..."`, and interpolated-verbatim `$@"..."`) from a snippet of C# source.
+# Used by `scan_test_sources` to neutralize pragma-look-alikes inside quoted
+# strings BEFORE pragma detection runs. The replacement preserves the surrounding
+# line/column structure by emitting empty quoted markers (`""`) — that way no
+# `/api/v5/<resource>` literals inside strings are accidentally removed (they
+# stay on their original line/column for the finding-scan that follows on the
+# UNSTRIPPED text).
+_CSHARP_STRING_RE = re.compile(
+    # Verbatim strings first (longest match wins): @"..." or $@"..." with ""
+    # as the only escape. Allowed to span newlines (re.DOTALL not needed —
+    # the negated char class already accepts any char except `"`).
+    r'\$?@"(?:[^"]|"")*"'
+    r"|"
+    # Regular / interpolated strings: "..." or $"..." with `\.` escapes;
+    # disallowed to span newlines (mirrors the C# compiler — a string literal
+    # cannot embed a raw newline outside a verbatim form).
+    r'\$?"(?:\\.|[^"\\\n])*"',
+)
+
+
+def strip_csharp_strings(src: str) -> str:
+    return _CSHARP_STRING_RE.sub('""', src)
 
 
 def strip_csharp_comments(src: str) -> str:
@@ -182,11 +218,25 @@ def scan_test_sources(canonical: set[str]) -> list[tuple[Path, int, str, str]]:
             except OSError:
                 continue
             file_text = "\n".join(lines)
+            # Strip string literals before pragma detection so an
+            # `"// audit-allow: x"` substring inside a quoted string can't
+            # silently suppress findings (Codex P2 finding on PR #190).
+            # IMPORTANT: pragma detection uses the stripped text, but finding
+            # detection MUST use the original lines — a stale /api/v5/<resource>
+            # ref inside a string literal is still a finding.
+            file_text_for_pragma = strip_csharp_strings(file_text)
             file_allowed = {
-                m.group(1).lower() for m in AUDIT_ALLOW_FILE_PRAGMA.finditer(file_text)
+                m.group(1).lower()
+                for m in AUDIT_ALLOW_FILE_PRAGMA.finditer(file_text_for_pragma)
             }
+            stripped_lines = file_text_for_pragma.split("\n")
             for lineno, line in enumerate(lines, start=1):
-                allow_match = AUDIT_ALLOW_PRAGMA.search(line)
+                pragma_line = (
+                    stripped_lines[lineno - 1]
+                    if lineno - 1 < len(stripped_lines)
+                    else line
+                )
+                allow_match = AUDIT_ALLOW_PRAGMA.search(pragma_line)
                 allowed_res = allow_match.group(1).lower() if allow_match else None
                 for m in TEST_V5_REF.finditer(line):
                     res = m.group(1).lower()
