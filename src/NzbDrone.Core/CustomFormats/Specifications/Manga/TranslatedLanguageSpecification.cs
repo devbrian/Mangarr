@@ -39,7 +39,7 @@ namespace NzbDrone.Core.CustomFormats
         public override string ImplementationName => "Translated Language";
         public override MediaType AppliesTo => MediaType.Manga;     // Phase 5 D-10
 
-        [FieldDefinition(1, Label = "BCP-47 Language Code", HelpText = "e.g., en, es, ja, ko")]
+        [FieldDefinition(1, Label = "CustomFormatsSpecificationTranslatedLanguage", HelpText = "CustomFormatsSpecificationTranslatedLanguageHelpText")]
         public string Value { get; set; }
 
         protected override bool IsSatisfiedByWithoutNegate(CustomFormatInput input)

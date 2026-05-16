@@ -33,23 +33,23 @@ namespace NzbDrone.Core.MetadataSource.MyAnimeList
             FailDownloads = Array.Empty<int>();
         }
 
-        [FieldDefinition(0, Label = "URL", HelpText = "MAL API v2 base URL — leave default.")]
+        [FieldDefinition(0, Label = "MyAnimeListMetadataSourceUrl", HelpText = "MyAnimeListMetadataSourceUrlHelpText")]
         public string BaseUrl { get; set; }
 
         [FieldDefinition(
             1,
-            Label = "MAL API Client ID",
-            HelpText = "Get a free client ID at https://myanimelist.net/apiconfig — create an app, copy the Client ID here. Read-only access; no OAuth required.",
+            Label = "MyAnimeListMetadataSourceClientId",
+            HelpText = "MyAnimeListMetadataSourceClientIdHelpText",
             Privacy = PrivacyLevel.ApiKey)]
         public string ClientId { get; set; }
 
-        [FieldDefinition(2, Label = "Rate-limit Source Key", Advanced = true, HelpText = "Override the per-SourceKey rate budget grouping.")]
+        [FieldDefinition(2, Label = "MyAnimeListMetadataSourceSourceKey", Advanced = true, HelpText = "MyAnimeListMetadataSourceSourceKeyHelpText")]
         public string SourceKey { get; set; }
 
-        [FieldDefinition(3, Label = "User-Agent Override", Advanced = true, HelpText = "Optional UA override. Leave blank for honest 'Mangarr/{version}'.")]
+        [FieldDefinition(3, Label = "MyAnimeListMetadataSourceUserAgentOverride", Advanced = true, HelpText = "MyAnimeListMetadataSourceUserAgentOverrideHelpText")]
         public string UserAgentOverride { get; set; }
 
-        [FieldDefinition(4, Label = "Rate Override", Advanced = true, HelpText = "Override default request rate (e.g., 00:00:01 = 60 req/min). Leave blank for the conservative MAL ~60 req/min default.")]
+        [FieldDefinition(4, Label = "MyAnimeListMetadataSourceRateOverride", Advanced = true, HelpText = "MyAnimeListMetadataSourceRateOverrideHelpText")]
         public TimeSpan? Rate { get; set; }
 
         // IIndexerSettings members — unused by metadata sources but required by the

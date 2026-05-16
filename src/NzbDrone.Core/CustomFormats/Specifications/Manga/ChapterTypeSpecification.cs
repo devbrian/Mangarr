@@ -40,7 +40,7 @@ namespace NzbDrone.Core.CustomFormats
         public override string ImplementationName => "Chapter Type";
         public override MediaType AppliesTo => MediaType.Manga;     // Phase 5 D-10
 
-        [FieldDefinition(1, Label = "Chapter Type", Type = FieldType.Select, SelectOptions = typeof(ChapterType))]
+        [FieldDefinition(1, Label = "CustomFormatsSpecificationChapterType", Type = FieldType.Select, SelectOptions = typeof(ChapterType))]
         public int Value { get; set; }
 
         protected override bool IsSatisfiedByWithoutNegate(CustomFormatInput input)

@@ -26,13 +26,13 @@ namespace NzbDrone.Core.Notifications.Komga
     {
         private static readonly KomgaNotificationSettingsValidator Validator = new();
 
-        [FieldDefinition(0, Label = "Komga URL", HelpText = "Base URL of your Komga server, e.g., http://komga.local:25600")]
+        [FieldDefinition(0, Label = "KomgaNotificationUrl", HelpText = "KomgaNotificationUrlHelpText")]
         public string Url { get; set; }
 
-        [FieldDefinition(1, Label = "API Key", Privacy = PrivacyLevel.ApiKey, HelpText = "Komga 1.20.0+ User Settings -> API Keys -> Generate")]
+        [FieldDefinition(1, Label = "KomgaNotificationApiKey", Privacy = PrivacyLevel.ApiKey, HelpText = "KomgaNotificationApiKeyHelpText")]
         public string ApiKey { get; set; }
 
-        [FieldDefinition(2, Label = "Library ID", Type = FieldType.Number, HelpText = "Required: Komga has no scan-all endpoint. Phase 7 will surface a dropdown.")]
+        [FieldDefinition(2, Label = "KomgaNotificationLibraryId", Type = FieldType.Number, HelpText = "KomgaNotificationLibraryIdHelpText")]
         public int? LibraryId { get; set; }
 
         public override NzbDroneValidationResult Validate()

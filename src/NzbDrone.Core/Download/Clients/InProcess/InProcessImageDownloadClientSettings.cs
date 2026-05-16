@@ -18,13 +18,13 @@ namespace NzbDrone.Core.Download.Clients.InProcess
     {
         private static readonly InProcessImageDownloadClientSettingsValidator Validator = new();
 
-        [FieldDefinition(0, Label = "InProcessDownloadsPerSource", Type = FieldType.Number, HelpText = "Concurrent chapter downloads per source (RateLimitKey bucket)")]
+        [FieldDefinition(0, Label = "InProcessDownloadsPerSource", Type = FieldType.Number, HelpText = "InProcessDownloadsPerSourceHelpText")]
         public int DownloadsPerSource { get; set; } = 2;
 
-        [FieldDefinition(1, Label = "InProcessPagesPerChapter", Type = FieldType.Number, HelpText = "Concurrent page downloads within a single chapter")]
+        [FieldDefinition(1, Label = "InProcessPagesPerChapter", Type = FieldType.Number, HelpText = "InProcessPagesPerChapterHelpText")]
         public int PagesPerChapter { get; set; } = 4;
 
-        [FieldDefinition(2, Label = "InProcessRetentionDays", Type = FieldType.Number, HelpText = "Days to keep failed-chapter rows for manual retry from History")]
+        [FieldDefinition(2, Label = "InProcessRetentionDays", Type = FieldType.Number, HelpText = "InProcessRetentionDaysHelpText")]
         public int RetentionDays { get; set; } = 7;
 
         public override NzbDroneValidationResult Validate() => new(Validator.Validate(this));
