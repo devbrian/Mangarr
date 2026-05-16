@@ -74,13 +74,28 @@ public class UrlBaseRedirectFixture : AutomationTest
             });
         });
 
-        // Navigate to the bare root; the RedirectWithUrlBase route should fire.
-        await Page.GotoAsync($"{RootUri}/");
+        // PR #173 CI-fix (2026-05-15): on Linux CI the previous Goto + WaitForURLAsync
+        // sequence timed out at 15s. Two contributing factors:
+        //   (1) Goto's default WaitUntil = `Load`, which fires before the SPA has
+        //       finished bootstrapping (the dynamic `import('./bootstrap')` at
+        //       frontend/src/index.ts:43 still resolving) — `window.Mangarr.urlBase`
+        //       isn't populated yet when `Load` fires, and React's `<Switch>` initial
+        //       render only sees the empty default.
+        //   (2) The intercepted `initialize.json` fetch is the gate that flips
+        //       `window.Mangarr.urlBase` from "" -> "/mangarr"; the redirect Route
+        //       only renders AFTER that fetch resolves and React re-renders.
+        // Use WaitUntil=NetworkIdle on the Goto so the SPA bootstrap + the intercepted
+        // initialize.json fetch both settle before we probe the URL. Bump the
+        // redirect timeout to 30s — Linux CI runners under load see SPA-bootstrap
+        // tails near 15s. Test intent (urlBase prefix appears in URL after redirect)
+        // preserved verbatim.
+        await Page.GotoAsync(
+            $"{RootUri}/",
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 30_000 });
 
         // STATE assertion (allowlist token .Should().Contain): URL contains the
-        // urlBase prefix after the redirect settles. WaitForURLAsync allows the
-        // SPA bootstrap + redirect to complete.
-        await Page.WaitForURLAsync(url => url.Contains("/mangarr"), new PageWaitForURLOptions { Timeout = 15_000 });
+        // urlBase prefix after the redirect settles.
+        await Page.WaitForURLAsync(url => url.Contains("/mangarr"), new PageWaitForURLOptions { Timeout = 30_000 });
         Page.Url.Should().Contain("/mangarr");
     }
 }
