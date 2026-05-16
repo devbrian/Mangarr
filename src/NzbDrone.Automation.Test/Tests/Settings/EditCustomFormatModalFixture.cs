@@ -81,11 +81,12 @@ public class EditCustomFormatModalFixture : AutomationTest
                             name = "Placeholder",
                             implementation = "ReleaseTitleSpecification",
                             implementationName = "Release Title",
+                            infoLink = "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
                             negate = false,
                             required = false,
                             fields = new object[]
                             {
-                                new { order = 0, name = "value", value = "[a-z]" }
+                                new { name = "value", value = "[a-z]" }
                             }
                         }
                     }
