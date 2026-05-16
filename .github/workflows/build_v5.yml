@@ -457,6 +457,14 @@ jobs:
         with:
           python-version: '3.x'
 
+      # gh171 — fast-fail self-test of derive_resource() before the live drift
+      # audit runs. A regex/derivation regression surfaces as a clean PASS/FAIL
+      # diff against 10 inline cases (all 3 derivation paths + multi-word fallback)
+      # instead of as confusing drift output on the main audit. Cheap, runs in <1s.
+      - name: Self-test audit-inventory-endpoints.py derive_resource()
+        shell: bash
+        run: python scripts/audit-inventory-endpoints.py --self-test
+
       - name: Audit four-axis inventory coverage
         shell: bash
         run: bash scripts/audit-ui-inventory.sh

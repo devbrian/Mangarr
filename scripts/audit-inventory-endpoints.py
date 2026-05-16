@@ -136,11 +136,22 @@ PROVIDER_BASE_ROUTES = [
 def derive_resource(class_name: str, src: str) -> str | None:
     """Derive the resource path for a controller class.
 
-    Priority:
-      1. `[V5ApiController("literal")]` -> return literal verbatim.
-      2. `[V5ApiController]` (no literal) -> derive from class name minus "Controller",
-         lower-cased (ASP.NET routing is case-insensitive; INVENTORY uses lowercase).
-      3. ProviderControllerBase descendant -> resolve from base(..., "<resource>", ...) ctor.
+    Priority (highest first):
+      1. `[V5ApiController("literal")]`         -> return literal verbatim.
+      2. `[V5ApiController]` + ProviderControllerBase ctor `: base(..., "<r>", ...)`
+                                                -> return the ctor literal "<r>".
+      3. `[V5ApiController]` fallback           -> class name minus "Controller", lower-cased.
+
+    The path-3 fallback contract is grounded in ASP.NET's `[controller]` route token:
+    when `VersionedApiControllerAttribute` is constructed with the default resource
+    `[controller]` (src/Mangarr.Http/VersionedApiControllerAttribute.cs:11), the token
+    expands at route-binding time to the controller class name with the trailing
+    `Controller` suffix stripped, case-preserved. ASP.NET URL matching is
+    case-insensitive, and INVENTORY rows are authored in lowercase, so
+    `class_name.lower()` is the canonical comparable form. This holds for multi-word
+    controllers as well — e.g. `CustomFormatProfileController` -> `customformatprofile`
+    matches the route `/api/v5/customformatprofile` registered for that controller
+    (gh171: explicit coverage added via `--self-test` for the multi-word fallback).
 
     Returns None when the class does not carry [V5ApiController] (it is not a V5 controller).
     """
@@ -293,7 +304,124 @@ def normalize_path(path: str) -> str:
     return p
 
 
+def _self_test() -> int:
+    """gh171 — exercise `derive_resource()` across all 3 derivation paths.
+
+    Invoked via `python scripts/audit-inventory-endpoints.py --self-test`. Runs in
+    process (no pytest dependency) so it can be wired into the same CI lane as the
+    audit gate itself. Exits 0 on pass, 1 on first failure.
+
+    Coverage:
+      - Path 1: `[V5ApiController("literal")]` literal override.
+      - Path 2: `[V5ApiController]` + ProviderControllerBase ctor literal.
+      - Path 3: `[V5ApiController]` fallback (class name minus "Controller", lowercased)
+                including single-word, multi-word, and acronym-bearing class names —
+                the explicit gh171 coverage requested.
+    """
+    cases: list[tuple[str, str, str, str | None]] = [
+        # (description, class_name, source_snippet, expected_resource)
+
+        # Path 1 — explicit literal override.
+        (
+            "literal override",
+            "MangaLookup",
+            '[V5ApiController("manga/lookup")]\npublic class MangaLookupController : RestController<X>',
+            "manga/lookup",
+        ),
+        (
+            "literal override with hyphen",
+            "ImportListExclusion",
+            '[V5ApiController("importlist/exclusions")]\npublic class ImportListExclusionController : Controller',
+            "importlist/exclusions",
+        ),
+
+        # Path 2 — ProviderControllerBase ctor literal.
+        (
+            "provider ctor literal — indexer",
+            "Indexer",
+            (
+                "[V5ApiController]\n"
+                "public class IndexerController : ProviderControllerBase<IndexerResource, IndexerBulkResource, IIndexer, IndexerDefinition>\n"
+                "{\n"
+                "    public IndexerController(b, factory, broadcaster)\n"
+                '        : base(broadcaster, factory, "indexer", ResourceMapper, BulkResourceMapper) { }\n'
+                "}"
+            ),
+            "indexer",
+        ),
+        (
+            "provider ctor literal — multi-segment",
+            "ImportList",
+            (
+                "[V5ApiController]\n"
+                "public class ImportListController : ProviderControllerBase<ImportListResource, ImportListBulkResource, IImportList, ImportListDefinition>\n"
+                '    : base(broadcaster, factory, "importlist", Mapper, BulkMapper) { }'
+            ),
+            "importlist",
+        ),
+
+        # Path 3 — class-name fallback (the gh171 focus area).
+        (
+            "fallback single-word",
+            "Manga",
+            "[V5ApiController]\npublic class MangaController : RestController<MangaResource>",
+            "manga",
+        ),
+        (
+            "fallback two-word",
+            "CustomFormat",
+            "[V5ApiController]\npublic class CustomFormatController : RestController<CustomFormatResource>",
+            "customformat",
+        ),
+        (
+            "fallback three-word (multi-word coverage)",
+            "CustomFormatProfile",
+            "[V5ApiController]\npublic class CustomFormatProfileController : RestController<CustomFormatProfileResource>",
+            "customformatprofile",
+        ),
+        (
+            "fallback four-word",
+            "RemotePathMapping",
+            "[V5ApiController]\npublic class RemotePathMappingController : RestController<RemotePathMappingResource>",
+            "remotepathmapping",
+        ),
+        (
+            "fallback with embedded acronym",
+            "IndexerFlag",
+            "[V5ApiController]\npublic class IndexerFlagController : RestController<IndexerFlagResource>",
+            "indexerflag",
+        ),
+
+        # Negative — class without [V5ApiController] returns None.
+        (
+            "no V5 attribute",
+            "Plain",
+            "public class PlainController : Controller { }",
+            None,
+        ),
+    ]
+
+    failed = 0
+    for desc, class_name, src, expected in cases:
+        actual = derive_resource(class_name, src)
+        ok = actual == expected
+        status = "PASS" if ok else "FAIL"
+        print(f"  [{status}] {desc}: derive_resource({class_name!r}, …) -> {actual!r} (expected {expected!r})")
+        if not ok:
+            failed += 1
+
+    print()
+    if failed:
+        print(f"FAIL: {failed}/{len(cases)} self-test case(s) failed.", file=sys.stderr)
+        return 1
+    print(f"PASS: all {len(cases)} self-test case(s).")
+    return 0
+
+
 def main() -> int:
+    if "--self-test" in sys.argv[1:]:
+        return _self_test()
+
     if not INVENTORY.exists():
         print(f"ERROR: INVENTORY.md not found at {INVENTORY}", file=sys.stderr)
         return 2
