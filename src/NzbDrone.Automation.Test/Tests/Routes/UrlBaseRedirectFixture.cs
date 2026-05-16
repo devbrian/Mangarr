@@ -74,27 +74,23 @@ public class UrlBaseRedirectFixture : AutomationTest
             });
         });
 
-        // PR #173 CI-fix (2026-05-15): on Linux CI the previous Goto + WaitForURLAsync
-        // sequence timed out at 15s. Two contributing factors:
-        //   (1) Goto's default WaitUntil = `Load`, which fires before the SPA has
-        //       finished bootstrapping (the dynamic `import('./bootstrap')` at
-        //       frontend/src/index.ts:43 still resolving) — `window.Mangarr.urlBase`
-        //       isn't populated yet when `Load` fires, and React's `<Switch>` initial
-        //       render only sees the empty default.
-        //   (2) The intercepted `initialize.json` fetch is the gate that flips
-        //       `window.Mangarr.urlBase` from "" -> "/mangarr"; the redirect Route
-        //       only renders AFTER that fetch resolves and React re-renders.
-        // Use WaitUntil=NetworkIdle on the Goto so the SPA bootstrap + the intercepted
-        // initialize.json fetch both settle before we probe the URL. Bump the
-        // redirect timeout to 30s — Linux CI runners under load see SPA-bootstrap
-        // tails near 15s. Test intent (urlBase prefix appears in URL after redirect)
-        // preserved verbatim.
+        // PR #173 CI-fix (2026-05-15 iteration 2):
+        // Iteration 1 tried WaitUntil=NetworkIdle on Goto — that timed out at 30s.
+        // SignalR keeps the network continuously busy (no "idle" state is ever
+        // reached), so NetworkIdle is a dead-end for any Mangarr SPA navigation.
+        // Use WaitUntil=DOMContentLoaded which fires after the initial HTML parses
+        // but does NOT wait for all subresources — this lets the SPA's dynamic
+        // import('./bootstrap') and the intercepted initialize.json fetch resolve
+        // afterwards, and the subsequent WaitForURLAsync polls for the
+        // RedirectWithUrlBase route to fire (history.push, client-side).
         await Page.GotoAsync(
             $"{RootUri}/",
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 30_000 });
+            new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 30_000 });
 
         // STATE assertion (allowlist token .Should().Contain): URL contains the
-        // urlBase prefix after the redirect settles.
+        // urlBase prefix after the redirect settles. WaitForURLAsync polls the
+        // location continually, giving the React tree time to mount, bootstrap,
+        // and execute the Redirect.
         await Page.WaitForURLAsync(url => url.Contains("/mangarr"), new PageWaitForURLOptions { Timeout = 30_000 });
         Page.Url.Should().Contain("/mangarr");
     }
