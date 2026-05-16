@@ -74,24 +74,50 @@ public class UrlBaseRedirectFixture : AutomationTest
             });
         });
 
-        // PR #173 CI-fix (2026-05-15 iteration 2):
-        // Iteration 1 tried WaitUntil=NetworkIdle on Goto — that timed out at 30s.
-        // SignalR keeps the network continuously busy (no "idle" state is ever
-        // reached), so NetworkIdle is a dead-end for any Mangarr SPA navigation.
-        // Use WaitUntil=DOMContentLoaded which fires after the initial HTML parses
-        // but does NOT wait for all subresources — this lets the SPA's dynamic
-        // import('./bootstrap') and the intercepted initialize.json fetch resolve
-        // afterwards, and the subsequent WaitForURLAsync polls for the
-        // RedirectWithUrlBase route to fire (history.push, client-side).
+        // PR #173 CI-fix (2026-05-15 iteration 3):
+        // Iteration 2 tried WaitUntil=DOMContentLoaded; still timed out on the
+        // subsequent WaitForURLAsync (Playwright defaults to waiting for a Load
+        // navigation event, which never fires for a React Router history.push
+        // soft navigation in this SPA shape).
+        //
+        // ROOT CAUSE (verified by reading AppRoutes.tsx:57-68 + Switch.tsx):
+        // The redirect Route is rendered SECOND in the Switch, after the
+        // unconditional MangaIndex Route. React Router v5 <Switch> uses
+        // first-match-wins; at initial render `window.Mangarr.urlBase` is empty,
+        // so Switch's wrapper prepends nothing — MangaIndex matches "/" and
+        // renders. After the intercepted initialize.json sets urlBase=/mangarr,
+        // React re-renders Switch — but MangaIndex still matches because the
+        // browser URL is still "/" (the route ordering means the redirect Route
+        // never gets a chance to run). This is a PRODUCTION bug in the SPA
+        // route declaration order, NOT a fixture bug.
+        //
+        // Per PR #173 task constraints: production code is OFF-LIMITS in this
+        // iteration. Filing a follow-up issue (label: bug, test) for the SPA
+        // route-ordering fix; this fixture stays in PRSmoke as an authoritative
+        // failure marker on the bug. The contract assertion is preserved
+        // verbatim — when the SPA bug is fixed, this fixture will turn green
+        // unchanged.
+        //
+        // The expected production fix: in AppRoutes.tsx, hoist the conditional
+        // redirect Route ABOVE the unconditional MangaIndex Route when
+        // window.Mangarr.urlBase is non-empty, so the first-match-wins Switch
+        // picks the redirect path before MangaIndex on a hosted-under-urlBase
+        // deployment.
+        //
+        // For now, switch to a polled URL check via WaitForFunctionAsync — this
+        // does NOT depend on a Playwright navigation event firing (no
+        // history.push event coupling). If the SPA does redirect (after the bug
+        // is fixed), the check turns green within polling cadence. If not, the
+        // 25-second budget (≤ harness 30s) gives the bug headroom to be flaky
+        // green if it ever races on a faster path.
         await Page.GotoAsync(
             $"{RootUri}/",
             new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 30_000 });
 
-        // STATE assertion (allowlist token .Should().Contain): URL contains the
-        // urlBase prefix after the redirect settles. WaitForURLAsync polls the
-        // location continually, giving the React tree time to mount, bootstrap,
-        // and execute the Redirect.
-        await Page.WaitForURLAsync(url => url.Contains("/mangarr"), new PageWaitForURLOptions { Timeout = 30_000 });
+        await Page.WaitForFunctionAsync(
+            "() => window.location.pathname.includes('/mangarr')",
+            null,
+            new PageWaitForFunctionOptions { Timeout = 25_000, PollingInterval = 200 });
         Page.Url.Should().Contain("/mangarr");
     }
 }
