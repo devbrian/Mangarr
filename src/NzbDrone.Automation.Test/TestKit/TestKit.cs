@@ -451,8 +451,17 @@ public class TestKit
 
     /// <summary>
     /// Phase 20 Plan 20-01 (D-06) — Seeds a CustomFormat via
-    /// <c>POST /api/v5/customformat</c>. Empty specifications array = "matches nothing
-    /// by default"; Wave-2 fixtures override per-test.
+    /// <c>POST /api/v5/customformat</c>.
+    ///
+    /// PR #173 CI-fix (2026-05-15): the CustomFormat controller validator (Mangarr.Api.V5/
+    /// CustomFormats/CustomFormatController.cs:42-55) enforces BOTH
+    /// `SharedValidator.RuleFor(c => c.Specifications).NotEmpty()` AND a custom rule
+    /// "Must contain at least one Condition". The previous empty-specifications POST 400'd
+    /// in CI (real-app boot) with both messages, cascading every CustomFormat-dependent
+    /// Wave-2 fixture (List/BulkDelete/BulkEdit/Edit/Export/Manage/ManageEdit) at
+    /// OneTimeSetUp. Seed a single minimal valid spec — ReleaseTitleSpecification matching
+    /// the canonical `[a-z]` placeholder — so the POST clears validation. Wave-2 fixtures
+    /// that need a specific spec shape can call SeedCustomFormatAsync then PUT to update.
     /// </summary>
     public async Task<int> SeedCustomFormatAsync(string name = "Test CF")
     {
@@ -466,7 +475,22 @@ public class TestKit
                 {
                     name,
                     includeCustomFormatWhenRenaming = false,
-                    specifications = new object[] { }
+                    specifications = new object[]
+                    {
+                        new
+                        {
+                            name = "Placeholder",
+                            implementation = "ReleaseTitleSpecification",
+                            implementationName = "Release Title",
+                            infoLink = "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
+                            negate = false,
+                            required = false,
+                            fields = new object[]
+                            {
+                                new { name = "value", value = "[a-z]" }
+                            }
+                        }
+                    }
                 });
                 return req;
             });
