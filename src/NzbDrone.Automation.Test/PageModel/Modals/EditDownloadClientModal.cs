@@ -29,7 +29,12 @@ public class EditDownloadClientModal : PageBase
     // Anchor on the underlying input's `name=` attribute (TextInput.tsx:180
     // mirrors FormInputGroup's `name` prop onto the rendered <input>).
     public ILocator NameInput                    => ModalRoot.Locator("input[name='name']");
+
+    // Priority lives inside a FormGroup gated `isAdvanced={true}` so it does not
+    // render until `<AdvancedSettingsButton>` is toggled on. Use AdvancedToggle
+    // first before locating PriorityInput.
     public ILocator PriorityInput                => ModalRoot.Locator("input[name='priority']");
+    public ILocator AdvancedToggle               => ModalRoot.GetByTestId("settings-advanced-toggle");
 
     // debug-30 (2026-05-16): InProcessImageDownloadClientSettings.DownloadsPerSource
     // serializes to JSON as `downloadsPerSource` (Newtonsoft camelCase default), which

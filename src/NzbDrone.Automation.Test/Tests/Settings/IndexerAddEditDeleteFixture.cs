@@ -50,6 +50,13 @@ public class IndexerAddEditDeleteFixture : AutomationTest
         await card.ClickAsync();
         var editAgain = new EditIndexerModal(Page);
         await Assertions.Expect(editAgain.ModalRoot).ToBeVisibleAsync();
+
+        // debug-30 iter-2 (2026-05-16): Priority lives inside an
+        // isAdvanced={true} FormGroup that doesn't render unless
+        // AdvancedSettings is toggled on (advancedSettingsStore persisted in
+        // localStorage). Toggle before filling.
+        await editAgain.AdvancedToggle.ClickAsync();
+        await Assertions.Expect(editAgain.PriorityInput).ToBeVisibleAsync(new() { Timeout = 5_000 });
         await editAgain.PriorityInput.FillAsync("30");
 
         var putTask = Page.WaitForResponseAsync(

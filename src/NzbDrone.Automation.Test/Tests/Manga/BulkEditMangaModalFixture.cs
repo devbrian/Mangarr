@@ -94,7 +94,7 @@ public class BulkEditMangaModalFixture : AutomationTest
     // EnhancedSelectInput with name="monitored" — open dropdown, pick "Monitored"
     // (the dropdown button is the rendered EnhancedSelectInputSelectedValue;
     // option entries appear in a portal'd menu with role=menu/menuitem).
-    private static async System.Threading.Tasks.Task FlipMonitoredAsync(ILocator modal)
+    private static async Task FlipMonitoredAsync(ILocator modal)
     {
         // EnhancedSelectInput renders a clickable button bearing the current
         // value's display text. Default value is "No Change". Click it, then

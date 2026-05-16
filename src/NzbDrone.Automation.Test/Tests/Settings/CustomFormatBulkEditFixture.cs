@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -54,9 +56,9 @@ public class CustomFormatBulkEditFixture : AutomationTest
         // printed JSON ("id": 1 with space). Parse to JSON DOM so the
         // assertion is independent of formatting.
         var body = await listResp.TextAsync();
-        using var doc = System.Text.Json.JsonDocument.Parse(body);
+        using var doc = JsonDocument.Parse(body);
 
-        var bulkRows = new System.Collections.Generic.List<System.Text.Json.JsonElement>();
+        var bulkRows = new List<JsonElement>();
         foreach (var row in doc.RootElement.EnumerateArray())
         {
             var rowId = row.GetProperty("id").GetInt32();

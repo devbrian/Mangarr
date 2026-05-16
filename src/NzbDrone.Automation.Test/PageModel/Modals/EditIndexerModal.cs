@@ -25,7 +25,11 @@ public class EditIndexerModal : PageBase
 
     public ILocator ModalRoot     => Page.GetByTestId("edit-indexer-modal");
     public ILocator NameInput     => ModalRoot.Locator("input[name='name']");
+    // Priority lives inside a FormGroup gated `isAdvanced={true}` so it does not
+    // render until `<AdvancedSettingsButton>` is toggled on. Use AdvancedToggle
+    // first before locating PriorityInput.
     public ILocator PriorityInput => ModalRoot.Locator("input[name='priority']");
+    public ILocator AdvancedToggle => ModalRoot.GetByTestId("settings-advanced-toggle");
     public ILocator SaveButton    => ModalRoot.GetByTestId("save-button");
     public ILocator TestButton    => ModalRoot.GetByRole(AriaRole.Button, new() { Name = "Test", Exact = true });
     public ILocator DeleteButton  => ModalRoot.GetByTestId("delete-button");

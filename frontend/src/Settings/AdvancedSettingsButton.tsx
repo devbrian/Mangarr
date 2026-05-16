@@ -24,6 +24,7 @@ function AdvancedSettingsButton({ showLabel }: AdvancedSettingsButtonProps) {
   return (
     <Link
       className={styles.button}
+      data-testid="settings-advanced-toggle"
       title={
         showAdvancedSettings
           ? translate('ShownClickToHide')

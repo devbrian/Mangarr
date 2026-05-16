@@ -65,8 +65,10 @@ public class ManageCustomFormatsEditModalFixture : AutomationTest
         // State assertion: the bulk-edit modal exposes the
         // IncludeCustomFormatWhenRenaming field (per
         // ManageCustomFormatsEditModalContent — the canonical bulk-editable
-        // field on a CustomFormat).
+        // field on a CustomFormat). debug-30 iter-2 (2026-05-16): the label
+        // is "Include Custom Format when Renaming" (lowercase 'when' per
+        // en.json) — prior assertion was case-sensitive on capital W.
         var bulkText = await bulkEditDialog.TextContentAsync();
-        bulkText.Should().Contain("Include Custom Format When Renaming");
+        bulkText.Should().Contain("Include Custom Format when Renaming");
     }
 }

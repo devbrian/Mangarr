@@ -1,5 +1,4 @@
 using System.Threading.Tasks;
-using FluentAssertions;
 using Microsoft.Playwright;
 using NUnit.Framework;
 using NzbDrone.Automation.Test.PageModel.Settings;

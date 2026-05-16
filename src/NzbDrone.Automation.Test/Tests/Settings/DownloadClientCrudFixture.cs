@@ -45,6 +45,11 @@ public class DownloadClientCrudFixture : AutomationTest
         await card.ClickAsync();
         var editAgain = new EditDownloadClientModal(Page);
         await Assertions.Expect(editAgain.ModalRoot).ToBeVisibleAsync();
+
+        // debug-30 iter-2 (2026-05-16): Client Priority lives inside an
+        // isAdvanced={true} FormGroup. Toggle AdvancedSettings before fill.
+        await editAgain.AdvancedToggle.ClickAsync();
+        await Assertions.Expect(editAgain.PriorityInput).ToBeVisibleAsync(new() { Timeout = 5_000 });
         await editAgain.PriorityInput.FillAsync("10");
 
         var putTask = Page.WaitForResponseAsync(

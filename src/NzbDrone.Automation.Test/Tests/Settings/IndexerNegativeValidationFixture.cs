@@ -41,6 +41,11 @@ public class IndexerNegativeValidationFixture : AutomationTest
 
         var modal = new EditIndexerModal(Page);
         await modal.NameInput.FillAsync("OutOfRange (test)");
+
+        // debug-30 iter-2 (2026-05-16): Priority is rendered inside an
+        // isAdvanced={true} FormGroup. Toggle AdvancedSettings before fill.
+        await modal.AdvancedToggle.ClickAsync();
+        await Assertions.Expect(modal.PriorityInput).ToBeVisibleAsync(new() { Timeout = 5_000 });
         await modal.PriorityInput.FillAsync("999");
 
         // Race a POST response against client-side blocking. Either outcome

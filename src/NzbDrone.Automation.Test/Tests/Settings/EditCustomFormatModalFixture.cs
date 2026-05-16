@@ -48,8 +48,14 @@ public class EditCustomFormatModalFixture : AutomationTest
         await Page.GetByTestId($"settings-customformat-card-{slug}").ClickAsync();
         var dialog = Page.GetByRole(AriaRole.Dialog).First;
         await Assertions.Expect(dialog).ToBeVisibleAsync(new() { Timeout = 15_000 });
-        var dialogText = await dialog.TextContentAsync();
-        dialogText.Should().Contain(SeedName);
+
+        // debug-30 iter-2 (2026-05-16): TextContent doesn't include input
+        // `value=` attributes — assert against the Name input's actual value.
+        var nameInput = dialog.Locator("input[name='name']");
+        await Assertions.Expect(nameInput).ToBeVisibleAsync(new() { Timeout = 5_000 });
+        (await nameInput.InputValueAsync()).Should().Be(
+            SeedName,
+            "Edit modal must pre-populate the Name field with the seeded CustomFormat name");
 
         // Issue the rename via PUT — the modal's Save handler dispatches the
         // same saveCustomFormat action which hits PUT /api/v5/customformat/{id}.

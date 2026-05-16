@@ -30,6 +30,11 @@ public class EditDownloadClientModalFixture : AutomationTest
 
         var modal = new EditDownloadClientModal(Page);
         await Assertions.Expect(modal.ModalRoot).ToBeVisibleAsync();
+
+        // debug-30 iter-2 (2026-05-16): Client Priority lives inside an
+        // isAdvanced={true} FormGroup. Toggle AdvancedSettings before fill.
+        await modal.AdvancedToggle.ClickAsync();
+        await Assertions.Expect(modal.PriorityInput).ToBeVisibleAsync(new() { Timeout = 5_000 });
         await modal.PriorityInput.FillAsync("3");
 
         var putTask = Page.WaitForResponseAsync(
