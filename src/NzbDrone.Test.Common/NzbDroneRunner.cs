@@ -36,20 +36,24 @@ namespace NzbDrone.Test.Common
         // API surface, matching what TestKit and the React frontend consume) so
         // the IsSuccessful check actually has a real endpoint to validate against.
         //
-        // TestKit.ExecuteWithStartupRetryAsync is retained as defence-in-depth.
+        // GH #174 (debug session gh174-urlbase-redirect-spa-bug): when the runner
+        // is started with a non-empty urlBase, the API surface moves to
+        // `/<urlbase>/api/v5` and the readiness client is rebuilt against that
+        // path inside Start(). The default urlBase=string.Empty path is unchanged.
         private const string ApiBasePath = "api/v5";
         private const int ReadinessStableSuccessesRequired = 2;
         private const int ReadinessPollIntervalMs = 250;
         private static readonly TimeSpan ReadinessTimeout = TimeSpan.FromSeconds(60);
 
         private readonly IProcessProvider _processProvider;
-        private readonly IRestClient _restClient;
+        private IRestClient _restClient;
         private Process _nzbDroneProcess;
 
         public string AppData { get; private set; }
         public string ApiKey { get; private set; }
         public PostgresOptions PostgresOptions { get; private set; }
         public int Port { get; private set; }
+        public string UrlBase { get; private set; }
 
         public NzbDroneRunner(Logger logger, PostgresOptions postgresOptions, int port = 8989)
         {
@@ -58,14 +62,26 @@ namespace NzbDrone.Test.Common
 
             PostgresOptions = postgresOptions;
             Port = port;
+            UrlBase = string.Empty;
         }
 
-        public void Start(bool enableAuth = false)
+        public void Start(bool enableAuth = false, string urlBase = "")
         {
             AppData = Path.Combine(TestContext.CurrentContext.TestDirectory, "_intg_" + TestBase.GetUID());
             Directory.CreateDirectory(AppData);
 
-            GenerateConfigFile(enableAuth);
+            // Normalise: strip leading/trailing slashes; ConfigFileProvider.UrlBase
+            // trims '/' then re-prefixes '/' so we keep the bare segment here.
+            UrlBase = (urlBase ?? string.Empty).Trim('/');
+
+            // Rebuild the readiness client against the urlBase-prefixed API path
+            // when set; default empty path mirrors the legacy constructor URL.
+            var apiBaseUrl = UrlBase.IsNullOrWhiteSpace()
+                ? $"http://localhost:{Port}/{ApiBasePath}"
+                : $"http://localhost:{Port}/{UrlBase}/{ApiBasePath}";
+            _restClient = new RestClient(apiBaseUrl);
+
+            GenerateConfigFile(enableAuth, UrlBase);
 
             string consoleExe;
             if (OsInfo.IsWindows)
@@ -237,22 +253,35 @@ namespace NzbDrone.Test.Common
             }
         }
 
-        private void GenerateConfigFile(bool enableAuth)
+        private void GenerateConfigFile(bool enableAuth, string urlBase = "")
         {
             var configFile = Path.Combine(AppData, "config.xml");
 
             // Generate and set the api key so we don't have to poll the config file
             var apiKey = Guid.NewGuid().ToString().Replace("-", "");
 
+            var configElements = new System.Collections.Generic.List<XElement>
+            {
+                new XElement(nameof(ConfigFileProvider.ApiKey), apiKey),
+                new XElement(nameof(ConfigFileProvider.LogLevel), "trace"),
+                new XElement(nameof(ConfigFileProvider.AnalyticsEnabled), false),
+                new XElement(nameof(ConfigFileProvider.AuthenticationMethod), enableAuth ? "Forms" : "None"),
+                new XElement(nameof(ConfigFileProvider.AuthenticationRequired), "DisabledForLocalAddresses"),
+                new XElement(nameof(ConfigFileProvider.Port), Port),
+            };
+
+            // GH #174 (gh174-urlbase-redirect-spa-bug): emit UrlBase only when
+            // requested. ConfigFileProvider.UrlBase normalises by trimming '/'
+            // and re-prefixing '/', so persisting the bare segment (e.g.
+            // "mangarr") matches its expected shape.
+            if (!string.IsNullOrWhiteSpace(urlBase))
+            {
+                configElements.Add(new XElement(nameof(ConfigFileProvider.UrlBase), urlBase));
+            }
+
             var xDoc = new XDocument(
                 new XDeclaration("1.0", "utf-8", "yes"),
-                new XElement(ConfigFileProvider.CONFIG_ELEMENT_NAME,
-                             new XElement(nameof(ConfigFileProvider.ApiKey), apiKey),
-                             new XElement(nameof(ConfigFileProvider.LogLevel), "trace"),
-                             new XElement(nameof(ConfigFileProvider.AnalyticsEnabled), false),
-                             new XElement(nameof(ConfigFileProvider.AuthenticationMethod), enableAuth ? "Forms" : "None"),
-                             new XElement(nameof(ConfigFileProvider.AuthenticationRequired), "DisabledForLocalAddresses"),
-                             new XElement(nameof(ConfigFileProvider.Port), Port)));
+                new XElement(ConfigFileProvider.CONFIG_ELEMENT_NAME, configElements));
 
             var data = xDoc.ToString();
 

@@ -27,6 +27,27 @@ public abstract class AutomationTest
     protected string ApiKey => _runner.ApiKey;
     protected NzbDroneRunner Runner => _runner;
 
+    /// <summary>
+    /// Optional override for fixtures that need to boot the runner under a
+    /// configured UrlBase (reverse-proxy / hosted-under-prefix scenarios). Default
+    /// is empty, matching the legacy single-instance-no-prefix harness shape.
+    /// When set to a bare segment (e.g. <c>"mangarr"</c>) the runner writes
+    /// UrlBase to config.xml before boot, all asset / API / SignalR paths shift
+    /// to <c>http://localhost:port/{UrlBase}/...</c>, and SeedBaselineAsync +
+    /// initial Page.GotoAsync target the prefixed root. GH #174 regression
+    /// pattern; see UrlBaseRedirectFixture for the canonical consumer.
+    /// </summary>
+    protected virtual string ConfiguredUrlBase => string.Empty;
+
+    /// <summary>
+    /// Convenience accessor — combines RootUri with the runner's UrlBase so
+    /// fixtures and seed code can write <c>$"{HostBaseUrl}/..."</c> instead of
+    /// reassembling the prefix. Equal to RootUri when ConfiguredUrlBase is empty.
+    /// </summary>
+    protected string HostBaseUrl => string.IsNullOrEmpty(_runner.UrlBase)
+        ? RootUri
+        : $"{RootUri}/{_runner.UrlBase}";
+
     [OneTimeSetUp]
     public async Task OneTimeSetUpAsync()
     {
@@ -72,7 +93,7 @@ public abstract class AutomationTest
 
         _runner = new NzbDroneRunner(LogManager.GetCurrentClassLogger(), _postgresOptions);
         _runner.KillAll();
-        _runner.Start(enableAuth: true);
+        _runner.Start(enableAuth: true, urlBase: ConfiguredUrlBase);
 
         // D-07 pre-seed baseline (Plan 18-14 D-C fix): root folder + InProcess
         // download client must exist before the browser opens or the AddManga
@@ -82,7 +103,13 @@ public abstract class AutomationTest
         // AddMangaFlow.AddByMangaDexIdAsync call times out at ConfirmAddAsync.
         var seedRoot = Path.Combine(_runner.AppData, "MangaLibrary");
         Directory.CreateDirectory(seedRoot);
-        await new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, _runner.ApiKey, seedRoot).SeedBaselineAsync();
+
+        // GH #174: TestKit builds its REST client URL from rootUri; when urlBase
+        // is configured we point it at the prefixed API path so the seed calls
+        // hit `{rootUri}/{urlBase}/api/v5/...` instead of getting 307-redirected
+        // by UrlBaseMiddleware (RestSharp does not auto-follow 307 with method
+        // preservation on POST/PUT).
+        await new NzbDrone.Automation.Test.TestKit.TestKit(HostBaseUrl, _runner.ApiKey, seedRoot).SeedBaselineAsync();
 
         Context = await PlaywrightSetUpFixture.Browser.NewContextAsync(new BrowserNewContextOptions
         {
@@ -98,7 +125,13 @@ public abstract class AutomationTest
         });
 
         Page = await Context.NewPageAsync();
-        await Page.GotoAsync(RootUri);
+
+        // GH #174: when urlBase is configured the SPA is hosted under it; targeting
+        // RootUri here would trip UrlBaseMiddleware's 307 redirect and depend on
+        // Playwright following it, which it does — but the test fixtures that
+        // exercise the redirect itself (UrlBaseRedirectFixture) need to control
+        // navigation explicitly, so the base navigation uses the prefixed root.
+        await Page.GotoAsync(HostBaseUrl);
 
         // Wait for app shell ready — `app-shell` testid is annotated in frontend/src/App/PageContent.tsx
         // by Plan-04 wrapper sweep. If the testid is not yet present (Wave 1 before wrappers landed),

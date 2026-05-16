@@ -5,6 +5,16 @@
 // from Phase 7 Plans 07-04..07-10 are now the canonical paths. Legacy /series/:slug URLs
 // hard-404 (per 15-CONTEXT discretion lean: no Sonarr-managing-manga users; no inbound
 // bookmark base; redirect not warranted).
+//
+// GH #174 fix (debug session gh174-urlbase-redirect-spa-bug): the urlBase redirect Route
+// is now declared ABOVE the unconditional MangaIndex Route. React Router v5 <Switch>
+// is first-match-wins by child-declaration order; placing the redirect first guarantees
+// that on a hosted-under-urlBase deployment (`window.Mangarr.urlBase` non-empty), the
+// browser request for "/" picks the redirect before MangaIndex. The prior order (MangaIndex
+// first) relied on the inner Switch wrapper prepending urlBase to MangaIndex's path so
+// that "/" no longer matched it — empirically that path-mutation-driven ordering failed
+// in the Phase 20 UrlBaseRedirectFixture, so the fix removes the dependency on subtle
+// child-cloning / Children.map keying behaviour by making the redirect win declaratively.
 import React from 'react';
 import { Redirect, Route } from 'react-router-dom';
 import MangaBlocklist from 'Activity/Blocklist/MangaBlocklist';
@@ -52,9 +62,12 @@ function AppRoutes() {
         D-09 + Phase 15 D-09 close-out. TV /series/:slug, /add/new, /add/import,
         /serieseditor, /seasonpass routes deleted. See .planning/phases/15-domain-rename-
         rebrand/15-07-PLAN.md.)
-      */}
 
-      <Route exact={true} path="/" component={MangaIndex} />
+        GH #174: redirect Route declared BEFORE MangaIndex so first-match-wins in <Switch>
+        picks the redirect when window.Mangarr.urlBase is non-empty (hosted-under-urlBase
+        deployment). Without urlBase the conditional renders false and Switch falls through
+        to MangaIndex.
+      */}
 
       {window.Mangarr.urlBase && (
         <Route
@@ -66,6 +79,8 @@ function AppRoutes() {
           render={RedirectWithUrlBase}
         />
       )}
+
+      <Route exact={true} path="/" component={MangaIndex} />
 
       {/*
         Phase 7 Plan 07-10 Rule 1 fix — `exact={true}` is REQUIRED to prevent
