@@ -805,7 +805,13 @@ public class TestKit
                 "WHERE \"Id\" = @ChapterId;";
             AddParam(updateChapter, "@ChapterFileId", chapterFileId);
             AddParam(updateChapter, "@ChapterId", chapterId);
-            updateChapter.ExecuteNonQuery();
+            var rowsUpdated = updateChapter.ExecuteNonQuery();
+            if (rowsUpdated != 1)
+            {
+                throw new InvalidOperationException(
+                    $"TestKit.SeedChapterFileAsync: expected 1 Chapters row updated for id={chapterId}, got {rowsUpdated}. " +
+                    "Chapter ↔ ChapterFile link is required so RenameChapterFileService.GetPreviews() yields rows.");
+            }
         }
 
         return Task.FromResult(chapterFileId);

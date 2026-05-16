@@ -39,9 +39,19 @@ function AddSpecificationItem({
     onSpecificationSelect();
   }, [implementation, implementationName, dispatch, onSpecificationSelect]);
 
+  // debug-30 fix-forward (CodeRabbit #11) — mirror the
+  // settings-customformat-card-{slug} precedent so Playwright fixtures can
+  // target the underlay button by testid instead of via DOM traversal.
+  // `settings-*` prefix is on the allowed list (D-18 selector strategy).
+  const testIdSlug = implementationName.toLowerCase().replace(/\s+/g, '-');
+
   return (
     <div className={styles.specification}>
-      <Link className={styles.underlay} onPress={handleSpecificationSelect} />
+      <Link
+        className={styles.underlay}
+        data-testid={`settings-specification-card-${testIdSlug}`}
+        onPress={handleSpecificationSelect}
+      />
 
       <div className={styles.overlay}>
         <div className={styles.name}>{implementationName}</div>

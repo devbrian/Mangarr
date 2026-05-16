@@ -38,21 +38,16 @@ public class EditSpecificationModalFixture : AutomationTest
         await editDialog.Locator("button:has(svg[data-icon='plus'])").First.ClickAsync();
         await Assertions.Expect(Page.GetByRole(AriaRole.Dialog)).ToHaveCountAsync(2, new() { Timeout = 15_000 });
 
-        // Click an AddSpecificationItem in the spec picker — opens the
-        // EditSpecificationModal in place of the AddSpecificationModal.
-        // debug-30 (2026-05-16): AddSpecificationItem's clickable surface is
-        // a `<Link className=underlay>` that renders as <button> (NOT role=Link),
-        // and is absolutely positioned over an empty container with no
-        // accessible name. Anchor on the "Release Title" implementationName
-        // text inside the spec card (always present —
-        // ReleaseTitleSpecification.cs is the canonical default spec) and
-        // dispatch the click via JS to the sibling underlay button (sibling of
-        // .overlay, both inside .specification).
+        // Click the canonical "Release Title" spec card in the picker — opens
+        // the EditSpecificationModal in place of the AddSpecificationModal.
+        // debug-30 fix-forward (CodeRabbit #11): AddSpecificationItem now
+        // propagates a `settings-specification-card-{slug}` testid onto its
+        // underlay button (mirrors the settings-customformat-card-{slug}
+        // precedent landed in this same PR for Cluster B2).
         var addSpecDialog = Page.GetByRole(AriaRole.Dialog).Last;
-        var releaseTitleName = addSpecDialog.GetByText("Release Title").First;
-        await Assertions.Expect(releaseTitleName).ToBeVisibleAsync(new() { Timeout = 15_000 });
-        await releaseTitleName.EvaluateAsync(
-            "(nameDiv) => nameDiv.closest('div').parentElement.parentElement.querySelector('button, a').click()");
+        var releaseTitleCard = addSpecDialog.GetByTestId("settings-specification-card-release-title");
+        await Assertions.Expect(releaseTitleCard).ToBeVisibleAsync(new() { Timeout = 15_000 });
+        await releaseTitleCard.ClickAsync();
 
         // EditSpecificationModal opens. Assert the dialog body now contains
         // a "Name" form label (every spec exposes one).
