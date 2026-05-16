@@ -97,8 +97,8 @@ public class InteractiveSearchModalFixture : AutomationTest
             0,
             "the BL-03 UUID-aware row regex must catch at least one release row");
 
-        // Grab the first release. Triggers POST /api/v5/queue/grab/{id} via
-        // InteractiveSearchRow.tsx's grab-button handler.
+        // Grab the first release. Triggers POST /api/v5/manga/queue/grab/{id}
+        // via InteractiveSearchRow.tsx's grab-button handler.
         await modal.GrabAsync(0);
 
         // STATE assertion 2 (chained-system): a history row materializes

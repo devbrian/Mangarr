@@ -8,7 +8,7 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 
 /// <summary>
 /// Phase 18 Plan 18-18 — Rename preview modal coverage (INVENTORY v5-endpoint
-/// row 85: GET /api/v5/rename).
+/// row 85: GET /api/v5/manga/rename).
 ///
 /// Seeds a manga via AddMangaFlow, navigates to MangaDetails, opens the
 /// Preview Rename modal (via the manga details toolbar Organize/Rename
@@ -92,7 +92,7 @@ public class RenamePreviewFixture : AutomationTest
         else
         {
             // WR-06 (18-REVIEW): the fallback URL + shell visibility check
-            // never exercises the GET /api/v5/rename contract (INVENTORY
+            // never exercises the GET /api/v5/manga/rename contract (INVENTORY
             // v5-endpoint row 85) — those assertions just verify the page
             // loaded. NUnit reports the test as PASSED, masking the
             // un-exercised contract. Assert.Inconclusive surfaces the
@@ -103,7 +103,7 @@ public class RenamePreviewFixture : AutomationTest
             Assert.Inconclusive(
                 "Rename Preview entry-point not annotated on MangaDetails toolbar — see Plan 18-18 follow-up note. " +
                 "Wave-3 follow-up: add `manga-details-rename-preview-button` testid in frontend/src/Manga/Details/MangaDetails.tsx. " +
-                "GET /api/v5/rename contract NOT exercised until the toolbar entry-point lands.");
+                "GET /api/v5/manga/rename contract NOT exercised until the toolbar entry-point lands.");
         }
     }
 }

@@ -6,6 +6,11 @@ using FluentAssertions;
 using Microsoft.Playwright;
 using NUnit.Framework;
 
+// audit-allow-file: manualimport
+// V5 ManualImport controller deferred to v1.1 (gh #175 / gh #188). The
+// `/api/v5/manualimport` references in this file describe the pending
+// endpoint shape and will green automatically when the controller ships;
+// fixture is gated with [Explicit] until then.
 namespace NzbDrone.Automation.Test.Tests.InteractiveImport;
 
 /// <summary>
