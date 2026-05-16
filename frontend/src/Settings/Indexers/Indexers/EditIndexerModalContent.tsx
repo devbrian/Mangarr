@@ -119,6 +119,7 @@ function EditIndexerModalContent({
             <FormInputGroup
               type={inputTypes.TEXT}
               name="name"
+              data-testid="settings-indexer-field-name"
               {...name}
               onChange={handleInputChange}
             />
@@ -210,6 +211,7 @@ function EditIndexerModalContent({
               helpText={translate('IndexerPriorityHelpText')}
               min={1}
               max={50}
+              data-testid="settings-indexer-field-priority"
               {...priority}
               onChange={handleInputChange}
             />
