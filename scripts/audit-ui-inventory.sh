@@ -29,6 +29,95 @@
 
 set -euo pipefail
 
+# gh172 — Gate 2's `path="..."` route-extraction pipeline. Used by the live
+# Gate 2 loop (against frontend/src/App/AppRoutes.tsx) AND by `--self-test`
+# (against an inline fixture). Defined once so a future change to the
+# extraction logic cannot make `--self-test` pass while Gate 2 silently
+# regresses (PR #193 review-fix).
+extract_route_paths() {
+  local src_file="$1"
+  grep -oE 'path="[^"]+"' "$src_file" | sed 's/path="//;s/"$//' | sort -u
+}
+
+# gh172 — `--self-test` mode: lock in the Gate 2 contract that the `path="..."`
+# extraction handles every `<Route>` declaration shape Prettier produces in this
+# codebase. Built before the rest of the gate runs so a regex regression fails
+# fast and locally (no need to push a phony AppRoutes change to exercise it).
+#
+# The current regex `grep -oE 'path="[^"]+"'` is line-oriented and therefore robust
+# to multi-line `<Route ... />` declarations as long as the `path="..."` attribute
+# value itself fits on one physical line — JSX string literals cannot span lines
+# without explicit braces, so this holds for every Prettier-formatted Route in
+# AppRoutes.tsx today (single-line, attribute-wrap, conditional-render, placeholder).
+# This self-test exercises each shape so a future change that breaks the contract
+# (e.g. switching the regex to a multi-line state machine that fumbles the
+# conditional-render case) is caught in CI rather than as silent drift.
+if [[ "${1:-}" == "--self-test" ]]; then
+  fixture=$(mktemp -t audit-ui-inventory-self-test-XXXXXX.tsx 2>/dev/null || mktemp)
+  trap "rm -f '$fixture'" EXIT INT TERM
+
+  cat > "$fixture" <<'SELFTEST_FIXTURE_EOF'
+// Self-test fixture for gh172 — exercises every <Route> formatting Prettier
+// is known to produce in frontend/src/App/AppRoutes.tsx.
+import { Route } from 'react-router-dom';
+
+function Fixture() {
+  return (
+    <Switch>
+      {/* 1. Single-line */}
+      <Route path="/single-line" component={A} />
+
+      {/* 2. Multi-line — attribute wrap (the common Prettier shape) */}
+      <Route
+        exact={true}
+        path="/multi-line-wrap"
+        component={B}
+      />
+
+      {/* 3. Multi-line inside a conditional-render block (urlBase redirect shape) */}
+      {condition && (
+        <Route
+          exact={true}
+          path="/conditional-render"
+          render={X}
+        />
+      )}
+
+      {/* 4. Placeholder path */}
+      <Route
+        exact={true}
+        path="/placeholder/:slug"
+        component={C}
+      />
+
+      {/* 5. Catch-all */}
+      <Route path="*" component={NotFound} />
+    </Switch>
+  );
+}
+SELFTEST_FIXTURE_EOF
+
+  actual=$(extract_route_paths "$fixture")
+  # `sort -u` after construction so a future maintainer can reorder the literals
+  # for readability without flipping the self-test result (PR #193 review-fix).
+  expected=$(printf '%s\n' '*' '/conditional-render' '/multi-line-wrap' '/placeholder/:slug' '/single-line' | sort -u)
+
+  if diff <(echo "$actual") <(echo "$expected") >/dev/null 2>&1; then
+    echo "PASS: audit-ui-inventory.sh --self-test"
+    echo "  Gate 2 regex correctly extracts all 5 fixture paths (single-line,"
+    echo "  multi-line wrap, conditional-render, placeholder, catch-all)."
+    echo "  Extracted: $(echo "$actual" | tr '\n' ' ')"
+    exit 0
+  else
+    echo "FAIL: audit-ui-inventory.sh --self-test — Gate 2 regex mismatch" >&2
+    echo "  Expected:" >&2
+    echo "$expected" | sed 's/^/    /' >&2
+    echo "  Actual:" >&2
+    echo "$actual" | sed 's/^/    /' >&2
+    exit 1
+  fi
+fi
+
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 INV_DIR="$REPO_ROOT/.planning/phases/18-automated-ui-integration-test-suite-playwright-net"
 INV_FILE="$INV_DIR/INVENTORY.md"
@@ -85,7 +174,7 @@ while IFS= read -r route; do
   if ! grep -qF "| route | \`$route\`" "$INV_FILE"; then
     MISSING_ROUTES+=("$route")
   fi
-done < <(grep -oE 'path="[^"]+"' "$ROUTES_TSX" | sed 's/path="//;s/"$//' | sort -u)
+done < <(extract_route_paths "$ROUTES_TSX")
 
 if [[ ${#MISSING_ROUTES[@]} -gt 0 ]]; then
   echo "FAIL: ${#MISSING_ROUTES[@]} routes in AppRoutes.tsx not represented in INVENTORY.md route axis:" >&2
@@ -93,7 +182,7 @@ if [[ ${#MISSING_ROUTES[@]} -gt 0 ]]; then
   echo "Hint: each new route MUST have a `| route | \`/path\` | <surface> | <fixture> | <status> |` row." >&2
   exit 1
 fi
-echo "PASS: Gate 2 — all $(grep -oE 'path="[^"]+"' "$ROUTES_TSX" | sort -u | wc -l) routes in AppRoutes.tsx represented in INVENTORY.md."
+echo "PASS: Gate 2 — all $(extract_route_paths "$ROUTES_TSX" | wc -l) routes in AppRoutes.tsx represented in INVENTORY.md."
 
 # Gate 3 — no TV-shape (Series/Episode/Season) controller class names in Mangarr.Api.V5.
 # Phase 17.3 D-05/D-07 swept these; this gate prevents reintroduction.
