@@ -29,6 +29,16 @@
 
 set -euo pipefail
 
+# gh172 — Gate 2's `path="..."` route-extraction pipeline. Used by the live
+# Gate 2 loop (against frontend/src/App/AppRoutes.tsx) AND by `--self-test`
+# (against an inline fixture). Defined once so a future change to the
+# extraction logic cannot make `--self-test` pass while Gate 2 silently
+# regresses (PR #193 review-fix).
+extract_route_paths() {
+  local src_file="$1"
+  grep -oE 'path="[^"]+"' "$src_file" | sed 's/path="//;s/"$//' | sort -u
+}
+
 # gh172 — `--self-test` mode: lock in the Gate 2 contract that the `path="..."`
 # extraction handles every `<Route>` declaration shape Prettier produces in this
 # codebase. Built before the rest of the gate runs so a regex regression fails
@@ -87,8 +97,10 @@ function Fixture() {
 }
 SELFTEST_FIXTURE_EOF
 
-  actual=$(grep -oE 'path="[^"]+"' "$fixture" | sed 's/path="//;s/"$//' | sort -u)
-  expected=$(printf '%s\n' '*' '/conditional-render' '/multi-line-wrap' '/placeholder/:slug' '/single-line')
+  actual=$(extract_route_paths "$fixture")
+  # `sort -u` after construction so a future maintainer can reorder the literals
+  # for readability without flipping the self-test result (PR #193 review-fix).
+  expected=$(printf '%s\n' '*' '/conditional-render' '/multi-line-wrap' '/placeholder/:slug' '/single-line' | sort -u)
 
   if diff <(echo "$actual") <(echo "$expected") >/dev/null 2>&1; then
     echo "PASS: audit-ui-inventory.sh --self-test"
@@ -162,7 +174,7 @@ while IFS= read -r route; do
   if ! grep -qF "| route | \`$route\`" "$INV_FILE"; then
     MISSING_ROUTES+=("$route")
   fi
-done < <(grep -oE 'path="[^"]+"' "$ROUTES_TSX" | sed 's/path="//;s/"$//' | sort -u)
+done < <(extract_route_paths "$ROUTES_TSX")
 
 if [[ ${#MISSING_ROUTES[@]} -gt 0 ]]; then
   echo "FAIL: ${#MISSING_ROUTES[@]} routes in AppRoutes.tsx not represented in INVENTORY.md route axis:" >&2
@@ -170,7 +182,7 @@ if [[ ${#MISSING_ROUTES[@]} -gt 0 ]]; then
   echo "Hint: each new route MUST have a `| route | \`/path\` | <surface> | <fixture> | <status> |` row." >&2
   exit 1
 fi
-echo "PASS: Gate 2 — all $(grep -oE 'path="[^"]+"' "$ROUTES_TSX" | sort -u | wc -l) routes in AppRoutes.tsx represented in INVENTORY.md."
+echo "PASS: Gate 2 — all $(extract_route_paths "$ROUTES_TSX" | wc -l) routes in AppRoutes.tsx represented in INVENTORY.md."
 
 # Gate 3 — no TV-shape (Series/Episode/Season) controller class names in Mangarr.Api.V5.
 # Phase 17.3 D-05/D-07 swept these; this gate prevents reintroduction.
