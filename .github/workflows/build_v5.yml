@@ -237,6 +237,7 @@ jobs:
             ${{ runner.os }}-playwright-
 
       - name: Test
+        id: automation_test
         uses: ./.github/actions/test
         with:
           os: ubuntu-latest
@@ -264,6 +265,31 @@ jobs:
           # artifact root, so the test action downloads the DLLs to _tests/ directly —
           # there is no _tests/net10.0/ segment in these jobs.
           MANGARR_TEST_ASSEMBLY_PATH: ${{ github.workspace }}/_tests/Mangarr.Automation.Test.dll
+
+      # Phase 20 D-03 soft-warn (Plan 20-12): surface PR-smoke wall-clock in the PR
+      # summary. INFORMATIONAL ONLY — no `exit 1`, no PR-merge block. Per D-03 user
+      # explicit preference for signal-without-blocking over hard-fail. Fires even when
+      # the test step itself failed (`if: always()`) so a slow-and-failing run still
+      # surfaces the wall-clock cost. CEILING is the D-02 10-min ceiling. If observed >
+      # CEILING, planner triages which axis-rule-PRSmoke fixtures move to nightly per
+      # D-04 (axis-based tiering: PRSmoke = route/req/v5-endpoint(GET-heavy); Nightly =
+      # modal-action). v1.x follow-up GH issue tracked in 20-LEARNINGS.md.
+      - name: Wall-clock budget warn (Phase 20 D-03)
+        if: always()
+        shell: bash
+        run: |
+          DUR_S="${{ steps.automation_test.outputs.duration_seconds }}"
+          if [[ -z "$DUR_S" ]]; then
+            echo "PR-smoke automation_test wall-clock: unavailable (composite-action output not captured)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          DUR_M=$(( DUR_S / 60 ))
+          CEILING=10
+          echo "PR-smoke automation_test wall-clock: ${DUR_M}m (${DUR_S}s) / ${CEILING}m ceiling" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$DUR_M" -gt "$CEILING" ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "⚠️ **PR-gate over budget (${DUR_M}m > ${CEILING}m); consider tiering modal-action fixtures to nightly per Phase 20 D-04.**" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload Playwright trace + screenshots + log on failure
         if: failure()

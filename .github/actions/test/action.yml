@@ -36,6 +36,14 @@ inputs:
     description: 'Optional suffix appended to RESULTS_NAME for cross-job disambiguation (e.g. pr-smoke / nightly / liveservice)'
     default: ''
 
+# Phase 20 D-03 soft-warn: expose the wall-clock duration of the `Run tests` step so
+# caller workflows (notably automation_test_pr_smoke) can emit a $GITHUB_STEP_SUMMARY
+# warn line when PR-gate exceeds the D-02 10-min ceiling. No exit-1 — informational only.
+outputs:
+  duration_seconds:
+    description: "Wall-clock duration of the test step (seconds)"
+    value: ${{ steps.run-tests.outputs.duration_seconds }}
+
 runs:
   using: 'composite'
   steps:
@@ -190,9 +198,22 @@ runs:
       working-directory: _tests
       run: ./playwright.ps1 install --with-deps chromium
 
+    # Phase 20 D-03: capture wall-clock duration for the soft-warn step in caller
+    # workflows. `id: run-tests` is REQUIRED so the composite-action output above
+    # (outputs.duration_seconds) resolves via steps.run-tests.outputs.duration_seconds.
+    # Preserves dotnet test exit code so a failed test still fails the job.
     - name: Run tests
+      id: run-tests
       shell: bash
-      run: dotnet test ./_tests/${{ inputs.pattern }} --filter "${{ inputs.filter }}" --logger "trx;LogFileName=${{ env.RESULTS_NAME }}.trx" --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"
+      run: |
+        START=$(date +%s)
+        set +e
+        dotnet test ./_tests/${{ inputs.pattern }} --filter "${{ inputs.filter }}" --logger "trx;LogFileName=${{ env.RESULTS_NAME }}.trx" --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"
+        EXITCODE=$?
+        set -e
+        END=$(date +%s)
+        echo "duration_seconds=$((END - START))" >> "$GITHUB_OUTPUT"
+        exit $EXITCODE
 
     # /gsd-debug gh149-trx-upload-on-cancel: changed `if: ${{ !cancelled() }}` to
     # `if: always()` so the TRX artifact is preserved when a job is cancelled by GH
