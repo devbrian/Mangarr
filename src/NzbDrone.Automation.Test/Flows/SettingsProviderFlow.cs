@@ -57,8 +57,14 @@ public static class SettingsProviderFlow
     {
         var editModal = page.GetByTestId($"edit-{vertical}-modal");
 
+        // WR-04 (20-REVIEW): Contains() over /api/v5/{vertical} false-positives on
+        // /api/v5/{vertical}/test, /api/v5/{vertical}/schema, /api/v5/{vertical}factory,
+        // etc. The save click may trigger a chain of requests; we want only the canonical
+        // create (POST /api/v5/{vertical}) or update (PUT /api/v5/{vertical}/{id}). Anchor
+        // the predicate on the resource boundary so unrelated chain requests do not
+        // resolve the wait early.
         var saveTask = page.WaitForResponseAsync(
-            r => r.Url.Contains($"/api/v5/{vertical}")
+            r => Regex.IsMatch(r.Url, $@"/api/v5/{vertical}(/\d+)?(\?.*)?$")
                  && (r.Request.Method == "POST" || r.Request.Method == "PUT"),
             new() { Timeout = 30_000 });
 
@@ -87,12 +93,17 @@ public static class SettingsProviderFlow
 
         // The confirm dialog is a top-level ConfirmModal (Components/Modal/ConfirmModal.tsx)
         // with a Delete button. The Edit modal is dismissed by the delete handler before the
-        // confirm dialog opens, so we resolve the confirm Delete by role on the page.
+        // confirm dialog opens; WR-03 (20-REVIEW): explicitly wait for that dismissal before
+        // resolving the confirm Delete so .Last cannot race-match the Edit modal's own Delete
+        // button while both are momentarily present in the DOM.
+        await Assertions.Expect(editModal).ToBeHiddenAsync(new() { Timeout = 5_000 });
+
         var deleteTask = page.WaitForResponseAsync(
             r => r.Url.Contains($"/api/v5/{vertical}/") && r.Request.Method == "DELETE",
             new() { Timeout = 30_000 });
 
-        var confirmDelete = page.GetByRole(AriaRole.Button, new() { Name = "Delete", Exact = true }).Last;
+        var confirmDelete = page.GetByRole(AriaRole.Button, new() { Name = "Delete", Exact = true });
+        await Assertions.Expect(confirmDelete).ToHaveCountAsync(1, new() { Timeout = 5_000 });
         await confirmDelete.ClickAsync();
         await deleteTask;
 
