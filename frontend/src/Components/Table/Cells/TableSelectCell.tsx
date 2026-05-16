@@ -10,6 +10,11 @@ interface TableSelectCellProps<T extends number | string = number>
   className?: string;
   id: T;
   isSelected?: boolean;
+  // GH #180 scope B: per-row checkbox testid propagation through the
+  // TableSelectCell → CheckInput chain. Lands on the wrapping <label>
+  // inside CheckInput (the visible click target) per scope A. The prop
+  // is plumbed through the otherProps spread to CheckInput below.
+  'data-testid'?: string;
   onSelectedChange: (options: SelectStateInputProps<T>) => void;
 }
 

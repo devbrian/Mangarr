@@ -7,14 +7,14 @@ namespace NzbDrone.Automation.Test.PageModel.Modals;
 /// Owned by Phase 20 Plan 20-04. Opens either from the AddIndexer picker (after
 /// selecting a schema card) or from clicking an existing indexer card.
 ///
-/// Locator strategy (debug-30 2026-05-16): The shared FormLabel
-/// (frontend/src/Components/Form/FormLabel.tsx) renders `&lt;label htmlFor={name}&gt;`
-/// but the consuming `&lt;FormLabel&gt;{translate('Name')}&lt;/FormLabel&gt;` doesn't
-/// pass the `name` prop. With no for-attribute and no parent-of-input
-/// relationship between label and input, Playwright's GetByLabel cannot
-/// resolve the FormInputGroup's underlying input. We target the input
-/// by its `name=` attribute instead (which TextInput propagates verbatim
-/// from FormInputGroup's `name` prop — see TextInput.tsx:180).
+/// Locator strategy (GH #180 2026-05-16): Inputs are anchored on the D-18
+/// `data-testid` contract — `settings-indexer-field-*` — emitted by the
+/// FormInputGroup wrapper layer (frontend/src/Components/Form/FormInputGroup.tsx
+/// forwards data-testid through {...otherProps} to TextInput, which renders
+/// `data-testid` on the underlying input element per TextInput.tsx:185).
+/// Replaces the prior `input[name='...']` CSS-selector fallback that worked
+/// around FormLabel's missing htmlFor wiring; the testid is the contract going
+/// forward.
 /// </summary>
 public class EditIndexerModal : PageBase
 {
@@ -24,12 +24,12 @@ public class EditIndexerModal : PageBase
     }
 
     public ILocator ModalRoot     => Page.GetByTestId("edit-indexer-modal");
-    public ILocator NameInput     => ModalRoot.Locator("input[name='name']");
+    public ILocator NameInput     => ModalRoot.GetByTestId("settings-indexer-field-name");
 
     // Priority lives inside a FormGroup gated `isAdvanced={true}` so it does not
     // render until `<AdvancedSettingsButton>` is toggled on. Use AdvancedToggle
     // first before locating PriorityInput.
-    public ILocator PriorityInput => ModalRoot.Locator("input[name='priority']");
+    public ILocator PriorityInput => ModalRoot.GetByTestId("settings-indexer-field-priority");
     public ILocator AdvancedToggle => ModalRoot.GetByTestId("settings-advanced-toggle");
     public ILocator SaveButton    => ModalRoot.GetByTestId("save-button");
     public ILocator TestButton    => ModalRoot.GetByRole(AriaRole.Button, new() { Name = "Test", Exact = true });

@@ -145,6 +145,7 @@ function EditCustomFormatModalContent({
                   <FormInputGroup
                     type={inputTypes.TEXT}
                     name="name"
+                    data-testid="settings-customformat-field-name"
                     {...name}
                     onChange={handleInputChange}
                   />

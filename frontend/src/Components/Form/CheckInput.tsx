@@ -22,9 +22,14 @@ export interface CheckInputProps {
   helpTextWarning?: string;
   isDisabled?: boolean;
   kind?: Extract<Kind, keyof typeof styles>;
-  // Phase 18 Plan-04 wrapper sweep: `data-testid` propagation to the underlying
-  // <input type="checkbox"> element. See data-testid-spec.md §"Wrapper-Component
-  // Sweep Ledger".
+  // Phase 18 Plan-04 wrapper sweep + GH #180 scope A: `data-testid`
+  // propagation. Lands on the wrapping <label> (the visible click target)
+  // because CheckInput renders the <input type="checkbox"> visually hidden
+  // behind a <div> visual surrogate that intercepts pointer events. The
+  // label is what Playwright fixtures interact with, so the testid must
+  // live there. Mirrors the `'data-testid'?: string` convention from
+  // TextInput.tsx:32. See data-testid-spec.md §"Wrapper-Component Sweep
+  // Ledger".
   'data-testid'?: string;
   onChange: (changes: CheckInputChanged) => void;
 }
@@ -102,7 +107,11 @@ function CheckInput(props: CheckInputProps) {
 
   return (
     <div className={containerClassName}>
-      <label className={styles.label} onClick={handleClick}>
+      <label
+        className={styles.label}
+        data-testid={dataTestId}
+        onClick={handleClick}
+      >
         <input
           ref={inputRef}
           className={styles.checkbox}
@@ -110,7 +119,6 @@ function CheckInput(props: CheckInputProps) {
           name={name}
           checked={isChecked}
           disabled={isDisabled}
-          data-testid={dataTestId}
           onChange={handleChange}
         />
 

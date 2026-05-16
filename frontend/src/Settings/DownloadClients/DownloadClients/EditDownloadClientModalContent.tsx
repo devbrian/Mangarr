@@ -146,6 +146,7 @@ function EditDownloadClientModalContent({
               <FormInputGroup
                 type={inputTypes.TEXT}
                 name="name"
+                data-testid="settings-downloadclient-field-name"
                 {...name}
                 onChange={handleInputChange}
               />
@@ -167,7 +168,7 @@ function EditDownloadClientModalContent({
                 <ProviderFieldFormGroup
                   key={field.name}
                   advancedSettings={showAdvancedSettings}
-                  provider="downloadClient"
+                  provider="downloadclient"
                   providerData={item}
                   {...field}
                   onChange={handleFieldChange}
@@ -187,6 +188,7 @@ function EditDownloadClientModalContent({
                 helpText={translate('DownloadClientPriorityHelpText')}
                 min={1}
                 max={50}
+                data-testid="settings-downloadclient-field-priority"
                 {...priority}
                 onChange={handleInputChange}
               />

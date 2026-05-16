@@ -115,6 +115,7 @@ function EditNotificationModalContent({
             <FormInputGroup
               type={inputTypes.TEXT}
               name="name"
+              data-testid="settings-notification-field-name"
               {...name}
               onChange={handleInputChange}
             />

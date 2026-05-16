@@ -82,6 +82,7 @@ function ManageCustomFormatsModalRow({
       <TableSelectCell
         id={id}
         isSelected={isSelected}
+        data-testid={`settings-customformat-row-${id}-checkbox`}
         onSelectedChange={handlelectedChange}
       />
 
