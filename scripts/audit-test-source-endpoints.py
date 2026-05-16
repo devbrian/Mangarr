@@ -71,6 +71,21 @@ V5_CTRL_AUTO = re.compile(r"\[V5ApiController\]")
 PROVIDER_BASE_CTOR = re.compile(r":\s*base\([^)]*?\"([a-z][a-z0-9/_-]*)\"[^)]*?\)")
 CLASS_DECL = re.compile(r"public\s+(?:abstract\s+)?class\s+(\w+)Controller\b")
 
+
+def strip_csharp_comments(src: str) -> str:
+    """Strip // line + /* */ block comments from C# source, preserving `://` URL
+    fragments (mirrors audit-inventory-endpoints.strip_csharp_comments).
+
+    Without this, controller source with a commented example like
+    `// [V5ApiController("queue/details")]` ahead of the real attribute would
+    poison the canonical-resource set with the commented literal (Codex P1
+    finding on PR #189: MangaQueueDetailsController.cs:25 carries exactly that
+    shape, which suppressed stale `/api/v5/queue*` test references).
+    """
+    src = re.sub(r"(?<![:/])//[^\n]*", "", src)
+    src = re.sub(r"/\*[\s\S]*?\*/", "", src)
+    return src
+
 # Match `/api/v5/<resource>` where <resource> is alphanum + dashes + underscores
 # (the first path segment after /api/v5/). Stops at the next `/`, whitespace,
 # quote, backtick, angle-bracket, paren, or end-of-string. Captures the
@@ -106,10 +121,15 @@ def collect_canonical_resources() -> set[str]:
             raw = cs.read_text(encoding="utf-8")
         except OSError:
             continue
-        cn = CLASS_DECL.search(raw)
+        # Strip C# comments BEFORE matching V5ApiController / base() / class
+        # attrs — commented examples (e.g. doc-block illustrations) must not
+        # poison the canonical-resource set. See strip_csharp_comments() and
+        # the Codex P1 finding on PR #189.
+        src = strip_csharp_comments(raw)
+        cn = CLASS_DECL.search(src)
         if not cn:
             continue
-        res = derive_resource(cn.group(1), raw)
+        res = derive_resource(cn.group(1), src)
         if res is None:
             continue
         # The literal may itself contain a `/` (e.g. `manga/lookup`); the
