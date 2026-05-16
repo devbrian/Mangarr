@@ -182,16 +182,16 @@ src_no_comments = re.sub(r'/\*[\s\S]*?\*/', '', src_no_comments)
 
 violations = []
 
-# Ban 1: Locator("input[name=...")
-# Matches: .Locator("input[name='foo']"), Page.Locator("input[name=\"bar\"]")
-input_name_pat = re.compile(r'\.Locator\(\s*"input\[name=')
+# Ban 1: Locator("input[name=...") — also catches C# verbatim @"..." / interpolated verbatim $@"..."
+# Matches: .Locator("input[name='foo']"), .Locator(@"input[name='foo']"), .Locator($@"input[name='{bar}']")
+input_name_pat = re.compile(r'\.Locator\(\s*(?:\$?@)?"input\[name=')
 for m in input_name_pat.finditer(src_no_comments):
     # Compute 1-indexed line number for the match offset
     line_no = src_no_comments.count('\n', 0, m.start()) + 1
     violations.append((line_no, 'Locator("input[name=...")'))
 
-# Ban 2: Locator("label:has(input...")
-label_has_input_pat = re.compile(r'\.Locator\(\s*"label:has\(input')
+# Ban 2: Locator("label:has(input...") — also catches @"..." / $@"..."
+label_has_input_pat = re.compile(r'\.Locator\(\s*(?:\$?@)?"label:has\(input')
 for m in label_has_input_pat.finditer(src_no_comments):
     line_no = src_no_comments.count('\n', 0, m.start()) + 1
     violations.append((line_no, 'Locator("label:has(input...")'))
