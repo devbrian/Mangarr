@@ -31,6 +31,13 @@ public class NamingPresetsFixture : AutomationTest
         resp.Status.Should().Be(200);
         var body = await resp.TextAsync();
         body.Should().StartWith("[");
-        body.Should().Contain("title");
+
+        // PR #173 CI-fix (2026-05-15): MangaNamingPreset serializes to camelCase
+        // properties (name / standardChapterFormat / mangaFolderFormat / description)
+        // and template values include "{Manga.Title}" with a CAPITAL T — the prior
+        // assertion `Contain("title")` is case-sensitive in FluentAssertions and
+        // never matched. Assert against `standardChapterFormat` (the canonical
+        // shape-defining property — Phase 5 D-16 reader-compat preset axis).
+        body.Should().Contain("standardChapterFormat");
     }
 }
