@@ -42,16 +42,16 @@ namespace NzbDrone.Core.MetadataSource.AniList
             FailDownloads = Array.Empty<int>();
         }
 
-        [FieldDefinition(0, Label = "URL", HelpText = "AniList GraphQL endpoint — leave default.")]
+        [FieldDefinition(0, Label = "AniListMetadataSourceUrl", HelpText = "AniListMetadataSourceUrlHelpText")]
         public string BaseUrl { get; set; }
 
-        [FieldDefinition(1, Label = "Rate-limit Source Key", Advanced = true, HelpText = "Override the per-SourceKey rate budget grouping.")]
+        [FieldDefinition(1, Label = "AniListMetadataSourceSourceKey", Advanced = true, HelpText = "AniListMetadataSourceSourceKeyHelpText")]
         public string SourceKey { get; set; }
 
-        [FieldDefinition(2, Label = "User-Agent Override", Advanced = true, HelpText = "Optional UA override. Leave blank for honest 'Mangarr/{version}'.")]
+        [FieldDefinition(2, Label = "AniListMetadataSourceUserAgentOverride", Advanced = true, HelpText = "AniListMetadataSourceUserAgentOverrideHelpText")]
         public string UserAgentOverride { get; set; }
 
-        [FieldDefinition(3, Label = "Rate Override", Advanced = true, HelpText = "Override default request rate (e.g., 00:00:02 = 30 req/min). Leave blank for AniList's published 30 req/min.")]
+        [FieldDefinition(3, Label = "AniListMetadataSourceRateOverride", Advanced = true, HelpText = "AniListMetadataSourceRateOverrideHelpText")]
         public TimeSpan? Rate { get; set; }
 
         // IIndexerSettings requirements — metadata sources do not download nor multi-language;

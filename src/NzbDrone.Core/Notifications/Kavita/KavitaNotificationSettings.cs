@@ -30,13 +30,13 @@ namespace NzbDrone.Core.Notifications.Kavita
     {
         private static readonly KavitaNotificationSettingsValidator Validator = new();
 
-        [FieldDefinition(0, Label = "Kavita URL", HelpText = "Base URL of your Kavita server, e.g., http://kavita.local:5000")]
+        [FieldDefinition(0, Label = "KavitaNotificationUrl", HelpText = "KavitaNotificationUrlHelpText")]
         public string Url { get; set; }
 
-        [FieldDefinition(1, Label = "API Key", Privacy = PrivacyLevel.ApiKey, HelpText = "Kavita Server Settings -> API Keys -> copy")]
+        [FieldDefinition(1, Label = "KavitaNotificationApiKey", Privacy = PrivacyLevel.ApiKey, HelpText = "KavitaNotificationApiKeyHelpText")]
         public string ApiKey { get; set; }
 
-        [FieldDefinition(2, Label = "Library ID (optional)", Type = FieldType.Number, HelpText = "Leave blank to scan all libraries; set to scan one library only.")]
+        [FieldDefinition(2, Label = "KavitaNotificationLibraryId", Type = FieldType.Number, HelpText = "KavitaNotificationLibraryIdHelpText")]
         public int? LibraryId { get; set; }
 
         public override NzbDroneValidationResult Validate()

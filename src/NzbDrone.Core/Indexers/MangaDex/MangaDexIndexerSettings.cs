@@ -55,10 +55,10 @@ namespace NzbDrone.Core.Indexers.MangaDex
             FailDownloads = Array.Empty<int>();
         }
 
-        [FieldDefinition(0, Label = "URL", HelpText = "MangaDex API base URL — leave default unless mirroring.")]
+        [FieldDefinition(0, Label = "MangaDexIndexerUrl", HelpText = "MangaDexIndexerUrlHelpText")]
         public string BaseUrl { get; set; }
 
-        [FieldDefinition(1, Label = "Rate-limit Source Key", Advanced = true, HelpText = "Override the per-SourceKey rate budget grouping. Leave 'mangadex' unless splitting budgets.")]
+        [FieldDefinition(1, Label = "MangaDexIndexerSourceKey", Advanced = true, HelpText = "MangaDexIndexerSourceKeyHelpText")]
         public string SourceKey { get; set; }
 
         // PER CONTEXT MangaDex constraints + Phase 1 D-13/D-14:
@@ -67,7 +67,7 @@ namespace NzbDrone.Core.Indexers.MangaDex
         // contract) but DO NOT expose it via [FieldDefinition] — there is no UI affordance to override.
         public string UserAgentOverride { get; set; }   // intentionally NO [FieldDefinition]
 
-        [FieldDefinition(3, Label = "Rate (seconds)", Type = FieldType.Number, Advanced = true, HelpText = "Override the default 1.5s gap (40 req/min). Lower values risk MangaDex 429s and ToS violation.")]
+        [FieldDefinition(3, Label = "MangaDexIndexerRateSeconds", Type = FieldType.Number, Advanced = true, HelpText = "MangaDexIndexerRateSecondsHelpText")]
         public double? RateSeconds { get; set; }
 
         // Inherited IIndexerSettings floor — not surfaced in UI for the MangaDex aggregator
