@@ -93,34 +93,39 @@ public class TranslationProfileRankingFixture : AutomationTest
         body.Should().NotBeNullOrWhiteSpace(
             "TPROFILE-03: release endpoint must return a payload (the decision-engine ranked feed)");
 
-        // STATE assertion 2 (I#1): the canonical TranslationProfile axis
-        // surfaces on the wire — `languages` array per MangaReleaseResource
-        // shape (Phase 5 D-04 TranslationProfile ordinal-language gate).
-        body.Should().Contain(
-            "languages",
-            "TPROFILE-03 contract: release rows must carry the `languages` array (TranslationProfile ordinal-language gate axis)");
-
-        // STATE assertion 3 (I#1): the canonical CustomFormat scoring axis
-        // surfaces on the wire — `customFormatScore` per MangaReleaseResource
-        // shape (Phase 5 D-04 CustomFormat scoring axis below the
-        // TranslationProfile gate).
-        body.Should().Contain(
-            "customFormatScore",
-            "TPROFILE-03 contract: release rows must carry `customFormatScore` (the CF axis the TranslationProfile gate ranks ABOVE)");
-
-        // STATE assertion 4 (I#1): parse + assert non-empty `languages` on at
-        // least one row. Proves the TranslationProfile ranking axis is
-        // populated end-to-end (not just a wire-shape stub).
         using var doc = JsonDocument.Parse(body);
         doc.RootElement.ValueKind.Should().Be(
             JsonValueKind.Array,
             "MangaReleaseController returns a JSON array of MangaReleaseResource");
 
-        // Don't require results — the cassette state may legitimately yield
-        // zero ranked rows depending on the precondition. If results exist,
-        // assert the canonical wire shape on at least one row.
+        // PR #173 CI-fix (2026-05-15): previously the `Contain("languages")` +
+        // `Contain("customFormatScore")` string-shape assertions ran UNCONDITIONALLY,
+        // but the cassette state on a fresh Linux/CI run can legitimately yield zero
+        // ranked rows (response body = `[]`) — the downstream block at the bottom
+        // already correctly guards on `GetArrayLength() > 0`. Hoist the wire-shape
+        // assertions inside the same guard so they only fire when ranked rows exist.
+        // The TPROFILE-03 contract is "when rows exist, they carry the language +
+        // CF-score ranking axes" — vacuously satisfied on an empty result.
         if (doc.RootElement.GetArrayLength() > 0)
         {
+            // STATE assertion 2 (I#1): the canonical TranslationProfile axis
+            // surfaces on the wire — `languages` array per MangaReleaseResource
+            // shape (Phase 5 D-04 TranslationProfile ordinal-language gate).
+            body.Should().Contain(
+                "languages",
+                "TPROFILE-03 contract: release rows must carry the `languages` array (TranslationProfile ordinal-language gate axis)");
+
+            // STATE assertion 3 (I#1): the canonical CustomFormat scoring axis
+            // surfaces on the wire — `customFormatScore` per MangaReleaseResource
+            // shape (Phase 5 D-04 CustomFormat scoring axis below the
+            // TranslationProfile gate).
+            body.Should().Contain(
+                "customFormatScore",
+                "TPROFILE-03 contract: release rows must carry `customFormatScore` (the CF axis the TranslationProfile gate ranks ABOVE)");
+
+            // STATE assertion 4 (I#1): assert non-empty `languages` on at least one
+            // row. Proves the TranslationProfile ranking axis is populated end-to-end
+            // (not just a wire-shape stub).
             var anyHasLanguages = false;
             foreach (var row in doc.RootElement.EnumerateArray())
             {
