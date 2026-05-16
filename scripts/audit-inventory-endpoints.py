@@ -163,9 +163,24 @@ def _collect_base_class_attrs(parent_id: str) -> list[tuple[str, str]]:
     found or carries no HTTP attributes. Used for non-Provider abstract bases like
     LogFileControllerBase where the concrete controller inherits routes without
     re-declaring them.
+
+    WR-07 (20-REVIEW): rglob matches every file whose basename equals `<parent_id>.cs`
+    regardless of namespace. If two abstract bases share a basename in different
+    subdirectories, routes from BOTH would silently merge. Emit a stderr warning
+    when multiple matches are found so the author can disambiguate (full
+    namespace-aware resolution would require parsing `using` directives — heavy).
     """
+    candidates = list(V5_DIR.rglob(f"{parent_id}.cs"))
+    if len(candidates) > 1:
+        print(
+            f"WARN: _collect_base_class_attrs found {len(candidates)} files matching "
+            f"'{parent_id}.cs' under {V5_DIR}; routes from ALL are being merged "
+            f"(no namespace resolution). Candidates: "
+            f"{[str(c.relative_to(V5_DIR)) for c in candidates]}",
+            file=sys.stderr,
+        )
     routes = []
-    for candidate in V5_DIR.rglob(f"{parent_id}.cs"):
+    for candidate in candidates:
         try:
             base_src = strip_csharp_comments(candidate.read_text(encoding="utf-8"))
         except OSError:
