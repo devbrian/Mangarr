@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Phase 18 TEST-UI-02 anti-pattern gate.
-# Greps every [Test] in src/NzbDrone.Automation.Test/Tests/**/*.cs.
-# A test is the anti-pattern if its body contains ONLY `ToBeVisibleAsync()` /
-# `ToBeAttachedAsync()` assertions with NO state assertion (none of:
-# ToHaveTextAsync, ToHaveValueAsync, ToEqualAsync, .Should(), WaitForAsync,
+# Phase 18 TEST-UI-02 anti-pattern gate + GH #180 selector-strategy gate.
+#
+# Gate 1 (Phase 18 TEST-UI-02): Greps every [Test] in
+# src/NzbDrone.Automation.Test/Tests/**/*.cs. A test is the anti-pattern
+# if its body contains ONLY `ToBeVisibleAsync()` / `ToBeAttachedAsync()`
+# assertions with NO state assertion (none of: ToHaveTextAsync,
+# ToHaveValueAsync, ToEqualAsync, .Should(), WaitForAsync,
 # TextContentAsync, GetByTestId chained, etc.).
 #
 # Per .planning/phases/18-.../18-VALIDATION.md §"Meta-Validation" point 3 +
@@ -16,6 +18,22 @@
 # intentionally rendering-only smokes for the route axis.
 # `[Explicit]`-attributed tests are also exempt (cassette-deferred or
 # dependency-deferred per Plan-04/05/08 deferred-items.md).
+#
+# Gate 2 (GH #180 selector-strategy): bans the two wrapper-bypass
+# patterns under src/NzbDrone.Automation.Test/Tests/Settings/**:
+#   - Locator("input[name=...")           — bypasses the
+#     `settings-{provider}-field-{name}` testid contract emitted by
+#     FormInputGroup / ProviderFieldFormGroup (issue #180 scopes C+D).
+#   - Locator("label:has(input...")       — bypasses the CheckInput
+#     wrapping-<label> testid emitted on the per-row checkboxes
+#     (issue #180 scopes A+B).
+# Both patterns produced fragile selectors that broke whenever the
+# wrapper-layer DOM shifted (Phase 18 Plan-04 wrapper sweep precedent).
+# The ban is scoped to Tests/Settings/ because (a) Settings is the
+# cluster the testid-sweep targets and (b) Manga / Activity / Components
+# fixtures use these patterns for orthogonal reasons (the AddManga modal
+# uses `input[name='showMonitored']` to anchor a modal-internal input
+# without a discrete testid; out of scope for #180).
 
 set -euo pipefail
 
@@ -25,6 +43,10 @@ TESTS_DIR="$REPO_ROOT/src/NzbDrone.Automation.Test/Tests"
 [[ -d "$TESTS_DIR" ]] || { echo "FAIL: Tests dir missing: $TESTS_DIR" >&2; exit 1; }
 
 VIOLATING_FILES=()
+
+# ----------------------------------------------------------------------
+# Gate 1 — visibility-only assertion anti-pattern
+# ----------------------------------------------------------------------
 
 # Iterate every .cs file under Tests/ and call the python audit per-file.
 # A non-zero exit from python indicates the file violates the anti-pattern gate.
@@ -136,5 +158,69 @@ if [[ ${#VIOLATING_FILES[@]} -gt 0 ]]; then
   exit 1
 fi
 
+# ----------------------------------------------------------------------
+# Gate 2 — GH #180 selector-strategy ban under Tests/Settings/
+# ----------------------------------------------------------------------
+
+SETTINGS_DIR="$TESTS_DIR/Settings"
+SELECTOR_VIOLATIONS=()
+
+if [[ -d "$SETTINGS_DIR" ]]; then
+  while IFS= read -r -d '' file; do
+    set +e
+    python3 - "$file" <<'PYEOF'
+import re, sys
+path = sys.argv[1]
+with open(path, encoding='utf-8') as f:
+    src = f.read()
+
+# Strip comments so an explanatory comment that mentions the banned shape
+# (e.g. "replaces the prior `input[name='...']` fallback") doesn't false-
+# positive. Line + block comments only.
+src_no_comments = re.sub(r'^\s*//.*$', '', src, flags=re.MULTILINE)
+src_no_comments = re.sub(r'/\*[\s\S]*?\*/', '', src_no_comments)
+
+violations = []
+
+# Ban 1: Locator("input[name=...")
+# Matches: .Locator("input[name='foo']"), Page.Locator("input[name=\"bar\"]")
+input_name_pat = re.compile(r'\.Locator\(\s*"input\[name=')
+for m in input_name_pat.finditer(src_no_comments):
+    # Compute 1-indexed line number for the match offset
+    line_no = src_no_comments.count('\n', 0, m.start()) + 1
+    violations.append((line_no, 'Locator("input[name=...")'))
+
+# Ban 2: Locator("label:has(input...")
+label_has_input_pat = re.compile(r'\.Locator\(\s*"label:has\(input')
+for m in label_has_input_pat.finditer(src_no_comments):
+    line_no = src_no_comments.count('\n', 0, m.start()) + 1
+    violations.append((line_no, 'Locator("label:has(input...")'))
+
+if violations:
+    print(f'FAIL: {path}', file=sys.stderr)
+    for line_no, shape in violations:
+        print(f'  Line {line_no}: banned selector shape `{shape}` — use GetByTestId(...) per D-18.', file=sys.stderr)
+    sys.exit(1)
+
+sys.exit(0)
+PYEOF
+    rc=$?
+    set -e
+    if [[ $rc -ne 0 ]]; then
+      SELECTOR_VIOLATIONS+=("$file")
+    fi
+  done < <(find "$SETTINGS_DIR" -name "*.cs" -not -name "*.Designer.cs" -print0)
+fi
+
+if [[ ${#SELECTOR_VIOLATIONS[@]} -gt 0 ]]; then
+  echo "" >&2
+  echo "FAIL: ${#SELECTOR_VIOLATIONS[@]} test file(s) under Tests/Settings/ bypass the D-18 testid contract." >&2
+  echo "Per GH #180: Locator(\"input[name=...\") and Locator(\"label:has(input...\") are banned in Tests/Settings/." >&2
+  echo "Use Page.GetByTestId(\"settings-{provider}-field-{name}\") for inputs and the per-row checkbox testid for row checkboxes." >&2
+  printf '  - %s\n' "${SELECTOR_VIOLATIONS[@]}" >&2
+  exit 1
+fi
+
 echo "PASS: No state-not-rendering anti-pattern detected in src/NzbDrone.Automation.Test/Tests/."
+echo "PASS: No banned wrapper-bypass selector shapes detected in src/NzbDrone.Automation.Test/Tests/Settings/."
 exit 0

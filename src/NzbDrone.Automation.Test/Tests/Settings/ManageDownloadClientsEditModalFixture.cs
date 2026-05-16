@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -38,22 +39,26 @@ public class ManageDownloadClientsEditModalFixture : AutomationTest
         await Assertions.Expect(manageModal).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
         // State assertion (audit-test-assertions.sh): verify the manage modal
-        // renders at least one DownloadClient row, not just an empty table.
-        var rowCheckboxes = manageModal.Locator("input[type='checkbox']");
+        // renders at least one DownloadClient row via the per-row checkbox
+        // testid emitted by ManageDownloadClientsModalRow (GH #180 scope B).
+        // The `settings-downloadclient-row-{id}-checkbox` shape is exclusive to
+        // body rows — the table-header select-all checkbox does NOT carry this
+        // prefix, so a count of >= 1 means a real DC row exists.
+        var rowCheckboxes = manageModal.GetByTestId(new Regex(@"^settings-downloadclient-row-\d+-checkbox$"));
         var checkboxCount = await rowCheckboxes.CountAsync();
         checkboxCount.Should().BeGreaterThan(
-            1,
-            "manage modal must show table-header select-all + at least one DC row");
+            0,
+            "manage modal must show at least one DownloadClient row");
 
         // Select the first row's checkbox to enable the bulk-Edit button.
-        // debug-30 (2026-05-16): CheckInput renders a visually-hidden <input>
-        // alongside a <div class="CheckInput-isNotChecked"> visual surrogate
-        // that intercepts pointer events. Clicking the wrapping <label>
-        // (CheckInput.tsx:105) triggers the handler without the overlay race.
-        var rowLabels = manageModal.Locator("label:has(input[type='checkbox'])");
-        var firstRowLabel = rowLabels.Nth(1); // [0] is the table-header select-all
-        await Assertions.Expect(firstRowLabel).ToBeVisibleAsync();
-        await firstRowLabel.ClickAsync();
+        // GH #180 scope A/B: the testid lands on the wrapping <label> in
+        // CheckInput (the visible click target — the underlying <input
+        // type="checkbox"> is visually hidden behind a <div> visual surrogate
+        // that intercepts pointer events). Replaces the prior
+        // `label:has(input[type='checkbox'])` DOM-traversal pattern.
+        var firstRowCheckbox = rowCheckboxes.First;
+        await Assertions.Expect(firstRowCheckbox).ToBeVisibleAsync();
+        await firstRowCheckbox.ClickAsync();
 
         // Edit button is now enabled.
         var editButton = manageModal.GetByRole(AriaRole.Button, new() { Name = "Edit", Exact = true });

@@ -22,11 +22,12 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 public class ManageCustomFormatsEditModalFixture : AutomationTest
 {
     private const string SeedName = "Plan 20-07a MgrEdit CF";
+    private int _seedId;
 
     [OneTimeSetUp]
     public async Task SeedAsync()
     {
-        await new TestKit.TestKit(RootUri, ApiKey, string.Empty).SeedCustomFormatAsync(SeedName);
+        _seedId = await new TestKit.TestKit(RootUri, ApiKey, string.Empty).SeedCustomFormatAsync(SeedName);
     }
 
     [Test]
@@ -42,16 +43,15 @@ public class ManageCustomFormatsEditModalFixture : AutomationTest
 
         // Tick the first row checkbox to enable the bulk Edit button
         // (ManageCustomFormatsModalContent disables it until selection > 0).
-        var rowCheckboxes = manageDialog.GetByRole(AriaRole.Checkbox);
-        var cbCount = await rowCheckboxes.CountAsync();
-        cbCount.Should().BeGreaterThan(1); // header select-all + ≥1 row
-
-        // debug-30 (2026-05-16): CheckInput's visually-hidden <input> is
-        // covered by a <div class="CheckInput-isNotChecked"> visual surrogate
-        // that intercepts pointer events. Click the wrapping <label>
-        // (CheckInput.tsx:105) — the handler fires without the overlay race.
-        var rowLabels = manageDialog.Locator("label:has(input[type='checkbox'])");
-        await rowLabels.Nth(1).ClickAsync();
+        // GH #180 scope B/E: target the row's testid emitted by
+        // ManageCustomFormatsModalRow → TableSelectCell → CheckInput. The
+        // testid lands on the wrapping <label> (the visible click target —
+        // CheckInput's <input type="checkbox"> is visually hidden behind a
+        // <div> overlay that intercepts pointer events). Replaces the prior
+        // `label:has(input[type='checkbox'])` DOM-traversal pattern.
+        var rowCheckbox = manageDialog.GetByTestId($"settings-customformat-row-{_seedId}-checkbox");
+        await Assertions.Expect(rowCheckbox).ToBeVisibleAsync();
+        await rowCheckbox.ClickAsync();
 
         // Click the bulk Edit button (label "Edit").
         await manageDialog.GetByRole(AriaRole.Button, new() { Name = "Edit", Exact = true }).First.ClickAsync();

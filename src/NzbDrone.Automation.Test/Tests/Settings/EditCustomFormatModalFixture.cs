@@ -50,7 +50,10 @@ public class EditCustomFormatModalFixture : AutomationTest
 
         // debug-30 iter-2 (2026-05-16): TextContent doesn't include input
         // `value=` attributes — assert against the Name input's actual value.
-        var nameInput = dialog.Locator("input[name='name']");
+        // GH #180 scope D: anchor on the FormInputGroup-emitted
+        // `settings-customformat-field-name` testid (replaces the prior
+        // `input[name='name']` CSS-selector fallback).
+        var nameInput = dialog.GetByTestId("settings-customformat-field-name");
         await Assertions.Expect(nameInput).ToBeVisibleAsync(new() { Timeout = 5_000 });
         (await nameInput.InputValueAsync()).Should().Be(
             SeedName,
