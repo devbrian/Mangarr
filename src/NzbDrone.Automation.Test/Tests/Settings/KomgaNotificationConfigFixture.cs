@@ -11,8 +11,10 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// <summary>
 /// Phase 20 Plan 20-06 (D-06 canonical Notification pick) — Komga CRUD
 /// round-trip: picker -> Add -> Edit -> Delete. Exercises
-/// POST/PUT/DELETE /api/v5/notification through SettingsProviderFlow
-/// (reused verbatim from Plan 20-04 with vertical="notification").
+/// POST/PUT/DELETE /api/v5/connection through SettingsProviderFlow
+/// (reused verbatim from Plan 20-04 with vertical="notification" which
+/// SettingsProviderFlow.ResourcePathFor() maps to the V5 resource "connection"
+/// per ConnectionController — gh #187 sweep).
 ///
 /// Greens INVENTORY req-axis row NOTIFY-01 (User can configure Komga as
 /// Notification target).
@@ -27,7 +29,7 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 ///
 /// **This fixture is default-offline (NO [Category("LiveService")]):**
 /// the CRUD round-trip (form Save / Edit / Delete) does NOT call Komga
-/// itself — `POST /api/v5/notification` validates settings server-side
+/// itself — `POST /api/v5/connection` validates settings server-side
 /// via `KomgaNotificationSettingsValidator` (URL.ValidRootUrl + ApiKey
 /// not-empty + LibraryId > 0); only the Test BUTTON triggers
 /// `_proxy.GetLibraries(...)` which is the cassette-replayed path.

@@ -11,8 +11,10 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// <summary>
 /// Phase 20 Plan 20-06 (D-06 same-family alternative Notification pick) —
 /// Kavita CRUD round-trip: picker -> Add -> Edit -> Delete. Exercises
-/// POST/PUT/DELETE /api/v5/notification through SettingsProviderFlow
-/// (reused verbatim from Plan 20-04 with vertical="notification").
+/// POST/PUT/DELETE /api/v5/connection through SettingsProviderFlow
+/// (reused verbatim from Plan 20-04 with vertical="notification" which
+/// SettingsProviderFlow.ResourcePathFor() maps to the V5 resource "connection"
+/// per ConnectionController — gh #187 sweep).
 ///
 /// Greens INVENTORY req-axis row NOTIFY-02 (User can configure Kavita as
 /// Notification target).
@@ -25,7 +27,7 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// LiveService-tier note: Kavita's `Test()` follows the two-step JWT flow
 /// (POST /api/Plugin/authenticate?apiKey=...pluginName=Mangarr → JWT;
 /// subsequent calls Bearer-authenticated). The CRUD round-trip below does
-/// NOT call Test — POST/PUT/DELETE /api/v5/notification validates settings
+/// NOT call Test — POST/PUT/DELETE /api/v5/connection validates settings
 /// server-side via KavitaNotificationSettingsValidator without calling
 /// Kavita. The Test BUTTON path (which DOES traverse the JWT flow) is
 /// covered by the same Plan 20-01 LiveService Enumeration row #4 family;
