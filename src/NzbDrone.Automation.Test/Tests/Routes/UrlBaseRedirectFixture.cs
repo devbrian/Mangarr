@@ -74,7 +74,12 @@ public class UrlBaseRedirectFixture : AutomationTest
             });
         });
 
-        // PR #173 CI-fix (2026-05-15 iteration 3):
+        // PR #173 CI-fix (2026-05-15 iteration 3): see GH issue #174 for the
+        // production SPA bug this fixture surfaces (route-declaration-order
+        // in frontend/src/App/AppRoutes.tsx). The fixture stays here as the
+        // authoritative failure marker; when the SPA bug is fixed, the
+        // WaitForFunctionAsync poll below turns green unchanged.
+        //
         // Iteration 2 tried WaitUntil=DOMContentLoaded; still timed out on the
         // subsequent WaitForURLAsync (Playwright defaults to waiting for a Load
         // navigation event, which never fires for a React Router history.push
