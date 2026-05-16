@@ -29,6 +29,83 @@
 
 set -euo pipefail
 
+# gh172 — `--self-test` mode: lock in the Gate 2 contract that the `path="..."`
+# extraction handles every `<Route>` declaration shape Prettier produces in this
+# codebase. Built before the rest of the gate runs so a regex regression fails
+# fast and locally (no need to push a phony AppRoutes change to exercise it).
+#
+# The current regex `grep -oE 'path="[^"]+"'` is line-oriented and therefore robust
+# to multi-line `<Route ... />` declarations as long as the `path="..."` attribute
+# value itself fits on one physical line — JSX string literals cannot span lines
+# without explicit braces, so this holds for every Prettier-formatted Route in
+# AppRoutes.tsx today (single-line, attribute-wrap, conditional-render, placeholder).
+# This self-test exercises each shape so a future change that breaks the contract
+# (e.g. switching the regex to a multi-line state machine that fumbles the
+# conditional-render case) is caught in CI rather than as silent drift.
+if [[ "${1:-}" == "--self-test" ]]; then
+  fixture=$(mktemp -t audit-ui-inventory-self-test-XXXXXX.tsx 2>/dev/null || mktemp)
+  trap "rm -f '$fixture'" EXIT INT TERM
+
+  cat > "$fixture" <<'SELFTEST_FIXTURE_EOF'
+// Self-test fixture for gh172 — exercises every <Route> formatting Prettier
+// is known to produce in frontend/src/App/AppRoutes.tsx.
+import { Route } from 'react-router-dom';
+
+function Fixture() {
+  return (
+    <Switch>
+      {/* 1. Single-line */}
+      <Route path="/single-line" component={A} />
+
+      {/* 2. Multi-line — attribute wrap (the common Prettier shape) */}
+      <Route
+        exact={true}
+        path="/multi-line-wrap"
+        component={B}
+      />
+
+      {/* 3. Multi-line inside a conditional-render block (urlBase redirect shape) */}
+      {condition && (
+        <Route
+          exact={true}
+          path="/conditional-render"
+          render={X}
+        />
+      )}
+
+      {/* 4. Placeholder path */}
+      <Route
+        exact={true}
+        path="/placeholder/:slug"
+        component={C}
+      />
+
+      {/* 5. Catch-all */}
+      <Route path="*" component={NotFound} />
+    </Switch>
+  );
+}
+SELFTEST_FIXTURE_EOF
+
+  actual=$(grep -oE 'path="[^"]+"' "$fixture" | sed 's/path="//;s/"$//' | sort -u)
+  expected=$(printf '%s\n' '*' '/conditional-render' '/multi-line-wrap' '/placeholder/:slug' '/single-line')
+
+  if diff <(echo "$actual") <(echo "$expected") >/dev/null 2>&1; then
+    echo "PASS: audit-ui-inventory.sh --self-test"
+    echo "  Gate 2 regex correctly extracts all 5 fixture paths (single-line,"
+    echo "  multi-line wrap, conditional-render, placeholder, catch-all)."
+    echo "  Extracted: $(echo "$actual" | tr '\n' ' ')"
+    exit 0
+  else
+    echo "FAIL: audit-ui-inventory.sh --self-test — Gate 2 regex mismatch" >&2
+    echo "  Expected:" >&2
+    echo "$expected" | sed 's/^/    /' >&2
+    echo "  Actual:" >&2
+    echo "$actual" | sed 's/^/    /' >&2
+    exit 1
+  fi
+fi
+
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 INV_DIR="$REPO_ROOT/.planning/phases/18-automated-ui-integration-test-suite-playwright-net"
 INV_FILE="$INV_DIR/INVENTORY.md"
