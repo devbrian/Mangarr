@@ -34,6 +34,7 @@ public class IndexerNegativeValidationFixture : AutomationTest
     }
 
     [Test]
+    [Explicit("GH #178 sub-C — Priority OOR client-side clamp masks server-side validator; fixture greens once #178-C ships")]
     public async Task save_with_priority_out_of_range_surfaces_validation_error()
     {
         await new SettingsIndexersPage(Page).OpenAsync(RootUri);

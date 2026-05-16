@@ -1,4 +1,3 @@
-using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -59,6 +58,11 @@ public class EditCustomFormatModalFixture : AutomationTest
 
         // Issue the rename via PUT — the modal's Save handler dispatches the
         // same saveCustomFormat action which hits PUT /api/v5/customformat/{id}.
+        // debug-30 iter-2 (2026-05-16): CustomFormat validator rejects empty
+        // specifications[] (`'Specifications' must not be empty` + `Must
+        // contain at least one Condition`). Mirror SeedCustomFormatAsync's
+        // 1-spec shape (ReleaseTitleSpecification with value="[a-z]") so the
+        // PUT body validates.
         var newName = $"{SeedName} (edited)";
         var putResp = await Page.APIRequest.FetchAsync(
             $"{RootUri}/api/v5/customformat/{_id}",
@@ -70,7 +74,21 @@ public class EditCustomFormatModalFixture : AutomationTest
                     id = _id,
                     name = newName,
                     includeCustomFormatWhenRenaming = false,
-                    specifications = Array.Empty<object>()
+                    specifications = new object[]
+                    {
+                        new
+                        {
+                            name = "Placeholder",
+                            implementation = "ReleaseTitleSpecification",
+                            implementationName = "Release Title",
+                            negate = false,
+                            required = false,
+                            fields = new object[]
+                            {
+                                new { order = 0, name = "value", value = "[a-z]" }
+                            }
+                        }
+                    }
                 }
             });
         putResp.Status.Should().BeInRange(200, 299);
