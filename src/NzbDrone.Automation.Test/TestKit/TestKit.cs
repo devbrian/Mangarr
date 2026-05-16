@@ -139,8 +139,14 @@ public class TestKit
             await Task.Delay(300);
         }
 
+        // BL-02 (20-REVIEW): include ErrorMessage / ErrorException / ResponseStatus so
+        // transport failures (StatusCode == 0, ResponseStatus != Completed) surface the
+        // real cause (DNS, connection refused, task canceled) instead of "failed [0]
+        // body=" with no hint — exactly the diagnostic regression Plan 18-14 chased.
         throw new InvalidOperationException(
-            $"TestKit.{callerLabel}: {label} failed [{(int)response.StatusCode}] body={response.Content}");
+            $"TestKit.{callerLabel}: {label} failed [{(int)response.StatusCode}] " +
+            $"status={response.ResponseStatus} body={response.Content} " +
+            $"error={response.ErrorMessage} exception={response.ErrorException?.Message}");
     }
 
     /// <summary>
