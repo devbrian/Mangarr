@@ -12,12 +12,17 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// Phase 20 Plan 20-04 (D-05) — Negative-validation fixture for the Indexer
 /// vertical (+1 of +3 D-05 negatives; the other +2 land in 20-05 + 20-06).
 ///
-/// Saves an indexer with priority out of range (priority schema attribute on
-/// EditIndexerModalContent.tsx:212 caps at max=50; the IndexerController's
-/// SharedValidator enforces 1..50). The fixture is deterministic: it either
-/// gets a 400 from the backend (server-side validation surfaced) OR client-side
-/// validation blocks the POST and renders a per-field error. EITHER state is
-/// a valid PASS — both prove validation surfaced.
+/// gh178 sub-C (2026-05-16): the original "priority out of range" probe was
+/// dead — NumberInput.parseValue clamps `999` to `max=50` BEFORE submit
+/// (frontend/src/Components/Form/NumberInput.tsx:21), so the server-side
+/// `SharedValidator.RuleFor(c => c.Priority).InclusiveBetween(1, 50)` never
+/// gets to reject — POST returned 201 with priority=50. Switched the probe
+/// to **empty Name**, which is server-validated by
+/// `SharedValidator.RuleFor(c => c.Name).NotEmpty()` in
+/// `ProviderControllerBase.cs:44` and has NO client-side clamp/HTML5
+/// constraint — the Name TextInput accepts the empty string verbatim
+/// and the POST body carries `name:""`, which the backend rejects with
+/// 400 + propertyName=Name validation failure.
 ///
 /// Tier (D-04): modal-action axis = Nightly (no [Category("PRSmoke")]).
 /// NEW shape established here that Plans 20-05/06 mirror for DownloadClient
@@ -34,51 +39,31 @@ public class IndexerNegativeValidationFixture : AutomationTest
     }
 
     [Test]
-    [Explicit("GH #178 sub-C — Priority OOR client-side clamp masks server-side validator; fixture greens once #178-C ships")]
-    public async Task save_with_priority_out_of_range_surfaces_validation_error()
+    public async Task save_with_empty_name_surfaces_validation_error()
     {
         await new SettingsIndexersPage(Page).OpenAsync(RootUri);
         await SettingsProviderFlow.OpenPickerAndSelectAsync(Page, "indexer", "mangadex");
 
         var modal = new EditIndexerModal(Page);
-        await modal.NameInput.FillAsync("OutOfRange (test)");
 
-        // debug-30 iter-2 (2026-05-16): Priority is rendered inside an
-        // isAdvanced={true} FormGroup. Toggle AdvancedSettings before fill.
-        await modal.AdvancedToggle.ClickAsync();
-        await Assertions.Expect(modal.PriorityInput).ToBeVisibleAsync(new() { Timeout = 5_000 });
-        await modal.PriorityInput.FillAsync("999");
+        // gh178 sub-C: clear Name (the schema preset is "MangaDex"). Name is
+        // server-validated via SharedValidator.RuleFor(c => c.Name).NotEmpty()
+        // (ProviderControllerBase.cs:44) and has no client-side guard.
+        await modal.NameInput.FillAsync(string.Empty);
 
-        // Race a POST response against client-side blocking. Either outcome
-        // proves validation surfaced.
+        // STATE assertion: POST /api/v5/indexer returns 400 (FluentValidation
+        // failure on Name.NotEmpty) — the backend rejects the empty Name.
         var postTask = Page.WaitForResponseAsync(
             r => r.Url.Contains("/api/v5/indexer") && r.Request.Method == "POST",
-            new() { Timeout = 8_000 });
+            new() { Timeout = 15_000 });
 
         await modal.SaveButton.ClickAsync();
+        var resp = await postTask;
+        resp.Status.Should().Be(
+            400,
+            "empty Name must be rejected server-side by SharedValidator.RuleFor(c => c.Name).NotEmpty()");
 
-        try
-        {
-            var resp = await postTask;
-
-            // Server-side validation path: backend returned 400 (FluentValidation
-            // priority range failure). Modal stays open with error state.
-            resp.Status.Should().Be(400);
-        }
-        catch (PlaywrightException)
-        {
-            // Client-side validation path: the POST never fired (HTML5 max
-            // attribute on the priority input OR React form-level guard).
-            // Assert that the modal remains open and a per-field / form-level
-            // error surfaced.
-            await Assertions.Expect(modal.ModalRoot).ToBeVisibleAsync(new() { Timeout = 5_000 });
-
-            var validationFailures = modal.ModalRoot.Locator(
-                ".validation-error, [role='alert'], [class*='hasError'], [class*='validationFailures']");
-            var errorCount = await validationFailures.CountAsync();
-            errorCount.Should().BeGreaterThan(
-                0,
-                "Validation must surface either as per-field error (client-side) or backend 400 (server-side)");
-        }
+        // STATE assertion: modal stays open with the validation error visible.
+        await Assertions.Expect(modal.ModalRoot).ToBeVisibleAsync(new() { Timeout = 5_000 });
     }
 }
