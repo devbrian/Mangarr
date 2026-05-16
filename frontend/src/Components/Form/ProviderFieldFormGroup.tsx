@@ -46,6 +46,7 @@ function ProviderFieldFormGroup<T>({
   warnings,
   selectOptions,
   selectOptionsProviderAction,
+  provider,
   onChange,
   ...otherProps
 }: ProviderFieldFormGroupProps<T>) {
@@ -105,6 +106,16 @@ function ProviderFieldFormGroup<T>({
     });
   }, [selectOptions]);
 
+  // GH #180 scope C: derive a per-field testid for Playwright fixtures.
+  // Shape `settings-{provider}-field-{name}` matches the existing
+  // `settings-{provider}-field-*` convention used in Settings PageObjects
+  // (e.g. settings-indexer-field-name). Only derived when `provider` is
+  // supplied by the parent EditModalContent — Add modal flows that omit
+  // provider keep the testid unset (no contract drift). The propagation
+  // lands on the wrapping <label> for CHECK inputs (per scope A) and on
+  // the <input> for TEXT/NUMBER/PASSWORD/etc. (per TextInput.tsx:185).
+  const fieldTestId = provider ? `settings-${provider}-field-${name}` : undefined;
+
   if (hidden === 'hidden' || (hidden === 'hiddenIfNotSet' && !value)) {
     return null;
   }
@@ -128,6 +139,7 @@ function ProviderFieldFormGroup<T>({
         warnings={warnings}
         pending={pending}
         includeFiles={providerType === 'filePath' ? true : undefined}
+        data-testid={fieldTestId}
         onChange={onChange}
         {...otherProps}
       />
