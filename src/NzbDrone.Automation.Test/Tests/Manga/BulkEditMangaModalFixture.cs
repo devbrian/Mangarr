@@ -39,7 +39,6 @@ public class BulkEditMangaModalFixture : AutomationTest
     }
 
     [Test]
-    [Explicit("GH #178 sub-A — EnhancedSelectInput dropdown click doesn't propagate React state change; fixture greens once #178-A ships")]
     public async Task bulk_save()
     {
         await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
@@ -93,21 +92,21 @@ public class BulkEditMangaModalFixture : AutomationTest
     }
 
     // EnhancedSelectInput with name="monitored" — open dropdown, pick "Monitored".
-    // debug-30 iter-2 (2026-05-16): EnhancedSelectInput renders its options
-    // inside <FloatingPortal id="portal-root"> (EnhancedSelectInput.tsx:457),
-    // which is a SIBLING of the modal dialog — NOT a child. Page-scoped
-    // GetByText("Monitored").First collides with the in-modal <FormLabel>
-    // "Monitored" (EditMangaModalContent.tsx:206), which is a non-interactive
-    // <label> — clicking it doesn't fire the EnhancedSelectInputOption
-    // handler. Scope to #portal-root so we only see actual option entries.
+    // gh178 sub-A (2026-05-16): the iter-2 portal-scoped selector collided
+    // with the in-modal <FormLabel>"Monitored" because Modal.tsx:23 ALSO
+    // mounts the modal itself into #portal-root (ReactDOM.createPortal),
+    // not just the dropdown's FloatingPortal. `.First` therefore picked the
+    // non-interactive <label>, not the option. Keyboard nav avoids the
+    // selector collision entirely: ArrowDown moves selectedIndex past the
+    // disabled NoChange (idx 0) to Monitored (idx 1), Enter calls
+    // handleSelect('monitored') (EnhancedSelectInput.tsx:330-334). Focus
+    // stays on the trigger <Link> button after ClickAsync, so handleKeyDown
+    // receives the key events.
     private static async Task FlipMonitoredAsync(ILocator modal)
     {
         var monitoredTrigger = modal.GetByText("No Change").First;
         await monitoredTrigger.ClickAsync();
-        var monitoredOption = modal.Page.Locator("#portal-root")
-            .GetByText("Monitored", new() { Exact = true })
-            .First;
-        await Assertions.Expect(monitoredOption).ToBeVisibleAsync(new() { Timeout = 5_000 });
-        await monitoredOption.ClickAsync();
+        await modal.Page.Keyboard.PressAsync("ArrowDown");
+        await modal.Page.Keyboard.PressAsync("Enter");
     }
 }

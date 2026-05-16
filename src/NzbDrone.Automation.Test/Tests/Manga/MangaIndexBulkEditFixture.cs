@@ -37,7 +37,6 @@ public class MangaIndexBulkEditFixture : AutomationTest
     }
 
     [Test]
-    [Explicit("GH #178 sub-A — EnhancedSelectInput dropdown click doesn't propagate React state change; fixture greens once #178-A ships")]
     public async Task bulk_edit()
     {
         await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
@@ -59,17 +58,18 @@ public class MangaIndexBulkEditFixture : AutomationTest
         // debug-30 (2026-05-16): EditMangaModalContent.save() short-circuits
         // when no field changed — no onSavePress → no PUT. Flip Monitored
         // to a non-NO_CHANGE value so the PUT actually fires.
-        // debug-30 iter-2 (2026-05-16): EnhancedSelectInput options render
-        // in <FloatingPortal id="portal-root"> (SIBLING of modal, not child).
-        // Scope to #portal-root to avoid colliding with the in-modal
-        // <FormLabel>"Monitored" (non-interactive — clicking it is a no-op).
+        // gh178 sub-A (2026-05-16): the iter-2 #portal-root scope collided
+        // with the in-modal <FormLabel>"Monitored" — Modal.tsx:23 mounts the
+        // modal itself into #portal-root (ReactDOM.createPortal), so the
+        // FormLabel and the dropdown option are siblings under #portal-root
+        // and `.First` picked the non-interactive <label>. Keyboard nav
+        // sidesteps the selector collision: ArrowDown past the disabled
+        // NoChange (idx 0) to Monitored (idx 1), Enter selects via
+        // EnhancedSelectInput.handleKeyDown (tsx:330-334).
         var monitoredTrigger = modal.GetByText("No Change").First;
         await monitoredTrigger.ClickAsync();
-        var monitoredOption = Page.Locator("#portal-root")
-            .GetByText("Monitored", new() { Exact = true })
-            .First;
-        await Assertions.Expect(monitoredOption).ToBeVisibleAsync(new() { Timeout = 5_000 });
-        await monitoredOption.ClickAsync();
+        await Page.Keyboard.PressAsync("ArrowDown");
+        await Page.Keyboard.PressAsync("Enter");
 
         // STATE assertion: clicking Save inside the dialog fires PUT /api/v5/manga/editor.
         var putTask = Page.WaitForResponseAsync(
