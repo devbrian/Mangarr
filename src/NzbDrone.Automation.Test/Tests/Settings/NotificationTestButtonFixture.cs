@@ -8,19 +8,21 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 
 /// <summary>
 /// Phase 18 Plan 18-18 — Notification Test button coverage (INVENTORY
-/// v5-endpoint row 109: POST /api/v5/notification/test).
+/// v5-endpoint row 109: POST /api/v5/connection/test).
 ///
 /// Navigates to /settings/connect. Fresh DB seed has no notifications
 /// configured, so this fixture asserts on the reachable surface (the
 /// "Add" / "+" button that opens the AddNotificationModal) rather than
-/// triggering an actual POST /api/v5/notification/test.
+/// triggering an actual POST /api/v5/connection/test.
 ///
 /// The full round-trip — add a Komga or Kavita notification (with fake
 /// host:port), click Test on the row, assert toast — requires a richer
 /// setup that conflicts with the per-fixture-DB isolation. This fixture
 /// asserts the empty-state contract: page loads + Add surface reachable,
 /// confirming the user has a path to wire a notification through the v5
-/// /api/v5/notification + /api/v5/notification/test endpoints.
+/// /api/v5/connection + /api/v5/connection/test endpoints (renamed from
+/// /api/v5/notification* in Phase 15 Plan 15-10; ConnectionController is
+/// the canonical resource — gh #168).
 ///
 /// No AddMangaFlow dependency — Settings/Connect operates on the
 /// notification registry. No #102 [Explicit] needed.
@@ -90,7 +92,7 @@ public class NotificationTestButtonFixture : AutomationTest
                 try
                 {
                     await Page.WaitForResponseAsync(
-                        resp => resp.Url.Contains("/api/v5/notification/test") && resp.Request.Method == "POST",
+                        resp => resp.Url.Contains("/api/v5/connection/test") && resp.Request.Method == "POST",
                         new PageWaitForResponseOptions { Timeout = 30_000 });
                 }
                 catch (PlaywrightException)
@@ -104,7 +106,7 @@ public class NotificationTestButtonFixture : AutomationTest
                 var testButtonBusy = await testButton.GetAttributeAsync("aria-busy");
 
                 (toastCount > 0 || testButtonBusy != "true")
-                    .Should().BeTrue("Notification Test must produce a toast OR return the button to idle (POST /api/v5/notification/test)");
+                    .Should().BeTrue("Notification Test must produce a toast OR return the button to idle (POST /api/v5/connection/test)");
             }
             else
             {
@@ -117,7 +119,7 @@ public class NotificationTestButtonFixture : AutomationTest
         else
         {
             // WR-04 (18-REVIEW): the empty-notifications branch never
-            // exercises the POST /api/v5/notification/test contract this
+            // exercises the POST /api/v5/connection/test contract this
             // fixture claims to cover (INVENTORY v5-endpoint row 109).
             // Verifying that the Add surface exists is a page-shell check,
             // not endpoint coverage. Surface the gap explicitly via
@@ -142,7 +144,7 @@ public class NotificationTestButtonFixture : AutomationTest
                 "Settings/Connect must expose the Connections FieldSet section for the user to wire their first notification (req NOTIFY-01/02)");
 
             Assert.Inconclusive(
-                "No Komga/Kavita notifications seeded — POST /api/v5/notification/test contract NOT exercised. " +
+                "No Komga/Kavita notifications seeded — POST /api/v5/connection/test contract NOT exercised. " +
                 "Mirror DEF-18-18-01: needs a seeded fake-host notification (TestKit hook) or [Explicit] gate. " +
                 "Page-shell precondition (Connections section visible) verified.");
         }
