@@ -71,6 +71,23 @@ public class MangaMissingLanguageFilterFixture : AutomationTest
     {
         await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
 
+        // PR #173 CI-fix (2026-05-15): the AddMangaFlow accepts modal defaults; the
+        // frontend `add_manga_options` zustand store starts at `translationProfileId: 0`
+        // (addMangaOptionsStore.ts:30) and the Add Manga modal does NOT auto-pick the
+        // first profile when the dropdown initializes. Backend
+        // AddMangaService.PrepareForAdd (line 267) writes the user-supplied value
+        // verbatim — so the seeded manga lands with TranslationProfileId=0 and the
+        // LANG-02 `BeGreaterThan(0)` assertion below fails. Assign the
+        // baseline-seeded default TranslationProfile to the manga via PUT before
+        // probing — this restores the "manga has a TP assigned" precondition the
+        // LANG-02 contract requires, without coupling to UI-side default-fill
+        // behavior. TranslationProfileService.Handle(ApplicationStartedEvent) seeds
+        // "English Only" as profile id 1 on first boot
+        // (TranslationProfileService.cs:92-112) — fetch the live list to be safe
+        // against future seed-id reshuffles.
+        var (mangaIdBefore, _, _) = await ResolveMangaContextAsync();
+        await AssignDefaultTranslationProfileAsync(mangaIdBefore);
+
         var (mangaId, chapterId, translationProfileId) = await ResolveMangaContextAsync();
 
         // Ensure at least one chapter is monitored so the missing list has a
@@ -140,13 +157,61 @@ public class MangaMissingLanguageFilterFixture : AutomationTest
         using var mangaDoc = JsonDocument.Parse(mangaJson);
         var manga = mangaDoc.RootElement[0];
         var mangaId = manga.GetProperty("id").GetInt32();
-        var translationProfileId = manga.GetProperty("translationProfileId").GetInt32();
+
+        // PR #173 CI-fix (2026-05-15): `translationProfileId` is `int?` on
+        // MangaResource (Mangarr.Api.V5/Manga/MangaResource.cs:38) — serializes as
+        // JSON null when unset. Bare GetInt32() throws on null tokens; defend with
+        // a 0 fallback so the AssignDefaultTranslationProfileAsync precondition
+        // path can detect the missing-profile state without an exception.
+        var tpElem = manga.GetProperty("translationProfileId");
+        var translationProfileId = tpElem.ValueKind == JsonValueKind.Null
+            ? 0
+            : tpElem.GetInt32();
 
         var chapterJson = await http.GetStringAsync($"{RootUri}/api/v5/chapter?mangaId={mangaId}");
         using var chapterDoc = JsonDocument.Parse(chapterJson);
         var chapterId = chapterDoc.RootElement[0].GetProperty("id").GetInt32();
 
         return (mangaId, chapterId, translationProfileId);
+    }
+
+    /// <summary>
+    /// PR #173 CI-fix (2026-05-15): force-assign the baseline-seeded default
+    /// TranslationProfile to a manga via PUT /api/v5/manga/{id}. The AddMangaFlow
+    /// accepts modal defaults; the frontend zustand store starts at
+    /// `translationProfileId: 0` and the Add Manga modal does NOT auto-pick the
+    /// first profile — so the seeded manga lands with TranslationProfileId=0.
+    /// LANG-02's `BeGreaterThan(0)` assertion needs a real profile id assigned.
+    ///
+    /// Resolves the first TranslationProfile via GET /api/v5/translationprofile
+    /// (TranslationProfileService.Handle(ApplicationStartedEvent) seeds
+    /// "English Only" on first boot — TranslationProfileService.cs:92-112).
+    /// </summary>
+    private async Task AssignDefaultTranslationProfileAsync(int mangaId)
+    {
+        using var http = new HttpClient();
+        http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
+
+        // Resolve the baseline-seeded default profile id from the live profile list.
+        var profilesJson = await http.GetStringAsync($"{RootUri}/api/v5/translationprofile");
+        using var profilesDoc = JsonDocument.Parse(profilesJson);
+        profilesDoc.RootElement.GetArrayLength().Should().BeGreaterThan(
+            0,
+            "TranslationProfileService.Handle(ApplicationStartedEvent) seeds at least one profile on first boot");
+        var defaultProfileId = profilesDoc.RootElement[0].GetProperty("id").GetInt32();
+
+        // PUT the manga back with translationProfileId assigned. MangaController.UpdateManga
+        // (Mangarr.Api.V5/Manga/MangaController.cs:158) expects the full MangaResource
+        // body shape — fetch + mutate the relevant field + PUT, mirroring
+        // SetChapterMonitoredAsync's pattern.
+        var mangaJson = await http.GetStringAsync($"{RootUri}/api/v5/manga/{mangaId}");
+        var mangaNode = JsonNode.Parse(mangaJson)!;
+        mangaNode["translationProfileId"] = defaultProfileId;
+
+        var content = new StringContent(mangaNode.ToJsonString(), Encoding.UTF8, "application/json");
+        var resp = await http.PutAsync($"{RootUri}/api/v5/manga/{mangaId}", content);
+        resp.IsSuccessStatusCode.Should().BeTrue(
+            $"PUT /api/v5/manga/{mangaId} (translationProfileId={defaultProfileId}) must succeed; got {(int)resp.StatusCode}");
     }
 
     /// <summary>
