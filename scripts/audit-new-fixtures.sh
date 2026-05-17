@@ -133,24 +133,72 @@ for src in $TOUCHED_SRC_CS; do
   basename "$src" .cs >> "$CANDIDATE_NAMES" || true
 done
 
-# Frontend: extract data-testid values + route literals
+# Frontend: extract data-testid values + route literals (PR #197 coderabbit
+# follow-up: original implementation only harvested testids despite the
+# docstring promising both. A Playwright fixture that navigates a touched
+# route but doesn't reference any testid from the touched file would slip
+# past bucket 4. Route-axis fixtures under Tests/Routes/*LoadFixture.cs are
+# the canonical case — they navigate to the route and assert the page
+# loads, with no testid grep-match to anchor scope discovery.)
 TESTID_LIST=$(mktemp)
+ROUTE_LIST=$(mktemp)
 for tsx in $TOUCHED_FRONTEND; do
   [ -f "$tsx" ] || continue
+  # Bucket 4a: data-testid values
   grep -oE "data-testid=['\"][^'\"]+['\"]" "$tsx" 2>/dev/null \
     | sed -E "s/data-testid=['\"]([^'\"]+)['\"]/\1/" >> "$TESTID_LIST" \
     || true
+  # Bucket 4b-i: literal route strings inside the touched file
+  #   path="/foo" / path='/foo'  (Route definitions)
+  grep -oE "path=['\"]/[^'\"]+['\"]" "$tsx" 2>/dev/null \
+    | sed -E "s/path=['\"]([^'\"]+)['\"]/\1/" >> "$ROUTE_LIST" || true
+  #   to="/foo" / to='/foo'  (Link / NavLink targets)
+  grep -oE "to=['\"]/[^'\"]+['\"]" "$tsx" 2>/dev/null \
+    | sed -E "s/to=['\"]([^'\"]+)['\"]/\1/" >> "$ROUTE_LIST" || true
+  #   to: '/foo'  (sidebar / config-object style)
+  grep -oE "to:[[:space:]]*['\"]/[^'\"]+['\"]" "$tsx" 2>/dev/null \
+    | sed -E "s/to:[[:space:]]*['\"]([^'\"]+)['\"]/\1/" >> "$ROUTE_LIST" || true
+  #   navigate('/foo') / push('/foo') / replace('/foo')  (programmatic)
+  grep -oE "(navigate|push|replace)\(['\"]/[^'\"]+['\"]" "$tsx" 2>/dev/null \
+    | sed -E "s/[a-zA-Z]+\(['\"]([^'\"]+)['\"]/\1/" >> "$ROUTE_LIST" || true
+
+  # Bucket 4b-ii: path-prefix derivation. The Sonarr/Mangarr frontend
+  # convention is that `frontend/src/<Segment>/<Name>.tsx` (top-level page
+  # component) is rendered at `/<segment>/<name>` (lowercased) via
+  # AppRoutes.tsx. Only top-level page components qualify — modal-content
+  # files like `frontend/src/Manga/Edit/EditMangaModalContent.tsx` live
+  # under deeper paths and are NOT navigation targets, so we skip them.
+  # The basename must match the parent dir name (Sonarr-canonical convention:
+  # the page component file is named after its containing directory, e.g.
+  # `Settings/Tags/Tags.tsx`, `Settings/Profiles/Quality/QualityProfile.tsx`).
+  case "$tsx" in
+    frontend/src/*/*/*.tsx)
+      # Three-segment match: frontend/src/<Top>/<Sub>/<File>.tsx
+      base=$(basename "$tsx" .tsx)
+      parent=$(dirname "$tsx" | xargs basename)
+      if [ "$base" = "$parent" ]; then
+        # File matches its containing dir name → top-level page component.
+        derived=$(echo "$tsx" | sed -E 's|^frontend/src/([^/]+)/([^/]+)/[^/]+\.tsx$|/\1/\2|' \
+                              | tr '[:upper:]' '[:lower:]')
+        if echo "$derived" | grep -qE '^/[a-z][a-z0-9-]{1,30}/[a-z][a-z0-9-]{1,30}$'; then
+          echo "$derived" >> "$ROUTE_LIST"
+        fi
+      fi
+      ;;
+  esac
 done
 
 # De-duplicate candidate names
 sort -u "$CANDIDATE_NAMES" -o "$CANDIDATE_NAMES"
 sort -u "$TESTID_LIST" -o "$TESTID_LIST"
+sort -u "$ROUTE_LIST" -o "$ROUTE_LIST"
 
 echo "==== Touched source files ===="
 echo "Backend .cs (non-test):  $(echo "$TOUCHED_SRC_CS" | grep -c . || echo 0)"
 echo "Frontend .ts/.tsx:        $(echo "$TOUCHED_FRONTEND" | grep -c . || echo 0)"
 echo "Candidate type-names:    $(wc -l < "$CANDIDATE_NAMES")"
 echo "Candidate testids:       $(wc -l < "$TESTID_LIST")"
+echo "Candidate routes:        $(wc -l < "$ROUTE_LIST")"
 echo ""
 
 # Find EXISTING fixtures referencing any candidate name or testid
@@ -184,6 +232,21 @@ if [ -s "$TESTID_LIST" ]; then
   for testid in $(cat "$TESTID_LIST"); do
     [ -z "$testid" ] && continue
     echo "$ALL_FIXTURES" | xargs grep -lF "$testid" 2>/dev/null >> "$FIXTURE_LIST" || true
+  done
+fi
+
+# Bucket 4b: route-grep — Playwright fixtures referencing any route literal
+# harvested from touched frontend files (PR #197 coderabbit follow-up).
+# Pulls in route-axis Tests/Routes/*LoadFixture.cs that navigate to a touched
+# component's route but don't grep-match by class or testid. Skips /api/*
+# paths (those are API URLs already covered by bucket 3's class-name grep).
+if [ -s "$ROUTE_LIST" ]; then
+  for route in $(cat "$ROUTE_LIST"); do
+    [ -z "$route" ] && continue
+    case "$route" in
+      /api/*) continue ;;
+    esac
+    echo "$ALL_FIXTURES" | xargs grep -lF "$route" 2>/dev/null >> "$FIXTURE_LIST" || true
   done
 fi
 
