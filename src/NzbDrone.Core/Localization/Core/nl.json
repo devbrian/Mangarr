@@ -292,8 +292,6 @@
   "RemoveSelectedItemsQueueMessageText": "Weet je zeker dat je {selectedCount} items van de wachtrij wilt verwijderen?",
   "RssSync": "RSS Sync",
   "TagDetails": "Tagdetails - {label}",
-  "TorrentDelayTime": "Torrent-vertraging: {torrentDelay}",
   "UpdateMechanismHelpText": "Gebruik de ingebouwde updater van {appName} of een script",
-  "UsenetDelayTime": "Usenet-vertraging: {usenetDelay}",
   "WouldYouLikeToRestoreBackup": "Wilt u de back-up {name} herstellen?"
 }
