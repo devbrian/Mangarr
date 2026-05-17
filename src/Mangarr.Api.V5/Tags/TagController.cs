@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Tags;
+using NzbDrone.Core.Validation;
 using NzbDrone.SignalR;
 
 namespace Mangarr.Api.V5.Tags;
@@ -21,12 +22,15 @@ public class TagController : RestControllerWithSignalR<TagResource, Tag>,
                              IHandle<TagsUpdatedEvent>
 {
     private readonly ITagService _tagService;
+    private readonly TagInUseValidator _tagInUseValidator;
 
     public TagController(IBroadcastSignalRMessage signalRBroadcaster,
-        ITagService tagService)
+        ITagService tagService,
+        TagInUseValidator tagInUseValidator)
         : base(signalRBroadcaster)
     {
         _tagService = tagService;
+        _tagInUseValidator = tagInUseValidator;
 
         SharedValidator.RuleFor(c => c.Label).Cascade(CascadeMode.Stop)
             .NotEmpty()
@@ -64,6 +68,17 @@ public class TagController : RestControllerWithSignalR<TagResource, Tag>,
     [RestDeleteById]
     public NoContent DeleteTag(int id)
     {
+        // Phase 22 D-02 — Mangarr divergence: validate DELETE against InUse via FluentValidation
+        // (defense-in-depth on top of TagService.Delete()'s ModelConflictException throw).
+        // RestController base does NOT run a DeleteValidator — OnActionExecuting only validates
+        // on POST/PUT per RestController.cs:74-125; explicit pre-check is the only wiring.
+        var tag = _tagService.GetTag(id);
+        var validation = _tagInUseValidator.Validate(tag);
+        if (!validation.IsValid)
+        {
+            throw new ValidationException(validation.Errors);
+        }
+
         _tagService.Delete(id);
 
         return TypedResults.NoContent();
