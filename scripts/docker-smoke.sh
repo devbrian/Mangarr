@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 # scripts/docker-smoke.sh — Phase 21 D-04 layer 2 per-arch boot-smoke gate.
 #
-# Purpose : `docker run` the runtime image, poll /api/v5/system/status until
-#           HTTP 200, defensive-shape-check the JSON body for a `version` key,
+# Purpose : `docker run` the runtime image, poll /ping (the AllowAnonymous
+#           Sonarr-inherited health endpoint at Mangarr.Http/Ping/PingController.cs)
+#           until HTTP 200, defensive-shape-check the body for the `OK` token,
 #           then SIGTERM the container with grace. Catches startup regressions
 #           (missing native deps, broken DI bootstrap, port-binding failures)
-#           BEFORE the image gets pushed to GHCR.
+#           BEFORE the image gets pushed to GHCR. Earlier draft polled
+#           /api/v5/system/status, but that's auth-protected; on a freshly-
+#           created /config the ApiKeyAuthenticationHandler challenges the
+#           unauthenticated request → HTTP 401 → smoke loop never gets 200
+#           (caught in v1.0.0 deploy run 25980833591 boot-smoke step).
 # Usage   : scripts/docker-smoke.sh --image <ref>
 #           e.g. scripts/docker-smoke.sh --image ghcr.io/devbrian/mangarr:1.0.0.42
 # Invoked : (a) CI step in .github/workflows/deploy.yml (Phase 21 Plan 21-04), per arch.
@@ -37,12 +42,12 @@ trap cleanup EXIT
 echo "[smoke] Starting $IMAGE as $CONTAINER on port $PORT..."
 docker run -d --name "$CONTAINER" -p "${PORT}:8989" "$IMAGE"
 
-echo "[smoke] Waiting for /api/v5/system/status (bounded — 30 attempts x 2s = 60s ceiling)..."
+echo "[smoke] Waiting for /ping (bounded — 30 attempts x 2s = 60s ceiling)..."
 # Bounded for-loop per CLAUDE.md user-memory feedback_bash_until_loop_pitfall.md.
 # NEVER unbounded poller loops — they orphan to PID 1 if the test never satisfies.
 OK=0
 for i in $(seq 1 30); do
-  if curl -fsS "http://localhost:${PORT}/api/v5/system/status" >/dev/null 2>&1; then
+  if curl -fsS "http://localhost:${PORT}/ping" >/dev/null 2>&1; then
     echo "[smoke] HTTP 200 received at attempt $i"
     OK=1
     break
@@ -56,12 +61,12 @@ if [[ "$OK" -ne 1 ]]; then
   exit 1
 fi
 
-# Defensive shape check — Sonarr-era /api/v5/system/status always returns a JSON
-# object carrying a `version` key. A 200 with the wrong shape would mean the
-# reverse proxy / middleware answered instead of the Mangarr backend.
-BODY=$(curl -fsS "http://localhost:${PORT}/api/v5/system/status")
-if ! echo "$BODY" | grep -q '"version"'; then
-  echo "[smoke] FATAL: response shape missing 'version' key" >&2
+# Defensive shape check — Sonarr's PingController.Get returns a JSON object
+# `{"status":"OK"}` on a successful boot. A 200 with the wrong shape would
+# mean a reverse proxy / middleware answered instead of the Mangarr backend.
+BODY=$(curl -fsS "http://localhost:${PORT}/ping")
+if ! echo "$BODY" | grep -q '"OK"'; then
+  echo "[smoke] FATAL: /ping response shape missing 'OK' token" >&2
   echo "$BODY" >&2
   exit 1
 fi
