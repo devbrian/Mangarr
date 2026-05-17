@@ -104,6 +104,16 @@ jobs:
           name: build-linux-arm64
           path: _output/linux-arm64
 
+      # The `frontend` job (build_v5.yml:127-131) builds the SPA via yarn build and
+      # uploads as the `build_ui` artifact. The runtime image needs it baked in or
+      # `/` returns 404 (only `/api/v5/*` endpoints work). Phase 21 local end-to-end
+      # smoke caught this when /initialize.json returned 200 but `/` returned 404.
+      - name: Download frontend SPA artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: build_ui
+          path: _output/UI
+
       # Q-3 Pattern A — QEMU multi-arch via buildx on a single ubuntu-latest runner.
       # Native arm64 runner (ubuntu-24.04-arm Pattern B) is a v1.x optimization.
       - name: Set up QEMU

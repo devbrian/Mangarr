@@ -75,10 +75,13 @@ distribution/docker-build/_artifacts/
 
 # ─── Output that is NOT the per-arch published artifacts ───
 # _output/ wholesale-excluded; the Dockerfile COPYs _output/linux-${TARGETARCH}/
-# explicitly, which buildx honors as an exception to this ignore.
+# AND _output/UI/ explicitly, so both must be re-included as exceptions. Without
+# the UI re-include the buildx context filter silently drops the SPA bundle and
+# the Dockerfile COPY fails with "failed to compute cache key ... not found".
 _output/
 !_output/linux-amd64/
 !_output/linux-arm64/
+!_output/UI/
 
 # ─── Misc transient ───
 *.log

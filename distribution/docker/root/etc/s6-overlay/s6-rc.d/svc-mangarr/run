@@ -1,9 +1,18 @@
 #!/command/with-contenv bash
 # Sonarr divergence: Mangarr's first runtime image; no Sonarr peer s6-overlay script exists. Phase 21 D-01 + RESEARCH Lock #7 reference.
 #
-# svc-mangarr longrun service. Boots Mangarr.Console.dll under the "abc" user
-# (created by init-mangarr-config oneshot from PUID/PGID env vars per
-# hotio/linuxserver convention — RESEARCH Lock #8).
+# svc-mangarr longrun service. Boots the Mangarr self-contained native host
+# under the "abc" user (created by init-mangarr-config oneshot from PUID/PGID
+# env vars per hotio/linuxserver convention — RESEARCH Lock #8).
+#
+# IMPORTANT — execution model:
+# CI publishes with `-p:SelfContained=true` (.github/actions/build/action.yml:98).
+# That means the published bits include their own .NET runtime; the entrypoint
+# is the native ELF host binary `/app/Mangarr` (which AssemblyName='Mangarr'
+# from src/NzbDrone.Console/Mangarr.Console.csproj resolves to). Invoking via
+# `dotnet /app/Mangarr.dll` would FAIL with `You must install or update .NET
+# to run this application` because the runtime stage installs no .NET runtime
+# system-wide.
 #
 # IMPORTANT (Lock #7 caveat): v3 shebang is /command/with-contenv NOT
 # /usr/bin/with-contenv. The legacy v2 path won't exist in s6-overlay v3
@@ -18,7 +27,7 @@ PORT="${WEBUI_PORTS%/tcp}"
 PORT="${PORT:-8989}"
 
 exec s6-setuidgid abc \
-  /usr/bin/dotnet /app/Mangarr.Console.dll \
+  /app/Mangarr \
     --data=/config \
     --no-browser \
     --port="${PORT}"

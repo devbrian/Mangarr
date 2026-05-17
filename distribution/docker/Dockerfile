@@ -150,6 +150,16 @@ COPY --from=chromium-builder /opt/mangarr-chromium /opt/mangarr-chromium
 # scripts/docker-smoke.sh which exercises the published image.
 COPY _output/linux-${TARGETARCH}/ /app/
 
+# Copy the frontend SPA bundle. The CI `frontend` job builds via `yarn build`
+# into `_output/UI/` and uploads as the `build_ui` artifact (separate from the
+# per-arch backend artifacts). deploy.yml's docker_publish job downloads it
+# alongside the backend artifact BEFORE invoking docker/build-push-action@v6.
+# Mangarr serves the SPA from `{StartUpFolder}/{UiFolder}/index.html`; with
+# StartUpFolder=/app and the default UiFolder=UI, that resolves to /app/UI/.
+# Without this COPY, /api/v5 endpoints return 200 but `/` returns 404 because
+# the SPA isn't on disk — surfaced during local end-to-end smoke of Phase 21.
+COPY _output/UI/ /app/UI/
+
 # Copy the s6-overlay v3 service-script tree (Task 2 + Task 3 of this plan).
 COPY distribution/docker/root/ /
 

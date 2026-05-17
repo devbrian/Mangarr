@@ -1,32 +1,7 @@
-#!/command/with-contenv bash
-# Sonarr divergence: Mangarr's first runtime image; hotio-convention PUID/PGID/UMASK init. Phase 21 RESEARCH Lock #8 reference.
-#
-# init-mangarr-config oneshot — runs ONCE per container boot, BEFORE svc-mangarr
-# starts (ordering declared by ../svc-mangarr/dependencies.d/init-mangarr-config).
-#
-# Responsibilities (RESEARCH Lock #8 + hotio convention):
-#   1. Create / reconcile the "abc" service user with the operator-supplied
-#      PUID + PGID (defaults 1000:1000). Both branches idempotent — survives
-#      container restart with the same env vars.
-#   2. Apply the operator-supplied UMASK to inherited file modes.
-#   3. Chown /config (Mangarr config + DB volume) and /data (manga library
-#      volume) to abc:abc so the longrun can read/write them as a non-root user.
-#
-# Synchronous chown only; NO unbounded poll loops (per CLAUDE.md user-memory
-# feedback_bash_until_loop_pitfall.md — orphans to PID 1).
-
-set -e
-
-# 1. User + group reconciliation (idempotent)
-groupadd -g "${PGID:-1000}" abc 2>/dev/null || groupmod -g "${PGID:-1000}" abc
-useradd -u "${PUID:-1000}" -g abc -d /config -s /usr/sbin/nologin abc 2>/dev/null \
-  || usermod -u "${PUID:-1000}" -g abc abc
-
-# 2. UMASK propagation
-umask "${UMASK:-002}"
-
-# 3. Volume ownership flip (/config + /data per Lock #8)
-mkdir -p /config /data
-chown -R abc:abc /config /data
-
-echo "[init-mangarr-config] PUID=${PUID:-1000} PGID=${PGID:-1000} UMASK=${UMASK:-002} applied; /config + /data owned by abc:abc"
+# Sonarr divergence: s6-overlay v3 oneshot `up` files are execlineb (each line a separate
+# exec call); the bash logic lives at /etc/s6-overlay/scripts/init-mangarr-config and is
+# dispatched via /command/with-contenv (which sources env from /var/run/s6/container_environment
+# then execs the rest). Pattern verified against linuxserver + hotio s6-overlay v3 images.
+# Locally we caught the prior `set -e`-in-up bug as "unable to exec set: No such file or directory"
+# (exit 127) during smoke-test of the built mangarr:local-test image.
+/command/with-contenv bash /etc/s6-overlay/scripts/init-mangarr-config
