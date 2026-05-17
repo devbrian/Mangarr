@@ -58,32 +58,11 @@ public class DelayProfileNoUsenetTorrentInputsFixture : AutomationTest
             0,
             "Settings/Profiles must expose the Delay Profiles FieldSet section for DP-03 / DP-05");
 
-        // Open the Add Delay Profile modal by evaluating page JS that
-        // clicks the add icon-button inside the fieldset whose legend
-        // reads "Delay Profiles". This avoids fragile cross-version
-        // Locator filter API differences (Microsoft.Playwright 1.59
-        // exposes `LocatorFilterOptions.Has` but the pattern is not
-        // exercised elsewhere in this test suite, so we keep to the
-        // established DOM-query idiom by using `EvaluateAsync` to walk
-        // the legend -> parent fieldset -> first .plus svg's closest
-        // clickable ancestor). The add control is a Link/Button
-        // rendered via `<Icon name={icons.ADD}>` which FontAwesome
-        // renders as `<svg data-icon='plus'>` per the
-        // CustomFormatExportImportFixture.cs:106 comment.
-        await Page.EvaluateAsync(@"
-            (() => {
-                const legends = Array.from(document.querySelectorAll('legend'));
-                const target = legends.find(l => l.textContent && l.textContent.trim() === 'Delay Profiles');
-                if (!target) throw new Error('Delay Profiles legend not found');
-                const fieldset = target.closest('fieldset');
-                if (!fieldset) throw new Error('No parent fieldset for Delay Profiles legend');
-                const plus = fieldset.querySelector('svg[data-icon=""plus""]');
-                if (!plus) throw new Error('No plus svg inside Delay Profiles fieldset');
-                const clickable = plus.closest('a, button');
-                if (!clickable) throw new Error('No clickable ancestor for the plus svg');
-                clickable.click();
-            })();
-        ");
+        // Open the Add Delay Profile modal via the canonical
+        // `data-testid` selector (Phase 18 D-18 + CodeRabbit PR #198
+        // finding 3255666020). `DelayProfiles.tsx` annotates the Add
+        // Link with `data-testid="settings-add-delay-profile"`.
+        await Page.GetByTestId("settings-add-delay-profile").ClickAsync();
 
         // Wait for the modal to mount. The modal body renders a form
         // with the httpDelay input — use that as the readiness signal

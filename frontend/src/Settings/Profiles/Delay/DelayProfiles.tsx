@@ -164,6 +164,7 @@ function DelayProfiles() {
         <div className={styles.addDelayProfile}>
           <Link
             className={styles.addButton}
+            data-testid="settings-add-delay-profile"
             onPress={handleAddDelayProfilePress}
           >
             <Icon name={icons.ADD} />

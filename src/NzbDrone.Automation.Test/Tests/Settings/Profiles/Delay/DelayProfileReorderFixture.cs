@@ -12,9 +12,12 @@ namespace NzbDrone.Automation.Test.Tests.Settings.Profiles.Delay;
 /// Phase 23 Plan 23-02 — DelayProfile PUT /reorder fixture. Greens INVENTORY
 /// v5-endpoint row `PUT /api/v5/delayprofile/reorder/{id} | Settings/Profiles Delay drag-reorder`.
 ///
-/// Creates two non-default profiles (A then B), then PUT /reorder/{B.id}?after={A.id}
-/// — verifies A.Order &lt; B.Order in the response list (state-not-rendering: assert
-/// the SPECIFIC Order sequence, not just "list returned 200").
+/// Creates two non-default profiles in insertion order (A then B), captures
+/// pre-reorder Order values, then PUT /reorder/{A.id}?after={B.id} — moving A
+/// AFTER B (opposite of natural insertion order). Asserts BOTH that the new
+/// state matches the requested shape (B precedes A) AND that the underlying
+/// Order values actually changed vs pre-reorder — so a no-op API implementation
+/// cannot pass this test (CodeRabbit PR #198 finding 3255666023).
 ///
 /// The default profile (Id=1) carries Order=int.MaxValue per the Pattern S4
 /// seeder and is excluded from reorder math (DelayProfileService.Reorder line
@@ -41,9 +44,18 @@ public class DelayProfileReorderFixture : AutomationTest
         var idA = await Create(apiBase, 5, tagA);
         var idB = await Create(apiBase, 7, tagB);
 
-        // PUT /reorder/{idB}?after={idA} — moves B to right after A.
+        // Capture pre-reorder Order values — A was inserted before B so naturally A.Order < B.Order.
+        var preOrder = await ReadOrders(apiBase);
+        preOrder.Should().ContainKey(idA);
+        preOrder.Should().ContainKey(idB);
+        preOrder[idA].Should().BeLessThan(preOrder[idB],
+            "sanity: insertion order is A then B, so A.Order < B.Order before reorder");
+
+        // PUT /reorder/{idA}?after={idB} — moves A AFTER B (flips the natural order).
+        // This is the key test: a no-op API would leave A.Order < B.Order; a working
+        // API must produce A.Order > B.Order.
         var reorderResp = await Page.APIRequest.PutAsync(
-            $"{apiBase}/reorder/{idB}?after={idA}",
+            $"{apiBase}/reorder/{idA}?after={idB}",
             new APIRequestContextOptions { DataObject = new { } });
 
         reorderResp.Status.Should().BeInRange(
@@ -51,7 +63,22 @@ public class DelayProfileReorderFixture : AutomationTest
             299,
             $"PUT /reorder should succeed; body: {await reorderResp.TextAsync()}");
 
-        // Read back the ordered list and verify A precedes B (Order ascending).
+        // Read back the ordered list and verify the reorder actually flipped the sequence
+        // AND that the Order values genuinely changed (catches no-op API).
+        var postOrder = await ReadOrders(apiBase);
+        postOrder.Should().ContainKey(idA);
+        postOrder.Should().ContainKey(idB);
+
+        postOrder[idB].Should().BeLessThan(postOrder[idA],
+            "PUT /reorder/{idA}?after={idB} must place B.Order strictly before A.Order");
+
+        (postOrder[idA] != preOrder[idA] || postOrder[idB] != preOrder[idB])
+            .Should().BeTrue(
+                "at least one Order value must change post-reorder; a no-op API would leave both unchanged");
+    }
+
+    private async Task<Dictionary<int, int>> ReadOrders(string apiBase)
+    {
         var listResp = await Page.APIRequest.GetAsync(apiBase);
         listResp.Status.Should().Be(200);
         var orderByEntry = new Dictionary<int, int>();
@@ -62,10 +89,7 @@ public class DelayProfileReorderFixture : AutomationTest
             orderByEntry[id] = order;
         }
 
-        orderByEntry.Should().ContainKey(idA);
-        orderByEntry.Should().ContainKey(idB);
-        orderByEntry[idA].Should().BeLessThan(orderByEntry[idB],
-            "PUT /reorder/{idB}?after={idA} must place A.Order strictly before B.Order");
+        return orderByEntry;
     }
 
     private async Task<int> Create(string apiBase, int httpDelay, int tagId)
