@@ -143,25 +143,9 @@ function TagDetailsModalContent({
         {delayProfiles.length ? (
           <FieldSet legend={translate('DelayProfile')}>
             {delayProfiles.map((item) => {
-              const {
-                id,
-                preferredProtocol,
-                enableUsenet,
-                enableTorrent,
-                usenetDelay,
-                torrentDelay,
-              } = item;
+              const { id, httpDelay } = item;
 
-              return (
-                <TagDetailsDelayProfile
-                  key={id}
-                  preferredProtocol={preferredProtocol}
-                  enableUsenet={enableUsenet}
-                  enableTorrent={enableTorrent}
-                  usenetDelay={usenetDelay}
-                  torrentDelay={torrentDelay}
-                />
-              );
+              return <TagDetailsDelayProfile key={id} httpDelay={httpDelay} />;
             })}
           </FieldSet>
         ) : null}

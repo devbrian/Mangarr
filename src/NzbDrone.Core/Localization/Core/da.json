@@ -110,10 +110,8 @@
   "TestAllIndexers": "Afprøv alle indeks",
   "TestAllLists": "Afprøv alle lister",
   "TheLogLevelDefault": "Logniveauet er som standard 'Info' og kan ændres under [Generelle indstillinger](/settings/general)",
-  "TorrentDelayTime": "Torrentforsinkelse: {torrentDelay}",
   "Unknown": "Ukendt",
   "UpdateMechanismHelpText": "Brug {appName}s indbyggede opdateringsfunktion eller et script",
   "Usenet": "Usenet",
-  "UsenetDelayTime": "Usenet-forsinkelse: {usenetDelay}",
   "WouldYouLikeToRestoreBackup": "Vil du gendanne sikkerhedskopien »{name}«?"
 }

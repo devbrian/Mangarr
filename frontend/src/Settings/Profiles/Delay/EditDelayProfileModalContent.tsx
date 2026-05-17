@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { createSelector } from 'reselect';
 import AppState from 'App/State/AppState';
@@ -7,7 +7,6 @@ import Form from 'Components/Form/Form';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
-import { EnhancedSelectInputValue } from 'Components/Form/Select/EnhancedSelectInput';
 import Button from 'Components/Link/Button';
 import SpinnerErrorButton from 'Components/Link/SpinnerErrorButton';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
@@ -27,48 +26,22 @@ import { InputChanged } from 'typings/inputs';
 import translate from 'Utilities/String/translate';
 import styles from './EditDelayProfileModalContent.css';
 
+// Phase 23 D-04 + D-12 — PreferredProtocol stays on entity/Resource/typing
+// (forward-compatible with future DownloadProtocol.Direct / .Scraper). The
+// dropdown is hidden in the UI today because Mangarr only ships a single
+// HTTP protocol; the field is set to 'http' server-side via the seed and
+// round-trips through this modal unchanged.
 const newDelayProfile: DelayProfile & { [key: string]: unknown } = {
   id: 0,
   name: '',
   order: 0,
-  enableUsenet: true,
-  enableTorrent: true,
-  preferredProtocol: 'usenet',
-  usenetDelay: 0,
-  torrentDelay: 0,
+  preferredProtocol: 'http',
   httpDelay: 0,
   bypassIfHighestQuality: false,
   bypassIfAboveCustomFormatScore: false,
   minimumCustomFormatScore: 0,
   tags: [],
 };
-
-const protocolOptions: EnhancedSelectInputValue<string>[] = [
-  {
-    key: 'preferUsenet',
-    get value() {
-      return translate('PreferUsenet');
-    },
-  },
-  {
-    key: 'preferTorrent',
-    get value() {
-      return translate('PreferTorrent');
-    },
-  },
-  {
-    key: 'onlyUsenet',
-    get value() {
-      return translate('OnlyUsenet');
-    },
-  },
-  {
-    key: 'onlyTorrent',
-    get value() {
-      return translate('OnlyTorrent');
-    },
-  },
-];
 
 function createDelayProfileSelector(id: number | undefined) {
   return createSelector(
@@ -115,11 +88,6 @@ function EditDelayProfileModalContent({
   );
 
   const {
-    enableUsenet,
-    enableTorrent,
-    preferredProtocol,
-    usenetDelay,
-    torrentDelay,
     httpDelay,
     bypassIfHighestQuality,
     bypassIfAboveCustomFormatScore,
@@ -127,81 +95,12 @@ function EditDelayProfileModalContent({
     tags,
   } = item;
 
-  const protocol = useMemo(() => {
-    if (!enableUsenet.value) {
-      return 'onlyTorrent';
-    } else if (!enableTorrent.value) {
-      return 'onlyUsenet';
-    }
-
-    return preferredProtocol.value === 'usenet'
-      ? 'preferUsenet'
-      : 'preferTorrent';
-  }, [enableUsenet, enableTorrent, preferredProtocol]);
-
   const wasSaving = usePrevious(isSaving);
 
   const onInputChange = useCallback(
     ({ name, value }: InputChanged) => {
       // @ts-expect-error - actions are not typed
       dispatch(setDelayProfileValue({ name, value }));
-    },
-    [dispatch]
-  );
-
-  const onProtocolChange = useCallback(
-    ({ value }: InputChanged) => {
-      let enableUsenet = false;
-      let enableTorrent = false;
-      let preferredProtocol: 'usenet' | 'torrent' = 'usenet';
-
-      switch (value) {
-        case 'preferUsenet':
-          enableUsenet = true;
-          enableTorrent = true;
-          preferredProtocol = 'usenet';
-
-          break;
-        case 'preferTorrent':
-          enableUsenet = true;
-          enableTorrent = true;
-          preferredProtocol = 'torrent';
-
-          break;
-        case 'onlyUsenet':
-          enableUsenet = true;
-          enableTorrent = false;
-          preferredProtocol = 'usenet';
-
-          break;
-        case 'onlyTorrent':
-          enableUsenet = false;
-          enableTorrent = true;
-          preferredProtocol = 'torrent';
-
-          break;
-        default:
-          throw Error(`Unknown protocol option: ${value}`);
-      }
-
-      dispatch(
-        // @ts-expect-error - actions are not typed
-        setDelayProfileValue({ name: 'enableUsenet', value: enableUsenet })
-      );
-      dispatch(
-        // @ts-expect-error - actions are not typed
-        setDelayProfileValue({
-          name: 'enableTorrent',
-          value: enableTorrent,
-        })
-      );
-      dispatch(
-        // @ts-expect-error - actions are not typed
-        setDelayProfileValue({
-          name: 'preferredProtocol',
-          value: preferredProtocol,
-        })
-      );
     },
     [dispatch]
   );
@@ -249,49 +148,6 @@ function EditDelayProfileModalContent({
 
         {!isFetching && !error ? (
           <Form {...otherProps}>
-            <FormGroup>
-              <FormLabel>{translate('PreferredProtocol')}</FormLabel>
-
-              <FormInputGroup
-                type={inputTypes.SELECT}
-                name="protocol"
-                value={protocol}
-                values={protocolOptions}
-                helpText={translate('ProtocolHelpText')}
-                onChange={onProtocolChange}
-              />
-            </FormGroup>
-
-            {enableUsenet.value ? (
-              <FormGroup>
-                <FormLabel>{translate('UsenetDelay')}</FormLabel>
-
-                <FormInputGroup
-                  type={inputTypes.NUMBER}
-                  name="usenetDelay"
-                  unit="minutes"
-                  {...usenetDelay}
-                  helpText={translate('UsenetDelayHelpText')}
-                  onChange={onInputChange}
-                />
-              </FormGroup>
-            ) : null}
-
-            {enableTorrent.value ? (
-              <FormGroup>
-                <FormLabel>{translate('TorrentDelay')}</FormLabel>
-
-                <FormInputGroup
-                  type={inputTypes.NUMBER}
-                  name="torrentDelay"
-                  unit="minutes"
-                  {...torrentDelay}
-                  helpText={translate('TorrentDelayHelpText')}
-                  onChange={onInputChange}
-                />
-              </FormGroup>
-            ) : null}
-
             <FormGroup>
               <FormLabel>{translate('HttpDelay')}</FormLabel>
 

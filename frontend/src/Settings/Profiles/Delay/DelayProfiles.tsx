@@ -126,11 +126,7 @@ function DelayProfiles() {
         >
           <div>
             <div className={styles.delayProfilesHeader}>
-              <div className={styles.column}>
-                {translate('PreferredProtocol')}
-              </div>
-              <div className={styles.column}>{translate('UsenetDelay')}</div>
-              <div className={styles.column}>{translate('TorrentDelay')}</div>
+              <div className={styles.column}>{translate('HttpDelay')}</div>
               <div className={styles.tags}>{translate('Tags')}</div>
             </div>
 
