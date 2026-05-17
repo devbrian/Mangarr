@@ -359,3 +359,21 @@ This project uses **GSD** (`/gsd-*` commands) for structured planning. The singl
 **Per-phase workflow:** `/gsd-discuss-phase N` → `/gsd-plan-phase N` → `/gsd-execute-phase N` → `/gsd-verify-work N` → **sonarr-consistency-audit** → `/gsd-extract-learnings`. Or `/gsd-progress` for the unified situational command.
 
 The **sonarr-consistency-audit** step is mandatory before declaring a phase complete (see [.claude/skills/sonarr-consistency-audit/SKILL.md](./.claude/skills/sonarr-consistency-audit/SKILL.md)). It catches the class of bug where phase code diverges from Mangarr's canonical pattern AND its accompanying tests verify the divergent code — so "tests green" silently masks the divergence. Phase 2's `RefreshMangaCommand` migration-seed-vs-`TaskManager.defaultTasks` issue was the prompt for this skill. Run it on any phase that touches inherited Mangarr code (most do).
+
+### Mandatory smoke gate before phase verification (Phase 23 retro 2026-05-17)
+
+**Phase 20/22/23 retros each surfaced the same failure mode:** the orchestrator declares phase complete while the unit suite + `audit-new-fixtures.sh` fixture-execution gate have never been run live. Phase 20 had 9 fixture failures + 1 production bug surface in CI. Phase 22 had 3 newly-authored fixtures never run live. Phase 23 deferred both with a "CI handles this" rationale that the skill explicitly forbids.
+
+**Textual exhortation in skill bodies did not prevent this twice in a row.** Mechanical enforcement now:
+
+1. After all phase plans merge and BEFORE invoking `/gsd-verify-work N` or opening the PR, ALWAYS run:
+   ```bash
+   bash scripts/phase-smoke-gate.sh N
+   ```
+   The script runs the Playwright-provisioned check + port 8989 free check + full unit suite via `scripts/test.sh Windows Unit Test` + `scripts/audit-new-fixtures.sh`. It writes `.planning/phases/N-*/SMOKE-GATE.json` with `{ passed: bool, failure_reasons: [...], unit_suite: {...}, fixture_gate: {...}, ... }`. It exits non-zero on any failure.
+
+2. **The gsd-verifier subagent MUST read `.planning/phases/N-*/SMOKE-GATE.json`** before producing its VERIFICATION.md verdict. If the JSON is missing OR `passed` is `false`, the verdict is hard-coded to **FAIL** regardless of other findings. The verifier emits the failure reasons verbatim in the VERIFICATION.md so the user can see *which* gate failed.
+
+3. **Do NOT defer either gate.** The "lands in CI" / "executor in worktree deferred this" / "build is the proxy" rationales are explicitly forbidden per Phase 20/22/23 retros. The orchestrator runs from the main repo where Playwright IS provisioned (`_tests/net10.0/playwright.ps1`), port 8989 IS host-controllable, and the full toolchain IS installed. These are not the worktree-executor's constraints.
+
+4. **The smoke PLAN.md is a RECORD of what the gate proved, not a PLAN of what might run.** Pre-marking Tasks 1 or 2.5 as `DEFERRED` in the smoke PLAN.md is the exact anti-pattern this rule prevents. Worktree-executor SUMMARY.md files MAY document deferrals (those executors lack Playwright MCP), but the orchestrator-run phase smoke MUST execute them.
