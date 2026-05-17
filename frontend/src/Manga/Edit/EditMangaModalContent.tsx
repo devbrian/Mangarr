@@ -375,12 +375,21 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
             <FormGroup size={sizes.MEDIUM}>
               <FormLabel>{translate('Tags')}</FormLabel>
 
-              <FormInputGroup
-                type={inputTypes.TAG}
-                name="tags"
-                {...tags}
-                onChange={handleInputChange}
-              />
+              {/* Phase 22 Plan 22-06 Task 4 — stable testid container for the
+                  Tags select. Wraps the FormInputGroup so the Playwright
+                  Page.GetByTestId('edit-manga-modal-tags-select') locator
+                  resolves to the entire tag input region (input + dropdown
+                  options render under this container). Follows the v1.1
+                  data-testid-spec.md §"v1.1 Tag-Vertical Selectors" naming
+                  convention `edit-manga-modal-tags-{element}`. */}
+              <div data-testid="edit-manga-modal-tags-select">
+                <FormInputGroup
+                  type={inputTypes.TAG}
+                  name="tags"
+                  {...tags}
+                  onChange={handleInputChange}
+                />
+              </div>
             </FormGroup>
           </Form>
         </div>
