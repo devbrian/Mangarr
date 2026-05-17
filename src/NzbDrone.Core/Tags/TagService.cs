@@ -112,7 +112,7 @@ namespace NzbDrone.Core.Tags
             var notifications = _notificationFactory.All();
             var releaseProfiles = _releaseProfileService.All();
             var excludedReleaseProfiles = _releaseProfileService.All();
-            var manga = _mangaService.AllForTag(0); // empty filter — All() not currently exposed for manga tags
+            var manga = _mangaService.GetAllManga();
             var indexers = _indexerService.All();
             var downloadClients = _downloadClientFactory.All();
 
@@ -128,7 +128,7 @@ namespace NzbDrone.Core.Tags
                     NotificationIds = notifications.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
                     RestrictionIds = releaseProfiles.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
                     ExcludedReleaseProfileIds = excludedReleaseProfiles.Where(c => c.ExcludedTags.Contains(tag.Id)).Select(c => c.Id).ToList(),
-                    MangaIds = _mangaService.AllForTag(tag.Id).Select(c => c.Id).ToList(),
+                    MangaIds = manga.Where(m => m.Tags != null && m.Tags.Contains(tag.Id)).Select(m => m.Id).ToList(),
                     IndexerIds = indexers.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
                     DownloadClientIds = downloadClients.Where(c => c.Tags.Contains(tag.Id)).Select(c => c.Id).ToList(),
                 });
