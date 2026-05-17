@@ -1,0 +1,24 @@
+#!/command/with-contenv bash
+# Sonarr divergence: Mangarr's first runtime image; no Sonarr peer s6-overlay script exists. Phase 21 D-01 + RESEARCH Lock #7 reference.
+#
+# svc-mangarr longrun service. Boots Mangarr.Console.dll under the "abc" user
+# (created by init-mangarr-config oneshot from PUID/PGID env vars per
+# hotio/linuxserver convention — RESEARCH Lock #8).
+#
+# IMPORTANT (Lock #7 caveat): v3 shebang is /command/with-contenv NOT
+# /usr/bin/with-contenv. The legacy v2 path won't exist in s6-overlay v3
+# images; using it silently fails the longrun and s6 retries forever.
+#
+# WEBUI_PORTS env var convention is "8989/tcp" (hotio Lock #8); strip the
+# /tcp suffix for Mangarr's --port flag. Falls back to 8989 if unset.
+
+set -e
+
+PORT="${WEBUI_PORTS%/tcp}"
+PORT="${PORT:-8989}"
+
+exec s6-setuidgid abc \
+  /usr/bin/dotnet /app/Mangarr.Console.dll \
+    --data=/config \
+    --no-browser \
+    --port="${PORT}"
