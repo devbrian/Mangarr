@@ -1,0 +1,89 @@
+# distribution/docker/.dockerignore — keep the runtime image build context lean.
+#
+# Phase 21 D-02 / Plan 21-03 Task 1.
+#
+# Build-context discipline rationale:
+#   - The runtime Dockerfile only needs `tools/ChromiumPrefetch/` (for the
+#     chromium-builder stage), `_output/linux-${TARGETARCH}/` (for the runtime
+#     stage COPY), and `distribution/docker/root/` (for the s6-overlay scripts).
+#   - Everything else is noise that bloats the buildx context upload.
+#   - `_output/` is excluded as a whole, then the per-arch subtree is
+#     re-included via explicit COPY in the Dockerfile (Docker treats COPY paths
+#     against the build context, so the file must be present even when
+#     .dockerignore excludes its parent — buildx does this correctly).
+#
+# Note: this .dockerignore is used when `docker buildx build` is invoked with
+# `--file distribution/docker/Dockerfile --context .` (repo root context).
+# .dockerignore is resolved relative to the build context root, NOT the
+# Dockerfile location — so this file must be a copy/symlink/mirror at repo
+# root as well, OR the CI step must reference this path explicitly via
+# `DOCKER_BUILDX_DOCKERIGNORE_PATH` (buildx-specific). Plan 21-04 wires the
+# .github/workflows/deploy.yml docker_publish job; it documents the path
+# resolution there.
+
+# ─── VCS ───
+.git/
+.gitignore
+.gitattributes
+.gitkeep
+.github/
+
+# ─── Planning + docs (massive, never needed at build time) ───
+.planning/
+docs/
+*.md
+!distribution/docker/**/*.md
+DIVERGENCE.md
+README.md
+PROJECT_CONTEXT.md
+CLAUDE.md
+**/CLAUDE.md
+
+# ─── Test output + dev artifacts ───
+_tests/
+.playwright-mcp/
+TestResult.xml
+TestResult.html
+**/*.trx
+
+# ─── Node / frontend dev ───
+frontend/node_modules/
+**/node_modules/
+yarn-error.log
+npm-debug.log
+
+# ─── .NET dev artifacts ───
+**/bin/
+**/obj/
+**/*.user
+**/*.suo
+**/.vs/
+**/AppPackages/
+**/BundleArtifacts/
+
+# ─── Editor / IDE ───
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── Docker self-exclusion (avoid pulling our own build context in) ───
+distribution/docker-build/_output/
+distribution/docker-build/_artifacts/
+
+# ─── Output that is NOT the per-arch published artifacts ───
+# _output/ wholesale-excluded; the Dockerfile COPYs _output/linux-${TARGETARCH}/
+# explicitly, which buildx honors as an exception to this ignore.
+_output/
+!_output/linux-amd64/
+!_output/linux-arm64/
+
+# ─── Misc transient ───
+*.log
+*.tmp
+*.bak
+*.cbz.tmp
+.playwright-report/
+playwright-report/
