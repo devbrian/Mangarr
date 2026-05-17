@@ -1,0 +1,7 @@
+# Sonarr divergence: s6-overlay v3 oneshot `up` files are execlineb (each line a separate
+# exec call); the bash logic lives at /etc/s6-overlay/scripts/init-mangarr-config and is
+# dispatched via /command/with-contenv (which sources env from /var/run/s6/container_environment
+# then execs the rest). Pattern verified against linuxserver + hotio s6-overlay v3 images.
+# Locally we caught the prior `set -e`-in-up bug as "unable to exec set: No such file or directory"
+# (exit 127) during smoke-test of the built mangarr:local-test image.
+/command/with-contenv bash /etc/s6-overlay/scripts/init-mangarr-config

@@ -1,0 +1,92 @@
+# .dockerignore — keep the runtime image build context lean.
+#
+# Phase 21 D-02 / Plan 21-03 Task 1; relocated from distribution/docker/.dockerignore
+# to repo root post-PR-#196 CodeRabbit #17 — docker buildx resolves .dockerignore
+# relative to the BUILD CONTEXT ROOT (not the Dockerfile location). The deploy.yml
+# docker_publish job uses `context: .` + `file: distribution/docker/Dockerfile`,
+# so the canonical home for these exclusions is repo root.
+#
+# Build-context discipline rationale:
+#   - The runtime Dockerfile only needs `tools/ChromiumPrefetch/` (for the
+#     chromium-builder stage), `_output/linux-${TARGETARCH}/` (for the runtime
+#     stage COPY), and `distribution/docker/root/` (for the s6-overlay scripts).
+#   - Everything else is noise that bloats the buildx context upload.
+#   - `_output/` is excluded as a whole, then the per-arch subtree is
+#     re-included via explicit COPY in the Dockerfile (Docker treats COPY paths
+#     against the build context, so the file must be present even when
+#     .dockerignore excludes its parent — buildx does this correctly).
+#
+# Sonarr divergence: this file is the only docker build context for the
+# Mangarr.Core runtime image. The existing distribution/docker-build/Dockerfile
+# is the legacy Debian-package builder (different image, invoked from a different
+# pipeline path) and is not affected by this exclusion list.
+
+# ─── VCS ───
+.git/
+.gitignore
+.gitattributes
+.gitkeep
+.github/
+
+# ─── Planning + docs (massive, never needed at build time) ───
+.planning/
+docs/
+*.md
+!distribution/docker/**/*.md
+DIVERGENCE.md
+README.md
+PROJECT_CONTEXT.md
+CLAUDE.md
+**/CLAUDE.md
+
+# ─── Test output + dev artifacts ───
+_tests/
+.playwright-mcp/
+TestResult.xml
+TestResult.html
+**/*.trx
+
+# ─── Node / frontend dev ───
+frontend/node_modules/
+**/node_modules/
+yarn-error.log
+npm-debug.log
+
+# ─── .NET dev artifacts ───
+**/bin/
+**/obj/
+**/*.user
+**/*.suo
+**/.vs/
+**/AppPackages/
+**/BundleArtifacts/
+
+# ─── Editor / IDE ───
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── Docker self-exclusion (avoid pulling our own build context in) ───
+distribution/docker-build/_output/
+distribution/docker-build/_artifacts/
+
+# ─── Output that is NOT the per-arch published artifacts ───
+# _output/ wholesale-excluded; the Dockerfile COPYs _output/linux-${TARGETARCH}/
+# AND _output/UI/ explicitly, so both must be re-included as exceptions. Without
+# the UI re-include the buildx context filter silently drops the SPA bundle and
+# the Dockerfile COPY fails with "failed to compute cache key ... not found".
+_output/
+!_output/linux-amd64/
+!_output/linux-arm64/
+!_output/UI/
+
+# ─── Misc transient ───
+*.log
+*.tmp
+*.bak
+*.cbz.tmp
+.playwright-report/
+playwright-report/

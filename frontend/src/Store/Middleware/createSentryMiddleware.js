@@ -1,91 +1,22 @@
-import * as sentry from '@sentry/browser';
-import _ from 'lodash';
-import parseUrl from 'Utilities/String/parseUrl';
-
-function cleanseUrl(url) {
-  const properties = parseUrl(url);
-
-  return `${properties.pathname}${properties.search}`;
-}
-
-function cleanseData(data) {
-  const result = _.cloneDeep(data);
-
-  result.transaction = cleanseUrl(result.transaction);
-
-  if (result.exception) {
-    result.exception.values.forEach((exception) => {
-      const stacktrace = exception.stacktrace;
-
-      if (stacktrace) {
-        stacktrace.frames.forEach((frame) => {
-          frame.filename = cleanseUrl(frame.filename);
-        });
-      }
-    });
-  }
-
-  result.request.url = cleanseUrl(result.request.url);
-
-  return result;
-}
-
-function identity(stuff) {
-  return stuff;
-}
-
-function createMiddleware() {
-  return (store) => (next) => (action) => {
-    try {
-      // Adds a breadcrumb for reporting later (if necessary).
-      sentry.addBreadcrumb({
-        category: 'redux',
-        message: action.type
-      });
-
-      return next(action);
-    } catch (err) {
-      console.error(`[sentry] Reporting error to Sentry: ${err}`);
-
-      // Send the report including breadcrumbs.
-      sentry.captureException(err, {
-        extra: {
-          action: identity(action),
-          state: identity(store.getState())
-        }
-      });
-    }
-  };
-}
+// Sonarr divergence: Phase 21 close-out (2026-05-17) — Mangarr does NOT publish
+// crash reports anywhere. The inherited Sonarr code initialized @sentry/browser
+// against `sentry.sonarr.tv` (the upstream Sentry tenant), which is unreachable
+// from a Mangarr deployment AND not legally ours to send data to anyway. Surfaced
+// in PR #196 local browser smoke as a CORS error in the console:
+//   `Access to fetch at 'https://sentry.sonarr.tv/api/12/envelope/?sentry_key=...'
+//    has been blocked by CORS policy`
+//
+// Until v1.x introduces a Mangarr-owned crash-report endpoint (or a deliberate
+// "no crash reporting, ever" product decision is recorded in PROJECT.md), this
+// middleware is a no-op. The `@sentry/browser` import is a side-effect-free
+// module load — it does NOT initiate any network call by itself; only sentry.init()
+// would start the transport. By skipping the init AND returning undefined we
+// guarantee zero crash-report traffic from the SPA.
+//
+// Keep the file (and the export) so the Redux store factory's
+// `applyMiddleware(..., createSentryMiddleware())` continues to compile; Redux
+// gracefully handles an `undefined` middleware. See bootstrap.tsx / createAppStore.js.
 
 export default function createSentryMiddleware() {
-  const {
-    analytics,
-    branch,
-    version,
-    release,
-    isProduction
-  } = window.Mangarr;
-
-  if (!analytics) {
-    return;
-  }
-
-  const dsn = isProduction ? 'https://b80ca60625b443c38b242e0d21681eb7@sentry.sonarr.tv/13' :
-    'https://8dbaacdfe2ff4caf97dc7945aecf9ace@sentry.sonarr.tv/12';
-
-  sentry.init({
-    dsn,
-    environment: isProduction ? 'production' : 'development',
-    release,
-    sendDefaultPii: true,
-    beforeSend: cleanseData
-  });
-
-  sentry.configureScope((scope) => {
-    scope.setTag('branch', branch);
-    scope.setTag('version', version);
-  });
-
-  return createMiddleware();
+  return;
 }

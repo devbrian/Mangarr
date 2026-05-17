@@ -1,4 +1,9 @@
-import * as sentry from '@sentry/browser';
+// Sonarr divergence: Phase 21 close-out (2026-05-17) — Mangarr publishes no
+// crash reports anywhere; the `@sentry/browser` import + `sentry.captureException`
+// call were removed from this file. Companion change in
+// Store/Middleware/createSentryMiddleware.js neuters the Redux Sentry
+// middleware. Re-wire when a Mangarr-owned crash-report endpoint exists
+// (v1.x consideration).
 import React, { Component, ErrorInfo } from 'react';
 
 interface ErrorBoundaryProps {
@@ -29,7 +34,10 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       info,
     });
 
-    sentry.captureException(error);
+    // Sonarr divergence: Phase 21 close-out — Mangarr publishes no crash
+    // reports anywhere. The error is rendered via the ErrorComponent below
+    // and logged to the browser console; no external transport.
+    // sentry.captureException(error);
   }
 
   render() {

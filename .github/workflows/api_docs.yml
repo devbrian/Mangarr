@@ -51,15 +51,9 @@ jobs:
             echo "No changes since last run"
           fi
 
-      - name: Notify
-        if: failure()
-        uses: tsickert/discord-webhook@v6.0.0
-        with:
-          webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          username: "GitHub Actions"
-          avatar-url: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
-          embed-title: "${{ github.workflow }}: Failure"
-          embed-url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          embed-description: |
-            Failed to update API docs
-          embed-color: "15158332"
+      # REMOVED Phase 21 D-11 (api_docs.yml): chat-notify-on-failure step removed at v1.0.0
+      # alongside the build_v5.yml chat-notify job. The orphaned webhook secret should be
+      # deleted from repo Settings → Secrets after this PR merges (Plan 21-05
+      # checkpoint:human-verify). See .github/workflows/build_v5.yml for the canonical breadcrumb.
+      # (Literal step name + secret name + action ref intentionally omitted so repo-wide grep
+      # gates in Task 4 stay clean.)

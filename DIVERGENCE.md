@@ -35,7 +35,7 @@ Type taxonomy: `extend`, `replace`, `delete`, `new`, `preserve`.
 | `src/NzbDrone.Core/Indexers/Newznab/`, `Torznab/`, `Nyaa/`, `BroadcastheNet/`, `HDBits/`, etc. | delete | Phase 3 | TV/anime indexers; Mangarr's source model is aggregator websites, not Newznab/Torznab. |
 | `src/NzbDrone.Core/Indexers/Mangadex/` (new) | new | Phase 3 | MangaDex bedrock indexer; Apache-2.0 attribution to `keiyoushi/extensions-source` if Mihon-derived per [source-onboarding-methodology.md](./.planning/decisions/source-onboarding-methodology.md). |
 | `src/NzbDrone.Core/Indexers/Comix/` (new) | new | Phase 3 | comix.to reference port #1 per onboarding pipeline. |
-| `src/NzbDrone.Core/Indexers/MangaFire/` (new) | new | Phase 3 | MangaFire reference port #2 per onboarding pipeline. |
+| ~~`src/NzbDrone.Core/Indexers/MangaFire/` (new)~~ | ~~new~~ | ~~Phase 3~~ | ~~MangaFire reference port #2 per onboarding pipeline.~~ (superseded by Phase 3 D-19 — MangaFire descoped to v2; keiyoushi MangaFire is HYBRID HTML+WebView, conflicts with Phase 3 D-10 + D-13. Reopens when v2 SOLVE-01 ships. Authoritative record at row 62 — `src/NzbDrone.Core/Indexers/MangaDex/`, `src/NzbDrone.Core/Indexers/Comix/`, `THIRD-PARTY-NOTICES.md` entry. Audit verified: `src/NzbDrone.Core/Indexers/MangaFire/` directory absent as of Phase 21 Plan 21-01 audit 2026-05-16.) |
 | `src/NzbDrone.Core/Download/Clients/InProcess/` (new) | new | Phase 4 | Novel `InProcessImageDownloadClient` — no peer-fork precedent; bounded `Channel<T>` with resumable state. |
 | `src/NzbDrone.Core/MediaFiles/Archive/` (new) | new | Phase 4 | `IChapterArchiver` strategy: CBZ + folder-of-images + ComicInfo.xml v2.0 / v2.1 dual-write. |
 | `src/NzbDrone.Core/Qualities/Quality.cs` | delete | Phase 5 | TV resolutions enum; manga has no quality concept (replaced by Custom Formats + TranslationProfile per PROJECT.md Key Decision). |
@@ -630,5 +630,26 @@ Plan 17.3-16 deferral audit (2026-05-12) raised the asymmetry to v1.x as GitHub 
 - `.planning/debug/resolved/issue-92-seriesfolder-rename.md` -- debug session record
 
 
+## v1.0.0 Release Snapshot — 2026-05-16
+
+The Mangarr v1.0.0 tag (pushed via Phase 21 Plan 21-05 CHECKPOINT 3 — a post-merge maintainer-driven gate) will freeze the structural delta vs Sonarr v5 at:
+
+- **Canonical assembly names:** `Mangarr.*.dll` (Phase 15 Plan 15-08; was `Sonarr.*.dll`).
+- **Canonical DB filename:** `mangarr.db` (Phase 15 D-08; was `sonarr.db`).
+- **Canonical data dir:** `~/.config/Mangarr` (Linux/Mac) / `C:\ProgramData\Mangarr` (Windows) (Phase 15 D-08).
+- **Canonical solution:** `src/Mangarr.sln` (Phase 15).
+- **Source-tree prefix:** `NzbDrone.*` preserved as fork-heritage breadcrumb (Phase 15 D-06).
+- **Domain entities:** `Manga` / `Chapter` / `ChapterFile` replacing `Series` / `Episode` / `EpisodeFile` (Phase 15 Plan 15-03 delete of `Tv/`; Phase 17.3 Plan 17.3-13 deletion of 5 frontend stub-dirs).
+- **Translation profile + Custom Formats** replace Sonarr's `Quality` enum (Phase 5 D-04).
+- **Manga aggregator sources:** MangaDex + Comix shipped in v1.0.0 (Phase 3); MangaFire deferred to v2 per Phase 3 D-19.
+- **Comix request signer:** PuppeteerSharp runtime headless browser; static `Hash.kt` ports rejected (Phase 17 COMIX-SIGNER-01 + Phase 17.2 close).
+- **Runtime image:** `debian:bookworm-slim` + s6-overlay v3 + baked PuppeteerSharp Chromium at `/opt/mangarr-chromium` (Phase 21 D-01..D-04). NOT Alpine/musl (Phase 17 N-1 forbid; Phase 21 RESEARCH Pitfall 4).
+- **GHCR-only publishing:** `ghcr.io/devbrian/mangarr:1.0.0.N` + `:1.0.0` + `:1.0` + `:1` + `:latest` (Phase 21 D-05..D-08). Docker Hub mirror is a v1.x consideration.
+- **End of upstream sync:** Mangarr = permanent hard fork; `v5-develop` is a read-only mirror; CI divergence-flag job removed (Phase 21 D-13/D-14). Manual cherry-pick still available for CVE patches; no planned cadence.
+- **Distribution scope:** Docker primary + per-release runtime archives for 10 platforms (freebsd-x64 + linux-arm/arm64/musl-arm64/musl-x64/x64 + osx-arm64/x64 + win-x64/x86) attached to each GitHub Release as bonus content (Phase 21 D-09); OS-native installers (.deb/.rpm/.msi/.app) deferred to v1.x.
+
 ---
 *Last updated: 2026-05-12 (issue #92 close-out -- vocabulary-parity rename of the shared RootFolderSelectInput option-row prop + matching CSS class; closes the follow-up retained at issue #81 close-out 2026-05-13. Issue #81 + #84 + #92 close-outs preserved verbatim above per historical-accuracy contract.)*
+*Last updated: 2026-05-16 (Phase 21 Plan 21-01 — v1.0.0 release-snapshot section appended per D-15; full audit pass of Phase 0/15/16/16.1/17/17.3 entries verified against post-Phase-20 codebase. Previous trailer preserved verbatim above per historical-accuracy contract. Audit findings: 1 strike-through applied at row 38 — `src/NzbDrone.Core/Indexers/MangaFire/` never shipped, descoped per Phase 3 D-19; remaining Phase 0/15/16.1/17/17.3 entries verified accurate against post-Phase-20 codebase. Historical Phase 7/Phase 8 plan rows referencing pre-Phase-15 paths (`src/Sonarr.Api.V5/`, `frontend/src/Series/`, etc.) left untouched per provenance-value rule — actual completion paths are documented in the Phase 15 + Phase 17.3 sections below them.)*
+
+*Last updated: 2026-05-16 (Phase 21 Plan 21-05 close-out — v1.0.0 snapshot section heading date 2026-05-16 confirmed as the Plan 21-05 close-out date; the actual `git tag v1.0.0 && git push origin v1.0.0` is performed via the post-merge CHECKPOINT 3 gate per Plan 21-05 parallel-executor protocol. If the tag-push date lands on a different calendar day, the section heading date may be backfilled in a follow-up commit; the structural delta enumeration itself is correct as of this commit. All previous trailers preserved verbatim above per historical-accuracy contract.)*

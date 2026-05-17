@@ -170,6 +170,10 @@ src/.idea/
 # Claude
 .claude/settings.local.json
 src/.claude/settings.local.json
+# Claude Code transient agent worktrees (residual filesystem leftover from
+# `git worktree remove --force` on Windows; .git/worktrees entry is cleaned up
+# by `git worktree prune` but the FS dir can persist with stray files).
+.claude/worktrees/
 # GSD per-plan local verification harness (sandbox dotnet test workaround)
 _corpus_check/
 _metadata_source_check/
