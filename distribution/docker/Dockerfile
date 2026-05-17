@@ -51,7 +51,22 @@
 #   3. the SDK image is a builder-stage-only concern — no surface from this
 #      stage other than /opt/mangarr-chromium leaks into the runtime image.
 # See SUMMARY.md "Deviations from Plan" for the full rationale.
-FROM mcr.microsoft.com/dotnet/sdk:10.0.203-noble AS chromium-builder
+# Pin chromium-builder to the BUILD platform so the .NET SDK runs natively
+# (NOT under QEMU emulation for arm64 — the SDK image is ~250MB and would be
+# extremely slow under emulation). Each target arch then gets its own Chromium
+# download via the --platform arg below, controlled by TARGETARCH (which BuildKit
+# sets per-target on the runtime stage; we mirror the value back into the
+# build-platform-pinned chromium-builder via the global ARG).
+#
+# Sonarr divergence: arch-aware multi-arch Chromium provisioning is Mangarr-only;
+# Sonarr ships no headless-browser dependency that needs per-arch builds.
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.203-noble AS chromium-builder
+
+# Stage-local `ARG TARGETARCH` (no default value) triggers BuildKit's automatic
+# population of the platform ARG per target. TARGETARCH is one of:
+# amd64 | arm64 | arm | s390x | ppc64le | 386 | riscv64. We map the subset we
+# ship (amd64, arm64) to PuppeteerSharp's Platform enum values below.
+ARG TARGETARCH
 
 WORKDIR /src
 
@@ -60,9 +75,20 @@ COPY tools/ChromiumPrefetch/ ./tools/ChromiumPrefetch/
 
 # Run the Phase 17 .NET helper; PuppeteerSharp-pinned revision goes to a fixed
 # layer path. Idempotent (no re-download if already present).
-RUN dotnet run --project tools/ChromiumPrefetch/ChromiumPrefetch.csproj \
+#
+# Phase 21 v1.0.0 regression fix (2026-05-17): without --platform the
+# BrowserFetcher autodetected the build-host arch (amd64) and produced an
+# x86_64 Chrome binary that the arm64 runtime stage's dynamic linker rejected
+# with "not found" — shell-side translation of "ELF arch mismatch, no ld for
+# this format". Mapping TARGETARCH → PuppeteerSharp Platform fixes this.
+RUN case "${TARGETARCH}" in \
+      amd64) PS_PLATFORM=linux ;; \
+      arm64) PS_PLATFORM=linux-arm64 ;; \
+      *) echo "FATAL: unsupported TARGETARCH=${TARGETARCH} (expected amd64 or arm64)" >&2; exit 1 ;; \
+    esac \
+ && dotnet run --project tools/ChromiumPrefetch/ChromiumPrefetch.csproj \
       --configuration Release \
-      -- --output-dir /opt/mangarr-chromium
+      -- --output-dir /opt/mangarr-chromium --platform "${PS_PLATFORM}"
 
 # ─── Stage 2: runtime ───
 #
