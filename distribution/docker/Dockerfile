@@ -36,7 +36,22 @@
 #         builder stage but Chromium *launches* under the runtime stage's libs.
 
 # ─── Stage 1: chromium-builder ───
-FROM mcr.microsoft.com/dotnet/sdk:10.0-bookworm-slim AS chromium-builder
+#
+# Rule 1 fix during Plan 21-03 Task 1 execution (2026-05-16): the planner spec
+# named `mcr.microsoft.com/dotnet/sdk:10.0-bookworm-slim`, but Microsoft does
+# NOT publish a Debian/bookworm-flavor tag for the .NET 10 SDK image — only
+# `noble` (Ubuntu 24.04 LTS), `alpine`, `azurelinux`, and the Windows nano
+# server flavors exist on MCR (verified 2026-05-16 via
+# https://mcr.microsoft.com/v2/dotnet/sdk/tags/list). `10.0.203-noble` is
+# selected because:
+#   1. it matches the SDK version pinned in CLAUDE.md Prerequisites (10.0.203);
+#   2. Ubuntu noble is glibc-linked (same C-runtime family as our
+#      debian:bookworm-slim runtime stage), so the BrowserFetcher-produced
+#      Chromium binary that gets COPYed forward will run cleanly;
+#   3. the SDK image is a builder-stage-only concern — no surface from this
+#      stage other than /opt/mangarr-chromium leaks into the runtime image.
+# See SUMMARY.md "Deviations from Plan" for the full rationale.
+FROM mcr.microsoft.com/dotnet/sdk:10.0.203-noble AS chromium-builder
 
 WORKDIR /src
 
