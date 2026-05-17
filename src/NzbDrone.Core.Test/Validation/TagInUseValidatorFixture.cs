@@ -116,6 +116,34 @@ namespace NzbDrone.Core.Test.Validation
         }
 
         [Test]
+        public void invalid_when_only_excluded_release_profile_holds_tag()
+        {
+            // PR #197 fix-up for codex P2 + coderabbit Major: tag attached ONLY
+            // via ExcludedReleaseProfileIds (NOT RestrictionIds) must surface as
+            // an in-use rejection. TagDetails.InUse aggregate at TagDetails.cs:26
+            // includes ExcludedReleaseProfileIds; the original Plan 22-04
+            // validator only checked RestrictionIds, leaving this gap.
+            SetupDetails(new TagDetails
+            {
+                Id = _tag.Id,
+                Label = _tag.Label,
+                MangaIds = new List<int>(),
+                DelayProfileIds = new List<int>(),
+                NotificationIds = new List<int>(),
+                RestrictionIds = new List<int>(),
+                ExcludedReleaseProfileIds = new List<int> { 5, 9 },
+                IndexerIds = new List<int>(),
+                DownloadClientIds = new List<int>()
+            });
+
+            var result = Subject.Validate(_tag);
+
+            result.IsValid.Should().BeFalse();
+            result.Errors.Should().ContainSingle();
+            result.Errors[0].ErrorMessage.Should().Contain("2 excluded release profiles");
+        }
+
+        [Test]
         public void ignores_importlist_stub_false_branch()
         {
             // D-03 stub-false invariant pin: TagDetails has no ImportListIds slot

@@ -258,12 +258,14 @@ RESULTS_FILE=$(mktemp)
 EXIT_CODE=0
 
 # --- Unit fixtures ---
+# NOTE: do NOT pass --no-build here. The script header guarantees this gate fails
+# on compile-broken fixtures; --no-build with stale binaries can produce a false
+# PASS when current sources don't compile (codex P1 + coderabbit Major on PR #197).
 if [ -n "$UNIT_FILTERS" ]; then
   echo "==== Running UNIT fixtures ===="
   echo "Filter: $UNIT_FILTERS"
   if ! dotnet test src/Mangarr.sln \
        --configuration Debug \
-       --no-build \
        --filter "$UNIT_FILTERS" \
        --logger "console;verbosity=normal" 2>&1 | tee -a "$RESULTS_FILE"; then
     EXIT_CODE=1
@@ -291,7 +293,6 @@ if [ -n "$AUTOMATION_FILTERS" ]; then
 
     if ! dotnet test src/NzbDrone.Automation.Test/Mangarr.Automation.Test.csproj \
          --configuration Debug \
-         --no-build \
          --filter "$AUTOMATION_FILTERS" \
          --logger "console;verbosity=normal" 2>&1 | tee -a "$RESULTS_FILE"; then
       EXIT_CODE=1

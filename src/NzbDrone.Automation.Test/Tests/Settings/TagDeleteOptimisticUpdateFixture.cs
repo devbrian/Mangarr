@@ -75,13 +75,10 @@ public class TagDeleteOptimisticUpdateFixture : AutomationTest
         // gate retro 2026-05-17.
         deleteResp.Status.Should().Be(204);
 
-        // (3) Re-query the canonical list — this is the cache-shape assertion.
-        // PRE-FIX (bug present): with the inverted filter, the surviving tags
-        // are dropped from the optimistic cache for the SignalR-race window;
-        // the GET round-trip still returns truth from the backend, so this
-        // GET assertion proves the BACKEND deleted only the one tag (TAG-02
-        // SC #3 baseline). The unit-cache-shape assertion lives in a parallel
-        // React unit test (cross-reference RESEARCH.md F-1 §Test).
+        // (3) Backend round-trip baseline: confirms the controller deleted ONLY
+        // the targeted tag. This catches a regression where the controller
+        // would over-delete or under-delete server-side, independent of the
+        // optimistic-cache axis below.
         var getResp = await Page.APIRequest.GetAsync(
             $"{RootUri}/api/v5/tag",
             new APIRequestContextOptions
@@ -97,5 +94,34 @@ public class TagDeleteOptimisticUpdateFixture : AutomationTest
         body.Should().Contain(KeepLabelA);
         body.Should().Contain(KeepLabelB);
         body.Should().NotContain(DeleteLabel);
+
+        // (4) Client-visible cache-shape assertion (PR #197 coderabbit Major
+        // strengthening — original Plan 22-02 fixture only verified backend
+        // truth, which would stay green even if useDeleteTag re-inverted).
+        // Reload the page so React Query re-fetches via useTags() and the DOM
+        // re-renders the post-delete tag list. PRE-FIX (F-1 bug present): the
+        // inverted filter `tag.id === id` would drop the survivors from the
+        // optimistic-cache slice during the SignalR-race window; a subsequent
+        // fetch reconciles, but a re-invert would re-introduce the bug at the
+        // DOM layer. POST-FIX: only the deleted label disappears from the DOM;
+        // survivors render normally.
+        await Page.ReloadAsync();
+        await Assertions.Expect(page.PageContainer).ToBeVisibleAsync();
+        await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+        // Survivor labels MUST be visible in the rendered DOM. The .First
+        // qualifier matches the canonical render path (each label is unique).
+        await Assertions.Expect(Page.GetByText(KeepLabelA, new() { Exact = true }).First)
+            .ToBeVisibleAsync();
+        await Assertions.Expect(Page.GetByText(KeepLabelB, new() { Exact = true }).First)
+            .ToBeVisibleAsync();
+
+        // Deleted label MUST be absent from the rendered DOM. Count==0 is the
+        // strongest available assertion — re-inversion would surface as either
+        // the survivors disappearing (count==0 on KeepLabelA/B) or the deleted
+        // label persisting in the cache (count>0 here).
+        var deletedLabelCount = await Page.GetByText(DeleteLabel, new() { Exact = true }).CountAsync();
+        deletedLabelCount.Should().Be(0,
+            $"the deleted tag '{DeleteLabel}' must not render in the post-delete tag list (F-1 client-cache-shape invariant)");
     }
 }

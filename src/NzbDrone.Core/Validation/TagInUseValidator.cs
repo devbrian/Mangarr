@@ -72,6 +72,23 @@ namespace NzbDrone.Core.Validation
                     totalCount += releaseProfileCount;
                 }
 
+                // Slot 4b: ExcludedReleaseProfile (live — added 2026-05-17 per PR #197
+                // codex P2 + coderabbit Major finding). TagDetails.InUse aggregate
+                // includes ExcludedReleaseProfileIds (TagDetails.cs:26) but the original
+                // Plan 22-04 validator only checked RestrictionIds, leaving a consumer
+                // gap: a tag attached ONLY via excluded-release-profile would slip past
+                // the controller pre-check and fall through to TagService.Delete()'s
+                // ModelConflictException — inconsistent with the new DELETE validation
+                // contract.
+                var excludedReleaseProfileCount = details.ExcludedReleaseProfileIds?.Count ?? 0;
+                if (excludedReleaseProfileCount > 0)
+                {
+                    consumerSummary.Add(excludedReleaseProfileCount == 1
+                        ? "1 excluded release profile"
+                        : $"{excludedReleaseProfileCount} excluded release profiles");
+                    totalCount += excludedReleaseProfileCount;
+                }
+
                 // Slot 5: Indexer (live)
                 var indexerCount = details.IndexerIds?.Count ?? 0;
                 if (indexerCount > 0)
