@@ -138,9 +138,13 @@ jobs:
             latest=false
           tags: |
             type=raw,value=${{ inputs.version }}
-            type=match,pattern=^(\d+\.\d+\.\d+)\.\d+$,group=1,value=v${{ inputs.version }}
-            type=match,pattern=^(\d+\.\d+)\.\d+\.\d+$,group=1,value=v${{ inputs.version }}
-            type=match,pattern=^(\d+)\.\d+\.\d+\.\d+$,group=1,value=v${{ inputs.version }}
+            # Patterns must include the leading `v` because `value=v${{ inputs.version }}`
+            # produces strings like `v1.0.0.42`. Earlier patterns omitted the `v` and silently
+            # never matched in production — the 3 alias tags (1.0.0, 1.0, 1) were never emitted,
+            # only the bare 4-part `1.0.0.42` was published. CodeRabbit #22 catch.
+            type=match,pattern=^v(\d+\.\d+\.\d+)\.\d+$,group=1,value=v${{ inputs.version }}
+            type=match,pattern=^v(\d+\.\d+)\.\d+\.\d+$,group=1,value=v${{ inputs.version }}
+            type=match,pattern=^v(\d+)\.\d+\.\d+\.\d+$,group=1,value=v${{ inputs.version }}
             type=raw,value=latest,enable=${{ startsWith(inputs.branch, 'v1.') || startsWith(inputs.branch, 'v2.') || startsWith(inputs.branch, 'v3.') }}
 
       - name: Build and push multi-arch image
@@ -197,8 +201,11 @@ jobs:
         id: notes-source
         shell: bash
         run: |
+          # build_v5.yml prepare step produces 4-part `inputs.version` (1.0.0.<run_number>),
+          # so the release tag built here is `v1.0.0.<run>`. Accept the 3-part form too in
+          # case a future prepare-step change shortens it (CodeRabbit #23 defensive guard).
           tag="v${{ inputs.version }}"
-          if [[ "$tag" =~ ^v1\.0\.0\.[0-9]+$ ]]; then
+          if [[ "$tag" =~ ^v1\.0\.0(\.[0-9]+)?$ ]]; then
             echo "use_file=true" >> "$GITHUB_OUTPUT"
           else
             echo "use_file=false" >> "$GITHUB_OUTPUT"
