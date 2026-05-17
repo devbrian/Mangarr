@@ -56,7 +56,15 @@ namespace NzbDrone.Common.Test
 
         [TestCase(0)]
         [TestCase(-1)]
-        [TestCase(9999)]
+
+        // 1234567 picked to match the sibling test at line 52 — well above any
+        // practical PID on Linux (PID_MAX_DEFAULT 32768; tunable to 4194304),
+        // Windows (32-bit but typical ceiling ~65536), or macOS (~99999). The
+        // prior value 9999 was within macOS's normal PID range and flaked when
+        // a GitHub Actions macos-latest runner happened to have PID 9999 held
+        // by AMPArtworkAgent (Apple Music metadata service). See v1.0.0 deploy
+        // run 25981068118 unit_test (macos-latest).
+        [TestCase(1234567)]
         public void GetProcessById_should_return_null_for_invalid_process(int processId)
         {
             Subject.GetProcessById(processId).Should().BeNull();
