@@ -1,5 +1,6 @@
 using System;
 using FizzWare.NBuilder;
+using FluentAssertions;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Manga;
@@ -143,6 +144,36 @@ namespace NzbDrone.Core.Test.MangaTests
                   .Verify(e => e.PublishEvent(It.IsAny<MangaEditedEvent>()), Times.Never);
             Mocker.GetMock<IMangaRepository>()
                   .Verify(r => r.Update(It.IsAny<NzbDrone.Core.Manga.Manga>()), Times.Never);
+        }
+
+        // ===================== Phase 22 Plan 22-03 — F-2 invariant pin =====================
+        //
+        // GetAllManga() is the canonical full-table read TagService.Details() relies
+        // on after the F-2 fix replaced the `_mangaService.AllForTag(0)` magic-zero
+        // idiom (TagService.cs:115). This test pins the contract: GetAllManga()
+        // returns every row in the repository (no filter), so callers caching the
+        // result and projecting per-tag MangaIds via `.Where(m => m.Tags.Contains(tag.Id))`
+        // (TagService.cs foreach body) get correct semantics. A regression that
+        // narrows GetAllManga()'s contract (e.g. filtering active-only) would silently
+        // break TagService.Details() and the new TagInUseValidator surface.
+
+        [Test]
+        public void get_all_manga_returns_full_table()
+        {
+            var seeded = Builder<NzbDrone.Core.Manga.Manga>.CreateListOfSize(3)
+                .TheFirst(1).With(m => m.Id = 101)
+                .TheNext(1).With(m => m.Id = 102)
+                .TheNext(1).With(m => m.Id = 103)
+                .Build();
+
+            Mocker.GetMock<IMangaRepository>()
+                  .Setup(r => r.All())
+                  .Returns(seeded);
+
+            var result = Subject.GetAllManga();
+
+            result.Should().HaveCount(3);
+            result.Should().Contain(m => m.Id == 101);
         }
     }
 }
