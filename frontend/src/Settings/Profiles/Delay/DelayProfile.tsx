@@ -1,5 +1,5 @@
 import classNames from 'classnames';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { DragSourceMonitor, useDrag, useDrop, XYCoord } from 'react-dnd';
 import { useDispatch } from 'react-redux';
 import Icon from 'Components/Icon';
@@ -10,16 +10,11 @@ import DragType from 'Helpers/DragType';
 import { icons, kinds } from 'Helpers/Props';
 import { deleteDelayProfile } from 'Store/Actions/settingsActions';
 import { Tag } from 'Tags/useTags';
-import titleCase from 'Utilities/String/titleCase';
 import translate from 'Utilities/String/translate';
 import EditDelayProfileModal from './EditDelayProfileModal';
 import styles from './DelayProfile.css';
 
-function getDelay(enabled: boolean, delay: number) {
-  if (!enabled) {
-    return '-';
-  }
-
+function getDelay(delay: number) {
   if (!delay) {
     return translate('NoDelay');
   }
@@ -39,11 +34,8 @@ interface DragItem {
 
 interface DelayProfileProps {
   id: number;
-  enableUsenet: boolean;
-  enableTorrent: boolean;
   preferredProtocol: string;
-  usenetDelay: number;
-  torrentDelay: number;
+  httpDelay: number;
   order: number;
   tags: number[];
   tagList: Tag[];
@@ -55,11 +47,7 @@ interface DelayProfileProps {
 
 function DelayProfile({
   id,
-  enableUsenet,
-  enableTorrent,
-  preferredProtocol,
-  usenetDelay,
-  torrentDelay,
+  httpDelay,
   order,
   tags,
   tagList,
@@ -76,16 +64,6 @@ function DelayProfile({
 
   const [isDeleteDelayProfileModalOpen, setIsDeleteDelayProfileModalOpen] =
     useState(false);
-
-  const preferred = useMemo(() => {
-    if (!enableUsenet) {
-      return translate('OnlyTorrent');
-    } else if (!enableTorrent) {
-      return translate('OnlyUsenet');
-    }
-
-    return titleCase(translate('PreferProtocol', { preferredProtocol }));
-  }, [preferredProtocol, enableUsenet, enableTorrent]);
 
   const handleEditDelayProfilePress = useCallback(() => {
     setIsEditDelayProfileModalOpen(true);
@@ -185,13 +163,7 @@ function DelayProfile({
           isDragging && styles.isDragging
         )}
       >
-        <div className={styles.column}>{preferred}</div>
-        <div className={styles.column}>
-          {getDelay(enableUsenet, usenetDelay)}
-        </div>
-        <div className={styles.column}>
-          {getDelay(enableTorrent, torrentDelay)}
-        </div>
+        <div className={styles.column}>{getDelay(httpDelay)}</div>
 
         <TagList tags={tags} tagList={tagList} />
 
