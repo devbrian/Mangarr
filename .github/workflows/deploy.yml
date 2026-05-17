@@ -118,7 +118,18 @@ jobs:
           [ -d "$src" ] || { echo "::error::Artifact layout changed — expected '$src' but it does not exist."; ls -la _output/linux-x64-raw/ || true; exit 1; }
           mkdir -p "$dst"
           cp -r "$src"/. "$dst"/
-          [ -x "$dst/Mangarr" ] || { echo "::error::Mangarr ELF binary missing from flattened output at '$dst/Mangarr'."; ls -la "$dst" | head; exit 1; }
+          # upload-artifact@v7 strips POSIX exec bits during pack/unpack — the ELF
+          # binaries arrive at mode 0644. Restore +x on the entrypoint host (Mangarr),
+          # the .NET crash-dump helper (createdump), and the self-update binary
+          # (Mangarr.Update/Mangarr.Update) so the runtime image can actually invoke
+          # them. Without this the s6 longrun script fails with
+          #   s6-applyuidgid: fatal: unable to exec /app/Mangarr: No such file or directory
+          # (POSIX exec gives ENOENT when the file exists but has no x bit — the same
+          # symptom as a missing file from the shell's perspective).
+          [ -f "$dst/Mangarr" ] || { echo "::error::Mangarr ELF binary missing from flattened output at '$dst/Mangarr'."; ls -la "$dst" | head; exit 1; }
+          chmod +x "$dst/Mangarr"
+          [ -f "$dst/createdump" ] && chmod +x "$dst/createdump" || true
+          [ -f "$dst/Mangarr.Update/Mangarr.Update" ] && chmod +x "$dst/Mangarr.Update/Mangarr.Update" || true
           echo "Flattened $(find "$dst" -type f | wc -l) files into $dst (entrypoint: $(file -b "$dst/Mangarr"))"
 
       # v1.0.0 ships amd64-only (see "Build and push multi-arch image" step
