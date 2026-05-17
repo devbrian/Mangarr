@@ -98,11 +98,17 @@ jobs:
           name: build-linux-x64
           path: _output/linux-amd64
 
-      - name: Download linux-arm64 artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: build-linux-arm64
-          path: _output/linux-arm64
+      # v1.0.0 ships amd64-only (see "Build and push multi-arch image" step
+      # below for full rationale). The build-linux-arm64 artifact is still
+      # produced by the per-runtime backend matrix because it's attached as a
+      # bonus runtime archive to the GitHub Release in the `release` job
+      # downstream — but the docker_publish job does not consume it. Re-enable
+      # this download when v1.1-17 lands a real arm64 headless-browser path.
+      # - name: Download linux-arm64 artifact
+      #   uses: actions/download-artifact@v8
+      #   with:
+      #     name: build-linux-arm64
+      #     path: _output/linux-arm64
 
       # The `frontend` job (build_v5.yml:127-131) builds the SPA via yarn build and
       # uploads as the `build_ui` artifact. The runtime image needs it baked in or
@@ -157,12 +163,37 @@ jobs:
             type=match,pattern=^v(\d+)\.\d+\.\d+\.\d+$,group=1,value=v${{ inputs.version }}
             type=raw,value=latest,enable=${{ startsWith(inputs.branch, 'v1.') || startsWith(inputs.branch, 'v2.') || startsWith(inputs.branch, 'v3.') }}
 
+      # v1.0.0 ships amd64-only — see RELEASE-NOTES "Known limitations" and
+      # .planning/v1.1-roadmap.md v1.1-17 for full context.
+      #
+      # Root cause: PuppeteerSharp 24.42's BrowserFetcher.DownloadAsync with
+      # Platform.LinuxArm64 silently downloads the x86_64 Chrome binary because
+      # Chrome for Testing does not ship an arm64 Linux build (verified upstream
+      # at https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json
+      # — Chrome platforms are linux64 | mac-arm64 | mac-x64 | win32 | win64
+      # only; no linux-arm64). The arm64 runtime stage COPYed an x86_64 binary
+      # and `chrome --version` failed with `not found` (shell-level translation
+      # of "ELF arch mismatch, no ld for this format"; the ELF e_machine field
+      # was 0x003E = EM_X86_64, not 0xB7 = EM_AARCH64).
+      #
+      # arm64 hosts can pull the amd64 image via Docker's user-mode emulation:
+      #   docker pull --platform linux/amd64 ghcr.io/devbrian/mangarr:1.0.0
+      #
+      # v1.1-17 evaluates real arm64 paths: (a) switch to Playwright .NET whose
+      # CLI ships arm64 chromium, (b) hybrid with apt-chromium on arm64
+      # (relaxes Phase 17 D-02), or (c) build chromium-headless-shell from
+      # source for arm64. None of those fit the v1.0.0 ship window.
+      #
+      # The arch-aware chromium-builder scaffolding (--platform=$BUILDPLATFORM,
+      # TARGETARCH → PS_PLATFORM dispatch in distribution/docker/Dockerfile +
+      # tools/ChromiumPrefetch/Program.cs --platform arg) is retained as
+      # foundation for whichever v1.1-17 path lands.
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: distribution/docker/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
