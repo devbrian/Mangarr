@@ -95,7 +95,7 @@ export const useDeleteTag = (id: number) => {
             return oldData;
           }
 
-          return oldData.filter((tag) => tag.id === id);
+          return oldData.filter((tag) => tag.id !== id);
         });
       },
       onError: () => {
