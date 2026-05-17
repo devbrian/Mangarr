@@ -31,22 +31,31 @@ namespace NzbDrone.Core.Test.UpdateTests
         [SetUp]
         public void Setup()
         {
+            // Sonarr divergence: Phase 21 D-07 reset MANGARR_MAJOR_VERSION from 10 → 1. The
+            // upstream Sonarr fixture used a hardcoded `2.0.0.0` (always a non-major bump when
+            // current was 10). With Mangarr's reset, `2 > 1` flips InstallUpdateService.cs:246's
+            // "this is a major update — refuse" branch true, short-circuiting every test in this
+            // fixture via early `return null`. Construct the test update package's version with
+            // the current major so it always represents a same-major upgrade — robust across
+            // future major bumps without re-editing.
+            var newerVersion = new Version(BuildInfo.Version.Major, BuildInfo.Version.Minor, BuildInfo.Version.Build, BuildInfo.Version.Revision + 1);
+
             if (OsInfo.IsLinux)
             {
                 _updatePackage = new UpdatePackage
                 {
-                    FileName = "NzbDrone.develop.2.0.0.0.tar.gz",
+                    FileName = $"NzbDrone.develop.{newerVersion}.tar.gz",
                     Url = "http://download.sonarr.tv/v2/develop/mono/NzbDrone.develop.tar.gz",
-                    Version = new Version("2.0.0.0")
+                    Version = newerVersion
                 };
             }
             else
             {
                 _updatePackage = new UpdatePackage
                 {
-                    FileName = "NzbDrone.develop.2.0.0.0.zip",
+                    FileName = $"NzbDrone.develop.{newerVersion}.zip",
                     Url = "http://download.sonarr.tv/v2/develop/windows/NzbDrone.develop.zip",
-                    Version = new Version("2.0.0.0")
+                    Version = newerVersion
                 };
             }
 

@@ -134,4 +134,4 @@ After the flip, the package is publicly pullable forever (subsequent pushes inhe
 
 ---
 
-*Mangarr v1.0.0 — released 2026-MM-DD. Tag: `v1.0.0.N`. Branch: `Mangarr-v0`. Built from commit `<SHA>` via `.github/workflows/build_v5.yml` → `deploy.yml` (Phase 21 D-04..D-12).*
+*Mangarr v1.0.0 — released 2026-05-17. Git tag: `v1.0.0` (3-part, pushed by maintainer per Phase 21 CHECKPOINT 3). GHCR image tag: `1.0.0.<run_number>` (4-part, computed by CI). Branch: `Mangarr-v0`. Built via `.github/workflows/build_v5.yml` → `deploy.yml` (Phase 21 D-04..D-12). Built commit SHA is recorded automatically by `ncipollo/release-action@v1` in the GitHub Release metadata.*

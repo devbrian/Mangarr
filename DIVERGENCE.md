@@ -632,7 +632,7 @@ Plan 17.3-16 deferral audit (2026-05-12) raised the asymmetry to v1.x as GitHub 
 
 ## v1.0.0 Release Snapshot — 2026-05-16
 
-The Mangarr v1.0.0 tag (pushed in Phase 21 Plan 21-05) freezes the structural delta vs Sonarr v5 at:
+The Mangarr v1.0.0 tag (pushed via Phase 21 Plan 21-05 CHECKPOINT 3 — a post-merge maintainer-driven gate) will freeze the structural delta vs Sonarr v5 at:
 
 - **Canonical assembly names:** `Mangarr.*.dll` (Phase 15 Plan 15-08; was `Sonarr.*.dll`).
 - **Canonical DB filename:** `mangarr.db` (Phase 15 D-08; was `sonarr.db`).

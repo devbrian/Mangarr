@@ -79,10 +79,12 @@ jobs:
 
       # Pitfall 8 (RESEARCH) — branch-reachability guard. on: push: tags trigger is branch-agnostic;
       # this fail-fast asserts the SHA is reachable from origin/Mangarr-v0 before publishing.
+      # Fetch full history (--depth=0 → unshallow) so `git branch -r --contains` finds tags pointing
+      # at SHAs older than the actions/checkout default 1-commit shallow fetch.
       - name: Verify tag is on Mangarr-v0
         shell: bash
         run: |
-          git fetch origin Mangarr-v0 --depth=50
+          git fetch --unshallow origin Mangarr-v0 2>/dev/null || git fetch origin Mangarr-v0
           if ! git branch -r --contains "${{ github.sha }}" | grep -q 'origin/Mangarr-v0'; then
             echo "::error::Tag points at SHA ${{ github.sha }} not reachable from origin/Mangarr-v0; aborting release."
             exit 1
@@ -118,9 +120,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Pitfall 3 — flavor: latest=false + explicit type=raw,value=latest,enable=<Mangarr-v0 only>.
-      # Prevents a pre-release tag from a feature branch silently rolling :latest.
+      # Pitfall 3 — flavor: latest=false + explicit type=raw,value=latest,enable=<stable-tag only>.
+      # Prevents a pre-release tag from silently rolling :latest. The branch-reachability guard
+      # above already fail-fasts tags not on Mangarr-v0, so the only remaining filter is "is this
+      # a stable v1+ tag?" — gate on a numeric (non-prerelease) v1.X.Y.Z shape. v0.x and any tag
+      # carrying -alpha / -beta / -rc suffix is excluded.
       # D-08 — full hotio-style 5-tag stack: 1.0.0.42 + 1.0.0 + 1.0 + 1 + latest.
+      # NOTE: was `inputs.branch == 'Mangarr-v0'` but build_v5.yml passes `github.ref_name` which on
+      # tag triggers is the TAG (e.g. v1.0.0.42), never `Mangarr-v0` — the equality was always false
+      # in production, so `:latest` was never emitted. Switched to a regex on the tag itself.
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -133,7 +141,7 @@ jobs:
             type=match,pattern=^(\d+\.\d+\.\d+)\.\d+$,group=1,value=v${{ inputs.version }}
             type=match,pattern=^(\d+\.\d+)\.\d+\.\d+$,group=1,value=v${{ inputs.version }}
             type=match,pattern=^(\d+)\.\d+\.\d+\.\d+$,group=1,value=v${{ inputs.version }}
-            type=raw,value=latest,enable=${{ inputs.branch == 'Mangarr-v0' }}
+            type=raw,value=latest,enable=${{ startsWith(inputs.branch, 'v1.') || startsWith(inputs.branch, 'v2.') || startsWith(inputs.branch, 'v3.') }}
 
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v6
@@ -163,11 +171,12 @@ jobs:
         uses: actions/checkout@v6
 
       # Pitfall 8 (RESEARCH) — branch-reachability guard. Same fail-fast as docker_publish; release
-      # creation should never proceed from a SHA not reachable from origin/Mangarr-v0.
+      # creation should never proceed from a SHA not reachable from origin/Mangarr-v0. Fetch full
+      # history (--unshallow) so older tag SHAs are still found by `git branch -r --contains`.
       - name: Verify tag is on Mangarr-v0
         shell: bash
         run: |
-          git fetch origin Mangarr-v0 --depth=50
+          git fetch --unshallow origin Mangarr-v0 2>/dev/null || git fetch origin Mangarr-v0
           if ! git branch -r --contains "${{ github.sha }}" | grep -q 'origin/Mangarr-v0'; then
             echo "::error::Tag points at SHA ${{ github.sha }} not reachable from origin/Mangarr-v0; aborting release."
             exit 1
@@ -203,7 +212,11 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           latest: true
-          prerelease: ${{ inputs.branch != 'Mangarr-v0' }}
+          # Was `inputs.branch != 'Mangarr-v0'` — always true in production because build_v5.yml
+          # passes `github.ref_name` (the tag) and the branch-reachability guard above already
+          # blocks unreachable tags. Mark stable v1+/v2+/v3+ tags as non-prerelease; everything
+          # else (e.g. v0.x or feature/release-candidate tags) stays prerelease.
+          prerelease: ${{ !(startsWith(inputs.branch, 'v1.') || startsWith(inputs.branch, 'v2.') || startsWith(inputs.branch, 'v3.')) }}
 
       - name: Generate Release Notes
         id: generate-release-notes
@@ -231,7 +244,11 @@ jobs:
           bodyFile: ${{ steps.notes-source.outputs.use_file == 'true' && 'RELEASE-NOTES-v1.0.0.md' || '' }}
           body: ${{ steps.notes-source.outputs.use_file == 'false' && steps.generate-release-notes.outputs.result || '' }}
           name: ${{ inputs.version }}
-          prerelease: ${{ inputs.branch != 'Mangarr-v0' }}
+          # Was `inputs.branch != 'Mangarr-v0'` — always true in production because build_v5.yml
+          # passes `github.ref_name` (the tag) and the branch-reachability guard above already
+          # blocks unreachable tags. Mark stable v1+/v2+/v3+ tags as non-prerelease; everything
+          # else (e.g. v0.x or feature/release-candidate tags) stays prerelease.
+          prerelease: ${{ !(startsWith(inputs.branch, 'v1.') || startsWith(inputs.branch, 'v2.') || startsWith(inputs.branch, 'v3.')) }}
           skipIfReleaseExists: true
           tag: v${{ inputs.version }}
 
