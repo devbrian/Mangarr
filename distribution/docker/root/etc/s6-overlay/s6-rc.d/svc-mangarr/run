@@ -20,6 +20,12 @@
 #
 # WEBUI_PORTS env var convention is "8989/tcp" (hotio Lock #8); strip the
 # /tcp suffix for Mangarr's --port flag. Falls back to 8989 if unset.
+#
+# Flag spelling: `--nobrowser` (one word, no dash) per NzbDrone.Common/
+# EnvironmentInfo/StartupContext.cs:20 (`NO_BROWSER = "nobrowser"`). The
+# `--no-browser` form is silently ignored and Mangarr will invoke xdg-open
+# at startup (logging `no method available for opening` since the runtime
+# image has no graphical browser). Cosmetic but noisy in logs.
 
 set -e
 
@@ -29,5 +35,5 @@ PORT="${PORT:-8989}"
 exec s6-setuidgid abc \
   /app/Mangarr \
     --data=/config \
-    --no-browser \
+    --nobrowser \
     --port="${PORT}"
