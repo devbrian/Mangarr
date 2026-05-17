@@ -68,7 +68,12 @@ public class TagDeleteOptimisticUpdateFixture : AutomationTest
                     ["X-Api-Key"] = ApiKey
                 }
             });
-        deleteResp.Status.Should().Be(200);
+
+        // TagController.DeleteTag returns 204 No Content (REST-canonical for
+        // a successful DELETE with no body) — NOT 200. The original Plan 22-02
+        // fixture asserted 200 and was caught by Phase 22's audit-new-fixtures
+        // gate retro 2026-05-17.
+        deleteResp.Status.Should().Be(204);
 
         // (3) Re-query the canonical list — this is the cache-shape assertion.
         // PRE-FIX (bug present): with the inverted filter, the surviving tags

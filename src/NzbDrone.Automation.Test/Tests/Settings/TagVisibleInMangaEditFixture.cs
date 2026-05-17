@@ -96,11 +96,16 @@ public class TagVisibleInMangaEditFixture : AutomationTest
         await input.FillAsync(_label.Substring(LabelPrefix.Length, 4));
 
         // 5. STATE assertion: the seeded label appears in the autosuggest
-        //    suggestion list. react-autosuggest renders suggestions as
-        //    `li.react-autosuggest__suggestion`. We assert via the visible
-        //    text — the label must be in the list (substring match — the
-        //    suggestion item renders the full label).
-        var suggestions = Page.Locator("li.react-autosuggest__suggestion");
+        //    suggestion list. Mangarr/Sonarr customizes react-autosuggest's
+        //    theme with CSS-module class names (frontend/src/Components/Form/
+        //    AutoSuggestInput.tsx:185 theme prop → `styles.suggestion`), so
+        //    the literal `li.react-autosuggest__suggestion` selector that
+        //    the default-theme version of react-autosuggest emits does NOT
+        //    exist in the rendered DOM (Phase 22 audit-new-fixtures retro
+        //    2026-05-17). The library still emits proper ARIA roles on the
+        //    suggestion LIs (role="option"); using the role selector is
+        //    both webpack-class-hash-independent and accessibility-aligned.
+        var suggestions = Page.Locator("[role='option']");
         await suggestions.First.WaitForAsync(
             new LocatorWaitForOptions { Timeout = 10_000 });
 

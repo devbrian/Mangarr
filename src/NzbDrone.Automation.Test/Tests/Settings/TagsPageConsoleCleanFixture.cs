@@ -45,16 +45,43 @@ public class TagsPageConsoleCleanFixture : AutomationTest
     {
         var consoleErrors = new List<string>();
 
+        // Phase 24-deferred 404 allowlist: the AutoTaggings sibling on
+        // /settings/tags (frontend/src/Settings/Tags/AutoTagging/AutoTaggings.tsx:62)
+        // dispatches fetchAutoTaggings() → GET /api/v5/autoTagging, which 404s
+        // until Phase 24 ships the AutoTaggingController. D-03 stub-false
+        // branches in TagInUseValidator are the backend half of the same
+        // roadmap deferral. Allowlisted here so the fixture pins Phase 22's
+        // F-3 surgical zero-error state without false-flagging Phase 24 work.
+        // Add a similar entry per phase that ships its V5 controller.
+        var phase24DeferredUrlPatterns = new[]
+        {
+            "/api/v5/autoTagging"
+        };
+
         // Subscribe BEFORE the /settings/tags navigation -- captures any
         // error-level console events that fire during the page load itself.
         // Errors fired during the base-class homepage hydration (already
         // navigated in OneTimeSetUp) are out of scope for this assertion.
         Page.Console += (_, msg) =>
         {
-            if (msg.Type == "error")
+            if (msg.Type != "error")
             {
-                consoleErrors.Add(msg.Text);
+                return;
             }
+
+            // Browser-emitted "Failed to load resource" errors put the URL in
+            // msg.Location, not msg.Text. Check both to honor the allowlist.
+            var text = msg.Text ?? string.Empty;
+            var location = msg.Location ?? string.Empty;
+            foreach (var pattern in phase24DeferredUrlPatterns)
+            {
+                if (text.Contains(pattern) || location.Contains(pattern))
+                {
+                    return; // allowlisted roadmap-deferred 404
+                }
+            }
+
+            consoleErrors.Add($"{text} @ {location}");
         };
 
         var page = await new SettingsTagsPage(Page).OpenAsync(RootUri);
