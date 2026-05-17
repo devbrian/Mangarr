@@ -218,11 +218,46 @@ done
 # Deduplicate, strip empty
 IN_SCOPE=$(sort -u "$FIXTURE_LIST" | grep -v '^$' || true)
 
+# write_report: emit the JSON artifact when --report was passed. Called from
+# all 3 exit paths (empty-scope, --no-run, post-tests) so the --report contract
+# is honored regardless of early-exit shape. Coderabbit Major on PR #197 retro:
+# the previous shape only wrote the report from the post-test path, so callers
+# passing --report could get a PASS exit code without the JSON ever appearing
+# on disk.
+write_report() {
+  [ -z "${REPORT_PATH:-}" ] && return 0
+  local scope_count="${1:-0}"
+  local exit_code="${2:-0}"
+  local scope_json=""
+  if [ -n "${IN_SCOPE:-}" ]; then
+    scope_json=$(echo "$IN_SCOPE" | awk 'BEGIN{ORS=""}{if(NR>1)print ",";printf "\"%s\"", $0}END{print ""}')
+  fi
+  # `grep -c .` exits 1 when zero matches AND outputs "0" to stdout, so a
+  # naive `grep -c . || echo 0` double-emits "0\n0". Compute via empty-check
+  # short-circuit to keep the JSON valid on the empty-scope exit path.
+  local new_count=0
+  if [ -n "${NEW_FIXTURES:-}" ]; then
+    new_count=$(echo "$NEW_FIXTURES" | grep -c . || true)
+  fi
+  cat > "$REPORT_PATH" <<EOF
+{
+  "phase_base": "$PHASE_BASE",
+  "phase_tip":  "$(git rev-parse "$PHASE_TIP")",
+  "scope_count": $scope_count,
+  "new_count": $new_count,
+  "in_scope_fixtures": [$scope_json],
+  "exit_code": $exit_code,
+  "verdict": "$( [ "$exit_code" -eq 0 ] && echo PASS || echo FAIL )"
+}
+EOF
+}
+
 echo "==== In-scope fixtures (NEW + EXISTING-touched) ===="
 if [ -z "$IN_SCOPE" ]; then
   echo "  (none — empty phase touch or no fixture references)"
   echo ""
   echo "PASS: audit-new-fixtures (nothing to run)"
+  write_report 0 0
   exit 0
 fi
 echo "$IN_SCOPE" | sed 's/^/  /'
@@ -232,6 +267,7 @@ echo ""
 
 if [ "$NO_RUN" = true ]; then
   echo "==== --no-run mode: skipping dotnet test execution ===="
+  write_report "$COUNT" 0
   exit 0
 fi
 
@@ -302,20 +338,10 @@ if [ -n "$AUTOMATION_FILTERS" ]; then
 fi
 
 # ---- Step 4: report ---------------------------------------------------------
+# Single canonical write via write_report() helper (defined earlier); all 3
+# exit paths (empty-scope, --no-run, here) now honor the --report contract.
 
-if [ -n "$REPORT_PATH" ]; then
-  cat > "$REPORT_PATH" <<EOF
-{
-  "phase_base": "$PHASE_BASE",
-  "phase_tip":  "$(git rev-parse "$PHASE_TIP")",
-  "scope_count": $COUNT,
-  "new_count": $(echo "$NEW_FIXTURES" | grep -c . || echo 0),
-  "in_scope_fixtures": [$(echo "$IN_SCOPE" | awk 'BEGIN{ORS=""}{if(NR>1)print ",";printf "\"%s\"", $0}END{print ""}')],
-  "exit_code": $EXIT_CODE,
-  "verdict": "$( [ $EXIT_CODE -eq 0 ] && echo PASS || echo FAIL )"
-}
-EOF
-fi
+write_report "$COUNT" "$EXIT_CODE"
 
 echo "==== Verdict ===="
 if [ $EXIT_CODE -eq 0 ]; then
