@@ -92,11 +92,34 @@ jobs:
 
       # Q-7 Pattern (a) — download the per-arch artifacts produced by package matrix; Docker build
       # consumes pre-published bits via COPY rather than re-running dotnet publish inside the image.
+      #
+      # Artifact layout: .github/actions/build/action.yml uploads with
+      # `path: _artifacts/**/*`. The Package step has previously copied the publish
+      # output into `_artifacts/linux-x64/net10.0/Mangarr/{flat files}`. upload-artifact@v7
+      # strips the `_artifacts/` prefix but PRESERVES the rest of the directory structure
+      # — so the artifact contents are `linux-x64/net10.0/Mangarr/Mangarr` etc., not flat.
+      #
+      # Without the flatten step below, `COPY _output/linux-${TARGETARCH}/ /app/` would place
+      # files at `/app/linux-x64/net10.0/Mangarr/Mangarr` and the s6 longrun script would fail
+      # with `s6-applyuidgid: fatal: unable to exec /app/Mangarr: No such file or directory`.
+      # Verified empirically against PR #196 → v1.0.0 deploy run 25980293162 (boot-smoke).
       - name: Download linux-x64 artifact
         uses: actions/download-artifact@v8
         with:
           name: build-linux-x64
-          path: _output/linux-amd64
+          path: _output/linux-x64-raw
+
+      - name: Flatten linux-x64 artifact for Dockerfile COPY
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="_output/linux-x64-raw/linux-x64/net10.0/Mangarr"
+          dst="_output/linux-amd64"
+          [ -d "$src" ] || { echo "::error::Artifact layout changed — expected '$src' but it does not exist."; ls -la _output/linux-x64-raw/ || true; exit 1; }
+          mkdir -p "$dst"
+          cp -r "$src"/. "$dst"/
+          [ -x "$dst/Mangarr" ] || { echo "::error::Mangarr ELF binary missing from flattened output at '$dst/Mangarr'."; ls -la "$dst" | head; exit 1; }
+          echo "Flattened $(find "$dst" -type f | wc -l) files into $dst (entrypoint: $(file -b "$dst/Mangarr"))"
 
       # v1.0.0 ships amd64-only (see "Build and push multi-arch image" step
       # below for full rationale). The build-linux-arm64 artifact is still
