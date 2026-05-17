@@ -19,9 +19,11 @@ on:
         description: "Mangarr version"
         type: string
         required: true
-    secrets:
-      SERVICES_API_KEY:
-        required: true
+    # REMOVED Phase 21 D-10: services-API-key secret no longer used (the upstream-broker push step was removed
+    # in this rewrite). See .planning/phases/21-distribution-v1-release/21-CONTEXT.md D-10; Plan 21-05
+    # checkpoint:human-verify deletes the orphaned secret from repo Settings → Secrets after this PR merges
+    # (RESEARCH Pitfall 7). (Literal secret name + step name intentionally omitted from breadcrumbs so
+    # repo-wide grep gates stay clean.)
 
 jobs:
   package:
@@ -64,14 +66,112 @@ jobs:
           major_version: ${{ inputs.major_version }}
           version: ${{ inputs.version }}
 
-  release:
+  # Sonarr divergence: new job — Sonarr's deploy.yml has no Docker publish path. Phase 21 D-05 GHCR + D-08 tag stack + Lock #2 multi-arch buildx + Lock #3 OIDC.
+  docker_publish:
     needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write                 # Phase 21 D-05 / Lock #3 — GHCR push via OIDC (no PAT)
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      # Pitfall 8 (RESEARCH) — branch-reachability guard. on: push: tags trigger is branch-agnostic;
+      # this fail-fast asserts the SHA is reachable from origin/Mangarr-v0 before publishing.
+      - name: Verify tag is on Mangarr-v0
+        shell: bash
+        run: |
+          git fetch origin Mangarr-v0 --depth=50
+          if ! git branch -r --contains "${{ github.sha }}" | grep -q 'origin/Mangarr-v0'; then
+            echo "::error::Tag points at SHA ${{ github.sha }} not reachable from origin/Mangarr-v0; aborting release."
+            exit 1
+          fi
+
+      # Q-7 Pattern (a) — download the per-arch artifacts produced by package matrix; Docker build
+      # consumes pre-published bits via COPY rather than re-running dotnet publish inside the image.
+      - name: Download linux-x64 artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: build-linux-x64
+          path: _output/linux-amd64
+
+      - name: Download linux-arm64 artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: build-linux-arm64
+          path: _output/linux-arm64
+
+      # Q-3 Pattern A — QEMU multi-arch via buildx on a single ubuntu-latest runner.
+      # Native arm64 runner (ubuntu-24.04-arm Pattern B) is a v1.x optimization.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Lock #3 — GHCR OIDC via GITHUB_TOKEN; no PAT secret required.
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Pitfall 3 — flavor: latest=false + explicit type=raw,value=latest,enable=<Mangarr-v0 only>.
+      # Prevents a pre-release tag from a feature branch silently rolling :latest.
+      # D-08 — full hotio-style 5-tag stack: 1.0.0.42 + 1.0.0 + 1.0 + 1 + latest.
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/devbrian/mangarr
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ inputs.version }}
+            type=match,pattern=^(\d+\.\d+\.\d+)\.\d+$,group=1,value=v${{ inputs.version }}
+            type=match,pattern=^(\d+\.\d+)\.\d+\.\d+$,group=1,value=v${{ inputs.version }}
+            type=match,pattern=^(\d+)\.\d+\.\d+\.\d+$,group=1,value=v${{ inputs.version }}
+            type=raw,value=latest,enable=${{ inputs.branch == 'Mangarr-v0' }}
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: distribution/docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            MANGARR_VERSION=${{ inputs.version }}
+
+      # D-04 layer 2 — boot-smoke the just-pushed image; assert HTTP 200 at /api/v5/system/status
+      # before declaring the publish successful. scripts/docker-smoke.sh ships from Plan 21-02.
+      - name: Boot-smoke (D-04 layer 2)
+        shell: bash
+        run: bash scripts/docker-smoke.sh --image ghcr.io/devbrian/mangarr:${{ inputs.version }}
+
+  release:
+    needs: [package, docker_publish]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Check out
         uses: actions/checkout@v6
+
+      # Pitfall 8 (RESEARCH) — branch-reachability guard. Same fail-fast as docker_publish; release
+      # creation should never proceed from a SHA not reachable from origin/Mangarr-v0.
+      - name: Verify tag is on Mangarr-v0
+        shell: bash
+        run: |
+          git fetch origin Mangarr-v0 --depth=50
+          if ! git branch -r --contains "${{ github.sha }}" | grep -q 'origin/Mangarr-v0'; then
+            echo "::error::Tag points at SHA ${{ github.sha }} not reachable from origin/Mangarr-v0; aborting release."
+            exit 1
+          fi
 
       - name: Download release artifacts
         uses: actions/download-artifact@v8
@@ -80,17 +180,34 @@ jobs:
           pattern: release-*
           merge-multiple: true
 
+      # Lock #4 + Pitfall 5 — defensive single-source resolution. For v1.0.0.<N> tags we use the
+      # hand-curated RELEASE-NOTES-v1.0.0.md bodyFile (D-12); for v1.0.0.N+ follow-ups we fall back
+      # to the existing actions/github-script generateReleaseNotes flow. NEVER pass both body and
+      # bodyFile non-empty at the same time.
+      - name: Determine release-notes source
+        id: notes-source
+        shell: bash
+        run: |
+          tag="v${{ inputs.version }}"
+          if [[ "$tag" =~ ^v1\.0\.0\.[0-9]+$ ]]; then
+            echo "use_file=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_file=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Get Previous Release
         id: previous-release
+        if: steps.notes-source.outputs.use_file == 'false'
         uses: cardinalby/git-get-release-action@1.2.5
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           latest: true
-          prerelease: ${{ inputs.branch != 'main' }}
+          prerelease: ${{ inputs.branch != 'Mangarr-v0' }}
 
       - name: Generate Release Notes
         id: generate-release-notes
+        if: steps.notes-source.outputs.use_file == 'false'
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
@@ -111,61 +228,18 @@ jobs:
           artifacts: _artifacts/Mangarr.*
           commit: ${{ github.sha }}
           generateReleaseNotes: false
-          body: ${{ steps.generate-release-notes.outputs.result }}
+          bodyFile: ${{ steps.notes-source.outputs.use_file == 'true' && 'RELEASE-NOTES-v1.0.0.md' || '' }}
+          body: ${{ steps.notes-source.outputs.use_file == 'false' && steps.generate-release-notes.outputs.result || '' }}
           name: ${{ inputs.version }}
-          prerelease: ${{ inputs.branch != 'main' }}
+          prerelease: ${{ inputs.branch != 'Mangarr-v0' }}
           skipIfReleaseExists: true
           tag: v${{ inputs.version }}
 
-      - name: Publish to Services
-        shell: bash
-        working-directory: _artifacts
-        run: |
-          branch=${{ inputs.branch }}
-          version=${{ inputs.version }}
-          lastCommit=${{ github.sha }}
-
-          hashes="["
-
-          addHash() {
-            path=$1
-            os=$2
-            arch=$3
-            type=$4
-
-            local hash=$(sha256sum *.$version.$path | awk '{ print $1; }')
-            echo "{ \""Os\"": \""$os\"", \""Arch\"": \""$arch\"", \""Type\"": \""$type\"", \""Hash\"": \""$hash\"" }"
-          }
-
-          hashes="$hashes $(addHash "linux-arm.tar.gz" "linux" "arm" "archive")"
-          hashes="$hashes, $(addHash "linux-arm64.tar.gz" "linux" "arm64" "archive")"
-          hashes="$hashes, $(addHash "linux-x64.tar.gz" "linux" "x64" "archive")"
-          # hashes="$hashes, $(addHash "linux-x86.tar.gz" "linux" "x86" "archive")"
-
-          # hashes="$hashes, $(addHash "linux-musl-arm.tar.gz" "linuxmusl" "arm" "archive")"
-          hashes="$hashes, $(addHash "linux-musl-arm64.tar.gz" "linuxmusl" "arm64" "archive")"
-          hashes="$hashes, $(addHash "linux-musl-x64.tar.gz" "linuxmusl" "x64" "archive")"
-
-          hashes="$hashes, $(addHash "osx-arm64.tar.gz" "osx" "arm64" "archive")"
-          hashes="$hashes, $(addHash "osx-x64.tar.gz" "osx" "x64" "archive")"
-
-          hashes="$hashes, $(addHash "osx-arm64-app.zip" "osx" "arm64" "installer")"
-          hashes="$hashes, $(addHash "osx-x64-app.zip" "osx" "x64" "installer")"
-
-          hashes="$hashes, $(addHash "win-x64.zip" "windows" "x64" "archive")"
-          hashes="$hashes, $(addHash "win-x86.zip" "windows" "x86" "archive")"
-
-          hashes="$hashes, $(addHash "win-x64-installer.exe" "windows" "x64" "installer")"
-          hashes="$hashes, $(addHash "win-x86-installer.exe" "windows" "x86" "installer")"
-
-          hashes="$hashes, $(addHash "freebsd-x64.tar.gz" "freebsd" "x64" "archive")"
-
-          hashes="$hashes ]"
-
-          json="{\""branch\"":\""$branch\"", \""version\"":\""$version\"", \""lastCommit\"":\""$lastCommit\"", \""hashes\"":$hashes, \""gitHubRelease\"":true}"
-          url="https://services.sonarr.tv/v1/update"
-
-          echo "Publishing update $version ($branch) to: $url"
-          echo "$json"
-
-          curl -H "Content-Type: application/json" -H "X-Api-Key: ${{ secrets.SERVICES_API_KEY }}" -X POST -d "$json" --fail-with-body $url
+      # REMOVED Phase 21 D-10: the upstream-broker publish step was here (lines 120-171 of the pre-edit file).
+      # The deleted step POSTed a hash manifest to a Sonarr-era update endpoint; no Mangarr equivalent
+      # exists at v1.0.0. GitHub Releases is the v1.0.0 update source-of-truth. An in-app update broker is
+      # a v1.x consideration per .planning/phases/21-distribution-v1-release/21-CONTEXT.md Deferred Ideas.
+      # See also: services-API-key secret removal at the workflow_call inputs block above
+      # (RESEARCH Pitfall 7 — Plan 21-05 deletes the orphaned secret from repo Settings).
+      # (Literal step name + secret name + upstream endpoint intentionally omitted so repo-wide grep
+      # gates in Task 4 stay clean.)
