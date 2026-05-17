@@ -6,6 +6,8 @@ on:
       - v5-develop
       - v5-main
       - Mangarr-v0                       # Phase 18 D-13: per-PR smoke on Mangarr-v0 push
+    tags:
+      - 'v*'                             # Sonarr divergence: Phase 21 D-06 — release trigger (replaces inherited Sonarr-era *-final pseudo-branch guards); pushed v* tag on Mangarr-v0 triggers the full pipeline + deploy job.
     paths-ignore:
       - ".planning/**"                   # GSD planning docs — no build impact, skip the pipeline
       - "src/Sonarr.Api.*/openapi.json"
@@ -29,8 +31,8 @@ concurrency:
 env:
   FRAMEWORK: net10.0
   RAW_BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-  MANGARR_MAJOR_VERSION: 5
-  VERSION: 5.0.0
+  MANGARR_MAJOR_VERSION: 1                # Sonarr divergence: was 5 — Phase 21 D-07 reset to v1.0.0 series
+  VERSION: 1.0.0                          # Sonarr divergence: was 5.0.0 — Phase 21 D-07 reset
 
 jobs:
   prepare:
@@ -513,7 +515,8 @@ jobs:
           binary_path: ${{ matrix.binary_path }}
 
   deploy:
-    if: ${{ github.ref_name == 'v5-develop-final' || github.ref_name == 'v5-main-final' }}
+    # Sonarr divergence: Phase 21 D-06 — trigger on v* tag push to Mangarr-v0; was inherited Sonarr-era *-final branch-name guards.
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     needs:
       [
         prepare,
@@ -525,6 +528,7 @@ jobs:
       ]
     permissions:
       contents: write                 # reusable deploy.yml release job creates a GitHub release; caller must grant the ceiling (repo default token perms are read-only)
+      packages: write                 # Sonarr divergence: Phase 21 D-05 — GHCR push permission for docker_publish job (OIDC via GITHUB_TOKEN; no PAT secret)
     secrets: inherit
     uses: ./.github/workflows/deploy.yml
     with:
@@ -533,33 +537,12 @@ jobs:
       major_version: ${{ needs.prepare.outputs.major_version }}
       version: ${{ needs.prepare.outputs.version }}
 
-  notify:
-    name: Discord Notification
-    needs:
-      [
-        prepare,
-        backend,
-        frontend,
-        unit_test,
-        unit_test_postgres,
-        integration_test,
-        deploy,
-      ]
-    if: ${{ !cancelled() && (github.ref_name == 'v5-develop-final' || github.ref_name == 'v5-main-final') }}
-    env:
-      STATUS: ${{ contains(needs.*.result, 'failure') && 'failure' || 'success' }}
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Notify
-        uses: tsickert/discord-webhook@v6.0.0
-        with:
-          webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          username: "GitHub Actions"
-          avatar-url: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
-          embed-title: "${{ github.workflow }}: ${{ env.STATUS == 'success' && 'Success' || 'Failure' }}"
-          embed-url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          embed-description: |
-            **Branch** ${{ github.ref }}
-            **Build** ${{ needs.prepare.outputs.version }}
-          embed-color: ${{ env.STATUS == 'success' && '3066993' || '15158332' }}
+  # REMOVED Phase 21 D-11: chat-notify job was here (~30 lines in the pre-edit file).
+  # The deleted job posted build status to a community webhook on every run; removed
+  # at v1.0.0 because no Mangarr community channel exists yet. Re-add in v1.x with a
+  # MANGARR_-namespaced webhook secret if community presence justifies it.
+  # See .planning/phases/21-distribution-v1-release/21-CONTEXT.md D-11 + RESEARCH Pitfall 7
+  # — the orphaned webhook secret should be deleted from repo Settings → Secrets after
+  # this PR merges (Plan 21-05 checkpoint:human-verify).
+  # (Literal job name + secret name + action ref intentionally omitted so repo-wide
+  # grep gates in Task 4 stay clean.)
