@@ -6,7 +6,7 @@
 //
 // Manga sibling diverges from OverrideMatchModal:
 //   * Body component is MangaOverrideMatchModalContent (NOT OverrideMatchModalContent — manga-shaped props).
-//   * Props payload is manga-shaped (chapterIds + mangaId + scanlationGroup? + translatedLanguage? + downloadClientId? + grab plumbing) — no seriesId / seasonNumber / episodes / quality / languages.
+//   * Props payload is manga-shaped (mangaId + scanlationGroup? + translatedLanguage? + downloadClientId? + grab plumbing) — no seriesId / seasonNumber / episodes / quality / languages. Plan 25-04 Task 6 (v1.1-04 narrow) dropped the chapterIds prop entirely; the chapter-flavored search now uses the sibling ChapterOverrideMatchModal (Task 5).
 //
 // Phase 15 cleanup: when TV-side OverrideMatchModal is deleted, this manga sibling renames + flattens to OverrideMatch/OverrideMatchModal.tsx as the canonical default.
 import React from 'react';

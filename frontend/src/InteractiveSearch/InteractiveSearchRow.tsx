@@ -21,12 +21,14 @@ import formatAge from 'Utilities/Number/formatAge';
 import formatCustomFormatScore from 'Utilities/Number/formatCustomFormatScore';
 import translate from 'Utilities/String/translate';
 import InteractiveSearchPayload from './InteractiveSearchPayload';
-// Phase 12 Plan 12-10 — Sub-wave-B-addition (audit row C closure):
-// MangaOverrideMatchModal is the manga-shape sibling for chapter/manga payloads.
-// Routed at the OverrideMatchModal mount point below via payload-shape discriminator
-// `'chapterId' in searchPayload || 'mangaId' in searchPayload` — verbatim shape from
-// useReleases.ts:385 (Plan 07-05 union-routing pattern). TV branch preserved verbatim
-// per D-12-18.
+// Plan 25-04 Task 5 (v1.1-04 OverrideMatch split) — payload-shape
+// discriminator now narrows on `searchPayload.kind === '…'` literal
+// (Pitfall 2 grep gate). 'chapter' / 'manga' kinds route to the two
+// manga-shape siblings; 'episode' / 'season' route to the unified TV
+// fallback (preserved verbatim per D-12-18). Pre-Plan-25-04 the
+// chapter/manga shapes shared a single MangaOverrideMatchModal carrying
+// chapterIds via sentinel; this split decommissions the sentinel.
+import ChapterOverrideMatchModal from './OverrideMatch/Chapter/ChapterOverrideMatchModal';
 import MangaOverrideMatchModal from './OverrideMatch/Manga/MangaOverrideMatchModal';
 import OverrideMatchModal from './OverrideMatch/OverrideMatchModal';
 import ReleaseSceneIndicator from './ReleaseSceneIndicator';
@@ -132,24 +134,17 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
   const [isConfirmGrabModalOpen, setIsConfirmGrabModalOpen] = useState(false);
   const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
 
-  // Bug fix (interactive-download-btn-red, 2026-05-08):
-  // The row-level direct-grab must route to the same endpoint that produced the
-  // release list. Phase 12 Plan 12-10 fixed the OverrideMatch modal to do this
-  // (see OverrideMatch routing at the bottom of this file) but the row-level
-  // download icon was still hard-wired to useGrabRelease (POSTs to /api/v5/release,
-  // which does not exist in this codebase — the TV ReleaseController was deleted
-  // during the Phase 6/8 manga cutover). Result: every chapter grab 404'd and the
-  // icon turned red.
-  //
-  // Both hooks expose an identical surface ({ grabRelease, isGrabbing, isGrabbed,
-  // grabError }); the rules of hooks require us to call both unconditionally and
-  // pick the active pair by payload shape. The discriminator
-  // `'chapterId' in searchPayload || 'mangaId' in searchPayload` matches the same
-  // shape check used at the OverrideMatchModal mount below and at
-  // useReleases.ts:385's getReleasePath. Phase 15 cleanup will collapse the two
-  // hooks into one when Tv/ deletes.
+  // Bug fix (interactive-download-btn-red, 2026-05-08) + Plan 25-04 Task 5:
+  // The row-level direct-grab must route to the same endpoint that produced
+  // the release list. Plan 25-04 Task 5 rewrites the discriminator to use
+  // the new `kind` literal-string field on InteractiveSearchPayload (Pitfall
+  // 2 — no more runtime property-presence checks). 'chapter' / 'manga' kinds
+  // route to useGrabMangaRelease (POSTs to /api/v5/manga/release); 'episode'
+  // / 'season' kinds route to useGrabRelease (TV-shape fallback, preserved
+  // per D-12-18). Phase 15 cleanup will collapse the two hooks into one
+  // when the TV path is fully retired.
   const isMangaPayload =
-    'chapterId' in searchPayload || 'mangaId' in searchPayload;
+    searchPayload.kind === 'chapter' || searchPayload.kind === 'manga';
   const tvGrab = useGrabRelease();
   const mangaGrab = useGrabMangaRelease();
   const { isGrabbing, isGrabbed, grabError, grabRelease } = isMangaPayload
@@ -391,34 +386,35 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
         onCancel={onGrabCancel}
       />
 
-      {/* Phase 12 Plan 12-10 — Sub-wave-B-addition (audit row C closure):
-          Payload-shape discriminator. Chapter/manga searchPayloads route to
-          MangaOverrideMatchModal (manga grab body shape; POSTs to /manga/release
-          via useGrabMangaRelease); episode/season payloads route to the existing
-          TV OverrideMatchModal (preserved verbatim per D-12-18). Discriminator
-          shape `'chapterId' in searchPayload || 'mangaId' in searchPayload`
-          mirrors useReleases.ts:385 exactly (Plan 07-05 union-routing pattern).
-
-          Known TODO (v1.1+): chapterIds extraction below defaults to
-          `[searchPayload.chapterId]` for ChapterSearchPayload and `[]` for
-          MangaSearchPayload (whole-manga search). v1.1+ may tighten with
-          separate ChapterOverrideMatchModal vs MangaOverrideMatchModal siblings
-          if multi-chapter manga selection becomes a use case (tracked by Plan
-          12-98 v1.1-roadmap.md promotion). The mangaId fallback `0` is a
-          sentinel — the backend MangaReleaseController.DownloadRelease keys
-          off the cached RemoteChapter (indexerId + guid), so the override
-          mangaId field is informational; cache resolution drives the actual
-          grab. */}
-      {isMangaPayload ? (
+      {/* Plan 25-04 Task 5 (v1.1-04 OverrideMatch split) — searchPayload
+          narrows on `kind` literal-string discriminator (Pitfall 2 — no
+          runtime property-presence checks). Three branches:
+            * kind='chapter' → ChapterOverrideMatchModal (chapterIds REQUIRED
+              non-empty; mangaId real)
+            * kind='manga'   → MangaOverrideMatchModal (mangaId REQUIRED;
+              no chapterIds — Task 6 narrows the manga sibling)
+            * kind='episode' | 'season' → TV-shape OverrideMatchModal
+              (preserved verbatim per D-12-18)
+          The pre-Plan-25-04 sentinel (mangaId=0 + non-empty chapterIds)
+          is decommissioned by the typed split. */}
+      {searchPayload.kind === 'chapter' ? (
+        <ChapterOverrideMatchModal
+          isOpen={isOverrideModalOpen}
+          title={title}
+          indexerId={indexerId}
+          guid={guid}
+          mangaId={0}
+          chapterIds={[searchPayload.chapterId]}
+          protocol={protocol}
+          onModalClose={onOverrideModalClose}
+        />
+      ) : searchPayload.kind === 'manga' ? (
         <MangaOverrideMatchModal
           isOpen={isOverrideModalOpen}
           title={title}
           indexerId={indexerId}
           guid={guid}
-          mangaId={'mangaId' in searchPayload ? searchPayload.mangaId : 0}
-          chapterIds={
-            'chapterId' in searchPayload ? [searchPayload.chapterId] : []
-          }
+          mangaId={searchPayload.mangaId}
           protocol={protocol}
           onModalClose={onOverrideModalClose}
         />

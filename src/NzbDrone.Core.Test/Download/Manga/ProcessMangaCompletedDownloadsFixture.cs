@@ -95,11 +95,15 @@ namespace NzbDrone.Core.Test.Download.Manga
                 .Returns<LocalChapter, NzbDrone.Core.Download.DownloadClientItem>((lc, _) => new MangaImportDecision(lc));
 
             // Default importer returns Imported result.
+            // Phase 25 Plan 25-04 Task 7 — Import signature gained
+            // `overwriteExisting` as the LAST optional parameter; mock setup
+            // updated to include it (4 callback params).
             Mocker.GetMock<IImportApprovedChapters>()
                 .Setup(i => i.Import(It.IsAny<List<MangaImportDecision>>(),
                                      It.IsAny<bool>(),
-                                     It.IsAny<NzbDrone.Core.Download.DownloadClientItem>()))
-                .Returns<List<MangaImportDecision>, bool, NzbDrone.Core.Download.DownloadClientItem>((decisions, _, __) =>
+                                     It.IsAny<NzbDrone.Core.Download.DownloadClientItem>(),
+                                     It.IsAny<bool>()))
+                .Returns<List<MangaImportDecision>, bool, NzbDrone.Core.Download.DownloadClientItem, bool>((decisions, newDownload, downloadClientItem, overwriteExisting) =>
                 {
                     var results = new List<MangaImportResult>();
                     foreach (var d in decisions)
@@ -256,9 +260,11 @@ namespace NzbDrone.Core.Test.Download.Manga
             // tracks call count). The next caller — whether reactive or poll — sees the
             // ChapterFile present and bails.
             var importCount = 0;
+
+            // Phase 25 Plan 25-04 Task 7 — 4-param signature.
             Mocker.GetMock<IImportApprovedChapters>()
-                .Setup(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>()))
-                .Returns<List<MangaImportDecision>, bool, NzbDrone.Core.Download.DownloadClientItem>((decisions, _, __) =>
+                .Setup(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>(), It.IsAny<bool>()))
+                .Returns<List<MangaImportDecision>, bool, NzbDrone.Core.Download.DownloadClientItem, bool>((decisions, newDownload, downloadClientItem, overwriteExisting) =>
                 {
                     importCount++;
 

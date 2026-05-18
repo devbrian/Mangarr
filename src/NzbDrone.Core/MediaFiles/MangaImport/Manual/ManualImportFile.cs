@@ -24,6 +24,10 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
         public ReleaseType ReleaseType { get; set; }
         public string DownloadId { get; set; }
 
+        // Phase 25 Plan 25-04 Task 7 — per-row D-04 dropdown carry-over;
+        // defaults to Skip per no-destructive-default safety.
+        public ExistingFileBehavior ExistingFileBehavior { get; set; } = ExistingFileBehavior.Skip;
+
         public bool Equals(ManualImportFile other)
         {
             if (other == null)

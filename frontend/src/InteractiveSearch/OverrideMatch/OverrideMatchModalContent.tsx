@@ -16,12 +16,11 @@ import DownloadProtocol from 'DownloadClient/DownloadProtocol';
 // names listings. Series/Series + Series/useSeries (useSingleSeries) rewritten
 // to Manga/Manga + Manga/useManga (useSingleManga) peers.
 import usePrevious from 'Helpers/Hooks/usePrevious';
-import SelectEpisodeModal from 'InteractiveImport/Episode/SelectEpisodeModal';
-import { SelectedEpisode } from 'InteractiveImport/Episode/SelectEpisodeModalContent';
+import SelectChapterModal from 'InteractiveImport/Chapter/SelectChapterModal';
+import { SelectedChapter } from 'InteractiveImport/Chapter/SelectChapterModalContent';
 import SelectLanguageModal from 'InteractiveImport/Language/SelectLanguageModal';
 import SelectQualityModal from 'InteractiveImport/Quality/SelectQualityModal';
-import SelectSeasonModal from 'InteractiveImport/Season/SelectSeasonModal';
-import SelectSeriesModal from 'InteractiveImport/Series/SelectSeriesModal';
+import SelectMangaModal from 'InteractiveImport/Manga/SelectMangaModal';
 import { ReleaseEpisode, useGrabRelease } from 'InteractiveSearch/useReleases';
 import Language from 'Language/Language';
 import Manga from 'Manga/Manga';
@@ -34,10 +33,14 @@ import SelectDownloadClientModal from './DownloadClient/SelectDownloadClientModa
 import OverrideMatchData from './OverrideMatchData';
 import styles from './OverrideMatchModalContent.css';
 
+// Plan 25-04 Task 3 — 'season' variant dropped (manga has no season per
+// DOMAIN-02). The OverrideMatchModalContent retains the TV-only carry-over
+// (this is the TV-shape fallback consumed when searchPayload.kind is
+// episode/season per Task 5's discriminator branch); the 'season' state
+// transitions are no longer reachable.
 type SelectType =
   | 'select'
   | 'series'
-  | 'season'
   | 'episode'
   | 'quality'
   | 'language'
@@ -123,26 +126,18 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
     [setSeriesId, setSeasonNumber, setEpisodes, setSelectModalOpen]
   );
 
-  const onSelectSeasonPress = useCallback(() => {
-    setSelectModalOpen('season');
-  }, [setSelectModalOpen]);
-
-  const onSeasonSelect = useCallback(
-    (s: number) => {
-      setSeasonNumber(s);
-      setEpisodes([]);
-      setSelectModalOpen(null);
-    },
-    [setSeasonNumber, setEpisodes, setSelectModalOpen]
-  );
+  // Plan 25-04 Task 3 — onSelectSeasonPress + onSeasonSelect dropped
+  // alongside SelectSeasonModal (manga has no season per DOMAIN-02; Season/
+  // subdir deleted in same commit). seasonNumber state remains for TV
+  // fallback consumer typing; it is no longer user-mutable here.
 
   const onSelectEpisodePress = useCallback(() => {
     setSelectModalOpen('episode');
   }, [setSelectModalOpen]);
 
   const onEpisodesSelect = useCallback(
-    (episodeMap: SelectedEpisode[]) => {
-      // @ts-expect-error — Plan 15-12: SelectedEpisode.episodes typed Episode[]; setEpisodes expects ReleaseEpisode[]. Manga uses Chapter; not reached at runtime.
+    (episodeMap: SelectedChapter[]) => {
+      // @ts-expect-error — Plan 15-12 / Plan 25-04 Task 1: SelectedChapter.episodes typed Chapter[]; setEpisodes expects ReleaseEpisode[]. Not reached at runtime (manga override path uses the manga-shape sibling).
       setEpisodes(episodeMap[0].episodes ?? []);
       setSelectModalOpen(null);
     },
@@ -260,17 +255,8 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
             }
           />
 
-          <DescriptionListItem
-            className={styles.item}
-            title={translate('SeasonNumber')}
-            data={
-              <OverrideMatchData
-                value={seasonNumber}
-                isDisabled={!series}
-                onPress={onSelectSeasonPress}
-              />
-            }
-          />
+          {/* Plan 25-04 Task 3 — SeasonNumber DescriptionListItem dropped
+              (manga has no season per DOMAIN-02). */}
 
           <DescriptionListItem
             className={styles.item}
@@ -347,22 +333,17 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
         </div>
       </ModalFooter>
 
-      <SelectSeriesModal
+      <SelectMangaModal
         isOpen={selectModalOpen === 'series'}
         modalTitle={modalTitle}
         onSeriesSelect={onSeriesSelect}
         onModalClose={onSelectModalClose}
       />
 
-      <SelectSeasonModal
-        isOpen={selectModalOpen === 'season'}
-        modalTitle={modalTitle}
-        seriesId={seriesId}
-        onSeasonSelect={onSeasonSelect}
-        onModalClose={onSelectModalClose}
-      />
+      {/* Plan 25-04 Task 3 — SelectSeasonModal JSX dropped (manga has no
+          season per DOMAIN-02; Season/ subdir deleted in same commit). */}
 
-      <SelectEpisodeModal
+      <SelectChapterModal
         isOpen={selectModalOpen === 'episode'}
         selectedIds={[guid]}
         seriesId={seriesId}

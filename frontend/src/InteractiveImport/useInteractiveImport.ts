@@ -1,11 +1,21 @@
+// Sonarr divergence: REWRITE per Phase 25 Plan 25-04 Task 4 (v1.1-03 +
+// D-04) — see DIVERGENCE.md.
+//
+// InteractiveImportParams + ReprocessInteractiveImportItem rewritten to
+// manga shape: dropped the TV-shape carry-over (series-id / season-number /
+// episode-ids); added mangaId / chapterIds / existingFileBehavior. Payload
+// path remains /manualimport per D-01 (no manga/ prefix; ManualImport is
+// a cross-manga flow, not a per-manga resource).
+//
+// Defensive `?? []` discipline preserved (P-007) so consumers'
+// .length/.find/.reduce calls never crash on empty backend responses.
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import ModelBase from 'App/ModelBase';
 import useApiMutation from 'Helpers/Hooks/useApiMutation';
 import useApiQuery from 'Helpers/Hooks/useApiQuery';
-import Language from 'Language/Language';
-import { QualityModel } from 'Quality/Quality';
 import clientSideFilterAndSort from 'Utilities/Filter/clientSideFilterAndSort';
+import ExistingFileBehavior from 'typings/ExistingFileBehavior';
 import InteractiveImport from './InteractiveImport';
 import { useInteractiveImportOptions } from './interactiveImportOptionsStore';
 import ReleaseType from './ReleaseType';
@@ -14,8 +24,7 @@ const DEFAULT_ITEMS: InteractiveImport[] = [];
 
 interface InteractiveImportParams {
   downloadIds?: string[];
-  seriesId?: number;
-  seasonNumber?: number;
+  mangaId?: number;
   folder?: string;
   filterExistingFiles?: boolean;
 }
@@ -41,10 +50,9 @@ const useInteractiveImport = (params: InteractiveImportParams) => {
 
   const { data: sortedItems } = useMemo(() => {
     const sortPredicates = {
-      series: (item: InteractiveImport) => item.series?.title || '',
-      quality: (item: InteractiveImport) => item.quality?.quality?.name || '',
-      languages: (item: InteractiveImport) =>
-        item.languages?.map((l) => l.name).join(', ') || '',
+      manga: (item: InteractiveImport) => item.manga?.title || '',
+      translatedLanguage: (item: InteractiveImport) =>
+        item.translatedLanguage || '',
     };
 
     return clientSideFilterAndSort(items, {
@@ -79,7 +87,7 @@ export const useUpdateInteractiveImportItem = () => {
           }
 
           return oldData.map((item) => {
-            return item.id === id ? { ...item, ...updates } : item;
+            return item.id === id ? ({ ...item, ...updates } as InteractiveImport) : item;
           });
         }
       );
@@ -103,7 +111,7 @@ export const useUpdateInteractiveImportItems = () => {
           }
 
           return oldData.map((item) => {
-            return ids.includes(item.id) ? { ...item, ...updates } : item;
+            return ids.includes(item.id) ? ({ ...item, ...updates } as InteractiveImport) : item;
           });
         }
       );
@@ -117,15 +125,14 @@ export const useUpdateInteractiveImportItems = () => {
 interface ReprocessInteractiveImportItem extends ModelBase {
   path: string;
   relativePath: string;
-  seriesId: number | undefined;
-  seasonNumber: number | undefined;
-  episodeIds: number[] | undefined;
-  quality: QualityModel | undefined;
-  languages: Language[];
-  releaseGroup: string | undefined;
+  mangaId: number | undefined;
+  chapterIds: number[] | undefined;
+  scanlationGroup: string | undefined;
+  translatedLanguage: string | undefined;
   downloadId: string | undefined;
   indexerFlags: number;
   releaseType: ReleaseType;
+  existingFileBehavior: ExistingFileBehavior;
 }
 
 export const useReprocessInteractiveImportItems = () => {
@@ -181,15 +188,18 @@ export const useReprocessInteractiveImportItems = () => {
             id,
             path: item.path,
             relativePath: item.relativePath,
-            seriesId: item.series ? item.series.id : undefined,
-            seasonNumber: item.seasonNumber,
-            episodeIds: (item.episodes || []).map((e) => e.id),
-            quality: item.quality,
-            languages: item.languages,
-            releaseGroup: item.releaseGroup,
+            mangaId: item.manga ? item.manga.id : undefined,
+            chapterIds: (item.chapters ?? []).map((c) => c.id),
+            scanlationGroup: item.scanlationGroup,
+            translatedLanguage: item.translatedLanguage,
             indexerFlags: item.indexerFlags,
             releaseType: item.releaseType,
-            downloadId: item.downloadId,
+            downloadId:
+              item.kind === 'queue-source' || item.kind === 'manga-imported'
+                ? item.downloadId
+                : undefined,
+            existingFileBehavior:
+              item.existingFileBehavior ?? ExistingFileBehavior.Skip,
           });
 
           return acc;

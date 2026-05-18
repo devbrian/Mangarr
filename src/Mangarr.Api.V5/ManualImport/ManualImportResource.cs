@@ -4,6 +4,7 @@ using Mangarr.Api.V5.Manga.Chapter;
 using Mangarr.Http.REST;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.MediaFiles.MangaImport;
+using NzbDrone.Core.MediaFiles.MangaImport.Manual;
 using NzbDrone.Core.Parser.Model;
 
 namespace Mangarr.Api.V5.ManualImport;
@@ -24,9 +25,12 @@ namespace Mangarr.Api.V5.ManualImport;
 // Phase 15 D-04 drops TV QualityModel / QualityWeight (no manga quality axis).
 // PROJECT.md DOMAIN-02 drops SeasonNumber (no manga season concept).
 //
-// Sonarr divergence: ExistingFileBehavior field is INTENTIONALLY ABSENT in 25-02.
-// Plan 25-04 D-04 appends ExistingFileBehavior at the same time the per-row "On
-// Existing File" dropdown lands. See 25-01-DTO-MAPPING.md §3 row 20.
+// Phase 25 Plan 25-04 Task 7 (D-04 + v2-02) — ExistingFileBehavior field
+// appended per 25-01-DTO-MAPPING.md §3 row 20. Serializes as a camelCase
+// string ("skip" / "replace") via the global STJson
+// JsonStringEnumConverter at STJson.cs:33. Default = Skip preserves
+// no-destructive-default safety; the user must opt in per-row to enable
+// Replace.
 public class ManualImportResource : RestResource
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
@@ -48,4 +52,8 @@ public class ManualImportResource : RestResource
     public int IndexerFlags { get; set; }
     public ReleaseType ReleaseType { get; set; }
     public IEnumerable<MangaImportRejection> Rejections { get; set; } = new List<MangaImportRejection>();
+
+    // Phase 25 Plan 25-04 Task 7 — per-row D-04 dropdown carry-over (camelCase
+    // string roundtrip via STJson global JsonStringEnumConverter).
+    public ExistingFileBehavior ExistingFileBehavior { get; set; } = ExistingFileBehavior.Skip;
 }

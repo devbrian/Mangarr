@@ -21,8 +21,9 @@ namespace Mangarr.Api.V5.ManualImport;
 // shape mapped into the backend bulk-input POCO. Plan 25-02 Task 3 appends the
 // matching `ReprocessItems(List<ManualImportFile>)` method on ManualImportService.
 //
-// ExistingFileBehavior mapping reserved for 25-04 Commit 7 (per 25-01-DTO-MAPPING.md
-// §3 row 20 + §5 last row).
+// Phase 25 Plan 25-04 Task 7 — ExistingFileBehavior mapping appended per
+// 25-01-DTO-MAPPING.md §3 row 20 + §5 last row. Round-trips both directions
+// (ToResource emits, ToModel consumes).
 public static class ManualImportResourceMapper
 {
     public static ManualImportResource ToResource(this ManualImportItem model)
@@ -44,7 +45,8 @@ public static class ManualImportResourceMapper
             CustomFormatScore = model.CustomFormatScore,
             IndexerFlags = model.IndexerFlags,
             ReleaseType = model.ReleaseType,
-            Rejections = model.Rejections ?? Enumerable.Empty<MangaImportRejection>()
+            Rejections = model.Rejections ?? Enumerable.Empty<MangaImportRejection>(),
+            ExistingFileBehavior = model.ExistingFileBehavior
         };
     }
 
@@ -65,7 +67,8 @@ public static class ManualImportResourceMapper
             ScanlationGroup = resource.ScanlationGroup,
             IndexerFlags = resource.IndexerFlags,
             ReleaseType = resource.ReleaseType,
-            DownloadId = resource.DownloadId
+            DownloadId = resource.DownloadId,
+            ExistingFileBehavior = resource.ExistingFileBehavior
         };
     }
 
