@@ -21,6 +21,7 @@ import MangaBlocklist from 'Activity/Blocklist/MangaBlocklist';
 import MangaHistory from 'Activity/History/MangaHistory';
 import MangaQueue from 'Activity/Queue/MangaQueue';
 import AddNewManga from 'AddManga/AddNewManga/AddNewManga';
+import InteractiveImportPage from 'AddManga/AddImportPage/InteractiveImportPage';
 import CalendarPage from 'Calendar/CalendarPage';
 import NotFound from 'Components/NotFound';
 import Switch from 'Components/Router/Switch';
@@ -102,6 +103,13 @@ function AppRoutes() {
       />
 
       <Route path="/add/manga" component={AddNewManga} />
+
+      <Route path="/add/import" component={InteractiveImportPage} />
+
+      {/* Phase 25 Plan 25-03 — /add/import top-level route restored (D-02:
+          Sonarr-canonical full inline page; Wanted/Missing modal kept per
+          D-03). Original Phase 15 Plan 15-07 deletion documented in lines
+          1-17 above. */}
 
       {/*
         Calendar
