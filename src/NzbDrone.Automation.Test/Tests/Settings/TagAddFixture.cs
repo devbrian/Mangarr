@@ -1,4 +1,5 @@
 using System;
+using System.Net.Http;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -15,8 +16,18 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// TestKit seeder (acts as the API-driven Add coverage) and then reopens the
 /// page to assert the new tag renders. The TestKit POST hits the same endpoint
 /// as the UI Add modal; we do NOT depend on locating a UI Add control whose
-/// shape is not in this plan's frontend scope. State-assertion = body contains
-/// the just-created label.
+/// shape is not in this plan's frontend scope.
+///
+/// /gsd-debug nightly-26025833226-postgres-automation fix: the original
+/// state-assertion used Playwright's WaitForResponseAsync + Page.ReloadAsync +
+/// resp.TextAsync() pattern, which raced under postgres cold-start timing —
+/// the page navigated again before the response body was buffered, evicting
+/// it and surfacing `Protocol error (Network.getResponseBody): No resource
+/// with given identifier found`. Replaced with a direct HttpClient GET
+/// carrying X-Api-Key (mirrors MangaCutoffUnmetFixture.ResolveSeedFksAsync
+/// precedent) — decouples the state assertion from the page lifecycle.
+/// The page-render assertion is kept as a smoke check that the Tags page
+/// itself mounts; the body-contains assertion now runs over HttpClient.
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
@@ -30,18 +41,21 @@ public class TagAddFixture : AutomationTest
         var newId = await tk.SeedTagAsync(label);
         newId.Should().BeGreaterThan(0);
 
-        // State assertion: a fresh GET /api/v5/tag includes the new label.
+        // Smoke: the Tags page itself mounts (preserves the page-lifecycle
+        // signal without coupling the state assertion to it).
         var page = await new SettingsTagsPage(Page).OpenAsync(RootUri);
         await Assertions.Expect(page.PageContainer).ToBeVisibleAsync();
 
-        var listTask = Page.WaitForResponseAsync(
-            r => r.Url.Contains("/api/v5/tag") && r.Request.Method == "GET",
-            new() { Timeout = 30_000 });
-        await Page.ReloadAsync();
-        var resp = await listTask;
-
-        resp.Status.Should().Be(200);
-        var body = await resp.TextAsync();
+        // State assertion: a fresh GET /api/v5/tag includes the new label.
+        // Driven by HttpClient (not Playwright's response interception) so
+        // the assertion does not race with browser navigation under
+        // postgres cold-start timing. Timeout = 30s preserves the fail-fast
+        // bound the original WaitForResponseAsync had — without it
+        // HttpClient.Timeout defaults to ~100s, which would turn a fast
+        // signal into a slow timeout across the matrix on backend stalls.
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
+        var body = await http.GetStringAsync($"{RootUri}/api/v5/tag");
         body.Should().Contain(label);
     }
 }
