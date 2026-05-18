@@ -58,7 +58,7 @@ public class AutoTaggingEditFixture : AutomationTest
                         required = false,
                         fields = new[]
                         {
-                            new { name = "Value", value = 1 }
+                            new { name = "value", value = 1 }
                         }
                     }
                 }
@@ -88,7 +88,7 @@ public class AutoTaggingEditFixture : AutomationTest
                         required = false,
                         fields = new[]
                         {
-                            new { name = "Value", value = 1 }
+                            new { name = "value", value = 1 }
                         }
                     }
                 }

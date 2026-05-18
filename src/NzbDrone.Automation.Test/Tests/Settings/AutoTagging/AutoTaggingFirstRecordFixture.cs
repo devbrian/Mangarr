@@ -88,7 +88,7 @@ public class AutoTaggingFirstRecordFixture : AutomationTest
                         required = false,
                         fields = new[]
                         {
-                            new { name = "Value", value = 1 } // Shonen
+                            new { name = "value", value = 1 } // Shonen
                         }
                     }
                 }
@@ -140,7 +140,7 @@ public class AutoTaggingFirstRecordFixture : AutomationTest
                         required = false,
                         fields = new[]
                         {
-                            new { name = "Value", value = 4 } // Josei
+                            new { name = "value", value = 4 } // Josei
                         }
                     }
                 }
@@ -187,7 +187,7 @@ public class AutoTaggingFirstRecordFixture : AutomationTest
                         required = false,
                         fields = new[]
                         {
-                            new { name = "Value", value = 4 } // Josei (still no match for Komi=Shonen)
+                            new { name = "value", value = 4 } // Josei (still no match for Komi=Shonen)
                         }
                     }
                 }
