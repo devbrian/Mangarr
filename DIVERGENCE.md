@@ -743,6 +743,108 @@ Per `feedback_no_open_deferrals_at_phase_close`, DP-01 + DP-02 are **formally sc
 
 Phase 26 plan-author entry-point: grep for `PHASE-23 BRIDGE` in `src/Mangarr.Api.V5/Profiles/Delay/DelayProfileResourceMapper.cs` to find the 4 mapper hardcodes (Pitfall 2). The mapper's hardcode deletion + entity prop drop + seeder update + DDL drop + caller-fixture updates must all land in a single atomic commit cluster per Phase 26 Migration 002 ship discipline.
 
+
+## Phase 24 — AutoTagging Restore-Rebuild (2026-05-17)
+
+**Status:** Active (Phase 24 close-out; landed 2026-05-17).
+
+**Trigger:** Phase 15 Plan 15-10 DELETED `src/NzbDrone.Core/AutoTagging/` in commit `6f857ba0e` ("AutoTagging/ subtree — TV-only feature; v1.x manga rebuild option"). v1.1 milestone open 2026-05-17 affirmed the RESTORE-REBUILD disposition (#83 trichotomy per v1.1 SUMMARY §Key Findings #2). The subtree was restored via `git show 6f857ba0e^:src/NzbDrone.Core/AutoTagging/` with mechanical Series→Manga translation; the spec catalog was rebuilt fresh to align with the manga domain (no Network / SeriesType / OriginalCountry / OriginalLanguage axes; new AuthorArtist / Demographic / ContentRating axes). See `.planning/phases/24-autotagging-restore-rebuild-v1-1-inserted-2026-05-17/24-CONTEXT.md` + `24-PLAN-DECISIONS.md` for the full decision record (D-01..D-07 + 6 Open Q resolutions).
+
+### Entry 1 — AutoTagging spec catalog: manga-shape catalog vs Sonarr TV-shape
+
+**Scope:** Phase 24 ships an 11-spec manga-shape catalog under `src/NzbDrone.Core/AutoTagging/Specifications/` that diverges from Sonarr's 13-spec TV-shape catalog on three axes: 3 specs DROPPED (AT-05 — no manga peer field), 1 spec DROPPED (Open Q #1 — manga's language axis lives downstream of metadata), 1 spec SPLIT into 2 (AT-03 — manga's quality model splits across two profile types), and 3 specs ADDED (AT-04 — manga-NEW). Net 11 specs (the +1 split-add and -1 OriginalLanguage drop cancel). The Sonarr-canonical `AutoTaggingService.GetTagChanges` algorithm + `SpecificationMatchesGroup.DidMatch` OR-within-type / AND-across-types semantic + NEGATE handling on `AutoTagSpecificationBase` are preserved verbatim (Pitfall 3 anti-rewrite gate enforced by `SpecificationMatchesGroupFixture.source_file_contains_verbatim_didmatch_expression`).
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `src/NzbDrone.Core/AutoTagging/Specifications/NetworkSpecification.cs` | absent | Phase 24 (AT-05) | TV-only — `Manga` has no `Network` field. Manga's publication channel concept doesn't map (publishers are not the equivalent of TV networks; aggregator-site distinction is captured separately via release-side filters). |
+| `src/NzbDrone.Core/AutoTagging/Specifications/SeriesTypeSpecification.cs` | absent | Phase 24 (AT-05) | TV-only — `Manga` has no `SeriesType` field. The Mangarr `MangaType` enum (Manga/Manhwa/Manhua) is presentation-only and not used as a filter axis in v1.1; if filter demand surfaces in v2, the analog spec can be added without restoring the Sonarr TV axis. |
+| `src/NzbDrone.Core/AutoTagging/Specifications/OriginalCountrySpecification.cs` | absent | Phase 24 (AT-05) | TV-only — `Manga` has no `OriginalCountry` field. Manga's country-of-origin axis is implicit in `MangaType` (Manhwa=KR / Manhua=CN / Manga=JP) and not a separate metadata field. |
+| `src/NzbDrone.Core/AutoTagging/Specifications/QualityProfileSpecification.cs` | split | Phase 24 (AT-03) | SPLIT into TWO manga-shape peers — `TranslationProfileSpecification.cs` + `CustomFormatProfileSpecification.cs` — since manga's quality axis is decomposed across two profile types (Phase 5 D-04 dropped TV's resolution-based `QualityProfile`; the manga peer model carries translation-language ordinality on `TranslationProfile` + release-feature scoring on `CustomFormatProfile`). |
+| `src/NzbDrone.Core/AutoTagging/Specifications/AuthorArtistSpecification.cs` | new | Phase 24 (AT-04 / D-03) | Manga-NEW. Single combined spec matching `Manga.PrimaryAuthor` OR `Manga.Artist` against a `List<string>` value list (case-insensitive contains-any). Sonarr's `Author` axis doesn't exist for TV; manga's author-artist axis is load-bearing for shōnen-spec rules. NEGATE flag inherited from `AutoTagSpecificationBase` (free with the port). |
+| `src/NzbDrone.Core/AutoTagging/Specifications/DemographicSpecification.cs` | new | Phase 24 (AT-04 / D-04) | Manga-NEW. Matches `Manga.Demographic` (the new `MangaDemographic` enum — see Entry 2) against a `IEnumerable<int>` value set. Backed by Migration 002 `Demographic` column. No Sonarr peer (TV networks segment by network, manga segments by demographic). |
+| `src/NzbDrone.Core/AutoTagging/Specifications/ContentRatingSpecification.cs` | new | Phase 24 (AT-04) | Manga-NEW. Matches `Manga.ContentRating` (string, already shipped) against `MangaContentRating` 4-value enum (Safe/Suggestive/Erotica/Pornographic per MangaDex `contentRating` field). Spec's helper maps stored string → enum at evaluation time (Option A — sentinel enum mirror per 24-PLAN-DECISIONS §Spec Catalog Plan Map row 11). |
+| `src/NzbDrone.Core/AutoTagging/AutoTaggingService.cs` | restore | Phase 24 (AT-01) | Restored verbatim from `git show 6f857ba0e^:src/NzbDrone.Core/AutoTagging/AutoTaggingService.cs` with mechanical `Series → Manga` substitution. `GetTagChanges(Manga manga)` body unchanged from Sonarr canonical — `Specifications.All(IsSatisfiedBy)` AND-semantic; on full match → add tags not already present; on no match → remove rule's own tags IF `RemoveTagsAutomatically=true`. Sonarr-canonical opt-in flag preserved per D-05. |
+| `src/NzbDrone.Core/AutoTagging/MangaAutoTaggingApplier.cs` | new | Phase 24 (AT-06) | Standalone applier — `IHandle<AutoTagsUpdatedEvent>` + `IHandle<MangaAddedEvent>` + `IHandle<MangaRefreshCompleteEvent>`. Sonarr V5 has NO standalone applier (its tag-application flows through `ApplyTagsCommand` / different command shape); Mangarr's D-06 picks the IHandle-based applier path (Sonarr-aligned plumbing but Mangarr-specific event binding). Constructor injects `(IAutoTaggingService, IMangaService, Logger)`. |
+| `src/Mangarr.Api.V5/AutoTagging/AutoTaggingController.cs` | new | Phase 24 (AT-02 + Open Q #3 + Open Q #4) | V5 controller with CRUD + INLINED `[HttpGet("schema")]` action (NO separate `AutoTaggingSpecificationController.cs` file — Sonarr V5 canonical at the pinned SHA `dfb157382b20a2d4eb5f5828a6c1e276c0d6b160` has no separate schema controller). Route auto-derived as `/api/v5/autotagging` (case-insensitive). |
+| `src/Mangarr.Api.V5/Tags/TagController.cs` | modified | Phase 24 (AT-08) | `IHandle<AutoTagsUpdatedEvent>` re-wired sibling to existing `IHandle<TagsUpdatedEvent>` (Phase 15 Plan 15-10 strip reversed). 5-line `Handle(AutoTagsUpdatedEvent) => BroadcastResourceChange(ModelAction.Sync)`. FE Tag list invalidates on every auto-tag fire. |
+| `src/NzbDrone.Core/Validation/TagInUseValidator.cs` | modified | Phase 24 (Phase 22 D-03 closure) | Slot 8 (AutoTagging) flipped from Phase 22 D-03 stub-returns-false to live `_autoTaggingService.AllForTag(tag.Id).Count` query. Tag delete now correctly rejected with "1 auto-tagging rule" / "N auto-tagging rules" when the tag is in use by an AutoTagging rule. |
+
+**Algorithm preservation:** `AutoTaggingService.GetTagChanges` (88-135 of upstream) restored byte-for-byte with `Series` → `Manga` substitution; logic unchanged. The user-applied-tags-sticky guarantee falls out of Sonarr-canonical semantics for free (`RemoveTagsAutomatically=false` default never touches user-applied tags; opt-in `true` removes only the tags THAT rule itself applied when the rule stops matching). Phase 24 D-05 explicitly REVERSED the original ROADMAP "user-additive precedence model" wording (which would have required dropping the flag from the UI) in favor of Sonarr-canonical retention — see Open Q #1 resolution + AT-07 amendment landed in this docs sweep.
+
+**Why-not-Sonarr:**
+
+- **Dropped specs (Network/SeriesType/OriginalCountry/OriginalLanguage):** Each spec references a TV-domain entity field that has no manga peer in `Manga.cs`. Manga's metadata model is built around different axes (Demographic, ContentRating, Author/Artist) — bolting on stub TV fields just to support a spec would force Migration 002 to add columns no other code path consumes. Manga's language axis is per-release (`ChapterFile.TranslatedLanguage`), not per-title (Phase 16.1 canonical pattern; see Entry 3).
+- **QualityProfile split:** Sonarr's single resolution-based `QualityProfile` doesn't map to manga. Phase 5 D-04 dropped the model entirely; the manga peer infrastructure shipped two separate profile types (`TranslationProfile` for ordinal language preference, `CustomFormatProfile` for release-feature scoring). The AutoTagging spec follows the same split.
+- **Manga-NEW specs:** Demographic + ContentRating + AuthorArtist are load-bearing for manga library categorization (shōnen vs josei vs seinen filtering is the manga equivalent of TV genre-grouping; safe-vs-pornographic filtering is the parental-control equivalent of TV's age rating; author/artist matching is far more useful in manga where prolific creators have signature genres). Sonarr's TV catalog doesn't need these axes; Mangarr's manga catalog does.
+
+**Cross-references:**
+
+- `.planning/phases/24-autotagging-restore-rebuild-v1-1-inserted-2026-05-17/24-CONTEXT.md` — Phase decisions D-01..D-07 (Migration 002 carve + Manga.Artist / Manga.Demographic + Sonarr-canonical `RemoveTagsAutomatically` + retroactive eval on rule save + 5-plan split).
+- `.planning/phases/24-autotagging-restore-rebuild-v1-1-inserted-2026-05-17/24-PLAN-DECISIONS.md` §Open Q #3 (inline schema, NO separate controller) + §Open Q #4 (route casing) + §Spec Catalog Plan Map (Spec total = 11 derivation).
+- `.planning/phases/24-autotagging-restore-rebuild-v1-1-inserted-2026-05-17/24-02-SUMMARY.md` — subtree restore (8 files) + Migration 002 + entity additions.
+- `.planning/phases/24-autotagging-restore-rebuild-v1-1-inserted-2026-05-17/24-03-SUMMARY.md` — 11-spec catalog + MangaAutoTaggingApplier.
+- `.planning/phases/24-autotagging-restore-rebuild-v1-1-inserted-2026-05-17/24-04-SUMMARY.md` — V5 controllers + TagController re-wire + Phase 22 D-03 Slot 8 flip.
+- `.planning/phases/15-domain-rename-rebrand/` — Plan 15-10 (the AutoTagging delete commit `6f857ba0e` source).
+- `.planning/REQUIREMENTS.md` AT-07 + ROADMAP §Phase 24 SC #4 — amended per D-05 reversal (this docs sweep).
+
+### Entry 2 — MangaDemographic enum: MangaDex 4-value source
+
+**Scope:** Phase 24 ships a new `MangaDemographic` enum (`src/NzbDrone.Core/Manga/MangaDemographic.cs`) with 4 values backing the new `Manga.Demographic` column added by Migration 002. The enum mirrors MangaDex's `publicationDemographic` 4-value enum 1:1. AniList and MyAnimeList sources fall back to `null` (Phase 27 territory — provider plugins land then).
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `src/NzbDrone.Core/Manga/MangaDemographic.cs` | new | Phase 24 (D-04) | `public enum MangaDemographic { Shonen = 1, Shojo = 2, Seinen = 3, Josei = 4 }` — int-backed for Dapper round-trip via the standard int-enum converter. Null = "not categorized" (no explicit `None = 0` sentinel; null is semantically cleaner for "uncategorized" in manga, vs Sonarr's `Unknown = 0` convention). |
+| `src/NzbDrone.Core/Manga/MangaContentRating.cs` | new | Phase 24 (Plan 24-03 — Option A sentinel) | `public enum MangaContentRating { Safe = 1, Suggestive = 2, Erotica = 3, Pornographic = 4 }` — int-backed sentinel mirror for `ContentRatingSpecification.SelectOptions`. `Manga.ContentRating` itself stays `string` on the entity (already shipped pre-Phase-24; no Migration 002 column add for it); the enum is FE-facing for dropdown UX, and the spec's `IsSatisfiedByWithoutNegate` helper maps stored string → enum at evaluation time. |
+| `src/NzbDrone.Core/Datastore/Migration/002_v1_1_manga_artist_demographic.cs` | new | Phase 24 (D-01) | Migration 002 — adds 2 columns to `Manga` table: `Artist TEXT NULL` + `Demographic INTEGER NULL`. First post-baseline migration (pre-v1 dev-migration policy ended at Phase 21 close). |
+| `src/NzbDrone.Core/MetadataSource/MangaDex/MangaDexMetadataSource.cs` | modified | Phase 24 (Plan 24-02 + Open Q #6) | `MapManga` populates `Manga.Demographic` from MangaDex `attributes.publicationDemographic` via `MapDemographic` helper (`"shounen"` → `Shonen`, `"shoujo"` → `Shojo`, `"seinen"` → `Seinen`, `"josei"` → `Josei`, anything else → null). `Manga.Artist` populated from `relationships[type=artist].attributes.name` atomic with the `includes[]=artist` query-param add on `MangaDexApi.cs` Search + GetById sites (Open Q #6 atomic-add — adding the query param without the consumer is dead code; adding the consumer without the query param silently no-ops). |
+
+**Why-not-Sonarr:**
+
+- **Why not `Unknown = 0`?** Sonarr's `SeriesStatusType.Continuing/Ended` enum (and most Sonarr `*Type` enums) use `Unknown = 0` as the default sentinel because TV series always exist in one of those states. Manga demographic, by contrast, is genuinely unknown for many titles (older works lack demographic categorization; some titles span demographics; Western OEL manga has no demographic at all). Null = "not categorized" is semantically cleaner than a forced sentinel and produces correct AutoTagging behavior — a `DemographicSpec` with `Value=[Shonen]` correctly evaluates as no-match for null-demographic manga without requiring a special "Unknown" sentinel in the spec's value set.
+- **Why 4 values not 5 (no Kodomomuke)?** MangaDex's `publicationDemographic` enum surfaces exactly 4 values; Kodomomuke (kids' manga) isn't a separate category in MangaDex's taxonomy. Adding a 5th value would require AniList/MAL extension paths that don't ship in Phase 24 (MetadataSource population for AniList + MAL is Phase 27 territory). Future expansion to 5 values is possible if AniList/MAL provider integration surfaces strong demand.
+- **AniList/MAL fall-back:** Phase 24 ships MangaDex `MapManga` population only. AniList + MAL `MapManga` paths leave `Manga.Demographic = null` (and `Manga.Artist = null`) on titles sourced exclusively from those providers. Acceptable behavior: AutoTagging on Demographic just doesn't fire for AniList/MAL-only manga until Phase 27 wires the field paths. No GH issue filed yet; surfaces organically when Phase 27 plan-author audits MetadataSource population (see 24-CONTEXT.md §Deferred Ideas first bullet).
+
+**Cross-references:**
+
+- `.planning/phases/24-autotagging-restore-rebuild-v1-1-inserted-2026-05-17/24-CONTEXT.md` D-04 (MangaDemographic enum source + null vs Unknown convention) + §Specific Ideas lines 550-562 (enum code).
+- `.planning/phases/24-autotagging-restore-rebuild-v1-1-inserted-2026-05-17/24-02-SUMMARY.md` — Migration 002 + MapDemographic helper + Open Q #6 atomic-add to MangaDexApi.cs.
+- `.planning/phases/24-autotagging-restore-rebuild-v1-1-inserted-2026-05-17/24-03-SUMMARY.md` — MangaContentRating sentinel + ContentRatingSpecification map-string-to-enum helper.
+
+### Entry 3 — OriginalLanguageSpec dropped: manga's language axis lives on `ChapterFile`
+
+**Scope:** Phase 24 24-03 explicitly DROPPED Sonarr's `OriginalLanguageSpecification` from the spec catalog (Open Q #1 resolution). Sonarr's spec reads `series.OriginalLanguage` (a `Language` enum on the Series entity); Mangarr's `Manga.cs` has NO `OriginalLanguage` property — verified by `grep -E "OriginalLanguage|TranslatedLanguage|public.*Language" src/NzbDrone.Core/Manga/Manga.cs` returning ZERO matches. Phase 16.1 canonical-translation pattern (closed 2026-05-10) parked language semantics on `ChapterFile.TranslatedLanguage` (per-release, not per-title), NOT on the `Manga` entity. Manga's meaningful language axis is TRANSLATED language, not ORIGINAL language.
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `src/NzbDrone.Core/AutoTagging/Specifications/OriginalLanguageSpecification.cs` | absent | Phase 24 (Open Q #1) | Spec NOT ported from `git show 6f857ba0e^`. Adding a 5th column (`OriginalLanguage`) to Migration 002 to back it would cost +1 column on the migration + +1 metadata-source population path + +1 DIVERGENCE.md narrative for a spec with weak manga-domain semantics (most manhwa/manhua/manga have a SINGLE original language by definition; the meaningful axis is translated language, which is per-release). |
+| (manga-domain analog) | n/a | Phase 24 | `ContentRatingSpec` + `DemographicSpec` provide the manga-domain filtering analog — both fire on title-level metadata that's actually variable and useful for AutoTagging. Per-release translated-language filtering is out of AutoTagging's scope (which fires on the `Manga` entity, not on `ChapterFile` entities); release-level language preference is already captured by `TranslationProfile` ordinality (Phase 5 D-04). |
+
+**Spec-count arithmetic preserved:**
+
+```
+Sonarr ships:    13 spec impls
+- 3 dropped per AT-05 (Network / SeriesType / OriginalCountry — no manga peer):      10
+- 1 dropped per Open Q #1 (OriginalLanguage — language axis on ChapterFile):          9
+- 1 split per AT-03 (QualityProfile → TranslationProfile + CustomFormatProfile):    +1 = 10
+- 3 manga-NEW per AT-04 (AuthorArtist / Demographic / ContentRating):               +3 = 13 - 3 - 1 + 1 + 3 = 13 source - 4 drops + 1 split-add + 3 NEW = ...
+                                                                                       net: 8 ports - 1 drop + 1 split-add + 3 NEW = 11
+```
+
+The +1 split-add (QualityProfile → 2 specs) and the -1 OriginalLanguage drop cancel. The net catalog total is **11** (pinned constant in `AutoTaggingSpecificationCatalogFixture.Should().HaveCount(11)` and `AutoTaggingDryIocAutoDiscoveryFixture.resolved_count_is_11`).
+
+**Why-not-Sonarr:**
+
+- **Per-title language axis doesn't exist in manga's data model.** Manga.cs intentionally lacks an `OriginalLanguage` field. The MangaDex source provides `attributes.originalLanguage` but Mangarr's `MapManga` doesn't populate it (Phase 16.1 conscious choice — title-level original language is presentation metadata, not a filter axis).
+- **Translated language IS already filterable** via `TranslationProfile` ordinality (which is itself per-rule in the `TranslationProfileSpec` row of this catalog). User stories like "tag every Russian-translated manga as 'ru'" are correctly modeled at the file-level scan path (`ChapterFile.TranslatedLanguage`), not at the title-level metadata path.
+- **AT-03 amendment in this docs sweep:** REQUIREMENTS.md AT-03 wording struck `OriginalLanguage` from the 8-port enumeration to reflect the drop. Net `Genre, Year, Monitored, Status, RootFolder, QualityProfile→Translation+CustomFormat, Tag` (7 source items, 8 after the split). ROADMAP §Phase 24 Success Criteria #2 same amendment.
+
+**Cross-references:**
+
+- `.planning/phases/24-autotagging-restore-rebuild-v1-1-inserted-2026-05-17/24-PLAN-DECISIONS.md` §Open Q #1 — full resolution narrative + verification evidence (zero `OriginalLanguage` grep matches in `Manga.cs`).
+- `.planning/phases/24-autotagging-restore-rebuild-v1-1-inserted-2026-05-17/24-03-SUMMARY.md` — spec catalog ship without OriginalLanguage; AutoTaggingSpecificationCatalogFixture pinned at 11.
+- `.planning/phases/16.1-revert-chapterrelease-adopt-sonarr-canonical-translation-pat/16.1-SUMMARY.md` — canonical-translation-pattern revert (per-translation axes on `ChapterFile`).
+- `src/NzbDrone.Core/Manga/Manga.cs` — verify by grep: zero `OriginalLanguage` matches.
+
 ---
 *Last updated: 2026-05-12 (issue #92 close-out -- vocabulary-parity rename of the shared RootFolderSelectInput option-row prop + matching CSS class; closes the follow-up retained at issue #81 close-out 2026-05-13. Issue #81 + #84 + #92 close-outs preserved verbatim above per historical-accuracy contract.)*
 *Last updated: 2026-05-16 (Phase 21 Plan 21-01 — v1.0.0 release-snapshot section appended per D-15; full audit pass of Phase 0/15/16/16.1/17/17.3 entries verified against post-Phase-20 codebase. Previous trailer preserved verbatim above per historical-accuracy contract. Audit findings: 1 strike-through applied at row 38 — `src/NzbDrone.Core/Indexers/MangaFire/` never shipped, descoped per Phase 3 D-19; remaining Phase 0/15/16.1/17/17.3 entries verified accurate against post-Phase-20 codebase. Historical Phase 7/Phase 8 plan rows referencing pre-Phase-15 paths (`src/Sonarr.Api.V5/`, `frontend/src/Series/`, etc.) left untouched per provenance-value rule — actual completion paths are documented in the Phase 15 + Phase 17.3 sections below them.)*

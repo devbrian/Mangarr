@@ -39,7 +39,7 @@ Listed by **migration status** post-Phase-17.3 (Sonarr → Mangarr conversion).
 |-----------|---------|-------|
 | `Download/` | Download client integrations + lifecycle | See [Download/CLAUDE.md](./Download/CLAUDE.md). Mostly reusable. |
 | `History/` | Grab/import history | Entity references change. |
-| `AutoTagging/` | Rule-based auto-tagging | Specs adapt. |
+| `AutoTagging/` | Rule-based auto-tagging | **Phase 24 RESTORE-REBUILD** — Phase 15 Plan 15-10 DELETED the subtree; Phase 24 restored from `git show 6f857ba0e^` with mechanical Series→Manga + 11-spec manga-shape catalog (8 Sonarr ports - 1 OriginalLanguage drop + 1 QualityProfile split + 3 manga-NEW: AuthorArtist/Demographic/ContentRating). See [AutoTagging/CLAUDE.md](./AutoTagging/CLAUDE.md). |
 | `Languages/` | Language enum + parsing | Add scanlation-aware terms. |
 | `HealthCheck/` | System health checks | Some checks are series-aware. |
 | `Extras/` | Subtitle/metadata sidecar files | Manga sidecars (info.json, cover) differ. |

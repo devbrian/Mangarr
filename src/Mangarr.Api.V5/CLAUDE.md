@@ -31,7 +31,8 @@ All endpoints are prefixed with **`/api/v5`** (configured by the `[V5ApiControll
 | `Profiles/` | (resources only — provider config controllers under Settings) |
 | `Qualities/` | `QualityDefinitionController` |
 | `CustomFormats/` | (resource files only) |
-| `Tags/` | `TagController`, `TagDetailsController` |
+| `Tags/` | `TagController`, `TagDetailsController` — Phase 24 Plan 24-04 re-added `IHandle<AutoTagsUpdatedEvent>` sibling to existing `IHandle<TagsUpdatedEvent>` (AT-08; Phase 15 Plan 15-10 strip reversed). |
+| `AutoTagging/` | **NEW Phase 24 Plan 24-04** — `AutoTaggingController` (CRUD + INLINED `[HttpGet("schema")]` per Open Q #3 — NO separate `AutoTaggingSpecificationController.cs` file; Sonarr V5 canonical at pinned SHA `dfb157382b20a2d4eb5f5828a6c1e276c0d6b160` has no separate schema controller) + `AutoTaggingResource` + `AutoTaggingResourceMapper` + `AutoTaggingSpecificationResource` (a.k.a. SchemaResource) + `AutoTaggingSpecificationResourceMapper`. 5 files; route `/api/v5/autotagging` (lowercase canonical; ASP.NET Core case-insensitive routing also serves FE `/autoTagging` camelCase). |
 | `RootFolders/` | `RootFolderController` |
 | `RemotePathMappings/` | `RemotePathMappingController` |
 

@@ -24,6 +24,33 @@ Exit codes:
 The Missing-from-INVENTORY block is always emitted (informational signal) so
 future phases can spot newly-introduced user-visible routes that warrant a row;
 it does NOT fail the gate.
+
+Per-phase endpoint-registration breadcrumbs
+-------------------------------------------
+Routes are AUTO-DISCOVERED from `src/Mangarr.Api.V5/**/*Controller.cs` via the
+`[V5ApiController]` + `[Http*]` + `[Rest*ById]` attribute scan above; there is no
+explicit `KNOWN_V5_ENDPOINTS = [...]` config list to update. To "register" new
+phase endpoints, plan-author appends `| v5-endpoint | …` rows to the milestone
+INVENTORY.md (path constant `INVENTORY` below); the gate then moves the new
+routes from the informational "Missing from INVENTORY" block into the catalogued
+set, satisfying TEST-V11-01 coverage discipline.
+
+Phase 24 (AutoTagging Restore-Rebuild — closed 2026-05-18) registered 5 new V5
+endpoints under `/api/v5/autotagging` (Open Q #4 lowercase canonical; ASP.NET
+Core case-insensitive routing also serves FE camelCase `/api/v5/autoTagging`):
+
+    GET    /api/v5/autotagging          # AutoTaggingController.GetAll
+    POST   /api/v5/autotagging          # AutoTaggingController.Create (RestPostById)
+    PUT    /api/v5/autotagging/{id}     # AutoTaggingController.Update (RestPutById)
+    DELETE /api/v5/autotagging/{id}     # AutoTaggingController.Delete (RestDeleteById)
+    GET    /api/v5/autotagging/schema   # AutoTaggingController.GetTemplates (inline schema per Open Q #3)
+
+Plan 24-05 Task 2 appends the 3 user-facing rows (GET list / POST / GET schema)
+to the milestone INVENTORY.md union table; the {id}-keyed PUT + DELETE rows are
+subsumed by the "Edit AutoTagging rule" + "Delete AutoTagging rule" modal-action
+rows per the INVENTORY most-specific-axis dedup rule (line 12 of INVENTORY.md).
+See `.planning/phases/24-autotagging-restore-rebuild-v1-1-inserted-2026-05-17/INVENTORY.md`
+for the full Phase 24 surface-coverage table (25 rows, all 🟢).
 """
 import re
 import sys
