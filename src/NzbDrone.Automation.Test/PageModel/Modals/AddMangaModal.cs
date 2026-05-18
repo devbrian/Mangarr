@@ -80,8 +80,11 @@ public class AddMangaModal : PageBase
                 });
                 return;
             }
-            catch (PlaywrightException) when (attempt < modalConfirmAttempts - 1)
+            catch (System.Exception ex) when (attempt < modalConfirmAttempts - 1 && (ex is System.TimeoutException || ex is PlaywrightException))
             {
+                // Playwright .NET throws System.TimeoutException (not PlaywrightException)
+                // when LocatorWaitForOptions.Timeout expires — observed on Phase 24
+                // smoke gate Run #5. Match both for robust retry coverage.
                 await Page.WaitForTimeoutAsync(15_000);
             }
         }

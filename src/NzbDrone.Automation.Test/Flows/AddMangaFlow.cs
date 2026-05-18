@@ -83,7 +83,7 @@ public static class AddMangaFlow
                 await resultRow.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
                 break;
             }
-            catch (PlaywrightException) when (attempt < retryWaitsMs.Length)
+            catch (System.Exception ex) when (attempt < retryWaitsMs.Length && IsTransientLookupFailure(ex))
             {
                 await addPage.SearchInput.FillAsync(string.Empty);
                 await page.WaitForTimeoutAsync(retryWaitsMs[attempt]);
@@ -134,4 +134,15 @@ public static class AddMangaFlow
             card.ClickAsync());
         return new MangaDetailsPage(page);
     }
+
+    // Playwright .NET 1.59.0 throws `Microsoft.Playwright.PlaywrightException`
+    // for protocol/transport errors but a raw `System.TimeoutException` for
+    // LocatorWaitForOptions.Timeout expiry — observed on Phase 24 smoke gate
+    // Run #5 where `bulk_delete_files` failed in 35s flat (one attempt only)
+    // despite the catch (PlaywrightException) retry wrapper, proving the
+    // wait-for-locator timeout escapes the more specific catch. Match both.
+    // Match by exception class — message-text matching is fragile across
+    // Playwright versions and locales.
+    private static bool IsTransientLookupFailure(System.Exception ex)
+        => ex is System.TimeoutException || ex is PlaywrightException;
 }
