@@ -845,8 +845,51 @@ The +1 split-add (QualityProfile → 2 specs) and the -1 OriginalLanguage drop c
 - `.planning/phases/16.1-revert-chapterrelease-adopt-sonarr-canonical-translation-pat/16.1-SUMMARY.md` — canonical-translation-pattern revert (per-translation axes on `ChapterFile`).
 - `src/NzbDrone.Core/Manga/Manga.cs` — verify by grep: zero `OriginalLanguage` matches.
 
+
+## Phase 25 — Interactive Import V5 + /add/import + Subdir Rename (v1.1 — INSERTED 2026-05-17)
+
+**Status:** Active (Phase 25 Plan 25-05 close-out; landed 2026-05-18).
+
+**Trigger:** Phase 25 D-02 (per `.planning/phases/25-interactive-import-v5-add-import-subdir-rename-v1-1-inserted/25-CONTEXT.md` lines 203-219) elected the Sonarr-canonical full inline page shape for the new `/add/import` route rather than the modal-mount wording in the pre-discussion ROADMAP success criteria. The original ROADMAP §Phase 25 success-criteria #1 wording read "the InteractiveImport modal mounts with empty folderPath state" (Option A pre-discussion — a ~20-line wrapper that auto-mounts `<InteractiveImportModal isOpen={true} folder={''} />` on route entry). D-02 picked the Sonarr-canonical alternative: a full inline page hosting the shared `InteractiveImportContent` extracted in Plan 25-03 (D-03 — Wanted/Missing modal preserved, both surfaces consume the same content).
+
+### Entry 1 — `/add/import` is a Sonarr-canonical full inline page, not a modal-auto-mount route
+
+**Scope:** Phase 25 Plan 25-03 shipped `frontend/src/AddManga/AddImportPage/InteractiveImportPage.tsx` as a thin `PageContent` + `PageContentBody` shell hosting the shared `InteractiveImportContent` component (extracted in Plan 25-03 Task 1 from `InteractiveImportModalContent.tsx`). The route renders no `<Modal>` chrome — it is a true page surface that participates in normal browser back/forward navigation (Cancel calls `history.push('/')`). The pre-discussion ROADMAP §Phase 25 success-criteria #1 wording ("InteractiveImport modal mounts with empty folderPath state") is amended in Plan 25-05 Task 3 to "the InteractiveImport page hosts an empty folder picker state" to reconcile the policy layer with the shipped shape.
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `frontend/src/AddManga/AddImportPage/InteractiveImportPage.tsx` | new | Phase 25 (D-02) | Full inline page — no `<Modal>` chrome. Hosts the shared `InteractiveImportContent` component inside `PageContent` + `PageContentBody`. `useHistory().push('/')` on Cancel (page-exit → MangaIndex per 25-CONTEXT.md specifics A6 + 25-RESEARCH §Q3). `data-testid="add-import-page"` wrapper per the Phase 18 D-18 / Plan 25-01 `add-import-*` allowed-prefix ledger append. Mirrors Sonarr V3 `frontend/src/AddSeries/ImportSeries/ImportSeries.js` page-not-modal shape (no per-route modal). |
+| `frontend/src/InteractiveImport/Interactive/InteractiveImportContent.tsx` | new | Phase 25 (D-03 enabler) | Shared content component extracted from the prior `InteractiveImportModalContent.tsx` body. Stripped of outer `<ModalContent>` / `<ModalHeader>` / `<ModalBody>` / `<ModalFooter>` chrome (caller-provided). Consumed by both the new page surface (D-02) and the existing modal surface (D-03 — Wanted/Missing modal). `headerLabel` prop introduced (modal supplies the modal title; page leaves blank). Internal folder-toggle preserved inside the content (page shell stays thin). |
+| `frontend/src/InteractiveImport/Interactive/InteractiveImportModalContent.tsx` | modified | Phase 25 (D-03) | Collapsed from ~1140 LOC to a ~60-line thin wrapper that re-adds the Modal chrome and delegates to the shared `InteractiveImportContent`. `InteractiveImportModal.tsx` consumer signature unchanged (D-03 modal kept; the Wanted/Missing entry point still works after the Plan 25-05 Task 6 LOCK guard drop). |
+| `frontend/src/App/AppRoutes.tsx` | modified | Phase 25 (D-02) | `<Route path="/add/import" component={InteractiveImportPage} />` inserted immediately after the existing `<Route path="/add/manga" ...>` declaration. Mirrors Sonarr V3 sibling-route pattern under `/add/*`. |
+| `.planning/ROADMAP.md` §Phase 25 success-criteria #1 | amended | Phase 25 (Plan 25-05 Task 3) | Wording: `the InteractiveImport modal mounts with empty folderPath state` → `the InteractiveImport page hosts an empty folder picker state`. Parenthetical added: `(amended 2026-05-18 per Phase 25 D-02 — Sonarr-canonical full inline page; see DIVERGENCE.md)`. |
+| `.planning/REQUIREMENTS.md` II-01 | amended | Phase 25 (Plan 25-05 Task 3) | Same substitution. Parenthetical added: `(amended 2026-05-18 per Phase 25 D-02 — see DIVERGENCE.md)`. |
+
+**Why-not-modal-auto-mount (D-02 rationale):**
+
+- **Page surface participates in normal browser navigation.** A modal-auto-mount route would couple browser history to modal-open state — `back/forward` interactions would either dismiss the modal mid-input (bad UX) or no-op (confusing). The full inline page lets `back` navigate to the previous route as users expect.
+- **Sonarr-canonical shape.** Sonarr V3 `/add/import` is a full page (`frontend/src/AddSeries/ImportSeries/ImportSeries.js`), not a modal-auto-mount. PROJECT.md design philosophy: *"preserve Mangarr's shape wherever it works; diverge only where the manga domain forces us"* — Sonarr's page-not-modal shape works for manga's import flow (same folder-picker → table → approve sequence), so we mirror it.
+- **Wanted/Missing modal retained per D-03.** D-02 only adds the page surface; D-03 explicitly preserves the existing `InteractiveImportModal` entry point from `frontend/src/Wanted/Missing/Missing.tsx` (the Plan 25-05 Task 6 LOCK guard drop makes that modal entry visible to manga consumers). Both surfaces consume the shared `InteractiveImportContent` extracted in 25-03 — the modal supplies its own Modal chrome and a `headerLabel` for the title; the page leaves the label blank. Two entry points, one content component.
+- **D-02 + D-03 are complementary, not exclusive.** A modal-auto-mount route would have made the Wanted/Missing modal surface redundant (both entry points landing on the same modal-mounted-from-a-route shape). The page+modal split keeps each surface idiomatic for its caller: cross-page navigation lands on the page; modal-context invocations (Wanted/Missing toolbar button) stay in the modal-context-typical surface.
+
+**Sonarr peer:**
+
+- Sonarr V3 `frontend/src/AddSeries/ImportSeries/ImportSeries.js` — full-page import surface mounted at `/add/import`. Mangarr's `InteractiveImportPage.tsx` follows the same page-not-modal shape, manga-shaped through the shared `InteractiveImportContent` extraction.
+- Sonarr V3 `frontend/src/Activity/Queue/Manual/InteractiveImportModal.js` — modal entry from the Queue toolbar. Mangarr's `frontend/src/InteractiveImport/InteractiveImportModal.tsx` is the structural analog, mounted from the Wanted/Missing toolbar per D-03 (post-LOCK guard drop; Plan 25-05 Task 6).
+
+**Cross-references:**
+
+- `.planning/phases/25-interactive-import-v5-add-import-subdir-rename-v1-1-inserted/25-CONTEXT.md` lines 203-219 — D-02 decision rationale (Sonarr-canonical full inline page vs modal-auto-mount).
+- `.planning/phases/25-interactive-import-v5-add-import-subdir-rename-v1-1-inserted/25-03-SUMMARY.md` — Plan 25-03 close-out (the page + shared content shipment).
+- `.planning/phases/25-interactive-import-v5-add-import-subdir-rename-v1-1-inserted/25-05-PLAN.md` Task 3 — the ROADMAP + REQUIREMENTS wording amendment driven by this entry.
+- `.planning/phases/12-mock-contract-frontend-parity-audit/12-11-SUMMARY.md` lines 165-168 — the Plan 12-11 LOCK guard installation that Plan 25-05 Task 6 unwinds (D-03 modal entry point goes live).
+- `.planning/ROADMAP.md` §Phase 25 success-criteria #1 — pre-amendment wording captured in this entry; post-amendment wording lives in ROADMAP.md as of 2026-05-18.
+- `.planning/REQUIREMENTS.md` II-01 — same substitution.
+
 ---
 *Last updated: 2026-05-12 (issue #92 close-out -- vocabulary-parity rename of the shared RootFolderSelectInput option-row prop + matching CSS class; closes the follow-up retained at issue #81 close-out 2026-05-13. Issue #81 + #84 + #92 close-outs preserved verbatim above per historical-accuracy contract.)*
 *Last updated: 2026-05-16 (Phase 21 Plan 21-01 — v1.0.0 release-snapshot section appended per D-15; full audit pass of Phase 0/15/16/16.1/17/17.3 entries verified against post-Phase-20 codebase. Previous trailer preserved verbatim above per historical-accuracy contract. Audit findings: 1 strike-through applied at row 38 — `src/NzbDrone.Core/Indexers/MangaFire/` never shipped, descoped per Phase 3 D-19; remaining Phase 0/15/16.1/17/17.3 entries verified accurate against post-Phase-20 codebase. Historical Phase 7/Phase 8 plan rows referencing pre-Phase-15 paths (`src/Sonarr.Api.V5/`, `frontend/src/Series/`, etc.) left untouched per provenance-value rule — actual completion paths are documented in the Phase 15 + Phase 17.3 sections below them.)*
 
 *Last updated: 2026-05-16 (Phase 21 Plan 21-05 close-out — v1.0.0 snapshot section heading date 2026-05-16 confirmed as the Plan 21-05 close-out date; the actual `git tag v1.0.0 && git push origin v1.0.0` is performed via the post-merge CHECKPOINT 3 gate per Plan 21-05 parallel-executor protocol. If the tag-push date lands on a different calendar day, the section heading date may be backfilled in a follow-up commit; the structural delta enumeration itself is correct as of this commit. All previous trailers preserved verbatim above per historical-accuracy contract.)*
+
+*Last updated: 2026-05-18 (Phase 25 Plan 25-05 — D-02 Sonarr-canonical `/add/import` full inline page entry appended for the Interactive Import V5 + /add/import + Subdir Rename phase. Anchors the ROADMAP §Phase 25 success-criteria #1 + REQUIREMENTS.md II-01 wording amendments landed in the same Plan 25-05 commit cluster. All previous trailers preserved verbatim above per historical-accuracy contract.)*
