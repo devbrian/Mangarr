@@ -70,8 +70,10 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
         }
 
         /// <summary>
-        /// GET /manga?title=...&amp;limit=10&amp;includes[]=cover_art&amp;includes[]=author
+        /// GET /manga?title=...&amp;limit=10&amp;includes[]=cover_art&amp;includes[]=author&amp;includes[]=artist
         /// Reference: https://api.mangadex.org/docs/redoc.html#tag/Manga/operation/get-search-manga
+        /// Phase 24 v1.1 — includes[]=artist required so MapManga can populate Manga.Artist
+        /// from the relationships[type=artist] entries (D-03 AuthorArtistSpec).
         /// </summary>
         public List<MangaDataItem> Search(string title)
         {
@@ -80,6 +82,7 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
                 .AddQueryParam("limit", "10")
                 .AddQueryParam("includes[]", "cover_art")
                 .AddQueryParam("includes[]", "author")
+                .AddQueryParam("includes[]", "artist")
                 .Build();
             ApplyHeaders(req);
 
@@ -88,15 +91,18 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
         }
 
         /// <summary>
-        /// GET /manga/{id}?includes[]=cover_art&amp;includes[]=author. Throws
+        /// GET /manga/{id}?includes[]=cover_art&amp;includes[]=author&amp;includes[]=artist. Throws
         /// <see cref="MangaNotFoundException"/> on upstream 404 — mirrors
         /// <c>SkyHookProxy.GetSeriesInfo</c>'s <c>SeriesNotFoundException</c> shape.
+        /// Phase 24 v1.1 — includes[]=artist required so MapManga can populate Manga.Artist
+        /// from the relationships[type=artist] entries (D-03 AuthorArtistSpec).
         /// </summary>
         public MangaDataItem GetById(Guid mangaDexId)
         {
             var req = new HttpRequestBuilder($"{_baseUrl}/manga/{mangaDexId:D}")
                 .AddQueryParam("includes[]", "cover_art")
                 .AddQueryParam("includes[]", "author")
+                .AddQueryParam("includes[]", "artist")
                 .Build();
             req.SuppressHttpError = true;       // we handle the 404 explicitly below
             ApplyHeaders(req);

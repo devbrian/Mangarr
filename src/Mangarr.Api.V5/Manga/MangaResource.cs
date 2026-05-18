@@ -52,6 +52,11 @@ public class MangaResource : RestResource
     public int? PublicationYear { get; set; }
     public string? PrimaryAuthor { get; set; }
 
+    // Phase 24 v1.1 INSERTED 2026-05-17 — new manga axes per D-03 (AuthorArtistSpec)
+    // + D-04 (DemographicSpec). Round-tripped end-to-end via MangaResourceMapper.
+    public string? Artist { get; set; }
+    public MangaDemographic? Demographic { get; set; }
+
     // Bug fix new-manga-default-monitored (2026-05-08): carry the user's post-add
     // Monitor + Search* choices through to NzbDrone.Core.Manga.Manga.AddOptions
     // so MangaScannedHandler can apply the per-Chapter monitor cascade. Without
@@ -145,6 +150,8 @@ public static class MangaResourceMapper
             TotalChapterCount = model.TotalChapterCount,
             PublicationYear = model.PublicationYear,
             PrimaryAuthor = model.PrimaryAuthor,
+            Artist = model.Artist,
+            Demographic = model.Demographic,
             AddOptions = model.AddOptions == null ? null : new AddMangaOptionsResource
             {
                 Monitor = model.AddOptions.Monitor,
@@ -190,6 +197,8 @@ public static class MangaResourceMapper
             TotalChapterCount = resource.TotalChapterCount,
             PublicationYear = resource.PublicationYear,
             PrimaryAuthor = resource.PrimaryAuthor,
+            Artist = resource.Artist,
+            Demographic = resource.Demographic,
             AddOptions = resource.AddOptions == null ? null : new AddMangaOptions
             {
                 Monitor = resource.AddOptions.Monitor,
