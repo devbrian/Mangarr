@@ -360,15 +360,28 @@ EXIT_CODE=0
 # NOTE: do NOT pass --no-build here. The script header guarantees this gate fails
 # on compile-broken fixtures; --no-build with stale binaries can produce a false
 # PASS when current sources don't compile (codex P1 + coderabbit Major on PR #197).
+#
+# 2026-05-18 hang-fix: replaced `dotnet test ... | tee -a "$RESULTS_FILE"` with a
+# direct `> "$RUN_LOG"` redirect + `cat`. On Windows, the `dotnet test` pipeline
+# leaks process handles (testhost spawns helper processes that inherit the stdout
+# pipe-write FD; `tee` never sees EOF after testhost exits) — observed on Phase 24
+# smoke gate Run #1 and #2 (20+ min hang in post-test phase even after `Test Run
+# Failed.` summary printed). The fix removes the pipe-to-tee pattern entirely:
+# bash redirects dotnet test stdout/stderr directly to a file, then we cat it.
+# No persistent pipe-write FD = no orphan-process handle leak.
 if [ -n "$UNIT_FILTERS" ]; then
   echo "==== Running UNIT fixtures ===="
   echo "Filter: $UNIT_FILTERS"
+  RUN_LOG=$(mktemp)
   if ! dotnet test src/Mangarr.sln \
        --configuration Debug \
        --filter "$UNIT_FILTERS" \
-       --logger "console;verbosity=normal" 2>&1 | tee -a "$RESULTS_FILE"; then
+       --logger "console;verbosity=normal" > "$RUN_LOG" 2>&1; then
     EXIT_CODE=1
   fi
+  cat "$RUN_LOG"
+  cat "$RUN_LOG" >> "$RESULTS_FILE"
+  rm -f "$RUN_LOG"
   echo ""
 fi
 
@@ -390,12 +403,20 @@ if [ -n "$AUTOMATION_FILTERS" ]; then
     # DB wipe per feedback_db_wipe_no_backup
     rm -f /c/ProgramData/Mangarr/mangarr.db /c/ProgramData/Mangarr/mangarr.db-shm /c/ProgramData/Mangarr/mangarr.db-wal 2>/dev/null || true
 
+    # See hang-fix note above for the no-pipe pattern. AUTOMATION fixtures spawn
+    # Playwright browser worker node.exe processes — those PARTICULARLY tend to
+    # leak the parent stdout pipe FD on Windows; this pattern bypasses the issue
+    # entirely.
+    RUN_LOG=$(mktemp)
     if ! dotnet test src/NzbDrone.Automation.Test/Mangarr.Automation.Test.csproj \
          --configuration Debug \
          --filter "$AUTOMATION_FILTERS" \
-         --logger "console;verbosity=normal" 2>&1 | tee -a "$RESULTS_FILE"; then
+         --logger "console;verbosity=normal" > "$RUN_LOG" 2>&1; then
       EXIT_CODE=1
     fi
+    cat "$RUN_LOG"
+    cat "$RUN_LOG" >> "$RESULTS_FILE"
+    rm -f "$RUN_LOG"
   fi
   echo ""
 fi

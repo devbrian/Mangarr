@@ -223,10 +223,18 @@ sanitize_pii() {
 }
 
 # Step 3: Unit suite — scripts/test.sh always returns 0; parse Passed!/Failed! lines.
+# 2026-05-18 hang-fix prophylactic: also use redirect-then-sanitize here to avoid
+# any chance of a leaked dotnet test pipe-write FD hanging this stage (see Step 4
+# block below for the failure mode this prevents). The unit suite happened to
+# complete in ~80s on Phase 24 Run #2 without hanging, but the same orphan-FD
+# leak class is possible here.
 echo "--- Step 3: scripts/test.sh Windows Unit Test"
 export TEST_DIR="./_tests/net10.0"
 UNIT_LOG="${LOG_DIR}/unit-suite.txt"
-bash scripts/test.sh Windows Unit Test 2>&1 | sanitize_pii > "$UNIT_LOG"
+UNIT_RAW=$(mktemp)
+bash scripts/test.sh Windows Unit Test > "$UNIT_RAW" 2>&1
+sanitize_pii < "$UNIT_RAW" > "$UNIT_LOG"
+rm -f "$UNIT_RAW"
 # Per-DLL summary lines look like:
 #   Passed!  - Failed:     0, Passed:   573, Skipped:    16, Total:   589, Duration: 45 s - Mangarr.Common.Test.dll (net10.0)
 #   Failed!  - Failed:     3, Passed:   570, Skipped:    16, Total:   589, Duration: 45 s - Mangarr.Common.Test.dll (net10.0)
@@ -255,9 +263,20 @@ fi
 echo "--- Step 4: scripts/audit-new-fixtures.sh"
 FIXTURE_LOG="${LOG_DIR}/audit-new-fixtures.txt"
 FIXTURE_REPORT="${LOG_DIR}/audit-new-fixtures-report.json"
-# Run audit-new-fixtures.sh, capture exit through PIPESTATUS, sanitize PII in log.
-bash scripts/audit-new-fixtures.sh --report "$FIXTURE_REPORT" 2>&1 | sanitize_pii > "$FIXTURE_LOG"
-FIXTURE_EXIT=${PIPESTATUS[0]}
+# 2026-05-18 hang-fix: replaced
+#   bash scripts/audit-new-fixtures.sh ... | sanitize_pii > "$FIXTURE_LOG"
+# with a redirect-then-sanitize pattern. On Windows, `dotnet test` spawned by
+# audit-new-fixtures.sh leaks helper processes (Playwright node.exe workers
+# inherit the stdout pipe-write FD; `sanitize_pii` never sees EOF after testhost
+# exits, hanging the gate indefinitely — observed on Phase 24 smoke gate Run #1
+# and #2, both 20+ min hangs in this exact stage). The redirect-then-sanitize
+# pattern routes dotnet test stdout directly to a file (no persistent pipe),
+# then runs sanitize_pii on the closed file. No orphan-handle leak possible.
+FIXTURE_RAW=$(mktemp)
+bash scripts/audit-new-fixtures.sh --report "$FIXTURE_REPORT" > "$FIXTURE_RAW" 2>&1
+FIXTURE_EXIT=$?
+sanitize_pii < "$FIXTURE_RAW" > "$FIXTURE_LOG"
+rm -f "$FIXTURE_RAW"
 # Also sanitize the report JSON since audit-new-fixtures embeds paths there too.
 if [ -f "$FIXTURE_REPORT" ]; then
   sanitize_pii < "$FIXTURE_REPORT" > "$FIXTURE_REPORT.tmp" && mv "$FIXTURE_REPORT.tmp" "$FIXTURE_REPORT"
