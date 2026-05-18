@@ -50,6 +50,12 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
     public interface IManualImportService
     {
         List<ManualImportItem> GetMediaFiles(string folder, string downloadId, int? mangaId, bool filterExistingFiles);
+
+        // Phase 25 Plan 25-02 (gap-05 closure) — bulk reprocess for the V5
+        // POST /api/v5/manualimport endpoint. Each input row is re-routed through
+        // the standard decision pipeline so user-supplied Manga/Chapter overrides
+        // surface refreshed Rejections without persisting anything to disk.
+        List<ManualImportItem> ReprocessItems(List<ManualImportFile> files);
     }
 
     public class ManualImportService : IExecute<ManualImportCommand>, IManualImportService
@@ -224,6 +230,154 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
             {
                 _logger.ProgressTrace("Manually imported {0} files", imported);
             }
+        }
+
+        // Phase 25 Plan 25-02 (gap-05 closure per Phase 8 audit) — bulk reprocess
+        // for the V5 POST /api/v5/manualimport endpoint. Iterates each input row,
+        // resolves the user-supplied Manga + Chapter overrides, rebuilds a
+        // LocalChapter, and runs the standard decision pipeline so the response
+        // carries refreshed Rejections. No filesystem mutation: this is preview-only
+        // (ImportApprovedChapters is NOT invoked here — Execute owns that on user
+        // confirm). Pitfall 4 ordering invariant in ImportApprovedChapters.Import
+        // is untouched by this method.
+        //
+        // Mirrors Sonarr V3 ManualImportService.ReprocessItems shape (per
+        // 25-01-PORT-SOURCE.md §3 + 25-PATTERNS.md lines 344-361). Folder-type
+        // dispatch (ROOT / STAGING / ARBITRARY) is left to the existing
+        // GetMediaFiles entry-point; ReprocessItems operates on user-edited rows
+        // that already came back from a prior GetMediaFiles preview, so we
+        // re-route through the same internal helpers without a new registry.
+        public List<ManualImportItem> ReprocessItems(List<ManualImportFile> files)
+        {
+            files ??= new List<ManualImportFile>();
+            _logger.Debug("Reprocessing {Count} ManualImportFile rows", files.Count);
+
+            var results = new List<ManualImportItem>();
+
+            foreach (var file in files)
+            {
+                results.Add(ReprocessSingle(file));
+            }
+
+            return results;
+        }
+
+        private ManualImportItem ReprocessSingle(ManualImportFile file)
+        {
+            // Resolve the user-supplied Manga override (MangaId > 0). When the
+            // override is absent we fall back to parser-by-folder-name (mirrors
+            // ProcessFolder line 240-248). The decision maker still surfaces
+            // appropriate Rejections downstream if the parse fails.
+            Manga.Manga manga = null;
+
+            if (file.MangaId > 0)
+            {
+                manga = _mangaService.GetManga(file.MangaId);
+            }
+            else if (file.FolderName.IsNotNullOrWhiteSpace())
+            {
+                try
+                {
+                    manga = _parsingService.GetManga(file.FolderName);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn(ex, "Unable to resolve manga from folder name '{0}' during reprocess", file.FolderName);
+                }
+            }
+
+            if (manga == null)
+            {
+                return new ManualImportItem
+                {
+                    Path = file.Path,
+                    Name = file.Path != null ? Path.GetFileNameWithoutExtension(file.Path) : null,
+                    FolderName = file.FolderName,
+                    Size = file.Path != null && _diskProvider.FileExists(file.Path)
+                        ? _diskProvider.GetFileSize(file.Path)
+                        : 0,
+                    DownloadId = file.DownloadId,
+                    ChapterFileId = file.ChapterFileId,
+                    ScanlationGroup = file.ScanlationGroup,
+                    IndexerFlags = file.IndexerFlags,
+                    ReleaseType = file.ReleaseType,
+                    Rejections = new List<MangaImportRejection>
+                    {
+                        new MangaImportRejection(ImportRejectionReason.Unknown, "Unknown Manga")
+                    }
+                };
+            }
+
+            // Resolve user-supplied chapter overrides; when ChapterIds is empty the
+            // BuildLocalChapter helper parses the filename and lets the decision
+            // pipeline rejection-surface any un-resolved-chapter issue.
+            var existingChapters = _chapterService.GetChaptersByManga(manga.Id);
+            var lc = BuildLocalChapter(file.Path, manga, existingChapters);
+
+            if (lc == null)
+            {
+                return new ManualImportItem
+                {
+                    Path = file.Path,
+                    Name = file.Path != null ? Path.GetFileNameWithoutExtension(file.Path) : null,
+                    FolderName = file.FolderName,
+                    Size = file.Path != null && _diskProvider.FileExists(file.Path)
+                        ? _diskProvider.GetFileSize(file.Path)
+                        : 0,
+                    DownloadId = file.DownloadId,
+                    Manga = manga,
+                    ChapterFileId = file.ChapterFileId,
+                    ScanlationGroup = file.ScanlationGroup,
+                    IndexerFlags = file.IndexerFlags,
+                    ReleaseType = file.ReleaseType,
+                    Rejections = new List<MangaImportRejection>()
+                };
+            }
+
+            // When the user explicitly overrode the chapter set, apply that on top
+            // of the parser-inferred chapters so the decision pipeline operates on
+            // the user-picked aggregate.
+            if (file.ChapterIds != null && file.ChapterIds.Any())
+            {
+                var overriddenChapters = _chapterService.GetChapters(file.ChapterIds);
+                lc.Chapters = overriddenChapters;
+                lc.Chapter = overriddenChapters.FirstOrDefault();
+            }
+
+            // Per-row scanlation-group override (user picked a specific group on
+            // the modal). When unset, fall back to whatever BuildLocalChapter
+            // parsed off the filename.
+            if (file.ScanlationGroup.IsNotNullOrWhiteSpace())
+            {
+                lc.ScanlationGroup = file.ScanlationGroup;
+            }
+
+            lc.DownloadItem = file.DownloadId.IsNotNullOrWhiteSpace()
+                ? new DownloadClientItemInfo { DownloadId = file.DownloadId }
+                : null;
+
+            var decision = _importDecisionMaker.GetDecision(lc, downloadClientItem: null);
+
+            return new ManualImportItem
+            {
+                Path = lc.Path,
+                FolderName = file.FolderName,
+                Name = lc.Path != null ? Path.GetFileName(lc.Path) : null,
+                Size = lc.Size > 0 ? lc.Size : (lc.Path != null && _diskProvider.FileExists(lc.Path)
+                    ? _diskProvider.GetFileSize(lc.Path)
+                    : 0),
+                DownloadId = file.DownloadId,
+                Manga = lc.Manga,
+                Chapters = lc.Chapters ?? new List<Chapter>(),
+                ChapterFileId = lc.Chapter?.ChapterFileId ?? file.ChapterFileId,
+                TranslatedLanguage = lc.TranslatedLanguage,
+                ScanlationGroup = lc.ScanlationGroup,
+                CustomFormats = lc.CustomFormats ?? new(),
+                CustomFormatScore = lc.CustomFormatScore,
+                IndexerFlags = file.IndexerFlags,
+                ReleaseType = file.ReleaseType,
+                Rejections = decision.Rejections
+            };
         }
 
         private List<ManualImportItem> ProcessFolder(string rootFolder, string baseFolder, string downloadId, int? mangaId, bool filterExistingFiles)
