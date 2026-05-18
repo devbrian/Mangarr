@@ -479,7 +479,10 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
               ) : null}
 
               {activeTab === 'search' ? (
-                <InteractiveSearch type="manga" searchPayload={{ mangaId }} />
+                <InteractiveSearch
+                  type="manga"
+                  searchPayload={{ kind: 'manga', mangaId }}
+                />
               ) : null}
             </div>
 

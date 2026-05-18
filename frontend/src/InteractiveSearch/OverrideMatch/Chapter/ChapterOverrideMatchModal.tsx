@@ -1,0 +1,39 @@
+// Sonarr divergence: NEW per Phase 25 Plan 25-04 Task 5 (v1.1-04
+// OverrideMatch split) — see DIVERGENCE.md.
+//
+// Manga-shape sibling of OverrideMatchModal — chapter-specific flavor
+// (mangaId + REQUIRED non-empty chapterIds). The Plan-12-10-shipped
+// MangaOverrideMatchModal carried both shapes via sentinel logic
+// (mangaId=0 + chapterIds=[N] meant "chapter search"; mangaId=N +
+// chapterIds=[] meant "manga search"). Plan 25-04 splits these into
+// two siblings — Chapter (this file) + Manga (narrowed in Task 6).
+//
+// Wrapper pattern copied from MangaOverrideMatchModal.tsx (Modal + sizes.LARGE).
+import React from 'react';
+import Modal from 'Components/Modal/Modal';
+import { sizes } from 'Helpers/Props';
+import ChapterOverrideMatchModalContent, {
+  ChapterOverrideMatchModalContentProps,
+} from './ChapterOverrideMatchModalContent';
+
+interface ChapterOverrideMatchModalProps
+  extends ChapterOverrideMatchModalContentProps {
+  isOpen: boolean;
+}
+
+function ChapterOverrideMatchModal({
+  isOpen,
+  onModalClose,
+  ...otherProps
+}: ChapterOverrideMatchModalProps) {
+  return (
+    <Modal isOpen={isOpen} size={sizes.LARGE} onModalClose={onModalClose}>
+      <ChapterOverrideMatchModalContent
+        {...otherProps}
+        onModalClose={onModalClose}
+      />
+    </Modal>
+  );
+}
+
+export default ChapterOverrideMatchModal;
