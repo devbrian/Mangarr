@@ -415,9 +415,6 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
           indexerId={indexerId}
           guid={guid}
           mangaId={searchPayload.mangaId}
-          /* chapterIds={[]} — required by the pre-Task-6 manga sibling
-             props shape; Task 6 narrows away the prop entirely. */
-          chapterIds={[]}
           protocol={protocol}
           onModalClose={onOverrideModalClose}
         />

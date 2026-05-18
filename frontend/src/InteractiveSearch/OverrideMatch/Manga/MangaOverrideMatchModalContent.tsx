@@ -5,7 +5,7 @@
 // Manga sibling preserves: ModalContent + ModalHeader + ModalBody + ModalFooter scaffold; DescriptionList layout; OverrideMatchData per-row "selected value + change-button" presenter (the TV component is shape-neutral once the row data is manga-shaped); grab + cancel button row; useGrabMangaRelease error rendering at the bottom of the body; close-on-grab-success effect via usePrevious(isGrabbing); TV CSS module reuse (../OverrideMatchModalContent.css).
 //
 // Manga sibling diverges from OverrideMatchModalContent:
-//   * Props are manga-shaped: { mangaId, chapterIds, scanlationGroup?, translatedLanguage?, downloadClientId?, protocol, onModalClose, indexerId, guid, title } — no seriesId / seasonNumber / episodes / languages / quality.
+//   * Props are manga-shaped: { mangaId, scanlationGroup?, translatedLanguage?, downloadClientId?, protocol, onModalClose, indexerId, guid, title } — no seriesId / seasonNumber / episodes / languages / quality. Plan 25-04 Task 6 (v1.1-04 narrow) dropped the historical chapterIds prop entirely; the chapter-flavored search now uses the sibling ChapterOverrideMatchModal authored in Task 5.
 //   * State variables mirror manga shape (no useSingleSeries call; no episode-list state; no quality / languages state).
 //   * Sub-modals: ONLY <SelectDownloadClientModal>. NO SelectSeriesModal / SelectSeasonModal / SelectEpisodeModal / SelectQualityModal / SelectLanguageModal — those are TV-only (audit gap-01.4).
 //   * Grab payload: { override: { mangaId, chapterIds, downloadClientId, scanlationGroup?, translatedLanguage? } } — no episodeIds / quality / languages.
@@ -13,7 +13,7 @@
 //   * No grab-validator gating — chapterIds + mangaId arrive populated from MangaReleaseResource (backend); empty-array guard on chapterIds preserves the UX symmetry with TV's "no episode selected" affordance.
 //
 // Phase 15 cleanup: when TV-side OverrideMatchModalContent is deleted, this manga sibling renames + flattens to OverrideMatch/OverrideMatchModalContent.tsx as the canonical default; useGrabRelease + OverrideRelease deletion happens in the same Phase 15 cascade.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';
 import DescriptionListItem from 'Components/DescriptionList/DescriptionListItem';
@@ -35,12 +35,19 @@ import styles from '../OverrideMatchModalContent.css';
 
 type SelectType = 'select' | 'downloadClient';
 
+// Plan 25-04 Task 6 (v1.1-04 OverrideMatch split narrow) — chapterIds
+// prop dropped entirely. The pre-split MangaOverrideMatchModal carried
+// chapterIds via sentinel logic (the chapter-flavored search routed
+// through this same modal with empty mangaId); Task 5 split into a
+// sibling ChapterOverrideMatchModal that owns the chapterIds flow.
+// This sibling is now strictly the manga-flavored override (whole-manga
+// grab; backend resolves the chapter list from the cached RemoteChapter
+// keyed by indexerId + guid).
 export interface MangaOverrideMatchModalContentProps {
   indexerId: number;
   title: string;
   guid: string;
   mangaId: number;
-  chapterIds: number[];
   scanlationGroup?: string;
   translatedLanguage?: string;
   downloadClientId?: number | null;
@@ -57,7 +64,6 @@ function MangaOverrideMatchModalContent(
     indexerId,
     guid,
     mangaId,
-    chapterIds,
     scanlationGroup,
     translatedLanguage,
     protocol,
@@ -80,7 +86,10 @@ function MangaOverrideMatchModalContent(
     createEnabledDownloadClientsSelector(protocol)
   );
 
-  const chapterCount = useMemo(() => chapterIds.length, [chapterIds]);
+  // Plan 25-04 Task 6 — chapterCount memo dropped alongside chapterIds
+  // prop. The manga-flavored override no longer renders a per-chapter
+  // count (the backend resolves the chapter list from cache by
+  // indexerId + guid).
 
   const onSelectModalClose = useCallback(() => {
     setSelectModalOpen(null);
@@ -99,27 +108,13 @@ function MangaOverrideMatchModalContent(
   );
 
   const onGrabPress = useCallback(() => {
-    // Phase 12 REVIEW MED-02 — sentinel-aware validation. InteractiveSearchRow.tsx:380-394
-    // documents two valid payload shapes the manga override modal accepts:
-    //   * ChapterSearchPayload: mangaId=0 (sentinel), chapterIds=[N] (non-empty)
-    //   * MangaSearchPayload:   mangaId=N (real id), chapterIds=[] (empty — backend
-    //                           resolves chapters from the cached RemoteChapter)
-    // The backend MangaReleaseController.DownloadRelease keys off the cached
-    // RemoteChapter (indexerId + guid), so mangaId / chapterIds are informational on
-    // their respective sentinel paths and cache resolution drives the actual grab.
-    //
-    // The previous `if (!mangaId)` guard treated 0 as JS-falsy and surfaced a misleading
-    // 'OverrideGrabNoSeries' error before the POST fired, locking the chapter-search
-    // override-grab flow even though the backend would accept it. The corrected guard
-    // rejects only when BOTH cache-keying fields are missing (genuinely no identifier
-    // for the backend to resolve) — accepting either sentinel-mangaId or empty-chapterIds
-    // alone, but not both.
-    //
-    // Phase 15 cleanup: when v1.1-04 splits this modal into ChapterOverrideMatchModal +
-    // MangaOverrideMatchModal siblings, the sentinel disappears and this guard tightens
-    // back to per-modal `if (!mangaId)` / `if (!chapterIds.length)` shapes.
-    if (!mangaId && !chapterIds.length) {
-      setError(translate('OverrideGrabNoChapter'));
+    // Plan 25-04 Task 6 (v1.1-04 narrow) — the pre-split sentinel guard
+    // (mangaId=0 + chapterIds non-empty acceptable) is decommissioned by
+    // the typed-union split. This sibling is now strictly the manga-only
+    // override; mangaId is REQUIRED. Backend resolves the chapter list
+    // from the cached RemoteChapter (indexerId + guid).
+    if (!mangaId) {
+      setError(translate('OverrideGrabNoManga'));
       return;
     }
 
@@ -128,7 +123,7 @@ function MangaOverrideMatchModalContent(
       guid,
       override: {
         mangaId,
-        chapterIds,
+        chapterIds: [],
         downloadClientId,
         ...(scanlationGroup ? { scanlationGroup } : {}),
         ...(translatedLanguage ? { translatedLanguage } : {}),
@@ -138,7 +133,6 @@ function MangaOverrideMatchModalContent(
     indexerId,
     guid,
     mangaId,
-    chapterIds,
     downloadClientId,
     scanlationGroup,
     translatedLanguage,
@@ -174,11 +168,8 @@ function MangaOverrideMatchModalContent(
             data={title}
           />
 
-          <DescriptionListItem
-            className={styles.item}
-            title={translate('Chapters')}
-            data={chapterCount}
-          />
+          {/* Plan 25-04 Task 6 — Chapters DescriptionListItem dropped
+              (sole consumer of the chapterIds prop, now removed). */}
 
           {/* DownloadClient picker — the only TV sub-modal that is shape-neutral.
               Manga grab override surface is intentionally minimal: chapter/manga
