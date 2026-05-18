@@ -30,7 +30,7 @@ import SelectReleaseGroupModal from 'InteractiveImport/ReleaseGroup/SelectReleas
 import ReleaseType from 'InteractiveImport/ReleaseType';
 import SelectReleaseTypeModal from 'InteractiveImport/ReleaseType/SelectReleaseTypeModal';
 import SelectSeasonModal from 'InteractiveImport/Season/SelectSeasonModal';
-import SelectSeriesModal from 'InteractiveImport/Series/SelectSeriesModal';
+import SelectMangaModal from 'InteractiveImport/Manga/SelectMangaModal';
 import { useUpdateInteractiveImportItem } from 'InteractiveImport/useInteractiveImport';
 import Language from 'Language/Language';
 import Manga from 'Manga/Manga';
@@ -589,7 +589,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
         ) : null}
       </TableRowCell>
 
-      <SelectSeriesModal
+      <SelectMangaModal
         isOpen={selectModalOpen === 'series'}
         modalTitle={modalTitle}
         onSeriesSelect={onSeriesSelect}

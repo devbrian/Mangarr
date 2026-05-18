@@ -21,7 +21,7 @@ import { SelectedChapter } from 'InteractiveImport/Chapter/SelectChapterModalCon
 import SelectLanguageModal from 'InteractiveImport/Language/SelectLanguageModal';
 import SelectQualityModal from 'InteractiveImport/Quality/SelectQualityModal';
 import SelectSeasonModal from 'InteractiveImport/Season/SelectSeasonModal';
-import SelectSeriesModal from 'InteractiveImport/Series/SelectSeriesModal';
+import SelectMangaModal from 'InteractiveImport/Manga/SelectMangaModal';
 import { ReleaseEpisode, useGrabRelease } from 'InteractiveSearch/useReleases';
 import Language from 'Language/Language';
 import Manga from 'Manga/Manga';
@@ -347,7 +347,7 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
         </div>
       </ModalFooter>
 
-      <SelectSeriesModal
+      <SelectMangaModal
         isOpen={selectModalOpen === 'series'}
         modalTitle={modalTitle}
         onSeriesSelect={onSeriesSelect}

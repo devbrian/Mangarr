@@ -77,7 +77,7 @@ import SelectReleaseGroupModal from 'InteractiveImport/ReleaseGroup/SelectReleas
 import ReleaseType from 'InteractiveImport/ReleaseType';
 import SelectReleaseTypeModal from 'InteractiveImport/ReleaseType/SelectReleaseTypeModal';
 import SelectSeasonModal from 'InteractiveImport/Season/SelectSeasonModal';
-import SelectSeriesModal from 'InteractiveImport/Series/SelectSeriesModal';
+import SelectMangaModal from 'InteractiveImport/Manga/SelectMangaModal';
 import useInteractiveImport, {
   useReprocessInteractiveImportItems,
   useUpdateInteractiveImportItem,
@@ -1083,7 +1083,7 @@ function InteractiveImportContentInner(
         </div>
       </div>
 
-      <SelectSeriesModal
+      <SelectMangaModal
         isOpen={selectModalOpen === 'series'}
         modalTitle={headerLabel ?? ''}
         onSeriesSelect={handleSeriesSelect}
