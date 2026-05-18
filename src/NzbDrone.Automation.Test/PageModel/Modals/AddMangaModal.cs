@@ -58,15 +58,32 @@ public class AddMangaModal : PageBase
     {
         await WaitForReadyToAddAsync();
 
-        await AddButton.ClickAsync();
-
-        // Wait for the modal to disappear from the DOM (the AddManga component
-        // unmounts the side-panel modal when isNewAddMangaModalOpen flips to false
-        // inside useAddManga.onSuccess). 30 s ceiling matches the search-row timeout.
-        await ModalRoot.WaitForAsync(new LocatorWaitForOptions
+        // 2026-05-18: Phase 24 smoke gate Run #4 showed `bulk_save` failing with the
+        // modal stuck visible 30s after Confirm. The POST /api/v5/manga path calls
+        // MangaDex MetadataSource to refresh the manga (now including artist
+        // relationship per Phase 24 D-03) — on a rate-limited window the backend can
+        // take longer than the modal's 30s hide-wait to respond. Retry the click up
+        // to 3 times with a 15s progressive backoff (the modal stays open and clickable
+        // on failed POSTs, so re-clicking re-submits). Same anti-mask-bug discipline
+        // as the AddMangaFlow result-row retry — a real backend regression would
+        // fail every attempt and surface up after ~120s+ total.
+        var modalConfirmAttempts = 3;
+        for (var attempt = 0; attempt < modalConfirmAttempts; attempt++)
         {
-            State = WaitForSelectorState.Hidden,
-            Timeout = 30_000
-        });
+            await AddButton.ClickAsync();
+            try
+            {
+                await ModalRoot.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Hidden,
+                    Timeout = 30_000
+                });
+                return;
+            }
+            catch (PlaywrightException) when (attempt < modalConfirmAttempts - 1)
+            {
+                await Page.WaitForTimeoutAsync(15_000);
+            }
+        }
     }
 }

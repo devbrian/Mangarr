@@ -62,27 +62,34 @@ public static class AddMangaFlow
         //
         // 2026-05-18: live MangaDex `/manga/{id}` calls can transiently fail or
         // rate-limit when several fixtures run in close succession (observed on
-        // Phase 24 smoke gate Run #1 + Run #3: bulk_edit + bulk_save + bulk_organize
-        // failed on the second test manga `a77742b1-...` (Chainsaw Man), while the
-        // first manga `a96676e5-...` (Komi) added cleanly). One retry on the result-
-        // row wait — clear + re-fill the search input to retrigger the lookup —
-        // makes the flow tolerant of transient rate-limit / latency spikes without
-        // masking a real backend regression (a code-bug failure would still time out
-        // on both attempts and surface up).
+        // Phase 24 smoke gate Run #1 + #3 + #4: bulk_edit + bulk_save + bulk_delete
+        // + bulk_tags + bulk_organize intermittently failed on the second test manga
+        // `a77742b1-...` (Chainsaw Man) — different subset each run, all failing on
+        // the result-row wait. Single retry inside a 60s window wasn't enough; some
+        // rate-limit windows last 90s+. We retry up to 4 total attempts with
+        // progressive sleep (1s, 10s, 30s) between retriggers to ride out longer
+        // throttle windows without masking a real backend regression (a code-bug
+        // failure would still fail every attempt, taking ~120s+ total before
+        // surfacing).
         await addPage.SearchInput.FillAsync(mangaDexId);
 
         var resultRow = addPage.ResultRowByKey(mangaDexId);
-        try
+        var retryWaitsMs = new[] { 1_000, 10_000, 30_000 };
+        var attempt = 0;
+        while (true)
         {
-            await resultRow.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
-        }
-        catch (PlaywrightException)
-        {
-            // Retry once — clear input, wait past the 500ms debounce floor, re-fill.
-            await addPage.SearchInput.FillAsync(string.Empty);
-            await page.WaitForTimeoutAsync(1_000);
-            await addPage.SearchInput.FillAsync(mangaDexId);
-            await resultRow.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
+            try
+            {
+                await resultRow.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
+                break;
+            }
+            catch (PlaywrightException) when (attempt < retryWaitsMs.Length)
+            {
+                await addPage.SearchInput.FillAsync(string.Empty);
+                await page.WaitForTimeoutAsync(retryWaitsMs[attempt]);
+                await addPage.SearchInput.FillAsync(mangaDexId);
+                attempt++;
+            }
         }
 
         // Click the per-row Add button (the Link underlay carries the testid; clicking
