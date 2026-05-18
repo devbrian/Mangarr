@@ -39,6 +39,16 @@ namespace NzbDrone.Automation.Test.Tests.Wanted;
 //      the only path (Plan 19-05 D-03 precedent: populated-only assertions, no
 //      conditional skip). Mirrors HistoryRetryFixture / BlocklistBulkRemoveFixture /
 //      QueueRowRemoveFixture shape.
+//
+// /gsd-debug nightly-26025833226-postgres-automation fix: the populated-table
+// testid visibility assertion (line 74) was hitting Playwright's default 5s
+// timeout under postgres 17/18 cold-start timing — the GET
+// /api/v5/manga/wanted/cutoff query path (multi-lang TranslationProfile +
+// ChapterFile join + ChaptersWhereCutoffUnmet WhereBuilder predicate) is slow
+// to first-paint on a fresh postgres DB. Bumped the assertion's timeout to 30s
+// (matching the QueueTableLoadFixture / HistoryTableLoadFixture precedent for
+// first-paint cold-start waits). Postgres 16 + sqlite both passed at the
+// default — only 17/18 needed the headroom.
 [TestFixture]
 [Category("AutomationTest")]
 public class MangaCutoffUnmetFixture : AutomationTest
@@ -71,7 +81,13 @@ public class MangaCutoffUnmetFixture : AutomationTest
         // only inside the `records.length > 0` branch — a silent seed failure
         // (e.g. profile not re-assigned, ChapterFile not inserted) fails the
         // test loudly here rather than skipping past an empty page.
-        await Assertions.Expect(Page.GetByTestId("manga-cutoff-unmet-table")).ToBeVisibleAsync();
+        //
+        // /gsd-debug nightly-26025833226-postgres-automation: 30s timeout (up
+        // from default 5s) — postgres 17/18 cold-start first-paint of the
+        // cutoff-unmet query exceeds 5s. Matches QueueTableLoadFixture /
+        // HistoryTableLoadFixture cold-start precedent.
+        await Assertions.Expect(Page.GetByTestId("manga-cutoff-unmet-table"))
+            .ToBeVisibleAsync(new() { Timeout = 30_000 });
 
         // STATE assertion 3 (populated row): rowCount > 0 proves the cutoff-unmet
         // feed (GET /api/v5/manga/wanted/cutoff) actually returned the seeded
