@@ -81,7 +81,9 @@ write_gate() {
   else
     reasons_json="[]"
   fi
-  cat > "$GATE_JSON" <<EOF
+  # Write atomically via tmp + rename so a failed write never leaves a
+  # half-formed SMOKE-GATE.json that downstream verifiers might mis-parse.
+  if ! cat > "${GATE_JSON}.tmp" <<EOF
 {
   "phase": "${PHASE}",
   "phase_dir": "${PHASE_DIR}",
@@ -107,8 +109,24 @@ write_gate() {
   }
 }
 EOF
+  then
+    rm -f "${GATE_JSON}.tmp"
+    return 1
+  fi
+  mv "${GATE_JSON}.tmp" "$GATE_JSON" || return 1
+  return 0
 }
-trap 'write_gate' EXIT
+# Propagate write_gate failures so a missing/corrupt SMOKE-GATE.json cannot
+# pass the gate. CodeRabbit PR #198 finding 3255724991 — previous trap
+# `trap 'write_gate' EXIT` swallowed write_gate's exit status, so a failed
+# `cat > $GATE_JSON` could still let the script exit 0 with passed=true.
+trap 'rc=$?
+      if ! write_gate; then
+        echo "FATAL: failed to write $GATE_JSON" >&2
+        rc=1
+      fi
+      trap - EXIT
+      exit "$rc"' EXIT
 
 echo "=== phase-smoke-gate $PHASE — start $TS ==="
 
@@ -129,18 +147,31 @@ echo "PASS Playwright provisioned"
 # Returns: 0 = port busy, 1 = port free, 2 = no probe tool available.
 echo "--- Step 2: Port 8989 free"
 is_port_8989_busy() {
+  # Distinguish "probe ran cleanly, grep found nothing" (port free → return 1)
+  # from "probe command itself errored" (unknown → return 2). CodeRabbit PR
+  # #198 finding 3255724994 — previous direct pipe `ss | grep` treated probe
+  # errors as grep-not-matching (= "port free"), enabling false-pass when ss
+  # is broken or denied (e.g. some restricted containers). Capture probe
+  # output into a variable, propagate probe failure as return 2.
+  local probe_out
   if command -v ss >/dev/null 2>&1; then
-    ss -ltn 2>/dev/null | grep -qE '[:.]8989[[:space:]]'
+    probe_out=$(ss -ltn 2>/dev/null) || return 2
+    printf '%s\n' "$probe_out" | grep -qE '[:.]8989[[:space:]]'
     return $?
   fi
   if command -v netstat >/dev/null 2>&1; then
     # Match both `LISTEN` (Linux/BSD) and `LISTENING` (Windows) end-states.
-    netstat -ano 2>/dev/null | grep -qE '[:.]8989\b.*LISTEN(ING)?'
+    probe_out=$(netstat -ano 2>/dev/null) || return 2
+    printf '%s\n' "$probe_out" | grep -qE '[:.]8989\b.*LISTEN(ING)?'
     return $?
   fi
   if command -v lsof >/dev/null 2>&1; then
+    # lsof returns 0 = match, 1 = no match (clean run); anything else = probe error.
     lsof -nP -iTCP:8989 -sTCP:LISTEN >/dev/null 2>&1
-    return $?
+    case $? in
+      0|1) return $? ;;
+      *)   return 2 ;;
+    esac
   fi
   return 2
 }
