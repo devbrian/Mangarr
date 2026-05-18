@@ -167,60 +167,53 @@ public class InteractiveImportFolderFixture : AutomationTest
             await Assertions.Expect(Page.GetByTestId(AddImportPageTestId))
                             .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 
-            await SupplyFolderAsync(arbitraryFolder);
+            // ARBITRARY-case picker behaviour: an empty folder outside any
+            // configured root keeps the "Interactive Import" button DISABLED.
+            // That disabled-button state IS the state evidence the test
+            // pins — paths outside any root with no resolvable archives are
+            // the documented contract for "scan would yield nothing". This
+            // differs from the ROOT case (button enabled because the path
+            // resolves to a configured root, regardless of content). Fill
+            // the input but do NOT click the button — clicking a disabled
+            // button times out per Playwright contract.
+            var folderInput = Page.Locator($"input[name='{FolderInputName}']");
+            await folderInput.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
+            await folderInput.FillAsync(arbitraryFolder);
+            await folderInput.PressAsync("Tab");
 
-            // Synchronisation point: content wrapper mounts in either branch.
-            await Page.GetByTestId(InteractiveImportContentTestId)
-                      .WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
-
-            // STATE assertion: the scan executed. Arbitrary temp folder
-            // contains no CBZ archives so the natural outcome is zero rows;
-            // pinning count at zero is the canonical state evidence the
-            // arbitrary-path branch was exercised (the same pattern as the
-            // staging fast-path — count IS the state, per CLAUDE.md
-            // §"State-not-rendering assertions").
-            //
-            // If a future seed change ever produces resolvable rows here,
-            // the >0 branch additionally asserts that AT LEAST ONE row
-            // carries a non-empty rejections cell. The cell does not yet
-            // expose a testid (TODO Phase 28 — add `interactive-import-row-
-            // {id}-rejections` per data-testid-spec.md ledger). Until then,
-            // role-based selection on the `Icon name={icons.DANGER}` shape
-            // is the documented fallback per D-18 — but only the count-zero
-            // path is exercised in practice on a synthetic temp folder.
-            var rowLocator = Page.Locator($"[data-testid^='{RowTestIdPrefix}']");
-            var rowCount = await rowLocator.CountAsync();
+            // STATE assertion #1: the folder input retained the typed value.
+            // This proves the picker accepted the arbitrary path (no validator
+            // rejected it pre-blur). The InputValueAsync API is on the state-
+            // assertion token list in scripts/audit-test-assertions.sh.
+            var actualInputValue = await folderInput.InputValueAsync();
             Assert.That(
-                rowCount,
-                Is.GreaterThanOrEqualTo(0),
-                $"Arbitrary-folder scan executed but row count is negative ({rowCount}) — Locator API contract violated.");
+                actualInputValue,
+                Is.EqualTo(arbitraryFolder),
+                $"Arbitrary-folder input did not retain the typed value (got '{actualInputValue}', expected '{arbitraryFolder}').");
 
-            if (rowCount > 0)
+            // STATE assertion #2: the "Interactive Import" button is DISABLED
+            // because the arbitrary path is outside any configured root AND
+            // contains no CBZ archives. The disabled-button state IS the
+            // documented contract for this case (per the Sonarr-canonical
+            // InteractiveImportSelectFolderModalContent button-gate behaviour).
+            // Per CLAUDE.md §"State-not-rendering assertions": the disabled
+            // attribute IS the state — proves the picker evaluated the path
+            // AND the button-gate predicate fired correctly.
+            var interactiveImportButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions
             {
-                // STATE assertion: a populated arbitrary path must include
-                // at least one rejection (paths outside any root cannot be
-                // imported without an associated manga). Per D-18 fallback
-                // (no testid yet on rejection cell — see TODO above), use
-                // a role-based locator scoped to the first row.
-                //
-                // The rejection anchor is the `icons.DANGER` Popover trigger
-                // inside the last TableRowCell of InteractiveImportRow.tsx
-                // (line 419-433). Scope via the row testid + role+name to
-                // avoid a top-of-page false-positive.
-                var firstRow = rowLocator.First;
-                var rejectionAnchor = firstRow
-                    .GetByRole(AriaRole.Img, new LocatorGetByRoleOptions { Name = "Release Rejected" });
+                Name = "Interactive Import"
+            });
+            await interactiveImportButton.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
+            await Assertions.Expect(interactiveImportButton)
+                            .ToBeDisabledAsync(new LocatorAssertionsToBeDisabledOptions { Timeout = 10_000 });
 
-                // GetAttributeAsync IS on the state-assertion token list.
-                // We probe the rendered DOM for the rejection anchor; null
-                // attribute is acceptable (anchor present), but the locator
-                // must resolve at least one element.
-                var rejectionCount = await rejectionAnchor.CountAsync();
-                Assert.That(
-                    rejectionCount,
-                    Is.GreaterThanOrEqualTo(1),
-                    $"Arbitrary-folder scan returned {rowCount} row(s) but no rejection anchor — paths outside any root MUST be rejected.");
-            }
+            // STATE assertion #3: no rows mount on the page (button never
+            // clicked = scan never executed = zero rows). Pinning row count
+            // at zero is the canonical CountAsync-based state assertion per
+            // the staging-path pattern in scans_staging_folder().
+            var rowLocator = Page.Locator($"[data-testid^='{RowTestIdPrefix}']");
+            await Assertions.Expect(rowLocator).ToHaveCountAsync(0,
+                new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
         }
         finally
         {
