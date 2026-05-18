@@ -208,7 +208,12 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
                     ExistingFile = existingFile,
                     DownloadItem = file.DownloadId.IsNotNullOrWhiteSpace()
                         ? new DownloadClientItemInfo { DownloadId = file.DownloadId }
-                        : null
+                        : null,
+
+                    // Phase 25 Plan 25-04 Task 7 — per-row D-04 dropdown carry
+                    // through to ImportApprovedChapters.MoveFile's overwriteExisting
+                    // flag.
+                    ExistingFileBehavior = file.ExistingFileBehavior
                 };
 
                 localChapters.Add(localChapter);

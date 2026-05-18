@@ -13,6 +13,16 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
     // Phase 8 cleanup: collapse with IImportApprovedEpisodes when Tv/ deletes.
     public interface IImportApprovedChapters
     {
-        List<MangaImportResult> Import(List<MangaImportDecision> decisions, bool newDownload, DownloadClientItem downloadClientItem = null);
+        // Phase 25 Plan 25-04 Task 7 (D-04 + v2-02) — overwriteExisting batch
+        // fallback added as the LAST optional parameter. Per-decision
+        // LocalChapter.ExistingFileBehavior wins over this batch-level flag;
+        // either input drives the per-row MoveFile overwrite. All existing
+        // callers compile unchanged (default = false preserves prior
+        // no-destructive-default behavior).
+        List<MangaImportResult> Import(
+            List<MangaImportDecision> decisions,
+            bool newDownload,
+            DownloadClientItem downloadClientItem = null,
+            bool overwriteExisting = false);
     }
 }

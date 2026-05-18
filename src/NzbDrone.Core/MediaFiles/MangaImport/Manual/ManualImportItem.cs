@@ -37,5 +37,9 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
         public int IndexerFlags { get; set; }
         public ReleaseType ReleaseType { get; set; }
         public IEnumerable<MangaImportRejection> Rejections { get; set; } = new List<MangaImportRejection>();
+
+        // Phase 25 Plan 25-04 Task 7 — per-row D-04 dropdown carry-over;
+        // defaults to Skip per no-destructive-default safety.
+        public ExistingFileBehavior ExistingFileBehavior { get; set; } = ExistingFileBehavior.Skip;
     }
 }

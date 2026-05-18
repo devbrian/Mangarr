@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.MediaFiles.MangaImport.Manual;
 using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 
@@ -48,6 +49,13 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
         public List<CustomFormat> CustomFormats { get; set; }
         public int CustomFormatScore { get; set; }
         public bool ScriptImported { get; set; }
+
+        // Phase 25 Plan 25-04 Task 7 — per-row D-04 dropdown carry-over;
+        // defaults to Skip per no-destructive-default safety. ManualImportService.Execute
+        // populates this from the input ManualImportFile; ImportApprovedChapters.Import
+        // consumes it at the MoveFile step to drive the overwriteExisting flag
+        // (per-decision wins over batch-level fallback, RESEARCH Open Q #1).
+        public ExistingFileBehavior ExistingFileBehavior { get; set; } = ExistingFileBehavior.Skip;
 
         public override string ToString()
         {

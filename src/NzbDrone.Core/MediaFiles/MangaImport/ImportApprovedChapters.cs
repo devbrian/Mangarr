@@ -10,6 +10,7 @@ using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles.Commands;
+using NzbDrone.Core.MediaFiles.MangaImport.Manual;
 
 // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — MediaFiles/EpisodeImport/ DELETED.
 //   using NzbDrone.Core.MediaFiles.EpisodeImport; ← deleted
@@ -100,7 +101,8 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
         public List<MangaImportResult> Import(
             List<MangaImportDecision> decisions,
             bool newDownload,
-            DownloadClientItem downloadClientItem = null)
+            DownloadClientItem downloadClientItem = null,
+            bool overwriteExisting = false)
         {
             var importResults = new List<MangaImportResult>();
 
@@ -199,7 +201,16 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                             throw new FileNotFoundException("Staging CBZ missing", lc.Path);
                         }
 
-                        _diskProvider.MoveFile(lc.Path, destinationPath);
+                        // Phase 25 Plan 25-04 Task 7 (D-04 + v2-02 promotion) —
+                        // per-decision lc.ExistingFileBehavior wins over the
+                        // batch-level overwriteExisting fallback (RESEARCH Open
+                        // Q #1 recommendation). Either input forces overwrite;
+                        // both default to Skip preserves no-destructive-default
+                        // safety.
+                        var perRowOverwrite =
+                            lc.ExistingFileBehavior == ExistingFileBehavior.Replace
+                            || overwriteExisting;
+                        _diskProvider.MoveFile(lc.Path, destinationPath, perRowOverwrite);
                     }
 
                     // ---- 3. Build ChapterFile + DB write FIRST (before event publish) ----

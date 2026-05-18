@@ -1,3 +1,4 @@
+using NzbDrone.Core.MediaFiles.MangaImport.Manual;
 using NzbDrone.Core.Parser.Model;
 
 namespace Mangarr.Api.V5.ManualImport;
@@ -14,8 +15,8 @@ namespace Mangarr.Api.V5.ManualImport;
 //   ReleaseGroup → ScanlationGroup; Languages → TranslatedLanguage.
 //
 // 5 TV symbols intentionally absent: SeriesId, SeasonNumber, EpisodeIds,
-// EpisodeFileId, ReleaseGroup. ExistingFileBehavior is also intentionally absent
-// here — Plan 25-04 D-04 appends it alongside the per-row dropdown wiring.
+// EpisodeFileId, ReleaseGroup. Plan 25-04 Task 7 appends ExistingFileBehavior
+// per D-04 (camelCase string roundtrip via STJson global JsonStringEnumConverter).
 public class ManualImportReprocessResource
 {
     public string? Path { get; set; }
@@ -28,4 +29,8 @@ public class ManualImportReprocessResource
     public int IndexerFlags { get; set; }
     public ReleaseType ReleaseType { get; set; }
     public string? DownloadId { get; set; }
+
+    // Phase 25 Plan 25-04 Task 7 — per-row D-04 dropdown carry-over (camelCase
+    // string roundtrip via STJson global JsonStringEnumConverter).
+    public ExistingFileBehavior ExistingFileBehavior { get; set; } = ExistingFileBehavior.Skip;
 }
