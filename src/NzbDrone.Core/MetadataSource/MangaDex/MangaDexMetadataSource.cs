@@ -232,6 +232,18 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
                 manga.PrimaryAuthor = author.Attributes.Name;
             }
 
+            // Phase 24 v1.1 — Artist from Relationships (requires includes[]=artist on the
+            // request; added atomically in MangaDexApi.cs per 24-PLAN-DECISIONS Open Q #6).
+            var artist = item.Relationships?.FirstOrDefault(r => r.Type == "artist");
+            if (artist?.Attributes != null)
+            {
+                manga.Artist = artist.Attributes.Name;
+            }
+
+            // Phase 24 v1.1 — Demographic from attrs.publicationDemographic (MangaDex 4-value
+            // romanization → NzbDrone.Core.Manga.MangaDemographic enum). Null / empty / unknown → null.
+            manga.Demographic = MapDemographic(attrs.PublicationDemographic);
+
             // Sonarr divergence: Phase 15 Plan 15-12 fix-forward — populate Manga.Images
             // from the cover_art relationship. Without this, /api/v5/manga and
             // /api/v5/manga/lookup return empty `images: []` arrays and every UI poster
@@ -280,6 +292,29 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
             return decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var v)
                 ? (int?)Math.Truncate(v)
                 : null;
+        }
+
+        // Phase 24 v1.1 — MangaDex `publicationDemographic` 4-value romanization →
+        // NzbDrone.Core.Manga.MangaDemographic enum mapping (D-04). MangaDex sends "shounen"/"shoujo" with
+        // historical romanization; Mangarr's enum uses "Shonen"/"Shojo". This helper
+        // absorbs the romanization variance so the enum can keep its canonical Mangarr
+        // spelling. null / empty / unknown values → null (Manga.Demographic is nullable
+        // and null = "not categorized" per D-04).
+        private static NzbDrone.Core.Manga.MangaDemographic? MapDemographic(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            return raw.ToLowerInvariant() switch
+            {
+                "shounen" => NzbDrone.Core.Manga.MangaDemographic.Shonen,
+                "shoujo" => NzbDrone.Core.Manga.MangaDemographic.Shojo,
+                "seinen" => NzbDrone.Core.Manga.MangaDemographic.Seinen,
+                "josei" => NzbDrone.Core.Manga.MangaDemographic.Josei,
+                _ => null,
+            };
         }
 
         // Phase 16.1 Wave 3 (REVERT-03): each MangaDex feed entry maps to a single

@@ -109,6 +109,13 @@ namespace NzbDrone.Core.Manga
         public int? PublicationYear { get; set; }     // D-21 multi-axis confirm
         public string PrimaryAuthor { get; set; }     // D-21 multi-axis confirm
 
+        // Phase 24 v1.1 INSERTED 2026-05-17 — new Manga axes per D-03 (AuthorArtistSpec)
+        // + D-04 (DemographicSpec). Backed by Migration 002 columns; populated by
+        // MangaDexMetadataSource.MapManga (AniList / MAL fall back to null per
+        // 24-CONTEXT.md — 3-provider parity is Phase 27 territory).
+        public string Artist { get; set; }
+        public MangaDemographic? Demographic { get; set; }
+
         // Phase 8 audit gap-03 (Series-vs-Manga.md): mirrors Tv/Series.cs:63 AddOptions.
         // Carries the user's post-add monitor + initial-search choices through the
         // AddManga -> MangaScannedHandler -> ChapterMonitoredService chain (sibling
@@ -139,6 +146,11 @@ namespace NzbDrone.Core.Manga
             TotalChapterCount = other.TotalChapterCount;
             PublicationYear = other.PublicationYear;
             PrimaryAuthor = other.PrimaryAuthor;
+
+            // Phase 24 v1.1 — round-trip new AutoTagging axes (D-03 + D-04) so refresh
+            // + user-PUT both propagate Artist + Demographic.
+            Artist = other.Artist;
+            Demographic = other.Demographic;
 
             // GH #118 — metadata-sourced alt-title set; refresh-merged when the
             // incoming Manga carries a populated list. ApplyChanges is dual-purpose
