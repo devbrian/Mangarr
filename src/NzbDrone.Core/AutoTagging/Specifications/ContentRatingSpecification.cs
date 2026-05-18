@@ -15,9 +15,13 @@ namespace NzbDrone.Core.AutoTagging.Specifications
     {
         public ContentRatingSpecificationValidator()
         {
-            // Value is an int-backed enum selection; 0 is non-meaningful (MangaContentRating
-            // values start at 1).
-            RuleFor(c => c.Value).GreaterThan(0);
+            // Reject any int that doesn't correspond to a defined MangaContentRating
+            // enum member (1..4). A pure `> 0` check let unbounded ints through that
+            // line 41 then casts to (MangaContentRating)Value — undefined values
+            // produce empty .ToString() and silently never match.
+            RuleFor(c => c.Value)
+                .Must(v => Enum.IsDefined(typeof(MangaContentRating), v))
+                .WithMessage("Value must be a valid MangaContentRating.");
         }
     }
 

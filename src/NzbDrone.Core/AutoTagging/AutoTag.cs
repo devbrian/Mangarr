@@ -8,6 +8,13 @@ namespace NzbDrone.Core.AutoTagging
     {
         public AutoTag()
         {
+            // Mangarr divergence from Sonarr `6f857ba0e^`: initialize Specifications
+            // alongside Tags so downstream consumers (AutoTaggingService.GetTagChanges
+            // line 102, V5 AutoTaggingController.SharedValidator) never NRE on a
+            // never-touched-by-caller AutoTag instance. Upstream relies on the API
+            // validator catching the empty case before the service is reached;
+            // we add the same guard at construction for defense-in-depth.
+            Specifications = new List<IAutoTaggingSpecification>();
             Tags = new HashSet<int>();
         }
 

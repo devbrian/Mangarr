@@ -13,9 +13,13 @@ namespace NzbDrone.Core.AutoTagging.Specifications
     {
         public DemographicSpecificationValidator()
         {
-            // Value is an int-backed enum selection; 0 is non-meaningful (MangaDemographic
-            // values start at 1 per Phase 24 D-04 convention).
-            RuleFor(c => c.Value).GreaterThan(0);
+            // Reject any int that doesn't correspond to a defined MangaDemographic
+            // enum member (1..4). A pure `> 0` check let unbounded ints through that
+            // would silently never match at evaluation time (line 34 casts straight
+            // to (int)manga.Demographic.Value == Value).
+            RuleFor(c => c.Value)
+                .Must(v => System.Enum.IsDefined(typeof(MangaDemographic), v))
+                .WithMessage("Value must be a valid MangaDemographic.");
         }
     }
 

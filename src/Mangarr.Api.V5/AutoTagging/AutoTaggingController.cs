@@ -60,12 +60,16 @@ public class AutoTaggingController : RestController<AutoTaggingResource>
         SharedValidator.RuleFor(c => c.Tags).NotEmpty();
         SharedValidator.RuleFor(c => c).Custom((autoTag, context) =>
         {
-            if (!autoTag.Specifications.Any())
+            // Null-guard both the collection and its elements: a payload with
+            // `specifications: null` or null array members must surface a
+            // validation error, not a 500 from a NRE deeper in the pipeline.
+            if (autoTag.Specifications == null || !autoTag.Specifications.Any())
             {
                 context.AddFailure("Must contain at least one Condition");
+                return;
             }
 
-            if (autoTag.Specifications.Any(s => s.Name.IsNullOrWhiteSpace()))
+            if (autoTag.Specifications.Any(s => s == null || s.Name.IsNullOrWhiteSpace()))
             {
                 context.AddFailure("Condition name(s) cannot be empty or consist of only spaces");
             }

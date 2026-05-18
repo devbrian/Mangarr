@@ -125,9 +125,20 @@ namespace NzbDrone.Core.AutoTagging
 
                 if (autoTag.RemoveTagsAutomatically)
                 {
+                    // Mangarr divergence from Sonarr `6f857ba0e^`: when rule A
+                    // matches and would add tag T, and rule B does NOT match and
+                    // has RemoveTagsAutomatically=true with tag T in its tag set,
+                    // Sonarr's verbatim algorithm puts T in BOTH TagsToAdd and
+                    // TagsToRemove. The applier's apply-order (Add foreach then
+                    // Remove foreach) means Remove silently wins, even though
+                    // another rule matched. Exclude tags already in TagsToAdd so
+                    // additions decisively win over conflicting removals.
                     foreach (var tag in tags)
                     {
-                        changes.TagsToRemove.Add(tag);
+                        if (!changes.TagsToAdd.Contains(tag))
+                        {
+                            changes.TagsToRemove.Add(tag);
+                        }
                     }
                 }
             }
