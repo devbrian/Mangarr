@@ -252,11 +252,10 @@ namespace NzbDrone.Core.Datastore
             // Sonarr divergence: Phase 15 Plan 15-04 cascade absorption — ImportListExclusion entity registration stripped (ImportLists/ MOVED per D-26).
             //   Mapper.Entity<ImportListExclusion>("ImportListExclusions").RegisterModel();
 
-            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
-            // AutoTagging entity registration stripped (AutoTagging/ subtree DELETED).
-            // The AutoTagging schema table remains in Migration 001 but is unmapped;
-            // v1.x rebuild may rewire if/when manga auto-tagging lands.
-            //   Mapper.Entity<AutoTagging.AutoTag>("AutoTagging").RegisterModel();
+            // Phase 24 v1.1 INSERTED 2026-05-17 — AutoTagging restored (Wave 24-02).
+            // The AutoTagging schema table has lived in Migration 001 since the Phase 15
+            // baseline; Plan 24-02 re-wires the entity + repository + service substrate.
+            Mapper.Entity<AutoTagging.AutoTag>("AutoTagging").RegisterModel();
         }
 
         private static void RegisterMappers()
@@ -278,9 +277,9 @@ namespace NzbDrone.Core.Datastore
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<ProfileFormatItem>>(new CustomFormatIntConverter()));
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<ICustomFormatSpecification>>(new CustomFormatSpecificationListConverter()));
 
-            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
-            // IAutoTaggingSpecification embedded converter stripped (AutoTagging/ DELETED).
-            //   SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<IAutoTaggingSpecification>>(new AutoTaggingSpecificationConverter()));
+            // Phase 24 v1.1 INSERTED 2026-05-17 — AutoTagging List<IAutoTaggingSpecification>
+            // Dapper round-trip via the polymorphic AutoTaggingSpecificationConverter (Plan 24-02).
+            SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<AutoTagging.Specifications.IAutoTaggingSpecification>>(new AutoTaggingSpecificationConverter()));
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<Dictionary<string, string>>());
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<IDictionary<string, string>>());
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<List<int>>());
