@@ -665,6 +665,84 @@ The Pitfall 3 verify-before-delete grep ran against `frontend/src/Settings/Tags/
 
 Sonarr v5-develop's `Tags.tsx` dispatches the same three thunks against live V5 controllers (`/api/v5/delayprofile`, `/api/v5/importlist`, `/api/v5/downloadclient`) — Mangarr's divergence is purely a function of Phase 23/26 not having shipped yet; once those phases land, the Redux→React Query migration will eliminate the remaining `fetchDownloadClients` dispatch and the three `TagDetailsModalContent` `useSelector` reads in a single port pass.
 
+
+## DelayProfile schema trim — Phase 23 (closed 2026-05-17)
+
+**Phase**: 23 — DelayProfile V5 Controller + Schema Trim (v1.1 — INSERTED 2026-05-17)
+**Closed**: 2026-05-17
+**Issue closed**: #83 (delayprofile-404 — REPOINT + CONTROLLER PORT case)
+
+### Touched files
+
+| Category | Path | Plan |
+|----------|------|------|
+| V5 controller (NEW) | `src/Mangarr.Api.V5/Profiles/Delay/DelayProfileController.cs` | 23-02 |
+| V5 Resource (NEW; clean shape) | `src/Mangarr.Api.V5/Profiles/Delay/DelayProfileResource.cs` | 23-02 |
+| V5 Mapper (NEW; bridge hardcodes) | `src/Mangarr.Api.V5/Profiles/Delay/DelayProfileResourceMapper.cs` | 23-02 |
+| Frontend typing | `frontend/src/typings/DelayProfile.ts` | 23-03 |
+| Frontend modal | `frontend/src/Settings/Profiles/Delay/EditDelayProfileModalContent.tsx` | 23-03 |
+| Frontend list | `frontend/src/Settings/Profiles/Delay/DelayProfiles.tsx` | 23-03 |
+| Frontend row | `frontend/src/Settings/Profiles/Delay/DelayProfile.tsx` | 23-03 |
+| Frontend tag-detail | `frontend/src/Settings/Tags/Details/TagDetailsDelayProfile.tsx` | 23-03 |
+| Frontend tag-detail wrapper | `frontend/src/Settings/Tags/Details/TagDetailsModalContent.tsx` | 23-03 |
+| Locale catalogs (45 files; 90 dead key entries removed across 17 affected files) | `src/NzbDrone.Core/Localization/Core/*.json` | 23-03 |
+| Sweep script (NEW; idempotent) | `scripts/trim-locale-keys-phase-23.py` | 23-03 |
+| Automation fixtures (NEW; 7 fixtures: list/add/edit/delete/reorder/tag-in-use + state-not-rendering) | `src/NzbDrone.Automation.Test/Tests/Settings/Profiles/Delay/*.cs` | 23-02 + 23-03 |
+| ROADMAP.md (forward-schedule amendment) | `.planning/ROADMAP.md` §Phase 23 SC #3 + §Phase 26 Requirements + §Phase 26 SC #1 + §Phase 26 cross-cutting | 23-04 |
+| REQUIREMENTS.md (forward-schedule amendment) | `.planning/REQUIREMENTS.md` DP-01/DP-02 checkbox-list bullets + traceability table + per-phase counts | 23-04 |
+
+### Mangarr-shape decision
+
+Mangarr's DelayProfile shape is **Sonarr-shape MINUS 4 user-locked Usenet/Torrent fields visible on the user-facing surface**. Concretely (post-Phase-23 state, HEAD 61fa4e503):
+
+- **V5 Resource (`DelayProfileResource.cs`) OMITS** `EnableUsenet`, `EnableTorrent`, `UsenetDelay`, `TorrentDelay` entirely — the cleanest signal to V5 consumers.
+- **Frontend typing (`typings/DelayProfile.ts`) drops** the 4 corresponding fields atomically with all 5 UI consumers (`yarn tsc` clean).
+- **UI** no longer renders `UsenetDelay` / `TorrentDelay` inputs (state-not-rendering assertion pinned by `DelayProfileNoUsenetTorrentInputsFixture.cs`); `DelayProfiles.tsx` list header no longer carries the 2 Usenet/Torrent columns.
+- **Locale catalogs** no longer carry the 6 dead translation key families (`UsenetDelay`, `UsenetDelayHelpText`, `UsenetDelayTime`, `TorrentDelay`, `TorrentDelayHelpText`, `TorrentDelayTime`).
+- **Entity (`src/NzbDrone.Core/Profiles/Delay/DelayProfile.cs`) and database schema (`DelayProfiles` table in `001_mangarr_baseline.cs`) STAY Sonarr-shape until Phase 26** — DP-01 (DDL drop) and DP-02 (entity prop drop + seeder + caller fixtures) are forward-scheduled per the §Cross-reference below.
+
+### Mapper-bridge pattern (Pitfall 2 cleanup gateway)
+
+`DelayProfileResourceMapper.ToModel()` hardcodes `EnableUsenet = true`, `EnableTorrent = true`, `UsenetDelay = 0`, `TorrentDelay = 0`, each preceded by a `// PHASE-23 BRIDGE` marker comment on the line directly above. Phase 26 plan-author greps for `PHASE-23 BRIDGE` to find + delete all 4 hardcodes atomic with the Migration 002 DDL drop + entity prop drop. The bridge is grep-discoverable so it does NOT silently survive the entity-side trim.
+
+### Why-not-Sonarr narrative (Phase 15 D-22 omission completion)
+
+This is **NOT** a deviation from a Phase 15 preserve directive — those 4 columns survived Phase 15 by **omission**, not by design:
+
+- **Phase 15 D-18** (closed 2026-05-08) — enum trim killed Usenet/Torrent protocol values from the `DownloadProtocol` enum. After that point, the 4 DelayProfile columns (`UsenetDelay`/`TorrentDelay`/`EnableUsenet`/`EnableTorrent`) had no live consumer; they were dead user-visible knobs.
+- **Phase 15 D-22** schema-trim **omitted** these 4 dependent columns from the explicit DROP enumeration (D-22 enumerated `Series`/`Seasons`/`Episodes` tables + `Notifications.OnSeriesAdd/Delete` + `Indexers.SeasonSearchMaximumSingleEpisodeAge` + `NamingConfig.MultiEpisodeStyle/SeasonFolderFormat` + `QualityDefinitions`/`QualityProfiles` + `History.SeriesId/EpisodeId` + `Blocklist.SeriesId/EpisodeId` + `Manga.SeasonFolder/SeriesType`, but DID NOT enumerate DelayProfile's Usenet/Torrent fields).
+- **No Pattern S2 `// Sonarr divergence:` preserve marker exists** on these 4 columns in `001_mangarr_baseline.cs`, `DelayProfile.cs`, or `DelayProfileService.cs`. Grep verified: zero hits for `Sonarr divergence` near any of the 4 token names.
+- **Phase 23 (closed 2026-05-17)** completes the omission at the **user-visible surface**: V5 Resource omit + FE typing drop + UI hide + locale catalog sweep. **Phase 26 (atomic with Migration 002)** completes the omission at the entity-side + DB level.
+
+### PreferredProtocol preserved per D-04 + D-12
+
+`PreferredProtocol` is the **abstract protocol selector** that lights up when a new `DownloadProtocol` enum value enters (Direct / Scraper per `src/NzbDrone.Core/Download/CLAUDE.md` hints). It is **NOT** one of the 4 user-locked Usenet/Torrent-specific dead knobs. PROJECT.md design philosophy mandate: *"preserve Mangarr's shape wherever it works; diverge only where the manga domain forces us."* — `PreferredProtocol` works (it's protocol-axis-agnostic; just hidden today because `DownloadProtocol` has a single live value: `Http`). Phase 23 Plan 23-03 honors D-04 + D-12 by:
+
+- Preserving `PreferredProtocol` on the entity (`DelayProfile.cs`), V5 Resource (`DelayProfileResource.cs`), and FE typing (`typings/DelayProfile.ts:preferredProtocol`).
+- Preserving `newDelayProfile` default value (`preferredProtocol: 'http'`).
+- **Hiding** the dropdown FormGroup entirely per A5(b) — with only `DownloadProtocol.Http` live today, a single-option dropdown adds zero user value. When future protocols light up, restore the dropdown by reverting the hide-only changes.
+
+This is the structural opposite of the 4 user-locked Usenet/Torrent fields: those are user-visible *knobs* that mean nothing in Mangarr's domain (no protocol toggle exists); `PreferredProtocol` is the *mechanism* that will mean something in v2+ when new protocols arrive.
+
+### Cross-reference — Phase 26 forward-schedule (three-artifact citation)
+
+Per `feedback_no_open_deferrals_at_phase_close`, DP-01 + DP-02 are **formally scheduled** into Phase 26 across THREE planning artifacts:
+
+1. **`.planning/ROADMAP.md` §Phase 26** —
+   - Requirements line includes `DP-01, DP-02` (forward-schedule additive append).
+   - Success Criteria #1 enumerates the (a)-(e) deferred work: (a) Migration 002 DDL drops 4 columns from `DelayProfiles` table; (b) `DelayProfile.cs` entity prop drop removes the 4 corresponding C# properties; (c) `DelayProfileService.Seed` first-run-seeder row at line ~206 stops referencing the 4 dropped fields; (d) caller fixtures updated atomically (`DelayProfileServiceFixture.cs:143-144` + `MangaPendingReleaseServiceFixture.cs:42,91,550,555,571,581`); (e) 4 `// PHASE-23 BRIDGE` mapper hardcodes deleted atomic with the entity prop drop.
+   - Cross-cutting bullet documents the forward-schedule with three-artifact cite.
+   - Phase 23 SC #3 wording amended to scope the user-surface-only deliverable; entity-side + DB clause wrapped in "(deferred to Phase 26 per D-01 close-out 2026-05-17)" parenthetical.
+
+2. **`.planning/REQUIREMENTS.md` DP-01 + DP-02** rows amended in **three locations**:
+   - Checkbox-list bullets at lines ~239-240 — APPEND "Forward-scheduled to Phase 26 per D-01 close-out 2026-05-17" marker text.
+   - 3-column traceability table at lines ~441-442 — remap Phase column from "Phase 23" to "Phase 26".
+   - Per-phase counts table at lines ~486+489 — Phase 23 row count drops 5→3 (DP-03..05); Phase 26 row count rises 10→12 (+DP-01, DP-02); total v1.1 unchanged at 43 (net zero shift).
+
+3. **This DIVERGENCE.md entry** records the user-surface-only divergence shipped in Phase 23 + the entity-side/DDL portion forward-scheduled to Phase 26 atomic with Migration 002.
+
+Phase 26 plan-author entry-point: grep for `PHASE-23 BRIDGE` in `src/Mangarr.Api.V5/Profiles/Delay/DelayProfileResourceMapper.cs` to find the 4 mapper hardcodes (Pitfall 2). The mapper's hardcode deletion + entity prop drop + seeder update + DDL drop + caller-fixture updates must all land in a single atomic commit cluster per Phase 26 Migration 002 ship discipline.
+
 ---
 *Last updated: 2026-05-12 (issue #92 close-out -- vocabulary-parity rename of the shared RootFolderSelectInput option-row prop + matching CSS class; closes the follow-up retained at issue #81 close-out 2026-05-13. Issue #81 + #84 + #92 close-outs preserved verbatim above per historical-accuracy contract.)*
 *Last updated: 2026-05-16 (Phase 21 Plan 21-01 — v1.0.0 release-snapshot section appended per D-15; full audit pass of Phase 0/15/16/16.1/17/17.3 entries verified against post-Phase-20 codebase. Previous trailer preserved verbatim above per historical-accuracy contract. Audit findings: 1 strike-through applied at row 38 — `src/NzbDrone.Core/Indexers/MangaFire/` never shipped, descoped per Phase 3 D-19; remaining Phase 0/15/16.1/17/17.3 entries verified accurate against post-Phase-20 codebase. Historical Phase 7/Phase 8 plan rows referencing pre-Phase-15 paths (`src/Sonarr.Api.V5/`, `frontend/src/Series/`, etc.) left untouched per provenance-value rule — actual completion paths are documented in the Phase 15 + Phase 17.3 sections below them.)*
