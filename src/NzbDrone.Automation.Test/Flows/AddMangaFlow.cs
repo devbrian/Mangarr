@@ -59,10 +59,31 @@ public static class AddMangaFlow
         // AddNewManga.tsx) — pressing Enter does not bypass debounce, so simply fill + wait
         // for the result row. The result row is keyed by mangaDexId per
         // AddNewMangaSearchResult.tsx's data-testid={`add-manga-result-${mangaDexId}`}.
+        //
+        // 2026-05-18: live MangaDex `/manga/{id}` calls can transiently fail or
+        // rate-limit when several fixtures run in close succession (observed on
+        // Phase 24 smoke gate Run #1 + Run #3: bulk_edit + bulk_save + bulk_organize
+        // failed on the second test manga `a77742b1-...` (Chainsaw Man), while the
+        // first manga `a96676e5-...` (Komi) added cleanly). One retry on the result-
+        // row wait — clear + re-fill the search input to retrigger the lookup —
+        // makes the flow tolerant of transient rate-limit / latency spikes without
+        // masking a real backend regression (a code-bug failure would still time out
+        // on both attempts and surface up).
         await addPage.SearchInput.FillAsync(mangaDexId);
 
         var resultRow = addPage.ResultRowByKey(mangaDexId);
-        await resultRow.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
+        try
+        {
+            await resultRow.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
+        }
+        catch (PlaywrightException)
+        {
+            // Retry once — clear input, wait past the 500ms debounce floor, re-fill.
+            await addPage.SearchInput.FillAsync(string.Empty);
+            await page.WaitForTimeoutAsync(1_000);
+            await addPage.SearchInput.FillAsync(mangaDexId);
+            await resultRow.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
+        }
 
         // Click the per-row Add button (the Link underlay carries the testid; clicking
         // it triggers handlePress → setIsNewAddMangaModalOpen(true) per
