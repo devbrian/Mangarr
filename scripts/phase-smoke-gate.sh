@@ -29,9 +29,27 @@ if [ -z "$PHASE" ]; then
   exit 2
 fi
 
-PHASE_DIR=$(ls -d .planning/phases/${PHASE}-* 2>/dev/null | head -1)
-if [ -z "$PHASE_DIR" ] || [ ! -d "$PHASE_DIR" ]; then
+# Deterministic phase dir resolution: fail on zero matches AND on ambiguity.
+# CodeRabbit PR #198 finding 3255692645 — `ls | head -1` could silently write
+# artifacts to the wrong dir if multiple phase folders share the same prefix
+# (e.g. a phase-23 + phase-23.1 fork during a resume scenario).
+shopt -s nullglob
+phase_matches=(.planning/phases/"${PHASE}"-*)
+shopt -u nullglob
+
+if [ "${#phase_matches[@]}" -eq 0 ]; then
   echo "FATAL: phase dir not found for phase $PHASE (looked for .planning/phases/${PHASE}-*)" >&2
+  exit 2
+fi
+
+if [ "${#phase_matches[@]}" -gt 1 ]; then
+  echo "FATAL: multiple phase dirs found for phase $PHASE; refusing to guess: ${phase_matches[*]}" >&2
+  exit 2
+fi
+
+PHASE_DIR="${phase_matches[0]}"
+if [ ! -d "$PHASE_DIR" ]; then
+  echo "FATAL: resolved phase dir is not a directory: $PHASE_DIR" >&2
   exit 2
 fi
 
@@ -107,22 +125,77 @@ PLAYWRIGHT_OK="true"
 echo "PASS Playwright provisioned"
 
 # Step 2: Port 8989 free (the fixture runner spawns NzbDroneRunner on 8989)
+# CodeRabbit PR #198 finding 3255692652 — portable detection across runners.
+# Returns: 0 = port busy, 1 = port free, 2 = no probe tool available.
 echo "--- Step 2: Port 8989 free"
-if netstat -ano 2>/dev/null | grep -qE "(0\.0\.0\.0|\[::\]):8989.*LISTENING"; then
-  echo "FATAL: port 8989 is occupied; smoke gate cannot bind." >&2
-  echo "  Kill the existing listener (e.g. taskkill /F /PID <pid>) and re-run." >&2
-  PORT_OK="false"
-  FAILURE_REASONS+=("port_8989_occupied")
-  exit 1
-fi
-PORT_OK="true"
-echo "PASS Port 8989 free"
+is_port_8989_busy() {
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn 2>/dev/null | grep -qE '[:.]8989[[:space:]]'
+    return $?
+  fi
+  if command -v netstat >/dev/null 2>&1; then
+    # Match both `LISTEN` (Linux/BSD) and `LISTENING` (Windows) end-states.
+    netstat -ano 2>/dev/null | grep -qE '[:.]8989\b.*LISTEN(ING)?'
+    return $?
+  fi
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:8989 -sTCP:LISTEN >/dev/null 2>&1
+    return $?
+  fi
+  return 2
+}
+
+is_port_8989_busy
+PORT_CHECK_EXIT=$?
+
+case "$PORT_CHECK_EXIT" in
+  0)
+    echo "FATAL: port 8989 is occupied; smoke gate cannot bind." >&2
+    echo "  Kill the existing listener (e.g. taskkill /F /PID <pid> on Windows, kill <pid> on Unix) and re-run." >&2
+    PORT_OK="false"
+    FAILURE_REASONS+=("port_8989_occupied")
+    exit 1
+    ;;
+  1)
+    PORT_OK="true"
+    echo "PASS Port 8989 free"
+    ;;
+  2)
+    echo "FATAL: no port-probe tool found (ss / netstat / lsof). Install one before re-running." >&2
+    PORT_OK="false"
+    FAILURE_REASONS+=("port_probe_unavailable")
+    exit 1
+    ;;
+esac
+
+# Path-PII sanitizer for committed log artifacts. CodeRabbit PR #198 finding
+# 3255692643 — `dotnet test` and friends embed absolute working-tree paths
+# (e.g. `C:\Users\<user>\Desktop\...`) in their stderr, which leaks the local
+# user identity into git history. Replace the current repo root + common
+# home-dir patterns with `<repo>` / `<user-home>` placeholders before writing
+# the tracked log. Idempotent — running on already-sanitized output is a no-op.
+sanitize_pii() {
+  local repo_root
+  repo_root=$(pwd -P 2>/dev/null || pwd)
+  # Escape regex metacharacters in the resolved repo root.
+  local repo_re
+  repo_re=$(printf '%s' "$repo_root" | sed -e 's/[]\/$*.^|[]/\\&/g')
+  # Build a unified sed that handles:
+  #  - the exact resolved repo root (mixed-case Windows + Unix native)
+  #  - common Windows home-dir pattern  : C:\Users\<name>\  or  C:/Users/<name>/
+  #  - common Unix home-dir pattern     : /home/<name>/  or  /Users/<name>/
+  sed -E \
+    -e "s|${repo_re}|<repo>|gI" \
+    -e 's|[Cc]:[\\/]+[Uu]sers[\\/]+[^\\/[:space:]"]+[\\/]+|<user-home>\\|g' \
+    -e 's|/home/[^/[:space:]"]+/|/<user-home>/|g' \
+    -e 's|/Users/[^/[:space:]"]+/|/<user-home>/|g'
+}
 
 # Step 3: Unit suite — scripts/test.sh always returns 0; parse Passed!/Failed! lines.
 echo "--- Step 3: scripts/test.sh Windows Unit Test"
 export TEST_DIR="./_tests/net10.0"
 UNIT_LOG="${LOG_DIR}/unit-suite.txt"
-bash scripts/test.sh Windows Unit Test > "$UNIT_LOG" 2>&1
+bash scripts/test.sh Windows Unit Test 2>&1 | sanitize_pii > "$UNIT_LOG"
 # Per-DLL summary lines look like:
 #   Passed!  - Failed:     0, Passed:   573, Skipped:    16, Total:   589, Duration: 45 s - Mangarr.Common.Test.dll (net10.0)
 #   Failed!  - Failed:     3, Passed:   570, Skipped:    16, Total:   589, Duration: 45 s - Mangarr.Common.Test.dll (net10.0)
@@ -151,8 +224,13 @@ fi
 echo "--- Step 4: scripts/audit-new-fixtures.sh"
 FIXTURE_LOG="${LOG_DIR}/audit-new-fixtures.txt"
 FIXTURE_REPORT="${LOG_DIR}/audit-new-fixtures-report.json"
-bash scripts/audit-new-fixtures.sh --report "$FIXTURE_REPORT" > "$FIXTURE_LOG" 2>&1
-FIXTURE_EXIT=$?
+# Run audit-new-fixtures.sh, capture exit through PIPESTATUS, sanitize PII in log.
+bash scripts/audit-new-fixtures.sh --report "$FIXTURE_REPORT" 2>&1 | sanitize_pii > "$FIXTURE_LOG"
+FIXTURE_EXIT=${PIPESTATUS[0]}
+# Also sanitize the report JSON since audit-new-fixtures embeds paths there too.
+if [ -f "$FIXTURE_REPORT" ]; then
+  sanitize_pii < "$FIXTURE_REPORT" > "$FIXTURE_REPORT.tmp" && mv "$FIXTURE_REPORT.tmp" "$FIXTURE_REPORT"
+fi
 if [ "$FIXTURE_EXIT" -eq 0 ]; then
   FIXTURE_OK="true"
   echo "PASS fixture-execution gate"
