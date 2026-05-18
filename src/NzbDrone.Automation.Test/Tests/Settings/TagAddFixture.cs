@@ -49,8 +49,11 @@ public class TagAddFixture : AutomationTest
         // State assertion: a fresh GET /api/v5/tag includes the new label.
         // Driven by HttpClient (not Playwright's response interception) so
         // the assertion does not race with browser navigation under
-        // postgres cold-start timing.
-        using var http = new HttpClient();
+        // postgres cold-start timing. Timeout = 30s preserves the fail-fast
+        // bound the original WaitForResponseAsync had — without it
+        // HttpClient.Timeout defaults to ~100s, which would turn a fast
+        // signal into a slow timeout across the matrix on backend stalls.
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
         var body = await http.GetStringAsync($"{RootUri}/api/v5/tag");
         body.Should().Contain(label);
