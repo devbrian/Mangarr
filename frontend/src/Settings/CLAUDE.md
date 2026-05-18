@@ -36,7 +36,7 @@ All user-configurable settings UI. Each subdirectory is one settings page (or se
 | `Notifications/` | Notification providers | `/settings/connect` |
 | `Metadata/` | Metadata writers (NFO etc.) | `/settings/metadata` |
 | `MetadataSource/` | Metadata source config (TVDB → manga sources) | `/settings/metadatasource` |
-| `Tags/` | Tags + auto-tagging | `/settings/tags` |
+| `Tags/` | Tags + auto-tagging | `/settings/tags` — **Phase 24 Plan 24-04 closure**: `Settings/Tags/AutoTagging/` was already shipped at the FE layer pre-Phase-24 but the Redux thunks at `Store/Actions/Settings/autoTaggings.js` 404'd because no V5 controller answered. Phase 24-04 shipped the V5 controllers + TagController `IHandle<AutoTagsUpdatedEvent>` re-wire — the surface is now live with NO FE code changes (Redux thunk path resolution alone). Rule-creation modal + 11-spec dropdown + RemoveTagsAutomatically toggle all functional. |
 | `UI/` | Theme, language, time format | `/settings/ui` |
 
 ## Phase 7 D-05 Topology Rework
