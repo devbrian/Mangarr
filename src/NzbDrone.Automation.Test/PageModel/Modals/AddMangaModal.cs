@@ -70,9 +70,19 @@ public class AddMangaModal : PageBase
         var modalConfirmAttempts = 3;
         for (var attempt = 0; attempt < modalConfirmAttempts; attempt++)
         {
-            await AddButton.ClickAsync();
             try
             {
+                // Race-safe: if a slow backend response arrived during the 15s
+                // backoff between attempts and the modal already closed, do
+                // NOT re-click — the AddButton would no longer be attached to
+                // the DOM and ClickAsync would throw, masking the successful
+                // add. Check before each click and bail early on success.
+                if (await ModalRoot.IsHiddenAsync())
+                {
+                    return;
+                }
+
+                await AddButton.ClickAsync();
                 await ModalRoot.WaitForAsync(new LocatorWaitForOptions
                 {
                     State = WaitForSelectorState.Hidden,
