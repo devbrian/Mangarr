@@ -76,7 +76,6 @@ import SelectQualityModal from 'InteractiveImport/Quality/SelectQualityModal';
 import SelectReleaseGroupModal from 'InteractiveImport/ReleaseGroup/SelectReleaseGroupModal';
 import ReleaseType from 'InteractiveImport/ReleaseType';
 import SelectReleaseTypeModal from 'InteractiveImport/ReleaseType/SelectReleaseTypeModal';
-import SelectSeasonModal from 'InteractiveImport/Season/SelectSeasonModal';
 import SelectMangaModal from 'InteractiveImport/Manga/SelectMangaModal';
 import useInteractiveImport, {
   useReprocessInteractiveImportItems,
@@ -94,10 +93,14 @@ import translate from 'Utilities/String/translate';
 import InteractiveImportRow from './InteractiveImportRow';
 import styles from './InteractiveImportModalContent.css';
 
+// Plan 25-04 Task 3 — 'season' variant dropped (manga has no season per
+// DOMAIN-02). SelectSeasonModal + handleSeasonSelect + the 'season' column
+// + per-row season cell render were removed alongside the Season/ subdir
+// deletion. Field-level `seasonNumber` carry-over on InteractiveImport DTO
+// remains until Plan 25-04 Task 4's typed discriminator union rewrite.
 type SelectType =
   | 'select'
   | 'series'
-  | 'season'
   | 'episode'
   | 'releaseGroup'
   | 'quality'
@@ -128,11 +131,8 @@ const COLUMNS = [
     isSortable: true,
     isVisible: true,
   },
-  {
-    name: 'season',
-    label: () => translate('Season'),
-    isVisible: true,
-  },
+  // Plan 25-04 Task 3 — 'season' column dropped (manga has no season per
+  // DOMAIN-02). Row no longer renders a per-row season cell.
   {
     name: 'episodes',
     label: () => translate('Chapters'),
@@ -800,25 +800,9 @@ function InteractiveImportContentInner(
     ]
   );
 
-  const handleSeasonSelect = useCallback(
-    (seasonNumber: number) => {
-      const updates = {
-        seasonNumber,
-        episodes: [],
-      };
-
-      updateInteractiveImportItems(selectedIds, updates);
-      handleReprocessItems(selectedIds);
-
-      setSelectModalOpen(null);
-    },
-    [
-      selectedIds,
-      setSelectModalOpen,
-      updateInteractiveImportItems,
-      handleReprocessItems,
-    ]
-  );
+  // Plan 25-04 Task 3 — handleSeasonSelect dropped alongside SelectSeasonModal
+  // (manga has no season per DOMAIN-02). The season-modal-driven update path
+  // (which set `{ seasonNumber, episodes: [] }`) was the only consumer.
 
   const handleEpisodesSelect = useCallback(
     (selectedEpisodes: SelectedChapter[]) => {
@@ -1090,13 +1074,8 @@ function InteractiveImportContentInner(
         onModalClose={handleSelectModalClose}
       />
 
-      <SelectSeasonModal
-        isOpen={selectModalOpen === 'season'}
-        seriesId={selectedItem?.series?.id}
-        modalTitle={headerLabel ?? ''}
-        onSeasonSelect={handleSeasonSelect}
-        onModalClose={handleSelectModalClose}
-      />
+      {/* Plan 25-04 Task 3 — SelectSeasonModal JSX dropped (manga has no
+          season per DOMAIN-02; Season/ subdir deleted in same commit). */}
 
       {/* Sonarr divergence: Phase 17.3 D-13/D-14 — dropped
           isAnime={selectedItem?.series?.seriesType === 'anime'} prop pass

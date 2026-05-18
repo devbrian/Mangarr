@@ -37,7 +37,7 @@
 | `Folder/` | `InteractiveImportSelectFolderModalContent`, `FavoriteFolderRow`, `RecentFolderRow` | Pick the source folder |
 | `Chapter/` | `SelectChapterModal`, `SelectChapterModalContent` | Pick chapter(s) — Plan 25-04 Task 1 renamed `Episode/` → `Chapter/` per Pitfall 13 atomic-per-decision commit; stub body preserved per Plan 15-12 |
 | `Manga/` | `SelectMangaModal` | Pick or correct manga — Plan 25-04 Task 2 renamed `Series/` → `Manga/` per Pitfall 13; stub body preserved per Plan 15-12 |
-| `Season/` | `SelectSeasonModal` (stub, awaiting Plan 25-04 Task 3 deletion — manga has no season per DOMAIN-02) | (Slated for deletion) |
+| `Season/` | (deleted Plan 25-04 Task 3 — manga has no season per DOMAIN-02; SelectSeasonModal stub + per-row season cell + season-modal trigger removed) | n/a |
 | `Language/` | `SelectLanguageModal`, `SelectLanguageModalContent` | Set language(s) |
 | `Quality/` | `SelectQualityModal`, `SelectQualityModalContent` | Set quality |
 | `ReleaseGroup/` | `SelectReleaseGroupModal`, `SelectReleaseGroupModalContent` | Set release group |
@@ -67,7 +67,7 @@ This module needs updates per the Series→Manga, Episode→Chapter, Season→Vo
 |--------|-------|
 | `Series/SelectSeriesModal` | `Manga/SelectMangaModal` (Plan 25-04 Task 2 — landed 2026-05-18) |
 | `Episode/SelectEpisodeModal` | `Chapter/SelectChapterModal` (Plan 25-04 Task 1 — landed 2026-05-18) |
-| `Season/SelectSeasonModal` | `Volume/SelectVolumeModal` |
+| `Season/SelectSeasonModal` | (deleted Plan 25-04 Task 3 — no manga peer per DOMAIN-02) |
 | Quality/Language/ReleaseGroup | Reusable; adjust enums |
 | `ReleaseType` | New types: `singleChapter`/`multiChapter`/`volumePack` |
 

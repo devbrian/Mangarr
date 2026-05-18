@@ -12,7 +12,9 @@ import { useSelect } from 'App/Select/SelectContext';
 // Series/Series rewritten to Manga/Manga peer.
 import Chapter from 'Chapter/Chapter';
 import Icon from 'Components/Icon';
-import LoadingIndicator from 'Components/Loading/LoadingIndicator';
+// Plan 25-04 Task 3 — LoadingIndicator import dropped (sole consumer was
+// the per-row season cell removed in this commit; manga has no season per
+// DOMAIN-02).
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import TableRowCellButton from 'Components/Table/Cells/TableRowCellButton';
 import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
@@ -29,7 +31,6 @@ import SelectQualityModal from 'InteractiveImport/Quality/SelectQualityModal';
 import SelectReleaseGroupModal from 'InteractiveImport/ReleaseGroup/SelectReleaseGroupModal';
 import ReleaseType from 'InteractiveImport/ReleaseType';
 import SelectReleaseTypeModal from 'InteractiveImport/ReleaseType/SelectReleaseTypeModal';
-import SelectSeasonModal from 'InteractiveImport/Season/SelectSeasonModal';
 import SelectMangaModal from 'InteractiveImport/Manga/SelectMangaModal';
 import { useUpdateInteractiveImportItem } from 'InteractiveImport/useInteractiveImport';
 import Language from 'Language/Language';
@@ -44,9 +45,11 @@ import translate from 'Utilities/String/translate';
 import InteractiveImportRowCellPlaceholder from './InteractiveImportRowCellPlaceholder';
 import styles from './InteractiveImportRow.css';
 
+// Plan 25-04 Task 3 — 'season' variant dropped (manga has no season per
+// DOMAIN-02). Season per-row trigger / cell / modal removed; field-level
+// seasonNumber DTO carry-over remains until Plan 25-04 Task 4.
 type SelectType =
   | 'series'
-  | 'season'
   | 'episode'
   | 'releaseGroup'
   | 'quality'
@@ -100,7 +103,10 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
     customFormatScore,
     indexerFlags,
     rejections,
-    isReprocessing,
+    // Plan 25-04 Task 3 — isReprocessing destructure dropped (sole consumer
+    // was the per-row season cell LoadingIndicator; manga has no season per
+    // DOMAIN-02). Prop kept on the interface for parent callers; Task 8 may
+    // re-consume it for the per-row 'On Existing File' dropdown spinner.
     modalTitle,
     episodeFileId,
     columns,
@@ -224,29 +230,9 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
     ]
   );
 
-  const onSelectSeasonPress = useCallback(() => {
-    setSelectModalOpen('season');
-  }, [setSelectModalOpen]);
-
-  const onSeasonSelect = useCallback(
-    (seasonNumber: number) => {
-      updateInteractiveImportItem(id, {
-        seasonNumber,
-        episodes: [],
-      });
-
-      onReprocessItems([id]);
-      setSelectModalOpen(null);
-      selectRowAfterChange();
-    },
-    [
-      id,
-      updateInteractiveImportItem,
-      onReprocessItems,
-      setSelectModalOpen,
-      selectRowAfterChange,
-    ]
-  );
+  // Plan 25-04 Task 3 — onSelectSeasonPress + onSeasonSelect dropped alongside
+  // SelectSeasonModal (manga has no season per DOMAIN-02; Season/ subdir
+  // deleted in same commit). Per-row season cell render also dropped below.
 
   const onSelectEpisodePress = useCallback(() => {
     setSelectModalOpen('episode');
@@ -403,8 +389,8 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
 
   const requiresSeasonNumber = isNaN(Number(seasonNumber));
   const showSeriesPlaceholder = isSelected && !series;
-  const showSeasonNumberPlaceholder =
-    isSelected && !!series && requiresSeasonNumber && !isReprocessing;
+  // Plan 25-04 Task 3 — showSeasonNumberPlaceholder removed (sole consumer
+  // was the per-row season cell deleted in this commit).
   const showEpisodeNumbersPlaceholder =
     isSelected && Number.isInteger(seasonNumber) && !episodes.length;
   const showReleaseGroupPlaceholder = isSelected && !releaseGroup;
@@ -455,21 +441,9 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
         </TableRowCellButton>
       ) : null}
 
-      <TableRowCellButton
-        isDisabled={!series}
-        title={series ? translate('ClickToChangeChapter') : undefined}
-        onPress={onSelectSeasonPress}
-      >
-        {showSeasonNumberPlaceholder ? (
-          <InteractiveImportRowCellPlaceholder />
-        ) : (
-          seasonNumber
-        )}
-
-        {isReprocessing && seasonNumber == null ? (
-          <LoadingIndicator className={styles.reprocessing} size={20} />
-        ) : null}
-      </TableRowCellButton>
+      {/* Plan 25-04 Task 3 — per-row season cell dropped (manga has no
+          season per DOMAIN-02). The COLUMNS array no longer contains a
+          'season' entry; the per-row cell render is removed to match. */}
 
       <TableRowCellButton
         isDisabled={!series || requiresSeasonNumber}
@@ -596,13 +570,8 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
         onModalClose={onSelectModalClose}
       />
 
-      <SelectSeasonModal
-        isOpen={selectModalOpen === 'season'}
-        seriesId={series?.id}
-        modalTitle={modalTitle}
-        onSeasonSelect={onSeasonSelect}
-        onModalClose={onSelectModalClose}
-      />
+      {/* Plan 25-04 Task 3 — SelectSeasonModal JSX dropped (manga has no
+          season per DOMAIN-02; Season/ subdir deleted in same commit). */}
 
       <SelectChapterModal
         isOpen={selectModalOpen === 'episode'}
