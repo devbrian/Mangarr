@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using FluentValidation;
 using FluentValidation.Results;
+using NzbDrone.Core.AutoTagging;
 using NzbDrone.Core.Tags;
 
 // Sonarr divergence: Mangarr v1.1 Phase 22 enhancement — Sonarr's TagController DELETE
@@ -16,17 +17,19 @@ namespace NzbDrone.Core.Validation
     }
 
     // Phase 22 D-03 — 8-consumer surface. ImportList (#7) returns false until Phase 26
-    // flips it to a live _importListFactory.AllForTag() query; AutoTagging (#8) returns
-    // false until Phase 24 flips it to a live _autoTaggingService.AllForTag() query.
-    // Validator signature shape preserves the 8-consumer projection so the future diff
-    // is small (one line per consumer, no class-shape change).
+    // flips it to a live _importListFactory.AllForTag() query; AutoTagging (#8) is LIVE
+    // as of Phase 24 Plan 24-04 (_autoTaggingService.AllForTag(tag.Id).Count). Validator
+    // signature shape preserves the 8-consumer projection so the ImportList diff for
+    // Phase 26 stays small (one line per consumer, no class-shape change).
     public class TagInUseValidator : AbstractValidator<Tag>, ITagInUseValidator
     {
         private readonly ITagService _tagService;
+        private readonly IAutoTaggingService _autoTaggingService;
 
-        public TagInUseValidator(ITagService tagService)
+        public TagInUseValidator(ITagService tagService, IAutoTaggingService autoTaggingService)
         {
             _tagService = tagService;
+            _autoTaggingService = autoTaggingService;
 
             RuleFor(c => c).Custom((tag, context) =>
             {
@@ -112,8 +115,17 @@ namespace NzbDrone.Core.Validation
                 // Phase 22 D-03 — ImportList stub. Returns no consumer count until Phase 26
                 // flips it to a live _importListFactory.AllForTag() query.
 
-                // Phase 22 D-03 — AutoTagging stub. Returns no consumer count until Phase 24
-                // flips it to a live _autoTaggingService.AllForTag() query.
+                // Slot 8: AutoTagging (Phase 24 Plan 24-04 — flipped from Phase 22 D-03 stub
+                // atomic with V5 AutoTaggingController shipping). Mirrors the sibling consumers'
+                // count -> summary -> totalCount aggregation pattern.
+                var autoTaggingCount = _autoTaggingService.AllForTag(tag.Id).Count;
+                if (autoTaggingCount > 0)
+                {
+                    consumerSummary.Add(autoTaggingCount == 1
+                        ? "1 auto-tagging rule"
+                        : $"{autoTaggingCount} auto-tagging rules");
+                    totalCount += autoTaggingCount;
+                }
 
                 if (consumerSummary.Count == 0)
                 {

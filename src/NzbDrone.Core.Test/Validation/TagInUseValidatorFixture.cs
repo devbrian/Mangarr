@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using FluentAssertions;
+using Moq;
 using NUnit.Framework;
+using NzbDrone.Core.AutoTagging;
 using NzbDrone.Core.Tags;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Core.Validation;
@@ -8,20 +10,17 @@ using NzbDrone.Core.Validation;
 namespace NzbDrone.Core.Test.Validation
 {
     // Phase 22 Plan 22-04 — RED-before-GREEN unit gate for TagInUseValidator.
+    // Phase 24 Plan 24-04 — AutoTagging Slot 8 flipped from stub-returns-false to live
+    //   _autoTaggingService.AllForTag(tag.Id).Count query. The Phase 22
+    //   ignores_autotagging_stub_false_branch test is removed (replaced by the live
+    //   coverage in TagInUseValidatorAutoTaggingFixture). Default mock setup wires
+    //   IAutoTaggingService.AllForTag to return empty list so the existing 7 cases
+    //   that don't touch AutoTagging stay green.
     //
     // CoreTest<TagInUseValidator> harness pattern lifted from
     // src/NzbDrone.Core.Test/Manga/AddMangaServiceFixture.cs:32-100
     // (closest in-repo analog — Mocker.GetMock<...>().Setup pattern for
     // FluentValidation.Results.ValidationResult consumers).
-    //
-    // 7-test surface (per PATTERNS.md §TagInUseValidatorFixture.cs §Tests to ship):
-    //   1. valid_when_no_consumer_holds_tag
-    //   2. invalid_when_manga_holds_tag (+ named-count assertion "2 manga")
-    //   3. invalid_when_notification_holds_tag (+ named-count assertion "1 connection" — D-06 frontend label)
-    //   4. invalid_when_multiple_consumers_hold_tag (+ joined-consumer-summary)
-    //   5. ignores_importlist_stub_false_branch (D-03 invariant pin — Phase 26 flip-test will tighten)
-    //   6. ignores_autotagging_stub_false_branch (D-03 invariant pin — Phase 24 flip-test will tighten)
-    //   7. error_message_does_not_leak_consumer_ids (V8 errors & logging compliance — counts only)
     [TestFixture]
     public class TagInUseValidatorFixture : CoreTest<TagInUseValidator>
     {
@@ -31,6 +30,12 @@ namespace NzbDrone.Core.Test.Validation
         public void Setup()
         {
             _tag = new Tag { Id = 1, Label = "fantasy" };
+
+            // Phase 24 Plan 24-04 — AutoTagging slot is now live; default to empty
+            // list so the cases that don't exercise AutoTagging stay green.
+            Mocker.GetMock<IAutoTaggingService>()
+                  .Setup(s => s.AllForTag(It.IsAny<int>()))
+                  .Returns(new List<AutoTag>());
         }
 
         private void SetupDetails(TagDetails details)
@@ -167,29 +172,11 @@ namespace NzbDrone.Core.Test.Validation
             result.IsValid.Should().BeTrue();
         }
 
-        [Test]
-        public void ignores_autotagging_stub_false_branch()
-        {
-            // D-03 stub-false invariant pin: TagDetails has no AutoTaggingIds slot
-            // (AutoTagging consumer is stubbed false until Phase 24 flips it).
-            // Validator must not NRE / false-positive on the missing slot.
-            SetupDetails(new TagDetails
-            {
-                Id = _tag.Id,
-                Label = _tag.Label,
-                MangaIds = new List<int>(),
-                DelayProfileIds = new List<int>(),
-                NotificationIds = new List<int>(),
-                RestrictionIds = new List<int>(),
-                ExcludedReleaseProfileIds = new List<int>(),
-                IndexerIds = new List<int>(),
-                DownloadClientIds = new List<int>()
-            });
-
-            var result = Subject.Validate(_tag);
-
-            result.IsValid.Should().BeTrue();
-        }
+        // Phase 24 Plan 24-04 — `ignores_autotagging_stub_false_branch` removed.
+        // The Phase 22 D-03 AutoTagging stub-returns-false branch is flipped to
+        // a live _autoTaggingService.AllForTag(tag.Id).Count query. Live coverage
+        // lives in TagInUseValidatorAutoTaggingFixture (0/1/3-rule cases + the
+        // totalCount aggregation with sibling consumers).
 
         [Test]
         public void error_message_does_not_leak_consumer_ids()

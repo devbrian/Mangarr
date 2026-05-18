@@ -1,5 +1,3 @@
-// Sonarr divergence: Phase 15 Plan 15-10 — AutoTagging/ DELETED.
-//   using NzbDrone.Core.AutoTagging; ← deleted
 using System.Text.RegularExpressions;
 using FluentValidation;
 using Mangarr.Http;
@@ -8,6 +6,7 @@ using Mangarr.Http.REST.Attributes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using NzbDrone.Core.AutoTagging;
 using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Tags;
@@ -16,10 +15,16 @@ using NzbDrone.SignalR;
 
 namespace Mangarr.Api.V5.Tags;
 
-// Sonarr divergence: Phase 15 Plan 15-10 — IHandle<AutoTagsUpdatedEvent> stripped (event DELETED).
+// Phase 24 Plan 24-04 — IHandle<AutoTagsUpdatedEvent> RE-WIRED (AT-08). Sibling
+// to the existing IHandle<TagsUpdatedEvent>. Phase 15 Plan 15-10 stripped this
+// alongside the AutoTagging/ subtree delete; Phase 24 Plan 24-02 restored the
+// subtree + Phase 24 Plan 24-03 shipped the 11-spec catalog + applier; this plan
+// closes the loop by re-broadcasting SignalR Sync on every rule mutation so the
+// FE /tag/detail query invalidates the moment AutoTagsUpdatedEvent fires.
 [V5ApiController]
 public class TagController : RestControllerWithSignalR<TagResource, Tag>,
-                             IHandle<TagsUpdatedEvent>
+                             IHandle<TagsUpdatedEvent>,
+                             IHandle<AutoTagsUpdatedEvent>
 {
     private readonly ITagService _tagService;
     private readonly TagInUseValidator _tagInUseValidator;
@@ -90,5 +95,13 @@ public class TagController : RestControllerWithSignalR<TagResource, Tag>,
         BroadcastResourceChange(ModelAction.Sync);
     }
 
-    // Sonarr divergence: Phase 15 Plan 15-10 — Handle(AutoTagsUpdatedEvent) stripped (event DELETED).
+    // Phase 24 Plan 24-04 — AT-08 re-wire. Sibling to Handle(TagsUpdatedEvent).
+    // AutoTaggingService.Insert / Update / Delete each publish this event;
+    // re-broadcasting SignalR Sync invalidates the FE /tag/detail query so the
+    // tag list reflects auto-tag changes without a manual refresh.
+    [NonAction]
+    public void Handle(AutoTagsUpdatedEvent message)
+    {
+        BroadcastResourceChange(ModelAction.Sync);
+    }
 }
