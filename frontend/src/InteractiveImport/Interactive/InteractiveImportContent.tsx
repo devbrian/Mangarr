@@ -125,6 +125,14 @@ const COLUMNS = [
     isVisible: true,
   },
   {
+    // Phase 25 Plan 25-04 Task 8 — per-row 'On Existing File' dropdown
+    // column per D-04. testid prefix `existing-file-behavior-*` registered
+    // in 25-01 data-testid-spec.md ledger.
+    name: 'existingFileBehavior',
+    label: () => translate('OnExistingFile'),
+    isVisible: true,
+  },
+  {
     name: 'customFormats',
     label: React.createElement(Icon, {
       name: icons.INTERACTIVE,

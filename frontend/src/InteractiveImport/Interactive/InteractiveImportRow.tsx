@@ -16,6 +16,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelect } from 'App/Select/SelectContext';
 import Chapter from 'Chapter/Chapter';
 import Icon from 'Components/Icon';
+import SelectInput, { SelectInputOption } from 'Components/Form/SelectInput';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import TableRowCellButton from 'Components/Table/Cells/TableRowCellButton';
 import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
@@ -102,6 +103,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
     rejections,
     modalTitle,
     chapterFileId,
+    existingFileBehavior,
     columns,
     onReprocessItems,
     onSelectedChange,
@@ -111,6 +113,31 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   const { useIsSelected } = useSelect<InteractiveImport>();
   const isSelected = useIsSelected(id);
   const { updateInteractiveImportItem } = useUpdateInteractiveImportItem();
+
+  // Phase 25 Plan 25-04 Task 8 — per-row 'On Existing File' dropdown per
+  // D-04. Defensive `?? Skip` fallback for back-compat against rows that
+  // shipped before Task 7 (the V5 controller now always emits the field
+  // but the FE may briefly receive cached rows that lack it).
+  const currentExistingFileBehavior =
+    existingFileBehavior ?? ExistingFileBehavior.Skip;
+
+  const existingFileBehaviorOptions: SelectInputOption[] = useMemo(
+    () => [
+      { key: ExistingFileBehavior.Skip, value: () => translate('Skip') },
+      { key: ExistingFileBehavior.Replace, value: () => translate('Replace') },
+    ],
+    []
+  );
+
+  const onExistingFileBehaviorChange = useCallback(
+    ({ value }: { value: string }) => {
+      updateInteractiveImportItem(id, {
+        existingFileBehavior: value as ExistingFileBehavior,
+      });
+      onReprocessItems([id]);
+    },
+    [id, updateInteractiveImportItem, onReprocessItems]
+  );
 
   const isMangaColumnVisible = useMemo(
     () => columns.find((c) => c.name === 'manga')?.isVisible ?? false,
@@ -349,6 +376,21 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
       >
         {releaseType ?? translate('Unknown')}
       </TableRowCellButton>
+
+      {/* Phase 25 Plan 25-04 Task 8 — per-row 'On Existing File' dropdown
+          per D-04 (Sonarr-canonical). testid prefix
+          `existing-file-behavior-{rowId}` registered in 25-01
+          data-testid-spec.md ledger. */}
+      <TableRowCell
+        data-testid={`existing-file-behavior-${id}`}
+      >
+        <SelectInput
+          name={`existing-file-behavior-${id}`}
+          value={currentExistingFileBehavior}
+          values={existingFileBehaviorOptions}
+          onChange={onExistingFileBehaviorChange}
+        />
+      </TableRowCell>
 
       <TableRowCell>
         {customFormats?.length
