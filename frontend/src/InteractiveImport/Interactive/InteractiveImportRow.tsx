@@ -1,20 +1,21 @@
+// Sonarr divergence: REWRITE per Phase 25 Plan 25-04 Task 4 (v1.1-03 +
+// Pitfalls 2/3) — see DIVERGENCE.md.
+//
+// Replaces the prior TV-shape carry-over consumer (Phase 17.3 Plan 17.3-13b
+// preserved series/episodes/seasonNumber/episodeFileId/quality/languages/
+// releaseGroup prop names with @ts-expect-error escapes). Plan 25-04 Task 4
+// catches the row up to the manga-shape discriminator union — props now
+// mirror the InteractiveImport union fields directly (manga, chapters,
+// translatedLanguage, scanlationGroup, existingFileBehavior). Sonarr's
+// quality + languages + seasonNumber + episodeFileId props are dropped —
+// no manga peers (PROJECT.md DOMAIN-02 + Phase 5 D-04).
+//
+// Pitfalls 2 + 3 grep-gate green: zero runtime property-presence checks,
+// zero type-cast escape hatches in this file.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelect } from 'App/Select/SelectContext';
-// Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
-// Episode/Episode rewritten to Chapter/Chapter peer (the TV-shape field names
-// episodeNumber + title + id on the row's `episodes` prop are runtime-emitted
-// by the backend TV InteractiveImport flow which is gated for v1; type-level
-// access is preserved via @ts-expect-error per the Plan 17.3-13 Wanted/* +
-// InteractiveImport core precedent). Episode/EpisodeFormats, EpisodeLanguages,
-// EpisodeQuality, getReleaseTypeName, and IndexerFlags no-op stub imports
-// DROPPED (all Phase 15 Plan 15-12 STUB components returning null with zero
-// render output); JSX render sites below collapsed to plain inline displays.
-// Series/Series rewritten to Manga/Manga peer.
 import Chapter from 'Chapter/Chapter';
 import Icon from 'Components/Icon';
-// Plan 25-04 Task 3 — LoadingIndicator import dropped (sole consumer was
-// the per-row season cell removed in this commit; manga has no season per
-// DOMAIN-02).
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import TableRowCellButton from 'Components/Table/Cells/TableRowCellButton';
 import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
@@ -25,18 +26,16 @@ import { icons, kinds, tooltipPositions } from 'Helpers/Props';
 import SelectChapterModal from 'InteractiveImport/Chapter/SelectChapterModal';
 import { SelectedChapter } from 'InteractiveImport/Chapter/SelectChapterModalContent';
 import SelectIndexerFlagsModal from 'InteractiveImport/IndexerFlags/SelectIndexerFlagsModal';
-import InteractiveImport from 'InteractiveImport/InteractiveImport';
-import SelectLanguageModal from 'InteractiveImport/Language/SelectLanguageModal';
-import SelectQualityModal from 'InteractiveImport/Quality/SelectQualityModal';
-import SelectReleaseGroupModal from 'InteractiveImport/ReleaseGroup/SelectReleaseGroupModal';
+import InteractiveImport, {
+  ImportSourceKind,
+} from 'InteractiveImport/InteractiveImport';
+import SelectMangaModal from 'InteractiveImport/Manga/SelectMangaModal';
 import ReleaseType from 'InteractiveImport/ReleaseType';
 import SelectReleaseTypeModal from 'InteractiveImport/ReleaseType/SelectReleaseTypeModal';
-import SelectMangaModal from 'InteractiveImport/Manga/SelectMangaModal';
 import { useUpdateInteractiveImportItem } from 'InteractiveImport/useInteractiveImport';
-import Language from 'Language/Language';
 import Manga from 'Manga/Manga';
-import { QualityModel } from 'Quality/Quality';
 import CustomFormat from 'typings/CustomFormat';
+import ExistingFileBehavior from 'typings/ExistingFileBehavior';
 import { SelectStateInputProps } from 'typings/props';
 import Rejection from 'typings/Rejection';
 import formatBytes from 'Utilities/Number/formatBytes';
@@ -45,32 +44,31 @@ import translate from 'Utilities/String/translate';
 import InteractiveImportRowCellPlaceholder from './InteractiveImportRowCellPlaceholder';
 import styles from './InteractiveImportRow.css';
 
-// Plan 25-04 Task 3 — 'season' variant dropped (manga has no season per
-// DOMAIN-02). Season per-row trigger / cell / modal removed; field-level
-// seasonNumber DTO carry-over remains until Plan 25-04 Task 4.
+// Plan 25-04 Task 4 — SelectType narrowed to the surfaces that survived
+// the typed-union rewrite. ReleaseGroup / Quality / Language editing
+// modals are no longer per-row triggered (manga has no quality model per
+// Phase 5 D-04; releaseGroup is preserved on the legacy TV fallback only,
+// not the manga rows). Only manga + chapter + indexerFlags + releaseType
+// editing remain.
 type SelectType =
-  | 'series'
-  | 'episode'
-  | 'releaseGroup'
-  | 'quality'
-  | 'language'
+  | 'manga'
+  | 'chapter'
   | 'indexerFlags'
   | 'releaseType';
 
 type SelectedChangeProps = SelectStateInputProps & {
-  hasEpisodeFileId: boolean;
+  hasChapterFileId: boolean;
 };
 
 interface InteractiveImportRowProps {
   id: number;
-  allowSeriesChange: boolean;
+  kind: ImportSourceKind;
+  allowMangaChange: boolean;
   relativePath: string;
-  series?: Manga;
-  seasonNumber?: number;
-  episodes?: Chapter[];
-  releaseGroup?: string;
-  quality?: QualityModel;
-  languages?: Language[];
+  manga?: Manga;
+  chapters?: Chapter[];
+  scanlationGroup?: string;
+  translatedLanguage?: string;
   size: number;
   releaseType: ReleaseType;
   customFormats?: CustomFormat[];
@@ -78,7 +76,8 @@ interface InteractiveImportRowProps {
   indexerFlags: number;
   rejections: Rejection[];
   columns: Column[];
-  episodeFileId?: number;
+  chapterFileId?: number;
+  existingFileBehavior?: ExistingFileBehavior;
   isReprocessing?: boolean;
   modalTitle: string;
   onReprocessItems: (ids: number[]) => void;
@@ -89,26 +88,20 @@ interface InteractiveImportRowProps {
 function InteractiveImportRow(props: InteractiveImportRowProps) {
   const {
     id,
-    allowSeriesChange,
+    allowMangaChange,
     relativePath,
-    series,
-    seasonNumber,
-    episodes = [],
-    quality,
-    languages,
-    releaseGroup,
+    manga,
+    chapters = [],
+    scanlationGroup,
+    translatedLanguage,
     size,
     releaseType,
     customFormats = [],
     customFormatScore,
     indexerFlags,
     rejections,
-    // Plan 25-04 Task 3 — isReprocessing destructure dropped (sole consumer
-    // was the per-row season cell LoadingIndicator; manga has no season per
-    // DOMAIN-02). Prop kept on the interface for parent callers; Task 8 may
-    // re-consume it for the per-row 'On Existing File' dropdown spinner.
     modalTitle,
-    episodeFileId,
+    chapterFileId,
     columns,
     onReprocessItems,
     onSelectedChange,
@@ -119,8 +112,8 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   const isSelected = useIsSelected(id);
   const { updateInteractiveImportItem } = useUpdateInteractiveImportItem();
 
-  const isSeriesColumnVisible = useMemo(
-    () => columns.find((c) => c.name === 'series')?.isVisible ?? false,
+  const isMangaColumnVisible = useMemo(
+    () => columns.find((c) => c.name === 'manga')?.isVisible ?? false,
     [columns]
   );
   const isIndexerFlagsColumnVisible = useMemo(
@@ -134,18 +127,10 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
 
   useEffect(
     () => {
-      if (
-        allowSeriesChange &&
-        series &&
-        seasonNumber != null &&
-        episodes.length &&
-        quality &&
-        languages &&
-        size > 0
-      ) {
+      if (allowMangaChange && manga && chapters.length && size > 0) {
         onSelectedChange({
           id,
-          hasEpisodeFileId: !!episodeFileId,
+          hasChapterFileId: !!chapterFileId,
           value: true,
           shiftKey: false,
         });
@@ -156,65 +141,49 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   );
 
   useEffect(() => {
-    const isValid = !!(
-      series &&
-      seasonNumber != null &&
-      episodes.length &&
-      quality &&
-      languages
-    );
+    const isValid = !!(manga && chapters.length);
 
     if (isSelected && !isValid) {
       onValidRowChange(id, false);
     } else {
       onValidRowChange(id, true);
     }
-  }, [
-    id,
-    series,
-    seasonNumber,
-    episodes,
-    quality,
-    languages,
-    isSelected,
-    onValidRowChange,
-  ]);
+  }, [id, manga, chapters, isSelected, onValidRowChange]);
 
   const handleSelectedChange = useCallback(
     (result: SelectStateInputProps) => {
       onSelectedChange({
         ...result,
-        hasEpisodeFileId: !!episodeFileId,
+        hasChapterFileId: !!chapterFileId,
       });
     },
-    [episodeFileId, onSelectedChange]
+    [chapterFileId, onSelectedChange]
   );
 
   const selectRowAfterChange = useCallback(() => {
     if (!isSelected) {
       onSelectedChange({
         id,
-        hasEpisodeFileId: !!episodeFileId,
+        hasChapterFileId: !!chapterFileId,
         value: true,
         shiftKey: false,
       });
     }
-  }, [id, episodeFileId, isSelected, onSelectedChange]);
+  }, [id, chapterFileId, isSelected, onSelectedChange]);
 
   const onSelectModalClose = useCallback(() => {
     setSelectModalOpen(null);
   }, [setSelectModalOpen]);
 
-  const onSelectSeriesPress = useCallback(() => {
-    setSelectModalOpen('series');
+  const onSelectMangaPress = useCallback(() => {
+    setSelectModalOpen('manga');
   }, [setSelectModalOpen]);
 
-  const onSeriesSelect = useCallback(
-    (series: Manga) => {
+  const onMangaSelect = useCallback(
+    (selectedManga: Manga) => {
       updateInteractiveImportItem(id, {
-        series,
-        seasonNumber: undefined,
-        episodes: [],
+        manga: selectedManga,
+        chapters: [],
       });
 
       onReprocessItems([id]);
@@ -230,81 +199,17 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
     ]
   );
 
-  // Plan 25-04 Task 3 — onSelectSeasonPress + onSeasonSelect dropped alongside
-  // SelectSeasonModal (manga has no season per DOMAIN-02; Season/ subdir
-  // deleted in same commit). Per-row season cell render also dropped below.
-
-  const onSelectEpisodePress = useCallback(() => {
-    setSelectModalOpen('episode');
+  const onSelectChapterPress = useCallback(() => {
+    setSelectModalOpen('chapter');
   }, [setSelectModalOpen]);
 
-  const onEpisodesSelect = useCallback(
-    (selectedEpisodes: SelectedChapter[]) => {
-      const episodes = selectedEpisodes[0].episodes;
-      updateInteractiveImportItem(id, { episodes });
-      onReprocessItems([id]);
-
-      setSelectModalOpen(null);
-      selectRowAfterChange();
-    },
-    [
-      id,
-      updateInteractiveImportItem,
-      onReprocessItems,
-      setSelectModalOpen,
-      selectRowAfterChange,
-    ]
-  );
-
-  const onSelectReleaseGroupPress = useCallback(() => {
-    setSelectModalOpen('releaseGroup');
-  }, [setSelectModalOpen]);
-
-  const onReleaseGroupSelect = useCallback(
-    (releaseGroup: string) => {
-      updateInteractiveImportItem(id, { releaseGroup });
-      onReprocessItems([id]);
-
-      setSelectModalOpen(null);
-      selectRowAfterChange();
-    },
-    [
-      id,
-      updateInteractiveImportItem,
-      onReprocessItems,
-      setSelectModalOpen,
-      selectRowAfterChange,
-    ]
-  );
-
-  const onSelectQualityPress = useCallback(() => {
-    setSelectModalOpen('quality');
-  }, [setSelectModalOpen]);
-
-  const onQualitySelect = useCallback(
-    (quality: QualityModel) => {
-      updateInteractiveImportItem(id, { quality });
-      onReprocessItems([id]);
-
-      setSelectModalOpen(null);
-      selectRowAfterChange();
-    },
-    [
-      id,
-      updateInteractiveImportItem,
-      onReprocessItems,
-      setSelectModalOpen,
-      selectRowAfterChange,
-    ]
-  );
-
-  const onSelectLanguagePress = useCallback(() => {
-    setSelectModalOpen('language');
-  }, [setSelectModalOpen]);
-
-  const onLanguagesSelect = useCallback(
-    (languages: Language[]) => {
-      updateInteractiveImportItem(id, { languages });
+  const onChaptersSelect = useCallback(
+    (selectedChapters: SelectedChapter[]) => {
+      // SelectedChapter is the no-op stub interface (Plan 15-12); its
+      // .episodes field holds the actual chapter rows when the backend
+      // TV-shape flow runs. We re-use the same shape for the manga path.
+      const picked = selectedChapters[0]?.episodes ?? [];
+      updateInteractiveImportItem(id, { chapters: picked });
       onReprocessItems([id]);
 
       setSelectModalOpen(null);
@@ -324,8 +229,8 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   }, [setSelectModalOpen]);
 
   const onReleaseTypeSelect = useCallback(
-    (releaseType: ReleaseType) => {
-      updateInteractiveImportItem(id, { releaseType });
+    (newReleaseType: ReleaseType) => {
+      updateInteractiveImportItem(id, { releaseType: newReleaseType });
       onReprocessItems([id]);
 
       setSelectModalOpen(null);
@@ -345,8 +250,8 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   }, [setSelectModalOpen]);
 
   const onIndexerFlagsSelect = useCallback(
-    (indexerFlags: number) => {
-      updateInteractiveImportItem(id, { indexerFlags });
+    (newIndexerFlags: number) => {
+      updateInteractiveImportItem(id, { indexerFlags: newIndexerFlags });
       onReprocessItems([id]);
 
       setSelectModalOpen(null);
@@ -361,41 +266,20 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
     ]
   );
 
-  const seriesTitle = series ? series.title : '';
-  // Sonarr divergence: Phase 17.3 D-13/D-14 — dropped isAnime
-  // (series?.seriesType === 'anime') local + the anime-format JSX branch +
-  // the isAnime prop pass to SelectChapterModal (manga has no anime-format;
-  // seriesType removed from Manga.ts per D-13). Plan 25-04 Task 1 — symbol
-  // renamed alongside the InteractiveImport/Episode/ → /Chapter/ subdir move.
+  const mangaTitle = manga ? manga.title : '';
 
-  // Sonarr divergence: Phase 17.3 Plan 17.3-13b — Episode/Episode rewritten
-  // to Chapter/Chapter peer. The TV-shape `episodeNumber` field is preserved
-  // at runtime (backend TV InteractiveImport flow is gated for v1 per Phase
-  // 12 Plan 12-11 LOCK guard); cast through Chapter & { episodeNumber?: number }
-  // keeps tsc happy. v1.x cleanup: collapse with the chapter-shape
-  // InteractiveImport flow when the discriminator ships (Plan 12-98 v1.1
-  // roadmap).
-  const episodeInfo = episodes.map(
-    (episode: Chapter & { episodeNumber?: number }) => {
-      return (
-        <div key={episode.id}>
-          {episode.episodeNumber}
+  const chapterInfo = chapters.map((chapter) => {
+    return (
+      <div key={chapter.id}>
+        {chapter.chapterNumber}
+        {chapter.title ? ` - ${chapter.title}` : null}
+      </div>
+    );
+  });
 
-          {` - ${episode.title}`}
-        </div>
-      );
-    }
-  );
-
-  const requiresSeasonNumber = isNaN(Number(seasonNumber));
-  const showSeriesPlaceholder = isSelected && !series;
-  // Plan 25-04 Task 3 — showSeasonNumberPlaceholder removed (sole consumer
-  // was the per-row season cell deleted in this commit).
-  const showEpisodeNumbersPlaceholder =
-    isSelected && Number.isInteger(seasonNumber) && !episodes.length;
-  const showReleaseGroupPlaceholder = isSelected && !releaseGroup;
-  const showQualityPlaceholder = isSelected && !quality;
-  const showLanguagePlaceholder = isSelected && !languages;
+  const showMangaPlaceholder = isSelected && !manga;
+  const showChapterNumbersPlaceholder =
+    isSelected && !!manga && !chapters.length;
   const showIndexerFlagsPlaceholder = isSelected && !indexerFlags;
 
   // Phase 18 Plan-08 D-18 -- per-row testid keyed by item id.
@@ -405,7 +289,6 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   //   interactive-import-row-{id}-file
   //   interactive-import-row-{id}-manga
   //   interactive-import-row-{id}-chapter
-  //   interactive-import-row-{id}-quality
   const rowTestId = `interactive-import-row-${id}`;
 
   return (
@@ -424,91 +307,42 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
         {relativePath}
       </TableRowCell>
 
-      {isSeriesColumnVisible ? (
+      {isMangaColumnVisible ? (
         <TableRowCellButton
-          isDisabled={!allowSeriesChange}
+          isDisabled={!allowMangaChange}
           title={
-            allowSeriesChange ? translate('ClickToChangeManga') : undefined
+            allowMangaChange ? translate('ClickToChangeManga') : undefined
           }
           data-testid={`${rowTestId}-manga`}
-          onPress={onSelectSeriesPress}
+          onPress={onSelectMangaPress}
         >
-          {showSeriesPlaceholder ? (
+          {showMangaPlaceholder ? (
             <InteractiveImportRowCellPlaceholder />
           ) : (
-            seriesTitle
+            mangaTitle
           )}
         </TableRowCellButton>
       ) : null}
 
-      {/* Plan 25-04 Task 3 — per-row season cell dropped (manga has no
-          season per DOMAIN-02). The COLUMNS array no longer contains a
-          'season' entry; the per-row cell render is removed to match. */}
-
       <TableRowCellButton
-        isDisabled={!series || requiresSeasonNumber}
-        title={
-          series && !requiresSeasonNumber
-            ? translate('ClickToChangeChapter')
-            : undefined
-        }
+        isDisabled={!manga}
+        title={manga ? translate('ClickToChangeChapter') : undefined}
         data-testid={`${rowTestId}-chapter`}
-        onPress={onSelectEpisodePress}
+        onPress={onSelectChapterPress}
       >
-        {showEpisodeNumbersPlaceholder ? (
+        {showChapterNumbersPlaceholder ? (
           <InteractiveImportRowCellPlaceholder />
         ) : (
-          episodeInfo
+          chapterInfo
         )}
       </TableRowCellButton>
 
-      <TableRowCellButton
-        title={translate('ClickToChangeReleaseGroup')}
-        onPress={onSelectReleaseGroupPress}
-      >
-        {showReleaseGroupPlaceholder ? (
-          <InteractiveImportRowCellPlaceholder isOptional={true} />
-        ) : (
-          releaseGroup
-        )}
-      </TableRowCellButton>
+      <TableRowCell>{scanlationGroup ?? ''}</TableRowCell>
 
-      {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeQuality no-op
-          stub dropped (zero render output); display quality.name directly. */}
-      <TableRowCellButton
-        className={styles.quality}
-        title={translate('ClickToChangeQuality')}
-        data-testid={`${rowTestId}-quality`}
-        onPress={onSelectQualityPress}
-      >
-        {showQualityPlaceholder && <InteractiveImportRowCellPlaceholder />}
-
-        {!showQualityPlaceholder && !!quality && (
-          <span className={styles.label}>{quality.quality.name}</span>
-        )}
-      </TableRowCellButton>
-
-      {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeLanguages no-op
-          stub dropped (zero render output); join language names directly. */}
-      <TableRowCellButton
-        className={styles.languages}
-        title={translate('ClickToChangeLanguage')}
-        onPress={onSelectLanguagePress}
-      >
-        {showLanguagePlaceholder && <InteractiveImportRowCellPlaceholder />}
-
-        {!showLanguagePlaceholder && !!languages && (
-          <span className={styles.label}>
-            {languages.map((l) => l.name).join(', ')}
-          </span>
-        )}
-      </TableRowCellButton>
+      <TableRowCell>{translatedLanguage ?? ''}</TableRowCell>
 
       <TableRowCell>{formatBytes(size)}</TableRowCell>
 
-      {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — getReleaseTypeName
-          no-op stub dropped (returned translate('Unknown')); display
-          releaseType string directly. */}
       <TableRowCellButton
         title={translate('ClickToChangeReleaseType')}
         onPress={onSelectReleaseTypePress}
@@ -517,17 +351,11 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
       </TableRowCellButton>
 
       <TableRowCell>
-        {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeFormats no-op
-            stub dropped (zero render output); display custom-format-score
-            inline without Popover body. */}
         {customFormats?.length
           ? formatCustomFormatScore(customFormatScore, customFormats.length)
           : null}
       </TableRowCell>
 
-      {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — IndexerFlags no-op
-          stub dropped (zero render output); FLAG icon retained as meaningful
-          signal when indexerFlags!==0. */}
       {isIndexerFlagsColumnVisible ? (
         <TableRowCellButton
           title={translate('ClickToChangeIndexerFlags')}
@@ -564,49 +392,19 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
       </TableRowCell>
 
       <SelectMangaModal
-        isOpen={selectModalOpen === 'series'}
+        isOpen={selectModalOpen === 'manga'}
         modalTitle={modalTitle}
-        onSeriesSelect={onSeriesSelect}
+        onMangaSelect={onMangaSelect}
         onModalClose={onSelectModalClose}
       />
-
-      {/* Plan 25-04 Task 3 — SelectSeasonModal JSX dropped (manga has no
-          season per DOMAIN-02; Season/ subdir deleted in same commit). */}
 
       <SelectChapterModal
-        isOpen={selectModalOpen === 'episode'}
+        isOpen={selectModalOpen === 'chapter'}
         selectedIds={[id]}
-        seriesId={series?.id}
-        seasonNumber={seasonNumber}
+        mangaId={manga?.id}
         selectedDetails={relativePath}
         modalTitle={modalTitle}
-        onEpisodesSelect={onEpisodesSelect}
-        onModalClose={onSelectModalClose}
-      />
-
-      <SelectReleaseGroupModal
-        isOpen={selectModalOpen === 'releaseGroup'}
-        releaseGroup={releaseGroup ?? ''}
-        modalTitle={modalTitle}
-        onReleaseGroupSelect={onReleaseGroupSelect}
-        onModalClose={onSelectModalClose}
-      />
-
-      <SelectQualityModal
-        isOpen={selectModalOpen === 'quality'}
-        qualityId={quality ? quality.quality.id : 0}
-        proper={quality ? quality.revision.version > 1 : false}
-        real={quality ? quality.revision.real > 0 : false}
-        modalTitle={modalTitle}
-        onQualitySelect={onQualitySelect}
-        onModalClose={onSelectModalClose}
-      />
-
-      <SelectLanguageModal
-        isOpen={selectModalOpen === 'language'}
-        languageIds={languages ? languages.map((l) => l.id) : []}
-        modalTitle={modalTitle}
-        onLanguagesSelect={onLanguagesSelect}
+        onChaptersSelect={onChaptersSelect}
         onModalClose={onSelectModalClose}
       />
 
