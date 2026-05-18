@@ -59,8 +59,8 @@ import usePrevious from 'Helpers/Hooks/usePrevious';
 import { align, icons, kinds } from 'Helpers/Props';
 import { SortDirection } from 'Helpers/Props/sortDirections';
 import InteractiveImportSelectFolderModalContent from 'InteractiveImport/Folder/InteractiveImportSelectFolderModalContent';
-import SelectEpisodeModal from 'InteractiveImport/Episode/SelectEpisodeModal';
-import { SelectedEpisode } from 'InteractiveImport/Episode/SelectEpisodeModalContent';
+import SelectChapterModal from 'InteractiveImport/Chapter/SelectChapterModal';
+import { SelectedChapter } from 'InteractiveImport/Chapter/SelectChapterModalContent';
 import ImportMode from 'InteractiveImport/ImportMode';
 import SelectIndexerFlagsModal from 'InteractiveImport/IndexerFlags/SelectIndexerFlagsModal';
 import InteractiveImport, {
@@ -821,7 +821,7 @@ function InteractiveImportContentInner(
   );
 
   const handleEpisodesSelect = useCallback(
-    (selectedEpisodes: SelectedEpisode[]) => {
+    (selectedEpisodes: SelectedChapter[]) => {
       selectedEpisodes.forEach(({ id, episodes }) => {
         if (id == null) return;
         updateInteractiveImportItem(id, { episodes });
@@ -1102,7 +1102,7 @@ function InteractiveImportContentInner(
           isAnime={selectedItem?.series?.seriesType === 'anime'} prop pass
           (manga has no anime-format; seriesType removed from Manga.ts per
           D-13). */}
-      <SelectEpisodeModal
+      <SelectChapterModal
         isOpen={selectModalOpen === 'episode'}
         selectedIds={orderedSelectedIds}
         seriesId={selectedItem?.series?.id}

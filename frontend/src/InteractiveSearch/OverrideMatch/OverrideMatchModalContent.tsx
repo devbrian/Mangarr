@@ -16,8 +16,8 @@ import DownloadProtocol from 'DownloadClient/DownloadProtocol';
 // names listings. Series/Series + Series/useSeries (useSingleSeries) rewritten
 // to Manga/Manga + Manga/useManga (useSingleManga) peers.
 import usePrevious from 'Helpers/Hooks/usePrevious';
-import SelectEpisodeModal from 'InteractiveImport/Episode/SelectEpisodeModal';
-import { SelectedEpisode } from 'InteractiveImport/Episode/SelectEpisodeModalContent';
+import SelectChapterModal from 'InteractiveImport/Chapter/SelectChapterModal';
+import { SelectedChapter } from 'InteractiveImport/Chapter/SelectChapterModalContent';
 import SelectLanguageModal from 'InteractiveImport/Language/SelectLanguageModal';
 import SelectQualityModal from 'InteractiveImport/Quality/SelectQualityModal';
 import SelectSeasonModal from 'InteractiveImport/Season/SelectSeasonModal';
@@ -141,8 +141,8 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
   }, [setSelectModalOpen]);
 
   const onEpisodesSelect = useCallback(
-    (episodeMap: SelectedEpisode[]) => {
-      // @ts-expect-error — Plan 15-12: SelectedEpisode.episodes typed Episode[]; setEpisodes expects ReleaseEpisode[]. Manga uses Chapter; not reached at runtime.
+    (episodeMap: SelectedChapter[]) => {
+      // @ts-expect-error — Plan 15-12 / Plan 25-04 Task 1: SelectedChapter.episodes typed Chapter[]; setEpisodes expects ReleaseEpisode[]. Not reached at runtime (manga override path uses the manga-shape sibling).
       setEpisodes(episodeMap[0].episodes ?? []);
       setSelectModalOpen(null);
     },
@@ -362,7 +362,7 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
         onModalClose={onSelectModalClose}
       />
 
-      <SelectEpisodeModal
+      <SelectChapterModal
         isOpen={selectModalOpen === 'episode'}
         selectedIds={[guid]}
         seriesId={seriesId}

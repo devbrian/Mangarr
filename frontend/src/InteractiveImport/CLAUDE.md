@@ -35,9 +35,9 @@
 | Subdir | Modal | Purpose |
 |--------|-------|---------|
 | `Folder/` | `InteractiveImportSelectFolderModalContent`, `FavoriteFolderRow`, `RecentFolderRow` | Pick the source folder |
-| `Series/` | `SelectSeriesModal`, `SelectSeriesModalContent`, `SelectSeriesRow`, `SelectSeriesModalTableHeader` | Pick or correct series |
-| `Season/` | `SelectSeasonModal`, `SelectSeasonModalContent`, `SelectSeasonRow` | Pick season |
-| `Episode/` | `SelectEpisodeModal`, `SelectEpisodeModalContent`, `SelectEpisodeRow` | Pick episode(s) |
+| `Chapter/` | `SelectChapterModal`, `SelectChapterModalContent` | Pick chapter(s) — Plan 25-04 Task 1 renamed `Episode/` → `Chapter/` per Pitfall 13 atomic-per-decision commit; stub body preserved per Plan 15-12 |
+| `Series/` | `SelectSeriesModal` (stub, awaiting Plan 25-04 Task 2 rename to `Manga/SelectMangaModal`) | Pick or correct manga |
+| `Season/` | `SelectSeasonModal` (stub, awaiting Plan 25-04 Task 3 deletion — manga has no season per DOMAIN-02) | (Slated for deletion) |
 | `Language/` | `SelectLanguageModal`, `SelectLanguageModalContent` | Set language(s) |
 | `Quality/` | `SelectQualityModal`, `SelectQualityModalContent` | Set quality |
 | `ReleaseGroup/` | `SelectReleaseGroupModal`, `SelectReleaseGroupModalContent` | Set release group |

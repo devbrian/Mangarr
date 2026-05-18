@@ -20,8 +20,8 @@ import Column from 'Components/Table/Column';
 import TableRow from 'Components/Table/TableRow';
 import Popover from 'Components/Tooltip/Popover';
 import { icons, kinds, tooltipPositions } from 'Helpers/Props';
-import SelectEpisodeModal from 'InteractiveImport/Episode/SelectEpisodeModal';
-import { SelectedEpisode } from 'InteractiveImport/Episode/SelectEpisodeModalContent';
+import SelectChapterModal from 'InteractiveImport/Chapter/SelectChapterModal';
+import { SelectedChapter } from 'InteractiveImport/Chapter/SelectChapterModalContent';
 import SelectIndexerFlagsModal from 'InteractiveImport/IndexerFlags/SelectIndexerFlagsModal';
 import InteractiveImport from 'InteractiveImport/InteractiveImport';
 import SelectLanguageModal from 'InteractiveImport/Language/SelectLanguageModal';
@@ -253,7 +253,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   }, [setSelectModalOpen]);
 
   const onEpisodesSelect = useCallback(
-    (selectedEpisodes: SelectedEpisode[]) => {
+    (selectedEpisodes: SelectedChapter[]) => {
       const episodes = selectedEpisodes[0].episodes;
       updateInteractiveImportItem(id, { episodes });
       onReprocessItems([id]);
@@ -378,8 +378,9 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   const seriesTitle = series ? series.title : '';
   // Sonarr divergence: Phase 17.3 D-13/D-14 — dropped isAnime
   // (series?.seriesType === 'anime') local + the anime-format JSX branch +
-  // the isAnime prop pass to SelectEpisodeModal (manga has no anime-format;
-  // seriesType removed from Manga.ts per D-13).
+  // the isAnime prop pass to SelectChapterModal (manga has no anime-format;
+  // seriesType removed from Manga.ts per D-13). Plan 25-04 Task 1 — symbol
+  // renamed alongside the InteractiveImport/Episode/ → /Chapter/ subdir move.
 
   // Sonarr divergence: Phase 17.3 Plan 17.3-13b — Episode/Episode rewritten
   // to Chapter/Chapter peer. The TV-shape `episodeNumber` field is preserved
@@ -603,7 +604,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
         onModalClose={onSelectModalClose}
       />
 
-      <SelectEpisodeModal
+      <SelectChapterModal
         isOpen={selectModalOpen === 'episode'}
         selectedIds={[id]}
         seriesId={series?.id}
