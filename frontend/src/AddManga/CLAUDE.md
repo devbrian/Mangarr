@@ -42,7 +42,7 @@ Sonarr-canonical two-step library-import flow registered at `/add/import` (post-
 | `ImportMangaSelectFolder/ImportMangaSelectFolderRow.tsx` | One Root Folder row (path, free-space, unmapped-folder count). |
 | `ImportManga/ImportManga.tsx` | `/add/import/:rootFolderId` sub-page — per-folder scan table; one row per `unmappedFolder` on the matched RootFolderResource; fires `GET /api/v5/manga/lookup?term=<folderName>` per row for auto-match. |
 | `ImportManga/ImportMangaRow.tsx` | Per-row state — `selectedManga` (lookup-result override dropdown) + Monitor / TranslationProfile / CustomFormatProfile selects + Import enable state. |
-| `ImportManga/ImportMangaFooter.tsx` | Bulk-apply toolbar — Set Monitoring / TranslationProfile / CustomFormatProfile across selected rows + Import button (POSTs `POST /api/v5/manga` per populated row; redirects to `/manga`). |
+| `ImportManga/ImportMangaFooter.tsx` | Bulk-apply toolbar — Set Monitoring / TranslationProfile / CustomFormatProfile across selected rows + Import button (POSTs `POST /api/v5/manga` per populated row; redirects to `/` — the MangaIndex library route, since Phase 15 Plan 15-07 flipped root to MangaIndex and there is no `/manga` route). |
 | `*.css` / `*.css.d.ts` | CSS Modules per Mangarr frontend convention (plain `.css` extension; webpack auto-scopes; `.css.d.ts` is build-emitted). |
 
 ## Patterns / Conventions

@@ -18,7 +18,9 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 ///      the baseline root so the scan view surfaces ≥1 unmapped folder row.
 ///   3. UI drive: SelectFolder → click root → ImportManga scan → wait for
 ///      per-row lookup → click bulk Import.
-///   4. STATE assertions: POST /api/v5/manga succeeded; URL redirected to /manga;
+///   4. STATE assertions: POST /api/v5/manga succeeded; URL redirected to /
+///      (the MangaIndex library route — Phase 15 Plan 15-07 flipped root to
+///      MangaIndex, so `/` IS the Manga library; there is no `/manga` route);
 ///      GET /api/v5/manga returns ≥1 persisted Manga record (II-10 contract).
 ///
 /// Pitfall 10: Comix disabled in OneTimeSetUp.
