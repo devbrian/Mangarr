@@ -8,9 +8,28 @@ namespace NzbDrone.Core.AutoTagging
     // Phase 24 v1.1 Wave 3 — 3-event applier per Open Q #5 + D-06 resolution.
     //
     // Routing:
-    //   AutoTagsUpdatedEvent     -> full-library retroactive re-eval (D-06)
-    //   MangaAddedEvent          -> per-manga eval on add
-    //   MangaRefreshCompleteEvent -> full-library re-eval on refresh complete
+    //   AutoTagsUpdatedEvent              -> full-library retroactive re-eval (D-06)
+    //   MangaAddedEvent                   -> per-manga eval on add
+    //   MangaRefreshCompleteEvent (gh199) -> scope-aware re-eval:
+    //                                          * MangaIds == null → full-library
+    //                                            (refresh-all branch invariant — see
+    //                                            RefreshMangaService publish-site;
+    //                                            also covers parameterless callers
+    //                                            like RemovedMangaCheck's [CheckOn]
+    //                                            reflection).
+    //                                          * MangaIds.Count == 0 → no-op
+    //                                            (explicit-IDs branch where every
+    //                                            requested id hit a skip-gate; the
+    //                                            publisher emits an empty list, NOT
+    //                                            null, so falling back to full-library
+    //                                            here would silently reintroduce the
+    //                                            gh199 amplification — see CodeRabbit
+    //                                            review on PR #215).
+    //                                          * MangaIds non-empty → narrow re-eval
+    //                                            of only the refreshed mangas (avoids
+    //                                            gh199 amplification of GetTagChanges's
+    //                                            RootFolderPath side-effect across
+    //                                            unrelated library entries).
     //
     // The applier reuses AutoTaggingService.GetTagChanges verbatim (24-02 restore;
     // Pitfall 3 anti-rewrite gate); this class adds ZERO algorithm code -- only
@@ -57,11 +76,40 @@ namespace NzbDrone.Core.AutoTagging
 
         public void Handle(MangaRefreshCompleteEvent message)
         {
-            // D-06 symmetric trigger — refresh completion re-evaluates the full
-            // library. MangaRefreshCompleteEvent is parameterless (verified in 24-02
-            // restore baseline); applier re-evaluates ALL mangas. Acceptable cost per
-            // Deferred Idea #6 / RESEARCH A6; library size <5K typical.
-            foreach (var manga in _mangaService.GetAllManga())
+            // gh199 fix: scope-aware re-eval. The MangaRefreshCompleteEvent payload
+            // distinguishes three cases:
+            //   * null → refresh-all branch (or parameterless caller). Walk the whole
+            //     library — preserves D-06 symmetric trigger + AT-06 retroactive
+            //     invariant.
+            //   * empty list → explicit-IDs branch where every requested id was
+            //     skipped (manga-missing / scheduled-cooldown / WR-08 no-source-id).
+            //     Nothing changed; this is a no-op. Falling back to full-library
+            //     here would silently reintroduce the gh199 amplification whenever a
+            //     batch was fully skipped — see CodeRabbit review on PR #215.
+            //   * non-empty → narrow re-eval of only the refreshed mangas.
+            //
+            // The narrow path closes gh199's amplification: a single-id refresh of
+            // manga A no longer fires AutoTaggingService.GetTagChanges across the
+            // full library, which means GetTagChanges's Sonarr-canonical
+            // `manga.RootFolderPath = _rootFolderService.GetBestRootFolderPath(...)`
+            // side-effect can no longer be persisted onto unrelated mangas B, C, …
+            // via the trailing UpdateManga write.
+            if (message.MangaIds == null)
+            {
+                foreach (var manga in _mangaService.GetAllManga())
+                {
+                    ApplyChanges(manga);
+                }
+
+                return;
+            }
+
+            if (message.MangaIds.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var manga in _mangaService.GetManga(message.MangaIds))
             {
                 ApplyChanges(manga);
             }

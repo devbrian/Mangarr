@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NLog;
@@ -127,6 +128,18 @@ namespace NzbDrone.Core.Manga
             var primaryDef = _metaFactory.GetPrimary();
             var primary = (IProvideMangaInfo)_metaFactory.GetInstance(primaryDef);
 
+            // gh199 fix: track the ids whose data actually went through the metadata-fetch
+            // pipeline so the trailing MangaRefreshCompleteEvent can scope its payload.
+            // Populated AFTER all skip-paths (manga missing / scheduled cooldown / no
+            // source-id) so AutoTagging re-eval only fires for mangas that could have
+            // changed. All three try/catch arms (success / MangaNotFoundException /
+            // generic WR-07 catch) leave the manga in a possibly-updated DB state, so
+            // any id reaching the try block is eligible for re-tag. Only used on the
+            // explicit-IDs branch; the refresh-all branch publishes a null-scope event
+            // to preserve the AT-06 retroactive full-library invariant (e.g. a new
+            // RootFolder appears mid-scheduled-refresh and unlocks rules for other manga).
+            var refreshedIds = new List<int>();
+
             // PER D-22: sequential per manga to keep concurrent budget pressure low.
             foreach (var id in ids)
             {
@@ -176,6 +189,12 @@ namespace NzbDrone.Core.Manga
                         existing.Id);
                     continue;
                 }
+
+                // gh199 fix: id has passed all skip-gates and is about to enter the
+                // metadata-fetch pipeline. Record BEFORE the try block so all three
+                // outcome arms (success / MangaNotFoundException / WR-07 generic catch)
+                // are covered.
+                refreshedIds.Add(id);
 
                 try
                 {
@@ -385,7 +404,14 @@ namespace NzbDrone.Core.Manga
             // PublishEvent(new SeriesRefreshCompleteEvent()) — UI / SignalR subscribers
             // need this to clear the "refreshing" indicator. Pairs with the (gap-01)
             // MangaRefreshStartingEvent emitted at the top of Execute.
-            _eventAggregator.PublishEvent(new MangaRefreshCompleteEvent());
+            //
+            // gh199 fix: pass the scope of actually-refreshed ids on the explicit-IDs
+            // branch so subscribers like MangaAutoTaggingApplier scope their iteration
+            // accordingly. On the refresh-all branch, publish with null MangaIds to
+            // preserve the AT-06 retroactive full-library re-eval invariant (a refresh
+            // sweep may have unlocked rules that depend on RootFolderPath or other
+            // cross-manga state — only the library-wide re-eval is correct there).
+            _eventAggregator.PublishEvent(new MangaRefreshCompleteEvent(isRefreshAll ? null : refreshedIds));
         }
     }
 }

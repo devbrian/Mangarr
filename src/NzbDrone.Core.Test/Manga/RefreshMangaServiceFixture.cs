@@ -483,6 +483,97 @@ namespace NzbDrone.Core.Test.MangaTests
             syncIdx.Should().BeLessThan(eventIdx, "Pitfall 4: DB write FIRST, event LAST");
         }
 
+        // ---- gh199: MangaRefreshCompleteEvent scope payload ----
+        // The trailing MangaRefreshCompleteEvent must carry the actually-refreshed
+        // ids on the explicit-IDs branch, and null on the refresh-all branch.
+        // Subscribers (MangaAutoTaggingApplier) scope their iteration on this
+        // payload to avoid the gh199 RootFolderPath-amplification.
+
+        [Test]
+        public void Execute_publishes_MangaRefreshCompleteEvent_with_refreshed_MangaIds_on_explicit_branch()
+        {
+            // Single-id refresh: published event must carry MangaIds = [1].
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
+            Mocker.GetMock<IMangaService>().Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>())).Returns(manga);
+
+            var stub = new StubMangaDexProvider(manga);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            MangaRefreshCompleteEvent captured = null;
+            Mocker.GetMock<IEventAggregator>()
+                  .Setup(e => e.PublishEvent(It.IsAny<MangaRefreshCompleteEvent>()))
+                  .Callback<MangaRefreshCompleteEvent>(evt => captured = evt);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            captured.Should().NotBeNull("MangaRefreshCompleteEvent must be published on explicit-IDs branch");
+            captured.MangaIds.Should().NotBeNull("gh199: explicit-IDs branch must carry refreshed scope");
+            captured.MangaIds.Should().BeEquivalentTo(new[] { 1 },
+                "gh199: published scope must equal the refreshed manga ids");
+        }
+
+        [Test]
+        public void Execute_publishes_MangaRefreshCompleteEvent_with_null_MangaIds_on_refresh_all_branch()
+        {
+            // Refresh-all branch (no MangaIds): published event must carry null scope so
+            // subscribers preserve their full-library re-eval behavior.
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
+            Mocker.GetMock<IMangaService>().Setup(m => m.AllMangaIds()).Returns(new List<int> { 1 });
+            Mocker.GetMock<IMangaService>().Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>())).Returns(manga);
+            Mocker.GetMock<IShouldRefreshManga>().Setup(s => s.ShouldRefresh(It.IsAny<Manga.Manga>())).Returns(true);
+
+            var stub = new StubMangaDexProvider(manga);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            MangaRefreshCompleteEvent captured = null;
+            Mocker.GetMock<IEventAggregator>()
+                  .Setup(e => e.PublishEvent(It.IsAny<MangaRefreshCompleteEvent>()))
+                  .Callback<MangaRefreshCompleteEvent>(evt => captured = evt);
+
+            // Empty MangaIds list triggers the refresh-all branch via isRefreshAll.
+            Subject.Execute(new RefreshMangaCommand(new List<int>()));
+
+            captured.Should().NotBeNull("MangaRefreshCompleteEvent must be published on refresh-all branch");
+            captured.MangaIds.Should().BeNull(
+                "gh199: refresh-all branch must carry null MangaIds to preserve full-library re-eval");
+        }
+
+        [Test]
+        public void Execute_publishes_MangaRefreshCompleteEvent_with_MangaIds_excluding_no_source_id_skips()
+        {
+            // gh199 detail: mangas that hit the WR-08 no-source-id skip MUST NOT be in
+            // the published MangaIds — their data did NOT change so re-tagging is wasteful.
+            var withId = new Manga.Manga { Id = 1, Title = "Has ID", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            var withoutId = new Manga.Manga { Id = 2, Title = "No ID", MangaDexId = null, AniListId = 99, Path = TestMangaPath };
+
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(withId);
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(2)).Returns(withoutId);
+            Mocker.GetMock<IMangaService>().Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>())).Returns(withId);
+
+            var stub = new StubMangaDexProvider(withId);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            MangaRefreshCompleteEvent captured = null;
+            Mocker.GetMock<IEventAggregator>()
+                  .Setup(e => e.PublishEvent(It.IsAny<MangaRefreshCompleteEvent>()))
+                  .Callback<MangaRefreshCompleteEvent>(evt => captured = evt);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1, 2 }));
+
+            captured.Should().NotBeNull();
+            captured.MangaIds.Should().BeEquivalentTo(new[] { 1 },
+                "gh199: WR-08 skip path must NOT contribute to the refreshed scope");
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
         // ---- Stub providers ----
         // Test stubs: type-derived from MangaDexMetadataSource / AniListMetadataSource /
         // MyAnimeListMetadataSource so the RefreshMangaService.Execute switch routes by

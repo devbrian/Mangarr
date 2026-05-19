@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -14,6 +15,17 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// Blocker #4 mitigation: seeds a MetadataSource via TestKit.SeedMetadataSourceAsync
 /// so the list is guaranteed non-empty (MangaDex baseline is registered as a
 /// schema option but no row is auto-seeded — fresh-DB-per-fixture per Phase 18 D-05).
+///
+/// PR #215 flake fix: the original implementation used
+/// <c>Page.WaitForResponseAsync(...) + Page.ReloadAsync()</c> and read
+/// <c>resp.TextAsync()</c>. That pair is racy — <c>ReloadAsync</c> can dispose
+/// the prior page's network context before <c>TextAsync</c> issues its
+/// <c>Network.getResponseBody</c> CDP call, producing intermittent
+/// <c>"No resource with given identifier found"</c> failures
+/// (microsoft/playwright-dotnet#1731 / #1840). Switched to the standard
+/// <c>Page.APIRequest.GetAsync</c> pattern used by every other fixture in the
+/// suite (see QueueRowDetailFixture / MangaMissingLanguageFilterFixture). That
+/// API has its own response context independent of page navigation lifecycle.
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
@@ -31,14 +43,23 @@ public class MetadataSourceListFixture : AutomationTest
     [Test]
     public async Task list_loads()
     {
+        // STATE assertion 1: the Settings/MetadataSource page renders without error.
         var page = await new SettingsMetadataSourcePage(Page).OpenAsync(RootUri);
         await Assertions.Expect(page.PageContainer).ToBeVisibleAsync();
 
-        var listTask = Page.WaitForResponseAsync(
-            r => r.Url.Contains("/api/v5/metadatasource") && r.Request.Method == "GET",
-            new() { Timeout = 30_000 });
-        await Page.ReloadAsync();
-        var resp = await listTask;
+        // STATE assertion 2: the v5 endpoint returns the seeded row.
+        // APIRequest is decoupled from page navigation, so the response body
+        // survives any concurrent UI lifecycle (avoids the Network.getResponseBody
+        // race that bit PR #215 — see class-level XML doc).
+        var resp = await Page.APIRequest.GetAsync(
+            $"{RootUri}/api/v5/metadatasource",
+            new APIRequestContextOptions
+            {
+                Headers = new Dictionary<string, string>
+                {
+                    ["X-Api-Key"] = ApiKey
+                }
+            });
 
         resp.Status.Should().Be(200);
         var body = await resp.TextAsync();
