@@ -192,26 +192,45 @@ public class FirstRecordCreationFixture : AutomationTest
         // Import. Both rows auto-select on lookup resolution (ImportMangaRow.tsx
         // line 145-150). The title folder's `-select` testid is
         // `import-manga-row-Komi Can't Communicate-select`; the UUID folder's
-        // is `import-manga-row-a96676e5-...-select`. Clicking the UUID-folder
-        // select toggles it off, leaving 1 selected row.
+        // is `import-manga-row-a96676e5-...-select`.
         //
         // Why: see the fixture-header comment "Why only 1 row is imported".
         // Both lookup branches were exercised during the scan phase above; the
         // import phase only needs to deterministically persist 1 Manga.
+        //
+        // CRITICAL synchronization: the `:not(:empty)` selector above does NOT
+        // prove lookup completion — `ImportMangaSelectManga` always renders the
+        // dropdown chevron so the cell is never empty. While lookup is still
+        // pending, `item?.selectedManga` is null → the row's TableSelectCell is
+        // `isDisabled` (ImportMangaRow.tsx line 204) and `CheckInput` no-ops
+        // disabled clicks (CheckInput.tsx line 74-78). The deterministic
+        // signal is the bulk Import button: `isDisabled={!selectedCount ||
+        // isLookingUpManga}` (ImportMangaFooter.tsx line 368) + label
+        // `Import {count} Manga` (line 372 + en.json:866). Wait until the
+        // button shows "Import 2 Manga" — that proves both lookups completed
+        // AND both rows auto-selected. Then click to uncheck the UUID row and
+        // wait for "Import 1 Manga" — that proves the uncheck stuck.
+        var importButton = Page.GetByTestId("import-manga-bulk-import-button");
+        await importButton.WaitForAsync(
+            new LocatorWaitForOptions { Timeout = 15_000 });
+        await Assertions.Expect(importButton)
+            .ToHaveTextAsync(
+                new Regex(@"Import\s+2\s+Manga"),
+                new() { Timeout = 20_000 });
+
         var uuidRowSelect = Page.GetByTestId(
             $"import-manga-row-{MangaFolderUuid}-select");
-        await uuidRowSelect.WaitForAsync(
-            new LocatorWaitForOptions { Timeout = 10_000 });
 
         // The TableSelectCell wraps the checkbox in a sibling; the testid IS
         // on the wrapping cell. Click the cell to toggle the inner checkbox.
         await uuidRowSelect.ClickAsync();
 
-        // Arm the POST listener BEFORE clicking Import. With only the title
-        // row selected, exactly 1 POST should fire (201).
-        var importButton = Page.GetByTestId("import-manga-bulk-import-button");
-        await importButton.WaitForAsync(
-            new LocatorWaitForOptions { Timeout = 15_000 });
+        // STATE assertion: button text drops to "Import 1 Manga" — proves the
+        // uncheck took effect at the useSelect store level (not just the DOM).
+        await Assertions.Expect(importButton)
+            .ToHaveTextAsync(
+                new Regex(@"Import\s+1\s+Manga"),
+                new() { Timeout = 10_000 });
 
         var postResponses = new List<int>();
         var postLock = new object();
