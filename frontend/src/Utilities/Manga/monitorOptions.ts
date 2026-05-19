@@ -1,9 +1,53 @@
 // Sonarr divergence: Phase 17.3 Plan 17.3-13b (D-09 stub-importer cascade) —
 // authored as the manga-shape peer of the deleted Utilities/Series/monitorOptions
-// stub. Body matches the Phase 15 Plan 15-12 STUB shape (empty array). The
-// eventual 5-value MangaMonitor option set (all/future/missing/latest/none per
-// Manga.ts:27-32) is sourced upstream — this module remains a no-op until that
-// wiring lands. v1.x cleanup ticket: populate with translated MangaMonitor
-// labels keyed off Manga.ts MangaMonitor type.
-const monitorOptions: { key: string; value: string }[] = [];
+// stub. Originally a no-op empty array per Phase 15 Plan 15-12 STUB shape; the
+// stub-comment flagged "v1.x cleanup ticket: populate with translated
+// MangaMonitor labels keyed off Manga.ts MangaMonitor type" — that ticket was
+// filed as issue #209 and is closed by populating the 5-value array below.
+//
+// Shape mirrors Sonarr's Utilities/Series/monitorOptions.ts verbatim (deferred
+// translate() via get value() getter — language changes take effect without
+// re-importing the module). Keys are typed as MangaMonitor (not loose string)
+// so TypeScript catches drift if the literal extends.
+import { MangaMonitor } from 'Manga/Manga';
+import translate from 'Utilities/String/translate';
+
+interface MonitorOption {
+  key: MangaMonitor;
+  value: string;
+}
+
+const monitorOptions: MonitorOption[] = [
+  {
+    key: 'all',
+    get value() {
+      return translate('MonitorAllChapters');
+    },
+  },
+  {
+    key: 'future',
+    get value() {
+      return translate('MonitorFutureChapters');
+    },
+  },
+  {
+    key: 'missing',
+    get value() {
+      return translate('MonitorMissingChapters');
+    },
+  },
+  {
+    key: 'latest',
+    get value() {
+      return translate('MonitorLatestChapter');
+    },
+  },
+  {
+    key: 'none',
+    get value() {
+      return translate('MonitorNone');
+    },
+  },
+];
+
 export default monitorOptions;
