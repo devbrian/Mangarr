@@ -6,6 +6,17 @@
 // chapterIds REQUIRED + NON-EMPTY (no fallback to []). Whole-manga override
 // is handled by the sibling MangaOverrideMatchModal flavor (narrowed in
 // Task 6 to drop chapterIds entirely).
+//
+// 25-hotfix (UAT item 4 / WR-04): The wire-level `mangaId=0` sentinel is
+// PRESERVED for chapter-flavored overrides — the caller (InteractiveSearchRow.tsx)
+// passes `mangaId={0}` and `onGrabPress` below forwards that literal in the
+// override payload. The typed split decommissions only the RUNTIME
+// shape-detection ambiguity (no more "is chapterIds present?" property checks),
+// not the wire-format sentinel. The `mangaId: number` prop type — rather than
+// `number | null` — reflects this: 0 is the only valid value at the chapter
+// call site and the backend `MangaReleaseController` accepts it as the
+// documented chapter-flavored override shape. See ChapterOverrideMatchModal.tsx
+// header + 25-REVIEW.md §WR-04 for the full disposition.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';

@@ -390,13 +390,18 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
           narrows on `kind` literal-string discriminator (Pitfall 2 — no
           runtime property-presence checks). Three branches:
             * kind='chapter' → ChapterOverrideMatchModal (chapterIds REQUIRED
-              non-empty; mangaId real)
+              non-empty; mangaId=0 WIRE SENTINEL — see 25-hotfix note below)
             * kind='manga'   → MangaOverrideMatchModal (mangaId REQUIRED;
               no chapterIds — Task 6 narrows the manga sibling)
             * kind='episode' | 'season' → TV-shape OverrideMatchModal
               (preserved verbatim per D-12-18)
-          The pre-Plan-25-04 sentinel (mangaId=0 + non-empty chapterIds)
-          is decommissioned by the typed split. */}
+          The typed split decommissioned the RUNTIME shape-detection
+          ambiguity (no more property-presence checks to disambiguate the
+          two flavors), but the WIRE-format sentinel `mangaId=0` is preserved
+          for the chapter flavor — see ChapterOverrideMatchModal.tsx header
+          + 25-REVIEW.md §WR-04 for the full disposition. The backend
+          MangaReleaseController accepts mangaId=0 as the documented
+          chapter-flavored override shape. */}
       {searchPayload.kind === 'chapter' ? (
         <ChapterOverrideMatchModal
           isOpen={isOverrideModalOpen}
