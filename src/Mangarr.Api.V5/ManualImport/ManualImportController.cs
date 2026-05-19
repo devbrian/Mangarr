@@ -28,6 +28,22 @@ namespace Mangarr.Api.V5.ManualImport;
 // Auth: inherits host-pipeline auth filter from [V5ApiController] (X-Api-Key
 // header or cookie auth via Mangarr.Http middleware). NO additional [Authorize].
 //
+// SECURITY: The `folder` query parameter on GET /api/v5/manualimport accepts
+// any filesystem path the host process can read — there is NO restriction to
+// configured root folders or the staging directory. This matches Sonarr v3/v5
+// TV-side behavior verbatim and the threat model treats authenticated callers
+// (X-Api-Key or cookie) as fully trusted with respect to filesystem listing
+// over the manga-archive extension allowlist (cbz/cbr/cb7/cbt/zip/rar/pdf/epub).
+//
+// Explicit decision (Phase 25 code review WR-02 + close-out 2026-05-19):
+// "authenticated → trusted" is the documented disposition for v1. The
+// fixture `scans_arbitrary_folder` in InteractiveImportFolderFixture asserts
+// this contract. If Phase 99 (distribution) introduces multi-user auth, this
+// controller MUST gain a root-folder containment validator BEFORE shipping —
+// either (a) validate `folder` resolves under IRootFolderService.All() or the
+// configured staging dir, OR (b) reaffirm the trust decision and document why.
+// See `.planning/phases/25-…/25-REVIEW.md` §WR-02 for the validator sketch.
+//
 // Validation: NO SharedValidator rules — folder-rooted preview accepts empty
 // folder per existing service contract (returns []). Per-row error surfacing
 // happens inside ManualImportResource.Rejections.
