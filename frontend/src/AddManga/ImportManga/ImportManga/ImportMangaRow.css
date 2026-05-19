@@ -2,8 +2,8 @@
   composes: cell from '~Components/Table/Cells/TableRowCell.css';
 
   width: 40px;
-  text-align: center;
   color: var(--gray500);
+  text-align: center;
 }
 
 .folder {
