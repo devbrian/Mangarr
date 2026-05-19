@@ -59,8 +59,13 @@ interface SidebarItem {
 //   * Wanted entries flipped from /wanted/{missing,cutoffunmet} -> /manga/wanted/*.
 //   * Quality false-spread guard DELETED entirely (paired atomically with Settings.tsx
 //     {false && (...)} JSX block delete in Plan 15-07 Task 6).
-//   * Add/import nav child REMOVED — manga has no folder-import flow in v1 (PROJECT.md
-//     Out-of-Scope; D-12-09); the AddNew child now points at /add/manga.
+//
+// Phase 25.1 (PR #205, merged 2026-05-19) reopened the manga folder-import flow:
+// the `/add/import` + `/add/import/:rootFolderId` routes ship the library-import
+// UI in Sonarr-canonical shape, reversing the Phase 15 Plan 15-07 D-12-09
+// Out-of-Scope decision. PR #206 brought the import grid to visual parity.
+// The `LibraryImport` sub-nav child was missed during Phase 25.1's route
+// registration and is restored here per issue #208.
 export const links: SidebarItem[] = [
   {
     iconName: icons.SERIES_CONTINUING,
@@ -72,6 +77,10 @@ export const links: SidebarItem[] = [
       {
         title: () => translate('AddNew'),
         to: '/add/manga',
+      },
+      {
+        title: () => translate('LibraryImport'),
+        to: '/add/import',
       },
     ],
   },
