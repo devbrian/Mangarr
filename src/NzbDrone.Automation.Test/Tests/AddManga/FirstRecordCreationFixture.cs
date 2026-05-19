@@ -141,15 +141,26 @@ public class FirstRecordCreationFixture : AutomationTest
                 "library-import POST must persist exactly one Manga record per "
                 + "populated row (II-10 contract).");
 
-        // STATE assertion 3: post-import URL redirects to /manga (handleImportPress
-        // navigates after the bulk addManga mutation resolves per ImportMangaFooter.tsx).
-        await Page.WaitForURLAsync(new Regex(@"/manga(/|$)"),
+        // STATE assertion 3: post-import URL redirects to `/` (the Manga library
+        // index per AppRoutes.tsx line 84 — Phase 15 Plan 15-07 flipped root
+        // from SeriesIndex to MangaIndex, so the canonical post-import destination
+        // is `/`, NOT `/manga` which lands on the NotFound catch-all). The redirect
+        // is fired by ImportMangaFooter.handleImportPress's isAdding edge effect.
+        // State-not-rendering assertion (feedback_verify_ui_state_not_just_rendering):
+        // wait for the MangaIndex page testid to be visible — confirming the redirect
+        // didn't land on a 404 surface that happens to contain "/manga" in its URL.
+        await Page.WaitForURLAsync(
+            new Regex(@"^https?://[^/]+/?$"),
             new PageWaitForURLOptions { Timeout = 15_000 });
+        await Page.GetByTestId("manga-index-page").WaitForAsync(
+            new LocatorWaitForOptions { Timeout = 15_000 });
         Page.Url.Should()
             .MatchRegex(
-                @"/manga(/|$)",
-                "ImportMangaFooter.handleImportPress MUST redirect to /manga "
-                + "after the bulk-add POST resolves (II-10).");
+                @"^https?://[^/]+/?$",
+                "ImportMangaFooter.handleImportPress MUST redirect to `/` (the "
+                + "Manga library index) after the bulk-add POST resolves (II-10). "
+                + "Path `/manga` does NOT exist on Mangarr per AppRoutes.tsx — the "
+                + "root route was flipped to MangaIndex in Phase 15 Plan 15-07.");
 
         // STATE assertion 4 (DB-side via API per Mangarr.Automation.Test
         // convention — fixtures use HTTP/API for DB-side verification, NOT

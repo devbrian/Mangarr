@@ -187,11 +187,17 @@ function ImportMangaFooter({ rootFolderPath }: ImportMangaFooterProps) {
   // Watch isAdding transitions to clear isImporting flag + redirect.
   // useAddManga.isAdding flips false after the final POST resolves; we
   // synchronise our spinner + redirect on that edge.
+  //
+  // Redirect target is `/` (the Manga library index) per AppRoutes.tsx line 84
+  // — Phase 15 Plan 15-07 flipped the root route from SeriesIndex to MangaIndex,
+  // so Mangarr has no `/manga` route (that path lands on the NotFound catch-all).
+  // II-10 wording "UI redirects to /manga" is a Sonarr-shape transliteration; the
+  // canonical destination on Mangarr is `/`.
   useEffect(() => {
     if (isImporting && !isAdding) {
       setIsImporting(false);
       stopProcessing();
-      history.push('/manga');
+      history.push('/');
     }
   }, [isImporting, isAdding, history]);
 
