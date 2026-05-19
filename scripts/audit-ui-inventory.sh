@@ -179,7 +179,7 @@ done < <(extract_route_paths "$ROUTES_TSX")
 if [[ ${#MISSING_ROUTES[@]} -gt 0 ]]; then
   echo "FAIL: ${#MISSING_ROUTES[@]} routes in AppRoutes.tsx not represented in INVENTORY.md route axis:" >&2
   printf '  - %s\n' "${MISSING_ROUTES[@]}" >&2
-  echo "Hint: each new route MUST have a `| route | \`/path\` | <surface> | <fixture> | <status> |` row." >&2
+  echo 'Hint: each new route MUST have a `| route | `/path` | <surface> | <fixture> | <status> |` row.' >&2
   exit 1
 fi
 echo "PASS: Gate 2 — all $(extract_route_paths "$ROUTES_TSX" | wc -l) routes in AppRoutes.tsx represented in INVENTORY.md."
