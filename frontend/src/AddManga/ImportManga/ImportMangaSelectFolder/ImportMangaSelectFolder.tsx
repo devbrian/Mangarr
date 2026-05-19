@@ -68,95 +68,107 @@ function ImportMangaSelectFolder() {
     [addRootFolder]
   );
 
+  // Early-return on loading + error so the `import-manga-select-folder-page`
+  // testid only mounts on the SUCCESS branch. This matches the pre-debug-add-
+  // import-ui-mismatch shape and Sonarr's canonical `ImportSeriesSelectFolder`
+  // shape — the test contract is "when the testid is present, the row list
+  // is rendered." If the testid lived on the outer div too, then
+  // ImportMangaSelectFolderFixture.renders_root_folder_list could race the
+  // useRootFolders() fetch and CountAsync 0 rows before the fetch resolved.
+  if (isFetching && !isFetched) {
+    return (
+      <PageContent title={translate('ImportManga')}>
+        <PageContentBody>
+          <LoadingIndicator />
+        </PageContentBody>
+      </PageContent>
+    );
+  }
+
+  if (!isFetching && error) {
+    return (
+      <PageContent title={translate('ImportManga')}>
+        <PageContentBody>
+          <Alert kind={kinds.DANGER}>{translate('RootFoldersLoadError')}</Alert>
+        </PageContentBody>
+      </PageContent>
+    );
+  }
+
   return (
     <PageContent title={translate('ImportManga')}>
       <PageContentBody>
         <div data-testid="import-manga-select-folder-page">
-          {isFetching && !isFetched ? <LoadingIndicator /> : null}
+          <div className={styles.header}>
+            {translate('LibraryImportMangaHeader')}
+          </div>
 
-          {!isFetching && error ? (
-            <Alert kind={kinds.DANGER}>
-              {translate('RootFoldersLoadError')}
+          <div className={styles.tips}>
+            {translate('LibraryImportTips')}
+            <ul>
+              <li className={styles.tip}>
+                <InlineMarkdown
+                  data={translate('LibraryImportTipsChapterFilename')}
+                />
+              </li>
+              <li className={styles.tip}>
+                <InlineMarkdown
+                  data={translate('LibraryImportTipsMangaUseRootFolder', {
+                    goodFolderExample,
+                    badFolderExample,
+                  })}
+                />
+              </li>
+              <li className={styles.tip}>
+                {translate('LibraryImportTipsDontUseDownloadsFolder')}
+              </li>
+            </ul>
+          </div>
+
+          {hasRootFolders ? (
+            <div className={styles.recentFolders}>
+              <FieldSet legend={translate('RootFolders')}>
+                <RootFolders />
+              </FieldSet>
+            </div>
+          ) : null}
+
+          {!isAdding && addError ? (
+            <Alert className={styles.addErrorAlert} kind={kinds.DANGER}>
+              {translate('AddRootFolderError')}
+
+              <ul>
+                {Array.isArray(addError.statusBody) ? (
+                  addError.statusBody.map((e, index) => {
+                    return <li key={index}>{e.errorMessage}</li>;
+                  })
+                ) : (
+                  <li>{JSON.stringify(addError.statusBody)}</li>
+                )}
+              </ul>
             </Alert>
           ) : null}
 
-          {!error && isFetched ? (
-            <div>
-              <div className={styles.header}>
-                {translate('LibraryImportMangaHeader')}
-              </div>
+          <div className={hasRootFolders ? undefined : styles.startImport}>
+            <Button
+              kind={kinds.PRIMARY}
+              size={sizes.LARGE}
+              onPress={handleAddNewRootFolderPress}
+            >
+              <Icon className={styles.importButtonIcon} name={icons.DRIVE} />
+              {hasRootFolders
+                ? translate('ChooseAnotherFolder')
+                : translate('StartImport')}
+            </Button>
+          </div>
 
-              <div className={styles.tips}>
-                {translate('LibraryImportTips')}
-                <ul>
-                  <li className={styles.tip}>
-                    <InlineMarkdown
-                      data={translate('LibraryImportTipsChapterFilename')}
-                    />
-                  </li>
-                  <li className={styles.tip}>
-                    <InlineMarkdown
-                      data={translate('LibraryImportTipsMangaUseRootFolder', {
-                        goodFolderExample,
-                        badFolderExample,
-                      })}
-                    />
-                  </li>
-                  <li className={styles.tip}>
-                    {translate('LibraryImportTipsDontUseDownloadsFolder')}
-                  </li>
-                </ul>
-              </div>
-
-              {hasRootFolders ? (
-                <div className={styles.recentFolders}>
-                  <FieldSet legend={translate('RootFolders')}>
-                    <RootFolders />
-                  </FieldSet>
-                </div>
-              ) : null}
-
-              {!isAdding && addError ? (
-                <Alert className={styles.addErrorAlert} kind={kinds.DANGER}>
-                  {translate('AddRootFolderError')}
-
-                  <ul>
-                    {Array.isArray(addError.statusBody) ? (
-                      addError.statusBody.map((e, index) => {
-                        return <li key={index}>{e.errorMessage}</li>;
-                      })
-                    ) : (
-                      <li>{JSON.stringify(addError.statusBody)}</li>
-                    )}
-                  </ul>
-                </Alert>
-              ) : null}
-
-              <div className={hasRootFolders ? undefined : styles.startImport}>
-                <Button
-                  kind={kinds.PRIMARY}
-                  size={sizes.LARGE}
-                  onPress={handleAddNewRootFolderPress}
-                >
-                  <Icon
-                    className={styles.importButtonIcon}
-                    name={icons.DRIVE}
-                  />
-                  {hasRootFolders
-                    ? translate('ChooseAnotherFolder')
-                    : translate('StartImport')}
-                </Button>
-              </div>
-
-              <FileBrowserModal
-                isOpen={isAddNewRootFolderModalOpen}
-                name="rootFolderPath"
-                value=""
-                onChange={handleNewRootFolderSelect}
-                onModalClose={handleAddRootFolderModalClose}
-              />
-            </div>
-          ) : null}
+          <FileBrowserModal
+            isOpen={isAddNewRootFolderModalOpen}
+            name="rootFolderPath"
+            value=""
+            onChange={handleNewRootFolderSelect}
+            onModalClose={handleAddRootFolderModalClose}
+          />
         </div>
       </PageContentBody>
     </PageContent>
