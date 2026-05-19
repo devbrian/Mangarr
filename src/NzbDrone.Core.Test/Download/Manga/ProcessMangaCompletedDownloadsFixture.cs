@@ -129,8 +129,10 @@ namespace NzbDrone.Core.Test.Download.Manga
         {
             Subject.Handle(new ChapterArchivedEvent(_manga.Id, _chapter.Id, _stagingPath, "cbz"));
 
+            // Phase 25 hotfix (IN-01) — explicit 4-arg verify so test asserts by
+            // intent, not by default-value coincidence on the overwriteExisting param.
             Mocker.GetMock<IImportApprovedChapters>()
-                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), true, null), Times.Once);
+                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), true, null, It.IsAny<bool>()), Times.Once);
         }
 
         [Test]
@@ -142,8 +144,9 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             Subject.Handle(new ChapterArchivedEvent(_manga.Id, _chapter.Id, _stagingPath, "cbz"));
 
+            // Phase 25 hotfix (IN-01) — explicit 4-arg verify.
             Mocker.GetMock<IImportApprovedChapters>()
-                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>()),
+                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>(), It.IsAny<bool>()),
                     Times.Never);
         }
 
@@ -156,8 +159,9 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             Subject.Handle(new ChapterArchivedEvent(_manga.Id, _chapter.Id, _stagingPath, "cbz"));
 
+            // Phase 25 hotfix (IN-01) — explicit 4-arg verify.
             Mocker.GetMock<IImportApprovedChapters>()
-                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>()),
+                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>(), It.IsAny<bool>()),
                     Times.Never);
 
             ExceptionVerification.ExpectedWarns(1);
@@ -184,8 +188,9 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             Subject.Handle(new ChapterArchivedEvent(_manga.Id, _chapter.Id, _stagingPath, "cbz"));
 
+            // Phase 25 hotfix (IN-01) — explicit 4-arg verify.
             Mocker.GetMock<IImportApprovedChapters>()
-                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>()),
+                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>(), It.IsAny<bool>()),
                     Times.Never);
             Mocker.GetMock<IChapterDownloadStateRepository>()
                 .Verify(r => r.DeleteByChapterId(It.IsAny<int>()), Times.Never);
@@ -214,8 +219,9 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             Subject.Execute(new ProcessMangaCompletedCommand());
 
+            // Phase 25 hotfix (IN-01) — explicit 4-arg verify.
             Mocker.GetMock<IImportApprovedChapters>()
-                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), true, null), Times.Exactly(2));
+                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), true, null, It.IsAny<bool>()), Times.Exactly(2));
         }
 
         [Test]
@@ -227,8 +233,9 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             Subject.Execute(new ProcessMangaCompletedCommand());
 
+            // Phase 25 hotfix (IN-01) — explicit 4-arg verify.
             Mocker.GetMock<IImportApprovedChapters>()
-                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>()),
+                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>(), It.IsAny<bool>()),
                     Times.Never);
         }
 
@@ -246,8 +253,9 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             Subject.Execute(new ProcessMangaCompletedCommand());
 
+            // Phase 25 hotfix (IN-01) — explicit 4-arg verify.
             Mocker.GetMock<IImportApprovedChapters>()
-                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>()),
+                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<NzbDrone.Core.Download.DownloadClientItem>(), It.IsAny<bool>()),
                     Times.Never);
         }
 
@@ -325,8 +333,9 @@ namespace NzbDrone.Core.Test.Download.Manga
             Action act = () => Subject.Handle(new ChapterArchivedEvent(_manga.Id, _chapter.Id, _stagingPath, "cbz"));
             act.Should().NotThrow();
 
+            // Phase 25 hotfix (IN-01) — explicit 4-arg verify.
             Mocker.GetMock<IImportApprovedChapters>()
-                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), true, null), Times.Once);
+                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), true, null, It.IsAny<bool>()), Times.Once);
 
             ExceptionVerification.ExpectedWarns(1);
         }
