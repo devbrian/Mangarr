@@ -105,8 +105,24 @@ function ImportMangaFooter({ rootFolderPath }: ImportMangaFooterProps) {
     );
   }, [customFormatProfilesData]);
 
-  // Compute per-control mixed state from current items so the bulk
-  // dropdown reflects whether per-row values actually agree.
+  // Per CodeRabbit review (PR #206) — derive mixed state from the SAME
+  // row scope that bulk-apply writes to. When ≥1 row is selected, that's
+  // the selected subset; when nothing is selected, the toolbar is
+  // already disabled (isDisabled={!selectedCount}), but we still mirror
+  // the global state so a fresh selection inherits a sensible starting
+  // value rather than always landing on (mixed).
+  const selectedIds = getSelectedIds();
+  const rowsForBulk = useMemo(() => {
+    if (selectedIds.length === 0) {
+      return items;
+    }
+    const selectedIdSet = new Set(selectedIds);
+    return items.filter((item) => selectedIdSet.has(item.id));
+    // selectedIds.join makes the deps array stable when the underlying
+    // selection set is unchanged but the array reference rotates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, selectedIds.join('|')]);
+
   const {
     isMonitorMixed,
     isTranslationProfileMixed,
@@ -115,18 +131,18 @@ function ImportMangaFooter({ rootFolderPath }: ImportMangaFooterProps) {
     let monitorMixed = false;
     let translationMixed = false;
     let customFormatMixed = false;
-    if (items.length > 1) {
-      const m0 = items[0].monitor;
-      const t0 = items[0].translationProfileId;
-      const c0 = items[0].customFormatProfileId;
-      for (let i = 1; i < items.length; i++) {
-        if (items[i].monitor !== m0) {
+    if (rowsForBulk.length > 1) {
+      const m0 = rowsForBulk[0].monitor;
+      const t0 = rowsForBulk[0].translationProfileId;
+      const c0 = rowsForBulk[0].customFormatProfileId;
+      for (let i = 1; i < rowsForBulk.length; i++) {
+        if (rowsForBulk[i].monitor !== m0) {
           monitorMixed = true;
         }
-        if (items[i].translationProfileId !== t0) {
+        if (rowsForBulk[i].translationProfileId !== t0) {
           translationMixed = true;
         }
-        if (items[i].customFormatProfileId !== c0) {
+        if (rowsForBulk[i].customFormatProfileId !== c0) {
           customFormatMixed = true;
         }
       }
@@ -136,49 +152,51 @@ function ImportMangaFooter({ rootFolderPath }: ImportMangaFooterProps) {
       isTranslationProfileMixed: translationMixed,
       isCustomFormatProfileMixed: customFormatMixed,
     };
-  }, [items]);
+  }, [rowsForBulk]);
 
-  // Reconcile the displayed bulk value with the underlying items: when
+  // Reconcile the displayed bulk value with the underlying rows: when
   // mixed, force the (mixed) entry; when aligned, mirror the agreed-on
-  // value. Sonarr does the same in its 4 useEffects.
+  // value. Sonarr does the same in its 4 useEffects. Reads from
+  // rowsForBulk so the displayed value reflects the bulk-apply target
+  // (selected rows when there's a selection; all rows otherwise).
   useEffect(() => {
-    if (items.length === 0) {
+    if (rowsForBulk.length === 0) {
       return;
     }
     if (isMonitorMixed && monitor !== MIXED) {
       setMonitor(MIXED);
-    } else if (!isMonitorMixed && monitor !== items[0].monitor) {
-      setMonitor(items[0].monitor);
+    } else if (!isMonitorMixed && monitor !== rowsForBulk[0].monitor) {
+      setMonitor(rowsForBulk[0].monitor);
     }
-  }, [items, isMonitorMixed, monitor]);
+  }, [rowsForBulk, isMonitorMixed, monitor]);
 
   useEffect(() => {
-    if (items.length === 0) {
+    if (rowsForBulk.length === 0) {
       return;
     }
     if (isTranslationProfileMixed && translationProfileId !== MIXED) {
       setTranslationProfileId(MIXED);
     } else if (
       !isTranslationProfileMixed &&
-      translationProfileId !== items[0].translationProfileId
+      translationProfileId !== rowsForBulk[0].translationProfileId
     ) {
-      setTranslationProfileId(items[0].translationProfileId);
+      setTranslationProfileId(rowsForBulk[0].translationProfileId);
     }
-  }, [items, isTranslationProfileMixed, translationProfileId]);
+  }, [rowsForBulk, isTranslationProfileMixed, translationProfileId]);
 
   useEffect(() => {
-    if (items.length === 0) {
+    if (rowsForBulk.length === 0) {
       return;
     }
     if (isCustomFormatProfileMixed && customFormatProfileId !== MIXED) {
       setCustomFormatProfileId(MIXED);
     } else if (
       !isCustomFormatProfileMixed &&
-      customFormatProfileId !== items[0].customFormatProfileId
+      customFormatProfileId !== rowsForBulk[0].customFormatProfileId
     ) {
-      setCustomFormatProfileId(items[0].customFormatProfileId);
+      setCustomFormatProfileId(rowsForBulk[0].customFormatProfileId);
     }
-  }, [items, isCustomFormatProfileMixed, customFormatProfileId]);
+  }, [rowsForBulk, isCustomFormatProfileMixed, customFormatProfileId]);
 
   // Bulk-apply changes write only to SELECTED rows (per Sonarr) so the
   // user can curate which rows the bulk values apply to via the per-row

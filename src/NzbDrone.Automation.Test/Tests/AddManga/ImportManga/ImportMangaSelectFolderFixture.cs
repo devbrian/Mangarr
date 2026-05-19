@@ -42,11 +42,13 @@ public class ImportMangaSelectFolderFixture : AutomationTest
         // STATE assertion: count of root-folder navigation links under
         // the page is ≥1. Post debug-add-import-ui-mismatch fix the page
         // delegates row rendering to the shared <RootFolders/> component
-        // (frontend/src/RootFolder/RootFolderRow.tsx), which renders each
-        // accessible root folder as an <a href="/add/import/:id"> link
-        // — that anchor IS the canonical row contract.
+        // (frontend/src/RootFolder/RootFolderRow.tsx), which carries per-id
+        // testids `root-folder-row-{id}` + `root-folder-row-{id}-link`
+        // (matching the Mangarr D-18 selector-strategy contract for per-row
+        // anchors). The previous bespoke `import-manga-select-folder-row-*`
+        // testids lived on the deleted bespoke row component.
         var rows = await Page
-            .Locator("a[href*='/add/import/']")
+            .Locator("[data-testid^='root-folder-row-'][data-testid$='-link']")
             .CountAsync();
         rows.Should()
             .BeGreaterThan(
@@ -64,12 +66,12 @@ public class ImportMangaSelectFolderFixture : AutomationTest
         await Page.GetByTestId("import-manga-select-folder-page")
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
 
-        // Click the first per-row link (the path display). The shared
-        // <RootFolders/> component renders each root folder's path as an
-        // <a href="/add/import/:id"> anchor — that's the canonical row
-        // selector post debug-add-import-ui-mismatch fix.
+        // Click the first per-row link (the path display). Selector uses
+        // the per-id testid `root-folder-row-{id}-link` emitted by the
+        // shared RootFolderRow (per D-18) — promoted from the deleted
+        // bespoke ImportMangaSelectFolderRow in debug-add-import-ui-mismatch.
         var firstLink = Page
-            .Locator("a[href*='/add/import/']")
+            .Locator("[data-testid^='root-folder-row-'][data-testid$='-link']")
             .First;
         await firstLink.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
         await firstLink.ClickAsync();
