@@ -2,6 +2,8 @@ using System;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using System.Xml.Linq;
 using NLog;
@@ -55,14 +57,50 @@ namespace NzbDrone.Test.Common
         public int Port { get; private set; }
         public string UrlBase { get; private set; }
 
-        public NzbDroneRunner(Logger logger, PostgresOptions postgresOptions, int port = 8989)
+        public NzbDroneRunner(Logger logger, PostgresOptions postgresOptions, int port = 0)
         {
+            // GH #204: hardcoded port=8989 caused deterministic Windows TIME_WAIT
+            // collisions when 200+ Automation fixtures ran back-to-back in a
+            // single `dotnet test`. Default port=0 now requests an ephemeral
+            // port from the OS via TcpListener — each fixture gets an isolated
+            // port and TIME_WAIT on the previous fixture's port no longer
+            // gates the next fixture's boot. Callers that need a specific port
+            // (e.g. the rare integration test pinned to 8989 for compatibility)
+            // can still pass an explicit port.
+            if (port == 0)
+            {
+                port = GetEphemeralLoopbackPort();
+            }
+
             _processProvider = new ProcessProvider(logger);
             _restClient = new RestClient($"http://localhost:{port}/{ApiBasePath}");
 
             PostgresOptions = postgresOptions;
             Port = port;
             UrlBase = string.Empty;
+        }
+
+        // GH #204: ask the OS for an unused loopback TCP port. The TcpListener
+        // is created, bound, queried, and immediately stopped — Windows does
+        // NOT place the port in TIME_WAIT for a listener that never ACCEPTed
+        // an inbound connection, so the port is available for the child
+        // Mangarr process to bind immediately after Stop(). A theoretical race
+        // exists where another process could grab the port between Stop() and
+        // Kestrel's bind, but on a CI test host this is exceedingly rare; if
+        // it materialises in practice we can layer SO_REUSEADDR or a retry
+        // loop on top.
+        private static int GetEphemeralLoopbackPort()
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            try
+            {
+                return ((IPEndPoint)listener.LocalEndpoint).Port;
+            }
+            finally
+            {
+                listener.Stop();
+            }
         }
 
         public void Start(bool enableAuth = false, string urlBase = "")
