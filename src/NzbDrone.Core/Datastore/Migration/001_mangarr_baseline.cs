@@ -578,6 +578,28 @@ namespace NzbDrone.Core.Datastore.Migration
                 .OnColumn("ChapterNumber").Ascending()
                 .WithOptions().Unique();
 
+            // 5. Issue #213 — UNIQUE indexes on Manga cross-source IDs close the concurrent-POST
+            //    race in AddMangaService.PrepareForAdd. Pre-fix, two near-simultaneous POSTs
+            //    with identical MangaDexId/MalId/AniListId both passed the in-memory
+            //    FindByMangaDexId / FindByMalId / FindByAniListId check before either insert
+            //    committed, producing duplicate Manga rows pointing at the same canonical
+            //    metadata. SQLite + PostgreSQL both treat NULL as distinct per ANSI SQL, so
+            //    multiple null-Id rows remain legal (every legal Manga only needs ONE of the
+            //    three IDs populated — PostValidator at MangaController.cs:72-74). The
+            //    surfaced SQLiteException is caught in MangaController.AddManga and mapped
+            //    to HTTP 409 Conflict (first-wins semantic).
+            Create.Index("IX_Manga_MangaDexId").OnTable("Manga")
+                .OnColumn("MangaDexId").Ascending()
+                .WithOptions().Unique();
+
+            Create.Index("IX_Manga_MalId").OnTable("Manga")
+                .OnColumn("MalId").Ascending()
+                .WithOptions().Unique();
+
+            Create.Index("IX_Manga_AniListId").OnTable("Manga")
+                .OnColumn("AniListId").Ascending()
+                .WithOptions().Unique();
+
             // No seed data. The RefreshMangaCommand ScheduledTasks row is registered by
             // TaskManager.Handle(ApplicationStartedEvent) at runtime (Sonarr's canonical
             // pattern — see TaskManager.cs:65-166). Migrations create schema only.
