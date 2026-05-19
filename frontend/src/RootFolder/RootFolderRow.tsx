@@ -40,14 +40,27 @@ function RootFolderRow(props: RootFolderRowProps) {
     setIsDeleteModalOpen(false);
   }, [deleteRootFolder]);
 
+  // Per Mangarr selector-strategy D-18: per-row testids on the wrapping
+  // <TableRow> + on the navigation <Link> (the latter doubles as the
+  // canonical "click into root folder" target for ImportMangaSelectFolder
+  // fixtures + FirstRecordCreationFixture). debug-add-import-ui-mismatch
+  // promoted these to the shared RootFolderRow (previously lived on the
+  // bespoke ImportMangaSelectFolderRow that was deleted in that fix).
+  const rowTestId = `root-folder-row-${id}`;
+  const linkTestId = `${rowTestId}-link`;
+
   return (
-    <TableRow>
+    <TableRow data-testid={rowTestId}>
       <TableRowCell>
         <div className={styles.pathContainer}>
           {isUnavailable ? (
             path
           ) : (
-            <Link className={styles.link} to={`/add/import/${id}`}>
+            <Link
+              className={styles.link}
+              to={`/add/import/${id}`}
+              data-testid={linkTestId}
+            >
               {path}
             </Link>
           )}

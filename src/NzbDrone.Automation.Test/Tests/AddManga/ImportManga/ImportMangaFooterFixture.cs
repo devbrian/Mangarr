@@ -37,8 +37,10 @@ public class ImportMangaFooterFixture : AutomationTest
         await Page.GetByTestId("import-manga-select-folder-page")
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
 
+        // Post debug-add-import-ui-mismatch fix: shared RootFolderRow
+        // carries per-id testid `root-folder-row-{id}-link` (D-18).
         var firstLink = Page
-            .Locator("[data-testid^='import-manga-select-folder-row-'][data-testid$='-link']")
+            .Locator("[data-testid^='root-folder-row-'][data-testid$='-link']")
             .First;
         await firstLink.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
         await firstLink.ClickAsync();

@@ -39,19 +39,23 @@ public class ImportMangaSelectFolderFixture : AutomationTest
         await Page.GetByTestId("import-manga-select-folder-page")
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
 
-        // STATE assertion: count of root-folder rows under the page is
-        // ≥1. This is the canonical CountAsync-based state assertion (per
-        // CLAUDE.md §"State-not-rendering assertions"). The audit-test-
-        // assertions.sh Gate 1 enforces that CountAsync is on the allowed
-        // state-assertion token list.
+        // STATE assertion: count of root-folder navigation links under
+        // the page is ≥1. Post debug-add-import-ui-mismatch fix the page
+        // delegates row rendering to the shared <RootFolders/> component
+        // (frontend/src/RootFolder/RootFolderRow.tsx), which carries per-id
+        // testids `root-folder-row-{id}` + `root-folder-row-{id}-link`
+        // (matching the Mangarr D-18 selector-strategy contract for per-row
+        // anchors). The previous bespoke `import-manga-select-folder-row-*`
+        // testids lived on the deleted bespoke row component.
         var rows = await Page
-            .Locator("[data-testid^='import-manga-select-folder-row-']")
+            .Locator("[data-testid^='root-folder-row-'][data-testid$='-link']")
             .CountAsync();
         rows.Should()
             .BeGreaterThan(
                 0,
                 "TestKit baseline seeds ≥1 Root Folder per Phase 18 D-07; "
-                + "the selector page must render one row per Root Folder.");
+                + "the selector page must render one /add/import/:id link "
+                + "per Root Folder (via the shared <RootFolders/> table).");
     }
 
     [Test]
@@ -62,11 +66,12 @@ public class ImportMangaSelectFolderFixture : AutomationTest
         await Page.GetByTestId("import-manga-select-folder-page")
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
 
-        // Click the first per-row link (the path display). Per
-        // ImportMangaSelectFolderRow.tsx the link carries
-        // `import-manga-select-folder-row-{id}-link` as data-testid.
+        // Click the first per-row link (the path display). Selector uses
+        // the per-id testid `root-folder-row-{id}-link` emitted by the
+        // shared RootFolderRow (per D-18) — promoted from the deleted
+        // bespoke ImportMangaSelectFolderRow in debug-add-import-ui-mismatch.
         var firstLink = Page
-            .Locator("[data-testid^='import-manga-select-folder-row-'][data-testid$='-link']")
+            .Locator("[data-testid^='root-folder-row-'][data-testid$='-link']")
             .First;
         await firstLink.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
         await firstLink.ClickAsync();
