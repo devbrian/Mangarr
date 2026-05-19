@@ -1,3 +1,4 @@
+using System.Data.SQLite;
 using FluentValidation;
 using Mangarr.Http;
 using Mangarr.Http.REST;
@@ -149,6 +150,18 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
             // collisions ("Manga with MangaDex ID ... already exists"). Map to 409
             // Conflict instead of 500.
             return TypedResults.Conflict(ex.Message);
+        }
+        catch (SQLiteException ex) when (ex.ResultCode == SQLiteErrorCode.Constraint)
+        {
+            // Issue #213 fix: when two concurrent POSTs both pass the in-memory
+            // FindByMangaDexId / FindByMalId / FindByAniListId checks in
+            // AddMangaService.PrepareForAdd before either insert commits, the
+            // UNIQUE indexes on Manga.MangaDexId / MalId / AniListId (Migration 001
+            // IX_Manga_*) surface the second-comer as a SQLITE_CONSTRAINT violation
+            // on Insert. Map to 409 Conflict — first-wins semantic, matching the
+            // existing happy-path InvalidOperationException branch above.
+            _logger.Debug(ex, "Add Manga rejected by UNIQUE constraint (concurrent-POST race; issue #213)");
+            return TypedResults.Conflict("Manga with this external ID already exists");
         }
     }
 
