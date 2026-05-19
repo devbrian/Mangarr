@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
 using FluentValidation.Results;
 using NLog;
 using NzbDrone.Common.Http;
@@ -30,9 +28,12 @@ namespace NzbDrone.Core.MetadataSource.AniList
     /// </summary>
     public class AniListMetadataSource : HttpMetadataSourceBase<AniListMetadataSourceSettings>
     {
-        public AniListMetadataSource(IHttpClient httpClient, Logger logger)
+        private readonly IAniListGraphQlTransport _transport;
+
+        public AniListMetadataSource(IHttpClient httpClient, IAniListGraphQlTransport transport, Logger logger)
             : base(httpClient, logger)
         {
+            _transport = transport;
         }
 
         public override string Name => "AniList";
@@ -114,46 +115,29 @@ namespace NzbDrone.Core.MetadataSource.AniList
         private AniListMedia QueryMediaById(int id)
         {
             var body = AniListMangaApi.BuildBody(AniListMangaApi.MediaByIdQuery, new { id });
-            var resp = PostGraphQl<MediaResponseShape>(body);
+            var resp = _transport.Post<MediaResponseShape>(body);
             return resp?.Data?.Media;
         }
 
         private AniListPage QueryMediaSearch(string search)
         {
             var body = AniListMangaApi.BuildBody(AniListMangaApi.MediaSearchQuery, new { search, page = 1 });
-            var resp = PostGraphQl<PageResponseShape>(body);
+            var resp = _transport.Post<PageResponseShape>(body);
             return resp?.Data?.Page;
         }
 
         private AniListPage QueryMediaByIdMal(int malId)
         {
             var body = AniListMangaApi.BuildBody(AniListMangaApi.MediaByIdMalQuery, new { idMal = malId });
-            var resp = PostGraphQl<MediaResponseShape>(body);
+            var resp = _transport.Post<MediaResponseShape>(body);
             return resp?.Data?.Media != null
                 ? new AniListPage { Media = new List<AniListMedia> { resp.Data.Media } }
                 : null;
         }
 
-        private AniListGraphQlResponse<T> PostGraphQl<T>(string body)
-        {
-            var req = BuildRequest(AniListMangaApi.GraphQlEndpoint);
-            req.Method = HttpMethod.Post;
-            req.Headers["Content-Type"] = "application/json";
-            req.SetContent(body);
-
-            try
-            {
-                var resp = _httpClient.Post<AniListGraphQlResponse<T>>(req);
-                return resp.Resource;
-            }
-            catch (HttpException ex) when (ex.Response.StatusCode == HttpStatusCode.TooManyRequests)
-            {
-                // Per RESEARCH §Pitfall 6: log warning. IIndexerStatusService integration deferred
-                // to Phase 3 indexer side per RESEARCH (Phase 2 metadata source is fire-once-per-add).
-                _logger.Warn("AniList returned 429 Too Many Requests; honor Retry-After + back off");
-                throw;
-            }
-        }
+        // Phase 26 Plan 26-02 (IL-07): the prior in-class GraphQL HTTP helper was lifted
+        // verbatim into AniListGraphQlTransport (DI-injected as _transport above). Phase 27
+        // AniListImportList will share the same transport instance via DryIoc auto-wiring.
 
         // ---- Mapping ----
 
