@@ -21,7 +21,7 @@ import MangaBlocklist from 'Activity/Blocklist/MangaBlocklist';
 import MangaHistory from 'Activity/History/MangaHistory';
 import MangaQueue from 'Activity/Queue/MangaQueue';
 import AddNewManga from 'AddManga/AddNewManga/AddNewManga';
-import InteractiveImportPage from 'AddManga/AddImportPage/InteractiveImportPage';
+import ImportMangaPage from 'AddManga/ImportManga/ImportMangaPage';
 import CalendarPage from 'Calendar/CalendarPage';
 import NotFound from 'Components/NotFound';
 import Switch from 'Components/Router/Switch';
@@ -104,12 +104,13 @@ function AppRoutes() {
 
       <Route path="/add/manga" component={AddNewManga} />
 
-      <Route path="/add/import" component={InteractiveImportPage} />
+      <Route path="/add/import" component={ImportMangaPage} />
 
-      {/* Phase 25 Plan 25-03 — /add/import top-level route restored (D-02:
-          Sonarr-canonical full inline page; Wanted/Missing modal kept per
-          D-03). Original Phase 15 Plan 15-07 deletion documented in lines
-          1-17 above. */}
+      {/* Phase 25.1 Plan 25.1-02 — /add/import flipped from manual-import-as-page to
+          Sonarr-canonical library-import flow (D-02). ImportMangaPage owns the
+          nested <Switch> for /add/import (selector) vs /add/import/:rootFolderId
+          (per-folder scan). Wanted/Missing modal path (InteractiveImportContent +
+          InteractiveImportModal) UNTOUCHED per CONTEXT.md domain. */}
 
       {/*
         Calendar

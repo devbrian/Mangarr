@@ -1,0 +1,10 @@
+.scanContainer {
+  width: 100%;
+}
+
+.emptyState {
+  padding: 20px;
+  color: var(--gray500);
+  text-align: center;
+  font-style: italic;
+}
