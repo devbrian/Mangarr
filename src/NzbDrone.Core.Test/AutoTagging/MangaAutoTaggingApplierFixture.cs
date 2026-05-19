@@ -20,8 +20,12 @@ namespace NzbDrone.Core.Test.AutoTagging
     //   * AT-07 user-applied-tags-sticky: user's tag (no rule references it) is
     //     preserved when GetTagChanges returns TagsToRemove containing only the
     //     rule's own tag.
-    //   * gh199 scope-aware MangaRefreshCompleteEvent: narrow path iterates only
-    //     the refreshed ids; null/empty MangaIds preserves the full-library path.
+    //   * gh199 scope-aware MangaRefreshCompleteEvent:
+    //       - null MangaIds → walks the full library (refresh-all branch).
+    //       - empty MangaIds → no-op (explicit-IDs branch where every requested id
+    //         was skipped; CodeRabbit catch on PR #215 — falling back to a library
+    //         walk here would silently re-open the gh199 amplification).
+    //       - non-empty MangaIds → narrow iteration of only the refreshed ids.
     [TestFixture]
     public class MangaAutoTaggingApplierFixture : CoreTest<MangaAutoTaggingApplier>
     {
@@ -132,27 +136,42 @@ namespace NzbDrone.Core.Test.AutoTagging
         }
 
         [Test]
-        public void Handle_MangaRefreshCompleteEvent_with_empty_MangaIds_still_re_evaluates_full_library()
+        public void Handle_MangaRefreshCompleteEvent_with_empty_MangaIds_is_a_no_op()
         {
-            // gh199: empty list is treated identically to null (defense — defends
-            // against an over-eager caller that publishes an empty scope after a
-            // batch where every manga got skipped).
-            var manga1 = new NzbDrone.Core.Manga.Manga { Id = 1, Tags = new HashSet<int>() };
-            var manga2 = new NzbDrone.Core.Manga.Manga { Id = 2, Tags = new HashSet<int>() };
-
-            Mocker.GetMock<IMangaService>()
-                  .Setup(s => s.GetAllManga())
-                  .Returns(new List<NzbDrone.Core.Manga.Manga> { manga1, manga2 });
-
+            // gh199 + PR #215 CodeRabbit catch: an empty list signals an explicit-IDs
+            // refresh whose every requested id hit a skip-gate (manga-missing /
+            // scheduled-cooldown / WR-08 no-source-id). Nothing changed on disk or in
+            // the DB, so the applier MUST NOT walk the library. Falling back here
+            // would silently re-open the gh199 amplification whenever a batch was
+            // fully skipped.
             Mocker.GetMock<IAutoTaggingService>()
                   .Setup(s => s.GetTagChanges(It.IsAny<NzbDrone.Core.Manga.Manga>()))
                   .Returns(new AutoTaggingChanges { TagsToAdd = new HashSet<int> { 5 } });
 
             Subject.Handle(new MangaRefreshCompleteEvent(new List<int>()));
 
+            // GetTagChanges MUST never fire on the empty-scope path.
+            Mocker.GetMock<IAutoTaggingService>()
+                  .Verify(s => s.GetTagChanges(It.IsAny<NzbDrone.Core.Manga.Manga>()),
+                          Times.Never,
+                          "empty MangaIds is a no-op; no rule evaluation should occur");
+
+            // GetAllManga MUST never fire — the empty-scope path is the regression-
+            // sentinel for CodeRabbit's catch.
             Mocker.GetMock<IMangaService>()
-                  .Verify(s => s.UpdateManga(It.IsAny<NzbDrone.Core.Manga.Manga>(), false),
-                          Times.Exactly(2));
+                  .Verify(
+                      s => s.GetAllManga(),
+                      Times.Never,
+                      "empty MangaIds MUST NOT fall back to a full-library walk");
+
+            // GetManga(ids) MUST never fire either — there's nothing to scope to.
+            Mocker.GetMock<IMangaService>()
+                  .Verify(s => s.GetManga(It.IsAny<IEnumerable<int>>()), Times.Never);
+
+            // UpdateManga MUST never fire.
+            Mocker.GetMock<IMangaService>()
+                  .Verify(s => s.UpdateManga(It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<bool>()),
+                          Times.Never);
         }
 
         [Test]

@@ -11,9 +11,20 @@ namespace NzbDrone.Core.AutoTagging
     //   AutoTagsUpdatedEvent              -> full-library retroactive re-eval (D-06)
     //   MangaAddedEvent                   -> per-manga eval on add
     //   MangaRefreshCompleteEvent (gh199) -> scope-aware re-eval:
-    //                                          * MangaIds == null/empty → full-library
+    //                                          * MangaIds == null → full-library
     //                                            (refresh-all branch invariant — see
-    //                                            RefreshMangaService publish-site)
+    //                                            RefreshMangaService publish-site;
+    //                                            also covers parameterless callers
+    //                                            like RemovedMangaCheck's [CheckOn]
+    //                                            reflection).
+    //                                          * MangaIds.Count == 0 → no-op
+    //                                            (explicit-IDs branch where every
+    //                                            requested id hit a skip-gate; the
+    //                                            publisher emits an empty list, NOT
+    //                                            null, so falling back to full-library
+    //                                            here would silently reintroduce the
+    //                                            gh199 amplification — see CodeRabbit
+    //                                            review on PR #215).
     //                                          * MangaIds non-empty → narrow re-eval
     //                                            of only the refreshed mangas (avoids
     //                                            gh199 amplification of GetTagChanges's
@@ -66,10 +77,16 @@ namespace NzbDrone.Core.AutoTagging
         public void Handle(MangaRefreshCompleteEvent message)
         {
             // gh199 fix: scope-aware re-eval. The MangaRefreshCompleteEvent payload
-            // now distinguishes refresh-all (MangaIds null/empty → walk the whole
-            // library, preserves D-06 symmetric trigger + AT-06 retroactive
-            // invariant) from explicit-IDs refresh (MangaIds non-empty → narrow
-            // iteration of only the refreshed mangas).
+            // distinguishes three cases:
+            //   * null → refresh-all branch (or parameterless caller). Walk the whole
+            //     library — preserves D-06 symmetric trigger + AT-06 retroactive
+            //     invariant.
+            //   * empty list → explicit-IDs branch where every requested id was
+            //     skipped (manga-missing / scheduled-cooldown / WR-08 no-source-id).
+            //     Nothing changed; this is a no-op. Falling back to full-library
+            //     here would silently reintroduce the gh199 amplification whenever a
+            //     batch was fully skipped — see CodeRabbit review on PR #215.
+            //   * non-empty → narrow re-eval of only the refreshed mangas.
             //
             // The narrow path closes gh199's amplification: a single-id refresh of
             // manga A no longer fires AutoTaggingService.GetTagChanges across the
@@ -77,13 +94,18 @@ namespace NzbDrone.Core.AutoTagging
             // `manga.RootFolderPath = _rootFolderService.GetBestRootFolderPath(...)`
             // side-effect can no longer be persisted onto unrelated mangas B, C, …
             // via the trailing UpdateManga write.
-            if (message.MangaIds == null || message.MangaIds.Count == 0)
+            if (message.MangaIds == null)
             {
                 foreach (var manga in _mangaService.GetAllManga())
                 {
                     ApplyChanges(manga);
                 }
 
+                return;
+            }
+
+            if (message.MangaIds.Count == 0)
+            {
                 return;
             }
 
