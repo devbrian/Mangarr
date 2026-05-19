@@ -1,109 +1,162 @@
 // Sonarr divergence: NEW manga sibling per Phase 25.1 D-02 — see
 // 25.1-SUMMARY.md once Plan 25.1-03 lands.
 // Role-match analog: frontend/src/AddSeries/ImportSeries/SelectFolder/ImportSeriesSelectFolder.tsx
-// (RR v6 syntax in upstream; this Mangarr port is RR-v5-naive — the row
-// component owns its own click handler via react-router-dom Link).
 //
-// Manga sibling preserves: useRootFolders consumption, LoadingIndicator
-// while fetching, Alert kind=DANGER on error, Table/TableBody render
-// shape, per-row Link to /add/import/${id}.
+// Manga sibling preserves Sonarr's visual shell verbatim:
+//   - Centered "Import manga you already have" header
+//   - 3-bullet tips block via InlineMarkdown
+//   - <FieldSet legend={translate('RootFolders')}> wrapping the shared
+//     <RootFolders /> component (the existing Settings/MediaManagement
+//     table chrome — Path / FreeSpace / UnmappedFolders / delete-X)
+//   - Primary <Button> with icons.DRIVE that opens <FileBrowserModal>
+//     to add a new root folder and resolves to "Choose another folder"
+//     when ≥1 root folder exists, "Start Import" otherwise
+//   - <Alert kind=DANGER> rendering RootFolderResource validation errors
+//     from useAddRootFolder.addError.statusBody
 // Manga sibling diverges from ImportSeriesSelectFolder:
-//   - NO FileBrowserModal "Choose another folder" branch (CONTEXT.md
-//     <deferred>: defer to v1.2 unless Root Folder + scan happy-path
-//     proves insufficient during 25.1-02 UAT). NO disabled placeholder
-//     either per L-CHOOSE-ANOTHER-FOLDER-BUTTON-VISUAL.
-//   - Simpler row signal (path + free space + unmapped-folder count
-//     badge) — Sonarr surfaces a "recent folders" list under the root
-//     folder list that this port omits (the existing
-//     /settings/mediamanagement Root Folders page already shows recent
-//     folders if the user wants to see them).
+//   - Manga-specific copy keys (LibraryImportMangaHeader,
+//     LibraryImportTipsMangaUseRootFolder, LibraryImportTipsChapterFilename)
+//   - "Anime" / "manhwa" folder examples instead of TV-show examples
 //
 // Phase 8 cleanup: collapse with ImportSeriesSelectFolder when AddSeries/
 // deletes.
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import Alert from 'Components/Alert';
+import FieldSet from 'Components/FieldSet';
+import FileBrowserModal from 'Components/FileBrowser/FileBrowserModal';
+import Icon from 'Components/Icon';
+import Button from 'Components/Link/Button';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
+import InlineMarkdown from 'Components/Markdown/InlineMarkdown';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
-import Column from 'Components/Table/Column';
-import Table from 'Components/Table/Table';
-import TableBody from 'Components/Table/TableBody';
-import { kinds } from 'Helpers/Props';
-import useRootFolders from 'RootFolder/useRootFolders';
+import { icons, kinds, sizes } from 'Helpers/Props';
+import RootFolders from 'RootFolder/RootFolders';
+import useRootFolders, { useAddRootFolder } from 'RootFolder/useRootFolders';
+import { useIsWindows } from 'System/Status/useSystemStatus';
+import { InputChanged } from 'typings/inputs';
 import translate from 'Utilities/String/translate';
-import ImportMangaSelectFolderRow from './ImportMangaSelectFolderRow';
-
-// Column shape mirrors the existing Settings/RootFolders table (path +
-// free space + unmapped-folder count) for visual familiarity. The
-// `actions` column is omitted because rows are clickable navigation
-// targets here, not edit-/delete-target rows.
-const rootFolderColumns: Column[] = [
-  {
-    name: 'path',
-    label: () => translate('Path'),
-    isVisible: true,
-  },
-  {
-    name: 'freeSpace',
-    label: () => translate('FreeSpace'),
-    isVisible: true,
-  },
-  {
-    name: 'unmappedFolders',
-    label: () => translate('UnmappedFolders'),
-    isVisible: true,
-  },
-];
+import styles from './ImportMangaSelectFolder.css';
 
 function ImportMangaSelectFolder() {
   const { isFetching, isFetched, error, data } = useRootFolders();
+  const { addRootFolder, isAdding, addError } = useAddRootFolder();
 
-  if (isFetching && !isFetched) {
-    return (
-      <PageContent title={translate('ImportManga')}>
-        <PageContentBody>
-          <div data-testid="import-manga-select-folder-page">
-            <LoadingIndicator />
-          </div>
-        </PageContentBody>
-      </PageContent>
-    );
-  }
+  const isWindows = useIsWindows();
 
-  if (!isFetching && !!error) {
-    return (
-      <PageContent title={translate('ImportManga')}>
-        <PageContentBody>
-          <div data-testid="import-manga-select-folder-page">
-            <Alert kind={kinds.DANGER}>
-              {translate('RootFoldersLoadError')}
-            </Alert>
-          </div>
-        </PageContentBody>
-      </PageContent>
-    );
-  }
+  const [isAddNewRootFolderModalOpen, setIsAddNewRootFolderModalOpen] =
+    useState(false);
+
+  const hasRootFolders = data.length > 0;
+  const goodFolderExample = isWindows ? 'C:\\manga' : '/manga';
+  const badFolderExample = isWindows
+    ? 'C:\\manga\\one piece'
+    : '/manga/one piece';
+
+  const handleAddNewRootFolderPress = useCallback(() => {
+    setIsAddNewRootFolderModalOpen(true);
+  }, []);
+
+  const handleAddRootFolderModalClose = useCallback(() => {
+    setIsAddNewRootFolderModalOpen(false);
+  }, []);
+
+  const handleNewRootFolderSelect = useCallback(
+    ({ value }: InputChanged<string>) => {
+      addRootFolder({ path: value });
+    },
+    [addRootFolder]
+  );
 
   return (
     <PageContent title={translate('ImportManga')}>
       <PageContentBody>
         <div data-testid="import-manga-select-folder-page">
-          <Table columns={rootFolderColumns}>
-            <TableBody>
-              {data.map((rootFolder) => {
-                return (
-                  <ImportMangaSelectFolderRow
-                    key={rootFolder.id}
-                    id={rootFolder.id}
-                    path={rootFolder.path}
-                    accessible={rootFolder.accessible}
-                    freeSpace={rootFolder.freeSpace}
-                    unmappedFolders={rootFolder.unmappedFolders}
+          {isFetching && !isFetched ? <LoadingIndicator /> : null}
+
+          {!isFetching && error ? (
+            <Alert kind={kinds.DANGER}>
+              {translate('RootFoldersLoadError')}
+            </Alert>
+          ) : null}
+
+          {!error && isFetched ? (
+            <div>
+              <div className={styles.header}>
+                {translate('LibraryImportMangaHeader')}
+              </div>
+
+              <div className={styles.tips}>
+                {translate('LibraryImportTips')}
+                <ul>
+                  <li className={styles.tip}>
+                    <InlineMarkdown
+                      data={translate('LibraryImportTipsChapterFilename')}
+                    />
+                  </li>
+                  <li className={styles.tip}>
+                    <InlineMarkdown
+                      data={translate('LibraryImportTipsMangaUseRootFolder', {
+                        goodFolderExample,
+                        badFolderExample,
+                      })}
+                    />
+                  </li>
+                  <li className={styles.tip}>
+                    {translate('LibraryImportTipsDontUseDownloadsFolder')}
+                  </li>
+                </ul>
+              </div>
+
+              {hasRootFolders ? (
+                <div className={styles.recentFolders}>
+                  <FieldSet legend={translate('RootFolders')}>
+                    <RootFolders />
+                  </FieldSet>
+                </div>
+              ) : null}
+
+              {!isAdding && addError ? (
+                <Alert className={styles.addErrorAlert} kind={kinds.DANGER}>
+                  {translate('AddRootFolderError')}
+
+                  <ul>
+                    {Array.isArray(addError.statusBody) ? (
+                      addError.statusBody.map((e, index) => {
+                        return <li key={index}>{e.errorMessage}</li>;
+                      })
+                    ) : (
+                      <li>{JSON.stringify(addError.statusBody)}</li>
+                    )}
+                  </ul>
+                </Alert>
+              ) : null}
+
+              <div className={hasRootFolders ? undefined : styles.startImport}>
+                <Button
+                  kind={kinds.PRIMARY}
+                  size={sizes.LARGE}
+                  onPress={handleAddNewRootFolderPress}
+                >
+                  <Icon
+                    className={styles.importButtonIcon}
+                    name={icons.DRIVE}
                   />
-                );
-              })}
-            </TableBody>
-          </Table>
+                  {hasRootFolders
+                    ? translate('ChooseAnotherFolder')
+                    : translate('StartImport')}
+                </Button>
+              </div>
+
+              <FileBrowserModal
+                isOpen={isAddNewRootFolderModalOpen}
+                name="rootFolderPath"
+                value=""
+                onChange={handleNewRootFolderSelect}
+                onModalClose={handleAddRootFolderModalClose}
+              />
+            </div>
+          ) : null}
         </div>
       </PageContentBody>
     </PageContent>

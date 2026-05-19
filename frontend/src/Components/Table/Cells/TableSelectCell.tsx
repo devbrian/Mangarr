@@ -10,6 +10,11 @@ interface TableSelectCellProps<T extends number | string = number>
   className?: string;
   id: T;
   isSelected?: boolean;
+  // Mirrors VirtualTableSelectCell.isDisabled (Mangarr peer, manga-canonical
+  // add-import-ui-mismatch fix 2026-05-19). Plumbed through to the inner
+  // CheckInput so an already-imported row or a row without a match can be
+  // greyed out + click-blocked while still rendering in the table.
+  isDisabled?: boolean;
   // GH #180 scope B: per-row checkbox testid propagation through the
   // TableSelectCell → CheckInput chain. Lands on the wrapping <label>
   // inside CheckInput (the visible click target) per scope A. The prop
@@ -22,6 +27,7 @@ function TableSelectCell<T extends number | string = number>({
   className = styles.selectCell,
   id,
   isSelected = false,
+  isDisabled = false,
   onSelectedChange,
   ...otherProps
 }: TableSelectCellProps<T>) {
@@ -55,6 +61,7 @@ function TableSelectCell<T extends number | string = number>({
         className={styles.input}
         name={id.toString()}
         value={isSelected}
+        isDisabled={isDisabled}
         {...otherProps}
         onChange={handleChange}
       />

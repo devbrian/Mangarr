@@ -1,50 +1,53 @@
 // Sonarr divergence: NEW manga sibling per Phase 25.1 D-02 — see
 // 25.1-SUMMARY.md.
 // Role-match analog: frontend/src/AddSeries/ImportSeries/Import/ImportSeriesRow.tsx
-// (RR v6 syntax in upstream; this Mangarr port uses RR v5 idioms — none
-// of the row-level imports are RR-version-coupled, so no syntax adjustments).
 //
-// Manga sibling preserves: per-row useLookupManga chain debounced 300ms,
-// auto-select top match on first lookup resolution (D-03), per-row
-// state mutation via importMangaStore actions (NOT props lifting — the
-// store IS the source of truth).
-// Manga sibling diverges from ImportSeriesRow:
+// Manga sibling preserves Sonarr's row contract:
+//   - <TableSelectCell> per-row checkbox wired to useSelect<ImportMangaItem>()
+//     (Mangarr uses TableSelectCell because the table is not virtualized;
+//     Sonarr uses VirtualTableSelectCell)
+//   - useExistingManga(selectedManga?.mangaDexId) drives the disabled state
+//     so already-imported manga can't be re-imported via the bulk POST
+//   - toggleDisabled on (!selectedManga || isExistingManga) keeps the
+//     bulk-apply toolbar's selectedCount in sync with importable rows
+//   - <ImportMangaSelectManga> dropdown replaces the bare {name} text so
+//     the user can override an auto-matched manga
+// Manga sibling diverges:
 //   - 3 per-row selects (Monitor / TranslationProfile / CustomFormatProfile)
-//     instead of Sonarr's 4 (Monitor / Quality / Language / SeriesType).
-//     Phase 5 D-04 + Phase 8 audit + Phase 6 D-03.
-//   - Manga match auto-select compares against AddMangaResult.title (not
-//     Series title); the manga override is a future enhancement (popover
-//     UI deferred to v1.2).
-//
-// CustomFormatProfileSelectInput peer does NOT exist in the codebase
-// (verified via Glob frontend/src/Components/Form/Select/*ProfileSelectInput*.tsx
-// at 25.1-02 plan time → only TranslationProfileSelectInput.tsx +
-// QualityProfileSelectInput.tsx). This port uses inline-fetched
-// `/customformatprofile` values surfaced through EnhancedSelectInput,
-// matching the AddNewMangaModalContent.tsx:120-140 pattern verbatim.
+//     instead of Sonarr's 4. Phase 5 D-04 + Phase 8 audit + Phase 6 D-03.
+//   - mangaDexId (string) identifies the manga instead of tvdbId (number).
+//   - CustomFormatProfileSelectInput peer does NOT exist; inline-fetched
+//     `/customformatprofile` values surface through EnhancedSelectInput
+//     (matches the AddNewMangaModalContent.tsx:120-140 pattern).
 //
 // Phase 8 cleanup: collapse with ImportSeriesRow when AddSeries/ deletes.
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useAddMangaOption } from 'AddManga/addMangaOptionsStore';
+import { useSelect } from 'App/Select/SelectContext';
 import EnhancedSelectInput, {
   EnhancedSelectInputValue,
 } from 'Components/Form/Select/EnhancedSelectInput';
 import MonitorChaptersSelectInput from 'Components/Form/Select/MonitorChaptersSelectInput';
 import TranslationProfileSelectInput from 'Components/Form/Select/TranslationProfileSelectInput';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
+import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
 import TableRow from 'Components/Table/TableRow';
 import useApiQuery from 'Helpers/Hooks/useApiQuery';
 import useDebounce from 'Helpers/Hooks/useDebounce';
 import { MangaMonitor } from 'Manga/Manga';
+import useExistingManga from 'Manga/useExistingManga';
 import { UnmappedFolder } from 'RootFolder/useRootFolders';
 import { EnhancedSelectInputChanged } from 'typings/inputs';
+import { SelectStateInputProps } from 'typings/props';
 import { useLookupManga } from '../../AddNewManga/useAddManga';
 import {
+  ImportMangaItem,
   removeFromLookupQueue,
   updateImportMangaItem,
   useImportMangaItem,
   useIsCurrentLookupQueueItem,
 } from '../importMangaStore';
+import ImportMangaSelectManga from './SelectManga/ImportMangaSelectManga';
 import styles from './ImportMangaRow.css';
 
 interface ImportMangaRowProps {
@@ -61,19 +64,35 @@ function ImportMangaRow({ unmappedFolder }: ImportMangaRowProps) {
   const item = useImportMangaItem(rowId);
   const isCurrentLookupItem = useIsCurrentLookupQueueItem(rowId);
 
-  // Debounce the lookup term — `300ms` per L-USELOOKUPMANGA-DEBOUNCE
-  // (RESEARCH §2.8 + Sonarr upstream verbatim). The 0ms immediate path
-  // applies when folderName clears, but folderName here is fixed per
-  // mount so this is essentially a "fire-once after 300ms" guard.
+  // Debounce the lookup term per L-USELOOKUPMANGA-DEBOUNCE (Sonarr upstream
+  // verbatim).
   const debouncedTerm = useDebounce(rowId, rowId ? 300 : 0);
 
   // Per-row lookup; gated by `isCurrentLookupItem` so only the head of
-  // the lookup queue fetches at any one time (matches Sonarr's
-  // searchForSeries thunk's queue semantics — prevents the MangaDex 40
-  // req/min budget from being blown by a 20-row scan).
+  // the lookup queue fetches at any one time.
   const { isFetched, data: lookupResults } = useLookupManga(
     debouncedTerm,
     isCurrentLookupItem
+  );
+
+  // useExistingManga checks the /manga library query cache for an already-
+  // imported manga whose mangaDexId matches the auto-matched (or user-
+  // overridden) selectedManga. When true, the row is greyed out + disabled
+  // so the bulk POST cannot fire on it.
+  const isExistingManga = useExistingManga(item?.selectedManga?.mangaDexId);
+
+  const { getIsSelected, toggleSelected, toggleDisabled } =
+    useSelect<ImportMangaItem>();
+
+  const handleSelectedChange = useCallback(
+    ({ id, value, shiftKey }: SelectStateInputProps<string>) => {
+      toggleSelected({
+        id,
+        isSelected: value,
+        shiftKey,
+      });
+    },
+    [toggleSelected]
   );
 
   // Custom Format profiles — inline fetch matching
@@ -91,9 +110,9 @@ function ImportMangaRow({ unmappedFolder }: ImportMangaRowProps) {
     }));
   }, [customFormatProfilesData]);
 
-  // Auto-select the top match on first lookup resolution (D-03).
-  // Guarded by `hasSearched` so user overrides via the dropdown are not
-  // clobbered by a delayed re-render.
+  // Auto-select the top match on first lookup resolution (D-03). Guarded
+  // by `hasSearched` so user overrides via the dropdown are not clobbered
+  // by a delayed re-render.
   useEffect(() => {
     if (isFetched && lookupResults.length > 0 && item && !item.hasSearched) {
       updateImportMangaItem(rowId, {
@@ -107,14 +126,28 @@ function ImportMangaRow({ unmappedFolder }: ImportMangaRowProps) {
       item &&
       !item.hasSearched
     ) {
-      // No results — mark searched (silently) so the next row's lookup
-      // can fire. hasSearched flips true, selectedManga stays undefined;
-      // user must override via the dropdown to include this row in the
-      // bulk import.
       updateImportMangaItem(rowId, { hasSearched: true });
       removeFromLookupQueue(rowId);
     }
   }, [isFetched, lookupResults, item, rowId]);
+
+  // Disable the per-row checkbox when there's no match OR when the match
+  // is already in the library. Sonarr's ImportSeriesRow does the same
+  // (lines 60-62) — toggleDisabled keeps the bulk-apply toolbar's
+  // selectedCount honest.
+  useEffect(() => {
+    toggleDisabled(rowId, !item?.selectedManga || isExistingManga);
+  }, [rowId, item?.selectedManga, isExistingManga, toggleDisabled]);
+
+  // Auto-select rows that have a fresh non-existing match. Sonarr does
+  // the same (ImportSeriesRow lines 64-66) so the user doesn't have to
+  // tick every checkbox manually on first scan.
+  useEffect(() => {
+    if (!item?.selectedManga || isExistingManga) {
+      return;
+    }
+    toggleSelected({ id: rowId, isSelected: true, shiftKey: false });
+  }, [rowId, item?.selectedManga, isExistingManga, toggleSelected]);
 
   // Pull store defaults again as a fallback when the row's item has not
   // yet been seeded into the store on first render.
@@ -131,7 +164,6 @@ function ImportMangaRow({ unmappedFolder }: ImportMangaRowProps) {
     item?.translationProfileId ?? fallbackTranslationProfileId;
   const customFormatProfileId =
     item?.customFormatProfileId ?? fallbackCustomFormatProfileId;
-  const selectedMangaName = item?.selectedManga?.title;
 
   const handleMonitorChange = useCallback(
     ({ value }: EnhancedSelectInputChanged<string | number>) => {
@@ -166,12 +198,13 @@ function ImportMangaRow({ unmappedFolder }: ImportMangaRowProps) {
 
   return (
     <TableRow data-testid={rowTestId}>
-      {/* Select column is currently a placeholder; the bulk-apply
-          toolbar in ImportMangaFooter operates over rows with a populated
-          selectedManga (per D-05 + Sonarr-canonical UX). Adding an
-          explicit per-row checkbox is a v1.2 enhancement when the
-          "skip without unselecting" UX surfaces. */}
-      <TableRowCell className={styles.selectCell}>·</TableRowCell>
+      <TableSelectCell<string>
+        id={rowId}
+        isSelected={getIsSelected(rowId)}
+        isDisabled={!item?.selectedManga || isExistingManga}
+        data-testid={`${rowTestId}-select`}
+        onSelectedChange={handleSelectedChange}
+      />
 
       <TableRowCell className={styles.folder}>
         {unmappedFolder.name}
@@ -210,7 +243,7 @@ function ImportMangaRow({ unmappedFolder }: ImportMangaRowProps) {
 
       <TableRowCell className={styles.manga}>
         <div data-testid={selectedMangaNameTestId} className={styles.mangaName}>
-          {selectedMangaName ?? ''}
+          <ImportMangaSelectManga id={rowId} />
         </div>
       </TableRowCell>
     </TableRow>

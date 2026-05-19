@@ -39,19 +39,21 @@ public class ImportMangaSelectFolderFixture : AutomationTest
         await Page.GetByTestId("import-manga-select-folder-page")
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
 
-        // STATE assertion: count of root-folder rows under the page is
-        // ≥1. This is the canonical CountAsync-based state assertion (per
-        // CLAUDE.md §"State-not-rendering assertions"). The audit-test-
-        // assertions.sh Gate 1 enforces that CountAsync is on the allowed
-        // state-assertion token list.
+        // STATE assertion: count of root-folder navigation links under
+        // the page is ≥1. Post debug-add-import-ui-mismatch fix the page
+        // delegates row rendering to the shared <RootFolders/> component
+        // (frontend/src/RootFolder/RootFolderRow.tsx), which renders each
+        // accessible root folder as an <a href="/add/import/:id"> link
+        // — that anchor IS the canonical row contract.
         var rows = await Page
-            .Locator("[data-testid^='import-manga-select-folder-row-']")
+            .Locator("a[href*='/add/import/']")
             .CountAsync();
         rows.Should()
             .BeGreaterThan(
                 0,
                 "TestKit baseline seeds ≥1 Root Folder per Phase 18 D-07; "
-                + "the selector page must render one row per Root Folder.");
+                + "the selector page must render one /add/import/:id link "
+                + "per Root Folder (via the shared <RootFolders/> table).");
     }
 
     [Test]
@@ -62,11 +64,12 @@ public class ImportMangaSelectFolderFixture : AutomationTest
         await Page.GetByTestId("import-manga-select-folder-page")
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
 
-        // Click the first per-row link (the path display). Per
-        // ImportMangaSelectFolderRow.tsx the link carries
-        // `import-manga-select-folder-row-{id}-link` as data-testid.
+        // Click the first per-row link (the path display). The shared
+        // <RootFolders/> component renders each root folder's path as an
+        // <a href="/add/import/:id"> anchor — that's the canonical row
+        // selector post debug-add-import-ui-mismatch fix.
         var firstLink = Page
-            .Locator("[data-testid^='import-manga-select-folder-row-'][data-testid$='-link']")
+            .Locator("a[href*='/add/import/']")
             .First;
         await firstLink.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
         await firstLink.ClickAsync();

@@ -3,10 +3,14 @@
 // Role-match analog: frontend/src/AddSeries/ImportSeries/Import/ImportSeries.tsx
 // (RR v6 syntax in upstream; this port adapts to RR v5 per L-RR6).
 //
-// Manga sibling preserves: useParams → root-folder lookup, per-row scan
-// from rootFolder.unmappedFolders[] (Option B per CONTEXT D-08'),
-// Table/TableBody render, ImportFooter conditional render, unmount
-// cleanup via clearImportManga (L-LOOKUP-RACE mitigation).
+// Manga sibling preserves Sonarr's structural shape:
+//   - <SelectProvider items={items}> outermost so per-row select checkboxes
+//     in <ImportMangaRow> and the sticky footer can subscribe to a single
+//     selection store
+//   - <PageContentFooter> sticks to the viewport bottom because it lives
+//     OUTSIDE <PageContentBody> but INSIDE <PageContent>
+//   - Empty-state uses <Alert kind={kinds.INFO}> with the path interpolated
+//     into the translation key, not a bare <div>
 // Manga sibling diverges from ImportSeries:
 //   - Defaults read from `useAddMangaOption` per D-05' (NOT from any
 //     RootFolderResource field — RootFolderResource has no Default*
@@ -28,12 +32,15 @@
 import React, { useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAddMangaOption } from 'AddManga/addMangaOptionsStore';
+import { SelectProvider } from 'App/Select/SelectContext';
+import Alert from 'Components/Alert';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import Column from 'Components/Table/Column';
 import Table from 'Components/Table/Table';
 import TableBody from 'Components/Table/TableBody';
+import { kinds } from 'Helpers/Props';
 import { MangaMonitor } from 'Manga/Manga';
 import useRootFolders, { UnmappedFolder } from 'RootFolder/useRootFolders';
 import translate from 'Utilities/String/translate';
@@ -47,9 +54,10 @@ import ImportMangaRow from './ImportMangaRow';
 import styles from './ImportManga.css';
 
 // Columns mirror the Sonarr ImportSeries shape adapted for manga
-// (Folder + Monitor + TranslationProfile + CustomFormatProfile + Manga
-// match column). The first column doubles as the per-row selection
-// checkbox column.
+// (Select + Folder + Monitor + TranslationProfile + CustomFormatProfile +
+// Manga match column). The first column is the per-row selection
+// checkbox (Sonarr's <VirtualTableSelectCell> peer — Mangarr uses the
+// non-virtual TableSelectCell because the table is not virtualized).
 const COLUMNS: Column[] = [
   {
     name: 'select',
@@ -97,19 +105,13 @@ function ImportManga() {
   } = useRootFolders();
   const rootFolder = rootFolders.find((rf) => rf.id === rootFolderId);
   // P-007 defensive `?? []` — rootFolder may be undefined while
-  // useRootFolders() is still resolving. Wrap in useMemo so the array
-  // reference is stable across renders (otherwise the seedItems useMemo
-  // below would re-fire on every render — react-hooks/exhaustive-deps).
+  // useRootFolders() is still resolving.
   const unmappedFolders = useMemo<UnmappedFolder[]>(
     () => rootFolder?.unmappedFolders ?? [],
     [rootFolder]
   );
 
-  // Per-row defaults sourced from addMangaOptionsStore per D-05'
-  // (NOT from RootFolderResource fields — those don't exist on
-  // Mangarr's RootFolderResource per RESEARCH §6). Sonarr's
-  // ImportSeries default ('all') also lives in addSeriesOptionsStore;
-  // this is a verbatim Mangarr peer.
+  // Per-row defaults sourced from addMangaOptionsStore per D-05'.
   const defaultMonitor = useAddMangaOption('monitor') as MangaMonitor;
   const defaultTranslationProfileId = useAddMangaOption('translationProfileId');
   const defaultCustomFormatProfileId = useAddMangaOption(
@@ -119,7 +121,7 @@ function ImportManga() {
   // Compose the per-row seed items deterministically from
   // unmappedFolders + the persisted defaults. Memoised so the seed
   // useEffect below only re-fires when one of the inputs actually
-  // changes (re-renders of the parent on every keystroke are normal).
+  // changes.
   const seedItems: ImportMangaItem[] = useMemo(() => {
     return unmappedFolders.map((uf) => ({
       id: uf.name,
@@ -139,20 +141,22 @@ function ImportManga() {
     defaultCustomFormatProfileId,
   ]);
 
+  // SelectProvider needs an items array with stable string `id` field —
+  // each unmapped folder's name IS the row id, matching importMangaStore's
+  // row-id contract.
+  const selectItems = useMemo(
+    () => unmappedFolders.map((uf) => ({ id: uf.name })),
+    [unmappedFolders]
+  );
+
   // Seed the store once per rootFolderId mount + on every defaults change.
-  // The store's seedImportMangaItems action replaces items + lookupQueue
-  // wholesale; previous mounts of this same rootFolderId pass through the
-  // useApiQuery cache so per-row lookups don't re-fire.
   useEffect(() => {
     if (rootFoldersFetched && unmappedFolders.length > 0) {
       seedImportMangaItems(seedItems);
     }
   }, [rootFoldersFetched, unmappedFolders.length, seedItems]);
 
-  // L-LOOKUP-RACE — clear the store on unmount or rootFolderId change
-  // so any late-arriving useLookupManga resolutions resolve into a
-  // missing-row state and silently no-op per importMangaStore's
-  // updateImportMangaItem guard.
+  // L-LOOKUP-RACE — clear the store on unmount or rootFolderId change.
   useEffect(() => {
     return () => {
       clearImportManga();
@@ -184,31 +188,39 @@ function ImportManga() {
   }
 
   return (
-    <PageContent title={translate('ImportManga')}>
-      <PageContentBody>
-        <div data-testid="import-manga-page" className={styles.scanContainer}>
-          {unmappedFolders.length === 0 ? (
-            <div className={styles.emptyState}>
-              {translate('NoUnmappedFolders')}
-            </div>
-          ) : (
-            <Table columns={COLUMNS}>
-              <TableBody>
-                {unmappedFolders.map((uf) => (
-                  <ImportMangaRow key={uf.path} unmappedFolder={uf} />
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
+    <SelectProvider items={selectItems}>
+      <PageContent title={translate('ImportManga')}>
+        <PageContentBody>
+          <div data-testid="import-manga-page" className={styles.scanContainer}>
+            {!rootFoldersError && !!rootFoldersError === false ? null : null}
+
+            {rootFoldersFetched && unmappedFolders.length === 0 ? (
+              <Alert kind={kinds.INFO}>
+                {translate('AllMangaInRootFolderHaveBeenImported', {
+                  path: rootFolder.path,
+                })}
+              </Alert>
+            ) : null}
+
+            {unmappedFolders.length > 0 ? (
+              <Table columns={COLUMNS}>
+                <TableBody>
+                  {unmappedFolders.map((uf) => (
+                    <ImportMangaRow key={uf.path} unmappedFolder={uf} />
+                  ))}
+                </TableBody>
+              </Table>
+            ) : null}
+          </div>
+        </PageContentBody>
 
         {!rootFoldersError &&
         rootFoldersFetched &&
         unmappedFolders.length > 0 ? (
           <ImportMangaFooter rootFolderPath={rootFolder.path} />
         ) : null}
-      </PageContentBody>
-    </PageContent>
+      </PageContent>
+    </SelectProvider>
   );
 }
 

@@ -30,19 +30,23 @@ shape verbatim per Phase 7 D-04; only the form-field set diverges (5-value
 | `*.css` / `*.css.d.ts` | CSS Modules (verbatim copies of AddSeries CSS files; class names auto-scoped). |
 | `CLAUDE.md` | Per-directory documentation. |
 
-### `ImportManga/` — Library-Import Flow (Phase 25.1 Plan 25.1-02)
+### `ImportManga/` — Library-Import Flow (Phase 25.1 Plan 25.1-02 + debug-add-import-ui-mismatch fix 2026-05-19)
 
 Sonarr-canonical two-step library-import flow registered at `/add/import` (post-25.1 — supersedes the Phase 25 `InteractiveImportPage.tsx` manual-import-as-page, deleted in Plan 25.1-02 Task 7's atomic AppRoutes swap). Consumes `useRootFolders()` → `rootFolder.unmappedFolders[]` (the existing `RootFolderResource` substrate; no new V5 endpoint shipped — Option B per RESEARCH §5). Per-row defaults come from `addMangaOptionsStore` (D-05' per RESEARCH §6); per-row state lives in the session-only `importMangaStore` (`create<T>()`, not `createOptionsStore` — clears on unmount).
+
+**debug-add-import-ui-mismatch follow-up (2026-05-19):** Phase 25.1 originally shipped these files as a minimal port (no shared visual shell, no per-row select, no manga override dropdown — see `.planning/debug/add-import-ui-mismatch.md` for the full diff). This follow-up re-ports Sonarr's structural shell — `<PageContentFooter>` sticky footer + `<FieldSet>` + shared `<RootFolders/>` + `<FileBrowserModal>` "Choose another folder" + `<SelectProvider>` + per-row `<TableSelectCell>` + `<ImportMangaSelectManga>` search-dropdown trio + `useExistingManga(mangaDexId)` dedupe — while keeping the manga-domain divergences (5-value `MangaMonitor`, `TranslationProfile` + `CustomFormatProfile` instead of `QualityProfile` + `SeriesType` + `SeasonFolder`).
 
 | File | Purpose |
 |------|---------|
 | `ImportMangaPage.tsx` | Parent Switch host (RR v5 `<Switch>` with `exact` discipline); registers `/add/import` → `ImportMangaSelectFolder` + `/add/import/:rootFolderId` → `ImportManga`. |
 | `importMangaStore.ts` | Per-session zustand `create<T>()` (NOT persisted); holds per-row `selectedManga` / `monitor` / `translationProfileId` / `customFormatProfileId` overrides. Cleared on `ImportMangaPage` unmount per RESEARCH §2.6. |
-| `ImportMangaSelectFolder/ImportMangaSelectFolder.tsx` | `/add/import` sub-page — Root Folders list; navigates to `/add/import/:rootFolderId` on row click. |
-| `ImportMangaSelectFolder/ImportMangaSelectFolderRow.tsx` | One Root Folder row (path, free-space, unmapped-folder count). |
-| `ImportManga/ImportManga.tsx` | `/add/import/:rootFolderId` sub-page — per-folder scan table; one row per `unmappedFolder` on the matched RootFolderResource; fires `GET /api/v5/manga/lookup?term=<folderName>` per row for auto-match. |
-| `ImportManga/ImportMangaRow.tsx` | Per-row state — `selectedManga` (lookup-result override dropdown) + Monitor / TranslationProfile / CustomFormatProfile selects + Import enable state. |
-| `ImportManga/ImportMangaFooter.tsx` | Bulk-apply toolbar — Set Monitoring / TranslationProfile / CustomFormatProfile across selected rows + Import button (POSTs `POST /api/v5/manga` per populated row; redirects to `/` — the MangaIndex library route, since Phase 15 Plan 15-07 flipped root to MangaIndex and there is no `/manga` route). |
+| `ImportMangaSelectFolder/ImportMangaSelectFolder.tsx` | `/add/import` sub-page — centered header + 3-bullet tips + `<FieldSet legend="Root Folders">` wrapping the shared `<RootFolders/>` table + primary "Choose another folder" `<Button>` + `<FileBrowserModal>` for adding a new root folder + `addError` `<Alert>`. The bespoke `ImportMangaSelectFolderRow.tsx` was deleted in the debug-add-import-ui-mismatch fix — the shared `RootFolderRow.tsx` (Path / FreeSpace / UnmappedFolders / delete-X anchor link to `/add/import/:id`) replaces it. |
+| `ImportManga/ImportManga.tsx` | `/add/import/:rootFolderId` sub-page — wrapped in `<SelectProvider>`; per-folder scan table; empty-state is an `<Alert kind={kinds.INFO}>` with `AllMangaInRootFolderHaveBeenImported`; `<ImportMangaFooter>` lives OUTSIDE `<PageContentBody>` so it sticks. |
+| `ImportManga/ImportMangaRow.tsx` | Per-row — `<TableSelectCell>` checkbox wired to `useSelect<ImportMangaItem>()`, Monitor / TranslationProfile / CustomFormatProfile selects, `<ImportMangaSelectManga>` override-dropdown, `useExistingManga(selectedManga?.mangaDexId)` greys out + disables already-imported rows. |
+| `ImportManga/ImportMangaFooter.tsx` | `<PageContentFooter>` sticky shell with 3 bulk selects (writes only to SELECTED rows via `getSelectedIds()`), "Import {selectedCount} Manga" SpinnerButton, StartProcessing / CancelProcessing buttons + ImportErrors `<Popover>`. |
+| `ImportManga/SelectManga/ImportMangaSelectManga.tsx` | Per-row search-dropdown popover (peer of Sonarr's `ImportSeriesSelectSeries`) — floating-ui-positioned, debounced text input, scrollable result list. |
+| `ImportManga/SelectManga/ImportMangaSearchResult.tsx` | One result card (peer of `ImportSeriesSearchResult`) — clickable `<ImportMangaTitle>` + external-link icon to `https://mangadex.org/title/{mangaDexId}`. |
+| `ImportManga/SelectManga/ImportMangaTitle.tsx` | Selected-title chip (peer of `ImportSeriesTitle`) — title + year + metadataSource label (MangaDex / AniList / MyAnimeList) + "Existing" warning chip when `useExistingManga` matches. |
 | `*.css` / `*.css.d.ts` | CSS Modules per Mangarr frontend convention (plain `.css` extension; webpack auto-scopes; `.css.d.ts` is build-emitted). |
 
 ## Patterns / Conventions
