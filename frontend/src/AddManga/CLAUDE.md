@@ -30,6 +30,21 @@ shape verbatim per Phase 7 D-04; only the form-field set diverges (5-value
 | `*.css` / `*.css.d.ts` | CSS Modules (verbatim copies of AddSeries CSS files; class names auto-scoped). |
 | `CLAUDE.md` | Per-directory documentation. |
 
+### `ImportManga/` — Library-Import Flow (Phase 25.1 Plan 25.1-02)
+
+Sonarr-canonical two-step library-import flow registered at `/add/import` (post-25.1 — supersedes the Phase 25 `InteractiveImportPage.tsx` manual-import-as-page, deleted in Plan 25.1-02 Task 7's atomic AppRoutes swap). Consumes `useRootFolders()` → `rootFolder.unmappedFolders[]` (the existing `RootFolderResource` substrate; no new V5 endpoint shipped — Option B per RESEARCH §5). Per-row defaults come from `addMangaOptionsStore` (D-05' per RESEARCH §6); per-row state lives in the session-only `importMangaStore` (`create<T>()`, not `createOptionsStore` — clears on unmount).
+
+| File | Purpose |
+|------|---------|
+| `ImportMangaPage.tsx` | Parent Switch host (RR v5 `<Switch>` with `exact` discipline); registers `/add/import` → `ImportMangaSelectFolder` + `/add/import/:rootFolderId` → `ImportManga`. |
+| `importMangaStore.ts` | Per-session zustand `create<T>()` (NOT persisted); holds per-row `selectedManga` / `monitor` / `translationProfileId` / `customFormatProfileId` overrides. Cleared on `ImportMangaPage` unmount per RESEARCH §2.6. |
+| `ImportMangaSelectFolder/ImportMangaSelectFolder.tsx` | `/add/import` sub-page — Root Folders list; navigates to `/add/import/:rootFolderId` on row click. |
+| `ImportMangaSelectFolder/ImportMangaSelectFolderRow.tsx` | One Root Folder row (path, free-space, unmapped-folder count). |
+| `ImportManga/ImportManga.tsx` | `/add/import/:rootFolderId` sub-page — per-folder scan table; one row per `unmappedFolder` on the matched RootFolderResource; fires `GET /api/v5/manga/lookup?term=<folderName>` per row for auto-match. |
+| `ImportManga/ImportMangaRow.tsx` | Per-row state — `selectedManga` (lookup-result override dropdown) + Monitor / TranslationProfile / CustomFormatProfile selects + Import enable state. |
+| `ImportManga/ImportMangaFooter.tsx` | Bulk-apply toolbar — Set Monitoring / TranslationProfile / CustomFormatProfile across selected rows + Import button (POSTs `POST /api/v5/manga` per populated row; redirects to `/manga`). |
+| `*.css` / `*.css.d.ts` | CSS Modules per Mangarr frontend convention (plain `.css` extension; webpack auto-scopes; `.css.d.ts` is build-emitted). |
+
 ## Patterns / Conventions
 
 - **localStorage key:** `add_manga_options` (NOT `add_series_options`). See
