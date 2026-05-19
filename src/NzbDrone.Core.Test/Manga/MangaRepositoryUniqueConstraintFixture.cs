@@ -1,6 +1,7 @@
 using System;
 using System.Data.SQLite;
 using FluentAssertions;
+using Npgsql;
 using NUnit.Framework;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Test.Framework;
@@ -17,14 +18,19 @@ namespace NzbDrone.Core.Test.MangaTests
     // Manga rows pointing at the same canonical metadata.
     //
     // The fix is two-layered: this fixture exercises the DB-layer constraint
-    // directly (asserting that the second Insert surfaces SQLiteException with
-    // ResultCode == Constraint). The MangaController.AddManga catch-block that
-    // maps the constraint violation to HTTP 409 Conflict is verified by the
+    // directly (asserting that the second Insert surfaces the dialect-specific
+    // constraint violation). The MangaController.AddManga catch-blocks that map
+    // the constraint violation to HTTP 409 Conflict are verified by the
     // integration / live-verify path in the PR body.
     //
     // SQLite + PostgreSQL both treat NULL as distinct per ANSI SQL — multiple
     // null-Id rows must remain legal because every Manga only needs ONE of the
     // three IDs populated (MangaController.PostValidator at MangaController.cs:72-74).
+    //
+    // The DbTest framework switches between SQLite (default) and PostgreSQL
+    // based on PostgresOptions env-driven host detection; this fixture covers
+    // BOTH dialects via a single assertion helper that maps the column-axis
+    // hint to either SQLiteException.Message or PostgresException.ConstraintName.
     [TestFixture]
     public class MangaRepositoryUniqueConstraintFixture : DbTest<MangaRepository, MangaModel>
     {
@@ -45,6 +51,28 @@ namespace NzbDrone.Core.Test.MangaTests
             };
         }
 
+        // Provider-agnostic assertion: SQLite throws SQLiteException with
+        // ResultCode == Constraint and a message of form
+        // "UNIQUE constraint failed: Manga.<Column>"; PostgreSQL throws
+        // PostgresException with SqlState == "23505" and ConstraintName like
+        // "IX_Manga_<Column>". Match on the column hint that's common to both.
+        private static bool IsUniqueConstraintViolation(Exception ex, string columnHint)
+        {
+            if (ex is SQLiteException sqliteEx)
+            {
+                return sqliteEx.ResultCode == SQLiteErrorCode.Constraint &&
+                       sqliteEx.Message.Contains(columnHint, StringComparison.Ordinal);
+            }
+
+            if (ex is PostgresException pgEx)
+            {
+                return pgEx.SqlState == "23505" &&
+                       (pgEx.ConstraintName?.Contains(columnHint, StringComparison.Ordinal) ?? false);
+            }
+
+            return false;
+        }
+
         [Test]
         public void Insert_with_duplicate_MangaDexId_throws_constraint_violation()
         {
@@ -53,9 +81,9 @@ namespace NzbDrone.Core.Test.MangaTests
 
             Action act = () => Subject.Insert(BuildManga("Naruto-dup", mangaDexId: mangaDexId));
 
-            act.Should().Throw<SQLiteException>()
-                .Where(ex => ex.ResultCode == SQLiteErrorCode.Constraint,
-                    "the UNIQUE index IX_Manga_MangaDexId must reject the second insert");
+            act.Should().Throw<Exception>()
+                .Where(ex => IsUniqueConstraintViolation(ex, "MangaDexId"),
+                    "the UNIQUE index IX_Manga_MangaDexId must reject the second insert (SQLite or PostgreSQL)");
         }
 
         [Test]
@@ -65,9 +93,9 @@ namespace NzbDrone.Core.Test.MangaTests
 
             Action act = () => Subject.Insert(BuildManga("Naruto-dup", malId: 11));
 
-            act.Should().Throw<SQLiteException>()
-                .Where(ex => ex.ResultCode == SQLiteErrorCode.Constraint,
-                    "the UNIQUE index IX_Manga_MalId must reject the second insert");
+            act.Should().Throw<Exception>()
+                .Where(ex => IsUniqueConstraintViolation(ex, "MalId"),
+                    "the UNIQUE index IX_Manga_MalId must reject the second insert (SQLite or PostgreSQL)");
         }
 
         [Test]
@@ -77,9 +105,9 @@ namespace NzbDrone.Core.Test.MangaTests
 
             Action act = () => Subject.Insert(BuildManga("Naruto-dup", aniListId: 101));
 
-            act.Should().Throw<SQLiteException>()
-                .Where(ex => ex.ResultCode == SQLiteErrorCode.Constraint,
-                    "the UNIQUE index IX_Manga_AniListId must reject the second insert");
+            act.Should().Throw<Exception>()
+                .Where(ex => IsUniqueConstraintViolation(ex, "AniListId"),
+                    "the UNIQUE index IX_Manga_AniListId must reject the second insert (SQLite or PostgreSQL)");
         }
 
         [Test]

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NLog;
+using Npgsql;
 using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Manga.Commands;
@@ -151,7 +152,8 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
             // Conflict instead of 500.
             return TypedResults.Conflict(ex.Message);
         }
-        catch (SQLiteException ex) when (ex.ResultCode == SQLiteErrorCode.Constraint)
+        catch (SQLiteException ex) when (ex.ResultCode == SQLiteErrorCode.Constraint &&
+                                         IsMangaExternalIdUniqueViolation(ex.Message))
         {
             // Issue #213 fix: when two concurrent POSTs both pass the in-memory
             // FindByMangaDexId / FindByMalId / FindByAniListId checks in
@@ -160,9 +162,52 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
             // IX_Manga_*) surface the second-comer as a SQLITE_CONSTRAINT violation
             // on Insert. Map to 409 Conflict — first-wins semantic, matching the
             // existing happy-path InvalidOperationException branch above.
+            //
+            // The `when` predicate gates this catch to UNIQUE violations on the
+            // external-ID columns specifically; any other constraint violation
+            // (NOT NULL, CHECK, FK) propagates unchanged so the caller sees the
+            // true 500 root cause rather than a misleading 409. CodeRabbit
+            // review on PR #214 surfaced the over-broad-catch concern.
             _logger.Debug(ex, "Add Manga rejected by UNIQUE constraint (concurrent-POST race; issue #213)");
             return TypedResults.Conflict("Manga with this external ID already exists");
         }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation &&
+                                           IsMangaExternalIdConstraint(ex.ConstraintName))
+        {
+            // PostgreSQL peer of the SQLite block above. The unit_test_postgres
+            // CI job exercises this path; the FluentMigrator-emitted UNIQUE
+            // indexes carry the same names across both dialects (IX_Manga_*),
+            // so ConstraintName matching gives us the same precision the SQLite
+            // column-name match provides.
+            _logger.Debug(ex, "Add Manga rejected by UNIQUE constraint (concurrent-POST race; issue #213)");
+            return TypedResults.Conflict("Manga with this external ID already exists");
+        }
+    }
+
+    // Issue #213 — gate the SQLite Constraint catch to UNIQUE violations on the
+    // three external-ID columns only. SQLite's UNIQUE-violation message form is
+    // `UNIQUE constraint failed: Manga.<Column>` — match on the qualified column
+    // name so the gate doesn't false-positive on a violation against an unrelated
+    // index/table (or a future NOT NULL / CHECK constraint on the Manga table).
+    private static bool IsMangaExternalIdUniqueViolation(string? message)
+    {
+        if (string.IsNullOrEmpty(message))
+        {
+            return false;
+        }
+
+        return message.Contains("Manga.MangaDexId", StringComparison.Ordinal) ||
+               message.Contains("Manga.MalId", StringComparison.Ordinal) ||
+               message.Contains("Manga.AniListId", StringComparison.Ordinal);
+    }
+
+    // Postgres peer — match against the index name carried verbatim on
+    // PostgresException.ConstraintName by Npgsql.
+    private static bool IsMangaExternalIdConstraint(string? constraintName)
+    {
+        return constraintName is "IX_Manga_MangaDexId"
+                              or "IX_Manga_MalId"
+                              or "IX_Manga_AniListId";
     }
 
     [RestPutById]
