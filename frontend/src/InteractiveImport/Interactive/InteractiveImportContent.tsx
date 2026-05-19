@@ -917,7 +917,7 @@ function InteractiveImportContentInner(
             </span>
           ) : null}
 
-          <Button onPress={onCancel}>Cancel</Button>
+          <Button onPress={onCancel}>{translate('Cancel')}</Button>
 
           <Button
             kind={kinds.SUCCESS}
