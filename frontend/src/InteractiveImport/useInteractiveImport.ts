@@ -14,8 +14,8 @@ import { useCallback, useMemo } from 'react';
 import ModelBase from 'App/ModelBase';
 import useApiMutation from 'Helpers/Hooks/useApiMutation';
 import useApiQuery from 'Helpers/Hooks/useApiQuery';
-import clientSideFilterAndSort from 'Utilities/Filter/clientSideFilterAndSort';
 import ExistingFileBehavior from 'typings/ExistingFileBehavior';
+import clientSideFilterAndSort from 'Utilities/Filter/clientSideFilterAndSort';
 import InteractiveImport from './InteractiveImport';
 import { useInteractiveImportOptions } from './interactiveImportOptionsStore';
 import ReleaseType from './ReleaseType';
@@ -87,7 +87,9 @@ export const useUpdateInteractiveImportItem = () => {
           }
 
           return oldData.map((item) => {
-            return item.id === id ? ({ ...item, ...updates } as InteractiveImport) : item;
+            return item.id === id
+              ? ({ ...item, ...updates } as InteractiveImport)
+              : item;
           });
         }
       );
@@ -111,7 +113,9 @@ export const useUpdateInteractiveImportItems = () => {
           }
 
           return oldData.map((item) => {
-            return ids.includes(item.id) ? ({ ...item, ...updates } as InteractiveImport) : item;
+            return ids.includes(item.id)
+              ? ({ ...item, ...updates } as InteractiveImport)
+              : item;
           });
         }
       );

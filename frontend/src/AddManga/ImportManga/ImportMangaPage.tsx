@@ -38,10 +38,7 @@ function ImportMangaPage() {
         path="/add/import"
         component={ImportMangaSelectFolder}
       />
-      <Route
-        path="/add/import/:rootFolderId"
-        component={ImportManga}
-      />
+      <Route path="/add/import/:rootFolderId" component={ImportManga} />
     </Switch>
   );
 }

@@ -265,8 +265,10 @@ function InteractiveImportContentInner(
   // Phase 17.3 P-007 defensive `?? []` — `data` from useInteractiveImport is
   // already `?? DEFAULT_ITEMS` inside the hook, but we re-assert here so the
   // downstream `.length` / `.find` / `.reduce` calls never crash if the
-  // hook's contract ever drifts.
-  const items = data ?? [];
+  // hook's contract ever drifts. Wrap in useMemo so the array reference is
+  // stable across renders (4 downstream useMemo/useCallback hooks reference
+  // `items` and would re-fire on every render otherwise — react-hooks/exhaustive-deps).
+  const items = useMemo(() => data ?? [], [data]);
 
   // Plan 25-04 Task 4 — TV-shape delete-files flow gated for v1; no manga
   // ChapterFile peer ships in v1 (Plan 17.3-16 Task 4 deferrals audit).
@@ -277,10 +279,7 @@ function InteractiveImportContentInner(
     (_args: { chapterFileIds: number[] }) => undefined,
     []
   );
-  const updateChapterFiles = useCallback(
-    (_files: unknown[]) => undefined,
-    []
-  );
+  const updateChapterFiles = useCallback((_files: unknown[]) => undefined, []);
 
   const [invalidRowsSelected, setInvalidRowsSelected] = useState<number[]>([]);
   const [

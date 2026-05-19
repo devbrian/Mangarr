@@ -173,4 +173,7 @@ export const seedImportMangaItems = (items: ImportMangaItem[]) => {
   });
 };
 
-export default useImportMangaStore;
+// No default export — ESLint `filenames/match-exported` rule requires the
+// filename to match the default-export identifier. All 3 consumers
+// (ImportManga.tsx + ImportMangaFooter.tsx + ImportMangaRow.tsx) use named
+// imports from this module, so the default export is unnecessary.

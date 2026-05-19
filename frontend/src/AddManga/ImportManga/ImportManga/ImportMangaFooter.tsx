@@ -17,14 +17,14 @@
 // deletes.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router-dom';
+import Form from 'Components/Form/Form';
+import FormGroup from 'Components/Form/FormGroup';
+import FormLabel from 'Components/Form/FormLabel';
 import EnhancedSelectInput, {
   EnhancedSelectInputValue,
 } from 'Components/Form/Select/EnhancedSelectInput';
 import MonitorChaptersSelectInput from 'Components/Form/Select/MonitorChaptersSelectInput';
 import TranslationProfileSelectInput from 'Components/Form/Select/TranslationProfileSelectInput';
-import Form from 'Components/Form/Form';
-import FormGroup from 'Components/Form/FormGroup';
-import FormLabel from 'Components/Form/FormLabel';
 import SpinnerButton from 'Components/Link/SpinnerButton';
 import useApiQuery from 'Helpers/Hooks/useApiQuery';
 import { kinds } from 'Helpers/Props';
@@ -34,11 +34,11 @@ import translate from 'Utilities/String/translate';
 import { useAddManga } from '../../AddNewManga/useAddManga';
 import {
   ImportMangaItem,
+  startProcessing,
+  stopProcessing,
   updateImportMangaItem,
   useImportMangaItems,
   useIsImportMangaProcessing,
-  startProcessing,
-  stopProcessing,
 } from '../importMangaStore';
 import styles from './ImportMangaFooter.css';
 

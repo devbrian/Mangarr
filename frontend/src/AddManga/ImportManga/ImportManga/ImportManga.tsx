@@ -84,8 +84,9 @@ const COLUMNS: Column[] = [
 ];
 
 function ImportManga() {
-  const { rootFolderId: rootFolderIdParam } =
-    useParams<{ rootFolderId: string }>();
+  const { rootFolderId: rootFolderIdParam } = useParams<{
+    rootFolderId: string;
+  }>();
   const rootFolderId = Number(rootFolderIdParam);
 
   const {
@@ -96,8 +97,13 @@ function ImportManga() {
   } = useRootFolders();
   const rootFolder = rootFolders.find((rf) => rf.id === rootFolderId);
   // P-007 defensive `?? []` — rootFolder may be undefined while
-  // useRootFolders() is still resolving.
-  const unmappedFolders: UnmappedFolder[] = rootFolder?.unmappedFolders ?? [];
+  // useRootFolders() is still resolving. Wrap in useMemo so the array
+  // reference is stable across renders (otherwise the seedItems useMemo
+  // below would re-fire on every render — react-hooks/exhaustive-deps).
+  const unmappedFolders = useMemo<UnmappedFolder[]>(
+    () => rootFolder?.unmappedFolders ?? [],
+    [rootFolder]
+  );
 
   // Per-row defaults sourced from addMangaOptionsStore per D-05'
   // (NOT from RootFolderResource fields — those don't exist on
@@ -169,10 +175,7 @@ function ImportManga() {
     return (
       <PageContent title={translate('ImportManga')}>
         <PageContentBody>
-          <div
-            className={styles.emptyState}
-            data-testid="import-manga-page"
-          >
+          <div className={styles.emptyState} data-testid="import-manga-page">
             {translate('RootFolderNotFound')}
           </div>
         </PageContentBody>

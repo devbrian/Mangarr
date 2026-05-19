@@ -15,8 +15,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelect } from 'App/Select/SelectContext';
 import Chapter from 'Chapter/Chapter';
-import Icon from 'Components/Icon';
 import SelectInput, { SelectInputOption } from 'Components/Form/SelectInput';
+import Icon from 'Components/Icon';
 import TableRowCell from 'Components/Table/Cells/TableRowCell';
 import TableRowCellButton from 'Components/Table/Cells/TableRowCellButton';
 import TableSelectCell from 'Components/Table/Cells/TableSelectCell';
@@ -51,11 +51,7 @@ import styles from './InteractiveImportRow.css';
 // Phase 5 D-04; releaseGroup is preserved on the legacy TV fallback only,
 // not the manga rows). Only manga + chapter + indexerFlags + releaseType
 // editing remain.
-type SelectType =
-  | 'manga'
-  | 'chapter'
-  | 'indexerFlags'
-  | 'releaseType';
+type SelectType = 'manga' | 'chapter' | 'indexerFlags' | 'releaseType';
 
 type SelectedChangeProps = SelectStateInputProps & {
   hasChapterFileId: boolean;
@@ -337,9 +333,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
       {isMangaColumnVisible ? (
         <TableRowCellButton
           isDisabled={!allowMangaChange}
-          title={
-            allowMangaChange ? translate('ClickToChangeManga') : undefined
-          }
+          title={allowMangaChange ? translate('ClickToChangeManga') : undefined}
           data-testid={`${rowTestId}-manga`}
           onPress={onSelectMangaPress}
         >
@@ -381,9 +375,7 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
           per D-04 (Sonarr-canonical). testid prefix
           `existing-file-behavior-{rowId}` registered in 25-01
           data-testid-spec.md ledger. */}
-      <TableRowCell
-        data-testid={`existing-file-behavior-${id}`}
-      >
+      <TableRowCell data-testid={`existing-file-behavior-${id}`}>
         <SelectInput
           name={`existing-file-behavior-${id}`}
           value={currentExistingFileBehavior}

@@ -211,6 +211,58 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
   //   interactive-search-row-{guid}-grab-button
   const rowTestId = `interactive-search-row-${guid}`;
 
+  // Plan 25-04 Task 5 (v1.1-04 OverrideMatch split) — extracted from the
+  // JSX return to satisfy ESLint no-nested-ternary. searchPayload.kind
+  // narrows the three modal flavors; see the comment block at the JSX call
+  // site for the wire-format rationale (mangaId=0 sentinel for chapter flavor).
+  const renderOverrideMatchModal = () => {
+    if (searchPayload.kind === 'chapter') {
+      return (
+        <ChapterOverrideMatchModal
+          isOpen={isOverrideModalOpen}
+          title={title}
+          indexerId={indexerId}
+          guid={guid}
+          mangaId={0}
+          chapterIds={[searchPayload.chapterId]}
+          protocol={protocol}
+          onModalClose={onOverrideModalClose}
+        />
+      );
+    }
+    if (searchPayload.kind === 'manga') {
+      return (
+        <MangaOverrideMatchModal
+          isOpen={isOverrideModalOpen}
+          title={title}
+          indexerId={indexerId}
+          guid={guid}
+          mangaId={searchPayload.mangaId}
+          protocol={protocol}
+          onModalClose={onOverrideModalClose}
+        />
+      );
+    }
+    return (
+      <OverrideMatchModal
+        isOpen={isOverrideModalOpen}
+        title={title}
+        indexerId={indexerId}
+        guid={guid}
+        seriesId={mappedSeriesId}
+        seasonNumber={mappedSeasonNumber}
+        episodes={mappedEpisodeInfo}
+        languages={languages}
+        quality={quality}
+        protocol={protocol}
+        isGrabbing={tvGrab.isGrabbing}
+        grabError={tvGrab.grabError}
+        grabRelease={tvGrab.grabRelease}
+        onModalClose={onOverrideModalClose}
+      />
+    );
+  };
+
   return (
     <TableRow data-testid={rowTestId}>
       <TableRowCell className={styles.protocol}>
@@ -402,45 +454,7 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
           + 25-REVIEW.md §WR-04 for the full disposition. The backend
           MangaReleaseController accepts mangaId=0 as the documented
           chapter-flavored override shape. */}
-      {searchPayload.kind === 'chapter' ? (
-        <ChapterOverrideMatchModal
-          isOpen={isOverrideModalOpen}
-          title={title}
-          indexerId={indexerId}
-          guid={guid}
-          mangaId={0}
-          chapterIds={[searchPayload.chapterId]}
-          protocol={protocol}
-          onModalClose={onOverrideModalClose}
-        />
-      ) : searchPayload.kind === 'manga' ? (
-        <MangaOverrideMatchModal
-          isOpen={isOverrideModalOpen}
-          title={title}
-          indexerId={indexerId}
-          guid={guid}
-          mangaId={searchPayload.mangaId}
-          protocol={protocol}
-          onModalClose={onOverrideModalClose}
-        />
-      ) : (
-        <OverrideMatchModal
-          isOpen={isOverrideModalOpen}
-          title={title}
-          indexerId={indexerId}
-          guid={guid}
-          seriesId={mappedSeriesId}
-          seasonNumber={mappedSeasonNumber}
-          episodes={mappedEpisodeInfo}
-          languages={languages}
-          quality={quality}
-          protocol={protocol}
-          isGrabbing={tvGrab.isGrabbing}
-          grabError={tvGrab.grabError}
-          grabRelease={tvGrab.grabRelease}
-          onModalClose={onOverrideModalClose}
-        />
-      )}
+      {renderOverrideMatchModal()}
     </TableRow>
   );
 }

@@ -36,6 +36,18 @@ public class ManualImportResource : RestResource
     [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public override int Id { get; set; }
 
+    // Phase 25 v1.1-03 discriminator union — matches the frontend
+    // `ImportSourceKind` literal-string union in
+    // `frontend/src/InteractiveImport/InteractiveImport.ts`. Required by
+    // `InteractiveImportContent.tsx:557-562` to gate whether `downloadId` /
+    // `chapterFileId` survive into the bulk-import command payload (without
+    // it, every row strips both fields and the ManualImport command loses
+    // download/existing-file context for the queue + library paths).
+    // Mapper derives the value from `ChapterFileId.HasValue` /
+    // `DownloadId.IsNotNullOrWhiteSpace` per call shape (see
+    // `ManualImportResourceMapper.ToResource`).
+    public string? Kind { get; set; }
+
     public string? Path { get; set; }
     public string? RelativePath { get; set; }
     public string? FolderName { get; set; }

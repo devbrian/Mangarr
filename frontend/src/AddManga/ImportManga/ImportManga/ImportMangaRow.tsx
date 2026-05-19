@@ -95,18 +95,18 @@ function ImportMangaRow({ unmappedFolder }: ImportMangaRowProps) {
   // Guarded by `hasSearched` so user overrides via the dropdown are not
   // clobbered by a delayed re-render.
   useEffect(() => {
-    if (
-      isFetched &&
-      lookupResults.length > 0 &&
-      item &&
-      !item.hasSearched
-    ) {
+    if (isFetched && lookupResults.length > 0 && item && !item.hasSearched) {
       updateImportMangaItem(rowId, {
         hasSearched: true,
         selectedManga: lookupResults[0],
       });
       removeFromLookupQueue(rowId);
-    } else if (isFetched && lookupResults.length === 0 && item && !item.hasSearched) {
+    } else if (
+      isFetched &&
+      lookupResults.length === 0 &&
+      item &&
+      !item.hasSearched
+    ) {
       // No results — mark searched (silently) so the next row's lookup
       // can fire. hasSearched flips true, selectedManga stays undefined;
       // user must override via the dropdown to include this row in the
@@ -119,7 +119,9 @@ function ImportMangaRow({ unmappedFolder }: ImportMangaRowProps) {
   // Pull store defaults again as a fallback when the row's item has not
   // yet been seeded into the store on first render.
   const fallbackMonitor = useAddMangaOption('monitor') as MangaMonitor;
-  const fallbackTranslationProfileId = useAddMangaOption('translationProfileId');
+  const fallbackTranslationProfileId = useAddMangaOption(
+    'translationProfileId'
+  );
   const fallbackCustomFormatProfileId = useAddMangaOption(
     'customFormatProfileId'
   );

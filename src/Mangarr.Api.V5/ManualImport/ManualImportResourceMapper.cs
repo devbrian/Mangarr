@@ -1,5 +1,7 @@
 using Mangarr.Api.V5.Manga;
 using Mangarr.Api.V5.Manga.Chapter;
+using NzbDrone.Common.Crypto;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.MediaFiles.MangaImport.Manual;
 
@@ -28,8 +30,32 @@ public static class ManualImportResourceMapper
 {
     public static ManualImportResource ToResource(this ManualImportItem model)
     {
+        // Codex review P1.1 — derive a deterministic per-row Id by hashing
+        // the Path. Mirrors Sonarr V3 `ManualImportResource.ToResource`
+        // (HashConverter.GetHashInt31 — pinned SHA dfb157382b20a2d4eb5f5828a6c1e276c0d6b160).
+        // Without this, every row serialized as `id: 0`, and the FE table
+        // (which keys selection by `item.id`) treated all rows as a single
+        // selection group — selecting one row marked every row selected and
+        // the import loop processed all of them.
+        //
+        // Codex review P1.2 — derive the `kind` discriminator from the call
+        // shape so the FE's typed discriminated union narrows correctly
+        // (`InteractiveImportContent.tsx:557-562` strips downloadId /
+        // chapterFileId when kind is undefined; the queue + existing-library
+        // import paths silently lost context without this field).
+        //   * ChapterFileId.HasValue       → "manga-imported" (existing library row)
+        //   * DownloadId is non-empty       → "queue-source"   (active-download row)
+        //   * otherwise                     → "folder-source"  (folder-scan row)
+        var kind = model.ChapterFileId.HasValue
+            ? "manga-imported"
+            : model.DownloadId.IsNotNullOrWhiteSpace()
+                ? "queue-source"
+                : "folder-source";
+
         return new ManualImportResource
         {
+            Id = HashConverter.GetHashInt31(model.Path),
+            Kind = kind,
             Path = model.Path,
             RelativePath = model.RelativePath,
             FolderName = model.FolderName,
