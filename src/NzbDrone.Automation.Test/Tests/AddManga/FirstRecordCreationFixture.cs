@@ -14,7 +14,7 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 ///
 /// Drives the full /add/import library-import path against a fresh DB:
 ///   1. baseline RootFolder seeded by AutomationTest.OneTimeSetUp
-///   2. OneTimeSetUp drops one manga subfolder ("Solo Leveling/") + CBZ inside
+///   2. OneTimeSetUp drops one manga subfolder (MangaDex UUID) + CBZ inside
 ///      the baseline root so the scan view surfaces ≥1 unmapped folder row.
 ///   3. UI drive: SelectFolder → click root → ImportManga scan → wait for
 ///      per-row lookup → click bulk Import.
@@ -32,7 +32,19 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 [Category("PRSmoke")]
 public class FirstRecordCreationFixture : AutomationTest
 {
-    private const string MangaFolderName = "Solo Leveling";
+    // The folder name IS the search term passed to useLookupManga via
+    // `?term=<folderName>` on `/api/v5/manga/lookup`. Using the MangaDex UUID
+    // (canonical "Komi Can't Communicate" — the same value AddMangaSearchFixture +
+    // AddMangaFlowFixture pin for Replay-mode cassette coverage) routes through
+    // MangaLookupController's UUID-detection branch (MangaLookupController.cs:44),
+    // which hits the cassette-covered by-id lookup path. Term-based search like
+    // "Solo Leveling" would need a separate cassette that doesn't currently exist
+    // and would fail CI Replay mode with a 20s lookup-population timeout.
+    //
+    // The auto-match resolves to "Komi Can't Communicate" — the test does NOT
+    // assert on title text (only on populated `:not(:empty)` selectedManga
+    // cell), so any cassette-covered match works.
+    private const string MangaFolderName = "a96676e5-8ae2-425e-b549-7f15dd34a6d8";
 
     [OneTimeSetUp]
     public async Task SeedLibraryImportFixturesAsync()
@@ -45,10 +57,9 @@ public class FirstRecordCreationFixture : AutomationTest
         // AutomationTest.OneTimeSetUp seeds the baseline root folder at
         // Runner.AppData/MangaLibrary (AutomationTest.cs:104). Drop one manga
         // subfolder + minimal CBZ inside it so the /add/import scan surfaces
-        // exactly 1 unmapped-folder row. Folder name "Solo Leveling" is the
-        // same target AddMangaFlowFixture uses for cassette coverage of the
-        // lookup path; per-row useLookupManga can resolve a real match against
-        // it under either Live or Replay mode.
+        // exactly 1 unmapped-folder row. Folder name uses the MangaDex UUID
+        // for cassette-covered Replay-mode lookup (see MangaFolderName
+        // constant comment).
         var baselineRoot = Path.Combine(Runner.AppData, "MangaLibrary");
         var mangaFolder = Path.Combine(baselineRoot, MangaFolderName);
         Directory.CreateDirectory(mangaFolder);
@@ -80,7 +91,7 @@ public class FirstRecordCreationFixture : AutomationTest
 
         // Click the first (and only) root folder row. The seeded baseline root
         // is the only one present; SeedLibraryImportFixturesAsync added one
-        // unmapped subfolder ("Solo Leveling") inside it.
+        // unmapped subfolder (the MangaDex UUID) inside it.
         var firstLink = Page
             .Locator("[data-testid^='import-manga-select-folder-row-'][data-testid$='-link']")
             .First;
@@ -102,7 +113,7 @@ public class FirstRecordCreationFixture : AutomationTest
             .BeGreaterThanOrEqualTo(
                 1,
                 "library-import scan must surface ≥1 unmapped-folder row for "
-                + "the seeded 'Solo Leveling' subfolder (Phase 17.3 L-002 "
+                + "the seeded MangaDex-UUID subfolder (Phase 17.3 L-002 "
                 + "first-record-creation contract).");
 
         // Wait for the per-row lookup chain to resolve a populated
@@ -117,10 +128,11 @@ public class FirstRecordCreationFixture : AutomationTest
         populatedCount.Should()
             .BeGreaterThan(
                 0,
-                "useLookupManga('Solo Leveling') must resolve to a populated "
+                "useLookupManga(MangaDex UUID) must resolve to a populated "
                 + "selectedManga.title within 20s of scan render (D-04 + D-03 — "
-                + "top match auto-selects). Cassette/Live mode covers MangaDex "
-                + "GET /api/v5/manga/lookup?term=Solo+Leveling.");
+                + "top match auto-selects). Replay-mode cassette covers the "
+                + "MangaDex by-id lookup via MangaLookupController's "
+                + "UUID-detection branch (line 44).");
 
         // Arm the POST listener BEFORE clicking Import (mirrors
         // ImportMangaFixture.import_persists_manga_and_redirects pattern).
