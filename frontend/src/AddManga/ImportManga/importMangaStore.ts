@@ -28,6 +28,7 @@
 //
 // Phase 8 cleanup: collapse with importSeriesStore when AddSeries/ deletes.
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import { AddMangaResult } from 'AddManga/AddManga';
 import { MangaMonitor } from 'Manga/Manga';
 
@@ -121,8 +122,16 @@ const useImportMangaStore = create<ImportMangaState & ImportMangaActions>(
 export const useImportMangaItem = (id: string): ImportMangaItem | undefined =>
   useImportMangaStore((s) => s.items[id]);
 
+// useShallow memoizes the Object.values() result by shallow array equality so
+// React's useSyncExternalStore getSnapshot does not return a new reference on
+// every call. Without this wrapper, React 18 emits "The result of getSnapshot
+// should be cached to avoid an infinite loop" and tears down the ImportMangaFooter
+// subtree via the ErrorBoundary as soon as ≥1 row is present (surfaced by Plan
+// 25.1-03 first-record smoke; the populated-row branch was previously gated
+// behind Assert.Inconclusive in Plan 25.1-02 fixtures so the bug never tripped
+// live until close-out).
 export const useImportMangaItems = (): ImportMangaItem[] =>
-  useImportMangaStore((s) => Object.values(s.items));
+  useImportMangaStore(useShallow((s) => Object.values(s.items)));
 
 export const useIsCurrentLookupQueueItem = (id: string): boolean =>
   useImportMangaStore((s) => s.lookupQueue[0] === id);
