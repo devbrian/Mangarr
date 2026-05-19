@@ -49,13 +49,22 @@ public class ManualImportController : RestController<ManualImportResource>
     [HttpGet]
     [Produces("application/json")]
     public Ok<List<ManualImportResource>> GetMediaFiles(
-        [FromQuery] string folder,
-        [FromQuery] string downloadId,
-        [FromQuery] int? mangaId,
+        [FromQuery] string? folder = null,
+        [FromQuery] string? downloadId = null,
+        [FromQuery] int? mangaId = null,
         [FromQuery] bool filterExistingFiles = true)
     {
         // NO library-rooted (mangaId, volumeNumber?) overload — Phase 8 audit
         // gap-04 deferred to v1.2 per 25-01-PORT-SOURCE.md §3. Folder-rooted only.
+        //
+        // All query params nullable + default-null per V5 minimal-API binding
+        // contract — Phase 25 post-merge L-002 manual smoke caught that non-
+        // nullable `string` params without defaults are bound as REQUIRED in
+        // .NET 10 minimal-API path, producing HTTP 400 on every page-load
+        // (initial-mount with no folder/downloadId AND folder-only scans).
+        // ManualImportService.GetMediaFiles already returns [] for null folder
+        // and silently skips the downloadId fast-path when null/blank — so
+        // making the params optional restores the Sonarr V3 contract verbatim.
         return TypedResults.Ok(
             _manualImportService.GetMediaFiles(folder, downloadId, mangaId, filterExistingFiles).ToResource());
     }
@@ -64,9 +73,11 @@ public class ManualImportController : RestController<ManualImportResource>
     [HttpPost]
     [Consumes("application/json")]
     [Produces("application/json")]
-    public Ok<List<ManualImportResource>> ReprocessItems([FromBody] List<ManualImportReprocessResource> items)
+    public Ok<List<ManualImportResource>> ReprocessItems([FromBody] List<ManualImportReprocessResource>? items)
     {
+        // Null-coalesce per code-review WR-01 — POST with empty/missing body
+        // would otherwise NRE on the .ToModel() extension call.
         return TypedResults.Ok(
-            _manualImportService.ReprocessItems(items.ToModel()).ToResource());
+            _manualImportService.ReprocessItems((items ?? new List<ManualImportReprocessResource>()).ToModel()).ToResource());
     }
 }
