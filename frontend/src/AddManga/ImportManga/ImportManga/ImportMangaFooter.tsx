@@ -70,7 +70,7 @@ function ImportMangaFooter({ rootFolderPath }: ImportMangaFooterProps) {
   const items = useImportMangaItems();
   const isProcessing = useIsImportMangaProcessing();
   const isLookingUpManga = useLookupQueueHasItems();
-  const { addManga, isAdding, addError } = useAddManga();
+  const { addMangaAsync, addError } = useAddManga();
 
   const { selectedCount, getSelectedIds } = useSelect<ImportMangaItem>();
 
@@ -248,10 +248,10 @@ function ImportMangaFooter({ rootFolderPath }: ImportMangaFooterProps) {
   const submitOne = useCallback(
     (row: ImportMangaItem) => {
       if (!row.selectedManga) {
-        return;
+        return Promise.resolve(undefined);
       }
       const m = row.selectedManga;
-      addManga({
+      return addMangaAsync({
         title: m.title,
         titleSlug: m.titleSlug,
         mangaDexId: m.mangaDexId,
@@ -270,12 +270,12 @@ function ImportMangaFooter({ rootFolderPath }: ImportMangaFooterProps) {
         searchForMissingChapters: false,
       });
     },
-    [addManga, rootFolderPath]
+    [addMangaAsync, rootFolderPath]
   );
 
   const [isImporting, setIsImporting] = useState(false);
 
-  const handleImportPress = useCallback(() => {
+  const handleImportPress = useCallback(async () => {
     const selectedIds = getSelectedIds();
     const selectedRows = items.filter(
       (i) => selectedIds.includes(i.id) && Boolean(i.selectedManga)
@@ -285,8 +285,22 @@ function ImportMangaFooter({ rootFolderPath }: ImportMangaFooterProps) {
     }
     setIsImporting(true);
     startProcessing();
-    selectedRows.forEach(submitOne);
-  }, [items, getSelectedIds, submitOne]);
+    // Promise.allSettled instead of fire-and-forget forEach so the
+    // redirect waits for every selected row to settle. Per CodeRabbit
+    // review (PR #206) — the prior `isImporting && !isAdding` gate fired
+    // on the first row's settlement because `isPending` is a single
+    // boolean, not a per-row tracker. allSettled (vs all) is intentional:
+    // a partial failure should still redirect to the library page where
+    // the partially-imported rows are visible, with the failure surfaced
+    // via the addError popover that's already wired up below.
+    try {
+      await Promise.allSettled(selectedRows.map(submitOne));
+    } finally {
+      setIsImporting(false);
+      stopProcessing();
+      history.push('/');
+    }
+  }, [items, getSelectedIds, submitOne, history]);
 
   const handleLookupPress = useCallback(() => {
     startProcessing();
@@ -295,17 +309,6 @@ function ImportMangaFooter({ rootFolderPath }: ImportMangaFooterProps) {
   const handleCancelLookupPress = useCallback(() => {
     stopProcessing();
   }, []);
-
-  // Watch isAdding transitions to clear isImporting flag + redirect.
-  // Redirect target is `/` (the Manga library index) per AppRoutes.tsx line 84
-  // — Phase 15 Plan 15-07 flipped the root route from SeriesIndex to MangaIndex.
-  useEffect(() => {
-    if (isImporting && !isAdding) {
-      setIsImporting(false);
-      stopProcessing();
-      history.push('/');
-    }
-  }, [isImporting, isAdding, history]);
 
   const hasUnsearchedItems =
     !isLookingUpManga && items.some((i) => !i.hasSearched);

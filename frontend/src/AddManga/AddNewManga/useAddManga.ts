@@ -44,7 +44,16 @@ export const useLookupManga = (query: string, isEnabled = true) => {
 export const useAddManga = () => {
   const queryClient = useQueryClient();
 
-  const { isPending, error, mutate } = useApiMutation<Manga, AddMangaPayload>({
+  // Expose both `mutate` (fire-and-forget) and `mutateAsync` (Promise-returning)
+  // so multi-row import flows (ImportMangaFooter) can `Promise.allSettled` over
+  // every row before redirecting — the single `isPending` boolean flips false
+  // on the first settlement, which is too coarse for a multi-row settlement
+  // gate. Single-row callers (AddNewMangaModalContent) keep using `mutate` +
+  // `isAdding`.
+  const { isPending, error, mutate, mutateAsync } = useApiMutation<
+    Manga,
+    AddMangaPayload
+  >({
     path: '/manga',
     method: 'POST',
     mutationOptions: {
@@ -60,5 +69,6 @@ export const useAddManga = () => {
     isAdding: isPending,
     addError: error,
     addManga: mutate,
+    addMangaAsync: mutateAsync,
   };
 };
