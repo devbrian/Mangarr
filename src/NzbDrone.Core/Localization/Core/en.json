@@ -1096,7 +1096,7 @@
   "InteractiveImportLoadError": "Unable to load manual import items",
   "InteractiveImportMultipleQueueItems": "Multiple Queue Items",
   "InteractiveImportNoChapter": "One or more chapters must be chosen for each selected file",
-  "InteractiveImportNoFilesFound": "No video files were found in the selected folder",
+  "InteractiveImportNoFilesFound": "No manga archive files (CBZ/CBR/CB7/CBT/ZIP/RAR/PDF/EPUB) were found in the selected folder",
   "InteractiveImportNoImportMode": "An import mode must be selected",
   "InteractiveImportNoLanguage": "Language(s) must be chosen for each selected file",
   "InteractiveImportNoManga": "Manga must be chosen for each selected file",
