@@ -1,0 +1,27 @@
+.selectCell {
+  composes: cell from '~Components/Table/Cells/TableRowCell.css';
+
+  width: 40px;
+  text-align: center;
+  color: var(--gray500);
+}
+
+.folder {
+  composes: cell from '~Components/Table/Cells/TableRowCell.css';
+}
+
+.monitor,
+.translationProfile,
+.customFormatProfile {
+  composes: cell from '~Components/Table/Cells/TableRowCell.css';
+
+  width: 200px;
+}
+
+.manga {
+  composes: cell from '~Components/Table/Cells/TableRowCell.css';
+}
+
+.mangaName {
+  font-weight: 500;
+}
