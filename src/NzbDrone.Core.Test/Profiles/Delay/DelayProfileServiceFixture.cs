@@ -140,8 +140,9 @@ namespace NzbDrone.Core.Test.Profiles.Delay
             inserted.Order.Should().Be(int.MaxValue, "Sonarr-canonical sentinel — sorted last so user-added profiles take precedence");
             inserted.PreferredProtocol.Should().Be(DownloadProtocol.Http);
             inserted.HttpDelay.Should().Be(0);
-            inserted.EnableUsenet.Should().BeTrue();
-            inserted.EnableTorrent.Should().BeTrue();
+
+            // Phase 26 Plan 26-03 (DP-02) — the 2 Usenet/Torrent enable-flag asserts
+            // were deleted atomic with the entity prop drop + Migration 003 DDL.
         }
 
         [Test]

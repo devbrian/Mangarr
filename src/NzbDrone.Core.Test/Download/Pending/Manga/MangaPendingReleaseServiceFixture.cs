@@ -38,8 +38,9 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
     //   * 9 public methods (Add / AddMany / GetPending / GetPendingRemoteChapters /
     //     GetPendingQueue / FindPendingQueueItem / RemovePendingQueueItems /
     //     OldestPendingRelease)
-    //   * GetDelay KNOWN LIMITATION pin: DelayProfile.GetProtocolDelay(Http) silently
-    //     returns UsenetDelay (Open Q §3 — fix deferred to v1.1)
+    //   * GetDelay Http path: routes through DelayProfile.HttpDelay (Plan 99-07 + Phase 26
+    //     Plan 26-03 DP-02 — UsenetDelay/TorrentDelay columns and entity props deleted by
+    //     Migration 003; GetProtocolDelay(Http) is the only live branch)
     //
     // Per-plan filter (D-09-12): dotnet test --filter "FullyQualifiedName~MangaPendingReleaseServiceFixture"
     [TestFixture]
@@ -88,7 +89,7 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
                 .Setup(s => s.AllForTags(It.IsAny<HashSet<int>>()))
                 .Returns(new List<DelayProfile>
                 {
-                    new DelayProfile { Order = 0, UsenetDelay = 42, TorrentDelay = 21, PreferredProtocol = DownloadProtocol.Http },
+                    new DelayProfile { Order = 0, PreferredProtocol = DownloadProtocol.Http },
                 });
 
             Mocker.GetMock<IDelayProfileService>()
@@ -538,21 +539,22 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // GetDelay routes Http to the new DelayProfile.HttpDelay column
-        // (Phase 8 Plan 99-07 closed the Open Q §3 KNOWN LIMITATION).
+        // GetDelay routes Http through DelayProfile.HttpDelay (Plan 99-07 closure;
+        // Phase 26 Plan 26-03 DP-02 dropped the dead UsenetDelay/TorrentDelay columns
+        // and entity props — HttpDelay is the only live protocol-delay column).
         // ─────────────────────────────────────────────────────────────────────
 
         [Test]
         public void GetPendingQueue_uses_HttpDelay_for_Http_releases()
         {
-            // Arrange: profile with distinct Usenet / Torrent / Http values so we can detect
-            // which column the GetDelay path resolves. Http should now route to HttpDelay
-            // (was UsenetDelay pre-99-07).
+            // Arrange: profile with HttpDelay=555 so we can detect whether GetDelay
+            // resolves through HttpDelay (it must — Http is now the only live branch
+            // after Phase 26 DP-01/DP-02 dropped the Usenet/Torrent columns).
             Mocker.GetMock<IDelayProfileService>()
                 .Setup(s => s.AllForTags(It.IsAny<HashSet<int>>()))
                 .Returns(new List<DelayProfile>
                 {
-                    new DelayProfile { Order = 0, UsenetDelay = 999, TorrentDelay = 111, HttpDelay = 555, PreferredProtocol = DownloadProtocol.Http },
+                    new DelayProfile { Order = 0, HttpDelay = 555, PreferredProtocol = DownloadProtocol.Http },
                 });
 
             var row = BuildPendingRow(_chapters[0], PendingReleaseReason.Delay, id: 1);
@@ -567,10 +569,10 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
             // Act
             var queue = Subject.GetPendingQueue();
 
-            // Assert: EstimatedCompletionTime must reflect HttpDelay (555 min), neither
-            // UsenetDelay (999) nor TorrentDelay (111). Window-asserts ±60 min around 555
-            // to account for the IConfigService.MinimumAge floor inside GetDelay (defaulted
-            // to 0 in this fixture; explicit floor would shift the window upward).
+            // Assert: EstimatedCompletionTime must reflect HttpDelay (555 min). Window-asserts
+            // ±60 min around 555 to account for the IConfigService.MinimumAge floor inside
+            // GetDelay (defaulted to 0 in this fixture; explicit floor would shift the window
+            // upward).
             queue.Should().HaveCount(1);
             var item = queue.Single();
             item.EstimatedCompletionTime.Should().NotBeNull();
@@ -578,7 +580,7 @@ namespace NzbDrone.Core.Test.Download.Pending.Manga
             deltaMinutes.Should().BeInRange(
                 495,
                 615,
-                "GetDelay should now use HttpDelay (555) per Phase 8 Plan 99-07; UsenetDelay (999) and TorrentDelay (111) must NOT be selected for Http releases");
+                "GetDelay must use HttpDelay (555) for Http releases — Plan 99-07 closure preserved through Phase 26 DP-02 (Usenet/Torrent columns dropped by Migration 003)");
         }
     }
 }
