@@ -74,7 +74,7 @@ export default function useProviderOptions({
           { options?: FieldSelectOption<unknown>[] },
           typeof flattenedData
         >({
-          path: `${urlBase}/api/v3/${provider}/action/${action}`,
+          path: `${urlBase}/api/v5/${provider}/action/${action}`,
           method: 'POST',
           body: flattenedData,
           headers: {
