@@ -82,10 +82,13 @@ public class RequestActionRoundTripFixture : AutomationTest
         // T-V7 token-leak invariant — neither AccessToken nor RefreshToken VALUES leak
         // back through the envelope. Plan 27-02 MangaDexImportListFixture test #1 proves
         // this at the unit tier; the route round-trip re-asserts the contract at the
-        // serialized-body level (which is the wire-level surface).
-        var raw = payload.ToJsonString();
-        raw.Should().NotContain("\"AccessToken\"", "Plan 27-02 T-V7 — token value never echoed through RequestAction envelope.");
-        raw.Should().NotContain("\"RefreshToken\"", "Plan 27-02 T-V7 — refresh-token value never echoed through RequestAction envelope.");
+        // serialized-body level (which is the wire-level surface). The check is
+        // case-insensitive — Newtonsoft serializes anonymous-type properties as
+        // camelCase, so a leaked `accessToken` key would slip past a PascalCase-only
+        // exact-string check.
+        var raw = payload.ToJsonString().ToLowerInvariant();
+        raw.Should().NotContain("\"accesstoken\"", "Plan 27-02 T-V7 — token key/value never echoed through RequestAction envelope.");
+        raw.Should().NotContain("\"refreshtoken\"", "Plan 27-02 T-V7 — refresh-token key/value never echoed through RequestAction envelope.");
     }
 
     [Test]
@@ -120,7 +123,17 @@ public class RequestActionRoundTripFixture : AutomationTest
         // Settings.PendingPkceState, and returns { OauthUrl: <authorize URL> } VERBATIM
         // with `code_challenge_method=plain` + state nonce. Plan 27-04 SUMMARY §"Decisions Made"
         // — deterministic + persists transient flow state (no outbound HTTP).
+        //
+        // Phase 27 post-merge round-2 fix: MAL fails fast when Definition.Id <= 0
+        // (the PKCE state needs to round-trip across the startOAuth → getOAuthToken
+        // boundary via the persisted Settings JSON column). Register a real MAL row
+        // first so the action call sees a saved Definition.
+        var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
+        var (_, definitionId) = await tk.RegisterMalImportListAsync("MyAnimeList (round-trip)");
+        definitionId.Should().NotBeNull("RegisterMalImportListAsync must succeed in Phase 27+");
+
         var body = BuildMalBody();
+        body["id"] = definitionId!.Value;
         var (status, payload) = await InvokeStartOAuthAsync(body);
 
         status.Should().Be(HttpStatusCode.OK);

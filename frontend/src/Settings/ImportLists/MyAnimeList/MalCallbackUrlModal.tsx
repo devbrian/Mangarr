@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { type Error } from 'App/State/AppSectionState';
 import TextInput from 'Components/Form/TextInput';
 import Button from 'Components/Link/Button';
@@ -70,6 +70,15 @@ function MalCallbackUrlModal({
   error = null,
 }: MalCallbackUrlModalProps) {
   const [redirectedUrl, setRedirectedUrl] = useState('');
+
+  // Clear the pasted callback URL when the modal closes — reopens start fresh
+  // (an expired OAuth `?code=…&state=…` cannot accidentally re-submit) and
+  // sensitive query params don't linger in component state.
+  useEffect(() => {
+    if (!isOpen) {
+      setRedirectedUrl('');
+    }
+  }, [isOpen]);
 
   const handleUrlChange = useCallback(
     ({ value }: { value: string | number | string[] }) => {

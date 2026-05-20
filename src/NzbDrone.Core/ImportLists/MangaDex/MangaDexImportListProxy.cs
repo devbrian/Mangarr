@@ -147,11 +147,14 @@ namespace NzbDrone.Core.ImportLists.MangaDex
             }
             catch (HttpException ex)
             {
-                // T-V7: log only the exception MESSAGE + endpoint URL — NEVER the bearer
-                // token, refresh token, or credentials. The Mangarr response writer redacts
-                // these too, but the Sonarr-canonical discipline is "never log them anywhere
-                // in the first place" (Trakt.cs:161 verbatim shape — _logger.Warn(ex, "Error refreshing trakt access token")).
-                _logger.Warn(ex, "Error exchanging MangaDex OAuth grant ({0})", ex.Response?.StatusCode);
+                // T-V7: pass message-only, NOT the exception object. NLog's exception
+                // formatter calls HttpException.ToString() which serializes the response
+                // body / headers — that body can contain credentials echoed in the
+                // upstream error payload. Message-only keeps the diagnostic value
+                // (endpoint path + HTTP status + error message) without the leak surface.
+                _logger.Warn("Error exchanging MangaDex OAuth grant: HTTP {0} {1}",
+                    (int?)ex.Response?.StatusCode ?? 0,
+                    ex.Message);
                 throw;
             }
         }

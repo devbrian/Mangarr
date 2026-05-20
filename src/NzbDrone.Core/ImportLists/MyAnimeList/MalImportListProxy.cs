@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using NLog;
 using NzbDrone.Common.EnvironmentInfo;
@@ -159,10 +160,20 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             // D-10 single-select status filter propagation. Initial request builds the URL
             // with Settings.Status as `?status={snake_case_value}` query param + fields=list_status
             // (so MAL returns the list_status payload alongside each node). Subsequent
-            // pagination uses MAL-returned `paging.next` cursor URL verbatim.
+            // pagination uses MAL-returned `paging.next` cursor URL — VALIDATED against the
+            // canonical MAL API host before reuse (we attach a Bearer token to the request,
+            // so a maliciously-crafted paging.next pointing at an attacker host would
+            // exfiltrate the user's token via the Authorization header).
             HttpRequest request;
             if (!string.IsNullOrWhiteSpace(nextCursor))
             {
+                if (!IsTrustedMalCursor(nextCursor))
+                {
+                    throw new InvalidOperationException(
+                        $"Refusing to follow MAL paging.next cursor: not on the canonical api.myanimelist.net host. " +
+                        $"This is a defense against token-exfiltration via a malicious cursor URL (T-V13).");
+                }
+
                 request = new HttpRequest(nextCursor);
             }
             else
@@ -185,6 +196,26 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
                 settings?.Status);
 
             return _httpClient.Get<MalMangaListResource>(request);
+        }
+
+        // T-V13 cursor-host validation: MAL's paging.next is returned by the upstream
+        // server, but we never blindly trust it for an authenticated request — the
+        // Authorization header carries the user's Bearer token, so following a cursor
+        // to an attacker-controlled host would leak the token. Pin to the canonical
+        // MAL API host AND require an HTTPS scheme.
+        private static bool IsTrustedMalCursor(string cursor)
+        {
+            if (!Uri.TryCreate(cursor, UriKind.Absolute, out var uri))
+            {
+                return false;
+            }
+
+            if (!string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return string.Equals(uri.Host, "api.myanimelist.net", StringComparison.OrdinalIgnoreCase);
         }
 
         // Pitfall 10 + Phase 1 D-13: every outbound request from this proxy carries
@@ -231,13 +262,18 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             }
             catch (HttpException ex)
             {
-                // T-V7: log only the exception MESSAGE + HTTP status — NEVER the code/verifier/
-                // refresh-token value. Sonarr-canonical Trakt.cs:161 shape. Phrasing avoids
-                // literal "Bearer"/"access_token"/"refresh_token"/"code_verifier"/"code=" tokens
-                // so the close-out audit grep returns 0 (substantive T-V7 protection is the
-                // absence of secret-VALUE arguments).
+                // T-V7: pass message-only, NOT the exception object. NLog's exception
+                // formatter calls HttpException.ToString() which serializes the response
+                // body / headers — that body can contain credentials echoed in the
+                // upstream error payload. Message-only keeps the diagnostic value
+                // (endpoint path + HTTP status + error message) without the leak surface.
+                // Phrasing avoids literal "Bearer"/"access_token"/"refresh_token"/
+                // "code_verifier"/"code=" tokens so the close-out audit grep returns 0.
                 var status = ex.Response?.StatusCode ?? HttpStatusCode.InternalServerError;
-                _logger.Warn(ex, "Error exchanging MyAnimeList OAuth grant ({0} {1})", (int)status, status);
+                _logger.Warn("Error exchanging MyAnimeList OAuth grant: HTTP {0} {1} ({2})",
+                    (int)status,
+                    status,
+                    ex.Message);
                 throw;
             }
         }

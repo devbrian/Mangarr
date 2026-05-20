@@ -106,6 +106,23 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         {
             if (action == "startOAuth")
             {
+                if (Definition.Id <= 0)
+                {
+                    // Fail fast: MAL's PKCE flow stashes `Settings.PendingPkceState`
+                    // here and reads it back during getOAuthToken — but the server
+                    // instantiates a fresh provider per request, so an in-memory write
+                    // to Settings is lost between calls unless persisted via
+                    // _importListRepository.UpdateSettings (which requires a saved
+                    // Definition.Id). Asking the user to save first surfaces a clear
+                    // error rather than the silent `NoPendingPkceState` failure on the
+                    // pasted-callback-URL submit.
+                    return new
+                    {
+                        success = false,
+                        error = "Save this Import List first (click Save with your ClientId + Status), then click Connect to start the OAuth flow. The PKCE state needs a persisted definition row to round-trip across the startOAuth/getOAuthToken request boundary."
+                    };
+                }
+
                 if (string.IsNullOrWhiteSpace(Settings.ClientId))
                 {
                     return new
@@ -117,11 +134,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
 
                 var state = MalOAuthState.Create();
                 Settings.PendingPkceState = JsonConvert.SerializeObject(state);
-
-                if (Definition.Id > 0)
-                {
-                    _importListRepository.UpdateSettings((ImportListDefinition)Definition);
-                }
+                _importListRepository.UpdateSettings((ImportListDefinition)Definition);
 
                 var oauthUrl = _proxy.BuildAuthorizeUrl(Settings.ClientId, state);
                 return new { OauthUrl = oauthUrl };

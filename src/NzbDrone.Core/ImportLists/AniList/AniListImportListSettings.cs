@@ -12,9 +12,12 @@ namespace NzbDrone.Core.ImportLists.AniList
     //   * Sibling-canonical Phase 27 shape: src/NzbDrone.Core/ImportLists/MangaDex/MangaDexImportListSettings.cs
     //
     // Phase 27 augments vs Trakt verbatim:
-    //   * `Privacy = PrivacyLevel.Password` alongside `Hidden = HiddenType.Hidden` on every
-    //     token-bearing field (T-27-03-V4 mitigation; Phase 27 ImportList carries this for
-    //     defense-in-depth on the V5 controller's outbound JSON redaction path).
+    //   * `Hidden = HiddenType.Hidden` on every token-bearing field (T-27-03-V4 mitigation).
+    //     The V5 controller's `ProviderControllerBase` strips Hidden fields from outbound
+    //     schema JSON. NO `Privacy = PrivacyLevel.Password` on those fields — that combo was
+    //     tried in early Phase 27 but broke the new-Add round-trip per SchemaBuilder.cs
+    //     fall-through path (FormatException on `DateTime.Parse("********")`). Matches
+    //     Sonarr-canonical TraktSettings.cs:27-37 verbatim.
     //   * Inherit `ImportListSettingsBase<AniListImportListSettings>` (Phase 26 substrate) NOT
     //     `NotificationSettingsBase<TSettings>`.
     //   * Implement `IOAuthImportListSettings` so `OAuthAwareImportListBase<TSettings>` can drive

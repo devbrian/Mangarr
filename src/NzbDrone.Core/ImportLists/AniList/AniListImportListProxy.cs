@@ -113,13 +113,17 @@ namespace NzbDrone.Core.ImportLists.AniList
             }
             catch (HttpException ex)
             {
-                // T-V7: log only the exception MESSAGE + HTTP status + endpoint URL — NEVER the
-                // pin, ClientSecret, or access-token value. Sonarr-canonical Trakt.cs:161 shape.
-                // Log message phrasing avoids literal "pin"/"token" substrings to keep close-out
-                // audit greps clean (substantive T-V7 protection is the absence of secret-value
-                // arguments — `(int)status, status` carries only the HTTP status code).
+                // T-V7: pass message-only, NOT the exception object. NLog's exception
+                // formatter calls HttpException.ToString() which serializes the response
+                // body / headers — that body can contain pin / ClientSecret / token values
+                // echoed in the upstream error payload. Message-only keeps the diagnostic
+                // value (endpoint path + HTTP status + error message) without the leak
+                // surface. Log message phrasing avoids literal "pin"/"token" substrings.
                 var status = ex.Response?.StatusCode ?? HttpStatusCode.InternalServerError;
-                _logger.Warn(ex, "Error exchanging AniList OAuth grant ({0} {1})", (int)status, status);
+                _logger.Warn("Error exchanging AniList OAuth grant: HTTP {0} {1} ({2})",
+                    (int)status,
+                    status,
+                    ex.Message);
                 throw;
             }
         }

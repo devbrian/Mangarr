@@ -119,7 +119,8 @@ public class ImportListSyncTriggerFixture : AutomationTest
         mangaResp.IsSuccessStatusCode.Should().BeTrue("GET /api/v5/manga must return 2xx");
         var mangaBody = await mangaResp.Content.ReadAsStringAsync();
         using var mangaDoc = JsonDocument.Parse(mangaBody);
-        mangaDoc.RootElement.GetArrayLength().Should().BeGreaterOrEqualTo(0,
+        mangaDoc.RootElement.ValueKind.Should().Be(
+            JsonValueKind.Array,
             "the manga list endpoint must respond with a JSON array post-sync");
     }
 }

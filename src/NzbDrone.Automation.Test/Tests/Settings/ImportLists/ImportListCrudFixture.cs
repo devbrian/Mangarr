@@ -32,15 +32,14 @@ public class ImportListCrudFixture : AutomationTest
     private const string TestName = "MangaDex (CRUD test)";
 
     [OneTimeSetUp]
-    public async Task DisableComixAndRegisterProviderAsync()
+    public async Task DisableComixAsync()
     {
+        // Provider registration is in [Test] — registering here too creates a
+        // side-effecting setup that conflicts with the test's own DELETE step
+        // (the row added in OneTimeSetUp survives across tests if any, and
+        // would make this fixture order/data-state sensitive).
         var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
         await tk.DisableComixIndexerAsync();
-
-        // Pre-flight registration check. The OneTimeSetUp tolerates failure
-        // here (the actual registration happens in [Test] body so individual
-        // tests can surface their own diagnostic on miss).
-        var (_, _) = await tk.RegisterMangaDexImportListAsync(TestName);
     }
 
     [Test]

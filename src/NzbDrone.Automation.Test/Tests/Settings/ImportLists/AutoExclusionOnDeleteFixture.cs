@@ -136,7 +136,18 @@ public class AutoExclusionOnDeleteFixture : AutomationTest
                         && rAni.ValueKind == JsonValueKind.Number
                         && rAni.GetInt32() == aniListId.Value;
 
-                    if (mangaDexMatch || malMatch || aniMatch)
+                    // Full-record match: for each input identifier that was actually
+                    // populated on the seeded Manga, require the exclusion row's
+                    // corresponding field to match. OR-matching would silently accept
+                    // a row with only one matching field (e.g., a coincidental MalId
+                    // collision on an unrelated exclusion record).
+                    var fullMatch =
+                        (mangaDexId == null || mangaDexMatch) &&
+                        (!malId.HasValue || malMatch) &&
+                        (!aniListId.HasValue || aniMatch) &&
+                        (mangaDexMatch || malMatch || aniMatch); // at least one must actually have hit
+
+                    if (fullMatch)
                     {
                         exclusionFound = true;
                         break;

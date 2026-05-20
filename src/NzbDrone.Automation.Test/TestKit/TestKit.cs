@@ -707,8 +707,14 @@ public class TestKit
             using var listDoc = JsonDocument.Parse(listResponse.Content);
             foreach (var element in listDoc.RootElement.EnumerateArray())
             {
+                // Match on BOTH Name + Implementation — without the implementation guard
+                // we'd risk returning a non-MangaDex row whose user-supplied Name happened
+                // to collide with our test seed name (e.g., an AniList row called
+                // "MangaDex (test seed)" from a previous test in the same DB).
                 if (element.TryGetProperty("name", out var nameProp) &&
-                    string.Equals(nameProp.GetString(), name, StringComparison.OrdinalIgnoreCase))
+                    element.TryGetProperty("implementation", out var implProp) &&
+                    string.Equals(nameProp.GetString(), name, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(implProp.GetString(), "MangaDexImportList", StringComparison.OrdinalIgnoreCase))
                 {
                     return (listResponse, element.GetProperty("id").GetInt32());
                 }
@@ -746,6 +752,80 @@ public class TestKit
                         new { name = "clientSecret", value = "dummy-client-secret" },
                         new { name = "username", value = "dummy-user" },
                         new { name = "password", value = "dummy-password" }
+                    },
+                    tags = new int[] { }
+                });
+                return postRequest;
+            });
+
+        using var doc = JsonDocument.Parse(postResponse.Content);
+        return (postResponse, doc.RootElement.GetProperty("id").GetInt32());
+    }
+
+    /// <summary>
+    /// Phase 27 — register the production <c>MalImportList</c> provider against
+    /// the running host via <c>POST /api/v5/importlist?skipTesting=true</c>. Mirrors
+    /// <see cref="RegisterMangaDexImportListAsync"/> but targets the MAL provider so
+    /// fixtures that need a real Definition.Id (e.g. RequestActionRoundTripFixture's
+    /// MAL test — MAL's startOAuth requires a persisted definition to round-trip the
+    /// PKCE state per Phase 27 D-09 fail-fast guard) can register a row first.
+    ///
+    /// Dummy client_id is used — MAL public-client PKCE has no client_secret, so the
+    /// URL-construction path (BuildAuthorizeUrl) only needs ClientId populated to
+    /// emit the canonical authorize URL.
+    /// </summary>
+    public async Task<(IRestResponse Response, int? DefinitionId)> RegisterMalImportListAsync(
+        string name = "MyAnimeList (test seed)")
+    {
+        const string Caller = nameof(RegisterMalImportListAsync);
+
+        // 1. Idempotency check — match on Name + Implementation.
+        var listResponse = await ExecuteWithStartupRetryAsync(
+            Caller,
+            "importlist GET",
+            () => BuildRequest("importlist", Method.GET));
+
+        if (!string.IsNullOrEmpty(listResponse.Content))
+        {
+            using var listDoc = JsonDocument.Parse(listResponse.Content);
+            foreach (var element in listDoc.RootElement.EnumerateArray())
+            {
+                if (element.TryGetProperty("name", out var nameProp) &&
+                    element.TryGetProperty("implementation", out var implProp) &&
+                    string.Equals(nameProp.GetString(), name, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(implProp.GetString(), "MalImportList", StringComparison.OrdinalIgnoreCase))
+                {
+                    return (listResponse, element.GetProperty("id").GetInt32());
+                }
+            }
+        }
+
+        // 2. POST — register MalImportList via V5. skipTesting=true bypasses the
+        //    Settings.Validate cascade. Dummy ClientId is fine; the round-trip test
+        //    asserts URL-shape only, not OAuth success.
+        var postResponse = await ExecuteWithStartupRetryAsync(
+            Caller,
+            "importlist POST",
+            () =>
+            {
+                var postRequest = BuildRequest("importlist?skipTesting=true", Method.POST);
+                postRequest.AddJsonBody(new
+                {
+                    enable = true,
+                    enableAutomaticAdd = false,
+                    searchForMissingChapters = false,
+                    shouldMonitor = "all",
+                    monitorNewItems = "all",
+                    rootFolderPath = _tempFolderRoot,
+                    translationProfileId = 1,
+                    customFormatProfileId = 1,
+                    name,
+                    implementation = "MalImportList",
+                    configContract = "MalImportListSettings",
+                    fields = new object[]
+                    {
+                        new { name = "clientId", value = "fixture-mal-client-id" },
+                        new { name = "status", value = 0 }
                     },
                     tags = new int[] { }
                 });

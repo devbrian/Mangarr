@@ -13,10 +13,14 @@ namespace NzbDrone.Core.ImportLists
     // infrastructure of any shape (no key-protection provider, no platform secret-store
     // bridge, no per-row sealed blob). Sonarr-canonical plaintext (matches Sonarr verbatim
     // per user directive 2026-05-20). Per-provider
-    // Settings POCOs annotate the AccessToken/RefreshToken fields with
-    // [FieldDefinition(Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)] to
-    // suppress UI rendering + transport-level redaction; this contract does NOT enforce
-    // the annotations (Settings POCO authors own that discipline).
+    // Settings POCOs annotate the AccessToken/RefreshToken/Expires/AuthUser fields with
+    // [FieldDefinition(Hidden = HiddenType.Hidden)] to suppress UI rendering and rely on
+    // the V5 controller's outbound schema redaction (ProviderControllerBase strips Hidden
+    // fields from schema GET responses). Sonarr-canonical TraktSettings.cs:27-37 pattern —
+    // do NOT add `Privacy = PrivacyLevel.Password` on Hidden token fields; the combo
+    // breaks the new-Add round-trip (FormatException on `DateTime.Parse("********")`).
+    // This contract does NOT enforce the annotations (Settings POCO authors own that
+    // discipline).
     public interface IOAuthImportListSettings : IImportListSettings
     {
         string AccessToken { get; set; }

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { type Error } from 'App/State/AppSectionState';
 import TextInput from 'Components/Form/TextInput';
 import Button from 'Components/Link/Button';
@@ -59,6 +59,14 @@ function AniListPinModal({
   error = null,
 }: AniListPinModalProps) {
   const [pin, setPin] = useState('');
+
+  // Clear pin state when the modal closes so a reopen starts fresh and
+  // previously-entered sensitive input doesn't linger in component state.
+  useEffect(() => {
+    if (!isOpen) {
+      setPin('');
+    }
+  }, [isOpen]);
 
   const handlePinChange = useCallback(
     ({ value }: { value: string | number | string[] }) => {
