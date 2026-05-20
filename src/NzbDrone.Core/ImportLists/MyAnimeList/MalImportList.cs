@@ -165,6 +165,15 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
                 catch (JsonException)
                 {
                     Settings.PendingPkceState = null;
+
+                    // Persist the cleared value so the corruption doesn't re-trigger on
+                    // every subsequent getOAuthToken call until the user manually re-saves
+                    // the row (parity with the expired-TTL clear path below).
+                    if (Definition.Id > 0)
+                    {
+                        _importListRepository.UpdateSettings((ImportListDefinition)Definition);
+                    }
+
                     return new { success = false, error = "PendingPkceState was corrupted; restart the OAuth flow by clicking Connect." };
                 }
 

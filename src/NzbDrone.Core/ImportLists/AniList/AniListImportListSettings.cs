@@ -44,6 +44,11 @@ namespace NzbDrone.Core.ImportLists.AniList
     {
         public AniListImportListSettingsValidator()
         {
+            // BaseUrl pinned to the canonical AniList GraphQL endpoint. The ctor sets the
+            // default; this validator rejects any API payload that mutates it to a
+            // non-canonical host (defense against config-drift / accidental override).
+            RuleFor(c => c.BaseUrl).Equal("https://graphql.anilist.co");
+
             // Initial-save guardrails: user-supplied OAuth-client credentials MUST be present
             // before the FE "Connect" affordance triggers RequestAction("startOAuth"). Status
             // is also required for an initial save — Sonarr-canonical single-select Trakt

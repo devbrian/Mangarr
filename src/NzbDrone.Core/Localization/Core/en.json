@@ -890,6 +890,7 @@
   "ImportListsAniListClientSecretHelpText": "OAuth client secret issued alongside the Client ID (keep this private)",
   "ImportListsAniListClientSecretLabel": "Client Secret",
   "ImportListsAniListExpiresLabel": "Token Expires",
+  "ImportListsAniListPinInputPlaceholder": "Auth Pin",
   "ImportListsAniListPinPasteHelpText": "Paste the Auth Pin issued by AniList in the new browser tab",
   "ImportListsAniListRefreshTokenLabel": "Refresh Token",
   "ImportListsAniListSettingsAuthenticateWithAniList": "Authenticate with AniList",

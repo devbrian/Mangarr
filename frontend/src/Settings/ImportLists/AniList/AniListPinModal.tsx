@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { type Error } from 'App/State/AppSectionState';
 import TextInput from 'Components/Form/TextInput';
 import Button from 'Components/Link/Button';
 import Link from 'Components/Link/Link';
@@ -8,7 +9,6 @@ import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
-import { type Error } from 'App/State/AppSectionState';
 import { sizes } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 
@@ -96,7 +96,7 @@ function AniListPinModal({
             data-testid="importlist-anilist-pin-input"
             name="pin"
             value={pin}
-            placeholder="Auth Pin"
+            placeholder={translate('ImportListsAniListPinInputPlaceholder')}
             autoFocus={true}
             onChange={handlePinChange}
           />

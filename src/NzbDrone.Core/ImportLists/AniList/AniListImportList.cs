@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using Newtonsoft.Json;
 using NLog;
+using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Http;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.ImportLists.AniList.Resource;
@@ -142,6 +143,19 @@ namespace NzbDrone.Core.ImportLists.AniList
                     // bearer-authenticated Viewer call.
                     Settings.AuthUser = ResolveAuthUserFromAccessToken(response.AccessToken);
 
+                    // Fail the OAuth flow if AuthUser couldn't be resolved — saving the
+                    // partial settings would leave subsequent list fetches broken
+                    // (MediaListCollection requires userName). Surface a clear retryable
+                    // error rather than reporting false success.
+                    if (string.IsNullOrWhiteSpace(Settings.AuthUser))
+                    {
+                        return new
+                        {
+                            success = false,
+                            error = "AniList token exchange succeeded but the Viewer { name } follow-up query failed to resolve the username. Re-issue a new pin and try again; if the problem persists, file a bug with the access-token expiry."
+                        };
+                    }
+
                     return new
                     {
                         accessToken = Settings.AccessToken,
@@ -242,6 +256,7 @@ namespace NzbDrone.Core.ImportLists.AniList
                     RateLimitKey = "anilist"
                 };
                 request.Headers["Content-Type"] = "application/json";
+                request.Headers["User-Agent"] = $"Mangarr/{BuildInfo.Version.ToString(2)}";
                 request.Headers["Authorization"] = $"Bearer {accessToken}";
                 request.SetContent(body);
 

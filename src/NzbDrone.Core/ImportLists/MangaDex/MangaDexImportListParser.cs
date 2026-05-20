@@ -77,7 +77,13 @@ namespace NzbDrone.Core.ImportLists.MangaDex
                 // a "follow added at" timestamp on /user/follows/manga). Fall back
                 // to DateTime.MinValue when year is null; downstream consumers handle
                 // the sentinel.
-                if (follow.Attributes.Year.HasValue)
+                // Year bounds guard: clamp to DateTime range [1, 9999] before constructing
+                // the DateTime. MangaDex payload Year is int? with no upstream validation; an
+                // out-of-range value would throw ArgumentOutOfRangeException and fail the entire
+                // page parse. Skip the field on out-of-range rather than fail the row.
+                if (follow.Attributes.Year.HasValue &&
+                    follow.Attributes.Year.Value >= 1 &&
+                    follow.Attributes.Year.Value <= 9999)
                 {
                     item.ReleaseDate = new DateTime(follow.Attributes.Year.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc);
                 }

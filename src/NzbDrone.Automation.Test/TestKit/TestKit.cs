@@ -681,9 +681,29 @@ public class TestKit
     public async Task<(IRestResponse Response, int? DefinitionId)> RegisterMangaDexImportListAsync(
         string name = "MangaDex (test seed)")
     {
+        // Both V5 calls below go through ExecuteWithStartupRetryAsync to absorb the
+        // transient transport / 401-startup-race conditions that the SeedBaselineAsync
+        // helper handles. Without the retry envelope, the listing GET or POST can
+        // intermittently fail when the host is mid-boot (per WR-08 / Phase 18 D-14).
+        const string Caller = nameof(RegisterMangaDexImportListAsync);
+
         // 1. Idempotency check — if a definition with this Name already exists, return its id.
-        var listResponse = await _client.ExecuteAsync(BuildRequest("importlist", Method.GET));
-        if (listResponse.IsSuccessful && !string.IsNullOrEmpty(listResponse.Content))
+        IRestResponse listResponse;
+        try
+        {
+            listResponse = await ExecuteWithStartupRetryAsync(
+                Caller,
+                "importlist GET",
+                () => BuildRequest("importlist", Method.GET));
+        }
+        catch (InvalidOperationException)
+        {
+            // Surface listing failure as (response, null) so callers can branch
+            // — mirrors the RegisterTestImportListAsync contract shape.
+            return (null, null);
+        }
+
+        if (!string.IsNullOrEmpty(listResponse.Content))
         {
             using var listDoc = JsonDocument.Parse(listResponse.Content);
             foreach (var element in listDoc.RootElement.EnumerateArray())
@@ -700,34 +720,43 @@ public class TestKit
         //    Settings.Validate cascade which would otherwise reject dummy ClientId/
         //    ClientSecret/Username/Password as "Required" — we just need the row in
         //    the DB so the CRUD / sync / delete-exclusion flows can fire.
-        var postRequest = BuildRequest("importlist?skipTesting=true", Method.POST);
-        postRequest.AddJsonBody(new
+        IRestResponse postResponse;
+        try
         {
-            enable = true,
-            enableAutomaticAdd = false,
-            searchForMissingChapters = false,
-            shouldMonitor = "all",
-            monitorNewItems = "all",
-            rootFolderPath = _tempFolderRoot,
-            translationProfileId = 1,
-            customFormatProfileId = 1,
-            name,
-            implementation = "MangaDexImportList",
-            configContract = "MangaDexImportListSettings",
-            fields = new object[]
-            {
-                new { name = "clientId", value = "dummy-client-id" },
-                new { name = "clientSecret", value = "dummy-client-secret" },
-                new { name = "username", value = "dummy-user" },
-                new { name = "password", value = "dummy-password" }
-            },
-            tags = new int[] { }
-        });
-
-        var postResponse = await _client.ExecuteAsync(postRequest);
-        if (!postResponse.IsSuccessful)
+            postResponse = await ExecuteWithStartupRetryAsync(
+                Caller,
+                "importlist POST",
+                () =>
+                {
+                    var postRequest = BuildRequest("importlist?skipTesting=true", Method.POST);
+                    postRequest.AddJsonBody(new
+                    {
+                        enable = true,
+                        enableAutomaticAdd = false,
+                        searchForMissingChapters = false,
+                        shouldMonitor = "all",
+                        monitorNewItems = "all",
+                        rootFolderPath = _tempFolderRoot,
+                        translationProfileId = 1,
+                        customFormatProfileId = 1,
+                        name,
+                        implementation = "MangaDexImportList",
+                        configContract = "MangaDexImportListSettings",
+                        fields = new object[]
+                        {
+                            new { name = "clientId", value = "dummy-client-id" },
+                            new { name = "clientSecret", value = "dummy-client-secret" },
+                            new { name = "username", value = "dummy-user" },
+                            new { name = "password", value = "dummy-password" }
+                        },
+                        tags = new int[] { }
+                    });
+                    return postRequest;
+                });
+        }
+        catch (InvalidOperationException)
         {
-            return (postResponse, null);
+            return (null, null);
         }
 
         using var doc = JsonDocument.Parse(postResponse.Content);
