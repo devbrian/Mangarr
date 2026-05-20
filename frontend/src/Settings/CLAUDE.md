@@ -32,7 +32,7 @@ All user-configurable settings UI. Each subdirectory is one settings page (or se
 | `CustomFormats/` | Custom format CRUD + specifications | `/settings/customformats` |
 | `Indexers/` | Indexers + global options | `/settings/indexers` |
 | `DownloadClients/` | Download clients + remote path mappings | `/settings/downloadclients` |
-| `ImportLists/` | Import lists + exclusions + options | `/settings/importlists` |
+| `ImportLists/` | Import lists + exclusions + options | `/settings/importlists` — **Phase 26 Plan 26-05 closure**: Phase 15 stub Alert rewritten as translated tree (Indexers-shape mirror per RESEARCH §Q7). Wires `ImportLists/` provider list + Add/Edit modals + `ManageImportListsModal` (substrate-shell — Phase 27 expands) + `ImportListExclusions/` paged list + `Options/ImportListOptions.tsx` (notice-only — no backing `/api/v5/settings/importlist` controller in substrate). D-05 enforced: no Test-All / Sync-Now button. Pattern κ verified: zero `series-*` / `episode-*` / `season-*` / `add-series-*` testids. |
 | `Notifications/` | Notification providers | `/settings/connect` |
 | `Metadata/` | Metadata writers (NFO etc.) | `/settings/metadata` |
 | `MetadataSource/` | Metadata source config (TVDB → manga sources) | `/settings/metadatasource` |
@@ -109,3 +109,8 @@ Settings pages are largely **architecture-stable** — provider plugin model mea
 - [../../../src/Mangarr.Http/CLAUDE.md](../../../src/Mangarr.Http/CLAUDE.md) — `ClientSchema` builds form schemas
 - [../../../src/NzbDrone.Core/Profiles/CLAUDE.md](../../../src/NzbDrone.Core/Profiles/CLAUDE.md) — Backend for Profiles page
 - [../../../src/NzbDrone.Core/CustomFormats/CLAUDE.md](../../../src/NzbDrone.Core/CustomFormats/CLAUDE.md) — Backend for CustomFormats page
+
+## Phase History Footnotes
+
+- **Phase 26 Plan 26-05 (IL-14 / Pitfall 14)** — `useProviderOptions.ts:77` `/api/v3/{provider}/action/{action}` → `/api/v5/{provider}/action/{action}` one-line path fix. Stale V3 URL was a hold-over from the pre-Mangarr-v5 fork; the V5 provider action endpoint inherited from `ProviderControllerBase.RequestAction` (route `[HttpPost("action/{name}")]`) is the canonical Mangarr surface. Phase 27 provider dynamic-options dropdowns consume this hook directly.
+- **Phase 26 Plan 26-05 (Pitfall 15 verification-only)** — `frontend/src/Activity/Queue/Status/useQueueStatus.ts:32` independently re-verified as `/manga/queue/status` (matches `MangaQueueStatusController.cs:21-30` shape). Already correct from Phase 13 Plan 13-09 close-out; Plan 26-05 did NOT modify the file.
