@@ -38,6 +38,12 @@ namespace NzbDrone.Core.Test.Datastore.Migration
             cols.Should().Contain("TranslationProfileId", "TranslationProfileId must be added to ImportLists per IL-01 (a)");
             cols.Should().Contain("CustomFormatProfileId", "CustomFormatProfileId must be added to ImportLists per IL-01 (a)");
             cols.Should().NotContain("QualityProfileId", "QualityProfileId must be dropped from ImportLists per IL-01 (a) — manga uses TranslationProfile + CustomFormatProfile peers");
+
+            // Phase 26 Plan 26-04 — TV-named SearchForMissingEpisodes column renamed to
+            // manga-shape SearchForMissingChapters so the ImportListDefinition POCO maps
+            // 1:1 to the underlying column.
+            cols.Should().Contain("SearchForMissingChapters", "SearchForMissingEpisodes was renamed to manga-shape SearchForMissingChapters per Plan 26-04 IL-02");
+            cols.Should().NotContain("SearchForMissingEpisodes", "TV-named column must be dropped after Plan 26-04 rename");
         }
 
         // ============================================================

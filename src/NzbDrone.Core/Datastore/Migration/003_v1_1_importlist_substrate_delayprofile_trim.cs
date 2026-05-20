@@ -38,6 +38,13 @@ namespace NzbDrone.Core.Datastore.Migration
             Alter.Table("ImportLists").AddColumn("CustomFormatProfileId").AsInt32().Nullable();
             Delete.Column("QualityProfileId").FromTable("ImportLists");
 
+            // Phase 26 Plan 26-04 (IL-02) — TV-named SearchForMissingEpisodes column
+            // renamed to manga-shape SearchForMissingChapters so ImportListDefinition's
+            // POCO field matches the DB column 1:1 (Sonarr-canonical name; manga peer).
+            Rename.Column("SearchForMissingEpisodes")
+                  .OnTable("ImportLists")
+                  .To("SearchForMissingChapters");
+
             // ImportListItems TVDB/IMDB → manga-ID triplet.
             // Note: ImportListItems.TvdbId was already stripped in Phase 15 D-22 per
             // 001_mangarr_baseline.cs:165 inline comment — only ImdbId remains here

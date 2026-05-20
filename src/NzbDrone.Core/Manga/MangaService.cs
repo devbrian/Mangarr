@@ -151,7 +151,18 @@ namespace NzbDrone.Core.Manga
         // first so partial-batch deletes succeed and missing ids are silently skipped
         // (matches Sonarr's tolerant Delete shape — a 404-on-each is the controller's
         // job, not the service's).
+        //
+        // Phase 26 Plan 26-04 (D-12 / Open Q #1): `addImportListExclusion` default `true`
+        // threads through to MangaDeletedEvent so ImportListExclusionService.Handle
+        // auto-adds an exclusion row per deleted MangaDexId. Callers (V5 controllers,
+        // system tooling) ride the default unless they explicitly opt out by passing
+        // false on the new overload below.
         public void DeleteManga(List<int> mangaIds, bool deleteFiles)
+        {
+            DeleteManga(mangaIds, deleteFiles, addImportListExclusion: true);
+        }
+
+        public void DeleteManga(List<int> mangaIds, bool deleteFiles, bool addImportListExclusion)
         {
             var mangaList = _mangaRepository.All()
                 .Where(m => mangaIds.Contains(m.Id))
@@ -160,7 +171,7 @@ namespace NzbDrone.Core.Manga
             foreach (var manga in mangaList)
             {
                 _mangaRepository.Delete(manga);
-                _eventAggregator.PublishEvent(new MangaDeletedEvent(manga, deleteFiles));
+                _eventAggregator.PublishEvent(new MangaDeletedEvent(manga, deleteFiles, addImportListExclusion));
             }
         }
 

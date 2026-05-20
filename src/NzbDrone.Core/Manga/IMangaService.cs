@@ -33,6 +33,13 @@ namespace NzbDrone.Core.Manga
         Manga FindByAlternativeTitle(string title);
         Manga FindByPath(string path);
         void DeleteManga(List<int> mangaIds, bool deleteFiles);
+
+        // Phase 26 Plan 26-04 (D-12 / Open Q #1): 3-arg overload threads
+        // `addImportListExclusion` through to MangaDeletedEvent so the V5 controllers
+        // can opt out of auto-exclusion (admin tooling, programmatic resyncs). 2-arg
+        // overload above delegates here with `addImportListExclusion: true` —
+        // Sonarr-canonical UX default.
+        void DeleteManga(List<int> mangaIds, bool deleteFiles, bool addImportListExclusion);
         List<Manga> GetAllManga();
         List<Manga> AllForTag(int tagId);
         List<int> AllMangaIds();

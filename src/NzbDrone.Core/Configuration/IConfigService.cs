@@ -64,8 +64,10 @@ namespace NzbDrone.Core.Configuration
         int MaximumSize { get; set; }
         int MinimumAge { get; set; }
 
-        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — ListSyncLevelType (TV ImportLists) stripped.
-        //   ListSyncLevelType ListSyncLevel { get; set; }
+        // Phase 26 Plan 26-04 (IL-03) — RESTORED. Consumed by ImportListSyncService
+        // .TryCleanLibrary to drive the per-config response when a manga vanishes from
+        // every enabled import list (Disabled / LogOnly / KeepAndUnmonitor / KeepAndTag).
+        NzbDrone.Core.ImportLists.ListSyncLevelType ListSyncLevel { get; set; }
         int ListSyncTag { get; set; }
 
         // UI
