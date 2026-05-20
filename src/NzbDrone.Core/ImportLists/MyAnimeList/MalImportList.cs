@@ -104,16 +104,17 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // OAuthInput.tsx:42-46). The refresh token is NEVER echoed.
         public override object RequestAction(string action, IDictionary<string, string> query)
         {
-            // CR-02: fail fast on placeholder ClientId so the user sees a clear error
-            // instead of MAL's silent invalid_client 401. Guard runs on every user-facing
-            // OAuth surface (startOAuth + getOAuthToken). The ImportListFactory's reflection
-            // scan does NOT instantiate the provider into Fetch territory, so this guard
-            // does NOT block the Settings page from rendering — it only fires when the user
-            // explicitly invokes the MAL OAuth flow.
-            MalConstants.EnsureProductionReady();
-
             if (action == "startOAuth")
             {
+                if (string.IsNullOrWhiteSpace(Settings.ClientId))
+                {
+                    return new
+                    {
+                        success = false,
+                        error = "ClientId is required. Register an OAuth client at https://myanimelist.net/apiconfig (redirect URI must be https://mangarr.local/oauth/mal/callback) and paste the issued client_id into Settings before clicking Connect."
+                    };
+                }
+
                 var state = MalOAuthState.Create();
                 Settings.PendingPkceState = JsonConvert.SerializeObject(state);
 
@@ -122,7 +123,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
                     _importListRepository.UpdateSettings((ImportListDefinition)Definition);
                 }
 
-                var oauthUrl = _proxy.BuildAuthorizeUrl(state);
+                var oauthUrl = _proxy.BuildAuthorizeUrl(Settings.ClientId, state);
                 return new { OauthUrl = oauthUrl };
             }
 
@@ -199,9 +200,18 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
                     return new { success = false, error = "InvalidState — the state nonce in the redirected URL does not match the one Mangarr issued. Possible CSRF; restart the OAuth flow." };
                 }
 
+                if (string.IsNullOrWhiteSpace(Settings.ClientId))
+                {
+                    return new
+                    {
+                        success = false,
+                        error = "ClientId is required. Register an OAuth client at https://myanimelist.net/apiconfig and re-issue the OAuth flow from Settings."
+                    };
+                }
+
                 try
                 {
-                    var response = _proxy.ExchangeCodeForToken(codeParam, pending.Verifier);
+                    var response = _proxy.ExchangeCodeForToken(Settings.ClientId, codeParam, pending.Verifier);
                     if (response == null || string.IsNullOrWhiteSpace(response.AccessToken))
                     {
                         return new { success = false, error = "MyAnimeList returned an empty token response. Try the OAuth flow again." };
@@ -254,9 +264,15 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         {
             _logger.Trace("Refreshing Token");
 
+            if (string.IsNullOrWhiteSpace(Settings.ClientId))
+            {
+                _logger.Warn("MyAnimeList token refresh skipped: ClientId is not set on Settings. Re-issue the OAuth flow from Settings → ImportLists.");
+                return;
+            }
+
             try
             {
-                var response = _proxy.RefreshAccessToken(Settings.RefreshToken);
+                var response = _proxy.RefreshAccessToken(Settings.ClientId, Settings.RefreshToken);
 
                 if (response != null && !string.IsNullOrWhiteSpace(response.AccessToken))
                 {

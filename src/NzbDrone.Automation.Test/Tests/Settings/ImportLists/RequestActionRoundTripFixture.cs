@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
 using RestSharp;
+using JsonArray = System.Text.Json.Nodes.JsonArray;
 using JsonNode = System.Text.Json.Nodes.JsonNode;
 using JsonObject = System.Text.Json.Nodes.JsonObject;
 
@@ -226,12 +227,26 @@ public class RequestActionRoundTripFixture : AutomationTest
 
     private static JsonObject BuildMalBody()
     {
+        // V5 controller reads the `fields` array (per Mangarr.Api.V5.Provider.ProviderResource.cs:11),
+        // NOT a flat `settings` object. SchemaBuilder.ReadFromSchema maps each {name, value} pair
+        // onto the Settings POCO field with the matching property name. The other providers in
+        // this fixture omit `fields` and rely on default values being acceptable to their
+        // RequestAction handlers — MAL's per-user-ClientId guard requires us to actually
+        // populate Settings.ClientId server-side.
         return new JsonObject
         {
             ["id"] = 0,
             ["name"] = "MyAnimeList (round-trip)",
             ["implementation"] = "MalImportList",
             ["configContract"] = "MalImportListSettings",
+            ["fields"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["name"] = "clientId",
+                    ["value"] = "fixture-mal-client-id",
+                },
+            },
             ["settings"] = new JsonObject
             {
                 ["status"] = 0,

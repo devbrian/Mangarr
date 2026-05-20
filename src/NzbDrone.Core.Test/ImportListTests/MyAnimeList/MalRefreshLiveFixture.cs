@@ -40,33 +40,31 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
     [Category("LiveService")]
     public class MalRefreshLiveFixture
     {
-        // Mangarr's MAL OAuth ClientId — public per OAuth2 public-client semantics. MUST
-        // match the value compiled into MalConstants.ClientId at release-build time. For
-        // dev runs, set env var MAL_LIVE_CLIENT_ID to override (so executors testing pre-
-        // release builds can use a personal MAL app).
+        // MAL public-client OAuth ClientId is user-supplied via MalImportListSettings.ClientId
+        // in production. For this live probe, the executor sets MAL_LIVE_CLIENT_ID to the
+        // client_id of their own MAL OAuth app (registered at https://myanimelist.net/apiconfig).
         private static string ResolveClientId()
         {
-            return Environment.GetEnvironmentVariable("MAL_LIVE_CLIENT_ID") ?? "REPLACE_AT_RELEASE_BUILD_WITH_MAL_PINNED_CLIENT_ID";
+            return Environment.GetEnvironmentVariable("MAL_LIVE_CLIENT_ID");
         }
 
         [Test]
         public async Task refresh_against_live_mal_endpoint_succeeds()
         {
             var refreshToken = Environment.GetEnvironmentVariable("MAL_LIVE_REFRESH_TOKEN");
-            if (string.IsNullOrWhiteSpace(refreshToken))
+            var clientId = ResolveClientId();
+            if (string.IsNullOrWhiteSpace(refreshToken) || string.IsNullOrWhiteSpace(clientId))
             {
                 Assert.Inconclusive(
-                    "MAL_LIVE_REFRESH_TOKEN env var is not set. Skipping per Phase 20 D-09 LiveService opt-in policy. " +
+                    "MAL_LIVE_REFRESH_TOKEN and/or MAL_LIVE_CLIENT_ID env vars are not set. Skipping per Phase 20 D-09 LiveService opt-in policy. " +
                     "To exercise this probe locally: register a MAL OAuth app at https://myanimelist.net/apiconfig, " +
-                    "run the full OAuth flow once to obtain a refresh token, set MAL_LIVE_REFRESH_TOKEN=<token> " +
-                    "(and optionally MAL_LIVE_CLIENT_ID for non-release builds), then run " +
+                    "run the full OAuth flow once to obtain a refresh token, set MAL_LIVE_CLIENT_ID=<client_id> + " +
+                    "MAL_LIVE_REFRESH_TOKEN=<token>, then run " +
                     "`dotnet test --filter \"Category=LiveService&FullyQualifiedName~MalRefreshLiveFixture\"`. " +
                     "NOTE: MAL rotates refresh tokens — update MAL_LIVE_REFRESH_TOKEN with the new value from " +
                     "the response after each successful run.");
                 return;
             }
-
-            var clientId = ResolveClientId();
 
             using var http = new HttpClient();
             http.DefaultRequestHeaders.Add(

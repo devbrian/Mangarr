@@ -79,13 +79,16 @@ public class MalImportListSettingsFixture : AutomationTest
         await Assertions.Expect(editModal).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 
-        // 5. The 1 user-visible field must render: Status (single-select dropdown per D-10).
-        //    Hidden token + PendingPkceState + AuthUser fields (indices 1-5) must NOT
-        //    render visibly (Hidden = HiddenType.Hidden suppresses the generic
-        //    ProviderFieldFormGroup renderer per Phase 26 D-09). MAL Settings POCO has
-        //    NO user-supplied ClientId / ClientSecret (Mangarr-pinned per D-09 +
-        //    public-client PKCE — distinct from MangaDex + AniList shapes).
+        // 5. The 2 user-visible fields must render: Client ID (user pastes their MAL
+        //    OAuth app's client_id from https://myanimelist.net/apiconfig) + Status
+        //    (single-select dropdown per D-10). Hidden token + PendingPkceState +
+        //    AuthUser fields (indices 2-6) must NOT render visibly (Hidden =
+        //    HiddenType.Hidden suppresses the generic ProviderFieldFormGroup renderer).
+        //    Per-user model — Mangarr does NOT ship a compiled-in MAL client_id;
+        //    consistent with MangaDex + AniList Settings shapes.
         var labels = Page.Locator("label");
+        await Assertions.Expect(labels.Filter(new LocatorFilterOptions { HasText = "Client ID" }))
+            .ToHaveCountAsync(1, new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
         await Assertions.Expect(labels.Filter(new LocatorFilterOptions { HasText = "Status" }))
             .ToHaveCountAsync(1, new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
 

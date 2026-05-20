@@ -267,14 +267,6 @@ namespace NzbDrone.Test.Common
         {
             StringDictionary envVars = new();
 
-            // Phase 27 CR-02 — automation tests instantiate the real MAL provider
-            // surface but cannot register a real MAL OAuth app (no client_id). Setting
-            // this env var bypasses MalConstants.EnsureProductionReady so the round-trip
-            // fixtures can exercise the URL-generation + state-persistence logic without
-            // tripping the release-readiness guard. Production deployments must not set
-            // this — the guard exists precisely to catch unswapped placeholders.
-            envVars.Add("MANGARR_MAL_SKIP_PRODUCTION_GUARD", "1");
-
             if (PostgresOptions?.Host != null)
             {
                 envVars.Add("Mangarr__Postgres__Host", PostgresOptions.Host);

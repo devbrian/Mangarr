@@ -21,13 +21,14 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
     //     `RefreshTokenIfNecessary()` generically (Plan 27-01 base contract).
     //
     // Phase 27 deltas vs sibling AniList provider (Plan 27-03):
-    //   * MAL ClientId is Mangarr-pinned in MalConstants.cs (NOT user-supplied — public-client
-    //     PKCE flow per D-09 + Pattern D + RESEARCH §Open Question 4). Settings POCO carries
-    //     NO ClientId / ClientSecret fields.
-    //   * `PendingPkceState` (index 4) — JSON-serialized MalOAuthState blob held as string,
-    //     Hidden + Password. Holds the transient `(StateNonce, Verifier, ExpiresAt)` tuple
-    //     between startOAuth and getOAuthToken RequestAction calls (Discretion #2 shape (a)).
-    //   * `Status` field at index 0 (D-10 single-select MalListStatus enum, 5 values).
+    //   * MAL ClientId is user-supplied via `Settings.ClientId` (index 0) — consistent with
+    //     MangaDex + AniList per-user client models in this same phase. MAL public-client PKCE
+    //     flow has NO client_secret (the verifier/challenge replaces the shared-secret defense)
+    //     so the Settings POCO carries ClientId but no ClientSecret.
+    //   * `PendingPkceState` (index 5) — JSON-serialized MalOAuthState blob held as string,
+    //     Hidden. Holds the transient `(StateNonce, Verifier, ExpiresAt)` tuple between
+    //     startOAuth and getOAuthToken RequestAction calls (Discretion #2 shape (a)).
+    //   * `Status` field at index 1 (D-10 single-select MalListStatus enum, 5 values).
     //   * MAL DOES rotate refresh tokens (31-day observed lifetime per RESEARCH §STACK §Surface 2),
     //     so the RefreshToken override applies the Trakt.cs:151 null-coalesce; the field is
     //     LIVE on MAL (unlike AniList where it's contract-compliance dead weight).
@@ -48,12 +49,18 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
     {
         public MalImportListSettingsValidator()
         {
-            // Initial-save guardrails: Status MUST be set before the FE "Connect" affordance
-            // triggers RequestAction("startOAuth"). Sonarr-canonical single-select Trakt
-            // user-list pattern (one list per status).
-            //
-            // Reading is the default in the ctor — IsInEnum suffices to reject corrupted
-            // serialized values; NotEmpty would always pass for enum-typed fields.
+            // Initial-save guardrails: user-supplied OAuth client_id MUST be present before
+            // the FE "Connect" affordance triggers RequestAction("startOAuth"). MAL public-
+            // client PKCE flow — user registers the OAuth client at
+            // https://myanimelist.net/apiconfig and pastes the issued client_id here. There
+            // is NO client_secret (PKCE replaces the shared-secret defense). Mirrors the
+            // per-user client model used by MangaDex + AniList in this phase.
+            RuleFor(c => c.ClientId).NotEmpty();
+
+            // Status MUST be set before Connect. Sonarr-canonical single-select Trakt
+            // user-list pattern (one list per status). Reading is the default in the ctor —
+            // IsInEnum suffices to reject corrupted serialized values; NotEmpty would
+            // always pass for enum-typed fields.
             RuleFor(c => c.Status).IsInEnum();
 
             // Post-exchange guardrails: after a successful PKCE code-exchange the token block
@@ -97,12 +104,23 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // fixed at the api.myanimelist.net host per ToS.
         public override string BaseUrl { get; set; }
 
+        // ── User-supplied OAuth client identifier (D-09 per-user model) ───────────────
+        // MAL public-client PKCE flow. User registers an OAuth client at
+        // https://myanimelist.net/apiconfig and pastes the issued client_id into Mangarr
+        // Settings. MAL public-client PKCE has NO client_secret (PKCE replaces the
+        // shared-secret defense). Mirrors the per-user client model used by MangaDexImportList
+        // + AniListImportList in this phase — Mangarr does NOT register and ship its own
+        // upstream MAL OAuth client; each Mangarr install owns its client_id.
+
+        [FieldDefinition(0, Label = "ImportListsMalClientIdLabel", HelpText = "ImportListsMalClientIdHelpText", Type = FieldType.Textbox)]
+        public string ClientId { get; set; }
+
         // ── Single-select per-list status filter (D-10) ──────────────────────────────
         // Sonarr-canonical Trakt user-list pattern: one list per status. Users who want multiple
         // statuses create multiple ImportLists. The FE renders this as a 5-option dropdown driven
         // by the MalListStatus enum members (Reading / PlanToRead / Completed / OnHold / Dropped).
 
-        [FieldDefinition(0, Label = "ImportListsMalStatusLabel", HelpText = "ImportListsMalStatusHelpText", Type = FieldType.Select, SelectOptions = typeof(MalListStatus))]
+        [FieldDefinition(1, Label = "ImportListsMalStatusLabel", HelpText = "ImportListsMalStatusHelpText", Type = FieldType.Select, SelectOptions = typeof(MalListStatus))]
         public MalListStatus Status { get; set; }
 
         // ── Hidden OAuth token block (D-01 + T-27-04-V4 mitigation) ──────────────────
@@ -115,7 +133,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // throws FormatException on `DateTime.Parse("********")`. Matches Sonarr
         // TraktSettings.cs:27-37 verbatim.
 
-        [FieldDefinition(1, Label = "ImportListsMalAccessTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
+        [FieldDefinition(2, Label = "ImportListsMalAccessTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string AccessToken { get; set; }
 
         // MAL rotates refresh tokens — 31-day observed lifetime per RESEARCH §STACK §Surface 2.
@@ -123,10 +141,10 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // rotated value replaces the previous one (Pitfall 9 — concurrent refresh on the same
         // Definition.Id would otherwise cause `400 invalid_grant` cascade; D-05 SemaphoreSlim
         // serialization from OAuthAwareImportListBase prevents this).
-        [FieldDefinition(2, Label = "ImportListsMalRefreshTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
+        [FieldDefinition(3, Label = "ImportListsMalRefreshTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string RefreshToken { get; set; }
 
-        [FieldDefinition(3, Label = "ImportListsMalExpiresLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
+        [FieldDefinition(4, Label = "ImportListsMalExpiresLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public DateTime Expires { get; set; }
 
         // ── Transient PKCE flow state (Discretion #2 shape (a)) ──────────────────────
@@ -139,7 +157,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // changes. The provider class serializes via JsonConvert.SerializeObject(state) on
         // write and JsonConvert.DeserializeObject<MalOAuthState>(blob) on read.
 
-        [FieldDefinition(4, Label = "ImportListsMalPendingPkceStateLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
+        [FieldDefinition(5, Label = "ImportListsMalPendingPkceStateLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string PendingPkceState { get; set; }
 
         // ── AuthUser carries the MAL username after first successful exchange ────────
@@ -148,7 +166,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // Settings UI badge. Populated from the MAL token-response or a follow-up
         // GET /v2/users/@me call — provider picks (RESEARCH §Open Question 5).
 
-        [FieldDefinition(5, Label = "ImportListsMalAuthUserLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
+        [FieldDefinition(6, Label = "ImportListsMalAuthUserLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string AuthUser { get; set; }
 
         // ── OAuth sign-in action surface (D-06 / D-09) ───────────────────────────────
@@ -157,7 +175,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // name ("startOAuth") — server-side RequestAction(action) dispatches. The FE then opens
         // the returned OauthUrl in a new tab and renders the MalCallbackUrlModal for paste-back.
 
-        [FieldDefinition(6, Label = "ImportListsMalSignInLabel", HelpText = "ImportListsMalSignInHelpText", Type = FieldType.OAuth)]
+        [FieldDefinition(7, Label = "ImportListsMalSignInLabel", HelpText = "ImportListsMalSignInHelpText", Type = FieldType.OAuth)]
         public string SignIn { get; set; }
 
         public override NzbDroneValidationResult Validate()

@@ -43,18 +43,19 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // D-09 step 1: build the URL the FE opens in a new tab. Deterministic
         // URL construction (no HTTP call) — query string carries PKCE
         // code_challenge using the MAL-required `plain` method + 32-byte state nonce
-        // (CSRF defense).
-        string BuildAuthorizeUrl(MalOAuthState state);
+        // (CSRF defense). `clientId` is the user-supplied OAuth client identifier
+        // (MalImportListSettings.ClientId) — MAL public-client PKCE has no client_secret.
+        string BuildAuthorizeUrl(string clientId, MalOAuthState state);
 
         // D-09 step 2: POST form-urlencoded grant_type=authorization_code with
         // code + code_verifier to token endpoint. Returns the canonical MAL token
         // response (access_token + refresh_token + expires_in).
-        MalTokenResponse ExchangeCodeForToken(string code, string verifier);
+        MalTokenResponse ExchangeCodeForToken(string clientId, string code, string verifier);
 
         // D-05 / Trakt.cs:135-163 canonical refresh path. POST grant_type=refresh_token
         // — MAL ROTATES refresh tokens (caller applies the Trakt.cs:151 null-coalesce:
         // `Settings.RefreshToken = response.RefreshToken ?? Settings.RefreshToken`).
-        MalTokenResponse RefreshAccessToken(string refreshToken);
+        MalTokenResponse RefreshAccessToken(string clientId, string refreshToken);
 
         // Bearer-authenticated GET against /v2/users/@me/mangalist. When `nextCursor`
         // is non-null/non-empty, the request URL is the cursor URL verbatim
@@ -80,13 +81,13 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             _logger = logger;
         }
 
-        public string BuildAuthorizeUrl(MalOAuthState state)
+        public string BuildAuthorizeUrl(string clientId, MalOAuthState state)
         {
             // D-09 + STACK §Surface 2 verbatim URL shape:
             //   https://myanimelist.net/v1/oauth2/authorize?response_type=code
-            //     &client_id={MalConstants.ClientId}
+            //     &client_id={clientId}            (user-supplied from MalImportListSettings.ClientId)
             //     &code_challenge={state.Verifier}
-            //     &code_challenge_method=plain   (MAL only accepts plain)
+            //     &code_challenge_method=plain    (MAL only accepts plain)
             //     &state={state.StateNonce}
             //     &redirect_uri={MalConstants.RedirectUri}
             //
@@ -97,7 +98,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             // only method MAL accepts — threat is accepted, not a defect.
             var request = new HttpRequestBuilder(MalConstants.AuthorizeUrl)
                 .AddQueryParam("response_type", "code")
-                .AddQueryParam("client_id", MalConstants.ClientId)
+                .AddQueryParam("client_id", clientId ?? string.Empty)
                 .AddQueryParam("code_challenge", state.Verifier)
                 .AddQueryParam("code_challenge_method", "plain")
                 .AddQueryParam("state", state.StateNonce)
@@ -107,12 +108,12 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             return request.Url.FullUri;
         }
 
-        public MalTokenResponse ExchangeCodeForToken(string code, string verifier)
+        public MalTokenResponse ExchangeCodeForToken(string clientId, string code, string verifier)
         {
             // OAuth2 authorization_code grant per
             // https://myanimelist.net/apiconfig/references/authorization. Form-urlencoded body:
             //   grant_type=authorization_code
-            //     &client_id={MalConstants.ClientId}
+            //     &client_id={clientId}           (user-supplied)
             //     &code={code}
             //     &code_verifier={verifier}
             //     &redirect_uri={MalConstants.RedirectUri}
@@ -123,7 +124,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             var request = new HttpRequestBuilder(MalConstants.TokenUrl)
                 .Post()
                 .AddFormParameter("grant_type", "authorization_code")
-                .AddFormParameter("client_id", MalConstants.ClientId)
+                .AddFormParameter("client_id", clientId ?? string.Empty)
                 .AddFormParameter("code", code ?? string.Empty)
                 .AddFormParameter("code_verifier", verifier ?? string.Empty)
                 .AddFormParameter("redirect_uri", MalConstants.RedirectUri)
@@ -133,11 +134,11 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             return ExecuteTokenRequest(request);
         }
 
-        public MalTokenResponse RefreshAccessToken(string refreshToken)
+        public MalTokenResponse RefreshAccessToken(string clientId, string refreshToken)
         {
             // OAuth2 refresh-token grant. Form-urlencoded body:
             //   grant_type=refresh_token
-            //     &client_id={MalConstants.ClientId}
+            //     &client_id={clientId}           (user-supplied)
             //     &refresh_token={refreshToken}
             //
             // MAL ROTATES refresh tokens (31-day observed lifetime); caller (MalImportList
@@ -145,7 +146,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             var request = new HttpRequestBuilder(MalConstants.TokenUrl)
                 .Post()
                 .AddFormParameter("grant_type", "refresh_token")
-                .AddFormParameter("client_id", MalConstants.ClientId)
+                .AddFormParameter("client_id", clientId ?? string.Empty)
                 .AddFormParameter("refresh_token", refreshToken ?? string.Empty)
                 .Build();
 

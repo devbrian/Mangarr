@@ -938,6 +938,8 @@
   "ImportListsMalAccessTokenLabel": "Access Token",
   "ImportListsMalAuthUserLabel": "Auth User",
   "ImportListsMalCallbackUrlCancelLabel": "Cancel",
+  "ImportListsMalClientIdHelpText": "OAuth client ID issued by MyAnimeList at https://myanimelist.net/apiconfig (configure your client's redirect URI as https://mangarr.local/oauth/mal/callback)",
+  "ImportListsMalClientIdLabel": "Client ID",
   "ImportListsMalCallbackUrlInputPlaceholder": "https://mangarr.local/oauth/mal/callback?code=...&state=...",
   "ImportListsMalCallbackUrlPasteHelpText": "After authorizing in the new tab, MyAnimeList will redirect your browser to a placeholder URL that Mangarr does not serve. Copy the entire redirected URL from your browser bar (it will contain ?code=... and &state=...) and paste it here.",
   "ImportListsMalCallbackUrlSubmitLabel": "Save",

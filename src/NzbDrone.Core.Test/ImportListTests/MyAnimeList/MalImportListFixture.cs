@@ -68,6 +68,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
 
             _settings = new MalImportListSettings
             {
+                ClientId = "fixture-client-id",
                 Status = MalListStatus.Reading,
                 AccessToken = "fixture-access-token",
                 RefreshToken = "fixture-refresh-token",
@@ -95,9 +96,9 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
         [Test]
         public void start_oauth_returns_authorize_url_with_pkce_plain_and_state()
         {
-            _proxy.Setup(p => p.BuildAuthorizeUrl(It.IsAny<MalOAuthState>()))
-                  .Returns<MalOAuthState>(state =>
-                      $"https://myanimelist.net/v1/oauth2/authorize?response_type=code&client_id=test&code_challenge={state.Verifier}&code_challenge_method=plain&state={state.StateNonce}&redirect_uri=https://mangarr.local/oauth/mal/callback");
+            _proxy.Setup(p => p.BuildAuthorizeUrl(It.IsAny<string>(), It.IsAny<MalOAuthState>()))
+                  .Returns<string, MalOAuthState>((clientId, state) =>
+                      $"https://myanimelist.net/v1/oauth2/authorize?response_type=code&client_id={clientId}&code_challenge={state.Verifier}&code_challenge_method=plain&state={state.StateNonce}&redirect_uri=https://mangarr.local/oauth/mal/callback");
 
             var result = Subject.RequestAction("startOAuth", new Dictionary<string, string>());
 
@@ -131,7 +132,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             var pending = MalOAuthState.Create();
             _settings.PendingPkceState = JsonConvert.SerializeObject(pending);
 
-            _proxy.Setup(p => p.ExchangeCodeForToken("auth-code-fixture", pending.Verifier))
+            _proxy.Setup(p => p.ExchangeCodeForToken("fixture-client-id", "auth-code-fixture", pending.Verifier))
                   .Returns(new MalTokenResponse
                   {
                       AccessToken = "fresh-mal-token",
@@ -187,7 +188,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
 
             // Tokens MUST NOT be exchanged.
             _proxy.Verify(
-                p => p.ExchangeCodeForToken(It.IsAny<string>(), It.IsAny<string>()),
+                p => p.ExchangeCodeForToken(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
                 Times.Never,
                 "T-V11 CSRF: mismatched state nonce must reject the exchange before contacting MAL.");
 
@@ -215,7 +216,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
                 new Dictionary<string, string> { { "redirectedUrl", redirectedUrl } });
 
             _proxy.Verify(
-                p => p.ExchangeCodeForToken(It.IsAny<string>(), It.IsAny<string>()),
+                p => p.ExchangeCodeForToken(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
                 Times.Never,
                 "TTL-expired state nonce must reject the exchange.");
 
@@ -235,7 +236,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             _settings.AccessToken = "old-access";
             _settings.RefreshToken = "old-refresh";
 
-            _proxy.Setup(p => p.RefreshAccessToken("old-refresh"))
+            _proxy.Setup(p => p.RefreshAccessToken("fixture-client-id", "old-refresh"))
                   .Returns(new MalTokenResponse
                   {
                       AccessToken = "rotated-access",
@@ -253,7 +254,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             Subject.Fetch();
 
             _proxy.Verify(
-                p => p.RefreshAccessToken("old-refresh"),
+                p => p.RefreshAccessToken("fixture-client-id", "old-refresh"),
                 Times.Once,
                 "OAuthAwareImportListBase.Fetch() must call RefreshTokenIfNecessary, which calls the per-provider RefreshToken override.");
 
@@ -279,7 +280,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             // Proxy refresh bumps Expires past the lookahead via the provider override,
             // so the in-lock re-check (peer-flow defense) collapses callers 2..8 into
             // no-ops. Exactly ONE refresh call must reach the proxy.
-            _proxy.Setup(p => p.RefreshAccessToken(It.IsAny<string>()))
+            _proxy.Setup(p => p.RefreshAccessToken(It.IsAny<string>(), It.IsAny<string>()))
                   .Returns(new MalTokenResponse
                   {
                       AccessToken = "rotated-access",
@@ -297,7 +298,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             Parallel.For(0, 8, _ => Subject.Fetch());
 
             _proxy.Verify(
-                p => p.RefreshAccessToken(It.IsAny<string>()),
+                p => p.RefreshAccessToken(It.IsAny<string>(), It.IsAny<string>()),
                 Times.Once,
                 "D-05 + Pitfall 9: per-ImportList SemaphoreSlim must serialize concurrent refreshes, " +
                 "and the in-lock re-check must collapse callers 2..8 into no-ops so MAL's refresh-token " +
@@ -330,7 +331,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
                            return new HttpResponse(req, new HttpHeader { ContentType = "application/json" }, body, HttpStatusCode.OK);
                        });
 
-            _proxy.Setup(p => p.RefreshAccessToken(It.IsAny<string>()))
+            _proxy.Setup(p => p.RefreshAccessToken(It.IsAny<string>(), It.IsAny<string>()))
                   .Returns(new MalTokenResponse
                   {
                       AccessToken = "post-401-access",
@@ -342,7 +343,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
 
             result.Should().NotBeNull();
             _proxy.Verify(
-                p => p.RefreshAccessToken(It.IsAny<string>()),
+                p => p.RefreshAccessToken(It.IsAny<string>(), It.IsAny<string>()),
                 Times.Once,
                 "D-05 reactive 401-retry: after the initial 401, the provider must force-expire Settings.Expires and call RefreshTokenIfNecessary which dispatches RefreshAccessToken.");
 
