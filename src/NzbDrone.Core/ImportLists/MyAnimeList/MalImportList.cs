@@ -295,8 +295,18 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             {
                 // Sonarr-canonical (Trakt.cs:161) — log exception but don't bubble. The
                 // next Fetch() call's 401-retry decorator (below) will catch the downstream
-                // Unauthorized and either re-refresh or surface to the user.
-                _logger.Warn(ex, "Error refreshing MyAnimeList access token");
+                // Unauthorized and either re-refresh or surface to the user. T-V7: log
+                // message only (not the exception object) to avoid the remote chance that
+                // NLog formatting renders body/header content.
+                _logger.Warn("Error refreshing MyAnimeList access token: HTTP {0} {1}", (int?)ex.Response?.StatusCode ?? 0, ex.Message);
+            }
+            catch (Exception ex)
+            {
+                // Catch-all for non-HttpException transport failures (DNS, socket,
+                // cassette-miss in CI Replay mode, TaskCanceledException on timeout, etc.).
+                // Without this branch, those exceptions escape RefreshToken and abort
+                // the sync. Symmetric with the MangaDex provider — T-V7: message-only log.
+                _logger.Warn("Error refreshing MyAnimeList access token (non-HTTP): {0}", ex.Message);
             }
         }
 

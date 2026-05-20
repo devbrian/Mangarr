@@ -685,23 +685,22 @@ public class TestKit
         // transient transport / 401-startup-race conditions that the SeedBaselineAsync
         // helper handles. Without the retry envelope, the listing GET or POST can
         // intermittently fail when the host is mid-boot (per WR-08 / Phase 18 D-14).
+        //
+        // ExecuteWithStartupRetryAsync throws InvalidOperationException on hard
+        // failure (max-retries exhausted on transient errors OR non-retryable status
+        // like 4xx with a real error body). We intentionally do NOT catch and collapse
+        // that into (null, null) — fixtures need the full diagnostic context (status
+        // code + response body + ResponseStatus + error message) embedded in the
+        // exception so the test failure clearly identifies the root cause. Letting
+        // the exception bubble matches the discipline used by other TestKit seeders
+        // (SeedBaselineAsync + sibling Seed*Async helpers all throw on hard failure).
         const string Caller = nameof(RegisterMangaDexImportListAsync);
 
         // 1. Idempotency check — if a definition with this Name already exists, return its id.
-        IRestResponse listResponse;
-        try
-        {
-            listResponse = await ExecuteWithStartupRetryAsync(
-                Caller,
-                "importlist GET",
-                () => BuildRequest("importlist", Method.GET));
-        }
-        catch (InvalidOperationException)
-        {
-            // Surface listing failure as (response, null) so callers can branch
-            // — mirrors the RegisterTestImportListAsync contract shape.
-            return (null, null);
-        }
+        var listResponse = await ExecuteWithStartupRetryAsync(
+            Caller,
+            "importlist GET",
+            () => BuildRequest("importlist", Method.GET));
 
         if (!string.IsNullOrEmpty(listResponse.Content))
         {
@@ -719,45 +718,39 @@ public class TestKit
         // 2. POST — register MangaDexImportList via V5. skipTesting=true bypasses the
         //    Settings.Validate cascade which would otherwise reject dummy ClientId/
         //    ClientSecret/Username/Password as "Required" — we just need the row in
-        //    the DB so the CRUD / sync / delete-exclusion flows can fire.
-        IRestResponse postResponse;
-        try
-        {
-            postResponse = await ExecuteWithStartupRetryAsync(
-                Caller,
-                "importlist POST",
-                () =>
+        //    the DB so the CRUD / sync / delete-exclusion flows can fire. Same
+        //    fail-loud discipline as the listing call above — InvalidOperationException
+        //    bubbles with full diagnostics.
+        var postResponse = await ExecuteWithStartupRetryAsync(
+            Caller,
+            "importlist POST",
+            () =>
+            {
+                var postRequest = BuildRequest("importlist?skipTesting=true", Method.POST);
+                postRequest.AddJsonBody(new
                 {
-                    var postRequest = BuildRequest("importlist?skipTesting=true", Method.POST);
-                    postRequest.AddJsonBody(new
+                    enable = true,
+                    enableAutomaticAdd = false,
+                    searchForMissingChapters = false,
+                    shouldMonitor = "all",
+                    monitorNewItems = "all",
+                    rootFolderPath = _tempFolderRoot,
+                    translationProfileId = 1,
+                    customFormatProfileId = 1,
+                    name,
+                    implementation = "MangaDexImportList",
+                    configContract = "MangaDexImportListSettings",
+                    fields = new object[]
                     {
-                        enable = true,
-                        enableAutomaticAdd = false,
-                        searchForMissingChapters = false,
-                        shouldMonitor = "all",
-                        monitorNewItems = "all",
-                        rootFolderPath = _tempFolderRoot,
-                        translationProfileId = 1,
-                        customFormatProfileId = 1,
-                        name,
-                        implementation = "MangaDexImportList",
-                        configContract = "MangaDexImportListSettings",
-                        fields = new object[]
-                        {
-                            new { name = "clientId", value = "dummy-client-id" },
-                            new { name = "clientSecret", value = "dummy-client-secret" },
-                            new { name = "username", value = "dummy-user" },
-                            new { name = "password", value = "dummy-password" }
-                        },
-                        tags = new int[] { }
-                    });
-                    return postRequest;
+                        new { name = "clientId", value = "dummy-client-id" },
+                        new { name = "clientSecret", value = "dummy-client-secret" },
+                        new { name = "username", value = "dummy-user" },
+                        new { name = "password", value = "dummy-password" }
+                    },
+                    tags = new int[] { }
                 });
-        }
-        catch (InvalidOperationException)
-        {
-            return (null, null);
-        }
+                return postRequest;
+            });
 
         using var doc = JsonDocument.Parse(postResponse.Content);
         return (postResponse, doc.RootElement.GetProperty("id").GetInt32());
