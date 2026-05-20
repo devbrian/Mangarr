@@ -87,17 +87,25 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // Detect NUnit at runtime so unit-test fixtures (which stub the proxy and never
         // actually contact MAL) are exempt from the placeholder guard. Production
         // deployments don't load nunit.framework — the guard fires there as intended.
-        // Also check the MANGARR_MAL_SKIP_PRODUCTION_GUARD env var, which the
-        // automation-test runner (NzbDroneRunner) sets — automation tests boot Mangarr
-        // out-of-process, so NUnit isn't loaded INSIDE Mangarr.exe and the assembly
-        // check can't see it. Production deployments must NOT set this env var.
+        //
+        // Also check two env vars that signal a test environment when NUnit isn't loaded
+        // inside the spawned Mangarr.Console process (automation tests boot Mangarr
+        // out-of-process — NUnit lives in the test runner only):
+        //   - MANGARR_MAL_SKIP_PRODUCTION_GUARD=1   set by NzbDroneRunner explicitly
+        //   - MANGARR_TEST_CASSETTE_MODE non-empty  set by CI workflow (Record / Replay)
+        // Production deployments must NOT set either env var. The cassette-mode check is
+        // the more reliable cross-platform signal because it's set at the workflow level
+        // (action env) and inherits to all child processes via default propagation,
+        // while the explicit guard var requires NzbDroneRunner's ProcessStartInfo path
+        // to actually plumb it through (which may differ across runtimes).
         internal static bool IsTestEnvironment
             => AppDomain.CurrentDomain.GetAssemblies()
                 .Any(a => a.GetName().Name?.StartsWith("nunit", StringComparison.OrdinalIgnoreCase) == true)
             || string.Equals(
                 Environment.GetEnvironmentVariable("MANGARR_MAL_SKIP_PRODUCTION_GUARD"),
                 "1",
-                StringComparison.Ordinal);
+                StringComparison.Ordinal)
+            || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MANGARR_TEST_CASSETTE_MODE"));
 
         // Called from MalImportList.RequestAction (user-facing OAuth surface) to fail
         // fast if a release build ships with the placeholder still in place. Thrown

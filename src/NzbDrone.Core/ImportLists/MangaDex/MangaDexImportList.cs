@@ -117,6 +117,21 @@ namespace NzbDrone.Core.ImportLists.MangaDex
                         error = ex.Message
                     };
                 }
+                catch (Exception ex)
+                {
+                    // Catch-all for non-HttpException transport failures (DNS, socket,
+                    // cassette-miss in CI Replay mode, TaskCanceledException on timeout, etc.).
+                    // Without this branch, those exceptions escape RequestAction and the V5
+                    // controller returns 500 — masking the canonical D-08 envelope contract
+                    // (RequestAction never returns 500; failures round-trip as
+                    // `{ success: false, error: ... }`). T-V7 invariant maintained.
+                    _logger.Warn(ex, "MangaDex startOAuth failed with non-HttpException; returning envelope");
+                    return new
+                    {
+                        success = false,
+                        error = ex.Message
+                    };
+                }
             }
 
             return new { };
