@@ -27,7 +27,7 @@ User-configurable **profiles** that control which releases are accepted, when to
 
 | File | Purpose |
 |------|---------|
-| `DelayProfile.cs` | Per-tag profile. Fields: `EnableUsenet`, `EnableTorrent`, `PreferredProtocol`, `UsenetDelay`, `TorrentDelay`, `BypassIfHighestQuality`, `BypassIfAboveCustomFormatScore`, `MinimumCustomFormatScore`, `Tags` |
+| `DelayProfile.cs` | Per-tag profile. Fields: `PreferredProtocol`, `HttpDelay`, `Order`, `BypassIfHighestQuality`, `BypassIfAboveCustomFormatScore`, `MinimumCustomFormatScore`, `Tags`. Phase 26 Plan 26-03 (DP-01 + DP-02) dropped `EnableUsenet`/`EnableTorrent`/`UsenetDelay`/`TorrentDelay` atomic with Migration 003 — only `Http=3` and `Unknown=0` remain on `DownloadProtocol` post Phase 15 D-18, so `HttpDelay` is the only live protocol-delay column. |
 | `DelayProfileService.cs` | CRUD |
 | `DelayProfileRepository.cs` | Dapper repo |
 
@@ -62,7 +62,7 @@ public class QualityProfile : ModelBase
 - Indexer protocol returns a release
 - Compute "is this release `qualityProfile.Cutoff`-met or above"
 - If yes, grab immediately
-- Otherwise, hold (in `PendingReleases`) for `UsenetDelay` / `TorrentDelay` minutes
+- Otherwise, hold (in `PendingReleases`) for `HttpDelay` minutes (Phase 26 Plan 26-03: `UsenetDelay`/`TorrentDelay` columns dropped — `Http` is the only live protocol post Phase 15 D-18)
 - After delay, re-evaluate; grab the best available
 - `BypassIfHighestQuality` — skip delay if release is the maximum-allowed quality
 - `BypassIfAboveCustomFormatScore` — skip delay if score exceeds threshold

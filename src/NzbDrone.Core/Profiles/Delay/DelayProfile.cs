@@ -6,11 +6,7 @@ namespace NzbDrone.Core.Profiles.Delay
 {
     public class DelayProfile : ModelBase
     {
-        public bool EnableUsenet { get; set; }
-        public bool EnableTorrent { get; set; }
         public DownloadProtocol PreferredProtocol { get; set; }
-        public int UsenetDelay { get; set; }
-        public int TorrentDelay { get; set; }
         public int HttpDelay { get; set; }
         public int Order { get; set; }
         public bool BypassIfHighestQuality { get; set; }
@@ -23,12 +19,17 @@ namespace NzbDrone.Core.Profiles.Delay
             Tags = new HashSet<int>();
         }
 
-        // Sonarr divergence: Phase 15 Plan 15-04 — DownloadProtocol.{Usenet,Torrent} stripped per
-        // Plan 15-04 enum trim (Discretion lean Unknown=0, Http=3). HttpDelay is the only active
-        // protocol delay; Torrent/Usenet delays remain as schema-round-trip columns.
+        // Phase 26 Plan 26-03 (DP-02) — body simplified to HttpDelay-only after
+        // Migration 003 drops the 4 dead protocol-delay columns. Post-Phase-15 D-18
+        // enum trim only Http=3 and Unknown=0 remain on DownloadProtocol; any
+        // non-Http branch falls through to 0.
         public int GetProtocolDelay(DownloadProtocol protocol)
         {
-            return protocol == DownloadProtocol.Http ? HttpDelay : UsenetDelay;
+            return protocol switch
+            {
+                DownloadProtocol.Http => HttpDelay,
+                _ => 0
+            };
         }
     }
 }

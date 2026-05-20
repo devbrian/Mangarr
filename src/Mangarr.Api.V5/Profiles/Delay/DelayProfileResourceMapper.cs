@@ -8,18 +8,10 @@ namespace Mangarr.Api.V5.Profiles.Delay;
 // (RestrictionResourceMapper), but lives in its own file per Mangarr's
 // TagResource.cs / TagResourceMapper.cs split-mapper precedent.
 //
-// Phase-23 bridge pattern (per CONTEXT.md D-03 + RESEARCH.md Pitfall 2):
-// The 4 user-locked-dead entity fields are OMITTED from the V5 Resource
-// (DelayProfileResource.cs) but the DelayProfile entity keeps them through Phase 23
-// (D-01 — entity-side trim deferred to Phase 26 atomic with Migration 002 DDL
-// drop; dropping props in Phase 23 would break the seeder's _repo.Insert(profile)
-// against NOT-NULL columns — Pitfall 3).
-//
-// ToModel() hard-codes those 4 dead-field defaults so the entity round-trips
-// cleanly. Each hardcoded line carries a marker comment ABOVE it: the Phase 26
-// plan-author greps for the marker token (see the 4 marker lines below in
-// ToModel) to find and delete all 4 hardcodes atomic with the entity prop drop
-// + Migration 002 column drop.
+// Phase 26 Plan 26-03 (DP-02) closed the Phase 23 bridge pattern: the 4 dead
+// protocol-delay entity props were dropped from DelayProfile.cs atomic with
+// Migration 003's DDL column drops on DelayProfiles. The previous marker
+// hardcodes in ToModel are gone.
 public static class DelayProfileResourceMapper
 {
     public static DelayProfileResource? ToResource(this DelayProfile model)
@@ -49,21 +41,17 @@ public static class DelayProfileResourceMapper
             return null;
         }
 
+        // Phase 26 Plan 26-03 (DP-02) — the 4 Phase 23 bridge hardcodes (4 dead
+        // protocol-delay fields = ...) were deleted atomic with the entity prop
+        // drop + Migration 003 DDL (see Pitfall 1 atomic cluster). The bridge
+        // served its single purpose: keeping the seeder's _repo.Insert(profile)
+        // from hitting NOT-NULL DDL columns the V5 Resource had already stopped
+        // projecting. With Migration 003 dropping those columns and DP-02
+        // dropping the entity props, the bridge is no longer reachable from any
+        // code path.
         return new DelayProfile
         {
             Id = resource.Id,
-
-            // PHASE-23 BRIDGE — DELETE atomic with Phase 26 Migration 002 entity prop drop.
-            EnableUsenet = true,
-
-            // PHASE-23 BRIDGE — DELETE atomic with Phase 26 Migration 002 entity prop drop.
-            EnableTorrent = true,
-
-            // PHASE-23 BRIDGE — DELETE atomic with Phase 26 Migration 002 entity prop drop.
-            UsenetDelay = 0,
-
-            // PHASE-23 BRIDGE — DELETE atomic with Phase 26 Migration 002 entity prop drop.
-            TorrentDelay = 0,
             PreferredProtocol = resource.PreferredProtocol,   // D-04 preserved (dormant)
             HttpDelay = resource.HttpDelay,
             Order = resource.Order,
