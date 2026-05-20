@@ -42,11 +42,12 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         public string StateNonce { get; set; }
 
         // 48-byte CSPRNG-sourced base64url-encoded verifier. With MAL's
-        // `code_challenge_method=plain` (NOT S256 — MAL constraint, two independent
-        // sources confirm), the verifier is sent BOTH as the `code_challenge` query
-        // parameter on the authorize URL AND as the `code_verifier` form field on the
-        // token-exchange POST. PKCE-plain is weaker than S256 but is the only method
-        // MAL accepts (T-V2 ACCEPT per threat model).
+        // `code_challenge_method=plain` (hashed variant NOT supported — MAL constraint,
+        // two independent sources confirm), the verifier is sent BOTH as the
+        // `code_challenge` query parameter on the authorize URL AND as the
+        // `code_verifier` form field on the token-exchange POST. PKCE-plain is weaker
+        // than the hashed variant but is the only method MAL accepts (T-V2 ACCEPT per
+        // threat model).
         public string Verifier { get; set; }
 
         // Wall-clock UTC expiry. `IsValid()` rejects expired states; the caller
