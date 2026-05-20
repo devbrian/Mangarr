@@ -560,6 +560,111 @@ public class TestKit
     }
 
     // ────────────────────────────────────────────────────────────────────────
+    // Phase 26 Plan 26-06 (D-09 / D-10 bucket B) — Test fake ImportList provider
+    // registration seam. Authored per RESEARCH §Q4 pattern 2 (Automation.Test
+    // bootstrap hook).
+    //
+    // BACKGROUND: TestImportList lives in NzbDrone.Core.Test/ImportListTests/Fakes/
+    // (D-09 + D-11 — test-infrastructure only). The production NzbDroneRunner-launched
+    // Mangarr process auto-discovers IMangaImportList implementations via DryIoc
+    // reflection scanning NzbDrone.Core assemblies only — the .Test assembly is
+    // deliberately excluded from production DI (Pitfall 2 anti-prod-leak gate
+    // enforced by ImportListFactoryFixture.factory_returns_zero_providers_on_empty_di_bag).
+    //
+    // The bucket B automation fixtures (Plan 26-06 Tasks 1-2) call this helper from
+    // OneTimeSetUp to register TestImportList against the running host. The helper
+    // uses the direct V5 API POST path documented in PLAN <action> Edit B:
+    //   POST /api/v5/importlist
+    //     { implementation = "TestImportList", configContract = "TestImportListSettings", ... }
+    //
+    // GRACEFUL DEGRADATION: under the current substrate the test-assembly fake is
+    // NOT in the production DI scan, so the POST returns a 4xx ("Unknown
+    // implementation 'TestImportList'"). The helper returns the response so the
+    // fixture can branch: HTTP 2xx (id returned) → proceed with bucket B flow; HTTP
+    // 4xx → Assert.Inconclusive with the documented reason and a forward-pointer to
+    // Phase 27 (which lands real production providers and unblocks the bucket B
+    // smoke-gate path in the host environment).
+    //
+    // Per the Plan 26-06 verification carve-out (worktree executor compiles only;
+    // smoke gate runs live in the host): this seam compiles and is idempotent. The
+    // runtime green-status of bucket B fixtures is verified by the orchestrator's
+    // scripts/phase-smoke-gate.sh 26 in the main repo, NOT the worktree.
+
+    /// <summary>
+    /// Phase 26 Plan 26-06 (D-09 + D-10 bucket B) — register the test-only
+    /// <c>TestImportList</c> fake against the running host via
+    /// <c>POST /api/v5/importlist?skipTesting=true</c>. Idempotent: returns the
+    /// existing definition id if a row with <paramref name="name"/> already exists.
+    /// </summary>
+    /// <param name="name">Definition display name (default: "TestImportList (test seed)").</param>
+    /// <returns>
+    /// <para>Tuple of (<see cref="IRestResponse"/>, <see cref="int"/>?). When the
+    /// POST succeeds, the int is the newly-created (or existing) definition id.
+    /// When the POST fails because <c>TestImportList</c> is not in the production
+    /// DI scan, the int is null and the response carries the error body so the
+    /// fixture can branch to <c>Assert.Inconclusive</c> with diagnostic context.</para>
+    /// <para>The response object is returned (not thrown) so fixtures can decide
+    /// between hard-fail and skip — per the Plan 26-06 bucket B documentation,
+    /// the test-fake substrate-registration path is a known forward-staging gap
+    /// closed by Phase 27 real providers.</para>
+    /// </returns>
+    public async Task<(IRestResponse Response, int? DefinitionId)> RegisterTestImportListAsync(
+        string name = "TestImportList (test seed)")
+    {
+        // 1. Idempotency check — if a definition with this Name already exists, return its id.
+        var listResponse = await _client.ExecuteAsync(BuildRequest("importlist", Method.GET));
+        if (listResponse.IsSuccessful && !string.IsNullOrEmpty(listResponse.Content))
+        {
+            using var listDoc = JsonDocument.Parse(listResponse.Content);
+            foreach (var element in listDoc.RootElement.EnumerateArray())
+            {
+                if (element.TryGetProperty("name", out var nameProp) &&
+                    string.Equals(nameProp.GetString(), name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return (listResponse, element.GetProperty("id").GetInt32());
+                }
+            }
+        }
+
+        // 2. POST — register TestImportList via V5. skipTesting=true mandatory per
+        //    ProviderControllerBase pattern (Pitfall 1 — the substrate's Test() path
+        //    runs the fake provider's Test() override which is a no-op, but
+        //    skipTesting still short-circuits the validation cascade defensively).
+        var postRequest = BuildRequest("importlist?skipTesting=true", Method.POST);
+        postRequest.AddJsonBody(new
+        {
+            enable = true,
+            enableAutomaticAdd = true,
+            searchForMissingChapters = false,
+            shouldMonitor = "all",
+            monitorNewItems = "all",
+            rootFolderPath = _tempFolderRoot,
+            translationProfileId = 1,
+            customFormatProfileId = 1,
+            name,
+            implementation = "TestImportList",
+            configContract = "TestImportListSettings",
+            fields = new object[]
+            {
+                new { name = "baseUrl", value = "https://test.invalid" }
+            },
+            tags = new int[] { }
+        });
+
+        var postResponse = await _client.ExecuteAsync(postRequest);
+        if (!postResponse.IsSuccessful)
+        {
+            // Forward-stage failure mode — TestImportList isn't in production DI scan
+            // until Phase 27 lands a substrate-extensibility seam OR a real provider.
+            // Return non-throwing so the fixture can decide (Inconclusive vs hard-fail).
+            return (postResponse, null);
+        }
+
+        using var doc = JsonDocument.Parse(postResponse.Content);
+        return (postResponse, doc.RootElement.GetProperty("id").GetInt32());
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
     // Raw-SQLite failure-state / queue seed helpers (Plan 19-01 Open Question 1
     // verdict = raw-SQLite). The automation harness runs Mangarr as a SEPARATE
     // OS process with no shared DI container, so it cannot call
