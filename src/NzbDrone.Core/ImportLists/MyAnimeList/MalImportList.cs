@@ -104,6 +104,14 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // OAuthInput.tsx:42-46). The refresh token is NEVER echoed.
         public override object RequestAction(string action, IDictionary<string, string> query)
         {
+            // CR-02: fail fast on placeholder ClientId so the user sees a clear error
+            // instead of MAL's silent invalid_client 401. Guard runs on every user-facing
+            // OAuth surface (startOAuth + getOAuthToken). The ImportListFactory's reflection
+            // scan does NOT instantiate the provider into Fetch territory, so this guard
+            // does NOT block the Settings page from rendering — it only fires when the user
+            // explicitly invokes the MAL OAuth flow.
+            MalConstants.EnsureProductionReady();
+
             if (action == "startOAuth")
             {
                 var state = MalOAuthState.Create();

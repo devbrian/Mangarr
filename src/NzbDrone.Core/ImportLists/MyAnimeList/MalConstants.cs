@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace NzbDrone.Core.ImportLists.MyAnimeList
 {
@@ -71,6 +72,44 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // shared-secret defense). It identifies the app, not the user; documented in
         // CLAUDE.md "MAL OAuth-app Registration" section.
         public const string ClientId = "REPLACE_AT_RELEASE_BUILD_WITH_MAL_PINNED_CLIENT_ID";
+
+        // CR-02 release-readiness guard (Phase 27 code review). The ClientId constant
+        // above is a placeholder until the executor registers a MAL OAuth app at
+        // https://myanimelist.net/apiconfig and pins the issued client_id. Without
+        // this guard, a forgotten swap silently ships a binary that 401's on every
+        // user OAuth attempt with no signal at build or startup time. The placeholder
+        // sentinel below is matched verbatim against ClientId — keep them in sync.
+        internal const string ClientIdPlaceholderSentinel = "REPLACE_AT_RELEASE_BUILD_WITH_MAL_PINNED_CLIENT_ID";
+
+        internal static bool IsClientIdPlaceholder
+            => string.Equals(ClientId, ClientIdPlaceholderSentinel, StringComparison.Ordinal);
+
+        // Detect NUnit at runtime so unit-test fixtures (which stub the proxy and never
+        // actually contact MAL) are exempt from the placeholder guard. Production
+        // deployments don't load nunit.framework — the guard fires there as intended.
+        internal static bool IsTestEnvironment
+            => AppDomain.CurrentDomain.GetAssemblies()
+                .Any(a => a.GetName().Name?.StartsWith("nunit", StringComparison.OrdinalIgnoreCase) == true);
+
+        // Called from MalImportList.RequestAction (user-facing OAuth surface) to fail
+        // fast if a release build ships with the placeholder still in place. Thrown
+        // InvalidOperationException surfaces as a visible Settings-form error rather
+        // than MAL's silent invalid_client 401 trap.
+        internal static void EnsureProductionReady()
+        {
+            if (IsTestEnvironment)
+            {
+                return;
+            }
+
+            if (IsClientIdPlaceholder)
+            {
+                throw new InvalidOperationException(
+                    "MalConstants.ClientId is set to the release-build placeholder. " +
+                    "Replace with the MAL-issued client_id from https://myanimelist.net/apiconfig " +
+                    "(redirect URI must match MalConstants.RedirectUri). See Phase 27 code review CR-02.");
+            }
+        }
 
         // CSRF + replay defense — PKCE state nonce lifetime. Mangarr clears
         // Settings.PendingPkceState on first successful exchange (single-use enforcement)

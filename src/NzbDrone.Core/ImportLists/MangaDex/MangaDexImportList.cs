@@ -159,24 +159,43 @@ namespace NzbDrone.Core.ImportLists.MangaDex
             }
         }
 
-        // D-05 reactive 401-retry decorator on top of the base's Fetch() override.
-        // The base already calls RefreshTokenIfNecessary then base.Fetch() — if the
-        // refresh-lookahead missed (e.g., MangaDex revoked the token early outside the
-        // 5-minute window), the bearer-attached follows request 401's and the base
-        // exception ladder swallows it as a generic failure. This override catches the
-        // 401 case explicitly, force-expires the token, refreshes, and retries once.
-        public override ImportListFetchResult Fetch()
+        // D-05 reactive 401-retry decorator at the per-request level. The base
+        // HttpImportListBase.FetchItems loop catches HttpException and records the
+        // failure as a generic warning — it does NOT bubble the exception out of
+        // Fetch(), so wrapping base.Fetch() in a try/catch around HttpException
+        // CANNOT see the 401 (the base eats it first). The correct interception point
+        // is FetchImportListResponse — called once per request by base.FetchPage and
+        // surrounded by NO exception ladder yet (the ladder lives in FetchItems
+        // outside the per-page loop). MAL's MalImportList:283-307 has the canonical
+        // shape; this matches it verbatim.
+        //
+        // On 401: force-expire Settings.Expires, call RefreshTokenIfNecessary (which
+        // dispatches RefreshToken() inside the per-Definition.Id semaphore), and
+        // RETRY the same request once. If the retry also 401s, the base FetchItems
+        // catch-block surfaces the failure to the user (the inherited behavior).
+        protected override ImportListResponse FetchImportListResponse(ImportListRequest request)
         {
             try
             {
-                return base.Fetch();
+                return base.FetchImportListResponse(request);
             }
             catch (HttpException ex) when (ex.Response?.StatusCode == HttpStatusCode.Unauthorized)
             {
                 _logger.Debug("MangaDex follows-list returned 401; force-refreshing token and retrying once.");
                 Settings.Expires = DateTime.MinValue;
                 RefreshTokenIfNecessary();
-                return base.Fetch();
+
+                // Re-apply the rotated bearer token to the in-flight request before
+                // retry. The request generator pre-baked the OLD AccessToken into the
+                // Authorization header; after RefreshTokenIfNecessary the new token
+                // sits on Settings.AccessToken but the request.Headers entry still
+                // carries the old value.
+                if (request?.HttpRequest != null)
+                {
+                    request.HttpRequest.Headers["Authorization"] = $"Bearer {Settings.AccessToken}";
+                }
+
+                return base.FetchImportListResponse(request);
             }
         }
     }
