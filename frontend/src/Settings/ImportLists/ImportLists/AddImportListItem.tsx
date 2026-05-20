@@ -8,6 +8,7 @@ import { SelectedSchema } from 'Settings/useProviderSchema';
 import translate from 'Utilities/String/translate';
 import { ImportListModel } from '../useImportLists';
 import AddImportListPresetMenuItem from './AddImportListPresetMenuItem';
+import styles from './AddImportListItem.css';
 
 // Phase 26 Plan 26-05 (IL-05) — single Add-picker tile. Mirror of
 // frontend/src/Settings/Indexers/Indexers/AddIndexerItem.tsx per RESEARCH §Q7.
@@ -41,21 +42,26 @@ function AddImportListItem({
     .toLowerCase();
 
   return (
-    <div data-testid={`add-importlist-${itemTestIdSlug}`}>
-      <Link onPress={handleImportListSelect} />
+    <div
+      className={styles.importList}
+      data-testid={`add-importlist-${itemTestIdSlug}`}
+    >
+      <Link className={styles.underlay} onPress={handleImportListSelect} />
 
-      <div>
-        <div>{implementationName}</div>
+      <div className={styles.overlay}>
+        <div className={styles.name}>{implementationName}</div>
 
-        <div>
+        <div className={styles.actions}>
           {hasPresets && (
             <span>
               <Button size={sizes.SMALL} onPress={handleImportListSelect}>
                 {translate('Custom')}
               </Button>
 
-              <Menu>
-                <Button size={sizes.SMALL}>{translate('Presets')}</Button>
+              <Menu className={styles.presetsMenu}>
+                <Button className={styles.presetsMenuButton} size={sizes.SMALL}>
+                  {translate('Presets')}
+                </Button>
 
                 <MenuContent>
                   {presets.map((preset) => {

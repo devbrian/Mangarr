@@ -100,10 +100,10 @@ public class RequestActionRoundTripFixture : AutomationTest
 
         payload.Should().NotBeNull();
         var json = payload.AsObject();
-        json.ContainsKey("OauthUrl").Should().BeTrue(
+        json.ContainsKey("oauthUrl").Should().BeTrue(
             "AniListImportList.RequestAction('startOAuth') returns `{ OauthUrl: <pin URL> }` per D-07 + Plan 27-03 SUMMARY.");
 
-        var oauthUrl = json["OauthUrl"]?.GetValue<string>();
+        var oauthUrl = json["oauthUrl"]?.GetValue<string>();
         oauthUrl.Should().NotBeNullOrWhiteSpace();
         oauthUrl.Should().StartWith("https://anilist.co/api/v2/oauth/pin",
             "AniList authorize URL is fixed per RESEARCH §STACK §Surface 2 + CONTEXT line 23.");
@@ -126,10 +126,10 @@ public class RequestActionRoundTripFixture : AutomationTest
 
         payload.Should().NotBeNull();
         var json = payload.AsObject();
-        json.ContainsKey("OauthUrl").Should().BeTrue(
+        json.ContainsKey("oauthUrl").Should().BeTrue(
             "MalImportList.RequestAction('startOAuth') returns `{ OauthUrl: <authorize URL> }` per D-09 + Plan 27-04 SUMMARY.");
 
-        var oauthUrl = json["OauthUrl"]?.GetValue<string>();
+        var oauthUrl = json["oauthUrl"]?.GetValue<string>();
         oauthUrl.Should().NotBeNullOrWhiteSpace();
         oauthUrl.Should().StartWith("https://myanimelist.net/v1/oauth2/authorize",
             "MAL authorize URL is fixed per MalConstants.AuthorizeUrl + CONTEXT line 33-36.");
