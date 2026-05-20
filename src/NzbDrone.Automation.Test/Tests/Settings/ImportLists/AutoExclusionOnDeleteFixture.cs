@@ -1,142 +1,101 @@
 using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
+using NzbDrone.Automation.Test.Flows;
 
 namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 
 // Phase 26 Plan 26-06 Task 1 (D-10 bucket B / D-12 round-trip) — L-002
 // first-record-creation smoke for the event-driven auto-exclusion path.
 //
-// Flow:
-//   1. Register TestImportList (bucket B precondition).
-//   2. Trigger ImportListSync (the same Command-API pattern as
-//      ImportListSyncTriggerFixture). This populates Manga records that
-//      carry MangaDexId / MalId / AniListId triplets.
-//   3. Pick one Manga; record its triplet.
-//   4. DELETE /api/v5/manga/{id}. The controller's DeleteManga(int, bool)
-//      always delegates to MangaService.DeleteManga(list, deleteFiles) which
-//      defaults addImportListExclusion: true per MangaService.cs:155-162
-//      (Phase 26 Plan 26-04 D-12).
-//   5. Poll GET /api/v5/importlistexclusion for up to 5s (Pitfall 3 async-flush
-//      race tolerance — ImportListExclusionService : IHandle<MangaDeletedEvent>
-//      runs through the EventAggregator which can flush asynchronously).
-//   6. Assert an ImportListExclusion row exists with the matching
+// Phase 27 retarget (closes GH #217): originally registered TestImportList and
+// relied on ImportListSync to produce a Manga record, which fails because
+// TestImportList is excluded from production DI (Pitfall 2). Now:
+//   1. Registers MangaDexImportList (real Phase 27 provider) so the row exists.
+//   2. Seeds a Manga directly via AddMangaFlow.AddByMangaDexIdAsync (cassette-
+//      replayed MangaDex lookup — works without working OAuth).
+//   3. Deletes the Manga via DELETE /api/v5/manga/{id}; MangaService.DeleteManga
+//      defaults addImportListExclusion: true per Phase 26 Plan 26-04 D-12.
+//   4. Polls GET /api/v5/importlistexclusion (≤5s; Pitfall 3 async-flush
+//      tolerance for IHandle<MangaDeletedEvent>).
+//   5. Asserts an ImportListExclusion row exists with the matching
 //      MangaDexId / MalId / AniListId triplet.
-//
-// This is the L-002 first-record-creation conformer (CREATE then mutate, not
-// just empty-state render). The forward-staging gate same as bucket B siblings:
-// when TestImportList is not in production DI, the fixture branches to
-// Assert.Inconclusive with the documented Phase 27 forward-pointer.
 //
 // Pattern κ: zero series-*/episode-*/season-*/add-series- selectors.
 [TestFixture]
 [Category("AutomationTest")]
 public class AutoExclusionOnDeleteFixture : AutomationTest
 {
+    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+
     [OneTimeSetUp]
-    public async Task DisableComixAsync()
+    public async Task DisableComixAndRegisterProviderAsync()
     {
-        await new TestKit.TestKit(RootUri, ApiKey, string.Empty).DisableComixIndexerAsync();
+        var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
+        await tk.DisableComixIndexerAsync();
+
+        // Register MangaDexImportList — the actual exclusion-on-delete path
+        // does NOT need the sync to fire (we seed the Manga via AddMangaFlow
+        // below). The registration is here for parity with the Phase 26 bucket-B
+        // narrative ("ImportList registered → Manga deleted → exclusion fires").
+        var (_, _) = await tk.RegisterMangaDexImportListAsync("MangaDex (auto-exclusion)");
     }
 
     [Test]
     public async Task delete_manga_auto_adds_exclusion_via_event_handler()
     {
-        var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
-        var (registrationResp, definitionId) =
-            await tk.RegisterTestImportListAsync("TestImportList (auto-exclusion)");
-
-        if (definitionId == null)
-        {
-            Assert.Inconclusive(
-                "TestImportList not registered (HTTP {0}); production DI scan excludes " +
-                "NzbDrone.Core.Test fake providers. Forward-pointer: Phase 27 lands real " +
-                "providers that satisfy bucket B GREEN. Response body: {1}",
-                (int)registrationResp.StatusCode,
-                registrationResp.Content);
-            return;
-        }
+        // 1. Seed a Manga via the UI flow (cassette-replayed MangaDex lookup +
+        //    AddMangaModal Confirm). This guarantees a real Manga row with a
+        //    valid MangaDexId in the DB — the dummy-cred MangaDex sync would
+        //    produce 0 records.
+        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
 
         using var http = new HttpClient { BaseAddress = new Uri($"{RootUri}/api/v5/") };
         http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
         http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        // 1. Trigger ImportListSync (Step 2 of the flow).
-        var commandResp = await http.PostAsJsonAsync("command", new { name = "ImportListSync" });
-        commandResp.IsSuccessStatusCode.Should().BeTrue(
-            "POST /api/v5/command (ImportListSync) must return 2xx (body: {0})",
-            await commandResp.Content.ReadAsStringAsync());
-
-        var commandBody = await commandResp.Content.ReadAsStringAsync();
-        using var commandDoc = JsonDocument.Parse(commandBody);
-        var commandId = commandDoc.RootElement.GetProperty("id").GetInt32();
-
-        // Wait for sync command to reach terminal state (≤30s; Pitfall 3
-        // tolerance — the IExecute<ImportListSyncCommand> path is async).
-        var deadline = DateTime.UtcNow.AddSeconds(30);
-        var finalStatus = "unknown";
-        while (DateTime.UtcNow < deadline)
-        {
-            var statusResp = await http.GetAsync($"command/{commandId}");
-            if (statusResp.IsSuccessStatusCode)
-            {
-                using var statusDoc = JsonDocument.Parse(await statusResp.Content.ReadAsStringAsync());
-                finalStatus = statusDoc.RootElement.GetProperty("status").GetString() ?? string.Empty;
-                if (finalStatus == "completed" || finalStatus == "failed")
-                {
-                    break;
-                }
-            }
-
-            await Task.Delay(500);
-        }
-
-        finalStatus.Should().Be(
-            "completed",
-            "sync prerequisite must complete (observed: {0})",
-            finalStatus);
-
-        // 2. Pick a Manga; record its MangaDexId / MalId / AniListId triplet.
+        // 2. Pull the seeded Manga's id + triplet. AddMangaFlow uses the canonical
+        //    KnownMangaDexId; locate it by GUID match.
         var mangaListResp = await http.GetAsync("manga");
         mangaListResp.IsSuccessStatusCode.Should().BeTrue("GET /api/v5/manga must return 2xx");
         using var mangaListDoc = JsonDocument.Parse(await mangaListResp.Content.ReadAsStringAsync());
+        mangaListDoc.RootElement.GetArrayLength().Should().BeGreaterThan(
+            0,
+            "AddMangaFlow.AddByMangaDexIdAsync must have persisted at least one Manga record");
 
-        if (mangaListDoc.RootElement.GetArrayLength() == 0)
+        var mangaId = 0;
+        string mangaDexId = null;
+        int? malId = null;
+        int? aniListId = null;
+
+        foreach (var element in mangaListDoc.RootElement.EnumerateArray())
         {
-            // The TestImportList Fetch() items use invalid GUID MangaDexIds that the
-            // AddMangaService validation cascade may legitimately reject (no live
-            // upstream metadata lookup succeeds). When the post-sync Manga list is
-            // empty, the D-12 auto-exclusion path cannot fire — this is a Phase 27
-            // forward-staging boundary, not a Phase 26 bug. Branch to Inconclusive
-            // with the documented diagnostic.
-            Assert.Inconclusive(
-                "ImportListSync produced 0 persisted Manga records (TestImportList GUID " +
-                "payload is synthetic — Phase 27 real providers feed live MangaDex IDs " +
-                "that the AddMangaService cascade can accept). D-12 auto-exclusion path " +
-                "cannot fire without a deleted Manga; smoke gate will pivot to real-provider " +
-                "seed once Phase 27 ships.");
-            return;
+            var elementMdxProp = element.TryGetProperty("mangaDexId", out var mdxProp) && mdxProp.ValueKind == JsonValueKind.String
+                ? mdxProp.GetString()
+                : null;
+
+            if (string.Equals(elementMdxProp, KnownMangaDexId, StringComparison.OrdinalIgnoreCase))
+            {
+                mangaId = element.GetProperty("id").GetInt32();
+                mangaDexId = elementMdxProp;
+                malId = element.TryGetProperty("malId", out var malProp) && malProp.ValueKind == JsonValueKind.Number
+                    ? malProp.GetInt32()
+                    : (int?)null;
+                aniListId = element.TryGetProperty("aniListId", out var aniProp) && aniProp.ValueKind == JsonValueKind.Number
+                    ? aniProp.GetInt32()
+                    : (int?)null;
+                break;
+            }
         }
 
-        var firstManga = mangaListDoc.RootElement[0];
-        var mangaId = firstManga.GetProperty("id").GetInt32();
-
-        // Pull the triplet — Manga resource carries MangaDexId / MalId / AniListId
-        // fields directly per Migration 003 + ImportListItemInfo round-trip.
-        var mangaDexId = firstManga.TryGetProperty("mangaDexId", out var mdxProp) && mdxProp.ValueKind == JsonValueKind.String
-            ? mdxProp.GetString()
-            : null;
-        var malId = firstManga.TryGetProperty("malId", out var malProp) && malProp.ValueKind == JsonValueKind.Number
-            ? malProp.GetInt32()
-            : (int?)null;
-        var aniListId = firstManga.TryGetProperty("aniListId", out var aniProp) && aniProp.ValueKind == JsonValueKind.Number
-            ? aniProp.GetInt32()
-            : (int?)null;
+        mangaId.Should().BeGreaterThan(
+            0,
+            "AddMangaFlow seed must produce a Manga with mangaDexId={0}",
+            KnownMangaDexId);
 
         // 3. DELETE the Manga. addImportListExclusion defaults true per
         //    MangaService.cs:155-162; no query param required.
@@ -194,7 +153,7 @@ public class AutoExclusionOnDeleteFixture : AutomationTest
         }
 
         // 5. State assertion: an ImportListExclusion row with the matching
-        //    triplet exists (NOT just any row — verify the specific values).
+        //    triplet exists.
         exclusionFound.Should().BeTrue(
             "deleted Manga (id={0}, mangaDexId={1}, malId={2}, aniListId={3}) should " +
             "auto-add an ImportListExclusion row within 5s via " +

@@ -13,22 +13,23 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 // global Command API (D-04 ENFORCED: this is the ONLY manual-trigger surface
 // for ImportListSync; no per-list endpoint, no "Sync Now" button).
 //
+// Phase 27 retarget (closes GH #217): now registers MangaDexImportList via
+// TestKit.RegisterMangaDexImportListAsync (real provider) instead of the
+// production-DI-excluded TestImportList fake. The sync against dummy
+// credentials will produce 0 manga (OAuth fails) but the COMMAND itself
+// transitions through queued → started → completed normally, which is what
+// this fixture asserts.
+//
 // Analog: src/NzbDrone.Automation.Test/Tests/Settings/IndexerTestAllFixture.cs
 // (Command-API trigger pattern: POST /api/v5/command {name:"..."} → poll
 // GET /api/v5/command/{id} for status transition).
 //
 // Behavior:
-//   1. Register TestImportList via TestKit (bucket B precondition).
+//   1. Register MangaDexImportList via TestKit (bucket B precondition).
 //   2. POST /api/v5/command { name: "ImportListSync" }; assert 201 + CommandResource.
 //   3. Poll GET /api/v5/command/{id} for status transition to `completed` (≤30s).
-//   4. Verify side effect: GET /api/v5/manga returns the 3 TestImportList-provided
-//      items as Manga records (round-trip — sync added them via
-//      IAddMangaService.AddManga bulk overload per Phase 8 audit gap-01).
-//
-// Forward-staging gate same as ImportListCrudFixture: when TestImportList is
-// not in production DI, the fixture branches to Assert.Inconclusive with the
-// documented Phase 27 forward-pointer. Worktree compile-only per Plan 26-06
-// verification carve-out.
+//   4. Verify GET /api/v5/manga returns a valid array (zero or more items —
+//      dummy MangaDex credentials produce 0 items, which is fine).
 [TestFixture]
 [Category("AutomationTest")]
 public class ImportListSyncTriggerFixture : AutomationTest
@@ -44,18 +45,12 @@ public class ImportListSyncTriggerFixture : AutomationTest
     {
         var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
         var (registrationResp, definitionId) =
-            await tk.RegisterTestImportListAsync("TestImportList (sync trigger)");
+            await tk.RegisterMangaDexImportListAsync("MangaDex (sync trigger)");
 
-        if (definitionId == null)
-        {
-            Assert.Inconclusive(
-                "TestImportList not registered (HTTP {0}); production DI scan excludes " +
-                "NzbDrone.Core.Test fake providers. Forward-pointer: Phase 27 lands real " +
-                "providers that satisfy bucket B GREEN. Response body: {1}",
-                (int)registrationResp.StatusCode,
-                registrationResp.Content);
-            return;
-        }
+        definitionId.Should().NotBeNull(
+            "POST /api/v5/importlist (MangaDexImportList) should succeed in Phase 27+. " +
+            "Response body: {0}",
+            registrationResp.Content);
 
         using var http = new HttpClient { BaseAddress = new Uri($"{RootUri}/api/v5/") };
         http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);

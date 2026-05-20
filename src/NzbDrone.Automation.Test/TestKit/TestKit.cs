@@ -664,6 +664,76 @@ public class TestKit
         return (postResponse, doc.RootElement.GetProperty("id").GetInt32());
     }
 
+    /// <summary>
+    /// Phase 27 — register the production <c>MangaDexImportList</c> provider against
+    /// the running host via <c>POST /api/v5/importlist?skipTesting=true</c>. Mirrors
+    /// <see cref="RegisterTestImportListAsync"/> shape but targets the real Phase 27
+    /// provider so bucket-B automation fixtures (CRUD round-trip, sync trigger,
+    /// auto-exclusion on delete, cross-vertical exclusion) can execute end-to-end
+    /// instead of branching to <c>Assert.Inconclusive</c>. Closes GH #217.
+    ///
+    /// Dummy credentials are used (the round-trip / CRUD / sync-trigger / delete-
+    /// exclusion flows do NOT require working OAuth — they exercise the V5 controller
+    /// surface, the substrate sync orchestrator, and the MangaService delete path).
+    /// </summary>
+    /// <param name="name">Definition display name (default: "MangaDex (test seed)").</param>
+    /// <returns>Tuple of (response, definition id) once the row is registered.</returns>
+    public async Task<(IRestResponse Response, int? DefinitionId)> RegisterMangaDexImportListAsync(
+        string name = "MangaDex (test seed)")
+    {
+        // 1. Idempotency check — if a definition with this Name already exists, return its id.
+        var listResponse = await _client.ExecuteAsync(BuildRequest("importlist", Method.GET));
+        if (listResponse.IsSuccessful && !string.IsNullOrEmpty(listResponse.Content))
+        {
+            using var listDoc = JsonDocument.Parse(listResponse.Content);
+            foreach (var element in listDoc.RootElement.EnumerateArray())
+            {
+                if (element.TryGetProperty("name", out var nameProp) &&
+                    string.Equals(nameProp.GetString(), name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return (listResponse, element.GetProperty("id").GetInt32());
+                }
+            }
+        }
+
+        // 2. POST — register MangaDexImportList via V5. skipTesting=true bypasses the
+        //    Settings.Validate cascade which would otherwise reject dummy ClientId/
+        //    ClientSecret/Username/Password as "Required" — we just need the row in
+        //    the DB so the CRUD / sync / delete-exclusion flows can fire.
+        var postRequest = BuildRequest("importlist?skipTesting=true", Method.POST);
+        postRequest.AddJsonBody(new
+        {
+            enable = true,
+            enableAutomaticAdd = false,
+            searchForMissingChapters = false,
+            shouldMonitor = "all",
+            monitorNewItems = "all",
+            rootFolderPath = _tempFolderRoot,
+            translationProfileId = 1,
+            customFormatProfileId = 1,
+            name,
+            implementation = "MangaDexImportList",
+            configContract = "MangaDexImportListSettings",
+            fields = new object[]
+            {
+                new { name = "clientId", value = "dummy-client-id" },
+                new { name = "clientSecret", value = "dummy-client-secret" },
+                new { name = "username", value = "dummy-user" },
+                new { name = "password", value = "dummy-password" }
+            },
+            tags = new int[] { }
+        });
+
+        var postResponse = await _client.ExecuteAsync(postRequest);
+        if (!postResponse.IsSuccessful)
+        {
+            return (postResponse, null);
+        }
+
+        using var doc = JsonDocument.Parse(postResponse.Content);
+        return (postResponse, doc.RootElement.GetProperty("id").GetInt32());
+    }
+
     // ────────────────────────────────────────────────────────────────────────
     // Raw-SQLite failure-state / queue seed helpers (Plan 19-01 Open Question 1
     // verdict = raw-SQLite). The automation harness runs Mangarr as a SEPARATE
