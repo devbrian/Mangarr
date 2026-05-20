@@ -614,7 +614,7 @@ namespace NzbDrone.Core.Test.MangaTests
             public List<string> GetMangaInfoCalls { get; } = new();
 
             public StubAniListProvider(Manga.Manga result)
-                : base(new Mock<NzbDrone.Common.Http.IHttpClient>().Object, NLog.LogManager.GetCurrentClassLogger())
+                : base(new Mock<NzbDrone.Common.Http.IHttpClient>().Object, new Mock<NzbDrone.Core.MetadataSource.AniList.IAniListGraphQlTransport>().Object, NLog.LogManager.GetCurrentClassLogger())
             {
                 _result = result;
                 Definition = new MetadataSourceDefinition { Id = 2, Name = "AniList", IsPrimary = false };

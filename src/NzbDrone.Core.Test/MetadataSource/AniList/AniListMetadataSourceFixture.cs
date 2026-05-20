@@ -1,7 +1,7 @@
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
-using NzbDrone.Common.Http;
+using NzbDrone.Common.Serializer;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
 using NzbDrone.Core.MetadataSource.AniList.Resource;
@@ -15,6 +15,11 @@ namespace NzbDrone.Core.Test.MetadataSource.AniList
     //   * GetMangaInfo_extracts_primary_author_from_staff_role_Story
     //   * GetMangaInfo_extracts_total_chapter_count_from_chapters_field
     //   * Search_returns_results_from_Page_media
+    //
+    // Phase 26 Plan 26-02 (IL-07): seam moved from IHttpClient to IAniListGraphQlTransport.
+    // Tests now mock the transport's typed Post<T> directly rather than the IHttpClient HTTP
+    // layer underneath it — transport contract (RateLimitKey wiring, Content-Type, 429 backoff)
+    // is covered by AniListGraphQlTransportFixture.
     [TestFixture]
     public class AniListMetadataSourceFixture : CoreTest<AniListMetadataSource>
     {
@@ -29,21 +34,22 @@ namespace NzbDrone.Core.Test.MetadataSource.AniList
             };
         }
 
-        // Stub IHttpClient.Post<AniListGraphQlResponse<MediaResponseShape>> with canned JSON.
+        // Stub IAniListGraphQlTransport.Post<MediaResponseShape> with canned JSON (deserialized
+        // to the envelope shape the transport would return on a happy-path 200 response).
         private void GivenMediaByIdResponse(string json)
         {
-            Mocker.GetMock<IHttpClient>()
-                .Setup(c => c.Post<AniListGraphQlResponse<MediaResponseShape>>(It.IsAny<HttpRequest>()))
-                .Returns<HttpRequest>(req => new HttpResponse<AniListGraphQlResponse<MediaResponseShape>>(
-                    new HttpResponse(req, new HttpHeader { ContentType = "application/json" }, json)));
+            var envelope = Json.Deserialize<AniListGraphQlResponse<MediaResponseShape>>(json);
+            Mocker.GetMock<IAniListGraphQlTransport>()
+                .Setup(t => t.Post<MediaResponseShape>(It.IsAny<string>()))
+                .Returns(envelope);
         }
 
         private void GivenMediaSearchResponse(string json)
         {
-            Mocker.GetMock<IHttpClient>()
-                .Setup(c => c.Post<AniListGraphQlResponse<PageResponseShape>>(It.IsAny<HttpRequest>()))
-                .Returns<HttpRequest>(req => new HttpResponse<AniListGraphQlResponse<PageResponseShape>>(
-                    new HttpResponse(req, new HttpHeader { ContentType = "application/json" }, json)));
+            var envelope = Json.Deserialize<AniListGraphQlResponse<PageResponseShape>>(json);
+            Mocker.GetMock<IAniListGraphQlTransport>()
+                .Setup(t => t.Post<PageResponseShape>(It.IsAny<string>()))
+                .Returns(envelope);
         }
 
         [Test]

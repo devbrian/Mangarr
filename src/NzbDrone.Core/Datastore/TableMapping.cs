@@ -5,7 +5,6 @@
 //   using NzbDrone.Core.Download.History; ← Download/History/ DELETED per Plan 15-10
 //   using NzbDrone.Core.Extras.{Metadata,Metadata.Files,Others,Subtitles}; ← Extras/ DELETED
 //   using NzbDrone.Core.History; ← History/EpisodeHistory.cs DELETED (manga peer: History/Manga/)
-//   using NzbDrone.Core.ImportLists{,.Exclusions}; ← ImportLists/ MOVED per D-26
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +20,8 @@ using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.History.Manga;
+using NzbDrone.Core.ImportLists;
+using NzbDrone.Core.ImportLists.Exclusions;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Instrumentation;
 using NzbDrone.Core.Jobs;
@@ -63,6 +64,19 @@ namespace NzbDrone.Core.Datastore
 
         public static void Map()
         {
+            // Idempotency guard — Phase 26 close-out. Without this, when subset
+            // test runs (e.g. scripts/audit-new-fixtures.sh) execute test fixtures
+            // in an ordering where BasicRepositoryRetryFixture / ProviderRepositoryRetryFixture
+            // call Map() via their own [OneTimeSetUp] BEFORE DbFactory's cctor fires
+            // for a DbTest-derived fixture, the second invocation throws
+            // ArgumentException ("Key Config already added") from TableMap.Add at line
+            // below. Production cctor only fires once per AppDomain, so this guard
+            // is a no-op outside the test harness.
+            if (Mapper.TableMap.Count > 0)
+            {
+                return;
+            }
+
             RegisterMappers();
 
             Mapper.Entity<Config>("Config").RegisterModel();
@@ -83,19 +97,24 @@ namespace NzbDrone.Core.Datastore
                   .Ignore(i => i.SupportsRss)
                   .Ignore(i => i.SupportsSearch);
 
-            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — ImportListDefinition
-            // entity registration stripped (ImportLists/ MOVED to .planning/reference/ per D-26).
-            //   Mapper.Entity<ImportListDefinition>("ImportLists").RegisterModel()
-            //          .Ignore(x => x.ImplementationName)
-            //          .Ignore(i => i.ListType)
-            //          .Ignore(i => i.MinRefreshInterval)
-            //          .Ignore(i => i.Enable);
+            // Phase 26 Plan 26-04 (IL-02) — RESTORED. ImportListDefinition entity
+            // registration mirrors the Sonarr-canonical Indexers row above (line 79-84):
+            // ImplementationName / Enable / ListType / MinRefreshInterval ride
+            // [MemberwiseEqualityIgnore] on the POCO and are Ignore'd here so Dapper
+            // doesn't try to read non-existent columns. The Settings column is JSON-
+            // hydrated by ProviderRepository<T>.Query (CR-02 retry funnel).
+            Mapper.Entity<ImportListDefinition>("ImportLists").RegisterModel()
+                  .Ignore(x => x.ImplementationName)
+                  .Ignore(i => i.ListType)
+                  .Ignore(i => i.MinRefreshInterval)
+                  .Ignore(i => i.Enable);
 
-            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — ImportListItemInfo
-            // entity registration stripped (ImportListItems table; ImportLists/ MOVED per D-26).
-            //   Mapper.Entity<ImportListItemInfo>("ImportListItems").RegisterModel()
-            //          .Ignore(i => i.ImportList)
-            //          .Ignore(i => i.Seasons);
+            // Phase 26 Plan 26-04 (IL-02) — RESTORED. ImportListItemInfo registers to the
+            // `ImportListItems` table reshaped by Migration 003 (003_v1_1_importlist_
+            // substrate_delayprofile_trim.cs:46-49). `ImportList` is the friendly-name
+            // cache populated at fetch time (not persisted).
+            Mapper.Entity<ImportListItemInfo>("ImportListItems").RegisterModel()
+                  .Ignore(i => i.ImportList);
 
             Mapper.Entity<NotificationDefinition>("Notifications").RegisterModel()
                   .Ignore(x => x.ImplementationName)
@@ -236,9 +255,10 @@ namespace NzbDrone.Core.Datastore
 
             Mapper.Entity<DownloadClientStatus>("DownloadClientStatus").RegisterModel();
 
-            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — ImportListStatus entity
-            // registration stripped (ImportLists/ MOVED to .planning/reference/ per D-26).
-            //   Mapper.Entity<ImportListStatus>("ImportListStatus").RegisterModel();
+            // Phase 26 Plan 26-04 (IL-02) — RESTORED. ImportListStatus row backs the
+            // ProviderStatusServiceBase escalation/backoff machinery for IMangaImportList
+            // providers (D-13 — 1 of 3 separate Dapper repos).
+            Mapper.Entity<ImportListStatus>("ImportListStatus").RegisterModel();
             Mapper.Entity<NotificationStatus>("NotificationStatus").RegisterModel();
 
             Mapper.Entity<CustomFilter>("CustomFilters").RegisterModel();
@@ -249,8 +269,11 @@ namespace NzbDrone.Core.Datastore
 
             Mapper.Entity<UpdateHistory>("UpdateHistory").RegisterModel();
 
-            // Sonarr divergence: Phase 15 Plan 15-04 cascade absorption — ImportListExclusion entity registration stripped (ImportLists/ MOVED per D-26).
-            //   Mapper.Entity<ImportListExclusion>("ImportListExclusions").RegisterModel();
+            // Phase 26 Plan 26-04 (IL-06) — RESTORED. ImportListExclusion is the manga-ID
+            // triplet exclusion row populated by ImportListExclusionService.Handle on
+            // MangaDeletedEvent (D-12 event-driven auto-add). Schema reshaped by
+            // Migration 003 (TvdbId → MangaDexId/MalId/AniListId).
+            Mapper.Entity<ImportListExclusion>("ImportListExclusions").RegisterModel();
 
             // Phase 24 v1.1 INSERTED 2026-05-17 — AutoTagging restored (Wave 24-02).
             // The AutoTagging schema table has lived in Migration 001 since the Phase 15

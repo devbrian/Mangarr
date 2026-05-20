@@ -27,10 +27,11 @@ namespace Mangarr.Api.V5.Profiles.Delay;
 // - RuleFor(d => d.Tags).SetValidator(tagInUseValidator) — cross-row uniqueness
 //   (Phase 22 D-03 live consumer #2 of the Tag substrate; validator already shipped).
 // - NOT ported: RuleFor(d => d.UsenetDelay).GreaterThanOrEqualTo(0) — Resource OMITS
-//   per D-03; rule can't bind.
-// - NOT ported: RuleFor(d => d.TorrentDelay).GreaterThanOrEqualTo(0) — same.
-// - NOT ported: custom (EnableUsenet || EnableTorrent) rule — mapper hardcodes both
-//   true; rule is structurally unreachable.
+//   per Phase 23 D-03; Phase 26 Plan 26-03 (DP-02) dropped the entity prop + Migration 003
+//   dropped the DB column. Field no longer exists.
+// - NOT ported: RuleFor(d => d.TorrentDelay).GreaterThanOrEqualTo(0) — same lifecycle.
+// - NOT ported: custom (EnableUsenet || EnableTorrent) rule — entity props dropped by
+//   Phase 26 Plan 26-03 (DP-02); rule no longer has fields to evaluate.
 //
 // DeleteProfile preserves Sonarr's "Id=1 is undeletable" guard via MethodNotAllowedException
 // (Mangarr.Http.REST). DelayProfileService.Delete does NOT carry this guard built-in;

@@ -203,13 +203,12 @@ namespace NzbDrone.Core.Profiles.Delay
             //
             // NOTE: insert via _repo.Insert directly — Add() rewrites profile.Order to _repo.Count()
             // which would clobber the int.MaxValue sentinel to 0 on first run.
+            // Phase 26 Plan 26-03 (DP-02) — payload trimmed atomic with Migration 003.
+            // The 4 dead protocol-delay fields were dropped from entity + DDL in same
+            // commit per Pitfall 1 (partial commit breaks runtime seeder).
             _repo.Insert(new DelayProfile
             {
-                EnableUsenet = true,
-                EnableTorrent = true,
                 PreferredProtocol = DownloadProtocol.Http,
-                UsenetDelay = 0,
-                TorrentDelay = 0,
                 HttpDelay = 0,
                 Order = int.MaxValue,
                 Tags = new HashSet<int>()

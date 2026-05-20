@@ -30,7 +30,7 @@ Listed by **migration status** post-Phase-17.3 (Sonarr → Mangarr conversion).
 | `MediaFiles/` | Disk scan, file import, organize, rename (CBZ/CBR + image folders) | Phase 15 renamed `EpisodeFile.cs` → `ChapterFile.cs`; Phase 17.3 Plan 17.3-05 D-06 deleted `SeasonPackUpgradeType.cs` vertical. See [MediaFiles/CLAUDE.md](./MediaFiles/CLAUDE.md), [MediaFiles/MangaImport/CLAUDE.md](./MediaFiles/MangaImport/CLAUDE.md), [MediaFiles/ChapterArchiving/CLAUDE.md](./MediaFiles/ChapterArchiving/CLAUDE.md). |
 | `DecisionEngine/` | ~32 specifications | Manga peers under [DecisionEngine/Manga/CLAUDE.md](./DecisionEngine/Manga/CLAUDE.md); [DecisionEngine/CLAUDE.md](./DecisionEngine/CLAUDE.md) covers shared infra. |
 | `CustomFormats/` | User-defined release scoring | Reusable pattern; manga specs under [CustomFormats/Specifications/Manga/CLAUDE.md](./CustomFormats/Specifications/Manga/CLAUDE.md). |
-| `ImportLists/` | External lists | Reference-preserved under `.planning/reference/sonarr-vertical-slices/import-lists/` per v2 deferral; infrastructure layer still live. See [ImportLists/CLAUDE.md](./ImportLists/CLAUDE.md). |
+| `ImportLists/` | External lists (manga-shape substrate) | Phase 26 Plan 26-04 shipped the substrate backend (IL-02/03/06; IMangaImportList contract + 2 base classes + 3 D-13 separate Dapper repos + sync command/service + IHandle&lt;MangaDeletedEvent&gt; auto-add); zero production providers ship per D-08 — Phase 27 plugs in MangaDex / AniList / MyAnimeList plugins additively. See [ImportLists/CLAUDE.md](./ImportLists/CLAUDE.md). |
 | `Organizer/` | Filename/folder builder | Manga peers under [Organizer/Manga/CLAUDE.md](./Organizer/Manga/CLAUDE.md). |
 
 ### MEDIUM — Minor Adaptation
