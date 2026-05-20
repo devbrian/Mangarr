@@ -64,6 +64,19 @@ namespace NzbDrone.Core.Datastore
 
         public static void Map()
         {
+            // Idempotency guard — Phase 26 close-out. Without this, when subset
+            // test runs (e.g. scripts/audit-new-fixtures.sh) execute test fixtures
+            // in an ordering where BasicRepositoryRetryFixture / ProviderRepositoryRetryFixture
+            // call Map() via their own [OneTimeSetUp] BEFORE DbFactory's cctor fires
+            // for a DbTest-derived fixture, the second invocation throws
+            // ArgumentException ("Key Config already added") from TableMap.Add at line
+            // below. Production cctor only fires once per AppDomain, so this guard
+            // is a no-op outside the test harness.
+            if (Mapper.TableMap.Count > 0)
+            {
+                return;
+            }
+
             RegisterMappers();
 
             Mapper.Entity<Config>("Config").RegisterModel();
