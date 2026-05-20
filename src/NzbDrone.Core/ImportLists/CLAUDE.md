@@ -1,112 +1,107 @@
-# NzbDrone.Core/ImportLists
+# ImportLists
 
 ## Purpose
 
-**Import lists** — automatically add new series to the library by ingesting from external lists (Trakt, AniList watchlist, custom JSON feeds, etc.). Uses the **ThingiProvider** plugin pattern.
+**Import lists** automatically add new manga to the library by ingesting from external lists (MangaDex follows, AniList lists, MyAnimeList lists, custom JSON feeds, etc.). Uses the **ThingiProvider** plugin pattern — providers are auto-discovered via reflection scan of `NzbDrone.Core` types implementing `IMangaImportList`.
 
-For Mangarr, import lists for **MangaDex / AniList manga / MyAnimeList manga** are needed.
+Phase 26 (Plan 26-04) ships the **substrate backend only** per D-08 — contract, abstract base classes, the 3-repo persistence layer, the sync orchestrator, and the `MangaDeletedEvent` event-driven exclusion handler. **Phase 26 ships ZERO production providers** — the Settings → ImportLists Add picker is empty in production until Phase 27 plugs in the first MangaDex / AniList / MyAnimeList plugin additively against this seam.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\ImportLists\`
+**Heritage:** Sonarr-fork shape preserved verbatim (RESTORE + AUTHOR pattern per v1.1 SUMMARY #2). Reference slice at `.planning/reference/sonarr-vertical-slices/import-lists/` retains the upstream Sonarr files for line-by-line port traceability.
 
-## Top-Level Files
+**Absolute Path:** `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\ImportLists\`
+
+## Key Files
 
 | File | Purpose |
 |------|---------|
-| `IImportList.cs` / `ImportListBase.cs` | Provider interface + base |
-| `HttpImportListBase.cs` | Generic HTTP-based list |
-| `ImportListBase.cs` (different) | Service-base |
-| `IImportListFactory.cs` / `ImportListFactory.cs` | ThingiProvider factory |
-| `IImportListRepository.cs` / `ImportListRepository.cs` | DB persistence |
-| `ImportListDefinition.cs` | Persisted config |
-| `IImportListStatusService.cs` / `ImportListStatusService.cs` | Track health |
-| `ImportListService.cs` | Orchestrator |
-| `FetchAndParseImportListService.cs` | Periodic sync |
-| `ImportListExclusion.cs`, `ImportListExclusionService.cs`, `ImportListExclusionRepository.cs` | "Don't auto-add this series" list |
-| `Exclusions/` | Exclusion subdirectory |
-| `ImportListItems/` | Imported item entities |
+| `IMangaImportList.cs` | Provider contract — `IProvider` peer for manga import-list providers; `ImportListType ListType`, `TimeSpan MinRefreshInterval`, `ImportListFetchResult Fetch()` |
+| `ImportListBase.cs` | Abstract base — `ImportListBase<TSettings>` carries DI ctor, `DefaultDefinitions`, `CleanupListItems` dedup (manga-ID triplet), `Test()` shell |
+| `HttpImportListBase.cs` | HTTP-driven abstract base — `FetchItems` exception chain (WebException / TooManyRequestsException / HttpException / CloudFlareCaptchaException / RequestLimitReachedException) + paging + `TestConnection` |
+| `IImportListSettings.cs` | Settings interface — `IProviderConfig` + `BaseUrl` shape that every provider's `TSettings : IImportListSettings, new()` honors |
+| `ImportListSettingsBase.cs` | Abstract `ImportListSettingsBase<TSettings>` — Equ memberwise equality helper for settings POCOs |
+| `ImportListDefinition.cs` | Persisted config row — `EnableAutomaticAdd` / `ShouldMonitor` / `MonitorNewItems` / `TranslationProfileId` / `CustomFormatProfileId` / `RootFolderPath` / `Tags` |
+| `ImportListStatus.cs` | Per-provider escalation/backoff state + `LastInfoSync` / `HasRemovedItemSinceLastClean` |
+| `ImportListItemInfo.cs` | Fetched-item POCO (manga-ID triplet shape: `MangaDexId` string / `MalId` int? / `AniListId` int?) |
+| `ImportListType.cs` | Enum: `{ Program, Other, Advanced }` — Plex/Trakt/Simkl values dropped per Pitfall 6 |
+| `ImportListFactory.cs` | D-13 repo #1 consumer — `ProviderFactory<IMangaImportList, ImportListDefinition>`; `AutomaticAddEnabled(bool filterBlocked = true)` |
+| `ImportListRepository.cs` | D-13 repo #1 — `ProviderRepository<ImportListDefinition>` with `UpdateSettings(model)` + `FindByName(name)` |
+| `ImportListStatusRepository.cs` | D-13 repo #2 — `ProviderStatusRepository<ImportListStatus>` |
+| `ImportListStatusService.cs` | Escalation/backoff + `GetListStatus` / `UpdateListSyncStatus` / `MarkListsAsCleaned` |
+| `ImportListSyncCommand.cs` | Command — `int? DefinitionId` + `SendUpdatesToClient = true` + `UpdateScheduledTask` gated on null DefinitionId |
+| `ImportListSyncService.cs` | `IExecute<ImportListSyncCommand>` orchestrator — per-item exclusion + already-in-library filter + bulk `IAddMangaService.AddManga(List<Manga>, true)` |
+| `ImportListUpdatedHandler.cs` | `IHandle<ProviderUpdatedEvent<IMangaImportList>>` — queues a single-list `ImportListSyncCommand` on definition edit |
+| `FetchAndParseImportListService.cs` | Parallel per-provider fetch with `MinRefreshInterval` gate + cross-list dedup (manga-ID triplet) |
+| `ImportListPageableRequest.cs` / `…Chain.cs` / `ImportListRequest.cs` / `ImportListResponse.cs` | Paging primitives (verbatim ports) |
+| `IImportListRequestGenerator.cs` / `IProcessImportListResponse.cs` | Provider extension points (request gen + response parse) |
+| `TolerantEnumConverter.cs` | JSON enum parser — verbatim port; gracefully handles unknown enum values |
+| `ListSyncLevelType.cs` | Library-cleanup level enum — `{ Disabled, LogOnly, KeepAndUnmonitor, KeepAndTag }` |
+| `Exceptions/ImportListException.cs` | Provider error wrapper carrying the `ImportListResponse` |
+| `Exclusions/ImportListExclusion.cs` | D-13 repo #3 entity — manga-ID triplet exclusion row (`MangaDexId` string / `MalId` int? / `AniListId` int? / `Title`) |
+| `Exclusions/ImportListExclusionRepository.cs` | D-13 repo #3 — `BasicRepository<ImportListExclusion>` + `FindByMangaDexId(string)` |
+| `Exclusions/ImportListExclusionService.cs` | D-12 event-driven auto-add — `IHandle<MangaDeletedEvent>` |
+| `ImportListItems/ImportListItemRepository.cs` | Per-list-cache repo — `GetAllForLists(List<int>)` |
+| `ImportListItems/ImportListItemService.cs` | Per-list-cache service — `SyncMangaForList`, `IHandleAsync<ProviderDeletedEvent<IMangaImportList>>` cascade cleanup |
 
-## Subdirectories — List Sources
+## Patterns / Conventions
 
-| Folder | Source |
-|--------|--------|
-| `AniList/` | AniList API |
-| `Custom/` | User-supplied JSON URL |
-| `Plex/` (if present) | Plex watchlist |
-| `Mangarr/` (if present) | Pull from another Mangarr instance |
-| `Trakt/` (often) | Trakt lists |
-| `Imdb/` | IMDB list URL |
+### ThingiProvider auto-discovery (no manual DI)
 
-## Provider Anatomy
+Production reflection scans `NzbDrone.Core` for types implementing `IMangaImportList` and binds them into the `IEnumerable<IMangaImportList>` ctor parameter of `ImportListFactory`. Phase 26 ships **zero** concrete providers — the scan returns 0 implementations. Phase 27 lands the first plugin against this seam.
 
-```csharp
-public class MyList : HttpImportListBase<MyListSettings>
-{
-    public override string Name => "My List";
-    public override ImportListType ListType => ImportListType.Other;
-    public override TimeSpan MinRefreshInterval => TimeSpan.FromHours(6);
+The test-only `TestImportList` fake lives in `NzbDrone.Core.Test/ImportListTests/Fakes/` so production reflection-scan does NOT see it (D-09 / Pitfall 2). The bucket A SC#6 anti-prod-leak gate (`ImportListFactoryFixture.factory_returns_zero_providers_on_empty_di_bag`) is the static enforcement.
 
-    public override IList<ImportListItemInfo> Fetch() { /* … */ }
-    public override IImportListRequestGenerator GetRequestGenerator() { /* … */ }
-    public override IParseImportListResponse GetParser() { /* … */ }
-}
-```
+### D-13 — 3-separate-Dapper-repo split
 
-`ImportListItemInfo` carries `Title`, `Year`, `TvdbId`, `ImdbId`, `TmdbId`, etc.
+Sonarr-canonical per the 2026-05-19 sonarr-consistency-audit:
+- `ImportListRepository : ProviderRepository<ImportListDefinition>` — Definition CRUD + JSON Settings hydration (inherits CR-02 SQLITE_BUSY retry from `ProviderRepository<T>.Query`).
+- `ImportListStatusRepository : ProviderStatusRepository<ImportListStatus>` — per-provider escalation/backoff.
+- `ImportListExclusionRepository : BasicRepository<ImportListExclusion>` — exclusion CRUD + `FindByMangaDexId(string)` finder.
 
-## Sync Flow
+Do NOT collapse to a single repo — the three base-class inheritance chains drive disjoint contracts (Definition has Settings hydration; Status has FindByProviderId / DeleteByProviderId; Exclusion has the BasicRepository pattern).
 
-```
-Scheduler ticks (ImportListSyncCommand)
-    ↓
-ImportListSyncService.Sync()
-    ↓
-For each enabled list:
-    ├─ FetchAndParseImportListService.Fetch() → List<ImportListItemInfo>
-    ├─ Filter by ImportListExclusion table
-    ├─ Filter by already-existing series
-    ├─ Lookup metadata via IProvideSeriesInfo (TVDB / SkyHook)
-    └─ AddSeriesService.AddSeries(...) for each new
-```
+### D-12 — event-driven `IHandle<MangaDeletedEvent>` (NOT direct call)
 
-## Adding a New Import List
+`ImportListExclusionService.Handle(MangaDeletedEvent)` is the ONLY auto-add entry point. `MangaController.Delete` MUST publish `MangaDeletedEvent` and let the handler do its work — it MUST NOT call `_importListExclusionService.Add(...)` synchronously. The `MangaDeletedEvent.AddImportListExclusion` flag (default `true`) lets bulk-delete callers opt out (admin tooling, programmatic resyncs).
 
-1. Create folder `ImportLists/MyList/`.
-2. `MyListSettings.cs` (URL, auth tokens, list ID).
-3. `MyList.cs` extends `HttpImportListBase<MyListSettings>`.
-4. Add request generator and parser.
-5. Auto-discovered. Tests under `NzbDrone.Core.Test/ImportListTests/MyListTests/`.
+### D-15 — `TaskManager.defaultTasks` 24h cadence row
 
-## Manga Adaptation Plan
+`ImportListSyncCommand` is registered at the Sonarr-canonical 24h cadence (`Interval = 24 * 60` minutes). Restored by Plan 26-04; the Phase 15 D-26 strip-comment was physically deleted in the same edit. The `TaskManager.cs:17` `using NzbDrone.Core.ImportLists;` import was un-commented in the same atomic commit.
 
-### New Lists for Mangarr
+## Manga Adaptation Notes
 
-| Source | Notes |
-|--------|-------|
-| **MangaDex** custom list / user list | High priority — primary Mangarr metadata source |
-| **AniList manga lists** | Different GraphQL than anime — distinct list type |
-| **MyAnimeList manga lists** | Public lists, REST API |
-| **MangaUpdates** lists | Trickier (no public API, scrape) |
-| **Custom JSON feed** | Already exists; just ensure schema includes manga IDs |
+### TVDB / IMDB / TMDB → MangaDexId / MalId / AniListId
 
-### Item Mapping
+The Sonarr reference uses a `TvdbId` (with optional `ImdbId` / `TmdbId`) as the canonical cross-source ID. Mangarr replaces this with the manga-ID triplet:
 
-`ImportListItemInfo` needs to expose manga IDs:
-- `MangaDexId : Guid?`
-- `AniListMangaId : int?`
-- `MalMangaId : int?`
+| Sonarr field | Mangarr peer | Type | Notes |
+|--------------|--------------|------|-------|
+| `TvdbId` (int) | `MangaDexId` (string) | required-ish | Persisted as the canonical Guid string serialization to match Migration 003's `.AsString().Nullable()` column. `Manga.MangaDexId` is `Guid?` on the aggregate POCO; exclusion rows store `manga.MangaDexId?.ToString()`. |
+| `ImdbId` (string) | (dropped) | — | No manga peer; SkyHook deleted in Phase 15. |
+| `TmdbId` (int) | (dropped) | — | No manga peer. |
+| n/a | `MalId` (int?) | nullable | MyAnimeList ID; AniList-only lists may carry this. |
+| n/a | `AniListId` (int?) | nullable | AniList GraphQL ID. |
 
-(The Mangarr `Series` model already has `MalIds` and `AniListIds` — extending `ImportListItemInfo` is straightforward.)
+`CleanupListItems` dedup key swapped from `(Title, TvdbId, ImdbId)` to `(Title, MangaDexId, MalId, AniListId)`.
 
-### Auto-Add Workflow
+### ImportListType enum trim (Pitfall 6)
 
-`AddSeriesService.AddSeries(...)` is called once metadata is resolved. For Mangarr, add a manga-aware code path:
-1. List returns `ImportListItemInfo` with manga IDs
-2. Lookup via `MangaDexProxy.GetMangaInfo(...)` or similar
-3. `AddMangaService.AddManga(...)` (new method) creates the entity
+The reference enum carries `{ Program, Plex, Trakt, Simkl, Other, Advanced }`. Mangarr trims to `{ Program, Other, Advanced }` — Plex/Trakt/Simkl have no manga peers. Phase 27 adds `MangaDex`, `AniList`, `MyAnimeList` values as each concrete provider lands.
+
+### Sonarr OAuth Settings POCO pattern (Phase 27 territory)
+
+Trakt's Sonarr Settings POCO uses `[FieldDefinition(Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]` for the OAuth tokens — Phase 27 providers will mirror this verbatim. The reference slice's Trakt files at `.planning/reference/sonarr-vertical-slices/import-lists/` (parent of this Mangarr substrate) are the authoritative port source.
+
+### Cross-source ID resolution (Phase 27 territory)
+
+`ImportListSyncService.ProcessListItems` only auto-adds items that already carry a `MangaDexId`. Items with only AniListId or MalId are skipped with a debug log line — the AniList → MangaDexId (and MAL → MangaDexId) cross-source resolver lives in the Phase 27 provider work.
 
 ## Cross-References
 
-- [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview
-- [../MetadataSource/CLAUDE.md](../MetadataSource/CLAUDE.md) — Used to look up series details
-- [../Tv/CLAUDE.md](../Tv/CLAUDE.md) — Adds via `AddSeriesService`
-- [../ThingiProvider/](../ThingiProvider/) — Provider plugin base
+- `.planning/phases/26-importlist-substrate-migration-003-anilist-transport-refacto/26-CONTEXT.md` — load-bearing decisions D-01..D-15
+- `.planning/phases/26-importlist-substrate-migration-003-anilist-transport-refacto/26-RESEARCH.md` — 10-question deep dive
+- `.planning/phases/26-importlist-substrate-migration-003-anilist-transport-refacto/26-PATTERNS.md` — file-by-file translation guide
+- `.planning/reference/sonarr-vertical-slices/import-lists/` — Sonarr upstream reference (RESTORE + AUTHOR source)
+- [../Indexers/CLAUDE.md](../Indexers/CLAUDE.md) — analog vertical (ThingiProvider + ProviderFactory + ProviderRepository + ProviderStatusRepository — same shape pattern)
+- [../Manga/Events/MangaDeletedEvent.cs](../Manga/Events/MangaDeletedEvent.cs) — D-12 hook (the `AddImportListExclusion` bool drives the event-driven auto-add)
+- [../Jobs/TaskManager.cs](../Jobs/TaskManager.cs) — D-15 row at 24h cadence
+- [../Datastore/Migration/003_v1_1_importlist_substrate_delayprofile_trim.cs](../Datastore/Migration/003_v1_1_importlist_substrate_delayprofile_trim.cs) — schema reshape (TVDB/IMDB → manga-ID triplet, QualityProfileId → TranslationProfileId + CustomFormatProfileId, SearchForMissingEpisodes → SearchForMissingChapters)

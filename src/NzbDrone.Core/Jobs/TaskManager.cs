@@ -14,7 +14,9 @@ using NzbDrone.Core.Download.Manga;
 using NzbDrone.Core.HealthCheck;
 using NzbDrone.Core.Housekeeping;
 
-// using NzbDrone.Core.ImportLists; // Sonarr divergence: Phase 15 D-26 — ImportLists/ root contract MOVED to .planning/reference/ by Plan 15-04 (ImportListSyncCommand registration stripped)
+// Phase 26 Plan 26-04 RESTORED per D-15 — ImportListSyncCommand defaultTasks row landed at 24h cadence (Sonarr-canonical).
+using NzbDrone.Core.ImportLists;
+
 // using NzbDrone.Core.Indexers; // Sonarr divergence: Phase 15 D-10 — RssSyncCommand class deleted by Plan 15-04 (HandleAsync block stripped)
 using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.Lifecycle;
@@ -73,7 +75,7 @@ namespace NzbDrone.Core.Jobs
         {
             // Sonarr divergence: Phase 15 D-19 + D-26 + D-10 + D-24 — TV defaultTasks registrations stripped:
             //   typeof(UpdateSceneMappingCommand).FullName ← deleted (DataAugmentation/Scene/ deleted Plan 15-04 per D-19)
-            //   typeof(ImportListSyncCommand).FullName ← deleted (ImportListSync MOVED to reference Plan 15-04 per D-26)
+            //   typeof(ImportListSyncCommand).FullName — Phase 15 D-26 stripped; Phase 26 Plan 26-04 RESTORED below (24h cadence, D-15)
             //   typeof(RssSyncCommand).FullName ← deleted Plan 15-03 (preemptive); class itself deleted Plan 15-04 per D-10
             //   typeof(RefreshSeriesCommand).FullName ← deleted Plan 15-03 per D-24
             //   typeof(RefreshMonitoredDownloadsCommand).FullName ← deleted by debug-session fix-forward
@@ -141,9 +143,15 @@ namespace NzbDrone.Core.Jobs
                         TypeName = typeof(HousekeepInProcessDownloadsCommand).FullName
                     },
 
-                    // Sonarr divergence: Phase 15 D-26 — ImportListSyncCommand defaultTasks row stripped by Plan 15-04
-                    //   Root contract MOVED to .planning/reference/sonarr-vertical-slices/import-lists/ in same plan;
-                    //   per-provider TV subdirs deleted. v1.x/v2 manga peer (REQ IMP-01..03) translates from preserved reference.
+                    // Phase 26 Plan 26-04 RESTORED per D-15 — ImportListSyncCommand row
+                    // returns at the Sonarr-canonical 24h cadence. Substrate ships zero
+                    // production providers (D-08); Phase 27 plugs in MangaDex / AniList /
+                    // MyAnimeList plugins additively against this seam.
+                    new ScheduledTask
+                    {
+                        Interval = 24 * 60,
+                        TypeName = typeof(ImportListSyncCommand).FullName
+                    },
 
                     new ScheduledTask
                     {

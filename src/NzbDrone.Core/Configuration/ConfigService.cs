@@ -294,9 +294,14 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("ChownGroup", value); }
         }
 
-        // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
-        // ListSyncLevelType (TV-shape ImportLists) stripped per Plan 15-04 ImportLists move (D-26).
-        //   public ListSyncLevelType ListSyncLevel { ... }
+        // Phase 26 Plan 26-04 (IL-03) — RESTORED. Default is Disabled (Sonarr-canonical):
+        // existing manga library is untouched unless the user explicitly opts in to
+        // KeepAndUnmonitor / KeepAndTag / LogOnly.
+        public NzbDrone.Core.ImportLists.ListSyncLevelType ListSyncLevel
+        {
+            get { return GetValueEnum("ListSyncLevel", NzbDrone.Core.ImportLists.ListSyncLevelType.Disabled); }
+            set { SetValue("ListSyncLevel", value); }
+        }
 
         public int ListSyncTag
         {
