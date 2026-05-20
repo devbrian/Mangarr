@@ -87,9 +87,17 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // Detect NUnit at runtime so unit-test fixtures (which stub the proxy and never
         // actually contact MAL) are exempt from the placeholder guard. Production
         // deployments don't load nunit.framework — the guard fires there as intended.
+        // Also check the MANGARR_MAL_SKIP_PRODUCTION_GUARD env var, which the
+        // automation-test runner (NzbDroneRunner) sets — automation tests boot Mangarr
+        // out-of-process, so NUnit isn't loaded INSIDE Mangarr.exe and the assembly
+        // check can't see it. Production deployments must NOT set this env var.
         internal static bool IsTestEnvironment
             => AppDomain.CurrentDomain.GetAssemblies()
-                .Any(a => a.GetName().Name?.StartsWith("nunit", StringComparison.OrdinalIgnoreCase) == true);
+                .Any(a => a.GetName().Name?.StartsWith("nunit", StringComparison.OrdinalIgnoreCase) == true)
+            || string.Equals(
+                Environment.GetEnvironmentVariable("MANGARR_MAL_SKIP_PRODUCTION_GUARD"),
+                "1",
+                StringComparison.Ordinal);
 
         // Called from MalImportList.RequestAction (user-facing OAuth surface) to fail
         // fast if a release build ships with the placeholder still in place. Thrown
