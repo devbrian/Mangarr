@@ -108,12 +108,16 @@ namespace NzbDrone.Core.ImportLists.Exclusions
 
             // Idempotency guard: if a prior delete already left an exclusion row for
             // this manga, do not insert a duplicate. We must check ALL THREE identity
-            // axes (MangaDexId / MalId / AniListId) — CodeRabbit PR #218 finding —
-            // because MAL-only or AniList-only manga (those with NULL MangaDexId)
-            // would otherwise bypass the MangaDexId-only check and accumulate
-            // duplicate rows on every re-delete. The UNIQUE-with-NULLs MangaDexId
-            // index doesn't protect against this — only same-MangaDexId duplicates
-            // are rejected, not same-(NULL,MalId) or same-(NULL,AniListId) shapes.
+            // axes (MangaDexId / MalId / AniListId) — CodeRabbit PR #218 finding +
+            // outside-diff follow-up — because:
+            //   1. MAL-only or AniList-only manga (NULL MangaDexId) bypass any
+            //      MangaDexId-only check and accumulate duplicate rows on re-delete.
+            //   2. An older/manual exclusion row with only MalId/AniListId can
+            //      coexist with a later re-delete that DOES have MangaDexId — the
+            //      MangaDexId lookup misses the secondary-only row entirely, so the
+            //      checks must run independently (NOT as if/else-if).
+            // The UNIQUE-with-NULLs MangaDexId index doesn't help here — only
+            // same-MangaDexId duplicates are rejected at the DB level.
             //
             // Phase 27 may want to elevate this to a repository finder
             // (FindByExternalIds(string?, int?, int?)) once provider plugins
@@ -127,12 +131,16 @@ namespace NzbDrone.Core.ImportLists.Exclusions
                     return;
                 }
             }
-            else if ((manga.MalId ?? 0) != 0 || (manga.AniListId ?? 0) != 0)
+
+            if ((manga.MalId ?? 0) != 0 || (manga.AniListId ?? 0) != 0)
             {
-                // Secondary-ID-only path: scan All() for a row matching the same
-                // non-zero MalId or AniListId. Substrate-only (D-08) means
-                // exclusion volume is bounded by user UI activity, not provider
-                // sync; the scan is cheap until Phase 27 changes that.
+                // Secondary-ID path: scan All() for a row matching the same
+                // non-zero MalId or AniListId — runs INDEPENDENTLY of the
+                // MangaDexId check above so a stale secondary-only exclusion
+                // is also caught even when the current delete carries a
+                // MangaDexId. Substrate-only (D-08) means exclusion volume is
+                // bounded by user UI activity, not provider sync; the scan is
+                // cheap until Phase 27 changes that.
                 var existing = _repo.All().FirstOrDefault(x =>
                     ((manga.MalId ?? 0) != 0 && x.MalId == manga.MalId) ||
                     ((manga.AniListId ?? 0) != 0 && x.AniListId == manga.AniListId));

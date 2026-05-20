@@ -59,9 +59,19 @@ function ImportList({
     onCloneImportListPress(id);
   }, [id, onCloneImportListPress]);
 
-  // testid slug derivation mirrors the Indexer.tsx pattern — lowercased + whitespace
-  // collapsed. Phase 18 D-18 allowed prefix `settings-*`.
-  const testIdSlug = name.toLowerCase().replace(/\s+/g, '-');
+  // CodeRabbit PR #218 outside-diff: the testid slug MUST match the canonicalization
+  // used by `src/NzbDrone.Automation.Test/Tests/Settings/ImportLists/ImportListCrudFixture.cs:85`
+  // (`Regex.Replace(name.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-')`). A name
+  // like `TestImportList (CRUD test)` must render as
+  // `settings-importlist-card-testimportlist-crud-test`, NOT
+  // `settings-importlist-card-testimportlist-(crud-test)` — parens (and every other
+  // non-alphanumeric) collapse to a single dash, with leading/trailing dashes trimmed.
+  // Without this matching canonicalization the bucket-B CRUD fixture's GetByTestId
+  // call would never resolve. Phase 18 D-18 allowed prefix `settings-*`.
+  const testIdSlug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
   return (
     <Card

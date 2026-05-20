@@ -173,41 +173,51 @@ namespace NzbDrone.Core.ImportLists
                     continue;
                 }
 
-                // CodeRabbit PR #218: validate MangaDexId is a real GUID before we
-                // use it for dedup/add. A bogus non-GUID would silently null out at
-                // the Guid.TryParse step below, producing a NULL-MangaDexId manga row
-                // that bypasses the existing-DB-match check above (the existing-IDs
-                // list is GUID strings) and accumulates duplicates per re-sync.
-                if (!Guid.TryParse(item.MangaDexId, out _))
+                // CodeRabbit PR #218 (initial review + outside-diff follow-up):
+                // validate MangaDexId is a real GUID AND canonicalize it before every
+                // dedup comparison. Guid.TryParse accepts multiple valid formats
+                // (with/without braces, various hyphenation patterns) but Guid.ToString()
+                // produces a single canonical 8-4-4-4-12 form. Comparing the original
+                // string against existingMangaDexIds / mangaToAdd / exclusions would
+                // false-negative on non-canonical inputs (e.g., uppercase, braces),
+                // letting the same manga slip through dedup and accumulate duplicates.
+                // Parse once, then use the canonical string for ALL three checks below.
+                if (!Guid.TryParse(item.MangaDexId, out var mangaDexGuid))
                 {
                     _logger.Debug("[{0}] Rejected, MangaDexId '{1}' is not a valid GUID", item.Title, item.MangaDexId);
                     continue;
                 }
 
-                // Check to see if manga excluded
-                var excludedManga = listExclusions.SingleOrDefault(s => s.MangaDexId == item.MangaDexId);
+                var canonicalMangaDexId = mangaDexGuid.ToString();
+
+                // Check to see if manga excluded — use canonical form for the
+                // string-equality comparison since stored exclusions are also
+                // canonical (Manga.MangaDexId?.ToString() on the delete-event path).
+                var excludedManga = listExclusions.SingleOrDefault(s => s.MangaDexId == canonicalMangaDexId);
 
                 if (excludedManga != null)
                 {
-                    _logger.Debug("{0} [{1}] Rejected due to list exclusion", item.MangaDexId, item.Title);
+                    _logger.Debug("{0} [{1}] Rejected due to list exclusion", canonicalMangaDexId, item.Title);
                     continue;
                 }
 
-                // Break if Manga Exists in DB
-                if (existingMangaDexIds.Any(x => x == item.MangaDexId))
+                // Break if Manga Exists in DB — existingMangaDexIds is also canonical
+                // (Manga.MangaDexId is Guid?; .Select(g => g.ToString()) emits canonical form).
+                if (existingMangaDexIds.Any(x => x == canonicalMangaDexId))
                 {
-                    _logger.Debug("{0} [{1}] Rejected, manga exists in database", item.MangaDexId, item.Title);
+                    _logger.Debug("{0} [{1}] Rejected, manga exists in database", canonicalMangaDexId, item.Title);
                     continue;
                 }
 
-                // Append Manga if not already in DB or already on add list
-                if (mangaToAdd.All(m => m.MangaDexId?.ToString() != item.MangaDexId))
+                // Append Manga if not already in DB or already on add list — compare
+                // Guid? values directly to avoid any remaining canonicalization mismatch.
+                if (mangaToAdd.All(m => m.MangaDexId != mangaDexGuid))
                 {
                     var monitored = importList.ShouldMonitor != MonitorTypes.None;
 
                     mangaToAdd.Add(new Manga.Manga
                     {
-                        MangaDexId = Guid.TryParse(item.MangaDexId, out var dexGuid) ? dexGuid : (Guid?)null,
+                        MangaDexId = mangaDexGuid,
                         MalId = item.MalId,
                         AniListId = item.AniListId,
                         Title = item.Title,
