@@ -27,6 +27,7 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 // (PATTERNS.md Plan 26-06 row — exact analog match).
 [TestFixture]
 [Category("AutomationTest")]
+[Category("PRSmoke")]
 public class ImportListsPageRenderFixture : AutomationTest
 {
     [OneTimeSetUp]

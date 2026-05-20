@@ -114,7 +114,10 @@ function EditImportListModalContent({
   }, [isSaving, wasSaving, saveError, onModalClose]);
 
   return (
-    <ModalContent data-testid="edit-importlist-modal" onModalClose={onModalClose}>
+    <ModalContent
+      data-testid="edit-importlist-modal"
+      onModalClose={onModalClose}
+    >
       <ModalHeader>
         {id
           ? translate('EditImportListImplementation', { implementationName })

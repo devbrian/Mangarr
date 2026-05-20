@@ -20,9 +20,13 @@ import ImportList from './ImportList';
 function ImportLists() {
   const { isFetching, isFetched, data, error } = useSortedImportLists();
 
-  const [isAddImportListModalOpen, setIsAddImportListModalOpen] = useState(false);
-  const [isEditImportListModalOpen, setIsEditImportListModalOpen] = useState(false);
-  const [cloneImportListId, setCloneImportListId] = useState<number | null>(null);
+  const [isAddImportListModalOpen, setIsAddImportListModalOpen] =
+    useState(false);
+  const [isEditImportListModalOpen, setIsEditImportListModalOpen] =
+    useState(false);
+  const [cloneImportListId, setCloneImportListId] = useState<number | null>(
+    null
+  );
 
   const [selectedSchema, setSelectedSchema] = useState<
     SelectedSchema | undefined

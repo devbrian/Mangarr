@@ -32,6 +32,7 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 // prefix family per Phase 18 D-18.
 [TestFixture]
 [Category("AutomationTest")]
+[Category("PRSmoke")]
 public class ImportListCrudFixture : AutomationTest
 {
     private const string TestName = "TestImportList (CRUD test)";

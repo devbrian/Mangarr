@@ -1,11 +1,11 @@
 import React from 'react';
 import Alert from 'Components/Alert';
 import Button from 'Components/Link/Button';
+import Modal from 'Components/Modal/Modal';
 import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
-import Modal from 'Components/Modal/Modal';
 import { kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
 import { useImportListsData } from '../../useImportLists';
@@ -45,9 +45,7 @@ function ManageImportListsModal({
 
         <ModalBody>
           {data.length === 0 ? (
-            <Alert kind={kinds.INFO}>
-              {translate('NoImportListsFound')}
-            </Alert>
+            <Alert kind={kinds.INFO}>{translate('NoImportListsFound')}</Alert>
           ) : (
             <div data-testid="manage-importlists-list">
               {data.map((item) => (

@@ -24,7 +24,8 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 //
 // Pattern κ: zero series-*/episode-*/season-*/add-series- selectors. Uses
 // `settings-importlist-exclusions` + `edit-importlist-exclusion-modal` +
-// `importlist-exclusion-row-{id}` v1.1 prefix family per Phase 18 D-18.
+// `settings-importlist-exclusion-row-{id}` v1.1 prefix family per Phase 18 D-18
+// (the `settings-*` allow-listed prefix qualifies the row testid).
 //
 // State assertion discipline per `feedback_verify_ui_state_not_just_rendering`:
 // every step verifies BOTH the UI shape AND the underlying V5 row via parallel
@@ -96,7 +97,7 @@ public class ImportListExclusionCrudFixture : AutomationTest
         await Assertions.Expect(settings.PageContainer).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 
-        var exclusionRow = Page.GetByTestId($"importlist-exclusion-row-{exclusionId}");
+        var exclusionRow = Page.GetByTestId($"settings-importlist-exclusion-row-{exclusionId}");
         await Assertions.Expect(exclusionRow).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 

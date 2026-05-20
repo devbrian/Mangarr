@@ -78,8 +78,12 @@ export const useImportListsData = () => {
 export const useSortedImportLists = () => {
   const result = useImportLists();
 
+  // CodeRabbit PR #218 CRIT: Array.prototype.sort mutates in place, which
+  // would mutate the React Query cached array shared across consumers. Copy
+  // first via toSorted() (ES2023) — or slice().sort() for older targets — so
+  // the cache stays immutable.
   const sortedData = useMemo(
-    () => result.data.sort(sortByProp('name')),
+    () => [...result.data].sort(sortByProp('name')),
     [result.data]
   );
 
@@ -205,21 +209,24 @@ export const useBulkEditImportLists = (
     method: 'PUT',
     mutationOptions: {
       onSuccess: (updatedImportLists) => {
-        queryClient.setQueryData<ImportListModel[]>([PATH], (oldImportLists) => {
-          if (!oldImportLists) {
-            return oldImportLists;
+        queryClient.setQueryData<ImportListModel[]>(
+          [PATH],
+          (oldImportLists) => {
+            if (!oldImportLists) {
+              return oldImportLists;
+            }
+
+            return oldImportLists.map((importList) => {
+              const updatedImportList = updatedImportLists.find(
+                (updated) => updated.id === importList.id
+              );
+
+              return updatedImportList
+                ? { ...importList, ...updatedImportList }
+                : importList;
+            });
           }
-
-          return oldImportLists.map((importList) => {
-            const updatedImportList = updatedImportLists.find(
-              (updated) => updated.id === importList.id
-            );
-
-            return updatedImportList
-              ? { ...importList, ...updatedImportList }
-              : importList;
-          });
-        });
+        );
         onSuccess?.();
       },
       onError,
@@ -249,15 +256,18 @@ export const useBulkDeleteImportLists = (
       onSuccess: (_, variables) => {
         const deletedIds = new Set(variables.ids);
 
-        queryClient.setQueryData<ImportListModel[]>([PATH], (oldImportLists) => {
-          if (!oldImportLists) {
-            return oldImportLists;
-          }
+        queryClient.setQueryData<ImportListModel[]>(
+          [PATH],
+          (oldImportLists) => {
+            if (!oldImportLists) {
+              return oldImportLists;
+            }
 
-          return oldImportLists.filter(
-            (importList) => !deletedIds.has(importList.id)
-          );
-        });
+            return oldImportLists.filter(
+              (importList) => !deletedIds.has(importList.id)
+            );
+          }
+        );
         onSuccess?.();
       },
       onError,

@@ -7,10 +7,7 @@ import TagList from 'Components/TagList';
 import { icons, kinds } from 'Helpers/Props';
 import { useTagList } from 'Tags/useTags';
 import translate from 'Utilities/String/translate';
-import {
-  ImportListModel,
-  useDeleteImportList,
-} from '../useImportLists';
+import { ImportListModel, useDeleteImportList } from '../useImportLists';
 import EditImportListModal from './EditImportListModal';
 
 // Phase 26 Plan 26-05 (IL-05) — single-row provider card. Mirror of
@@ -32,7 +29,8 @@ function ImportList({
   const tagList = useTagList();
   const { deleteImportList } = useDeleteImportList(id);
 
-  const [isEditImportListModalOpen, setIsEditImportListModalOpen] = useState(false);
+  const [isEditImportListModalOpen, setIsEditImportListModalOpen] =
+    useState(false);
   const [isDeleteImportListModalOpen, setIsDeleteImportListModalOpen] =
     useState(false);
 

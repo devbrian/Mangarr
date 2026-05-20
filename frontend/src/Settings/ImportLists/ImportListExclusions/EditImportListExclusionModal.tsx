@@ -149,7 +149,13 @@ function EditImportListExclusionModal({
         </ModalBody>
 
         <ModalFooter>
-          {id ? (
+          {/* CodeRabbit PR #218: only render Delete when both the id AND the
+              handler exist — the handler is optional on the props interface.
+              Without the handler guard, the button would `onPress={undefined}`
+              and become a silent click target on Edit-mode invocations that
+              didn't wire a delete callback (e.g., the parent row passes
+              onDeleteImportListExclusionPress conditionally). */}
+          {id && onDeleteImportListExclusionPress ? (
             <Button
               kind={kinds.DANGER}
               onPress={onDeleteImportListExclusionPress}

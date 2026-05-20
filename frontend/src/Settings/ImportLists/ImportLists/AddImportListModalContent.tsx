@@ -39,7 +39,10 @@ function AddImportListModalContent({
     useImportListSchema();
 
   return (
-    <ModalContent data-testid="add-importlist-modal" onModalClose={onModalClose}>
+    <ModalContent
+      data-testid="add-importlist-modal"
+      onModalClose={onModalClose}
+    >
       <ModalHeader>{translate('AddImportList')}</ModalHeader>
 
       <ModalBody>

@@ -173,6 +173,17 @@ namespace NzbDrone.Core.ImportLists
                     continue;
                 }
 
+                // CodeRabbit PR #218: validate MangaDexId is a real GUID before we
+                // use it for dedup/add. A bogus non-GUID would silently null out at
+                // the Guid.TryParse step below, producing a NULL-MangaDexId manga row
+                // that bypasses the existing-DB-match check above (the existing-IDs
+                // list is GUID strings) and accumulates duplicates per re-sync.
+                if (!Guid.TryParse(item.MangaDexId, out _))
+                {
+                    _logger.Debug("[{0}] Rejected, MangaDexId '{1}' is not a valid GUID", item.Title, item.MangaDexId);
+                    continue;
+                }
+
                 // Check to see if manga excluded
                 var excludedManga = listExclusions.SingleOrDefault(s => s.MangaDexId == item.MangaDexId);
 
@@ -211,12 +222,25 @@ namespace NzbDrone.Core.ImportLists
                         AddOptions = new AddMangaOptions
                         {
                             SearchForMissingChapters = importList.SearchForMissingChapters,
+
+                            // CodeRabbit PR #218: preserve Existing/First semantics
+                            // instead of silently coercing to All. Sonarr's
+                            // MonitorTypes.Existing = "monitor existing chapters,
+                            // no backfill"; MonitorTypes.First = "monitor first
+                            // season only" (a TV concept). For manga's flat chapter
+                            // list, both map most closely to Latest (monitor recent
+                            // chapters, do not backfill the entire library).
+                            // Unknown values fall through to None as a fail-safe so
+                            // a future enum addition does not silently start
+                            // monitoring everything.
                             Monitor = importList.ShouldMonitor switch
                             {
                                 MonitorTypes.All => MangaMonitor.All,
                                 MonitorTypes.Latest => MangaMonitor.Latest,
+                                MonitorTypes.Existing => MangaMonitor.Latest,
+                                MonitorTypes.First => MangaMonitor.Latest,
                                 MonitorTypes.None => MangaMonitor.None,
-                                _ => MangaMonitor.All
+                                _ => MangaMonitor.None
                             }
                         }
                     });

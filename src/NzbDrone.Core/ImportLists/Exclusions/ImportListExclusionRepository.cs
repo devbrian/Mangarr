@@ -27,6 +27,18 @@ namespace NzbDrone.Core.ImportLists.Exclusions
 
         public ImportListExclusion FindByMangaDexId(string mangaDexId)
         {
+            // CodeRabbit PR #218: a NULL/blank lookup would hit the
+            // UNIQUE-with-NULLs index and return multiple rows
+            // (AniList-only / MAL-only exclusions all carry NULL MangaDexId).
+            // SingleOrDefault would then throw. The contract is "look up by
+            // a known MangaDexId" — guard before querying so callers that
+            // accidentally pass null/empty get a deterministic null rather
+            // than a runtime exception.
+            if (string.IsNullOrWhiteSpace(mangaDexId))
+            {
+                return null;
+            }
+
             return Query(m => m.MangaDexId == mangaDexId).SingleOrDefault();
         }
     }

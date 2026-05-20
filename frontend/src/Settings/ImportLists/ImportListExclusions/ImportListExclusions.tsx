@@ -7,12 +7,12 @@ import PageSectionContent from 'Components/Page/PageSectionContent';
 import useModalOpenState from 'Helpers/Hooks/useModalOpenState';
 import { icons, kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
-import EditImportListExclusionModal from './EditImportListExclusionModal';
 import useImportListExclusions, {
   ImportListExclusion,
   useDeleteImportListExclusion,
   useDeleteImportListExclusions,
 } from '../useImportListExclusions';
+import EditImportListExclusionModal from './EditImportListExclusionModal';
 
 // Phase 26 Plan 26-05 (IL-05) — ImportListExclusion paged list. Trimmed mirror
 // of Sonarr-ref `frontend-settings/ImportListExclusions/ImportListExclusions.tsx`
@@ -33,24 +33,31 @@ function ImportListExclusionRow({
   aniListId,
   onRefetch,
 }: ImportListExclusionRowProps) {
-  const [isEditModalOpen, setEditModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const { deleteImportListExclusion, isDeleting } =
     useDeleteImportListExclusion(id);
 
-  const handleEditPress = useCallback(() => setEditModalOpen(true), []);
+  const handleEditPress = useCallback(() => setIsEditModalOpen(true), []);
 
   const handleEditModalClose = useCallback(() => {
-    setEditModalOpen(false);
+    setIsEditModalOpen(false);
+    // Edit closes without a backing mutation — refetch immediately so the
+    // user sees any pending state cleared (parity with the Indexers/* analog).
     onRefetch();
   }, [onRefetch]);
 
   const handleDeletePress = useCallback(() => {
+    // CodeRabbit PR #218 (WR-02 also from gsd-code-review): the mutation's
+    // onSuccess in useDeleteImportListExclusion invalidates the query, which
+    // triggers a fresh fetch. Calling onRefetch() here would race the mutate —
+    // fire a fetch BEFORE the DELETE settles — and the user would see the
+    // pre-delete row return briefly. Drop the manual refetch; rely on the
+    // hook's invalidation.
     deleteImportListExclusion();
-    onRefetch();
-  }, [deleteImportListExclusion, onRefetch]);
+  }, [deleteImportListExclusion]);
 
   return (
-    <div data-testid={`importlist-exclusion-row-${id}`}>
+    <div data-testid={`settings-importlist-exclusion-row-${id}`}>
       <span>{title}</span>
       <span>{mangaDexId || '—'}</span>
       <span>{malId ?? '—'}</span>
@@ -80,13 +87,8 @@ function ImportListExclusionRow({
 }
 
 function ImportListExclusions() {
-  const {
-    records,
-    isFetching,
-    isFetched,
-    error,
-    refetch,
-  } = useImportListExclusions();
+  const { records, isFetching, isFetched, error, refetch } =
+    useImportListExclusions();
 
   const { deleteImportListExclusions, isDeleting: isBulkDeleting } =
     useDeleteImportListExclusions();
@@ -101,6 +103,12 @@ function ImportListExclusions() {
     useState(false);
 
   const handleAddModalClose = useCallback(() => {
+    // Add modal saves through a mutation hook whose onSuccess invalidates
+    // the query — the manual refetch is harmless (different fetch source
+    // than the mutate races on Delete) but kept for parity with the
+    // canonical Sonarr pattern where modal-close-after-edit explicitly
+    // refreshes the list. No race risk because no mutation is in flight
+    // at modal-close time (save already settled or was cancelled).
     setAddImportListExclusionModalClosed();
     refetch();
   }, [setAddImportListExclusionModalClosed, refetch]);
@@ -110,10 +118,20 @@ function ImportListExclusions() {
   }, []);
 
   const handleConfirmDeleteAll = useCallback(() => {
+    // CodeRabbit PR #218: `records` here is the CURRENT PAGE's slice from the
+    // paged query, not the full result set. Bulk-delete across pages requires
+    // either a backend `DELETE /api/v5/importlistexclusion?all=true` endpoint
+    // OR a fetch-all-then-bulk-delete client roundtrip; both are Phase 27
+    // close-out scope (paired with the provider plugins that will populate
+    // exclusion volume meaningfully). v1.1 ships current-page bulk delete —
+    // honest because the substrate generates zero exclusions until providers
+    // sync. Tracked alongside GH #217 if multi-page bulk-delete is needed.
+    //
+    // refetch() removed per WR-02 — the mutation's onSuccess invalidates the
+    // query, which triggers a fresh fetch. Manual refetch races the mutate.
     deleteImportListExclusions({ ids: records.map((r) => r.id) });
     setIsConfirmDeleteModalOpen(false);
-    refetch();
-  }, [deleteImportListExclusions, records, refetch]);
+  }, [deleteImportListExclusions, records]);
 
   const handleCancelDelete = useCallback(() => {
     setIsConfirmDeleteModalOpen(false);
@@ -163,9 +181,7 @@ function ImportListExclusions() {
           isOpen={isConfirmDeleteModalOpen}
           kind={kinds.DANGER}
           title={translate('DeleteSelected')}
-          message={translate(
-            'DeleteSelectedImportListExclusionsMessageText'
-          )}
+          message={translate('DeleteSelectedImportListExclusionsMessageText')}
           confirmLabel={translate('DeleteSelected')}
           onConfirm={handleConfirmDeleteAll}
           onCancel={handleCancelDelete}
