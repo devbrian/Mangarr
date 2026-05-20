@@ -29,11 +29,14 @@ public class ImportListExclusionController : RestController<ImportListExclusionR
     {
         _importListExclusionService = importListExclusionService;
 
-        // Sonarr-canonical Cascade.Stop: short-circuit if the value is missing
-        // before running the existence/uniqueness check.
-        SharedValidator.RuleFor(c => c.MangaDexId).Cascade(CascadeMode.Stop)
-            .NotEmpty()
-            .SetValidator(importListExclusionExistsValidator);
+        // Phase 26 D-08 + Migration 003 UNIQUE-with-NULLs: MangaDexId is NULL-tolerant
+        // because manga has 3 metadata sources (MangaDexId/MalId/AniListId) and
+        // AniList-only or MAL-only exclusions legitimately ride a NULL MangaDexId.
+        // The companion ImportListExclusionExistsValidator early-returns true on
+        // NULL/whitespace, so we just chain the validator without a .NotEmpty()
+        // gate (which would contradict the schema nullability + Migration 003 +
+        // the auto-add event handler that persists NULL MangaDexId rows).
+        SharedValidator.RuleFor(c => c.MangaDexId).SetValidator(importListExclusionExistsValidator);
 
         SharedValidator.RuleFor(c => c.Title).NotEmpty();
     }
