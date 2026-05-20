@@ -104,20 +104,25 @@ namespace NzbDrone.Core.ImportLists.MangaDex
         public string Password { get; set; }
 
         // ── Hidden OAuth token block (D-01 + T-27-02-V4 mitigation) ──────────────────
-        // Hidden = HiddenType.Hidden suppresses UI rendering; Privacy = PrivacyLevel.Password
-        // marks the field for V5 controller outbound JSON redaction (ProviderControllerBase
-        // strips Hidden fields from the schema response).
+        // Hidden = HiddenType.Hidden suppresses UI rendering. Sonarr-canonical
+        // TraktSettings pattern uses ONLY the Hidden flag on token-bearing fields
+        // (no Privacy = PrivacyLevel.Password). Adding Privacy=Password breaks the
+        // round-trip for new-add flows: SchemaBuilder.ReadFromSchema's "keep old
+        // value" branch is gated on `model != null`, which is false for new
+        // ImportList add — `********` falls through to the setter and STJUtcConverter
+        // throws FormatException on `DateTime.Parse("********")`. Matches Sonarr
+        // TraktSettings.cs:27-37 verbatim.
 
-        [FieldDefinition(4, Label = "ImportListsMangaDexAccessTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(4, Label = "ImportListsMangaDexAccessTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string AccessToken { get; set; }
 
-        [FieldDefinition(5, Label = "ImportListsMangaDexRefreshTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(5, Label = "ImportListsMangaDexRefreshTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string RefreshToken { get; set; }
 
-        [FieldDefinition(6, Label = "ImportListsMangaDexExpiresLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(6, Label = "ImportListsMangaDexExpiresLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public DateTime Expires { get; set; }
 
-        [FieldDefinition(7, Label = "ImportListsMangaDexAuthUserLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(7, Label = "ImportListsMangaDexAuthUserLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string AuthUser { get; set; }
 
         // ── OAuth sign-in action surface (D-06 / D-08) ───────────────────────────────

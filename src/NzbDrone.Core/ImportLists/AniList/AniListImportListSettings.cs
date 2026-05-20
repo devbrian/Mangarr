@@ -114,11 +114,16 @@ namespace NzbDrone.Core.ImportLists.AniList
         public AniListListStatus Status { get; set; }
 
         // ── Hidden OAuth token block (D-01 + T-27-03-V4 mitigation) ──────────────────
-        // Hidden = HiddenType.Hidden suppresses UI rendering; Privacy = PrivacyLevel.Password
-        // marks the field for V5 controller outbound JSON redaction (ProviderControllerBase
-        // strips Hidden fields from the schema response).
+        // Hidden = HiddenType.Hidden suppresses UI rendering. Sonarr-canonical
+        // TraktSettings pattern uses ONLY the Hidden flag on token-bearing fields
+        // (no Privacy = PrivacyLevel.Password). Adding Privacy=Password breaks the
+        // round-trip for new-add flows: SchemaBuilder.ReadFromSchema's "keep old
+        // value" branch is gated on `model != null`, which is false for new
+        // ImportList add — `********` falls through to the setter and STJUtcConverter
+        // throws FormatException on `DateTime.Parse("********")`. Matches Sonarr
+        // TraktSettings.cs:27-37 verbatim.
 
-        [FieldDefinition(3, Label = "ImportListsAniListAccessTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(3, Label = "ImportListsAniListAccessTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string AccessToken { get; set; }
 
         // AniList does NOT issue refresh tokens (1-year JWT lifetime per
@@ -126,16 +131,16 @@ namespace NzbDrone.Core.ImportLists.AniList
         // IOAuthImportListSettings interface contract (Plan 27-01 — shared base class needs the
         // property to exist generically across MangaDex/AniList/MAL Settings). AniList's
         // RefreshToken() override is a no-op; this field is NEVER populated.
-        [FieldDefinition(4, Label = "ImportListsAniListRefreshTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(4, Label = "ImportListsAniListRefreshTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string RefreshToken { get; set; }
 
-        [FieldDefinition(5, Label = "ImportListsAniListExpiresLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(5, Label = "ImportListsAniListExpiresLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public DateTime Expires { get; set; }
 
         // AuthUser is the AniList username extracted from the `Viewer { name }` follow-up query
         // after the pin→token exchange. Required for the `MediaListCollection(userName: ...)`
         // GraphQL query — AniList's list endpoint is keyed on username, not on the access token.
-        [FieldDefinition(6, Label = "ImportListsAniListAuthUserLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(6, Label = "ImportListsAniListAuthUserLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string AuthUser { get; set; }
 
         // ── OAuth sign-in action surface (D-06 / D-07) ───────────────────────────────

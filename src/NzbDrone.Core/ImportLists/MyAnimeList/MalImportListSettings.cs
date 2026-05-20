@@ -106,11 +106,16 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         public MalListStatus Status { get; set; }
 
         // ── Hidden OAuth token block (D-01 + T-27-04-V4 mitigation) ──────────────────
-        // Hidden = HiddenType.Hidden suppresses UI rendering; Privacy = PrivacyLevel.Password
-        // marks the field for V5 controller outbound JSON redaction (ProviderControllerBase
-        // strips Hidden fields from the schema response).
+        // Hidden = HiddenType.Hidden suppresses UI rendering. Sonarr-canonical
+        // TraktSettings pattern uses ONLY the Hidden flag on token-bearing fields
+        // (no Privacy = PrivacyLevel.Password). Adding Privacy=Password breaks the
+        // round-trip for new-add flows: SchemaBuilder.ReadFromSchema's "keep old
+        // value" branch is gated on `model != null`, which is false for new
+        // ImportList add — `********` falls through to the setter and STJUtcConverter
+        // throws FormatException on `DateTime.Parse("********")`. Matches Sonarr
+        // TraktSettings.cs:27-37 verbatim.
 
-        [FieldDefinition(1, Label = "ImportListsMalAccessTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(1, Label = "ImportListsMalAccessTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string AccessToken { get; set; }
 
         // MAL rotates refresh tokens — 31-day observed lifetime per RESEARCH §STACK §Surface 2.
@@ -118,10 +123,10 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // rotated value replaces the previous one (Pitfall 9 — concurrent refresh on the same
         // Definition.Id would otherwise cause `400 invalid_grant` cascade; D-05 SemaphoreSlim
         // serialization from OAuthAwareImportListBase prevents this).
-        [FieldDefinition(2, Label = "ImportListsMalRefreshTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(2, Label = "ImportListsMalRefreshTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string RefreshToken { get; set; }
 
-        [FieldDefinition(3, Label = "ImportListsMalExpiresLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(3, Label = "ImportListsMalExpiresLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public DateTime Expires { get; set; }
 
         // ── Transient PKCE flow state (Discretion #2 shape (a)) ──────────────────────
@@ -134,7 +139,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // changes. The provider class serializes via JsonConvert.SerializeObject(state) on
         // write and JsonConvert.DeserializeObject<MalOAuthState>(blob) on read.
 
-        [FieldDefinition(4, Label = "ImportListsMalPendingPkceStateLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(4, Label = "ImportListsMalPendingPkceStateLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string PendingPkceState { get; set; }
 
         // ── AuthUser carries the MAL username after first successful exchange ────────
@@ -143,7 +148,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // Settings UI badge. Populated from the MAL token-response or a follow-up
         // GET /v2/users/@me call — provider picks (RESEARCH §Open Question 5).
 
-        [FieldDefinition(5, Label = "ImportListsMalAuthUserLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(5, Label = "ImportListsMalAuthUserLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string AuthUser { get; set; }
 
         // ── OAuth sign-in action surface (D-06 / D-09) ───────────────────────────────
