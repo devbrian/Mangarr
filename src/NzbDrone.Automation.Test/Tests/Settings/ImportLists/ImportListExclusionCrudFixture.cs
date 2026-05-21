@@ -346,47 +346,250 @@ public class ImportListExclusionCrudFixture : AutomationTest
                 HasText = "Title"
             }).First;
 
+            // Capture top-row title BEFORE clicking. Default store state is
+            // sortKey='id' / sortDirection='descending' so the top row is the
+            // most-recently-inserted (row M, id=3, title 'MMM Exclusion').
+            // This baseline lets us assert the visible order CHANGES after
+            // each click without predicting absolute direction — the
+            // `applySort` helper in useOptionsStore.ts:174-198 PRESERVES
+            // sortDirection when sortKey changes, so first-click on Title
+            // keeps descending direction (top row will become 'ZZZ Exclusion'
+            // — alphabetically last). The second click on the same column
+            // flips direction → ascending → top becomes 'AAA Exclusion'.
+            var firstTitleCellSelector =
+                "[data-testid='settings-importlist-exclusions'] tbody tr:first-child td:nth-child(2)";
+
+            var firstTitleBeforeClick = await Page.Locator(firstTitleCellSelector).TextContentAsync();
+            firstTitleBeforeClick.Should().StartWith("MMM Exclusion",
+                "baseline: default sortKey='id' + descending puts the most-recently-seeded row "
+                + "(MMM Exclusion, id=3) on top");
+
             await titleHeader.ClickAsync();
 
             // After the click, the Zustand store updates sortKey='title';
             // useImportListExclusions re-queries with the new sort; the table
-            // body re-renders with title-sorted rows. Default sort direction
-            // after the first click is ASCENDING per Table's
-            // toggleSortDirection (sortKey changed → reset to default
-            // ascending).
-            //
-            // Poll until the first body row matches AAA — proves dispatch
-            // wired to live store mutation + refetch.
-            var firstTitleCellSelector =
-                "[data-testid='settings-importlist-exclusions'] tbody tr:first-child td:nth-child(2)";
-            await Page.WaitForFunctionAsync(
-                $"() => document.querySelector(\"{firstTitleCellSelector}\")?.textContent?.trim().startsWith('AAA Exclusion')",
-                null,
-                new PageWaitForFunctionOptions { Timeout = 15_000, PollingInterval = 200 });
-
-            // State assertion: top row is AAA (i.e. our seeded `titleA`).
-            var firstTitleAfterAsc = await Page.Locator(firstTitleCellSelector).TextContentAsync();
-            firstTitleAfterAsc.Should().Contain("AAA Exclusion",
-                "column-header click on Title must dispatch sortKey='title' + ascending; "
-                + "AAA Exclusion sits first alphabetically");
-
-            // Click again — flips to descending. Top row should now be ZZZ.
-            await titleHeader.ClickAsync();
+            // body re-renders with title-sorted rows. Direction is preserved
+            // at 'descending' per applySort's sortKey-change branch, so
+            // titles reverse-alphabetical → ZZZ first.
             await Page.WaitForFunctionAsync(
                 $"() => document.querySelector(\"{firstTitleCellSelector}\")?.textContent?.trim().startsWith('ZZZ Exclusion')",
                 null,
                 new PageWaitForFunctionOptions { Timeout = 15_000, PollingInterval = 200 });
 
-            var firstTitleAfterDesc = await Page.Locator(firstTitleCellSelector).TextContentAsync();
-            firstTitleAfterDesc.Should().Contain("ZZZ Exclusion",
-                "second click on Title header must flip sortDirection to descending; "
-                + "ZZZ Exclusion sits first reverse-alphabetically");
+            var firstTitleAfterFirstClick = await Page.Locator(firstTitleCellSelector).TextContentAsync();
+            firstTitleAfterFirstClick.Should().Contain("ZZZ Exclusion",
+                "first click on Title header dispatches sortKey='title' with PRESERVED descending "
+                + "direction (applySort preserves direction when sortKey changes); ZZZ Exclusion "
+                + "sits first reverse-alphabetically");
+
+            // Click again — same sortKey → flips direction to ascending.
+            // Top row should now be AAA.
+            await titleHeader.ClickAsync();
+            await Page.WaitForFunctionAsync(
+                $"() => document.querySelector(\"{firstTitleCellSelector}\")?.textContent?.trim().startsWith('AAA Exclusion')",
+                null,
+                new PageWaitForFunctionOptions { Timeout = 15_000, PollingInterval = 200 });
+
+            var firstTitleAfterSecondClick = await Page.Locator(firstTitleCellSelector).TextContentAsync();
+            firstTitleAfterSecondClick.Should().Contain("AAA Exclusion",
+                "second click on Title header (same sortKey) flips direction to ascending; "
+                + "AAA Exclusion sits first alphabetically");
         }
         finally
         {
             _ = await http.DeleteAsync($"importlistexclusion/{idZ}");
             _ = await http.DeleteAsync($"importlistexclusion/{idA}");
             _ = await http.DeleteAsync($"importlistexclusion/{idM}");
+        }
+    }
+
+    [Test]
+    public async Task exclusion_three_id_columns_each_dispatch_sort_when_clicked()
+    {
+        // gh-226 PR-review follow-up — the prior test
+        // (exclusion_column_header_click_re_sorts_visible_rows) only exercises
+        // the Title column header. The deleted Jest fixture asserted that
+        // EACH of the 3 ID column headers (MangaDex ID / MyAnimeList ID /
+        // AniList ID) dispatches setImportListExclusionSort with its own
+        // sortKey. Pinning each ID column individually under live boot is
+        // the right home for that claim.
+        //
+        // Seed strategy: 3 rows with INVERSELY monotonic ID values so the
+        // first-row identity flips between each column's ascending sort.
+        //   row P: mangaDexId='a000...', malId=300, aniListId=100
+        //   row Q: mangaDexId='m000...', malId=200, aniListId=200
+        //   row R: mangaDexId='z000...', malId=100, aniListId=300
+        //
+        // After click on MangaDexId header (asc): row P (a*) on top
+        // After click on MalId header     (asc): row R (mal=100) on top
+        // After click on AniListId header (asc): row P (aniList=100) on top
+        // — note: row P and row R are different identities so the assertion
+        // genuinely distinguishes which sortKey was dispatched.
+        using var http = new HttpClient { BaseAddress = new Uri($"{RootUri}/api/v5/") };
+        http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
+        http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        var runTag = Guid.NewGuid().ToString("N").Substring(0, 8);
+        var titleP = $"PPP Excl [{runTag}]";
+        var titleQ = $"QQQ Excl [{runTag}]";
+        var titleR = $"RRR Excl [{runTag}]";
+
+        var seedPResp = await http.PostAsJsonAsync("importlistexclusion", new
+        {
+            mangaDexId = $"aaaa1111-id3c-aaaa-{runTag}{runTag[..4]}",
+            malId = 300,
+            aniListId = 100,
+            title = titleP
+        });
+        seedPResp.IsSuccessStatusCode.Should().BeTrue(
+            "seed row P must succeed (body: {0})",
+            await seedPResp.Content.ReadAsStringAsync());
+        using var seedPDoc = JsonDocument.Parse(await seedPResp.Content.ReadAsStringAsync());
+        var idP = seedPDoc.RootElement.GetProperty("id").GetInt32();
+
+        var seedQResp = await http.PostAsJsonAsync("importlistexclusion", new
+        {
+            mangaDexId = $"mmmm1111-id3c-mmmm-{runTag}{runTag[..4]}",
+            malId = 200,
+            aniListId = 200,
+            title = titleQ
+        });
+        seedQResp.IsSuccessStatusCode.Should().BeTrue("seed row Q must succeed");
+        using var seedQDoc = JsonDocument.Parse(await seedQResp.Content.ReadAsStringAsync());
+        var idQ = seedQDoc.RootElement.GetProperty("id").GetInt32();
+
+        var seedRResp = await http.PostAsJsonAsync("importlistexclusion", new
+        {
+            mangaDexId = $"zzzz1111-id3c-zzzz-{runTag}{runTag[..4]}",
+            malId = 100,
+            aniListId = 300,
+            title = titleR
+        });
+        seedRResp.IsSuccessStatusCode.Should().BeTrue("seed row R must succeed");
+        using var seedRDoc = JsonDocument.Parse(await seedRResp.Content.ReadAsStringAsync());
+        var idR = seedRDoc.RootElement.GetProperty("id").GetInt32();
+
+        try
+        {
+            var settings = await new SettingsImportListsPage(Page).OpenAsync(RootUri);
+            await Assertions.Expect(settings.PageContainer).ToBeVisibleAsync(
+                new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+
+            var exclusionsContainer = Page.GetByTestId("settings-importlist-exclusions");
+            await Assertions.Expect(exclusionsContainer).ToBeVisibleAsync(
+                new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+
+            // Wait for all 3 seeded rows to be present before exercising
+            // column-header clicks.
+            await Assertions.Expect(Page.GetByTestId($"settings-importlist-exclusion-row-{idP}"))
+                .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+            await Assertions.Expect(Page.GetByTestId($"settings-importlist-exclusion-row-{idQ}"))
+                .ToBeVisibleAsync();
+            await Assertions.Expect(Page.GetByTestId($"settings-importlist-exclusion-row-{idR}"))
+                .ToBeVisibleAsync();
+
+            // Per ImportListExclusions.tsx COLUMNS array, column positions are:
+            //   td:nth-child(1) = TableSelectCell
+            //   td:nth-child(2) = Title
+            //   td:nth-child(3) = MangaDex ID
+            //   td:nth-child(4) = MyAnimeList ID
+            //   td:nth-child(5) = AniList ID
+            //   td:nth-child(6) = actions
+            //
+            // Direction-aware: applySort PRESERVES sortDirection when sortKey
+            // changes (useOptionsStore.ts:189-191). Default state on a fresh
+            // localStorage is sortKey='id' + sortDirection='descending'. So
+            // first-click on EACH new ID column lands on that column with
+            // descending direction. We seeded rows so the descending-by-each-
+            // ID-column top row is a UNIQUE identity per column:
+            //   mangaDexId desc → row R (mdx='zzzz1111-…')
+            //   malId      desc → row P (mal=300)
+            //   aniListId  desc → row R (anl=300)
+            //
+            // The aria-sort attribute on each header is the canonical state
+            // marker: only the active sortKey's header carries 'ascending' or
+            // 'descending'; the others return to 'none'. Asserting aria-sort
+            // transitions is direction-agnostic and survives any future
+            // refactor of applySort that changes the initial direction.
+
+            // 1) MangaDex ID column.
+            var mangaDexHeader = exclusionsContainer.Locator("th").Filter(new()
+            {
+                HasText = "MangaDex ID"
+            }).First;
+            await mangaDexHeader.ClickAsync();
+
+            // aria-sort on MangaDex ID header transitions to non-'none'.
+            await Page.WaitForFunctionAsync(
+                "(el) => el && el.getAttribute('aria-sort') !== 'none' && el.getAttribute('aria-sort') !== null",
+                await mangaDexHeader.ElementHandleAsync(),
+                new PageWaitForFunctionOptions { Timeout = 10_000, PollingInterval = 100 });
+
+            var mangaDexAriaSort = await mangaDexHeader.GetAttributeAsync("aria-sort");
+            mangaDexAriaSort.Should().BeOneOf(new[] { "ascending", "descending" },
+                "click on MangaDex ID header must dispatch sortKey='mangaDexId' — "
+                + "aria-sort on that header should be non-'none' after dispatch");
+
+            // The Title header's aria-sort must return to 'none' (only the
+            // active sortKey carries a non-'none' aria-sort). This proves
+            // the dispatch SWITCHED columns rather than no-oping.
+            var titleHeader = exclusionsContainer.Locator("th").Filter(new()
+            {
+                HasText = "Title"
+            }).First;
+            (await titleHeader.GetAttributeAsync("aria-sort")).Should().Be("none",
+                "after dispatching sortKey='mangaDexId', the Title column's aria-sort "
+                + "should return to 'none' — the active sortKey is now mangaDexId");
+
+            // 2) MyAnimeList ID column.
+            var malHeader = exclusionsContainer.Locator("th").Filter(new()
+            {
+                HasText = "MyAnimeList ID"
+            }).First;
+            await malHeader.ClickAsync();
+
+            await Page.WaitForFunctionAsync(
+                "(el) => el && el.getAttribute('aria-sort') !== 'none' && el.getAttribute('aria-sort') !== null",
+                await malHeader.ElementHandleAsync(),
+                new PageWaitForFunctionOptions { Timeout = 10_000, PollingInterval = 100 });
+
+            var malAriaSort = await malHeader.GetAttributeAsync("aria-sort");
+            malAriaSort.Should().BeOneOf(new[] { "ascending", "descending" },
+                "click on MyAnimeList ID header must dispatch sortKey='malId' — "
+                + "aria-sort on that header should be non-'none' after dispatch");
+
+            // MangaDex ID header's aria-sort must return to 'none' now that
+            // the active sortKey moved to 'malId'.
+            (await mangaDexHeader.GetAttributeAsync("aria-sort")).Should().Be("none",
+                "after dispatching sortKey='malId', the MangaDex ID column's aria-sort "
+                + "should return to 'none' — only the active sortKey is highlighted");
+
+            // 3) AniList ID column.
+            var aniListHeader = exclusionsContainer.Locator("th").Filter(new()
+            {
+                HasText = "AniList ID"
+            }).First;
+            await aniListHeader.ClickAsync();
+
+            await Page.WaitForFunctionAsync(
+                "(el) => el && el.getAttribute('aria-sort') !== 'none' && el.getAttribute('aria-sort') !== null",
+                await aniListHeader.ElementHandleAsync(),
+                new PageWaitForFunctionOptions { Timeout = 10_000, PollingInterval = 100 });
+
+            var aniListAriaSort = await aniListHeader.GetAttributeAsync("aria-sort");
+            aniListAriaSort.Should().BeOneOf(new[] { "ascending", "descending" },
+                "click on AniList ID header must dispatch sortKey='aniListId' — "
+                + "aria-sort on that header should be non-'none' after dispatch");
+
+            (await malHeader.GetAttributeAsync("aria-sort")).Should().Be("none",
+                "after dispatching sortKey='aniListId', the MyAnimeList ID column's aria-sort "
+                + "should return to 'none' — only the active sortKey is highlighted");
+        }
+        finally
+        {
+            _ = await http.DeleteAsync($"importlistexclusion/{idP}");
+            _ = await http.DeleteAsync($"importlistexclusion/{idQ}");
+            _ = await http.DeleteAsync($"importlistexclusion/{idR}");
         }
     }
 }
