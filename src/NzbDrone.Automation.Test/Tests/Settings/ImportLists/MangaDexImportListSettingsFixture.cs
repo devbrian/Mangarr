@@ -12,6 +12,12 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 // assertion in ImportListsPageRenderFixture (Phase 26 bucket A) with a populated-state
 // smoke for the MangaDex tile specifically.
 //
+// GH #238 augment (2026-05-21): `Client Secret` (index 1) AND `Password` (index 3) are
+// user-visible Password inputs. This fixture asserts BOTH render as `type=password`
+// so MangaDex personal-client OAuth users can paste their confidential client_secret
+// AND their reusable account password without either being visible on screen. Matches
+// the MAL GH #233 fixture assertion pattern at commit 8608eff22.
+//
 // SELECTOR DEVIATION (Plan 27-02 Rule 1 auto-fix — see SUMMARY §Deviations):
 //   27-02-PLAN.md Test 6 reserved `picker-importlist-mangadex` as the picker testid,
 //   but the production AddImportListItem.tsx substrate (Phase 26 Plan 26-05) renders
@@ -88,13 +94,42 @@ public class MangaDexImportListSettingsFixture : AutomationTest
         await Assertions.Expect(labels.Filter(new LocatorFilterOptions { HasText = "Password", HasNotText = "Test" }))
             .ToHaveCountAsync(1, new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
 
-        // 6. The OAuth sign-in field renders as the "Test & Connect" button (FieldType.OAuth
+        // 6. GH #238: BOTH the Client Secret AND the Password inputs MUST render with
+        //    type=password so over-the-shoulder readers cannot see the values. This pins
+        //    Type=FieldType.Password on the corresponding FieldDefinitions — without it
+        //    the FE falls back to type=text and the secrets render in clear
+        //    (Privacy=PrivacyLevel.Password alone only drives API-outbound redaction, not
+        //    on-screen masking). The MangaDex `password` field is the user's reusable
+        //    account login password — a bigger leak surface than the OAuth client secret.
+        //    Sibling-canonical with the MAL GH #233 fixture assertion at commit 8608eff22.
+        //
+        //    The substrate renders user-visible Password fields via TextInput's
+        //    PasswordInput branch (Components/Form/TextInput.tsx). Selector pattern
+        //    `settings-{provider}-field-{name}` per D-18 + GH #180 (banned shape
+        //    `Locator("input[name=...")` would trip scripts/audit-test-assertions.sh).
+        var clientSecretInput = Page.GetByTestId("settings-importlist-field-clientSecret");
+        await Assertions.Expect(clientSecretInput).ToBeVisibleAsync(
+            new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
+        await Assertions.Expect(clientSecretInput).ToHaveAttributeAsync(
+            "type",
+            "password",
+            new LocatorAssertionsToHaveAttributeOptions { Timeout = 5_000 });
+
+        var passwordInput = Page.GetByTestId("settings-importlist-field-password");
+        await Assertions.Expect(passwordInput).ToBeVisibleAsync(
+            new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
+        await Assertions.Expect(passwordInput).ToHaveAttributeAsync(
+            "type",
+            "password",
+            new LocatorAssertionsToHaveAttributeOptions { Timeout = 5_000 });
+
+        // 7. The OAuth sign-in field renders as the "Test & Connect" button (FieldType.OAuth
         //    affordance). The exact label is the localized ImportListsMangaDexSignInLabel
         //    string ("Test & Connect").
         await Assertions.Expect(labels.Filter(new LocatorFilterOptions { HasText = "Test & Connect" }))
             .ToHaveCountAsync(1, new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
 
-        // 7. State assertion: no error banner fires on the populated picker (Phase 26
+        // 8. State assertion: no error banner fires on the populated picker (Phase 26
         //    Plan 26-05 D-08 — the schema endpoint returns 200 + a single-item array now).
         await Assertions.Expect(Page.Locator(".alert-danger")).ToHaveCountAsync(
             0,

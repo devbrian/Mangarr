@@ -94,13 +94,20 @@ namespace NzbDrone.Core.ImportLists.MangaDex
         [FieldDefinition(0, Label = "ImportListsMangaDexClientIdLabel", HelpText = "ImportListsMangaDexClientIdHelpText", Type = FieldType.Textbox)]
         public string ClientId { get; set; }
 
-        [FieldDefinition(1, Label = "ImportListsMangaDexClientSecretLabel", HelpText = "ImportListsMangaDexClientSecretHelpText", Type = FieldType.Textbox, Privacy = PrivacyLevel.Password)]
+        // GH #238 (sibling-canonical with MAL GH #233 fix at commit 377030182): the FE component
+        // map (frontend/src/Components/Form/FormInputGroup.tsx:86) routes `password` ->
+        // PasswordInput, which renders <input type=password>. `Privacy = PrivacyLevel.Password`
+        // alone controls API-outbound redaction but does NOT mask the value on-screen
+        // — that requires `Type = FieldType.Password`. Both axes are needed together. Applies
+        // to BOTH ClientSecret AND Password below — the latter is a reusable login credential
+        // (bigger leak surface than the OAuth client secret).
+        [FieldDefinition(1, Label = "ImportListsMangaDexClientSecretLabel", HelpText = "ImportListsMangaDexClientSecretHelpText", Type = FieldType.Password, Privacy = PrivacyLevel.Password)]
         public string ClientSecret { get; set; }
 
         [FieldDefinition(2, Label = "ImportListsMangaDexUsernameLabel", HelpText = "ImportListsMangaDexUsernameHelpText", Type = FieldType.Textbox)]
         public string Username { get; set; }
 
-        [FieldDefinition(3, Label = "ImportListsMangaDexPasswordLabel", HelpText = "ImportListsMangaDexPasswordHelpText", Type = FieldType.Textbox, Privacy = PrivacyLevel.Password)]
+        [FieldDefinition(3, Label = "ImportListsMangaDexPasswordLabel", HelpText = "ImportListsMangaDexPasswordHelpText", Type = FieldType.Password, Privacy = PrivacyLevel.Password)]
         public string Password { get; set; }
 
         // ── Hidden OAuth token block (D-01 + T-27-02-V4 mitigation) ──────────────────
