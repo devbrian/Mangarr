@@ -95,8 +95,10 @@ public class ManageImportListsSortAndRangeSelectFixture : AutomationTest
             Name_A);
 
         // 2. Click the Name column header → descending. Visible first row flips
-        //    to 'CCC List'.
-        var nameHeader = manageContent.Locator("th[aria-sort]").Nth(0);
+        //    to 'CCC List'. Header carries data-testid="settings-importlist-name-header"
+        //    (plumbed through Column → Table → TableHeaderCell → Link); the testid
+        //    contract per D-18 keeps this fixture decoupled from DOM structure.
+        var nameHeader = Page.GetByTestId("settings-importlist-name-header");
         await nameHeader.ClickAsync();
 
         await Page.WaitForFunctionAsync(

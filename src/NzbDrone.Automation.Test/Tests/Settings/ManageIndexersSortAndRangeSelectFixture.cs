@@ -119,8 +119,11 @@ public class ManageIndexersSortAndRangeSelectFixture : AutomationTest
         //    the table never re-rendered. Visible first row would stay 'AAA'.
         //
         //    Post-fix: `useSortedManageIndexers` reads the Zustand sortKey +
-        //    sortDirection and the rendered first row flips to 'CCC'.
-        var nameHeader = manageContent.Locator("th[aria-sort]").Nth(0);
+        //    sortDirection and the rendered first row flips to 'CCC'. Header
+        //    carries data-testid="settings-indexer-name-header" plumbed through
+        //    Column → Table → TableHeaderCell → Link; the testid contract per
+        //    D-18 keeps this fixture decoupled from DOM structure.
+        var nameHeader = Page.GetByTestId("settings-indexer-name-header");
         await nameHeader.ClickAsync();
 
         // Wait for re-render. Pre-fix this WaitForFunction would time out

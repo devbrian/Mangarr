@@ -65,8 +65,8 @@ function ManageIndexersModalRow(props: ManageIndexersModalRowProps) {
       <TableSelectCell
         id={id}
         isSelected={isSelected}
-        onSelectedChange={onSelectedChangeWrapper}
         data-testid={`settings-indexer-row-${id}-checkbox`}
+        onSelectedChange={onSelectedChangeWrapper}
       />
 
       <TableRowCell className={styles.name}>{name}</TableRowCell>

@@ -72,8 +72,8 @@ function ManageImportListsModalRow(props: ManageImportListsModalRowProps) {
       <TableSelectCell
         id={id}
         isSelected={isSelected}
-        onSelectedChange={onSelectedChangeWrapper}
         data-testid={`settings-importlist-row-${id}-checkbox`}
+        onSelectedChange={onSelectedChangeWrapper}
       />
 
       <TableRowCell className={styles.name}>{name}</TableRowCell>

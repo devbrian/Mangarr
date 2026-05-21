@@ -47,6 +47,7 @@ const COLUMNS: Column[] = [
     label: () => translate('Name'),
     isSortable: true,
     isVisible: true,
+    'data-testid': 'settings-indexer-name-header',
   },
   {
     name: 'protocol',

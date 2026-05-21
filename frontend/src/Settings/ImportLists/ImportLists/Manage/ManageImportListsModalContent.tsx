@@ -57,6 +57,7 @@ const COLUMNS: Column[] = [
     label: () => translate('Name'),
     isSortable: true,
     isVisible: true,
+    'data-testid': 'settings-importlist-name-header',
   },
   {
     name: 'implementation',
