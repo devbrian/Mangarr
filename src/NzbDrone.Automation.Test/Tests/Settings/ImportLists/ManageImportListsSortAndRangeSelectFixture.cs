@@ -1,3 +1,8 @@
+using System;
+using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -220,6 +225,154 @@ public class ManageImportListsSortAndRangeSelectFixture : AutomationTest
                 "Phase 27.1 D-03 forbids the Sonarr Enable Interactive Search column");
             trimmed.Should().NotBe("Priority",
                 "Phase 27.1 D-03 forbids the Sonarr Priority column on the Manage manga modal");
+        }
+    }
+
+    [Test]
+    public async Task manage_modal_bulk_delete_round_trip_only_deletes_selected_rows()
+    {
+        // gh-226 PR-review follow-up — the deleted Jest fixture
+        // (ManageImportListsModalContent.test.tsx) asserted that the
+        // ConfirmModal's onConfirmDelete callback dispatches
+        // bulkDeleteImportLists({ ids: getSelectedIds() }) — the load-bearing
+        // payload shape for DELETE /api/v5/importlist/bulk. The static-mock
+        // assertion proved nothing about the real FE → BE wiring.
+        //
+        // This live test seeds 3 fresh rows independent of the [OneTimeSetUp]
+        // baseline, opens the Manage modal, selects 2 of the 3, clicks Delete,
+        // confirms in the ConfirmModal, and asserts via the V5 API that only
+        // the unselected row survives. End-to-end proof that
+        //   FE selection → onConfirmDelete → useBulkDeleteImportLists →
+        //   DELETE /api/v5/importlist/bulk → ImportListController.DeleteBulk
+        // wires the { ids } payload through correctly.
+        //
+        // Independent of [OneTimeSetUp] seeds because deleting fixture-level
+        // rows would break sibling test methods.
+        using var http = new HttpClient { BaseAddress = new Uri($"{RootUri}/api/v5/") };
+        http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
+        http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        var kit = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
+
+        var runTag = Guid.NewGuid().ToString("N").Substring(0, 6);
+        var nameBulkA = $"BulkDel-A [{runTag}]";
+        var nameBulkB = $"BulkDel-B [{runTag}]";
+        var nameBulkC = $"BulkDel-C [{runTag}]";
+
+        var (_, defBulkA) = await kit.RegisterMangaDexImportListAsync(nameBulkA);
+        var (_, defBulkB) = await kit.RegisterMangaDexImportListAsync(nameBulkB);
+        var (_, defBulkC) = await kit.RegisterMangaDexImportListAsync(nameBulkC);
+
+        defBulkA.Should().NotBeNull();
+        defBulkB.Should().NotBeNull();
+        defBulkC.Should().NotBeNull();
+
+        var idBulkA = defBulkA!.Value;
+        var idBulkB = defBulkB!.Value;
+        var idBulkC = defBulkC!.Value;
+
+        try
+        {
+            var page = await new SettingsImportListsPage(Page).OpenAsync(RootUri);
+            await Assertions.Expect(page.ManageButton).ToBeVisibleAsync(
+                new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+            await page.ManageButton.ClickAsync();
+
+            var manageContent = Page.GetByTestId("manage-importlists-modal-content");
+            await Assertions.Expect(manageContent).ToBeVisibleAsync(
+                new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+
+            // Wait for all three seeded rows to be visible — proves the table
+            // hydrated before we start clicking.
+            var rowBulkA = manageContent.GetByTestId($"settings-importlist-row-{idBulkA}");
+            var rowBulkB = manageContent.GetByTestId($"settings-importlist-row-{idBulkB}");
+            var rowBulkC = manageContent.GetByTestId($"settings-importlist-row-{idBulkC}");
+            await Assertions.Expect(rowBulkA).ToBeVisibleAsync(
+                new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+            await Assertions.Expect(rowBulkB).ToBeVisibleAsync();
+            await Assertions.Expect(rowBulkC).ToBeVisibleAsync();
+
+            // Select rows A + B (leave C intact).
+            await manageContent
+                .GetByTestId($"settings-importlist-row-{idBulkA}-checkbox")
+                .ClickAsync();
+            await manageContent
+                .GetByTestId($"settings-importlist-row-{idBulkB}-checkbox")
+                .ClickAsync();
+
+            // The Delete button lives in the modal footer's leftButtons block;
+            // scope by manageContent so the global toolbar Delete (if any)
+            // can't satisfy the locator. SpinnerButton renders no testid, so
+            // we locate by visible text.
+            var deleteFooterButton = manageContent
+                .Locator("button")
+                .Filter(new() { HasText = "Delete" })
+                .First;
+            await Assertions.Expect(deleteFooterButton).ToBeEnabledAsync(
+                new LocatorAssertionsToBeEnabledOptions { Timeout = 10_000 });
+            await deleteFooterButton.ClickAsync();
+
+            // The ConfirmModal mounts as a separate portal-root modal with
+            // role=dialog and a Delete button. Title is translated from the
+            // i18n key 'DeleteSelectedImportLists' — live-verified to render
+            // as "Delete Import List(s)" (not the verbatim key); filter on
+            // that exact rendered string so the locator scopes to the
+            // confirm dialog and not the underlying Manage modal.
+            var confirmDialog = Page.GetByRole(AriaRole.Dialog)
+                .Filter(new() { HasText = "Delete Import List(s)" })
+                .First;
+            await Assertions.Expect(confirmDialog).ToBeVisibleAsync(
+                new LocatorAssertionsToBeVisibleOptions { Timeout = 10_000 });
+
+            var confirmDeleteButton = confirmDialog
+                .GetByRole(AriaRole.Button, new() { Name = "Delete" })
+                .First;
+            await confirmDeleteButton.ClickAsync();
+
+            // Poll the V5 API until the two rows are gone. Proves the bulk
+            // DELETE round-trip + the deletedIds-driven cache-update branch
+            // in useBulkDeleteImportLists.onSuccess actually removes the
+            // rows from the backend (not just from the FE cache).
+            var deadline = DateTime.UtcNow.AddSeconds(15);
+            int[] remainingTargetIds;
+            do
+            {
+                var listResp = await http.GetAsync("importlist");
+                listResp.IsSuccessStatusCode.Should().BeTrue(
+                    "GET /api/v5/importlist must return 2xx after bulk-delete");
+                var listBody = await listResp.Content.ReadAsStringAsync();
+                using var listDoc = JsonDocument.Parse(listBody);
+                var presentIds = listDoc.RootElement.EnumerateArray()
+                    .Select(el => el.GetProperty("id").GetInt32())
+                    .ToHashSet();
+                remainingTargetIds = new[] { idBulkA, idBulkB, idBulkC }
+                    .Where(presentIds.Contains)
+                    .ToArray();
+                if (remainingTargetIds.Length == 1 && remainingTargetIds[0] == idBulkC)
+                {
+                    break;
+                }
+
+                await Task.Delay(250);
+            }
+            while (DateTime.UtcNow < deadline);
+
+            var survivingDescription = string.Join(", ", remainingTargetIds);
+            var assertionMessage =
+                $"after bulk-delete dispatched with {{ ids: [{idBulkA}, {idBulkB}] }}, only "
+                + $"the unselected row (id={idBulkC}) should remain. Surviving ids of "
+                + $"our 3-row test cohort: [{survivingDescription}]";
+
+            remainingTargetIds.Should().BeEquivalentTo(new[] { idBulkC }, assertionMessage);
+        }
+        finally
+        {
+            // Defensive sweep — make the test idempotent even if the assertion
+            // failed mid-flight (some rows may still exist; DELETE on a missing
+            // id is harmless).
+            _ = await http.DeleteAsync($"importlist/{idBulkA}");
+            _ = await http.DeleteAsync($"importlist/{idBulkB}");
+            _ = await http.DeleteAsync($"importlist/{idBulkC}");
         }
     }
 }
