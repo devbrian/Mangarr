@@ -24,8 +24,8 @@ import {
 import translate from 'Utilities/String/translate';
 
 // Phase 27.1 Plan 27.1-02 — Replaces the Phase 26 Plan 26-05 Alert placeholder
-// (which referenced the now-removed `ImportListOptionsPhase26Notice` key) with
-// the Sonarr v5-develop verbatim Redux-thunk Options form. Backend controller
+// (a no-op informational Alert wired to a since-removed i18n key) with the
+// Sonarr v5-develop verbatim Redux-thunk Options form. Backend controller
 // `ImportListConfigController` shipped in Plan 27.1-01 satisfies the
 // `GET/PUT /api/v5/config/importlist` round-trip the Phase 26 Redux store at
 // `Store/Actions/Settings/importListOptions.js:53-54` was already wired to call.
