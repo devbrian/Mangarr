@@ -305,7 +305,7 @@ function ImportListExclusionsContent() {
       >
         <div data-testid="settings-importlist-exclusions">
           {isConcurrentRemovalAlertVisible ? (
-            <div data-testid="importlist-exclusion-concurrent-removal-alert">
+            <div data-testid="settings-importlist-exclusion-concurrent-removal-alert">
               <Alert kind={kinds.WARNING}>
                 {translate('EditImportListExclusionConcurrentlyRemovedMessage')}
               </Alert>
