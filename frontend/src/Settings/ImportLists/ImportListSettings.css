@@ -1,0 +1,11 @@
+/* Phase 27.1 Plan 27.1-05 Task 6 — ImportListSettings.css stub.
+ *
+ * Sonarr v5-develop has no CSS module for this Settings page (verified:
+ * `git show v5-develop:frontend/src/Settings/ImportLists/ImportListSettings.css`
+ * exits 128). The Mangarr peer `frontend/src/Settings/Indexers/IndexerSettings.css`
+ * also does not exist. The shipped `ImportListSettings.tsx` does not import
+ * this module. File ships as a deliberate stub to satisfy the Plan 27.1-05
+ * Task 6 "all 6 CSS module pairs exist" acceptance criterion without
+ * introducing webpack noise. Future selectors can be added without
+ * re-authoring the typing peer.
+ */
