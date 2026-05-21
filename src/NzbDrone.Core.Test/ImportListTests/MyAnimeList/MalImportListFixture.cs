@@ -20,7 +20,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
 {
     // Phase 27 Plan 27-04 Task 3 — unit tier for MalImportList.
     //
-    // Tests (per 27-04-PLAN.md Task 3 behavior list):
+    // Tests (per 27-04-PLAN.md Task 3 behavior list + GH #233 client_secret coverage):
     //   1. provider_carries_canonical_identity — Name/ListType/MinRefreshInterval (Test 1).
     //   2. start_oauth_returns_authorize_url_with_pkce_plain_and_state — generates fresh
     //      PKCE state, persists Settings.PendingPkceState JSON blob, returns OauthUrl with
@@ -48,6 +48,18 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
     //      reloads the DB-persisted blob via _importListRepository.Get before the
     //      empty-check fires, so the validation proceeds to the exchange (Test 9 — Option
     //      A per-provider reload; substrate-wide fix explicitly out-of-scope).
+    //  10. get_oauth_token_passes_client_secret_when_set — GH #233 (2026-05-21):
+    //      when Settings.ClientSecret is non-empty (MAL App Type "web" — confidential PKCE),
+    //      the provider passes it through to the proxy's ExchangeCodeForToken call.
+    //  11. get_oauth_token_omits_client_secret_when_empty — GH #233 back-compat:
+    //      when Settings.ClientSecret is empty (MAL App Type "Other" — public-client PKCE),
+    //      the provider passes a null/empty value through; the proxy's separate unit
+    //      coverage (MalImportListProxyFixture) verifies the form body does NOT include
+    //      the client_secret parameter.
+    //  12. RefreshToken_passes_client_secret_when_set — GH #233: refresh leg also carries
+    //      Settings.ClientSecret through to the proxy.
+    //  13. RefreshToken_omits_client_secret_when_empty — GH #233 back-compat: refresh
+    //      leg works without ClientSecret for App Type "Other" users.
     //
     // No live HTTP — Mocker stubs IMalImportListProxy + IHttpClient + IImportListRepository.
     [TestFixture]
@@ -155,7 +167,11 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
                      }
                  });
 
-            _proxy.Setup(p => p.ExchangeCodeForToken("fixture-client-id", "auth-code-fixture", pending.Verifier))
+            // GH #233: the proxy signature now carries (clientId, clientSecret, code, verifier).
+            // Setup matches the no-secret case (Settings.ClientSecret default = null) so the
+            // happy-path Test 3 continues to assert the original behaviour while exercising the
+            // new 4-arg shape.
+            _proxy.Setup(p => p.ExchangeCodeForToken("fixture-client-id", null, "auth-code-fixture", pending.Verifier))
                   .Returns(new MalTokenResponse
                   {
                       AccessToken = "fresh-mal-token",
@@ -225,7 +241,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
 
             // Tokens MUST NOT be exchanged.
             _proxy.Verify(
-                p => p.ExchangeCodeForToken(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+                p => p.ExchangeCodeForToken(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
                 Times.Never,
                 "T-V11 CSRF: mismatched state nonce must reject the exchange before contacting MAL.");
 
@@ -266,7 +282,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
                 new Dictionary<string, string> { { "redirectedUrl", redirectedUrl } });
 
             _proxy.Verify(
-                p => p.ExchangeCodeForToken(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+                p => p.ExchangeCodeForToken(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
                 Times.Never,
                 "TTL-expired state nonce must reject the exchange.");
 
@@ -286,7 +302,9 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             _settings.AccessToken = "old-access";
             _settings.RefreshToken = "old-refresh";
 
-            _proxy.Setup(p => p.RefreshAccessToken("fixture-client-id", "old-refresh"))
+            // GH #233: proxy signature now (clientId, clientSecret, refreshToken). Default
+            // ClientSecret=null exercises the back-compat (Other App Type) path.
+            _proxy.Setup(p => p.RefreshAccessToken("fixture-client-id", null, "old-refresh"))
                   .Returns(new MalTokenResponse
                   {
                       AccessToken = "rotated-access",
@@ -304,7 +322,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             Subject.Fetch();
 
             _proxy.Verify(
-                p => p.RefreshAccessToken("fixture-client-id", "old-refresh"),
+                p => p.RefreshAccessToken("fixture-client-id", null, "old-refresh"),
                 Times.Once,
                 "OAuthAwareImportListBase.Fetch() must call RefreshTokenIfNecessary, which calls the per-provider RefreshToken override.");
 
@@ -330,7 +348,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             // Proxy refresh bumps Expires past the lookahead via the provider override,
             // so the in-lock re-check (peer-flow defense) collapses callers 2..8 into
             // no-ops. Exactly ONE refresh call must reach the proxy.
-            _proxy.Setup(p => p.RefreshAccessToken(It.IsAny<string>(), It.IsAny<string>()))
+            _proxy.Setup(p => p.RefreshAccessToken(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                   .Returns(new MalTokenResponse
                   {
                       AccessToken = "rotated-access",
@@ -348,7 +366,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             Parallel.For(0, 8, _ => Subject.Fetch());
 
             _proxy.Verify(
-                p => p.RefreshAccessToken(It.IsAny<string>(), It.IsAny<string>()),
+                p => p.RefreshAccessToken(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
                 Times.Once,
                 "D-05 + Pitfall 9: per-ImportList SemaphoreSlim must serialize concurrent refreshes, " +
                 "and the in-lock re-check must collapse callers 2..8 into no-ops so MAL's refresh-token " +
@@ -381,7 +399,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
                            return new HttpResponse(req, new HttpHeader { ContentType = "application/json" }, body, HttpStatusCode.OK);
                        });
 
-            _proxy.Setup(p => p.RefreshAccessToken(It.IsAny<string>(), It.IsAny<string>()))
+            _proxy.Setup(p => p.RefreshAccessToken(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                   .Returns(new MalTokenResponse
                   {
                       AccessToken = "post-401-access",
@@ -393,7 +411,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
 
             result.Should().NotBeNull();
             _proxy.Verify(
-                p => p.RefreshAccessToken(It.IsAny<string>(), It.IsAny<string>()),
+                p => p.RefreshAccessToken(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
                 Times.Once,
                 "D-05 reactive 401-retry: after the initial 401, the provider must force-expire Settings.Expires and call RefreshTokenIfNecessary which dispatches RefreshAccessToken.");
 
@@ -429,7 +447,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
                  });
 
             // Happy-path proxy: validates state, exchanges code+verifier for tokens.
-            _proxy.Setup(p => p.ExchangeCodeForToken("fixture-client-id", "auth-code-fixture", pending.Verifier))
+            _proxy.Setup(p => p.ExchangeCodeForToken("fixture-client-id", null, "auth-code-fixture", pending.Verifier))
                   .Returns(new MalTokenResponse
                   {
                       AccessToken = "post-reload-access",
@@ -453,7 +471,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             // The validation MUST have proceeded past the empty-check — proven by the proxy
             // exchange call being dispatched with the persisted Verifier.
             _proxy.Verify(
-                p => p.ExchangeCodeForToken("fixture-client-id", "auth-code-fixture", pending.Verifier),
+                p => p.ExchangeCodeForToken("fixture-client-id", null, "auth-code-fixture", pending.Verifier),
                 Times.Once,
                 "GH #231 fix: after the reload restores PendingPkceState, validation must proceed " +
                 "past the empty-check, deserialize the persisted MalOAuthState, validate the state " +
@@ -471,6 +489,218 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
 
             // Result envelope is the normal happy-path shape.
             result.Should().NotBeNull();
+        }
+
+        // ── Test 10: GH #233 — provider passes ClientSecret through on exchange ────────
+        [Test]
+        public void get_oauth_token_passes_client_secret_when_set()
+        {
+            // MAL App Type "web" (confidential PKCE) — user supplied a client_secret.
+            _settings.ClientSecret = "fixture-mal-web-client-secret";
+
+            var pending = MalOAuthState.Create();
+            _settings.PendingPkceState = JsonConvert.SerializeObject(pending);
+
+            _repo.Setup(r => r.Get(9012))
+                 .Returns(new ImportListDefinition
+                 {
+                     Id = 9012,
+                     Settings = new MalImportListSettings
+                     {
+                         ClientId = "fixture-client-id",
+                         ClientSecret = "fixture-mal-web-client-secret",
+                         PendingPkceState = _settings.PendingPkceState
+                     }
+                 });
+
+            // The proxy MUST receive the client_secret as the 2nd positional arg. If the
+            // provider passes null/empty here, the MAL App Type "web" flow returns 401 from
+            // MAL — that's the GH #233 regression class this test pins.
+            _proxy.Setup(p => p.ExchangeCodeForToken(
+                              "fixture-client-id",
+                              "fixture-mal-web-client-secret",
+                              "auth-code-fixture",
+                              pending.Verifier))
+                  .Returns(new MalTokenResponse
+                  {
+                      AccessToken = "web-flow-access",
+                      RefreshToken = "web-flow-refresh",
+                      ExpiresIn = 2592000
+                  });
+
+            var redirectedUrl = $"https://mangarr.local/oauth/mal/callback?code=auth-code-fixture&state={pending.StateNonce}";
+
+            var result = Subject.RequestAction(
+                "getOAuthToken",
+                new Dictionary<string, string> { { "redirectedUrl", redirectedUrl } });
+
+            // The provider MUST have called the proxy with the client_secret value passed
+            // through verbatim. Strict-arg matching pins the GH #233 contract.
+            _proxy.Verify(
+                p => p.ExchangeCodeForToken(
+                    "fixture-client-id",
+                    "fixture-mal-web-client-secret",
+                    "auth-code-fixture",
+                    pending.Verifier),
+                Times.Once,
+                "GH #233: MAL App Type 'web' requires client_secret in the token-exchange form body; " +
+                "the provider MUST pass Settings.ClientSecret through to the proxy's 2nd positional arg.");
+
+            _settings.AccessToken.Should().Be("web-flow-access",
+                "happy path: tokens persisted as normal post-exchange.");
+
+            // T-V7: response envelope must NOT echo the client_secret.
+            result.Should().NotBeNull();
+            var json = JsonConvert.SerializeObject(result);
+            json.Should().NotContain("fixture-mal-web-client-secret",
+                "T-V7: the response envelope from getOAuthToken must NEVER echo the client_secret.");
+        }
+
+        // ── Test 11: GH #233 back-compat — ClientSecret empty on exchange (Other App Type) ──
+        [Test]
+        public void get_oauth_token_omits_client_secret_when_empty()
+        {
+            // MAL App Type "Other" (public-client PKCE) — user left ClientSecret blank.
+            _settings.ClientSecret = null;
+
+            var pending = MalOAuthState.Create();
+            _settings.PendingPkceState = JsonConvert.SerializeObject(pending);
+
+            _repo.Setup(r => r.Get(9012))
+                 .Returns(new ImportListDefinition
+                 {
+                     Id = 9012,
+                     Settings = new MalImportListSettings
+                     {
+                         ClientId = "fixture-client-id",
+                         ClientSecret = null,
+                         PendingPkceState = _settings.PendingPkceState
+                     }
+                 });
+
+            _proxy.Setup(p => p.ExchangeCodeForToken(
+                              "fixture-client-id",
+                              null,
+                              "auth-code-fixture",
+                              pending.Verifier))
+                  .Returns(new MalTokenResponse
+                  {
+                      AccessToken = "other-flow-access",
+                      RefreshToken = "other-flow-refresh",
+                      ExpiresIn = 2592000
+                  });
+
+            var redirectedUrl = $"https://mangarr.local/oauth/mal/callback?code=auth-code-fixture&state={pending.StateNonce}";
+
+            Subject.RequestAction(
+                "getOAuthToken",
+                new Dictionary<string, string> { { "redirectedUrl", redirectedUrl } });
+
+            // The provider MUST have called the proxy with null/empty for client_secret. The
+            // proxy's separate coverage (MalImportListProxyFixture) verifies that the form
+            // body does NOT include the client_secret parameter at all in that branch — the
+            // wire-level back-compat with MAL App Type "Other" depends on it.
+            _proxy.Verify(
+                p => p.ExchangeCodeForToken(
+                    "fixture-client-id",
+                    null,
+                    "auth-code-fixture",
+                    pending.Verifier),
+                Times.Once,
+                "GH #233 back-compat: MAL App Type 'Other' (public-client PKCE) users leave Settings.ClientSecret blank; " +
+                "the provider MUST pass null/empty through unchanged so the proxy omits the client_secret form parameter.");
+
+            _settings.AccessToken.Should().Be("other-flow-access",
+                "happy path: tokens persisted as normal post-exchange (Other App Type still works).");
+        }
+
+        // ── Test 12: GH #233 — RefreshToken passes ClientSecret through ───────────────
+        [Test]
+        public void RefreshToken_passes_client_secret_when_set()
+        {
+            // MAL App Type "web" — refresh leg also needs the client_secret per MAL OAuth docs.
+            _settings.ClientSecret = "fixture-mal-web-client-secret";
+            _settings.Expires = DateTime.UtcNow.AddSeconds(30); // inside 5-min lookahead
+            _settings.AccessToken = "old-web-access";
+            _settings.RefreshToken = "old-web-refresh";
+
+            _proxy.Setup(p => p.RefreshAccessToken(
+                              "fixture-client-id",
+                              "fixture-mal-web-client-secret",
+                              "old-web-refresh"))
+                  .Returns(new MalTokenResponse
+                  {
+                      AccessToken = "rotated-web-access",
+                      RefreshToken = "rotated-web-refresh",
+                      ExpiresIn = 2592000
+                  });
+
+            _httpClient.Setup(c => c.Execute(It.IsAny<HttpRequest>()))
+                       .Returns<HttpRequest>(req => new HttpResponse(
+                           req,
+                           new HttpHeader { ContentType = "application/json" },
+                           "{\"data\":[],\"paging\":{}}",
+                           HttpStatusCode.OK));
+
+            Subject.Fetch();
+
+            _proxy.Verify(
+                p => p.RefreshAccessToken(
+                    "fixture-client-id",
+                    "fixture-mal-web-client-secret",
+                    "old-web-refresh"),
+                Times.Once,
+                "GH #233: the refresh-token leg ALSO requires client_secret for MAL App Type 'web' per " +
+                "MAL OAuth docs (https://myanimelist.net/blog.php?eid=835707). The provider MUST pass " +
+                "Settings.ClientSecret through to the proxy's RefreshAccessToken 2nd positional arg.");
+
+            _settings.AccessToken.Should().Be("rotated-web-access",
+                "rotated access-token must be persisted on Settings after the App Type 'web' refresh.");
+        }
+
+        // ── Test 13: GH #233 back-compat — RefreshToken omits ClientSecret when empty ─
+        [Test]
+        public void RefreshToken_omits_client_secret_when_empty()
+        {
+            // MAL App Type "Other" — refresh works without client_secret.
+            _settings.ClientSecret = null;
+            _settings.Expires = DateTime.UtcNow.AddSeconds(30); // inside 5-min lookahead
+            _settings.AccessToken = "old-other-access";
+            _settings.RefreshToken = "old-other-refresh";
+
+            _proxy.Setup(p => p.RefreshAccessToken(
+                              "fixture-client-id",
+                              null,
+                              "old-other-refresh"))
+                  .Returns(new MalTokenResponse
+                  {
+                      AccessToken = "rotated-other-access",
+                      RefreshToken = "rotated-other-refresh",
+                      ExpiresIn = 2592000
+                  });
+
+            _httpClient.Setup(c => c.Execute(It.IsAny<HttpRequest>()))
+                       .Returns<HttpRequest>(req => new HttpResponse(
+                           req,
+                           new HttpHeader { ContentType = "application/json" },
+                           "{\"data\":[],\"paging\":{}}",
+                           HttpStatusCode.OK));
+
+            Subject.Fetch();
+
+            _proxy.Verify(
+                p => p.RefreshAccessToken(
+                    "fixture-client-id",
+                    null,
+                    "old-other-refresh"),
+                Times.Once,
+                "GH #233 back-compat: refresh works for MAL App Type 'Other' (public-client PKCE) " +
+                "with null client_secret. The provider MUST pass null/empty through unchanged so the " +
+                "proxy omits the client_secret form parameter — wire-level back-compat with MAL " +
+                "depends on it.");
+
+            _settings.AccessToken.Should().Be("rotated-other-access",
+                "rotated access-token must be persisted on Settings after the App Type 'Other' refresh.");
         }
     }
 }

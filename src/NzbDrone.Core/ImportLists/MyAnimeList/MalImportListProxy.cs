@@ -26,6 +26,20 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
     //   * Manga list: https://api.myanimelist.net/v2/users/@me/mangalist
     //     (GET; Bearer-token-authenticated; paginated via paging.next cursor URL)
     //
+    // MAL App Type duality (GH #233 — 2026-05-21):
+    //   MAL OAuth supports two App Types at https://myanimelist.net/apiconfig:
+    //     * "Other" — public-client PKCE; NO client_secret. The verifier/challenge
+    //       replaces the shared-secret defense.
+    //     * "web"   — confidential-client PKCE; REQUIRES client_secret in the
+    //       token-exchange + refresh-token form bodies per MAL blog
+    //       https://myanimelist.net/blog.php?eid=835707. This is the default app
+    //       type on registration, so most users hit this code path.
+    //   Both ExchangeCodeForToken + RefreshAccessToken accept clientSecret as a
+    //   nullable/optional string parameter. When non-empty, `client_secret=` is
+    //   appended to the form body; when empty, the parameter is omitted entirely
+    //   (back-compat with the original v1.1 ship — "Other" app-type users continue
+    //   to work without any settings change).
+    //
     // Pitfall 10 / SourceKey="myanimelist" NEW bucket per CONTEXT line 36 + 27-04-PLAN
     // success criteria: every outbound HTTP request from this proxy AND from
     // MalImportListRequestGenerator sets RateLimitKey="myanimelist". NEW bucket — NOT
@@ -34,29 +48,38 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
     // progress sync if v1.2+ ships).
     //
     // T-V7 token-leak prevention: the proxy NEVER logs token / code / verifier / refresh-token
-    // values. _logger.Warn(...) calls below carry ONLY the exception message + HTTP status +
-    // endpoint path (matches sibling Plan 27-02 MangaDex proxy + Plan 27-03 AniList proxy hygiene).
-    // Log message phrasing intentionally avoids the literal substrings `Bearer`/`access_token`/
-    // `refresh_token`/`code_verifier`/`code=` so the Plan 27-05 close-out audit grep returns 0
-    // (substantive T-V7 protection is the ABSENCE of secret-value arguments to _logger calls).
+    // / client-secret values. _logger.Warn(...) calls below carry ONLY the exception message +
+    // HTTP status + endpoint path (matches sibling Plan 27-02 MangaDex proxy + Plan 27-03
+    // AniList proxy hygiene). Log message phrasing intentionally avoids the literal substrings
+    // `Bearer`/`access_token`/`refresh_token`/`code_verifier`/`code=`/`client_secret=` so the
+    // Plan 27-05 close-out audit grep returns 0 (substantive T-V7 protection is the ABSENCE of
+    // secret-value arguments to _logger calls).
     public interface IMalImportListProxy
     {
         // D-09 step 1: build the URL the FE opens in a new tab. Deterministic
         // URL construction (no HTTP call) — query string carries PKCE
         // code_challenge using the MAL-required `plain` method + 32-byte state nonce
         // (CSRF defense). `clientId` is the user-supplied OAuth client identifier
-        // (MalImportListSettings.ClientId) — MAL public-client PKCE has no client_secret.
+        // (MalImportListSettings.ClientId). MAL's authorize URL never carries the
+        // client_secret regardless of App Type (it only appears in token-exchange / refresh).
         string BuildAuthorizeUrl(string clientId, MalOAuthState state);
 
         // D-09 step 2: POST form-urlencoded grant_type=authorization_code with
         // code + code_verifier to token endpoint. Returns the canonical MAL token
         // response (access_token + refresh_token + expires_in).
-        MalTokenResponse ExchangeCodeForToken(string clientId, string code, string verifier);
+        //
+        // GH #233: `clientSecret` is optional. When non-empty, it is appended as
+        // `client_secret={value}` to the form body (MAL App Type "web" path). When
+        // null/empty/whitespace, the parameter is omitted entirely (MAL App Type "Other"
+        // back-compat).
+        MalTokenResponse ExchangeCodeForToken(string clientId, string clientSecret, string code, string verifier);
 
         // D-05 / Trakt.cs:135-163 canonical refresh path. POST grant_type=refresh_token
         // — MAL ROTATES refresh tokens (caller applies the Trakt.cs:151 null-coalesce:
         // `Settings.RefreshToken = response.RefreshToken ?? Settings.RefreshToken`).
-        MalTokenResponse RefreshAccessToken(string clientId, string refreshToken);
+        //
+        // GH #233: same conditional client_secret treatment as ExchangeCodeForToken.
+        MalTokenResponse RefreshAccessToken(string clientId, string clientSecret, string refreshToken);
 
         // Bearer-authenticated GET against /v2/users/@me/mangalist. When `nextCursor`
         // is non-null/non-empty, the request URL is the cursor URL verbatim
@@ -97,6 +120,10 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             // two independent sources confirm per CONTEXT line 28; verified at MAL
             // OAuth reference). Plain is weaker than the hashed variant but is the
             // only method MAL accepts — threat is accepted, not a defect.
+            //
+            // client_secret never appears in the authorize URL regardless of App Type —
+            // MAL's OAuth2 authorize endpoint only consumes it server-side during
+            // token-exchange.
             var request = new HttpRequestBuilder(MalConstants.AuthorizeUrl)
                 .AddQueryParam("response_type", "code")
                 .AddQueryParam("client_id", clientId ?? string.Empty)
@@ -109,47 +136,69 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             return request.Url.FullUri;
         }
 
-        public MalTokenResponse ExchangeCodeForToken(string clientId, string code, string verifier)
+        public MalTokenResponse ExchangeCodeForToken(string clientId, string clientSecret, string code, string verifier)
         {
             // OAuth2 authorization_code grant per
             // https://myanimelist.net/apiconfig/references/authorization. Form-urlencoded body:
             //   grant_type=authorization_code
             //     &client_id={clientId}           (user-supplied)
+            //     &client_secret={clientSecret}   (GH #233 — only when non-empty; MAL App Type "web")
             //     &code={code}
             //     &code_verifier={verifier}
             //     &redirect_uri={MalConstants.RedirectUri}
             //
-            // No client_secret field — MAL public-client PKCE flow per D-09 + Pattern D +
-            // RESEARCH §Open Question 4. The verifier+plain challenge replaces the shared-secret
-            // defense.
-            var request = new HttpRequestBuilder(MalConstants.TokenUrl)
+            // GH #233: when Settings.ClientSecret is set (MAL App Type "web" — confidential PKCE),
+            // we MUST send client_secret in the body or MAL returns 401 invalid_client. When the
+            // setting is empty (MAL App Type "Other" — public-client PKCE), we MUST NOT send
+            // client_secret or MAL rejects with 400 / 401 against an unknown secret. The verifier
+            // ALWAYS goes in regardless of App Type.
+            var builder = new HttpRequestBuilder(MalConstants.TokenUrl)
                 .Post()
                 .AddFormParameter("grant_type", "authorization_code")
-                .AddFormParameter("client_id", clientId ?? string.Empty)
+                .AddFormParameter("client_id", clientId ?? string.Empty);
+
+            if (!string.IsNullOrWhiteSpace(clientSecret))
+            {
+                builder.AddFormParameter("client_secret", clientSecret);
+            }
+
+            builder
                 .AddFormParameter("code", code ?? string.Empty)
                 .AddFormParameter("code_verifier", verifier ?? string.Empty)
-                .AddFormParameter("redirect_uri", MalConstants.RedirectUri)
-                .Build();
+                .AddFormParameter("redirect_uri", MalConstants.RedirectUri);
+
+            var request = builder.Build();
 
             ApplySharedHeaders(request);
             return ExecuteTokenRequest(request);
         }
 
-        public MalTokenResponse RefreshAccessToken(string clientId, string refreshToken)
+        public MalTokenResponse RefreshAccessToken(string clientId, string clientSecret, string refreshToken)
         {
             // OAuth2 refresh-token grant. Form-urlencoded body:
             //   grant_type=refresh_token
             //     &client_id={clientId}           (user-supplied)
+            //     &client_secret={clientSecret}   (GH #233 — only when non-empty; MAL App Type "web")
             //     &refresh_token={refreshToken}
             //
             // MAL ROTATES refresh tokens (31-day observed lifetime); caller (MalImportList
             // RefreshToken override) applies Trakt.cs:151 null-coalesce to the rotated value.
-            var request = new HttpRequestBuilder(MalConstants.TokenUrl)
+            //
+            // GH #233: same conditional client_secret treatment as ExchangeCodeForToken — the
+            // MAL "web" App Type requires it in BOTH the initial exchange AND the refresh leg.
+            var builder = new HttpRequestBuilder(MalConstants.TokenUrl)
                 .Post()
                 .AddFormParameter("grant_type", "refresh_token")
-                .AddFormParameter("client_id", clientId ?? string.Empty)
-                .AddFormParameter("refresh_token", refreshToken ?? string.Empty)
-                .Build();
+                .AddFormParameter("client_id", clientId ?? string.Empty);
+
+            if (!string.IsNullOrWhiteSpace(clientSecret))
+            {
+                builder.AddFormParameter("client_secret", clientSecret);
+            }
+
+            builder.AddFormParameter("refresh_token", refreshToken ?? string.Empty);
+
+            var request = builder.Build();
 
             ApplySharedHeaders(request);
             return ExecuteTokenRequest(request);
@@ -268,7 +317,8 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
                 // upstream error payload. Message-only keeps the diagnostic value
                 // (endpoint path + HTTP status + error message) without the leak surface.
                 // Phrasing avoids literal "Bearer"/"access_token"/"refresh_token"/
-                // "code_verifier"/"code=" tokens so the close-out audit grep returns 0.
+                // "code_verifier"/"code="/"client_secret=" tokens so the close-out audit
+                // grep returns 0.
                 var status = ex.Response?.StatusCode ?? HttpStatusCode.InternalServerError;
                 _logger.Warn("Error exchanging MyAnimeList OAuth grant: HTTP {0} {1} ({2})",
                     (int)status,

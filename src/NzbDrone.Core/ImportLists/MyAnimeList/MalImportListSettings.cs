@@ -22,13 +22,22 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
     //
     // Phase 27 deltas vs sibling AniList provider (Plan 27-03):
     //   * MAL ClientId is user-supplied via `Settings.ClientId` (index 0) — consistent with
-    //     MangaDex + AniList per-user client models in this same phase. MAL public-client PKCE
-    //     flow has NO client_secret (the verifier/challenge replaces the shared-secret defense)
-    //     so the Settings POCO carries ClientId but no ClientSecret.
-    //   * `PendingPkceState` (index 5) — JSON-serialized MalOAuthState blob held as string,
+    //     MangaDex + AniList per-user client models in this same phase.
+    //   * MAL supports two App Types at https://myanimelist.net/apiconfig:
+    //       - "Other" (public-client PKCE): NO client_secret — the verifier/challenge replaces
+    //         the shared-secret defense. Mangarr's original v1.1 ship assumed this app type.
+    //       - "web" (confidential-client PKCE): REQUIRES client_secret in the token-exchange
+    //         and refresh-token form bodies alongside the PKCE verifier per MAL blog
+    //         https://myanimelist.net/blog.php?eid=835707. This is the default app type on
+    //         registration — most users hit this path. GH #233 (2026-05-21) surfaced the
+    //         missing-secret 401 on "web" app types.
+    //   * Therefore `Settings.ClientSecret` is rendered as an OPTIONAL user-visible Password
+    //     field at index 1. The proxy methods accept it as a string parameter and append it
+    //     conditionally (only when non-empty) — back-compat with the "Other" app-type flow.
+    //   * `PendingPkceState` (index 6) — JSON-serialized MalOAuthState blob held as string,
     //     Hidden. Holds the transient `(StateNonce, Verifier, ExpiresAt)` tuple between
     //     startOAuth and getOAuthToken RequestAction calls (Discretion #2 shape (a)).
-    //   * `Status` field at index 1 (D-10 single-select MalListStatus enum, 5 values).
+    //   * `Status` field at index 2 (D-10 single-select MalListStatus enum, 5 values).
     //   * MAL DOES rotate refresh tokens (31-day observed lifetime per RESEARCH §STACK §Surface 2),
     //     so the RefreshToken override applies the Trakt.cs:151 null-coalesce; the field is
     //     LIVE on MAL (unlike AniList where it's contract-compliance dead weight).
@@ -50,11 +59,17 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         public MalImportListSettingsValidator()
         {
             // Initial-save guardrails: user-supplied OAuth client_id MUST be present before
-            // the FE "Connect" affordance triggers RequestAction("startOAuth"). MAL public-
-            // client PKCE flow — user registers the OAuth client at
-            // https://myanimelist.net/apiconfig and pastes the issued client_id here. There
-            // is NO client_secret (PKCE replaces the shared-secret defense). Mirrors the
-            // per-user client model used by MangaDex + AniList in this phase.
+            // the FE "Connect" affordance triggers RequestAction("startOAuth"). User registers
+            // the OAuth client at https://myanimelist.net/apiconfig and pastes the issued
+            // client_id here. Mirrors the per-user client model used by MangaDex + AniList in
+            // this phase.
+            //
+            // ClientSecret is OPTIONAL by design (NO .NotEmpty() rule): MAL App Type "Other"
+            // (public-client PKCE) does not issue / require a client_secret. Only MAL App Type
+            // "web" (confidential-client PKCE) requires it. Adding NotEmpty here would force
+            // every existing "Other" app-type user to invent a non-empty value, which would in
+            // turn break their PKCE-only token exchange (MAL rejects unknown client_secret with
+            // 401 invalid_client).
             RuleFor(c => c.ClientId).NotEmpty();
 
             // Status MUST be set before Connect. Sonarr-canonical single-select Trakt
@@ -105,22 +120,57 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         public override string BaseUrl { get; set; }
 
         // ── User-supplied OAuth client identifier (D-09 per-user model) ───────────────
-        // MAL public-client PKCE flow. User registers an OAuth client at
+        // MAL OAuth flow. User registers an OAuth client at
         // https://myanimelist.net/apiconfig and pastes the issued client_id into Mangarr
-        // Settings. MAL public-client PKCE has NO client_secret (PKCE replaces the
-        // shared-secret defense). Mirrors the per-user client model used by MangaDexImportList
-        // + AniListImportList in this phase — Mangarr does NOT register and ship its own
-        // upstream MAL OAuth client; each Mangarr install owns its client_id.
+        // Settings. Mangarr does NOT register and ship its own upstream MAL OAuth client;
+        // each Mangarr install owns its client_id (mirrors MangaDex + AniList per-user
+        // client shapes in this phase).
+        //
+        // Whether ClientSecret is required depends on the MAL App Type:
+        //   * App Type "Other": pure PKCE, NO client_secret required.
+        //   * App Type "web":   confidential PKCE, REQUIRES client_secret in token-exchange
+        //                       + refresh-token form bodies (GH #233).
 
         [FieldDefinition(0, Label = "ImportListsMalClientIdLabel", HelpText = "ImportListsMalClientIdHelpText", Type = FieldType.Textbox)]
         public string ClientId { get; set; }
+
+        // ── Optional OAuth client secret (GH #233 — MAL App Type "web" support) ──────
+        // MAL App Type "web" issues a client_secret alongside the client_id and REQUIRES
+        // it in the token-exchange + refresh-token form bodies per MAL's OAuth docs
+        // (https://myanimelist.net/blog.php?eid=835707). MAL App Type "Other" does NOT
+        // issue a client_secret and does NOT require one in any request body.
+        //
+        // Mangarr surfaces this as an OPTIONAL Password-typed input — when set, the proxy
+        // appends `client_secret={value}` to the token-exchange + refresh form bodies; when
+        // empty, the parameter is omitted entirely (back-compat with the original "Other"
+        // app-type ship). The validator carries NO NotEmpty rule on this field.
+        //
+        // Privacy = PrivacyLevel.Password is correct here because this is a USER-VISIBLE
+        // input field (NOT a hidden token block). The FE renders it as `<input type=password>`
+        // so over-the-shoulder readers can't see the value, and the V5 controller's outbound
+        // JSON redaction kicks in (T-27-04-V4 defense-in-depth). The comment below on the
+        // Hidden token block notes a separate constraint: Privacy=Password is unsafe on
+        // Hidden token fields because SchemaBuilder's `********` placeholder breaks the
+        // new-Add round-trip there — that constraint applies only to Hidden=Hidden fields,
+        // NOT to user-visible Password fields like this one.
+
+        // GH #233 follow-up (orchestrator live-smoke): the FE component map
+        // (frontend/src/Components/Form/FormInputGroup.tsx:86) routes `password` ->
+        // PasswordInput, which renders <input type=password>. `Privacy = PrivacyLevel.Password`
+        // alone controls API-outbound redaction but does NOT mask the value on-screen
+        // — that requires `Type = FieldType.Password`. Sonarr-canonical pattern:
+        // every visible-secret field on .planning/reference/sonarr-vertical-slices/notifications-extra/
+        // pairs both (Email/Apprise/Ntfy/Xbmc/Webhook). The automation fixture pins
+        // `type=password` so over-the-shoulder readers cannot see the value.
+        [FieldDefinition(1, Label = "ImportListsMalClientSecretLabel", HelpText = "ImportListsMalClientSecretHelpText", Type = FieldType.Password, Privacy = PrivacyLevel.Password)]
+        public string ClientSecret { get; set; }
 
         // ── Single-select per-list status filter (D-10) ──────────────────────────────
         // Sonarr-canonical Trakt user-list pattern: one list per status. Users who want multiple
         // statuses create multiple ImportLists. The FE renders this as a 5-option dropdown driven
         // by the MalListStatus enum members (Reading / PlanToRead / Completed / OnHold / Dropped).
 
-        [FieldDefinition(1, Label = "ImportListsMalStatusLabel", HelpText = "ImportListsMalStatusHelpText", Type = FieldType.Select, SelectOptions = typeof(MalListStatus))]
+        [FieldDefinition(2, Label = "ImportListsMalStatusLabel", HelpText = "ImportListsMalStatusHelpText", Type = FieldType.Select, SelectOptions = typeof(MalListStatus))]
         public MalListStatus Status { get; set; }
 
         // ── Hidden OAuth token block (D-01 + T-27-04-V4 mitigation) ──────────────────
@@ -133,7 +183,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // throws FormatException on `DateTime.Parse("********")`. Matches Sonarr
         // TraktSettings.cs:27-37 verbatim.
 
-        [FieldDefinition(2, Label = "ImportListsMalAccessTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
+        [FieldDefinition(3, Label = "ImportListsMalAccessTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string AccessToken { get; set; }
 
         // MAL rotates refresh tokens — 31-day observed lifetime per RESEARCH §STACK §Surface 2.
@@ -141,10 +191,10 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // rotated value replaces the previous one (Pitfall 9 — concurrent refresh on the same
         // Definition.Id would otherwise cause `400 invalid_grant` cascade; D-05 SemaphoreSlim
         // serialization from OAuthAwareImportListBase prevents this).
-        [FieldDefinition(3, Label = "ImportListsMalRefreshTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
+        [FieldDefinition(4, Label = "ImportListsMalRefreshTokenLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string RefreshToken { get; set; }
 
-        [FieldDefinition(4, Label = "ImportListsMalExpiresLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
+        [FieldDefinition(5, Label = "ImportListsMalExpiresLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public DateTime Expires { get; set; }
 
         // ── Transient PKCE flow state (Discretion #2 shape (a)) ──────────────────────
@@ -157,7 +207,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // changes. The provider class serializes via JsonConvert.SerializeObject(state) on
         // write and JsonConvert.DeserializeObject<MalOAuthState>(blob) on read.
 
-        [FieldDefinition(5, Label = "ImportListsMalPendingPkceStateLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
+        [FieldDefinition(6, Label = "ImportListsMalPendingPkceStateLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string PendingPkceState { get; set; }
 
         // ── AuthUser carries the MAL username after first successful exchange ────────
@@ -166,7 +216,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // Settings UI badge. Populated from the MAL token-response or a follow-up
         // GET /v2/users/@me call — provider picks (RESEARCH §Open Question 5).
 
-        [FieldDefinition(6, Label = "ImportListsMalAuthUserLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
+        [FieldDefinition(7, Label = "ImportListsMalAuthUserLabel", Type = FieldType.Textbox, Hidden = HiddenType.Hidden)]
         public string AuthUser { get; set; }
 
         // ── OAuth sign-in action surface (D-06 / D-09) ───────────────────────────────
@@ -175,7 +225,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // name ("startOAuth") — server-side RequestAction(action) dispatches. The FE then opens
         // the returned OauthUrl in a new tab and renders the MalCallbackUrlModal for paste-back.
 
-        [FieldDefinition(7, Label = "ImportListsMalSignInLabel", HelpText = "ImportListsMalSignInHelpText", Type = FieldType.OAuth)]
+        [FieldDefinition(8, Label = "ImportListsMalSignInLabel", HelpText = "ImportListsMalSignInHelpText", Type = FieldType.OAuth)]
         public string SignIn { get; set; }
 
         public override NzbDroneValidationResult Validate()

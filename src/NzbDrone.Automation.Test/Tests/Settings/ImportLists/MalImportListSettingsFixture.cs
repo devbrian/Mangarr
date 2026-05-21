@@ -12,6 +12,12 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 // MangaDexImportListSettingsFixture (Plan 27-02) + AniListImportListSettingsFixture
 // (Plan 27-03); same shape, MAL-specific selectors.
 //
+// GH #233 augment (2026-05-21): a `Client Secret` user-visible Password input
+// now renders at FieldDefinition index 1 (between Client ID and Status). This
+// fixture asserts the label exists AND the underlying input is rendered as
+// `type=password` so MAL App Type "web" users can paste their confidential
+// client_secret without it being visible on screen.
+//
 // SELECTOR DEVIATION (Plan 27-02 + Plan 27-03 Rule 1 precedent — see Plan 27-02
 // SUMMARY §Deviations #1):
 //   27-04-PLAN.md Task 3 Test 10 reserved `picker-importlist-mal` as the picker
@@ -79,26 +85,50 @@ public class MalImportListSettingsFixture : AutomationTest
         await Assertions.Expect(editModal).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 
-        // 5. The 2 user-visible fields must render: Client ID (user pastes their MAL
-        //    OAuth app's client_id from https://myanimelist.net/apiconfig) + Status
-        //    (single-select dropdown per D-10). Hidden token + PendingPkceState +
-        //    AuthUser fields (indices 2-6) must NOT render visibly (Hidden =
+        // 5. The 3 user-visible fields must render: Client ID (index 0), Client Secret
+        //    (index 1 — GH #233; optional Password input for MAL App Type "web"), Status
+        //    (index 2 — single-select dropdown per D-10). Hidden token + PendingPkceState
+        //    + AuthUser fields (indices 3-7) must NOT render visibly (Hidden =
         //    HiddenType.Hidden suppresses the generic ProviderFieldFormGroup renderer).
         //    Per-user model — Mangarr does NOT ship a compiled-in MAL client_id;
         //    consistent with MangaDex + AniList Settings shapes.
         var labels = Page.Locator("label");
         await Assertions.Expect(labels.Filter(new LocatorFilterOptions { HasText = "Client ID" }))
             .ToHaveCountAsync(1, new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
+
+        // GH #233: Client Secret label must render (the localized
+        // ImportListsMalClientSecretLabel string -> "Client Secret"). The HelpText
+        // describes the App Type "web" requirement so users discover it without docs.
+        await Assertions.Expect(labels.Filter(new LocatorFilterOptions { HasText = "Client Secret" }))
+            .ToHaveCountAsync(1, new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
+
         await Assertions.Expect(labels.Filter(new LocatorFilterOptions { HasText = "Status" }))
             .ToHaveCountAsync(1, new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
 
-        // 6. The OAuth sign-in field renders as the "Connect" button (FieldType.OAuth
+        // 6. GH #233: the Client Secret input MUST render with type=password so
+        //    over-the-shoulder readers cannot see the value. This pins
+        //    Privacy=PrivacyLevel.Password on the FieldDefinition — without it the FE
+        //    falls back to type=text and the secret renders in clear.
+        //
+        //    The substrate renders user-visible Password fields via TextInput's
+        //    PasswordInput branch (Components/Form/TextInput.tsx). Selector pattern
+        //    `settings-{provider}-field-{name}` per D-18 + GH #180 (banned shape
+        //    `Locator("input[name=...")` would trip scripts/audit-test-assertions.sh).
+        var clientSecretInput = Page.GetByTestId("settings-importlist-field-clientSecret");
+        await Assertions.Expect(clientSecretInput).ToBeVisibleAsync(
+            new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
+        await Assertions.Expect(clientSecretInput).ToHaveAttributeAsync(
+            "type",
+            "password",
+            new LocatorAssertionsToHaveAttributeOptions { Timeout = 5_000 });
+
+        // 7. The OAuth sign-in field renders as the "Connect" button (FieldType.OAuth
         //    affordance). The exact label is the localized ImportListsMalSignInLabel
         //    string ("Connect").
         await Assertions.Expect(labels.Filter(new LocatorFilterOptions { HasText = "Connect" }))
             .ToHaveCountAsync(1, new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
 
-        // 7. State assertion: no error banner fires on the populated picker (Phase 26
+        // 8. State assertion: no error banner fires on the populated picker (Phase 26
         //    Plan 26-05 D-08 — the schema endpoint returns 200 + a >=3-item array now
         //    after Plans 27-02 + 27-03 + 27-04 have all landed).
         await Assertions.Expect(Page.Locator(".alert-danger")).ToHaveCountAsync(
