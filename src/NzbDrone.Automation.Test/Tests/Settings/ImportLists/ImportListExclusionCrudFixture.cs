@@ -331,20 +331,15 @@ public class ImportListExclusionCrudFixture : AutomationTest
             await Assertions.Expect(Page.GetByTestId($"settings-importlist-exclusion-row-{idZ}"))
                 .ToBeVisibleAsync();
 
-            // Find the Title header by visible text and click it. The Mangarr
-            // TableHeader maps `onSortPress` to a clickable Link wrapping the
-            // label; clicking the label text triggers the sort dispatch.
-            //
-            // Use a precise scope: only headers INSIDE the exclusions
-            // FieldSet, to avoid colliding with any other Title header on
-            // the page (notifications/notes/etc.).
+            // Find the Title header via its data-testid contract — plumbed
+            // through ImportListExclusions.tsx COLUMNS array's 'data-testid'
+            // entry, which TableHeaderCell spreads onto the rendered <Link>
+            // (gh-226 PR #236 review — CodeRabbit: "Use Page.GetByTestId(...)
+            // for all interactive elements").
             var exclusionsContainer = Page.GetByTestId("settings-importlist-exclusions");
             await Assertions.Expect(exclusionsContainer).ToBeVisibleAsync();
 
-            var titleHeader = exclusionsContainer.Locator("th").Filter(new()
-            {
-                HasText = "Title"
-            }).First;
+            var titleHeader = Page.GetByTestId("settings-importlist-exclusion-title-header");
 
             // Capture top-row title BEFORE clicking. Default store state is
             // sortKey='id' / sortDirection='descending' so the top row is the
@@ -512,11 +507,11 @@ public class ImportListExclusionCrudFixture : AutomationTest
             // transitions is direction-agnostic and survives any future
             // refactor of applySort that changes the initial direction.
 
-            // 1) MangaDex ID column.
-            var mangaDexHeader = exclusionsContainer.Locator("th").Filter(new()
-            {
-                HasText = "MangaDex ID"
-            }).First;
+            // 1) MangaDex ID column — testid-based locator per coding
+            // guidelines (gh-226 PR #236 review — CodeRabbit). Plumbed
+            // through ImportListExclusions.tsx COLUMNS array.
+            var mangaDexHeader = Page.GetByTestId(
+                "settings-importlist-exclusion-mangadexid-header");
             await mangaDexHeader.ClickAsync();
 
             // aria-sort on MangaDex ID header transitions to non-'none'.
@@ -533,19 +528,15 @@ public class ImportListExclusionCrudFixture : AutomationTest
             // The Title header's aria-sort must return to 'none' (only the
             // active sortKey carries a non-'none' aria-sort). This proves
             // the dispatch SWITCHED columns rather than no-oping.
-            var titleHeader = exclusionsContainer.Locator("th").Filter(new()
-            {
-                HasText = "Title"
-            }).First;
+            var titleHeader = Page.GetByTestId(
+                "settings-importlist-exclusion-title-header");
             (await titleHeader.GetAttributeAsync("aria-sort")).Should().Be("none",
                 "after dispatching sortKey='mangaDexId', the Title column's aria-sort "
                 + "should return to 'none' — the active sortKey is now mangaDexId");
 
             // 2) MyAnimeList ID column.
-            var malHeader = exclusionsContainer.Locator("th").Filter(new()
-            {
-                HasText = "MyAnimeList ID"
-            }).First;
+            var malHeader = Page.GetByTestId(
+                "settings-importlist-exclusion-malid-header");
             await malHeader.ClickAsync();
 
             await Page.WaitForFunctionAsync(
@@ -565,10 +556,8 @@ public class ImportListExclusionCrudFixture : AutomationTest
                 + "should return to 'none' — only the active sortKey is highlighted");
 
             // 3) AniList ID column.
-            var aniListHeader = exclusionsContainer.Locator("th").Filter(new()
-            {
-                HasText = "AniList ID"
-            }).First;
+            var aniListHeader = Page.GetByTestId(
+                "settings-importlist-exclusion-anilistid-header");
             await aniListHeader.ClickAsync();
 
             await Page.WaitForFunctionAsync(
