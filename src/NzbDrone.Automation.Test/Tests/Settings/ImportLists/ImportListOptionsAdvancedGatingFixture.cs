@@ -136,8 +136,14 @@ public class ImportListOptionsAdvancedGatingFixture : AutomationTest
                 "PUT config/importlist with listSyncLevel='disabled' must succeed (body: {0})",
                 await putDisabled.Content.ReadAsStringAsync());
 
-            await EnsureAdvancedSettingsOnAsync();
+            // Navigate BEFORE EnsureAdvancedSettingsOnAsync — the
+            // `settings-advanced-toggle` testid only renders on Settings
+            // pages. AutomationTest's [OneTimeSetUp] leaves the page at
+            // app root '/' where the toggle is not in the DOM, so calling
+            // EnsureAdvancedSettingsOnAsync first would time out when this
+            // test runs in isolation (gh-226 PR #236 review — Codex P1).
             await Page.GotoAsync($"{RootUri}/settings/importlists");
+            await EnsureAdvancedSettingsOnAsync();
 
             var optionsContainer = Page.GetByTestId("settings-importlists-options");
             await Assertions.Expect(optionsContainer).ToBeVisibleAsync(
@@ -191,19 +197,52 @@ public class ImportListOptionsAdvancedGatingFixture : AutomationTest
         {
             // Restore. The API returns the current row including its id; PUT
             // the same JSON back so siblings see the pre-test state.
+            //
+            // Defensive parsing (gh-226 PR #236 review — CodeRabbit Major):
+            // every property is guarded by ValueKind / TryGet so a future
+            // schema drift (null tag, non-numeric id) doesn't throw inside
+            // the finally block and leak mutated config to sibling fixtures.
             using var doc = JsonDocument.Parse(originalJson);
             var rootEl = doc.RootElement;
+
+            var restoreId = 1;
+            if (rootEl.TryGetProperty("id", out var idEl) &&
+                idEl.ValueKind == JsonValueKind.Number &&
+                idEl.TryGetInt32(out var parsedId))
+            {
+                restoreId = parsedId;
+            }
+
+            var restoreLevel = "disabled";
+            if (rootEl.TryGetProperty("listSyncLevel", out var ll) &&
+                ll.ValueKind == JsonValueKind.String)
+            {
+                restoreLevel = ll.GetString() ?? "disabled";
+            }
+
+            var restoreTag = 0;
+            if (rootEl.TryGetProperty("listSyncTag", out var lt) &&
+                lt.ValueKind == JsonValueKind.Number &&
+                lt.TryGetInt32(out var parsedTag))
+            {
+                restoreTag = parsedTag;
+            }
+
             var restorePayload = new
             {
-                id = rootEl.GetProperty("id").GetInt32(),
-                listSyncLevel = rootEl.TryGetProperty("listSyncLevel", out var ll)
-                    ? ll.GetString() ?? "disabled"
-                    : "disabled",
-                listSyncTag = rootEl.TryGetProperty("listSyncTag", out var lt)
-                    ? lt.GetInt32()
-                    : 0
+                id = restoreId,
+                listSyncLevel = restoreLevel,
+                listSyncTag = restoreTag
             };
-            _ = await http.PutAsJsonAsync($"config/importlist/{restorePayload.id}", restorePayload);
+
+            var restoreResp = await http.PutAsJsonAsync(
+                $"config/importlist/{restoreId}", restorePayload);
+            var restoreBody = await restoreResp.Content.ReadAsStringAsync();
+            var failureContext =
+                $"restore PUT to config/importlist/{restoreId} must succeed so this test "
+                + $"does not leak mutated config (listSyncLevel='{restoreLevel}', "
+                + $"listSyncTag={restoreTag}) into sibling fixtures; body: {restoreBody}";
+            restoreResp.IsSuccessStatusCode.Should().BeTrue(failureContext);
         }
     }
 
