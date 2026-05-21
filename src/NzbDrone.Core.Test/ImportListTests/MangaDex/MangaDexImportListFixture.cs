@@ -22,12 +22,17 @@ namespace NzbDrone.Core.Test.ImportListTests.MangaDex
     // Tests (per 27-02-PLAN.md Task 3 behavior list):
     //   1. start_oauth_password_grant_persists_tokens — D-08 internal-only OAuth flow:
     //      RequestAction("startOAuth") calls proxy.PasswordGrant and persists the token
-    //      block on Settings POCO; returns { success: true, authUser, expires }.
-    //   2. fetch_paginated_3_pages_terminates_on_total — base FetchItems loop walks
+    //      block on Settings POCO; returns { success: true, authUser, expires, accessToken,
+    //      refreshToken } per GH #229 envelope contract (FE 'internal' completion mode
+    //      writes each key into the form via the useOAuth onChange handler).
+    //   2. start_oauth_save_first_guard — GH #229: when Definition.Id <= 0 the action
+    //      returns { success: false, error: "Save the import list first..." } verbatim
+    //      (sibling-consistent with MAL's verbiage). The proxy MUST NOT be called.
+    //   3. fetch_paginated_3_pages_terminates_on_total — base FetchItems loop walks
     //      offset = 0/100/200 and breaks on partial page (240 items spread 100/100/40).
-    //   3. every_outbound_request_sets_RateLimitKey_mangadex — Pitfall 10 HARD RULE:
+    //   4. every_outbound_request_sets_RateLimitKey_mangadex — Pitfall 10 HARD RULE:
     //      every captured HttpRequest.RateLimitKey == "mangadex" (zero exceptions).
-    //   4. RefreshToken_uses_grant_type_refresh_token_endpoint — concrete provider
+    //   5. RefreshToken_uses_grant_type_refresh_token_endpoint — concrete provider
     //      override invokes proxy.RefreshAccessToken; persists rotated tokens with
     //      Trakt.cs:151 null-coalesce on RefreshToken.
     //
@@ -75,7 +80,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MangaDex
             };
         }
 
-        // ── Test 1: D-08 startOAuth persists tokens ──────────────────────────────────
+        // ── Test 1: D-08 startOAuth persists tokens + GH #229 envelope ───────────────
         [Test]
         public void start_oauth_password_grant_persists_tokens()
         {
@@ -98,19 +103,64 @@ namespace NzbDrone.Core.Test.ImportListTests.MangaDex
             _settings.AuthUser.Should().Be("user-fixture",
                 "AuthUser falls back to user-supplied Username (D-08 — MangaDex token endpoint doesn't return a username)");
 
-            // Result envelope mirrors Trakt's `new { OauthUrl = ... }` shape but with
-            // success/authUser/expires keys per D-08 internal-only flow.
+            // GH #229: token mutations must round-trip into the DB so the FE Save
+            // is a no-op confirmation rather than a re-write of the in-flight Settings.
+            _repo.Verify(
+                r => r.UpdateSettings(It.IsAny<ImportListDefinition>()),
+                Times.Once,
+                "GH #229: startOAuth must persist Settings via _importListRepository.UpdateSettings " +
+                "after the password-grant succeeds — otherwise the per-request provider instance " +
+                "is disposed and the token mutations are lost.");
+
+            // GH #229: response envelope carries success/authUser/expires/accessToken/refreshToken
+            // so the FE 'internal' completion mode can write each key into the form via onChange.
             result.Should().NotBeNull();
             var json = Newtonsoft.Json.JsonConvert.SerializeObject(result);
             json.Should().Contain("\"success\":true");
             json.Should().Contain("\"authUser\":\"user-fixture\"");
-
-            // T-V7 audit — the response envelope must NOT include any token field.
-            json.Should().NotContain("fixture-access-token");
-            json.Should().NotContain("fixture-refresh-token");
+            json.Should().Contain("\"accessToken\":\"fixture-access-token\"",
+                "GH #229: accessToken must be in the envelope so the FE 'internal' completion " +
+                "mode can write it into the form for Save-without-reopen.");
+            json.Should().Contain("\"refreshToken\":\"fixture-refresh-token\"",
+                "GH #229: refreshToken must be in the envelope per the FE 'internal' contract.");
         }
 
-        // ── Test 2: paginated fetch terminates on partial page ───────────────────────
+        // ── Test 2: GH #229 save-first guard ─────────────────────────────────────────
+        [Test]
+        public void start_oauth_save_first_guard()
+        {
+            // Simulate a fresh Add: Definition.Id has not been assigned yet.
+            Subject.Definition.Id = 0;
+
+            var result = Subject.RequestAction("startOAuth", new Dictionary<string, string>());
+
+            // Proxy MUST NOT have been called — the guard fires BEFORE the password-grant.
+            _proxy.Verify(
+                p => p.PasswordGrant(It.IsAny<MangaDexImportListSettings>()),
+                Times.Never,
+                "GH #229 save-first guard: when Definition.Id <= 0 the proxy must NOT be invoked " +
+                "(persistence requires a saved row, and surfacing the save-first prompt before any " +
+                "credential round-trip is the sibling-consistent UX with MAL's identical guard).");
+
+            // Settings mutations MUST NOT happen.
+            _settings.AccessToken.Should().BeNullOrEmpty();
+
+            // Repository MUST NOT have been touched.
+            _repo.Verify(
+                r => r.UpdateSettings(It.IsAny<ImportListDefinition>()),
+                Times.Never);
+
+            // Envelope must surface the canonical save-first error verbatim
+            // (the FE 'internal' completion mode reads the `error` field and rethrows
+            // it as a banner; the wording is the same as MalImportList's identical guard).
+            result.Should().NotBeNull();
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(result);
+            json.Should().Contain("\"success\":false");
+            json.Should().Contain("Save the import list first before connecting.",
+                "GH #229: error verbiage must be sibling-consistent with MAL's identical guard.");
+        }
+
+        // ── Test 3: paginated fetch terminates on partial page ───────────────────────
         [Test]
         public void fetch_paginated_3_pages_terminates_on_total()
         {
@@ -139,7 +189,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MangaDex
             result.Manga.Select(m => m.MangaDexId).Should().OnlyHaveUniqueItems();
         }
 
-        // ── Test 3: Pitfall 10 HARD RULE — every outbound request uses SourceKey="mangadex" ──
+        // ── Test 4: Pitfall 10 HARD RULE — every outbound request uses SourceKey="mangadex" ──
         [Test]
         public void every_outbound_request_sets_RateLimitKey_mangadex()
         {
@@ -163,7 +213,7 @@ namespace NzbDrone.Core.Test.ImportListTests.MangaDex
             }
         }
 
-        // ── Test 4: RefreshToken hits Keycloak refresh-token grant ───────────────────
+        // ── Test 5: RefreshToken hits Keycloak refresh-token grant ───────────────────
         [Test]
         public void RefreshToken_uses_grant_type_refresh_token_endpoint()
         {

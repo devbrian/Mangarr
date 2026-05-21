@@ -58,14 +58,14 @@ function readImplementationDisplay(
   return '';
 }
 
-// GH #221 — derive the OAuth completion mode from the providerData.implementation
+// GH #221 / GH #229 — derive the OAuth completion mode from the providerData.implementation
 // field. The implementation name is the backend C# class name (e.g.
 // "AniListImportList", "MalImportList") surfaced verbatim on the
 // ImportListDefinition / NotificationDefinition / IndexerDefinition row.
 //
 // Default ("callback") preserves the Trakt-canonical behavior for every existing
-// OAuth provider (Trakt notification, etc) — only paste-back providers need to
-// branch.
+// OAuth provider (Trakt notification, etc) — only paste-back / internal providers
+// need to branch.
 function deriveCompletionMode(
   providerData: Record<string, unknown>
 ): OAuthCompletionMode {
@@ -76,6 +76,11 @@ function deriveCompletionMode(
       return 'paste-pin';
     case 'MalImportList':
       return 'paste-callback-url';
+    case 'MangaDexImportList':
+      // GH #229 D-08: MangaDex performs the entire OAuth handshake server-side
+      // via the password-grant proxy and returns the final token envelope from
+      // startOAuth — no popup, no continueOAuth, no getOAuthToken round-trip.
+      return 'internal';
     default:
       return 'callback';
   }
@@ -92,6 +97,8 @@ function getProviderDisplayName(providerData: Record<string, unknown>): string {
       return 'AniList';
     case 'MalImportList':
       return 'MyAnimeList';
+    case 'MangaDexImportList':
+      return 'MangaDex';
     default:
       return 'Provider';
   }
