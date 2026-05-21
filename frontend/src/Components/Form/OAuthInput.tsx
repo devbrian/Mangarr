@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import SpinnerErrorButton from 'Components/Link/SpinnerErrorButton';
 import { kinds } from 'Helpers/Props';
-import useOAuth from 'OAuth/useOAuth';
+import useOAuth, { OAuthCompletionMode } from 'OAuth/useOAuth';
+import AniListPinModal from 'Settings/ImportLists/AniList/AniListPinModal';
+import MalCallbackUrlModal from 'Settings/ImportLists/MyAnimeList/MalCallbackUrlModal';
 import { getValidationFailures } from 'Store/Selectors/selectSettings';
 import { InputOnChange } from 'typings/inputs';
 import { useFormInputGroup } from './FormInputGroupContext';
@@ -15,6 +17,86 @@ export interface OAuthInputProps {
   onChange: InputOnChange<unknown>;
 }
 
+// GH #221 — pluck the implementation string from a Redux settings-shape field.
+// The Settings layer wraps every provider field in a validation envelope:
+//   { value: "AniListImportList", pending: false, errors: [], warnings: [] }
+// When an Add/Edit modal is mounted in "add-new" mode, the raw schema is
+// passed through unwrapped — so `providerData.implementation` is the raw
+// string. When it's mounted for an existing row OR after `updateValue` is
+// called, the field is wrapped and the value sits at `.value`.
+//
+// This helper accepts either shape so OAuthInput works in both contexts.
+function readImplementationName(providerData: Record<string, unknown>): string {
+  if (!providerData) {
+    return '';
+  }
+  const candidate = providerData.implementation;
+  if (typeof candidate === 'string') {
+    return candidate;
+  }
+  if (candidate && typeof candidate === 'object' && 'value' in candidate) {
+    const wrapped = (candidate as { value?: unknown }).value;
+    return typeof wrapped === 'string' ? wrapped : '';
+  }
+  return '';
+}
+
+function readImplementationDisplay(
+  providerData: Record<string, unknown>
+): string {
+  if (!providerData) {
+    return '';
+  }
+  const candidate = providerData.implementationName;
+  if (typeof candidate === 'string') {
+    return candidate;
+  }
+  if (candidate && typeof candidate === 'object' && 'value' in candidate) {
+    const wrapped = (candidate as { value?: unknown }).value;
+    return typeof wrapped === 'string' ? wrapped : '';
+  }
+  return '';
+}
+
+// GH #221 — derive the OAuth completion mode from the providerData.implementation
+// field. The implementation name is the backend C# class name (e.g.
+// "AniListImportList", "MalImportList") surfaced verbatim on the
+// ImportListDefinition / NotificationDefinition / IndexerDefinition row.
+//
+// Default ("callback") preserves the Trakt-canonical behavior for every existing
+// OAuth provider (Trakt notification, etc) — only paste-back providers need to
+// branch.
+function deriveCompletionMode(
+  providerData: Record<string, unknown>
+): OAuthCompletionMode {
+  const implementation = readImplementationName(providerData);
+
+  switch (implementation) {
+    case 'AniListImportList':
+      return 'paste-pin';
+    case 'MalImportList':
+      return 'paste-callback-url';
+    default:
+      return 'callback';
+  }
+}
+
+function getProviderDisplayName(providerData: Record<string, unknown>): string {
+  const implementationName = readImplementationDisplay(providerData);
+  if (implementationName) {
+    return implementationName;
+  }
+  const implementation = readImplementationName(providerData);
+  switch (implementation) {
+    case 'AniListImportList':
+      return 'AniList';
+    case 'MalImportList':
+      return 'MyAnimeList';
+    default:
+      return 'Provider';
+  }
+}
+
 function OAuthInput({
   label = 'Start OAuth',
   name,
@@ -24,7 +106,25 @@ function OAuthInput({
   onChange,
 }: OAuthInputProps) {
   const formInputActions = useFormInputGroup();
-  const { authorizing, error, result, startOAuth, resetOAuth } = useOAuth();
+  const {
+    authorizing,
+    error,
+    result,
+    pendingPaste,
+    startOAuth,
+    completeOAuth,
+    cancelOAuth,
+    resetOAuth,
+  } = useOAuth();
+
+  const completionMode = useMemo(
+    () => deriveCompletionMode(providerData),
+    [providerData]
+  );
+  const providerDisplayName = useMemo(
+    () => getProviderDisplayName(providerData),
+    [providerData]
+  );
 
   const handlePress = useCallback(() => {
     startOAuth({
@@ -32,8 +132,9 @@ function OAuthInput({
       provider,
       providerData,
       section,
+      completionMode,
     });
-  }, [name, provider, providerData, section, startOAuth]);
+  }, [name, provider, providerData, section, completionMode, startOAuth]);
 
   useEffect(() => {
     if (!result) {
@@ -58,8 +159,39 @@ function OAuthInput({
     formInputActions?.setClientWarnings(validationFailures?.warnings ?? []);
   }, [name, error, formInputActions]);
 
+  // GH #221 — paste-back modal handlers. AniList dispatches `getAuthPin` with
+  // the pasted pin; MAL dispatches `getOAuthToken` with the pasted callback URL
+  // in the `redirectedUrl` query param. Both shapes match the backend's
+  // RequestAction signature verbatim (see AniListImportList.cs:122,
+  // MalImportList.cs:143).
+  const handleAniListPinSubmit = useCallback(
+    async (pin: string) => {
+      await completeOAuth('getAuthPin', { pin });
+    },
+    [completeOAuth]
+  );
+
+  const handleMalCallbackUrlSubmit = useCallback(
+    async (redirectedUrl: string) => {
+      await completeOAuth('getOAuthToken', { redirectedUrl });
+    },
+    [completeOAuth]
+  );
+
+  const handleModalClose = useCallback(() => {
+    cancelOAuth();
+  }, [cancelOAuth]);
+
+  const isPastePinOpen = !!pendingPaste && pendingPaste.mode === 'paste-pin';
+  const isPasteCallbackUrlOpen =
+    !!pendingPaste && pendingPaste.mode === 'paste-callback-url';
+
   return (
-    <div>
+    <div
+      data-oauth-completion-mode={completionMode}
+      data-oauth-pending-paste={pendingPaste ? pendingPaste.mode : 'none'}
+      data-oauth-authorizing={authorizing ? 'true' : 'false'}
+    >
       <SpinnerErrorButton
         kind={kinds.PRIMARY}
         isSpinning={authorizing}
@@ -68,6 +200,35 @@ function OAuthInput({
       >
         {label}
       </SpinnerErrorButton>
+
+      {/*
+        GH #221 — paste-back modals. Rendered conditionally based on
+        completionMode. Cancel resets the OAuth state; Submit dispatches the
+        provider-specific completion action.
+      */}
+      {completionMode === 'paste-pin' && (
+        <AniListPinModal
+          isOpen={isPastePinOpen}
+          pinAuthorizeUrl={pendingPaste?.oauthUrl ?? ''}
+          providerName={providerDisplayName}
+          isSubmitting={authorizing && isPastePinOpen}
+          error={error}
+          onSubmit={handleAniListPinSubmit}
+          onModalClose={handleModalClose}
+        />
+      )}
+
+      {completionMode === 'paste-callback-url' && (
+        <MalCallbackUrlModal
+          isOpen={isPasteCallbackUrlOpen}
+          authorizeUrl={pendingPaste?.oauthUrl ?? ''}
+          providerName={providerDisplayName}
+          isSubmitting={authorizing && isPasteCallbackUrlOpen}
+          error={error}
+          onSubmit={handleMalCallbackUrlSubmit}
+          onModalClose={handleModalClose}
+        />
+      )}
     </div>
   );
 }
