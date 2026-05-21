@@ -12,7 +12,8 @@
       "command": "npx",
       "args": [
         "-y",
-        "@playwright/mcp@latest"
+        "@playwright/mcp@latest",
+        "--browser-arg=--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessPermissionPrompt"
       ],
       "type": "stdio"
     }

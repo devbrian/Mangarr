@@ -26,10 +26,19 @@ const callbackUrl = `${window.location.origin}${window.Mangarr.urlBase}/oauth.ht
 //                          into a modal. The hook dispatches `getOAuthToken` with the full
 //                          URL in the `redirectedUrl` query param so the backend can parse
 //                          `?code=&state=` and validate the PKCE state nonce.
+// "internal":              GH #229 MangaDex D-08 internal-only flow. The backend performs the
+//                          password-grant server-side and returns the FINAL envelope
+//                          `{ success, authUser, expires, accessToken, refreshToken }` directly
+//                          from startOAuth. The hook DOES NOT open a popup, DOES NOT dispatch
+//                          continueOAuth, and DOES NOT call getOAuthToken — the start-response
+//                          IS the result and is written into the form via the onChange handler
+//                          (OAuthInput.tsx). `success: false` surfaces the `error` field as a
+//                          validation banner.
 export type OAuthCompletionMode =
   | 'callback'
   | 'paste-pin'
-  | 'paste-callback-url';
+  | 'paste-callback-url'
+  | 'internal';
 
 interface OAuthResult {
   [key: string]: string | number | boolean;
@@ -208,6 +217,65 @@ const useOAuth = () => {
         const response = (await requestAction(actionPayload)) as OAuthResponse;
         startResponse = response;
 
+        // GH #229 — MangaDex D-08 internal-only flow. The backend has already done
+        // the password-grant and the response envelope IS the final result. No popup,
+        // no continueOAuth round-trip, no getOAuthToken — just surface the envelope
+        // to the caller via the result-state so OAuthInput's onChange handler writes
+        // each key (authUser/expires/accessToken/refreshToken) into the form.
+        if (completionMode === 'internal') {
+          // Require explicit success=true and the actual token fields before treating the
+          // envelope as a successful exchange — a malformed response (e.g. backend omits
+          // success flag, or returns success=true with no tokens) must surface as an error
+          // instead of silently writing garbage into the form.
+          const internalResponse = response as OAuthResponse & {
+            error?: string;
+            authUser?: string;
+            expires?: string;
+            accessToken?: string;
+            refreshToken?: string;
+          };
+          const isSuccess = internalResponse.success === true;
+          const accessToken = internalResponse.accessToken ?? '';
+          const refreshToken = internalResponse.refreshToken ?? '';
+
+          if (!isSuccess || !accessToken || !refreshToken) {
+            const message =
+              internalResponse.error ??
+              'OAuth start failed — the backend did not complete the internal flow';
+            const startError = Object.assign(new Error(message), {
+              status: 400,
+              responseJSON: [
+                {
+                  propertyName: name,
+                  errorMessage: message,
+                },
+              ],
+            });
+            throw startError;
+          }
+
+          // Map only the documented OAuthResult fields — never pass the raw envelope so
+          // unrelated keys (success/error markers) don't get written into the form state.
+          const sanitizedResult: OAuthResult = {
+            accessToken,
+            refreshToken,
+          };
+          if (internalResponse.authUser) {
+            sanitizedResult.authUser = internalResponse.authUser;
+          }
+          if (internalResponse.expires) {
+            sanitizedResult.expires = internalResponse.expires;
+          }
+
+          setOAuthValue({
+            authorizing: false,
+            result: sanitizedResult,
+            error: null,
+            pendingPaste: null,
+          });
+          return response;
+        }
+
         // GH #221 — paste-back flows (AniList paste-pin, MAL paste-callback-URL).
         // Open the provider's authorize URL in a new tab and PAUSE — the hook does
         // NOT poll for a callback (none ever fires). Surface state so the caller
@@ -294,7 +362,7 @@ const useOAuth = () => {
           setOAuthValue({
             authorizing: false,
             pendingPaste: {
-              mode: completionMode,
+              mode: completionMode as 'paste-pin' | 'paste-callback-url',
               oauthUrl: response.oauthUrl,
               payload: params,
               startResponse,

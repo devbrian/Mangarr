@@ -106,8 +106,14 @@ namespace NzbDrone.Core.ImportLists.AniList
         // application at https://anilist.co/settings/developer and paste the issued credentials
         // here. Sibling-canonical with Plan 27-02 MangaDex Settings (which uses the same
         // user-owned-credentials shape per MangaDex personal-client OAuth tier).
+        //
+        // GH #230 (2026-05-21 live smoke): the OAuth client's "Redirect URL" field at
+        // https://anilist.co/settings/client/{id} MUST be set to
+        // https://anilist.co/api/v2/oauth/pin — without that, AniList rejects the redirect_uri
+        // parameter on the authorize call and the pin page shows "undefined" instead of a
+        // usable auth code. The HelpText below surfaces this requirement at the field level.
 
-        [FieldDefinition(0, Label = "ImportListsAniListClientIdLabel", HelpText = "ImportListsAniListClientIdHelpText", Type = FieldType.Textbox)]
+        [FieldDefinition(0, Label = "ImportListsAniListClientIdLabel", HelpText = "AniList client must have Redirect URL set to https://anilist.co/api/v2/oauth/pin — without that the authorize redirect to the pin page won't carry the auth code.", Type = FieldType.Textbox)]
         public string ClientId { get; set; }
 
         [FieldDefinition(1, Label = "ImportListsAniListClientSecretLabel", HelpText = "ImportListsAniListClientSecretHelpText", Type = FieldType.Textbox, Privacy = PrivacyLevel.Password)]

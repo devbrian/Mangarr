@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -95,16 +96,62 @@ public class OAuthPasteBackModalFixture : AutomationTest
         await Assertions.Expect(connectButton).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
 
-        // The Connect click triggers window.open(...) which Playwright intercepts
-        // as a Popup event — register the handler BEFORE clicking to avoid a race.
-        var newTabTask = Page.WaitForPopupAsync(new PageWaitForPopupOptions { Timeout = 10_000 });
-        await connectButton.ClickAsync();
+        // GH #230 — the URL is /authorize?...&redirect_uri=...pin, NOT /pin?... directly.
+        // Pre-#230 tests asserted the broken contract (StartWith "/pin"); now we lock in
+        // the fixed URL.
+        //
+        // Capture the popup's initial navigation request via Context.RouteAsync, set up
+        // BEFORE the click that opens the popup. Reading newTab.Url is racy:
+        //   • AniList redirects unauthenticated browsers /authorize → /login (CI is
+        //     never authenticated), so the post-load URL is /login, not /authorize.
+        //   • newTab.WaitForRequestAsync subscribes AFTER WaitForPopupAsync resolves,
+        //     but the popup's first navigation request fires synchronously inside
+        //     window.open — by the time we subscribe, the request has already left.
+        //
+        // Context.RouteAsync registered before the click intercepts the request as it
+        // leaves the browser, regardless of timing. The handler captures the URL and
+        // fulfills with a stub HTML so AniList never sees the request — keeps the test
+        // hermetic (no dependency on AniList being reachable from CI) and avoids any
+        // /authorize → /login redirect chain.
+        string capturedAuthorizeUrl = null;
+        var oauthRouteRegex = new Regex(@"anilist\.co/api/v2/oauth/(authorize|pin)");
+        await Context.RouteAsync(oauthRouteRegex, async route =>
+        {
+            capturedAuthorizeUrl ??= route.Request.Url;
+            await route.FulfillAsync(new RouteFulfillOptions
+            {
+                Status = 200,
+                ContentType = "text/html",
+                Body = "<html><body>stub</body></html>",
+            });
+        });
 
-        var newTab = await newTabTask;
-        newTab.Should().NotBeNull("the Connect button should open AniList's pin authorize URL in a new tab");
-        newTab.Url.Should().StartWith("https://anilist.co/api/v2/oauth/pin",
-            "the new tab should land on AniList's pin authorize URL");
-        await newTab.CloseAsync();
+        try
+        {
+            // The Connect click triggers window.open(...) which Playwright intercepts
+            // as a Popup event — register the handler BEFORE clicking to avoid a race.
+            var newTabTask = Page.WaitForPopupAsync(new PageWaitForPopupOptions { Timeout = 10_000 });
+            await connectButton.ClickAsync();
+
+            var newTab = await newTabTask;
+            newTab.Should().NotBeNull("the Connect button should open AniList's authorize URL in a new tab");
+
+            // Wait for the stub HTML to land so we know Context.RouteAsync fulfilled the request.
+            await newTab.WaitForLoadStateAsync(LoadState.DOMContentLoaded, new PageWaitForLoadStateOptions { Timeout = 10_000 });
+
+            capturedAuthorizeUrl.Should().NotBeNullOrWhiteSpace(
+                "the popup should issue a navigation request to AniList's OAuth endpoint");
+            capturedAuthorizeUrl.Should().StartWith("https://anilist.co/api/v2/oauth/authorize",
+                "the popup should hit AniList's authorize endpoint, NOT /pin directly (GH #230 fix)");
+            capturedAuthorizeUrl.Should().Contain("redirect_uri=https%3A%2F%2Fanilist.co%2Fapi%2Fv2%2Foauth%2Fpin",
+                "the authorize call MUST carry the pin URL as redirect_uri or the pin page renders 'undefined'");
+
+            await newTab.CloseAsync();
+        }
+        finally
+        {
+            await Context.UnrouteAsync(oauthRouteRegex);
+        }
 
         // 6. State assertion (the GH #221 root-cause gate): after the click,
         //    the OAuthInput's pendingPaste hook state MUST flip from "none" to

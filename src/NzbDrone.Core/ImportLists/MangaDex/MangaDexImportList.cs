@@ -76,10 +76,30 @@ namespace NzbDrone.Core.ImportLists.MangaDex
         // a `success: bool` + `authUser: string` payload — no external URL since this
         // is an internal-only flow. The FE OAuth-button handler reads `success` to
         // decide between Save-and-refresh-form vs surface-error-modal.
+        //
+        // GH #229 fix (2026-05-21 live smoke): the FE "internal" completion-mode path
+        // writes every key on this response envelope back into the form via the
+        // useOAuth onChange handler. We therefore include accessToken/refreshToken in
+        // the envelope so the user can hit Save without having to reopen the modal.
+        // We ALSO persist the mutated Settings via _importListRepository.UpdateSettings
+        // so the DB reflects the new tokens even if the user navigates away. The
+        // "save first" guard mirrors MAL's verbiage for FE consistency — without a
+        // persisted Definition.Id the UpdateSettings call has no row to write back.
         public override object RequestAction(string action, IDictionary<string, string> query)
         {
             if (action == "startOAuth")
             {
+                // GH #229: persistence requires a saved row. Surface the same
+                // "Save the import list first..." message MAL uses for FE-consistent UX.
+                if (Definition.Id <= 0)
+                {
+                    return new
+                    {
+                        success = false,
+                        error = "Save the import list first before connecting."
+                    };
+                }
+
                 try
                 {
                     var response = _proxy.PasswordGrant(Settings);
@@ -98,11 +118,22 @@ namespace NzbDrone.Core.ImportLists.MangaDex
                     // submitted Username is sufficient for the FE display affordance.
                     Settings.AuthUser = Settings.Username;
 
+                    // GH #229: persist the token mutations so the DB row mirrors what
+                    // we're about to echo back to the FE. Without this call, the
+                    // mutations on Settings vanish when the per-request provider
+                    // instance is disposed. Sonarr-canonical Trakt.cs:135-163 shape.
+                    _importListRepository.UpdateSettings((ImportListDefinition)Definition);
+
+                    // GH #229: include the token block so the FE 'internal' completion
+                    // mode (frontend/src/OAuth/useOAuth.ts) can write each key back into
+                    // the Edit form via onChange, enabling Save-without-reopen.
                     return new
                     {
                         success = true,
                         authUser = Settings.AuthUser,
-                        expires = Settings.Expires
+                        expires = Settings.Expires,
+                        accessToken = Settings.AccessToken,
+                        refreshToken = Settings.RefreshToken
                     };
                 }
                 catch (HttpException ex)

@@ -147,6 +147,36 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
                     return new { success = false, error = "Paste the redirected URL from your browser (containing ?code=... and &state=...) into the modal." };
                 }
 
+                // GH #231 (2026-05-21 live smoke) — Option A per-provider PendingPkceState reload.
+                //
+                // The V5 controller's ProviderControllerBase reconstructs the in-flight Settings
+                // POCO via SchemaBuilder.ReadFromSchema for every RequestAction request. That
+                // substrate's "preserve from existing model" branch (SchemaBuilder.cs:68-75) is
+                // gated on Privacy == Password || Privacy == ApiKey — but Settings.PendingPkceState
+                // is intentionally Hidden-without-Privacy (Privacy=Password breaks new-Add per
+                // FormatException on DateTime.Parse("********") — see MalImportListSettings.cs
+                // comment block on PendingPkceState).
+                //
+                // Net effect: the FE form state for an existing row's Edit modal lags one
+                // startOAuth round-trip behind the DB; the outbound getOAuthToken request body
+                // carries pendingPkceState="" which ReadFromSchema writes into the fresh POCO,
+                // discarding the DB-persisted value. The provider then sees Settings.PendingPkceState
+                // empty and emits NoPendingPkceState.
+                //
+                // Per-provider reload (this block) restores the DB-persisted blob into the
+                // in-flight Settings POCO BEFORE the empty-check fires. Substrate-wide fix
+                // (extending SchemaBuilder to honor Hidden-without-Privacy) was explicitly
+                // out-of-scope per the user's Option A choice in the debug session — that
+                // change has too broad a blast radius for the present bug.
+                if (Definition.Id > 0)
+                {
+                    var persisted = _importListRepository.Get(Definition.Id);
+                    if (persisted?.Settings is MalImportListSettings persistedSettings)
+                    {
+                        Settings.PendingPkceState = persistedSettings.PendingPkceState;
+                    }
+                }
+
                 if (string.IsNullOrWhiteSpace(Settings.PendingPkceState))
                 {
                     return new { success = false, error = "NoPendingPkceState — start the OAuth flow again by clicking Connect." };
