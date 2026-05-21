@@ -154,7 +154,15 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // new-Add round-trip there — that constraint applies only to Hidden=Hidden fields,
         // NOT to user-visible Password fields like this one.
 
-        [FieldDefinition(1, Label = "ImportListsMalClientSecretLabel", HelpText = "ImportListsMalClientSecretHelpText", Type = FieldType.Textbox, Privacy = PrivacyLevel.Password)]
+        // GH #233 follow-up (orchestrator live-smoke): the FE component map
+        // (frontend/src/Components/Form/FormInputGroup.tsx:86) routes `password` ->
+        // PasswordInput, which renders <input type=password>. `Privacy = PrivacyLevel.Password`
+        // alone controls API-outbound redaction but does NOT mask the value on-screen
+        // — that requires `Type = FieldType.Password`. Sonarr-canonical pattern:
+        // every visible-secret field on .planning/reference/sonarr-vertical-slices/notifications-extra/
+        // pairs both (Email/Apprise/Ntfy/Xbmc/Webhook). The automation fixture pins
+        // `type=password` so over-the-shoulder readers cannot see the value.
+        [FieldDefinition(1, Label = "ImportListsMalClientSecretLabel", HelpText = "ImportListsMalClientSecretHelpText", Type = FieldType.Password, Privacy = PrivacyLevel.Password)]
         public string ClientSecret { get; set; }
 
         // ── Single-select per-list status filter (D-10) ──────────────────────────────
