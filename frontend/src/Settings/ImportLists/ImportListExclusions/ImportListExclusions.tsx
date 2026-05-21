@@ -10,8 +10,25 @@
 // Pattern kappa enforcement: data-testid `settings-importlist-exclusions`
 // preserved on the wrapper FieldSet content per Phase 26 Plan 26-05; zero
 // TV-shape testids permitted on this file.
+//
+// GH-225 (Phase 27.1 REVIEW WR-02) — concurrent-removal guard. When the Edit
+// modal is open for `editingExclusionId` and the row vanishes from the paged
+// `records` list mid-edit (background refetch, concurrent delete in another
+// tab, pagination move), the modal would silently rebind to a blank record
+// because the parent passed `id={undefined}` while keeping `isOpen={true}`.
+// `useManageImportListExclusion` then falls through to NEW_IMPORT_LIST_EXCLUSION
+// and any subsequent Save POSTs a blank-titled exclusion. The
+// `concurrentRemovalAlert` effect below detects the disappearance transition
+// (modal open + bound id + fetch settled + row gone), closes the modal, and
+// surfaces a transient WARNING Alert above the table so the user knows their
+// in-flight edit was discarded. The companion backend leg
+// (ImportListExclusionController.cs:41 SharedValidator Title.NotEmpty()) is
+// already in place and rejects blank-title POST/PUT at the controller layer —
+// the FE guard prevents the failed POST from ever being emitted in the first
+// place.
 import React, { useCallback, useEffect, useState } from 'react';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
+import Alert from 'Components/Alert';
 import FieldSet from 'Components/FieldSet';
 import IconButton from 'Components/Link/IconButton';
 import SpinnerButton from 'Components/Link/SpinnerButton';
@@ -79,6 +96,12 @@ const COLUMNS: Column[] = [
   },
 ];
 
+// GH-225 — how long the "row vanished mid-edit" Alert stays visible after the
+// modal auto-closes. 8s is long enough to read, short enough to not clutter
+// the page; matches the rough order-of-magnitude of comparable transient
+// banners in the codebase (cf. Activity/Queue/QueueStatus warnings).
+const CONCURRENT_REMOVAL_ALERT_TIMEOUT_MS = 8_000;
+
 function ImportListExclusionsContent() {
   const { pageSize, sortKey, sortDirection } = useImportListExclusionOptions();
 
@@ -115,6 +138,12 @@ function ImportListExclusionsContent() {
     setAddImportListExclusionModalOpen,
     setAddImportListExclusionModalClosed,
   ] = useModalOpenState(false);
+
+  // GH-225 — visible-banner state for the concurrent-removal guard. Set
+  // when the disappearance transition is detected; auto-cleared after a
+  // timeout (or on next manual interaction).
+  const [isConcurrentRemovalAlertVisible, setIsConcurrentRemovalAlertVisible] =
+    useState(false);
 
   const {
     allSelected,
@@ -174,6 +203,10 @@ function ImportListExclusionsContent() {
 
   const handleEditImportListExclusionPress = useCallback(
     (id: number) => {
+      // GH-225 — clear any stale concurrent-removal banner when the user
+      // begins a fresh edit; the banner is only relevant to the prior
+      // interrupted edit.
+      setIsConcurrentRemovalAlertVisible(false);
       setEditingExclusionId(id);
       setEditImportListExclusionModalOpen();
     },
@@ -209,6 +242,59 @@ function ImportListExclusionsContent() {
     ? records.find((r) => r.id === editingExclusionId)
     : undefined;
 
+  // GH-225 — concurrent-removal guard. When the Edit modal is open with a
+  // previously-bound `editingExclusionId` and the row vanishes from records
+  // (background refetch + concurrent delete; pagination move; another tab),
+  // detect the transition, close the modal, surface a transient WARNING Alert.
+  //
+  // Gate conditions:
+  //   1. Modal must be open (`isEditImportListExclusionModalOpen`).
+  //   2. A row must have been bound (`editingExclusionId != null`).
+  //   3. Records must be fetched (`isFetched && !isFetching`) so we never
+  //      misfire during the initial loading-state window before the first
+  //      page lands.
+  //   4. The bound id must not be found in the current records page.
+  //
+  // The effect closes the modal AND clears the editing id; the side-effect of
+  // setIsConcurrentRemovalAlertVisible(true) shows the banner. A timeout
+  // dismisses the banner after CONCURRENT_REMOVAL_ALERT_TIMEOUT_MS.
+  useEffect(() => {
+    if (
+      isEditImportListExclusionModalOpen &&
+      editingExclusionId != null &&
+      isFetched &&
+      !isFetching &&
+      !editingExclusion
+    ) {
+      setEditImportListExclusionModalClosed();
+      setEditingExclusionId(null);
+      setIsConcurrentRemovalAlertVisible(true);
+    }
+  }, [
+    isEditImportListExclusionModalOpen,
+    editingExclusionId,
+    isFetched,
+    isFetching,
+    editingExclusion,
+    setEditImportListExclusionModalClosed,
+  ]);
+
+  // GH-225 — banner auto-dismiss timer. Mounted only while visible; cleaned
+  // up on un-mount or visibility flip.
+  useEffect(() => {
+    if (!isConcurrentRemovalAlertVisible) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setIsConcurrentRemovalAlertVisible(false);
+    }, CONCURRENT_REMOVAL_ALERT_TIMEOUT_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isConcurrentRemovalAlertVisible]);
+
   return (
     <FieldSet legend={translate('ImportListExclusions')}>
       <PageSectionContent
@@ -218,6 +304,14 @@ function ImportListExclusionsContent() {
         error={error}
       >
         <div data-testid="settings-importlist-exclusions">
+          {isConcurrentRemovalAlertVisible ? (
+            <div data-testid="importlist-exclusion-concurrent-removal-alert">
+              <Alert kind={kinds.WARNING}>
+                {translate('EditImportListExclusionConcurrentlyRemovedMessage')}
+              </Alert>
+            </div>
+          ) : null}
+
           <Table
             selectAll={true}
             allSelected={allSelected}
