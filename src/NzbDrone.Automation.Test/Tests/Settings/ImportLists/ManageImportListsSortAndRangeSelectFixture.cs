@@ -195,6 +195,17 @@ public class ManageImportListsSortAndRangeSelectFixture : AutomationTest
         // Manga column headers must each be present. Use a header-scoped
         // locator so any sibling table on the page can't satisfy the assertion.
         var headers = manageContent.Locator("thead th");
+
+        // Exact-count guard (gh-226 PR #236 review — CodeRabbit Minor): the
+        // COLUMNS array in ManageImportListsModalContent.tsx must yield
+        // exactly 6 manga columns + 1 TableSelectCell header = 7 total <th>
+        // elements. If a future plan adds an 8th column (or re-introduces a
+        // Sonarr-TV column slipping past the forbidden-label checks below),
+        // this assertion catches the drift before the label-text checks
+        // even run.
+        await Assertions.Expect(headers).ToHaveCountAsync(7,
+            new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
+
         var headerText = await headers.AllTextContentsAsync();
         var headerJoined = string.Join("|", headerText);
 
