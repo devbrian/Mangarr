@@ -1,3 +1,12 @@
+// GH #224 fix-forward (Phase 27.1 27.1-REVIEW WR-01) — the outer
+// `<SelectProvider items={...}>` now receives the SORTED array (from
+// `useSortedManageIndexers()`) so `useSelect.getToggledRange()` walks the
+// same array the user sees. The pre-fix shape passed `useIndexersData()`
+// (raw React Query cache, unsorted) which caused shift-click range-select to
+// highlight the wrong contiguous block. The dedicated
+// `useSortedManageIndexers` hook (vs. `useSortedIndexers`) is bound to the
+// Manage modal's Zustand sort store so column-header clicks actually
+// re-sort the visible rows.
 import React, { useCallback, useState } from 'react';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
 import Alert from 'Components/Alert';
@@ -17,14 +26,14 @@ import {
   IndexerModel,
   useBulkDeleteIndexers,
   useBulkEditIndexers,
-  useIndexersData,
-  useSortedIndexers,
+  useSortedManageIndexers,
 } from 'Settings/Indexers/useIndexers';
 import {
   setManageIndexersSort,
   useManageIndexersOptions,
 } from 'Settings/Indexers/useManageIndexersOptionsStore';
 import { CheckInputChanged } from 'typings/inputs';
+import { ApiError } from 'Utilities/Fetch/fetchJson';
 import getErrorMessage from 'Utilities/Object/getErrorMessage';
 import translate from 'Utilities/String/translate';
 import ManageIndexersEditModal from './Edit/ManageIndexersEditModal';
@@ -89,15 +98,18 @@ interface ManageIndexersModalContentProps {
 
 interface ManageIndexersModalContentInnerProps {
   onModalClose(): void;
+  data: IndexerModel[];
+  isFetching: boolean;
+  isFetched: boolean;
+  error: ApiError | null;
 }
 
 function ManageIndexersModalContentInner(
   props: ManageIndexersModalContentInnerProps
 ) {
-  const { onModalClose } = props;
+  const { onModalClose, data, isFetching, isFetched, error } = props;
 
   const { sortKey, sortDirection } = useManageIndexersOptions();
-  const { data, isFetching, isFetched, error } = useSortedIndexers();
 
   const { isDeleting, bulkDeleteIndexers } = useBulkDeleteIndexers();
   const { isSaving, bulkEditIndexers } = useBulkEditIndexers();
@@ -191,7 +203,10 @@ function ManageIndexersModalContentInner(
   const errorMessage = getErrorMessage(error, 'Unable to load indexers.');
 
   return (
-    <ModalContent onModalClose={onModalClose}>
+    <ModalContent
+      data-testid="manage-indexers-modal-content"
+      onModalClose={onModalClose}
+    >
       <ModalHeader>{translate('ManageIndexers')}</ModalHeader>
       <ModalBody>
         {isFetching ? <LoadingIndicator /> : null}
@@ -290,11 +305,22 @@ function ManageIndexersModalContentInner(
 }
 
 function ManageIndexersModalContent(props: ManageIndexersModalContentProps) {
-  const items = useIndexersData();
+  // GH #224 fix-forward — read the SORTED list once at the wrapper level and
+  // pass it both to <SelectProvider items={...}> AND down to the inner
+  // component as `data`. This guarantees `useSelect.getToggledRange()` and
+  // the rendered <Table> walk the identical array, so shift-click range-
+  // select highlights the contiguous block the user actually sees.
+  const { data, isFetching, isFetched, error } = useSortedManageIndexers();
 
   return (
-    <SelectProvider items={items}>
-      <ManageIndexersModalContentInner {...props} />
+    <SelectProvider items={data}>
+      <ManageIndexersModalContentInner
+        {...props}
+        data={data}
+        isFetching={isFetching}
+        isFetched={isFetched}
+        error={error}
+      />
     </SelectProvider>
   );
 }

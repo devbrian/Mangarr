@@ -102,6 +102,16 @@ jest.mock('../../useImportLists', () => {
       isFetched: true,
       error: null,
     }),
+    // GH #224 fix-forward — the Manage modal now consumes the dedicated
+    // `useSortedManageImportLists` hook (bound to the Zustand sort store)
+    // instead of `useSortedImportLists`. Mirror both mocks here so dormant
+    // assertions remain stable once Jest infra ships.
+    useSortedManageImportLists: jest.fn().mockReturnValue({
+      data: stubRows,
+      isFetching: false,
+      isFetched: true,
+      error: null,
+    }),
     useBulkEditImportLists: jest.fn().mockReturnValue({
       bulkEditImportLists: bulkEditImportListsMock,
       isSaving: false,
