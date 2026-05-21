@@ -223,9 +223,24 @@ const useOAuth = () => {
         // to the caller via the result-state so OAuthInput's onChange handler writes
         // each key (authUser/expires/accessToken/refreshToken) into the form.
         if (completionMode === 'internal') {
-          if (response.success === false) {
+          // Require explicit success=true and the actual token fields before treating the
+          // envelope as a successful exchange — a malformed response (e.g. backend omits
+          // success flag, or returns success=true with no tokens) must surface as an error
+          // instead of silently writing garbage into the form.
+          const internalResponse = response as OAuthResponse & {
+            error?: string;
+            authUser?: string;
+            expires?: string;
+            accessToken?: string;
+            refreshToken?: string;
+          };
+          const isSuccess = internalResponse.success === true;
+          const accessToken = internalResponse.accessToken ?? '';
+          const refreshToken = internalResponse.refreshToken ?? '';
+
+          if (!isSuccess || !accessToken || !refreshToken) {
             const message =
-              (response as { error?: string }).error ??
+              internalResponse.error ??
               'OAuth start failed — the backend did not complete the internal flow';
             const startError = Object.assign(new Error(message), {
               status: 400,
@@ -239,9 +254,22 @@ const useOAuth = () => {
             throw startError;
           }
 
+          // Map only the documented OAuthResult fields — never pass the raw envelope so
+          // unrelated keys (success/error markers) don't get written into the form state.
+          const sanitizedResult: OAuthResult = {
+            accessToken,
+            refreshToken,
+          };
+          if (internalResponse.authUser) {
+            sanitizedResult.authUser = internalResponse.authUser;
+          }
+          if (internalResponse.expires) {
+            sanitizedResult.expires = internalResponse.expires;
+          }
+
           setOAuthValue({
             authorizing: false,
-            result: response as OAuthResult,
+            result: sanitizedResult,
             error: null,
             pendingPaste: null,
           });

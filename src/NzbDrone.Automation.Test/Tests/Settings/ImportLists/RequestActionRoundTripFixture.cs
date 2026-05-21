@@ -94,9 +94,12 @@ public class RequestActionRoundTripFixture : AutomationTest
     [Test]
     public async Task anilist_request_action_round_trip()
     {
-        // D-07 paste-pin URL — AniListImportList.RequestAction("startOAuth") returns
-        // { OauthUrl: "https://anilist.co/api/v2/oauth/pin?client_id={ClientId}&response_type=code" }
-        // VERBATIM (deterministic; no HTTP). Plan 27-03 SUMMARY §"Accomplishments".
+        // GH #230 — AniListImportListProxy.GetPinAuthorizeUrl returns
+        // "https://anilist.co/api/v2/oauth/authorize?client_id={ClientId}&response_type=code&redirect_uri=https%3A%2F%2Fanilist.co%2Fapi%2Fv2%2Foauth%2Fpin"
+        // VERBATIM (deterministic; no HTTP). Pre-#230 the URL was /pin?... directly, which made
+        // AniList render the literal string "undefined" in the pin textbox (no redirect chain to
+        // populate location.search.code). The authorize endpoint with redirect_uri=...pin is the
+        // working contract.
         var body = BuildAniListBody();
         var (status, payload) = await InvokeStartOAuthAsync(body);
 
@@ -105,12 +108,14 @@ public class RequestActionRoundTripFixture : AutomationTest
         payload.Should().NotBeNull();
         var json = payload.AsObject();
         json.ContainsKey("oauthUrl").Should().BeTrue(
-            "AniListImportList.RequestAction('startOAuth') returns `{ OauthUrl: <pin URL> }` per D-07 + Plan 27-03 SUMMARY.");
+            "AniListImportList.RequestAction('startOAuth') returns `{ OauthUrl: <authorize URL> }` per GH #230 fix.");
 
         var oauthUrl = json["oauthUrl"]?.GetValue<string>();
         oauthUrl.Should().NotBeNullOrWhiteSpace();
-        oauthUrl.Should().StartWith("https://anilist.co/api/v2/oauth/pin",
-            "AniList authorize URL is fixed per RESEARCH §STACK §Surface 2 + CONTEXT line 23.");
+        oauthUrl.Should().StartWith("https://anilist.co/api/v2/oauth/authorize",
+            "AniList authorize URL points at /authorize (GH #230 fix); pre-fix /pin URL rendered 'undefined' in the pin textbox.");
+        oauthUrl.Should().Contain("redirect_uri=https%3A%2F%2Fanilist.co%2Fapi%2Fv2%2Foauth%2Fpin",
+            "the authorize call MUST carry the pin URL as redirect_uri or AniList's pin page can't read the auth code from its own query string.");
         oauthUrl.Should().Contain("response_type=code",
             "RFC 6749 authorization-code-grant query param.");
     }

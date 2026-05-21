@@ -101,9 +101,14 @@ public class OAuthPasteBackModalFixture : AutomationTest
         await connectButton.ClickAsync();
 
         var newTab = await newTabTask;
-        newTab.Should().NotBeNull("the Connect button should open AniList's pin authorize URL in a new tab");
-        newTab.Url.Should().StartWith("https://anilist.co/api/v2/oauth/pin",
-            "the new tab should land on AniList's pin authorize URL");
+        newTab.Should().NotBeNull("the Connect button should open AniList's authorize URL in a new tab");
+
+        // GH #230 — the URL is /authorize?...&redirect_uri=...pin, NOT /pin?... directly.
+        // Pre-#230 tests asserted the broken contract (StartWith "/pin"); now we lock in the fixed URL.
+        newTab.Url.Should().StartWith("https://anilist.co/api/v2/oauth/authorize",
+            "the new tab should land on AniList's authorize endpoint (GH #230 fix)");
+        newTab.Url.Should().Contain("redirect_uri=https%3A%2F%2Fanilist.co%2Fapi%2Fv2%2Foauth%2Fpin",
+            "the authorize call MUST carry the pin URL as redirect_uri or the pin page renders 'undefined'");
         await newTab.CloseAsync();
 
         // 6. State assertion (the GH #221 root-cause gate): after the click,
