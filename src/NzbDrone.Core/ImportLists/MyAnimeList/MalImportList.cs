@@ -30,8 +30,8 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
     //       persists Settings.PendingPkceState JSON blob, returns { OauthUrl: authorize URL }.
     //     - getOAuthToken → parses `?code=X&state=Y` from query['redirectedUrl'], loads
     //       MalOAuthState from PendingPkceState, validates IsValid(state) for CSRF + TTL,
-    //       exchanges code+verifier for tokens via proxy, persists tokens, CLEARS
-    //       PendingPkceState (single-use).
+    //       exchanges code+verifier (+ optional client_secret per GH #233) for tokens via
+    //       proxy, persists tokens, CLEARS PendingPkceState (single-use).
     //   * Refresh persistence + null-coalesce: Trakt.cs:135-163 verbatim.
     //
     // D-09 paste-the-callback-URL UX (CONTEXT lines 151-161):
@@ -39,6 +39,18 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
     //     intentionally a URL Mangarr does NOT serve.
     //   * Works behind any reverse proxy / non-default port / containerized deployment
     //     (zero per-deployment OAuth-redirect-URI configuration).
+    //
+    // MAL App Type duality (GH #233 — 2026-05-21):
+    //   * MAL App Type "Other" (public-client PKCE) — Settings.ClientSecret left blank;
+    //     the proxy omits the client_secret form parameter entirely.
+    //   * MAL App Type "web" (confidential-client PKCE) — Settings.ClientSecret populated
+    //     from https://myanimelist.net/apiconfig; the proxy appends client_secret=value to
+    //     the token-exchange + refresh-token form bodies per MAL OAuth docs
+    //     (https://myanimelist.net/blog.php?eid=835707). Without this, MAL returns
+    //     401 invalid_client even though the PKCE verifier is well-formed.
+    //   Both call sites in this file pass Settings.ClientSecret through unconditionally;
+    //   the proxy's IsNullOrWhiteSpace check decides whether to actually append the
+    //   form parameter.
     //
     // D-05 reactive 401-retry: Fetch() augments the base ladder with a 401-trap that
     // force-expires Settings.Expires, calls RefreshTokenIfNecessary, and retries
@@ -49,8 +61,8 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
     // T-V7: response envelopes from RequestAction NEVER include the refresh token; only
     // the access token (passed back through onChange handler to the FE Settings form) +
     // expiry + authUser. Log messages avoid the literal substrings `Bearer`/`access_token`/
-    // `refresh_token`/`code_verifier`/`code=` so the Plan 27-05 close-out audit grep
-    // returns 0 in this directory.
+    // `refresh_token`/`code_verifier`/`code=`/`client_secret=` so the Plan 27-05 close-out
+    // audit grep returns 0 in this directory.
     public class MalImportList : OAuthAwareImportListBase<MalImportListSettings>
     {
         private readonly IMalImportListProxy _proxy;
@@ -95,9 +107,10 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         //
         //   * "getOAuthToken" — parses `?code=X&state=Y` from query["redirectedUrl"],
         //     loads MalOAuthState from PendingPkceState blob, validates CSRF + TTL via
-        //     IsValid(presentedState). On success: calls proxy.ExchangeCodeForToken,
-        //     persists AccessToken/RefreshToken/Expires/AuthUser, CLEARS PendingPkceState
-        //     (single-use enforcement; T-V11 mitigation).
+        //     IsValid(presentedState). On success: calls proxy.ExchangeCodeForToken with
+        //     Settings.ClientSecret (optional — GH #233), persists AccessToken/RefreshToken/
+        //     Expires/AuthUser, CLEARS PendingPkceState (single-use enforcement; T-V11
+        //     mitigation).
         //
         // T-V7: getOAuthToken response includes `accessToken` (the FE useOAuth result.*
         // keys round-trip into the Settings POCO via the form-input onChange handler — see
@@ -168,6 +181,11 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
                 // (extending SchemaBuilder to honor Hidden-without-Privacy) was explicitly
                 // out-of-scope per the user's Option A choice in the debug session — that
                 // change has too broad a blast radius for the present bug.
+                //
+                // GH #233 corollary: Settings.ClientSecret IS Privacy=Password (user-visible
+                // password field), so the substrate's preserve-existing branch DOES fire for it
+                // — no equivalent reload needed for ClientSecret. The value rounds-trip
+                // correctly via SchemaBuilder.
                 if (Definition.Id > 0)
                 {
                     var persisted = _importListRepository.Get(Definition.Id);
@@ -254,7 +272,12 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
 
                 try
                 {
-                    var response = _proxy.ExchangeCodeForToken(Settings.ClientId, codeParam, pending.Verifier);
+                    // GH #233: pass Settings.ClientSecret through unconditionally. The proxy
+                    // applies IsNullOrWhiteSpace and conditionally appends client_secret to the
+                    // form body — back-compat with "Other" App Type users (who leave the field
+                    // blank), and required for "web" App Type users (where MAL would otherwise
+                    // return 401 invalid_client).
+                    var response = _proxy.ExchangeCodeForToken(Settings.ClientId, Settings.ClientSecret, codeParam, pending.Verifier);
                     if (response == null || string.IsNullOrWhiteSpace(response.AccessToken))
                     {
                         return new { success = false, error = "MyAnimeList returned an empty token response. Try the OAuth flow again." };
@@ -282,8 +305,8 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
                 }
                 catch (HttpException ex)
                 {
-                    // T-V7: return only HTTP status + exception message; no token/code/verifier
-                    // values. Sonarr-canonical Trakt.cs:161 shape.
+                    // T-V7: return only HTTP status + exception message; no token/code/verifier/
+                    // client-secret values. Sonarr-canonical Trakt.cs:161 shape.
                     return new
                     {
                         success = false,
@@ -303,6 +326,11 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // primary consumer because MAL ROTATES refresh tokens, and concurrent refresh
         // on the same Definition.Id revokes the prior token cascading into
         // `400 invalid_grant` for sibling threads).
+        //
+        // GH #233: passes Settings.ClientSecret through to the proxy's refresh path so
+        // MAL App Type "web" tokens can be rotated. The proxy applies IsNullOrWhiteSpace
+        // and conditionally appends client_secret — back-compat with "Other" App Type
+        // users continues to hold.
         protected override void RefreshToken()
         {
             _logger.Trace("Refreshing Token");
@@ -315,7 +343,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
 
             try
             {
-                var response = _proxy.RefreshAccessToken(Settings.ClientId, Settings.RefreshToken);
+                var response = _proxy.RefreshAccessToken(Settings.ClientId, Settings.ClientSecret, Settings.RefreshToken);
 
                 if (response != null && !string.IsNullOrWhiteSpace(response.AccessToken))
                 {
