@@ -73,7 +73,7 @@ namespace NzbDrone.Api.Test.ImportLists
                 Name = "Some Import List",
                 Implementation = "Stub",
                 ConfigContract = "StubSettings",
-                RootFolderPath = "/not/a/registered/root",
+                RootFolderPath = UnregisteredRootPath(),
                 TranslationProfileId = 0,
             };
 
@@ -168,6 +168,20 @@ namespace NzbDrone.Api.Test.ImportLists
                 System.Runtime.InteropServices.OSPlatform.Windows)
                 ? "C:\\Manga"
                 : "/manga";
+
+        // Phase 27.1 27.1-REVIEW post-ship CodeRabbit P3 fix-forward (2026-05-21):
+        // RootFolderExistsValidator runs UNDER IsValidPath (CascadeMode.Stop on
+        // PathValidator), so the unregistered-path probe must return a string
+        // that passes IsValidPath() but does NOT match any IRootFolderService.All()
+        // entry. On Windows IsValidPath() rejects POSIX-style paths (no drive
+        // letter), so a hardcoded "/not/a/registered/root" passes format
+        // validation on POSIX but fails it on Windows — making the test exercise
+        // path-format rejection instead of root-folder-existence rejection.
+        private static string UnregisteredRootPath() =>
+            System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                System.Runtime.InteropServices.OSPlatform.Windows)
+                ? "C:\\not\\registered"
+                : "/not/a/registered/root";
 
         private ValidationResult ValidateViaSharedValidator(ImportListResource resource)
         {

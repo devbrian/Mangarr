@@ -7,7 +7,7 @@
 // rootFolderPath, translationProfileId columns. Other shape (SelectProvider +
 // inner/outer pattern + bulk-edit/bulk-delete/Tags dispatch) is unchanged from
 // the analog. Pattern kappa preserved (zero TV-shape tokens).
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
 import Alert from 'Components/Alert';
 import Button from 'Components/Link/Button';
@@ -103,6 +103,21 @@ function ManageImportListsModalContentInner(
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTagsModalOpen, setIsTagsModalOpen] = useState(false);
   const [isSavingTags, setIsSavingTags] = useState(false);
+
+  // Phase 27.1 27.1-REVIEW post-ship CodeRabbit P3 fix-forward (2026-05-21):
+  // `isSavingTags` is set to `true` when a Tags save starts (line 164 onward)
+  // but was never reset when the underlying `useBulkEditImportLists` mutation
+  // settled. Result: any subsequent non-Tags Edit save would surface the Tags
+  // spinner state (`isSaving && isSavingTags` at line 252) even though no Tags
+  // operation was pending. Reset on the trailing edge of `isSaving` — when the
+  // mutation flips from true back to false — so the next save starts clean.
+  const wasSavingRef = useRef(false);
+  useEffect(() => {
+    if (wasSavingRef.current && !isSaving) {
+      setIsSavingTags(false);
+    }
+    wasSavingRef.current = isSaving;
+  }, [isSaving]);
 
   const {
     allSelected,

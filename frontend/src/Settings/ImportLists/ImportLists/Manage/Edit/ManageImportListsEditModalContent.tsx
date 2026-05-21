@@ -128,11 +128,14 @@ function ManageImportListsEditModalContent(
       case 'translationProfileId':
         setTranslationProfileId(value as number);
         break;
-      // Phase 27.1 27.1-REVIEW WR-06 fix-forward (2026-05-21): default branch
-      // is unreachable in correct usage (FormInputGroup `name` props are
-      // statically defined in the same file). The prior `console.warn` was a
-      // verbatim port artifact from Indexers that shipped in production
-      // bundles. Silent no-op matches Sonarr's other similar handlers.
+      default:
+        // Phase 27.1 27.1-REVIEW WR-06 fix-forward (2026-05-21): default branch
+        // is unreachable in correct usage (FormInputGroup `name` props are
+        // statically defined in the same file). The prior `console.warn` was a
+        // verbatim port artifact from Indexers that shipped in production
+        // bundles. Silent no-op matches Sonarr's other similar handlers; the
+        // empty `default:` satisfies the project's eslint `default-case` rule.
+        break;
     }
   }, []);
 

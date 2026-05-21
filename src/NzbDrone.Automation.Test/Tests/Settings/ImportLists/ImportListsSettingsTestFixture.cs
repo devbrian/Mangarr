@@ -68,6 +68,14 @@ public class ImportListsSettingsTestFixture : AutomationTest
 
         await Assertions.Expect(page.TestAllButton).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+
+        // State assertion (per feedback_verify_ui_state_not_just_rendering +
+        // scripts/audit-test-assertions.sh): pin the rendered label so a
+        // future regression (button renamed, i18n key swapped, wrong
+        // PageToolbarButton wired) fails loudly instead of silently passing
+        // a visibility-only check.
+        await Assertions.Expect(page.TestAllButton).ToHaveAttributeAsync(
+            "title", "Test All Lists");
     }
 
     [Test]
@@ -79,6 +87,13 @@ public class ImportListsSettingsTestFixture : AutomationTest
 
         await Assertions.Expect(page.ManageButton).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+
+        // State assertion (per feedback_verify_ui_state_not_just_rendering +
+        // scripts/audit-test-assertions.sh): pin the rendered label so a
+        // future regression fails loudly instead of silently passing a
+        // visibility-only check.
+        await Assertions.Expect(page.ManageButton).ToHaveAttributeAsync(
+            "title", "Manage Import Lists");
     }
 
     [Test]
@@ -122,5 +137,16 @@ public class ImportListsSettingsTestFixture : AutomationTest
         var exclusionsContainer = Page.GetByTestId("settings-importlist-exclusions");
         await Assertions.Expect(exclusionsContainer).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+
+        // State assertion (per feedback_verify_ui_state_not_just_rendering +
+        // scripts/audit-test-assertions.sh): assert the Sonarr-canonical Plan
+        // 27.1-03 D-01 column headers are present. The 3 manga-ID columns
+        // (`MangaDex ID` / `MyAnimeList ID` / `AniList ID`) replaced the
+        // single Sonarr-shape TvdbId column — pin that contract so a future
+        // regression (column dropped, header text drifted) fails loudly.
+        var sectionText = await exclusionsContainer.TextContentAsync();
+        sectionText.Should().Contain("MangaDex ID");
+        sectionText.Should().Contain("MyAnimeList ID");
+        sectionText.Should().Contain("AniList ID");
     }
 }
