@@ -94,20 +94,21 @@ public class ImportListsSettingsTestFixture : AutomationTest
 
         await page.PageContainer.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
 
-        // Toggle Advanced Settings via the SettingsToolbar's Advanced button
-        // (Sonarr-canonical pattern across every Settings page). If the
-        // advanced toggle is not exposed, skip — the FieldSet render is
-        // gated and a non-rendered FieldSet is the canonical Sonarr behavior.
-        var advancedToggle = Page.GetByTestId("settings-advanced-button");
-        var toggleCount = await advancedToggle.CountAsync();
-        if (toggleCount > 0)
-        {
-            await advancedToggle.ClickAsync();
+        // Phase 27.1 27.1-REVIEW WR-03 fix-forward (2026-05-21): testid is
+        // `settings-advanced-toggle` not `settings-advanced-button`
+        // (frontend/src/Settings/AdvancedSettingsButton.tsx:27); the silent
+        // `if (toggleCount > 0)` guard masked the typo by skipping the body
+        // entirely. Assert visibility unconditionally so a missing toggle (or
+        // any future testid regression) fails the test loudly per the
+        // state-not-rendering anti-pattern gate.
+        var advancedToggle = Page.GetByTestId("settings-advanced-toggle");
+        await Assertions.Expect(advancedToggle).ToBeVisibleAsync(
+            new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+        await advancedToggle.ClickAsync();
 
-            var optionsContainer = Page.GetByTestId("settings-importlists-options");
-            await Assertions.Expect(optionsContainer).ToBeVisibleAsync(
-                new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
-        }
+        var optionsContainer = Page.GetByTestId("settings-importlists-options");
+        await Assertions.Expect(optionsContainer).ToBeVisibleAsync(
+            new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
     }
 
     [Test]
