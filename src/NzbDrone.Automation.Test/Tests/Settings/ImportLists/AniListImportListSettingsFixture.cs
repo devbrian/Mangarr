@@ -12,6 +12,12 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 // MangaDexImportListSettingsFixture (Plan 27-02); same shape, AniList-specific
 // selectors.
 //
+// GH #238 augment (2026-05-21): a `Client Secret` user-visible Password input
+// renders at FieldDefinition index 1. This fixture asserts the label exists AND the
+// underlying input is rendered as `type=password` so AniList OAuth-client users can
+// paste their confidential client_secret without it being visible on screen.
+// Matches the MAL GH #233 fixture assertion pattern at commit 8608eff22.
+//
 // SELECTOR DEVIATION (Plan 27-02 Rule 1 precedent — see Plan 27-02 SUMMARY §Deviations
 // #1):
 //   27-03-PLAN.md Task 3 Test 7 reserved `picker-importlist-anilist` as the picker
@@ -91,13 +97,32 @@ public class AniListImportListSettingsFixture : AutomationTest
         await Assertions.Expect(labels.Filter(new LocatorFilterOptions { HasText = "Status" }))
             .ToHaveCountAsync(1, new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
 
-        // 6. The OAuth sign-in field renders as the "Connect" button (FieldType.OAuth
+        // 6. GH #238: the Client Secret input MUST render with type=password so
+        //    over-the-shoulder readers cannot see the value. This pins
+        //    Type=FieldType.Password on the FieldDefinition — without it the FE falls back to
+        //    type=text and the secret renders in clear (Privacy=PrivacyLevel.Password alone
+        //    only drives API-outbound redaction, not on-screen masking). Sibling-canonical
+        //    with the MAL GH #233 fixture assertion at commit 8608eff22.
+        //
+        //    The substrate renders user-visible Password fields via TextInput's
+        //    PasswordInput branch (Components/Form/TextInput.tsx). Selector pattern
+        //    `settings-{provider}-field-{name}` per D-18 + GH #180 (banned shape
+        //    `Locator("input[name=...")` would trip scripts/audit-test-assertions.sh).
+        var clientSecretInput = Page.GetByTestId("settings-importlist-field-clientSecret");
+        await Assertions.Expect(clientSecretInput).ToBeVisibleAsync(
+            new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
+        await Assertions.Expect(clientSecretInput).ToHaveAttributeAsync(
+            "type",
+            "password",
+            new LocatorAssertionsToHaveAttributeOptions { Timeout = 5_000 });
+
+        // 7. The OAuth sign-in field renders as the "Connect" button (FieldType.OAuth
         //    affordance). The exact label is the localized ImportListsAniListSignInLabel
         //    string ("Connect").
         await Assertions.Expect(labels.Filter(new LocatorFilterOptions { HasText = "Connect" }))
             .ToHaveCountAsync(1, new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
 
-        // 7. State assertion: no error banner fires on the populated picker (Phase 26
+        // 8. State assertion: no error banner fires on the populated picker (Phase 26
         //    Plan 26-05 D-08 — the schema endpoint returns 200 + a >=2-item array now
         //    after both Plan 27-02 + Plan 27-03 have landed).
         await Assertions.Expect(Page.Locator(".alert-danger")).ToHaveCountAsync(
