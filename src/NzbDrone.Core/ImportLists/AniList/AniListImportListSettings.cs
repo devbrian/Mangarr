@@ -116,7 +116,14 @@ namespace NzbDrone.Core.ImportLists.AniList
         [FieldDefinition(0, Label = "ImportListsAniListClientIdLabel", HelpText = "AniList client must have Redirect URL set to https://anilist.co/api/v2/oauth/pin — without that the authorize redirect to the pin page won't carry the auth code.", Type = FieldType.Textbox)]
         public string ClientId { get; set; }
 
-        [FieldDefinition(1, Label = "ImportListsAniListClientSecretLabel", HelpText = "ImportListsAniListClientSecretHelpText", Type = FieldType.Textbox, Privacy = PrivacyLevel.Password)]
+        // GH #238 (sibling-canonical with MAL GH #233 fix at commit 377030182): the FE component
+        // map (frontend/src/Components/Form/FormInputGroup.tsx:86) routes `password` ->
+        // PasswordInput, which renders <input type=password>. `Privacy = PrivacyLevel.Password`
+        // alone controls API-outbound redaction but does NOT mask the value on-screen
+        // — that requires `Type = FieldType.Password`. Both axes are needed together. The
+        // matching automation fixture pins `type=password` so over-the-shoulder readers
+        // cannot see the value.
+        [FieldDefinition(1, Label = "ImportListsAniListClientSecretLabel", HelpText = "ImportListsAniListClientSecretHelpText", Type = FieldType.Password, Privacy = PrivacyLevel.Password)]
         public string ClientSecret { get; set; }
 
         // ── Single-select per-list status filter (D-10) ──────────────────────────────
