@@ -111,10 +111,10 @@ public class MalImportListSettingsFixture : AutomationTest
         //    falls back to type=text and the secret renders in clear.
         //
         //    The substrate renders user-visible Password fields via TextInput's
-        //    PasswordInput branch (Components/Form/TextInput.tsx). The input selector
-        //    inside the edit modal scopes to the Client Secret form group via the
-        //    label-for/id pair the generic renderer emits.
-        var clientSecretInput = editModal.Locator("input[name='clientSecret']");
+        //    PasswordInput branch (Components/Form/TextInput.tsx). Selector pattern
+        //    `settings-{provider}-field-{name}` per D-18 + GH #180 (banned shape
+        //    `Locator("input[name=...")` would trip scripts/audit-test-assertions.sh).
+        var clientSecretInput = Page.GetByTestId("settings-importlist-field-clientSecret");
         await Assertions.Expect(clientSecretInput).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
         await Assertions.Expect(clientSecretInput).ToHaveAttributeAsync(
