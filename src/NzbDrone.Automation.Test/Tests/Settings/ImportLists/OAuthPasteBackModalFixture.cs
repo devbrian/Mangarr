@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -104,11 +105,24 @@ public class OAuthPasteBackModalFixture : AutomationTest
         newTab.Should().NotBeNull("the Connect button should open AniList's authorize URL in a new tab");
 
         // GH #230 — the URL is /authorize?...&redirect_uri=...pin, NOT /pin?... directly.
-        // Pre-#230 tests asserted the broken contract (StartWith "/pin"); now we lock in the fixed URL.
-        newTab.Url.Should().StartWith("https://anilist.co/api/v2/oauth/authorize",
-            "the new tab should land on AniList's authorize endpoint (GH #230 fix)");
-        newTab.Url.Should().Contain("redirect_uri=https%3A%2F%2Fanilist.co%2Fapi%2Fv2%2Foauth%2Fpin",
+        // Pre-#230 tests asserted the broken contract (StartWith "/pin"); now we lock in
+        // the fixed URL.
+        //
+        // Read the popup's INITIAL navigation request rather than newTab.Url. AniList
+        // redirects unauthenticated browsers from /api/v2/oauth/authorize → /login
+        // (CI is always unauthenticated), so reading newTab.Url after load lands on
+        // /login. WaitForRequestAsync captures the first request the popup makes,
+        // which is the authorize URL we're verifying — and survives any subsequent
+        // redirect chain.
+        var authorizeRequest = await newTab.WaitForRequestAsync(
+            new Regex(@"^https://anilist\.co/api/v2/oauth/(authorize|pin)(\?|$)"),
+            new() { Timeout = 10_000 });
+
+        authorizeRequest.Url.Should().StartWith("https://anilist.co/api/v2/oauth/authorize",
+            "the popup should hit AniList's authorize endpoint, NOT /pin directly (GH #230 fix)");
+        authorizeRequest.Url.Should().Contain("redirect_uri=https%3A%2F%2Fanilist.co%2Fapi%2Fv2%2Foauth%2Fpin",
             "the authorize call MUST carry the pin URL as redirect_uri or the pin page renders 'undefined'");
+
         await newTab.CloseAsync();
 
         // 6. State assertion (the GH #221 root-cause gate): after the click,
