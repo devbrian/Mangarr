@@ -143,13 +143,20 @@ public class ImportListOptionsAdvancedGatingFixture : AutomationTest
             await Assertions.Expect(optionsContainer).ToBeVisibleAsync(
                 new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 
-            // Wait for the listSyncLevel SELECT to be present — proves Redux
-            // hydration completed.
-            var listSyncLevelInput = optionsContainer.Locator("[name='listSyncLevel']");
-            await Assertions.Expect(listSyncLevelInput).ToHaveCountAsync(1,
-                new LocatorAssertionsToHaveCountOptions { Timeout = 10_000 });
+            // Wait for the Clean Library Level FormLabel to be present — proves
+            // Redux hydration completed. The underlying SELECT is rendered as an
+            // EnhancedSelectInput (custom <button>) and does NOT expose the
+            // [name='listSyncLevel'] attribute the way a native <select> would
+            // (live-verified 2026-05-21 on devbrian/Mangarr#226 close-out); the
+            // label is the stable hydration marker.
+            var cleanLibraryLevelLabel = optionsContainer.GetByText("Clean Library Level");
+            await Assertions.Expect(cleanLibraryLevelLabel).ToBeVisibleAsync(
+                new LocatorAssertionsToBeVisibleOptions { Timeout = 10_000 });
 
-            // Assertion: listSyncTag picker is NOT in the DOM.
+            // Assertion: listSyncTag picker is NOT in the DOM. listSyncTag is
+            // backed by a real <input name='listSyncTag'> via TagInput (not an
+            // EnhancedSelectInput), so the [name='listSyncTag'] selector IS
+            // correct here.
             var listSyncTagInput = optionsContainer.Locator("[name='listSyncTag']");
             await Assertions.Expect(listSyncTagInput).ToHaveCountAsync(0,
                 new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
@@ -173,8 +180,8 @@ public class ImportListOptionsAdvancedGatingFixture : AutomationTest
 
             await Assertions.Expect(optionsContainer).ToBeVisibleAsync(
                 new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
-            await Assertions.Expect(listSyncLevelInput).ToHaveCountAsync(1,
-                new LocatorAssertionsToHaveCountOptions { Timeout = 10_000 });
+            await Assertions.Expect(cleanLibraryLevelLabel).ToBeVisibleAsync(
+                new LocatorAssertionsToBeVisibleOptions { Timeout = 10_000 });
 
             // Assertion: listSyncTag picker IS in the DOM now.
             await Assertions.Expect(listSyncTagInput).ToHaveCountAsync(1,
