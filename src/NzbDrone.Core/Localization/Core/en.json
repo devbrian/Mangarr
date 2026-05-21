@@ -652,6 +652,7 @@
   "EditDownloadClientImplementation": "Edit Download Client - {implementationName}",
   "EditGroups": "Edit Groups",
   "EditImportListExclusion": "Edit Import List Exclusion",
+  "EditImportListExclusionConcurrentlyRemovedMessage": "This exclusion was modified by another session — please re-open.",
   "EditImportListImplementation": "Edit Import List - {implementationName}",
   "EditIndexerImplementation": "Edit Indexer - {implementationName}",
   "EditListExclusion": "Edit List Exclusion",
