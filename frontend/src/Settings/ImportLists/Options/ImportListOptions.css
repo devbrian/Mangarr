@@ -1,0 +1,16 @@
+/*
+ * Phase 27.1 Plan 27.1-02 Task 3 — ImportListOptions.css
+ *
+ * Sonarr v5-develop has no CSS module for this component
+ * (verified: `git show v5-develop:frontend/src/Settings/ImportLists/Options/ImportListOptions.css`
+ * returns 128 / empty). The Mangarr peer `DownloadClientOptions.tsx` also has
+ * no CSS module. The current `ImportListOptions.tsx` does not import this
+ * file — all layout is delegated to <FieldSet>, <Form>, <FormGroup>, and
+ * <FormLabel> primitives whose own CSS modules cover layout/spacing.
+ *
+ * This stub exists to satisfy the plan acceptance criterion that requires the
+ * `.css` + `.css.d.ts` pair to be present in tree even when there are no
+ * component-specific selectors. If a future task introduces component-local
+ * styling for the Options FieldSet, add selectors here and re-generate the
+ * companion `.css.d.ts` accordingly.
+ */
