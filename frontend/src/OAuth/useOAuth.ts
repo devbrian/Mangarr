@@ -280,12 +280,19 @@ const useOAuth = () => {
             throw error;
           }
 
-          // Persist pending-paste state. `authorizing` stays true so the
-          // SpinnerErrorButton continues to spin until the user submits the
-          // paste-back modal. The caller (OAuthInput.tsx) reads `pendingPaste`
-          // to decide which modal to render.
+          // GH #221 PR #228 P1 fix (chatgpt-codex review): set `authorizing`
+          // FALSE while waiting for the user to paste — otherwise the modal's
+          // submit SpinnerErrorButton starts in a spinning/disabled state and
+          // the user cannot submit. `authorizing` is the "backend request in
+          // flight" contract; the request just completed (startOAuth returned
+          // the oauthUrl) and the hook is now PAUSED until the user submits.
+          // It flips back to true inside `completeOAuth` for the duration of
+          // the completion round-trip. The modal is rendered via
+          // `pendingPaste != null`, and the Edit modal's backdrop blocks
+          // re-clicks on the parent Connect button while the paste modal is
+          // open — no additional spinner is needed on the parent.
           setOAuthValue({
-            authorizing: true,
+            authorizing: false,
             pendingPaste: {
               mode: completionMode,
               oauthUrl: response.oauthUrl,

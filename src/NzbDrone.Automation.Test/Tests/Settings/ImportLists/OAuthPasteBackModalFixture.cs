@@ -66,10 +66,13 @@ public class OAuthPasteBackModalFixture : AutomationTest
         //    AniListImportList.RequestAction("startOAuth") returns the pin
         //    authorize URL (the proxy.GetPinAuthorizeUrl call is deterministic
         //    and does NOT fire an HTTP request — safe under offline cassette).
-        var clientIdInput = Page.Locator("input[name='clientId']").First;
+        //    D-18 contract: use the `settings-{provider}-field-{name}` testid
+        //    derived in ProviderFieldFormGroup.tsx:117 — `input[name=...]`
+        //    selectors are banned by scripts/audit-test-assertions.sh.
+        var clientIdInput = Page.GetByTestId("settings-importlist-field-clientId");
         await clientIdInput.FillAsync("42");
 
-        var clientSecretInput = Page.Locator("input[name='clientSecret']").First;
+        var clientSecretInput = Page.GetByTestId("settings-importlist-field-clientSecret");
         await clientSecretInput.FillAsync("test-secret");
 
         // 4. Sanity-check the OAuthInput's wiring contract — the GH #221 fix
@@ -133,6 +136,17 @@ public class OAuthPasteBackModalFixture : AutomationTest
         await Assertions.Expect(pinCancel).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
 
+        // 7b. GH #221 PR #228 P1 fix gate (chatgpt-codex review): while the
+        //     paste modal is open and the hook is PAUSED waiting for the user
+        //     to paste, `authorizing` MUST be FALSE — otherwise the submit
+        //     SpinnerErrorButton starts in a disabled spinning state and the
+        //     user cannot submit. The `data-oauth-authorizing` attribute on
+        //     the OAuthInput container exposes the hook state.
+        var pausedState = Page.Locator(
+            "[data-oauth-pending-paste='paste-pin'][data-oauth-authorizing='false']");
+        await Assertions.Expect(pausedState).ToHaveCountAsync(
+            1, new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
+
         // 8. State assertion: the modal can be canceled cleanly (the
         //    cancelOAuth() callback resets pendingPaste). After cancel the
         //    modal must close and the underlying Edit modal must remain
@@ -171,7 +185,8 @@ public class OAuthPasteBackModalFixture : AutomationTest
             1, new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
 
         // 4. Fill in the ClientId (MAL needs this before startOAuth dispatches).
-        var clientIdInput = Page.Locator("input[name='clientId']").First;
+        //    D-18 contract: `settings-{provider}-field-{name}` testid.
+        var clientIdInput = Page.GetByTestId("settings-importlist-field-clientId");
         await clientIdInput.FillAsync("test-mal-client-id");
 
         // 5. Click "Connect". For new (un-persisted) MAL lists the backend's
@@ -195,7 +210,17 @@ public class OAuthPasteBackModalFixture : AutomationTest
         await Assertions.Expect(callbackUrlModal).Not.ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 1_000 });
 
-        // 8. The Edit modal stays open so the user can save first + retry.
+        // 8. PR #228 coderabbit review: the actionable "Save first" guidance
+        //    from MalImportList.cs:122 must be USER-VISIBLE — not just present
+        //    in hook state. The error flows through `formInputActions` (see
+        //    OAuthInput.tsx:155-160) and renders in the FormInputGroup error
+        //    display. Assert the leading phrase is on the page so silent
+        //    surfacing regressions are caught.
+        var saveFirstGuidance = Page.GetByText("Save this Import List first").First;
+        await Assertions.Expect(saveFirstGuidance).ToBeVisibleAsync(
+            new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
+
+        // 9. The Edit modal stays open so the user can save first + retry.
         await Assertions.Expect(editModal).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
     }
