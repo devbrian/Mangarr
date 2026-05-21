@@ -1,6 +1,10 @@
+using FluentValidation;
 using Mangarr.Api.V5.Provider;
 using Mangarr.Http;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Core.ImportLists;
+using NzbDrone.Core.Validation;
+using NzbDrone.Core.Validation.Paths;
 using NzbDrone.SignalR;
 
 namespace Mangarr.Api.V5.ImportLists;
@@ -24,20 +28,40 @@ namespace Mangarr.Api.V5.ImportLists;
 //   PUT    /api/v5/importlist/bulk     (bulk update)
 //   DELETE /api/v5/importlist/bulk     (bulk delete)
 //
-// Phase 26 substrate ships ZERO field-level SharedValidator rules per D-08 — Phase 27
-// providers add per-Settings rules in their own POCO classes. The base validator
-// rules (Name not empty / unique, Implementation + ConfigContract not empty,
-// Fields not null) come from ProviderControllerBase ctor at lines 44-49.
+// Phase 27.1 D-08-amendment + RESEARCH OQ 5: bulk-edit can now mutate
+// RootFolderPath + TranslationProfileId via /bulk inherited endpoint — guard at
+// controller layer to prevent silent corruption (T-27.1-01-03 + T-27.1-01-04
+// STRIDE Tamper mitigations). Mirrors Sonarr v3 ImportListController:14-22
+// pattern (which carries the upstream RootFolderExistsValidator +
+// QualityProfileExistsValidator rules). Field-shape adapted to Mangarr:
+//   * QualityProfile → TranslationProfile (Phase 5 D-04 model)
+//   * Validators are reused-as-is from src/NzbDrone.Core/Validation/
+//     (DryIoc resolves them through assembly-scan auto-registration).
+//
+// Provider-base validator rules (Name not empty / unique, Implementation +
+// ConfigContract not empty, Fields not null) come from ProviderControllerBase
+// ctor at lines 44-49.
 [V5ApiController]
 public class ImportListController : ProviderControllerBase<ImportListResource, ImportListBulkResource, IMangaImportList, ImportListDefinition>
 {
     public static readonly ImportListResourceMapper ResourceMapper = new();
     public static readonly ImportListBulkResourceMapper BulkResourceMapper = new();
 
-    public ImportListController(IBroadcastSignalRMessage signalRBroadcaster, IImportListFactory importListFactory)
+    public ImportListController(IBroadcastSignalRMessage signalRBroadcaster,
+                                IImportListFactory importListFactory,
+                                RootFolderExistsValidator rootFolderExistsValidator,
+                                TranslationProfileExistsValidator translationProfileExistsValidator)
         : base(signalRBroadcaster, importListFactory, "importlist", ResourceMapper, BulkResourceMapper)
     {
-        // Phase 26 substrate ships ZERO field-level SharedValidator rules per D-08.
-        // Phase 27 providers add per-Settings rules in their own POCO classes.
+        SharedValidator.RuleFor(x => x.RootFolderPath).Cascade(CascadeMode.Stop)
+            .IsValidPath()
+            .SetValidator(rootFolderExistsValidator)
+            .When(x => x.RootFolderPath.IsNotNullOrWhiteSpace());
+
+        // ImportListResource.TranslationProfileId is non-nullable int. The
+        // TranslationProfileExistsValidator.IsValid contract short-circuits to true
+        // when (int)PropertyValue == 0, preserving the "no change" / fallback case
+        // for partial PUT /bulk payloads where the client omits the field.
+        SharedValidator.RuleFor(x => x.TranslationProfileId).SetValidator(translationProfileExistsValidator);
     }
 }
