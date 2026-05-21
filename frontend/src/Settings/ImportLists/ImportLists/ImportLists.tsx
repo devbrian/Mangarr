@@ -10,12 +10,12 @@ import { useSortedImportLists } from '../useImportLists';
 import AddImportListModal from './AddImportListModal';
 import EditImportListModal from './EditImportListModal';
 import ImportList from './ImportList';
+import styles from './ImportLists.css';
 
 // Phase 26 Plan 26-05 (IL-05) — provider-list view for the Settings → ImportLists
 // page. Mirror of frontend/src/Settings/Indexers/Indexers/Indexers.tsx per
-// RESEARCH §Q7. Empty list + empty Add picker is the default state for Phase 26
-// (zero production providers per D-08; Phase 27 lands MangaDex / AniList / MAL
-// IMangaImportList implementations).
+// RESEARCH §Q7. Phase 27.1 Plan 27.1-05 Task 4 — added CSS module wiring per
+// Indexers peer (styles.lists / styles.addList / styles.center).
 
 function ImportLists() {
   const { isFetching, isFetched, data, error } = useSortedImportLists();
@@ -65,7 +65,7 @@ function ImportLists() {
         isFetching={isFetching}
         isPopulated={isFetched}
       >
-        <div>
+        <div className={styles.lists}>
           {data.map((item) => {
             return (
               <ImportList
@@ -77,10 +77,11 @@ function ImportLists() {
           })}
 
           <Card
+            className={styles.addList}
             data-testid="settings-importlist-add-card"
             onPress={handleAddImportListPress}
           >
-            <div>
+            <div className={styles.center}>
               <Icon name={icons.ADD} size={45} />
             </div>
           </Card>

@@ -1,10 +1,13 @@
 import React, { useCallback, useRef, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import AppState from 'App/State/AppState';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import PageToolbarButton from 'Components/Page/Toolbar/PageToolbarButton';
 import PageToolbarSeparator from 'Components/Page/Toolbar/PageToolbarSeparator';
 import { icons } from 'Helpers/Props';
 import SettingsToolbar from 'Settings/SettingsToolbar';
+import { testAllImportLists } from 'Store/Actions/settingsActions';
 import {
   SaveCallback,
   SettingsStateChange,
@@ -15,24 +18,22 @@ import ImportLists from './ImportLists/ImportLists';
 import ManageImportListsModal from './ImportLists/Manage/ManageImportListsModal';
 import ImportListOptions from './Options/ImportListOptions';
 
-// Phase 26 Plan 26-05 (IL-05) — REWRITE of the Phase 15 Plan 15-12 placeholder
-// page. The previous version displayed an Info alert reading "ImportLists not
-// available yet for manga (v1.1+)" for nav-tree continuity. v1.1 substrate now
-// ships: this page wires the translated tree mirroring
-// `frontend/src/Settings/Indexers/IndexerSettings.tsx` (per RESEARCH §Q7
-// parallel pattern).
-//
-// D-05 ENFORCED: Sonarr-canonical Settings → ImportLists has no Test-All hook
-// nor SyncN-ow PageToolbarButton; this file imports neither, and the
-// frontend/src/Settings/ImportLists/useImportLists.ts hook deliberately omits
-// the matching TanStack mutation. Users trigger via System → Tasks UI or
-// `POST /api/v5/command {name:"ImportListSync"}` directly.
-//
-// data-testid `settings-importlists-page` preserved from the prior page shape
-// (Phase 18 D-18 selector strategy) so route-load fixtures continue to assert
-// page mount.
+// Phase 27.1 Plan 27.1-05 verbatim Sonarr v5-develop port. D-02 amends
+// Phase 26 D-05's "no Test-All hook" claim — testAllImportLists Redux thunk
+// shipped Phase 26 substrate (importLists.js:53) but was never wired to a
+// toolbar button. This file ships the wiring (TestAllLists + ManageImportLists
+// PageToolbarButton pair) following the IndexerSettings.tsx peer with the
+// Redux-canonical adaptation called out in PATTERNS.md (useDispatch +
+// useSelector(state.settings.importLists.isTestingAll) replacing Indexers'
+// useTestAllIndexers React Query hook). data-testid `settings-importlists-page`
+// preserved from Phase 26 selector per A10.
 
 function ImportListSettings() {
+  const dispatch = useDispatch();
+  const isTestingAll = useSelector(
+    (state: AppState) => state.settings.importLists.isTestingAll
+  );
+
   const saveOptions = useRef<() => void>();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -64,6 +65,10 @@ function ImportListSettings() {
     saveOptions.current?.();
   }, []);
 
+  const handleTestAllImportListsPress = useCallback(() => {
+    dispatch(testAllImportLists());
+  }, [dispatch]);
+
   return (
     <PageContent title={translate('ImportListSettings')}>
       <SettingsToolbar
@@ -72,6 +77,14 @@ function ImportListSettings() {
         additionalButtons={
           <>
             <PageToolbarSeparator />
+
+            <PageToolbarButton
+              label={translate('TestAllLists')}
+              iconName={icons.TEST}
+              isSpinning={isTestingAll}
+              data-testid="settings-importlists-test-all-button"
+              onPress={handleTestAllImportListsPress}
+            />
 
             <PageToolbarButton
               label={translate('ManageImportLists')}

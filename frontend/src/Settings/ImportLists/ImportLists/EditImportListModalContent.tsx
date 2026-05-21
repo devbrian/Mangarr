@@ -18,22 +18,22 @@ import { SelectedSchema } from 'Settings/useProviderSchema';
 import { EnhancedSelectInputChanged, InputChanged } from 'typings/inputs';
 import translate from 'Utilities/String/translate';
 import { useManageImportList } from '../useImportLists';
+import styles from './EditImportListModalContent.css';
 
 // Phase 26 Plan 26-05 (IL-05) — Edit modal content. Mirror of
 // frontend/src/Settings/Indexers/Indexers/EditIndexerModalContent.tsx per
-// RESEARCH §Q7. Field surface drawn from `ImportListResource`:
-//   * Sonarr `QualityProfileId`           → Mangarr TranslationProfileId (Phase 5 D-04)
-//   * Sonarr `SearchForMissingEpisodes`   → Mangarr SearchForMissingChapters
-//   * Sonarr `SeasonFolder` / `SeriesType` — DROPPED (TV-only; Migration 001)
-//   * `CustomFormatProfileId`             — substrate round-trips on backend; FE form
-//                                            input deferred to Phase 27 once a
-//                                            `CUSTOM_FORMAT_PROFILE_SELECT` input
-//                                            type lands (parity with the AddManga
-//                                            modal's SELECT-with-values pattern).
-//   * Monitor / MonitorNewItems           — preserved (RESEARCH §Q1: Sonarr-canonical
-//                                            opt-in semantics still apply to manga;
-//                                            reuses existing MONITOR_EPISODES_SELECT
-//                                            / MONITOR_NEW_ITEMS_SELECT input types).
+// RESEARCH §Q7. Field surface drawn from `ImportListResource`. Manga peers
+// of the Sonarr substitution map (Phase 5 D-04 + Phase 17.3 D-13 rename pass):
+//   * translationProfileId  (manga peer of the deleted TV quality profile id)
+//   * searchForMissingChapters  (manga peer of the deleted SearchForMissing-
+//     Episodes Sonarr field; Phase 6 rename)
+//   * Season / SeriesType TV-only fields DROPPED (Migration 001)
+//   * customFormatProfileId — substrate round-trips on backend; FE input
+//     deferred to Phase 27 once a CUSTOM_FORMAT_PROFILE_SELECT input type
+//     lands (parity with the AddManga modal's SELECT-with-values pattern).
+//   * Monitor / MonitorNewItems — preserved (RESEARCH §Q1: Sonarr-canonical
+//     opt-in semantics still apply to manga; reuses existing
+//     MONITOR_EPISODES_SELECT / MONITOR_NEW_ITEMS_SELECT input types).
 
 export interface EditImportListModalContentProps {
   id?: number;
@@ -243,6 +243,7 @@ function EditImportListModalContent({
       <ModalFooter>
         {id ? (
           <Button
+            className={styles.deleteButton}
             kind={kinds.DANGER}
             data-testid="delete-button"
             onPress={onDeleteImportListPress}

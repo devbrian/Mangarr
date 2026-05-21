@@ -19,6 +19,13 @@ public class SettingsImportListsPage : PageBase
 
     public ILocator PageContainer => Page.GetByTestId("settings-importlists-page");
 
+    // Phase 27.1 Plan 27.1-05 Task 7 — toolbar locators for the Sonarr-parity
+    // PageToolbarButton pair shipped in Plan 27.1-05 Task 2. TestAllButton
+    // must be ASSERTED rendered but NEVER ClickedAsync inside automation —
+    // RESEARCH §Pitfall 5 documents the synchronous-loop OOM risk.
+    public ILocator TestAllButton => Page.GetByTestId("settings-importlists-test-all-button");
+    public ILocator ManageButton  => Page.GetByTestId("settings-importlists-manage-button");
+
     public async Task<SettingsImportListsPage> OpenAsync(string rootUri)
     {
         await Page.GotoAsync($"{rootUri}/settings/importlists");

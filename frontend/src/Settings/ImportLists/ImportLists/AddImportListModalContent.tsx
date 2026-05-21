@@ -12,6 +12,7 @@ import { SelectedSchema } from 'Settings/useProviderSchema';
 import translate from 'Utilities/String/translate';
 import { useImportListSchema } from '../useImportLists';
 import AddImportListItem from './AddImportListItem';
+import styles from './AddImportListModalContent.css';
 
 // Phase 26 Plan 26-05 (IL-05) — Add-picker modal. Mirror of
 // frontend/src/Settings/Indexers/Indexers/AddIndexerModalContent.tsx per
@@ -60,7 +61,7 @@ function AddImportListModalContent({
             </Alert>
 
             <FieldSet legend={translate('ImportLists')}>
-              <div>
+              <div className={styles.lists}>
                 {schema.map((importList) => {
                   return (
                     <AddImportListItem
