@@ -139,6 +139,21 @@ public class EditImportListExclusionConcurrentRemovalFixture : AutomationTest
             // does NOT navigate away (which would unmount the modal before our
             // detection effect runs), and does NOT depend on focus/visibility
             // heuristics that vary in headless Playwright.
+            //
+            // FRAGILE TECHNIQUE — VERSION PIN: the `Page.EvaluateAsync` snippet
+            // below relies on private React internal keys
+            // (`__reactContainer$<random>` / `__reactFiber$<random>`) and the
+            // TanStack QueryClient duck-shape (`.invalidateQueries` +
+            // `.getQueryCache`). Validated against:
+            //   - React 18.3.1 (see `frontend/package.json`)
+            //   - TanStack Query 5.61.0 (`@tanstack/react-query`, see
+            //     `frontend/package.json`)
+            // If either is upgraded across a MAJOR version (React 19, TanStack
+            // 6, etc.), re-verify both the fiber-key prefixes and the
+            // QueryClient method shape before assuming this fixture still
+            // dispatches. The CodeRabbit PR #235 review (2026-05-21) flagged
+            // this fragility; the version pin lives in this comment so the
+            // next maintainer is forewarned.
             await Page.EvaluateAsync(@"
                 async () => {
                     const root = document.getElementById('root') || document.body.firstElementChild;
