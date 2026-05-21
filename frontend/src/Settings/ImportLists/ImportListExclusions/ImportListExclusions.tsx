@@ -1,97 +1,112 @@
-import React, { useCallback, useState } from 'react';
+// Phase 27.1 Plan 27.1-03 (IL-EXCLUSIONS / D-01) — Sonarr-canonical rewrite
+// of the Phase 26 substrate placeholder. Replaces the inline `records.map`
+// inline-div layout with the Sonarr v5-develop verbatim shape:
+// `<SelectProvider> + <Table> + <TablePager>` with three sortable ID columns
+// (MangaDex ID / MAL ID / AniList ID) replacing Sonarr's single TvdbId column
+// per locked D-01. Sort + page-size persist via Zustand
+// `importListExclusionOptionsStore` (verbatim Sonarr port; localStorage key
+// `import_list_exclusion_options`).
+//
+// Pattern kappa enforcement: data-testid `settings-importlist-exclusions`
+// preserved on the wrapper FieldSet content per Phase 26 Plan 26-05; zero
+// TV-shape testids permitted on this file.
+import React, { useCallback, useEffect, useState } from 'react';
+import { SelectProvider, useSelect } from 'App/Select/SelectContext';
 import FieldSet from 'Components/FieldSet';
 import IconButton from 'Components/Link/IconButton';
 import SpinnerButton from 'Components/Link/SpinnerButton';
 import ConfirmModal from 'Components/Modal/ConfirmModal';
 import PageSectionContent from 'Components/Page/PageSectionContent';
+import TableRowCell from 'Components/Table/Cells/TableRowCell';
+import Column from 'Components/Table/Column';
+import Table from 'Components/Table/Table';
+import TableBody from 'Components/Table/TableBody';
+import TablePager from 'Components/Table/TablePager';
+import TableRow from 'Components/Table/TableRow';
 import useModalOpenState from 'Helpers/Hooks/useModalOpenState';
 import { icons, kinds } from 'Helpers/Props';
+import { SortDirection } from 'Helpers/Props/sortDirections';
+import { CheckInputChanged } from 'typings/inputs';
+import {
+  registerPagePopulator,
+  unregisterPagePopulator,
+} from 'Utilities/pagePopulator';
 import translate from 'Utilities/String/translate';
 import useImportListExclusions, {
   ImportListExclusion,
-  useDeleteImportListExclusion,
   useDeleteImportListExclusions,
 } from '../useImportListExclusions';
 import EditImportListExclusionModal from './EditImportListExclusionModal';
+import {
+  setImportListExclusionOption,
+  setImportListExclusionSort,
+  useImportListExclusionOptions,
+} from './importListExclusionOptionsStore';
+import ImportListExclusionRow from './ImportListExclusionRow';
 
-// Phase 26 Plan 26-05 (IL-05) — ImportListExclusion paged list. Trimmed mirror
-// of Sonarr-ref `frontend-settings/ImportListExclusions/ImportListExclusions.tsx`
-// per RESEARCH §Q7 — drops the bulk-select / SelectProvider / column-sort
-// machinery to stay within Plan 26-05's file budget (the substrate needs only
-// CRUD + Add + Delete; bulk-delete remains on the controller for Phase 27
-// expansion). MangaDexId triplet replaces TvdbId per Migration 003.
+const COLUMNS: Column[] = [
+  {
+    name: 'title',
+    label: () => translate('Title'),
+    isVisible: true,
+    isSortable: true,
+  },
+  {
+    name: 'mangaDexId',
+    label: () => translate('MangaDexId'),
+    isVisible: true,
+    isSortable: true,
+  },
+  {
+    name: 'malId',
+    label: () => translate('MalId'),
+    isVisible: true,
+    isSortable: true,
+  },
+  {
+    name: 'aniListId',
+    label: () => translate('AniListId'),
+    isVisible: true,
+    isSortable: true,
+  },
+  {
+    name: 'actions',
+    label: '',
+    isVisible: true,
+    isSortable: false,
+  },
+];
 
-interface ImportListExclusionRowProps extends ImportListExclusion {
-  onRefetch: () => void;
-}
+function ImportListExclusionsContent() {
+  const { pageSize, sortKey, sortDirection } = useImportListExclusionOptions();
 
-function ImportListExclusionRow({
-  id,
-  title,
-  mangaDexId,
-  malId,
-  aniListId,
-  onRefetch,
-}: ImportListExclusionRowProps) {
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const { deleteImportListExclusion, isDeleting } =
-    useDeleteImportListExclusion(id);
-
-  const handleEditPress = useCallback(() => setIsEditModalOpen(true), []);
-
-  const handleEditModalClose = useCallback(() => {
-    setIsEditModalOpen(false);
-    // Edit closes without a backing mutation — refetch immediately so the
-    // user sees any pending state cleared (parity with the Indexers/* analog).
-    onRefetch();
-  }, [onRefetch]);
-
-  const handleDeletePress = useCallback(() => {
-    // CodeRabbit PR #218 (WR-02 also from gsd-code-review): the mutation's
-    // onSuccess in useDeleteImportListExclusion invalidates the query, which
-    // triggers a fresh fetch. Calling onRefetch() here would race the mutate —
-    // fire a fetch BEFORE the DELETE settles — and the user would see the
-    // pre-delete row return briefly. Drop the manual refetch; rely on the
-    // hook's invalidation.
-    deleteImportListExclusion();
-  }, [deleteImportListExclusion]);
-
-  return (
-    <div data-testid={`settings-importlist-exclusion-row-${id}`}>
-      <span>{title}</span>
-      <span>{mangaDexId || '—'}</span>
-      <span>{malId ?? '—'}</span>
-      <span>{aniListId ?? '—'}</span>
-      <IconButton
-        name={icons.EDIT}
-        aria-label={translate('Edit')}
-        onPress={handleEditPress}
-      />
-      <IconButton
-        name={icons.REMOVE}
-        aria-label={translate('Delete')}
-        isDisabled={isDeleting}
-        onPress={handleDeletePress}
-      />
-      <EditImportListExclusionModal
-        id={id}
-        title={title}
-        mangaDexId={mangaDexId}
-        malId={malId ?? undefined}
-        aniListId={aniListId ?? undefined}
-        isOpen={isEditModalOpen}
-        onModalClose={handleEditModalClose}
-      />
-    </div>
-  );
-}
-
-function ImportListExclusions() {
-  const { records, isFetching, isFetched, error, refetch } =
-    useImportListExclusions();
+  const {
+    records,
+    totalPages,
+    totalRecords,
+    isFetching,
+    isFetched,
+    isLoading,
+    error,
+    page,
+    goToPage,
+    refetch,
+  } = useImportListExclusions({ pageSize, sortKey, sortDirection });
 
   const { deleteImportListExclusions, isDeleting: isBulkDeleting } =
     useDeleteImportListExclusions();
+
+  const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] =
+    useState(false);
+
+  const [editingExclusionId, setEditingExclusionId] = useState<number | null>(
+    null
+  );
+  const [
+    isEditImportListExclusionModalOpen,
+    setEditImportListExclusionModalOpen,
+    setEditImportListExclusionModalClosed,
+  ] = useModalOpenState(false);
 
   const [
     isAddImportListExclusionModalOpen,
@@ -99,76 +114,168 @@ function ImportListExclusions() {
     setAddImportListExclusionModalClosed,
   ] = useModalOpenState(false);
 
-  const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] =
-    useState(false);
+  const {
+    allSelected,
+    allUnselected,
+    anySelected,
+    getSelectedIds,
+    selectAll,
+    unselectAll,
+  } = useSelect<ImportListExclusion>();
+
+  const handleSelectAllChange = useCallback(
+    ({ value }: CheckInputChanged) => {
+      if (value) {
+        selectAll();
+      } else {
+        unselectAll();
+      }
+    },
+    [selectAll, unselectAll]
+  );
+
+  const handleSortPress = useCallback(
+    (sortKey: string, sortDirection?: SortDirection) => {
+      setImportListExclusionSort({ sortKey, sortDirection });
+    },
+    []
+  );
+
+  const handleTableOptionChange = useCallback(
+    (payload: { pageSize?: number }) => {
+      if (payload.pageSize) {
+        setImportListExclusionOption('pageSize', payload.pageSize as number);
+        goToPage(1);
+      }
+    },
+    [goToPage]
+  );
+
+  const handleDeleteSelectedPress = useCallback(() => {
+    setIsConfirmDeleteModalOpen(true);
+  }, []);
+
+  const handleDeleteSelectedConfirmed = useCallback(() => {
+    // WR-02 (CodeRabbit PR #218): `records` here is the CURRENT PAGE only
+    // (paged query slice), so getSelectedIds() reflects user-visible
+    // selection scope. Cross-page bulk-delete is the Manage subtree's job
+    // (Plan 27.1-04). Mutation onSuccess invalidates the query; do NOT
+    // refetch() here — it races the mutate.
+    deleteImportListExclusions({ ids: getSelectedIds() });
+    setIsConfirmDeleteModalOpen(false);
+    unselectAll();
+  }, [getSelectedIds, deleteImportListExclusions, unselectAll]);
+
+  const handleConfirmDeleteModalClose = useCallback(() => {
+    setIsConfirmDeleteModalOpen(false);
+  }, []);
+
+  const handleEditImportListExclusionPress = useCallback(
+    (id: number) => {
+      setEditingExclusionId(id);
+      setEditImportListExclusionModalOpen();
+    },
+    [setEditImportListExclusionModalOpen]
+  );
+
+  const handleEditModalClose = useCallback(() => {
+    setEditImportListExclusionModalClosed();
+    setEditingExclusionId(null);
+    // Refetch on close so any saved edits surface immediately. No mutation
+    // in flight at modal-close time (save settled or was cancelled).
+    refetch();
+  }, [setEditImportListExclusionModalClosed, refetch]);
 
   const handleAddModalClose = useCallback(() => {
-    // Add modal saves through a mutation hook whose onSuccess invalidates
-    // the query — the manual refetch is harmless (different fetch source
-    // than the mutate races on Delete) but kept for parity with the
-    // canonical Sonarr pattern where modal-close-after-edit explicitly
-    // refreshes the list. No race risk because no mutation is in flight
-    // at modal-close time (save already settled or was cancelled).
     setAddImportListExclusionModalClosed();
     refetch();
   }, [setAddImportListExclusionModalClosed, refetch]);
 
-  const handleDeleteAllPress = useCallback(() => {
-    setIsConfirmDeleteModalOpen(true);
-  }, []);
+  useEffect(() => {
+    const repopulate = () => {
+      refetch();
+    };
 
-  const handleConfirmDeleteAll = useCallback(() => {
-    // CodeRabbit PR #218: `records` here is the CURRENT PAGE's slice from the
-    // paged query, not the full result set. Bulk-delete across pages requires
-    // either a backend `DELETE /api/v5/importlistexclusion?all=true` endpoint
-    // OR a fetch-all-then-bulk-delete client roundtrip; both are Phase 27
-    // close-out scope (paired with the provider plugins that will populate
-    // exclusion volume meaningfully). v1.1 ships current-page bulk delete —
-    // honest because the substrate generates zero exclusions until providers
-    // sync. Tracked alongside GH #217 if multi-page bulk-delete is needed.
-    //
-    // refetch() removed per WR-02 — the mutation's onSuccess invalidates the
-    // query, which triggers a fresh fetch. Manual refetch races the mutate.
-    deleteImportListExclusions({ ids: records.map((r) => r.id) });
-    setIsConfirmDeleteModalOpen(false);
-  }, [deleteImportListExclusions, records]);
+    registerPagePopulator(repopulate);
 
-  const handleCancelDelete = useCallback(() => {
-    setIsConfirmDeleteModalOpen(false);
-  }, []);
+    return () => {
+      unregisterPagePopulator(repopulate);
+    };
+  }, [refetch]);
+
+  const editingExclusion = editingExclusionId
+    ? records.find((r) => r.id === editingExclusionId)
+    : undefined;
 
   return (
     <FieldSet legend={translate('ImportListExclusions')}>
       <PageSectionContent
         errorMessage={translate('ImportListExclusionsLoadError')}
-        isFetching={isFetching && !isFetched}
+        isFetching={isLoading && !isFetched}
         isPopulated={isFetched}
         error={error}
       >
         <div data-testid="settings-importlist-exclusions">
-          {records.map((item) => (
-            <ImportListExclusionRow
-              key={item.id}
-              {...item}
-              onRefetch={refetch}
-            />
-          ))}
-        </div>
-
-        <div>
-          <SpinnerButton
-            kind={kinds.DANGER}
-            isSpinning={isBulkDeleting}
-            isDisabled={records.length === 0}
-            onPress={handleDeleteAllPress}
+          <Table
+            selectAll={true}
+            allSelected={allSelected}
+            allUnselected={allUnselected}
+            columns={COLUMNS}
+            canModifyColumns={false}
+            pageSize={pageSize}
+            sortKey={sortKey}
+            sortDirection={sortDirection}
+            onTableOptionChange={handleTableOptionChange}
+            onSelectAllChange={handleSelectAllChange}
+            onSortPress={handleSortPress}
           >
-            {translate('Delete')}
-          </SpinnerButton>
+            <TableBody>
+              {records.map((item) => {
+                return (
+                  <ImportListExclusionRow
+                    key={item.id}
+                    id={item.id}
+                    title={item.title}
+                    mangaDexId={item.mangaDexId}
+                    malId={item.malId}
+                    aniListId={item.aniListId}
+                    columns={COLUMNS}
+                    onEditImportListExclusionPress={
+                      handleEditImportListExclusionPress
+                    }
+                  />
+                );
+              })}
 
-          <IconButton
-            name={icons.ADD}
-            aria-label={translate('Add')}
-            onPress={setAddImportListExclusionModalOpen}
+              <TableRow>
+                <TableRowCell colSpan={5}>
+                  <SpinnerButton
+                    kind={kinds.DANGER}
+                    isSpinning={isBulkDeleting}
+                    isDisabled={!anySelected}
+                    onPress={handleDeleteSelectedPress}
+                  >
+                    {translate('Delete')}
+                  </SpinnerButton>
+                </TableRowCell>
+
+                <TableRowCell>
+                  <IconButton
+                    name={icons.ADD}
+                    aria-label={translate('Add')}
+                    onPress={setAddImportListExclusionModalOpen}
+                  />
+                </TableRowCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+
+          <TablePager
+            page={page}
+            totalPages={totalPages}
+            totalRecords={totalRecords}
+            isFetching={isFetching}
+            onPageSelect={goToPage}
           />
         </div>
 
@@ -177,17 +284,42 @@ function ImportListExclusions() {
           onModalClose={handleAddModalClose}
         />
 
+        <EditImportListExclusionModal
+          id={editingExclusion?.id}
+          title={editingExclusion?.title}
+          mangaDexId={editingExclusion?.mangaDexId}
+          malId={editingExclusion?.malId ?? undefined}
+          aniListId={editingExclusion?.aniListId ?? undefined}
+          isOpen={isEditImportListExclusionModalOpen}
+          onModalClose={handleEditModalClose}
+        />
+
         <ConfirmModal
           isOpen={isConfirmDeleteModalOpen}
           kind={kinds.DANGER}
           title={translate('DeleteSelected')}
           message={translate('DeleteSelectedImportListExclusionsMessageText')}
           confirmLabel={translate('DeleteSelected')}
-          onConfirm={handleConfirmDeleteAll}
-          onCancel={handleCancelDelete}
+          onConfirm={handleDeleteSelectedConfirmed}
+          onCancel={handleConfirmDeleteModalClose}
         />
       </PageSectionContent>
     </FieldSet>
+  );
+}
+
+function ImportListExclusions() {
+  const { pageSize, sortKey, sortDirection } = useImportListExclusionOptions();
+  const { records } = useImportListExclusions({
+    pageSize,
+    sortKey,
+    sortDirection,
+  });
+
+  return (
+    <SelectProvider<ImportListExclusion> items={records}>
+      <ImportListExclusionsContent />
+    </SelectProvider>
   );
 }
 
