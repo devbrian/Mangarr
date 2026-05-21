@@ -68,24 +68,28 @@ const COLUMNS: Column[] = [
     label: () => translate('Title'),
     isVisible: true,
     isSortable: true,
+    'data-testid': 'settings-importlist-exclusion-title-header',
   },
   {
     name: 'mangaDexId',
     label: () => translate('MangaDexId'),
     isVisible: true,
     isSortable: true,
+    'data-testid': 'settings-importlist-exclusion-mangadexid-header',
   },
   {
     name: 'malId',
     label: () => translate('MalId'),
     isVisible: true,
     isSortable: true,
+    'data-testid': 'settings-importlist-exclusion-malid-header',
   },
   {
     name: 'aniListId',
     label: () => translate('AniListId'),
     isVisible: true,
     isSortable: true,
+    'data-testid': 'settings-importlist-exclusion-anilistid-header',
   },
   {
     className: styles.actions,
