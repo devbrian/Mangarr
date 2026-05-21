@@ -2,19 +2,12 @@
   "mcpServers": {
     "code-review-graph": {
       "command": "uvx",
-      "args": [
-        "code-review-graph",
-        "serve"
-      ],
+      "args": ["code-review-graph", "serve"],
       "type": "stdio"
     },
     "playwright": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@playwright/mcp@latest",
-        "--browser-arg=--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessPermissionPrompt"
-      ],
+      "args": ["-y", "@playwright/mcp@latest"],
       "type": "stdio"
     }
   }
