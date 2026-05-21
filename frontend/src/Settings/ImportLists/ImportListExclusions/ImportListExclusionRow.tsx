@@ -34,6 +34,7 @@ import {
   ImportListExclusion,
   useDeleteImportListExclusion,
 } from '../useImportListExclusions';
+import styles from './ImportListExclusionRow.css';
 
 interface ImportListExclusionRowProps {
   id: number;
@@ -117,7 +118,7 @@ function ImportListExclusionRow({
       <TableRowCell>{malId ?? '—'}</TableRowCell>
       <TableRowCell>{aniListId ?? '—'}</TableRowCell>
 
-      <TableRowCell>
+      <TableRowCell className={styles.actions}>
         <IconButton
           name={icons.EDIT}
           aria-label={translate('Edit')}

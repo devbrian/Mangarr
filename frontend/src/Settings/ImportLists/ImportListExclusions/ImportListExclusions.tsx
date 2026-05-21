@@ -43,6 +43,7 @@ import {
   useImportListExclusionOptions,
 } from './importListExclusionOptionsStore';
 import ImportListExclusionRow from './ImportListExclusionRow';
+import styles from './ImportListExclusions.css';
 
 const COLUMNS: Column[] = [
   {
@@ -70,6 +71,7 @@ const COLUMNS: Column[] = [
     isSortable: true,
   },
   {
+    className: styles.actions,
     name: 'actions',
     label: '',
     isVisible: true,
