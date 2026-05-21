@@ -1,6 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { orderBy } from 'lodash';
 import { useMemo } from 'react';
 import useApiMutation from 'Helpers/Hooks/useApiMutation';
+import { useManageImportListsOptions } from 'Settings/ImportLists/useManageImportListsOptionsStore';
 import {
   SelectedSchema,
   useProviderSchema,
@@ -75,13 +77,16 @@ export const useImportListsData = () => {
   return data;
 };
 
+// Name-sorted view of the import list collection. Consumed by the settings
+// page card grid + any other surface that wants the canonical alphabetical
+// listing. The Manage Import Lists modal uses `useSortedManageImportLists`
+// instead, because that modal binds sort to a user-controlled Zustand store.
 export const useSortedImportLists = () => {
   const result = useImportLists();
 
   // CodeRabbit PR #218 CRIT: Array.prototype.sort mutates in place, which
   // would mutate the React Query cached array shared across consumers. Copy
-  // first via toSorted() (ES2023) — or slice().sort() for older targets — so
-  // the cache stays immutable.
+  // first via spread so the cache stays immutable.
   const sortedData = useMemo(
     () => [...result.data].sort(sortByProp('name')),
     [result.data]
@@ -91,6 +96,59 @@ export const useSortedImportLists = () => {
     ...result,
     data: sortedData,
   };
+};
+
+// GH #224 fix (Phase 27.1 27.1-REVIEW WR-01 fix-forward) — the Manage Import
+// Lists modal binds its column-header sort to `useManageImportListsOptions()`
+// Zustand state (`sortKey` + `sortDirection`). A dedicated hook reads that
+// state and applies it via `lodash.orderBy` (the same utility
+// `clientSideFilterAndSort` uses), so the visible row order in the Manage
+// modal matches what the user picked.
+//
+// Why a NEW hook and not a tweak to `useSortedImportLists`: the latter is
+// also consumed by name-sorted-only surfaces (the settings page card grid,
+// future filter dropdowns) that have no UI for changing sort. Keeping the
+// hooks separate avoids accidentally coupling those surfaces to the Manage
+// modal's persisted Zustand state.
+//
+// CodeRabbit PR #218 CRIT preserved: `orderBy` returns a new array — the
+// React Query cached array referenced by `result.data` is never mutated.
+export const useSortedManageImportLists = () => {
+  const result = useImportLists();
+  const { sortKey, sortDirection } = useManageImportListsOptions();
+
+  const sortedData = useMemo(
+    () =>
+      orderBy(
+        result.data,
+        [(item) => normalizeSortValue(item, sortKey)],
+        [sortDirection === 'descending' ? 'desc' : 'asc']
+      ),
+    [result.data, sortKey, sortDirection]
+  );
+
+  return {
+    ...result,
+    data: sortedData,
+  };
+};
+
+// Normalize a row's sort-value so case-insensitive ordering applies for
+// strings (matching what `sortByProp` did pre-fix) and natural numeric
+// ordering applies for numbers. Lodash's `orderBy` defaults to JS
+// comparison which is case-sensitive for strings.
+const normalizeSortValue = (item: ImportListModel, sortKey: string) => {
+  const value = (item as unknown as Record<string, unknown>)[sortKey];
+
+  if (value == null) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return value.toLowerCase();
+  }
+
+  return value as string | number | boolean;
 };
 
 export const useImportLists = () => {

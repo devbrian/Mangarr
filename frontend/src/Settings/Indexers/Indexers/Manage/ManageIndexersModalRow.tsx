@@ -54,11 +54,18 @@ function ManageIndexersModalRow(props: ManageIndexersModalRowProps) {
     [toggleSelected]
   );
 
+  // GH #224 fix-forward — per-row testid (`settings-indexer-row-{id}`) +
+  // checkbox testid (`settings-indexer-row-{id}-checkbox`) so the
+  // ManageIndexersSortAndRangeSelectFixture can pick rows by their seeded
+  // backend id. Mirrors the
+  // `settings-customformat-row-{_seedId}-checkbox` shape pinned in
+  // ManageCustomFormatsEditModalFixture.cs.
   return (
-    <TableRow>
+    <TableRow data-testid={`settings-indexer-row-${id}`}>
       <TableSelectCell
         id={id}
         isSelected={isSelected}
+        data-testid={`settings-indexer-row-${id}-checkbox`}
         onSelectedChange={onSelectedChangeWrapper}
       />
 

@@ -13,6 +13,10 @@ interface Column {
   fixedSortDirection?: SortDirection;
   isVisible: boolean;
   isModifiable?: boolean;
+  // Optional data-testid propagated through Table -> TableHeaderCell -> Link
+  // onto the rendered <th> so Playwright fixtures can click headers via
+  // Page.GetByTestId("...") instead of brittle CSS/ARIA-attribute locators.
+  'data-testid'?: string;
 }
 
 export default Column;

@@ -7,6 +7,16 @@
 // rootFolderPath, translationProfileId columns. Other shape (SelectProvider +
 // inner/outer pattern + bulk-edit/bulk-delete/Tags dispatch) is unchanged from
 // the analog. Pattern kappa preserved (zero TV-shape tokens).
+//
+// GH #224 fix-forward (Phase 27.1 27.1-REVIEW WR-01) — the outer
+// `<SelectProvider items={...}>` now receives the SORTED array (from
+// `useSortedManageImportLists()`) so `useSelect.getToggledRange()` walks the
+// same array the user sees. The pre-fix shape passed `useImportListsData()`
+// (raw React Query cache, unsorted) which caused shift-click range-select to
+// highlight the wrong contiguous block. The dedicated
+// `useSortedManageImportLists` hook (vs. `useSortedImportLists`) is bound to
+// the Manage modal's Zustand sort store so column-header clicks actually
+// re-sort the visible rows.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SelectProvider, useSelect } from 'App/Select/SelectContext';
 import Alert from 'Components/Alert';
@@ -26,14 +36,14 @@ import {
   ImportListModel,
   useBulkDeleteImportLists,
   useBulkEditImportLists,
-  useImportListsData,
-  useSortedImportLists,
+  useSortedManageImportLists,
 } from 'Settings/ImportLists/useImportLists';
 import {
   setManageImportListsSort,
   useManageImportListsOptions,
 } from 'Settings/ImportLists/useManageImportListsOptionsStore';
 import { CheckInputChanged } from 'typings/inputs';
+import { ApiError } from 'Utilities/Fetch/fetchJson';
 import getErrorMessage from 'Utilities/Object/getErrorMessage';
 import translate from 'Utilities/String/translate';
 import ManageImportListsEditModal from './Edit/ManageImportListsEditModal';
@@ -47,6 +57,7 @@ const COLUMNS: Column[] = [
     label: () => translate('Name'),
     isSortable: true,
     isVisible: true,
+    'data-testid': 'settings-importlist-name-header',
   },
   {
     name: 'implementation',
@@ -86,15 +97,18 @@ interface ManageImportListsModalContentProps {
 
 interface ManageImportListsModalContentInnerProps {
   onModalClose(): void;
+  data: ImportListModel[];
+  isFetching: boolean;
+  isFetched: boolean;
+  error: ApiError | null;
 }
 
 function ManageImportListsModalContentInner(
   props: ManageImportListsModalContentInnerProps
 ) {
-  const { onModalClose } = props;
+  const { onModalClose, data, isFetching, isFetched, error } = props;
 
   const { sortKey, sortDirection } = useManageImportListsOptions();
-  const { data, isFetching, isFetched, error } = useSortedImportLists();
 
   const { isDeleting, bulkDeleteImportLists } = useBulkDeleteImportLists();
   const { isSaving, bulkEditImportLists } = useBulkEditImportLists();
@@ -307,11 +321,22 @@ function ManageImportListsModalContentInner(
 function ManageImportListsModalContent(
   props: ManageImportListsModalContentProps
 ) {
-  const items = useImportListsData();
+  // GH #224 fix-forward — read the SORTED list once at the wrapper level and
+  // pass it both to <SelectProvider items={...}> AND down to the inner
+  // component as `data`. This guarantees `useSelect.getToggledRange()` and
+  // the rendered <Table> walk the identical array, so shift-click range-
+  // select highlights the contiguous block the user actually sees.
+  const { data, isFetching, isFetched, error } = useSortedManageImportLists();
 
   return (
-    <SelectProvider items={items}>
-      <ManageImportListsModalContentInner {...props} />
+    <SelectProvider items={data}>
+      <ManageImportListsModalContentInner
+        {...props}
+        data={data}
+        isFetching={isFetching}
+        isFetched={isFetched}
+        error={error}
+      />
     </SelectProvider>
   );
 }

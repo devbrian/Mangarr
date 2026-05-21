@@ -6,6 +6,13 @@
 // place); Translation profile name is rendered via useTranslationProfile (manga
 // Phase 5 D-04). MangaTagList preserved per Pitfall 3 / Pattern kappa
 // (zero TV-shape testid / hook leaks on any new ImportLists file).
+//
+// GH #224 fix-forward — per-row testid (`settings-importlist-row-{id}`) +
+// checkbox testid (`settings-importlist-row-{id}-checkbox`) so the
+// ManageImportListsSortAndRangeSelectFixture can pick rows by their seeded
+// backend id. Mirrors the
+// `settings-customformat-row-{_seedId}-checkbox` shape pinned in
+// ManageCustomFormatsEditModalFixture.cs.
 import React, { useCallback } from 'react';
 import { useSelect } from 'App/Select/SelectContext';
 import Label from 'Components/Label';
@@ -61,10 +68,11 @@ function ManageImportListsModalRow(props: ManageImportListsModalRowProps) {
   );
 
   return (
-    <TableRow>
+    <TableRow data-testid={`settings-importlist-row-${id}`}>
       <TableSelectCell
         id={id}
         isSelected={isSelected}
+        data-testid={`settings-importlist-row-${id}-checkbox`}
         onSelectedChange={onSelectedChangeWrapper}
       />
 
