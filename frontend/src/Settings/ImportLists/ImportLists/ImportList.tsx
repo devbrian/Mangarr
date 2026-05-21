@@ -9,6 +9,7 @@ import { useTagList } from 'Tags/useTags';
 import translate from 'Utilities/String/translate';
 import { ImportListModel, useDeleteImportList } from '../useImportLists';
 import EditImportListModal from './EditImportListModal';
+import styles from './ImportList.css';
 
 // Phase 26 Plan 26-05 (IL-05) — single-row provider card. Mirror of
 // frontend/src/Settings/Indexers/Indexers/Indexer.tsx with Indexer → ImportList
@@ -75,14 +76,16 @@ function ImportList({
 
   return (
     <Card
+      className={styles.importList}
       overlayContent={true}
       data-testid={`settings-importlist-card-${testIdSlug}`}
       onPress={handleEditImportListPress}
     >
-      <div>
-        <div>{name}</div>
+      <div className={styles.nameContainer}>
+        <div className={styles.name}>{name}</div>
 
         <IconButton
+          className={styles.cloneButton}
           title={translate('CloneImportList')}
           aria-label={translate('CloneImportList')}
           name={icons.CLONE}
@@ -90,7 +93,7 @@ function ImportList({
         />
       </div>
 
-      <div>
+      <div className={styles.enabled}>
         {enableAutomaticAdd ? (
           <Label kind={kinds.SUCCESS}>{translate('AutomaticAdd')}</Label>
         ) : (

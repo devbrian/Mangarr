@@ -21,9 +21,9 @@ import translate from 'Utilities/String/translate';
 // per RESEARCH §Q7 parallel-tree pattern; field set swapped for the ImportList
 // provider DTO surface (per `Mangarr.Api.V5.ImportLists.ImportListResource`).
 //
-// D-05 ENFORCED: NO `useTestAllImportLists` export — Sonarr-canonical Settings
-// page has no Test-All / Sync-Now button. Users trigger via System → Tasks UI
-// or `POST /api/v5/command {name:"ImportListSync"}`.
+// Redux thunk testAllImportLists at Store/Actions/Settings/importLists.js:53
+// is the canonical Test All hook per Phase 27.1 D-02; no parallel React Query
+// mutation is authored.
 
 export interface ImportListModel extends Provider {
   enableAutomaticAdd: boolean;
@@ -190,10 +190,11 @@ export const useTestImportList = (
   };
 };
 
-// D-05: No useTestAllImportLists export. Sonarr-canonical Settings page has no
-// Test-All button; the inherited /api/v5/importlist/testall endpoint exists on
-// the controller but the FE deliberately does not bind it. Users trigger via
-// System → Tasks UI or POST /api/v5/command {name:"ImportListSync"}.
+// Phase 27.1 D-02: testAllImportLists is the canonical Test-All hook (Redux
+// thunk at Store/Actions/Settings/importLists.js:53, wired to the toolbar
+// button in ImportListSettings.tsx). The inherited /api/v5/importlist/testall
+// endpoint is dispatched via that thunk; no parallel React Query mutation is
+// authored here.
 
 export const useBulkEditImportLists = (
   onSuccess?: () => void,
