@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using NLog;
 using NzbDrone.Common.EnvironmentInfo;
@@ -14,8 +15,8 @@ namespace NzbDrone.Core.ImportLists.AniList
     //   .planning/phases/27-3-importlist-provider-plugins-v1-1-inserted-2026-05-17/27-PATTERNS.md Pattern D
     //
     // Endpoints (verified — CONTEXT line 23 + RESEARCH §STACK §Surface 2):
-    //   * Pin authorize URL (user opens in new tab):
-    //     https://anilist.co/api/v2/oauth/pin?client_id={id}&response_type=code
+    //   * Pin authorize URL (user opens in new tab) — GH #230 fix:
+    //     https://anilist.co/api/v2/oauth/authorize?client_id={id}&response_type=code&redirect_uri=<pin-url>
     //   * Token exchange (server POSTs after user pastes the pin):
     //     https://anilist.co/api/v2/oauth/token  (form-urlencoded grant_type=authorization_code)
     //   * GraphQL queries — NOT touched by this proxy; the request generator routes through
@@ -51,6 +52,7 @@ namespace NzbDrone.Core.ImportLists.AniList
     {
         // Verified endpoints (CONTEXT line 23 + RESEARCH §STACK §Surface 2):
         private const string PinUrl = "https://anilist.co/api/v2/oauth/pin";
+        private const string AuthorizeUrl = "https://anilist.co/api/v2/oauth/authorize";
         private const string TokenUrl = "https://anilist.co/api/v2/oauth/token";
 
         private readonly IHttpClient _httpClient;
@@ -64,18 +66,30 @@ namespace NzbDrone.Core.ImportLists.AniList
 
         public string GetPinAuthorizeUrl(AniListImportListSettings settings)
         {
-            // D-07 + CONTEXT line 23 verbatim URL shape:
-            //   https://anilist.co/api/v2/oauth/pin?client_id={id}&response_type=code
-            // No state nonce — AniList's pin flow is single-use server-side (T-27-03-V11
-            // accepts MAL's enforcement); no CSRF wrapper needed because this URL is never
-            // returned to a third party (it goes user-browser-only).
+            // GH #230 fix (2026-05-21 live smoke): the previous URL pointed directly at
+            // `/api/v2/oauth/pin` — that endpoint is the REDIRECT TARGET, not the authorize
+            // endpoint. AniList's pin page reads the auth code from its OWN query string
+            // (`?code=...`) and renders it into the visible textbox; with no redirect happening
+            // first, location.search.code is `undefined` and the page shows the literal string
+            // "undefined" instead of a usable auth code.
+            //
+            // The correct URL is `/api/v2/oauth/authorize` with `redirect_uri` set to the pin
+            // page; AniList then redirects to the pin page with `?code=<grant>` appended so
+            // the pin page can extract and display it.
+            //
+            // Secondary requirement: the user's AniList OAuth client at
+            // https://anilist.co/settings/client/{id} MUST have its "Redirect URL" field set
+            // to https://anilist.co/api/v2/oauth/pin — without that, AniList rejects the
+            // authorize redirect_uri parameter and never produces a code. See
+            // AniListImportListSettings.cs ClientId HelpText for the user-facing guidance.
             //
             // ClientId may legitimately be null/empty pre-save (the FE renders the OAuth
             // button alongside the credential fields); validator catches this on save —
             // emit a partial URL anyway so the FE can surface a Sonarr-shaped error rather
             // than crashing inside the proxy.
             var clientId = settings?.ClientId ?? string.Empty;
-            return $"{PinUrl}?client_id={clientId}&response_type=code";
+            var redirectUri = Uri.EscapeDataString(PinUrl);
+            return $"{AuthorizeUrl}?client_id={clientId}&response_type=code&redirect_uri={redirectUri}";
         }
 
         public AniListTokenResponse ExchangePinForToken(string pin, AniListImportListSettings settings)
