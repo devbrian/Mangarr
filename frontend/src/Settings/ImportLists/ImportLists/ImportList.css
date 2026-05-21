@@ -13,8 +13,8 @@
   @add-mixin truncate;
 
   flex: 1;
-  min-width: 0;
   margin-bottom: 20px;
+  min-width: 0;
   font-weight: 300;
   font-size: 24px;
 }
