@@ -17,6 +17,47 @@ export interface OAuthInputProps {
   onChange: InputOnChange<unknown>;
 }
 
+// GH #221 — pluck the implementation string from a Redux settings-shape field.
+// The Settings layer wraps every provider field in a validation envelope:
+//   { value: "AniListImportList", pending: false, errors: [], warnings: [] }
+// When an Add/Edit modal is mounted in "add-new" mode, the raw schema is
+// passed through unwrapped — so `providerData.implementation` is the raw
+// string. When it's mounted for an existing row OR after `updateValue` is
+// called, the field is wrapped and the value sits at `.value`.
+//
+// This helper accepts either shape so OAuthInput works in both contexts.
+function readImplementationName(providerData: Record<string, unknown>): string {
+  if (!providerData) {
+    return '';
+  }
+  const candidate = providerData.implementation;
+  if (typeof candidate === 'string') {
+    return candidate;
+  }
+  if (candidate && typeof candidate === 'object' && 'value' in candidate) {
+    const wrapped = (candidate as { value?: unknown }).value;
+    return typeof wrapped === 'string' ? wrapped : '';
+  }
+  return '';
+}
+
+function readImplementationDisplay(
+  providerData: Record<string, unknown>
+): string {
+  if (!providerData) {
+    return '';
+  }
+  const candidate = providerData.implementationName;
+  if (typeof candidate === 'string') {
+    return candidate;
+  }
+  if (candidate && typeof candidate === 'object' && 'value' in candidate) {
+    const wrapped = (candidate as { value?: unknown }).value;
+    return typeof wrapped === 'string' ? wrapped : '';
+  }
+  return '';
+}
+
 // GH #221 — derive the OAuth completion mode from the providerData.implementation
 // field. The implementation name is the backend C# class name (e.g.
 // "AniListImportList", "MalImportList") surfaced verbatim on the
@@ -28,10 +69,7 @@ export interface OAuthInputProps {
 function deriveCompletionMode(
   providerData: Record<string, unknown>
 ): OAuthCompletionMode {
-  const implementation =
-    typeof providerData?.implementation === 'string'
-      ? (providerData.implementation as string)
-      : '';
+  const implementation = readImplementationName(providerData);
 
   switch (implementation) {
     case 'AniListImportList':
@@ -43,21 +81,12 @@ function deriveCompletionMode(
   }
 }
 
-// GH #221 — extract the OAuth authorize URL the backend returned in
-// `pendingPaste.oauthUrl`. The paste-back modal uses this so the user can
-// re-open the provider's authorize page if they accidentally closed it.
 function getProviderDisplayName(providerData: Record<string, unknown>): string {
-  const implementationName =
-    typeof providerData?.implementationName === 'string'
-      ? (providerData.implementationName as string)
-      : '';
+  const implementationName = readImplementationDisplay(providerData);
   if (implementationName) {
     return implementationName;
   }
-  const implementation =
-    typeof providerData?.implementation === 'string'
-      ? (providerData.implementation as string)
-      : '';
+  const implementation = readImplementationName(providerData);
   switch (implementation) {
     case 'AniListImportList':
       return 'AniList';
@@ -158,7 +187,11 @@ function OAuthInput({
     !!pendingPaste && pendingPaste.mode === 'paste-callback-url';
 
   return (
-    <div>
+    <div
+      data-oauth-completion-mode={completionMode}
+      data-oauth-pending-paste={pendingPaste ? pendingPaste.mode : 'none'}
+      data-oauth-authorizing={authorizing ? 'true' : 'false'}
+    >
       <SpinnerErrorButton
         kind={kinds.PRIMARY}
         isSpinning={authorizing}

@@ -214,33 +214,69 @@ const useOAuth = () => {
         // can render the appropriate paste-back modal. The flow resumes when the
         // caller invokes `completeOAuth(payload)` with the user-pasted value.
         if (completionMode !== 'callback') {
-          if (!response.oauthUrl) {
-            throw new Error(
-              'Backend did not return an oauthUrl for paste-back OAuth flow'
-            );
+          // Backend convention: paste-back providers may return
+          // `{ success: false, error: "..." }` on a startOAuth call that cannot
+          // proceed (e.g. MAL requires the ImportList to be saved first so
+          // PendingPkceState can round-trip across the request boundary). Surface
+          // the actionable error message verbatim so the user sees the guidance.
+          if (response.success === false) {
+            const message =
+              (response as { error?: string }).error ??
+              'OAuth start failed — the backend did not return an authorize URL';
+            const startError = Object.assign(new Error(message), {
+              status: 400,
+              responseJSON: [
+                {
+                  propertyName: name,
+                  errorMessage: message,
+                },
+              ],
+            });
+            throw startError;
           }
 
-          // Open the provider URL in a new tab. Same window.open semantics as
-          // showOAuthWindow (uses default popup target) — pop-up blocker detection
-          // mirrors the callback-mode path.
-          const newWindow = window.open(response.oauthUrl, '_blank');
-          if (
-            !newWindow ||
-            newWindow.closed ||
-            typeof newWindow.closed === 'undefined'
-          ) {
-            const error = Object.assign(
-              new Error('Pop-ups are being blocked by your browser'),
-              {
-                status: 400,
-                responseJSON: [
-                  {
-                    propertyName: name,
-                    errorMessage: 'Pop-ups are being blocked by your browser',
-                  },
-                ],
-              }
-            );
+          if (!response.oauthUrl) {
+            const message =
+              'Backend did not return an oauthUrl for paste-back OAuth flow';
+            const startError = Object.assign(new Error(message), {
+              status: 400,
+              responseJSON: [
+                {
+                  propertyName: name,
+                  errorMessage: message,
+                },
+              ],
+            });
+            throw startError;
+          }
+
+          // Open the provider URL in a new tab. Use the default popup target
+          // (matches the Trakt-canonical showOAuthWindow shape at line 86) so
+          // browser behavior is consistent — passing '_blank' caused chromium in
+          // headless Playwright to mark the cross-origin popup `closed=true`
+          // immediately on return, tripping the popup-blocker false-positive.
+          const newWindow = window.open(response.oauthUrl);
+
+          // Strict-only popup-blocker check: only flag `newWindow == null` as
+          // "blocked". Some browsers (notably headless chromium under Playwright)
+          // synchronously expose `closed=true` for cross-origin popups even when
+          // the popup successfully opens — the original `closed`/`typeof
+          // undefined` checks (preserved on showOAuthWindow at line 88-92) are
+          // wrong for the paste-back flow because they would suppress the modal.
+          // Trade-off: a genuinely-blocked popup may show "no modal opens"
+          // instead of the explicit blocker error — better than the false
+          // positive that hides the entire paste-back flow under Playwright.
+          if (!newWindow) {
+            const message = 'Pop-ups are being blocked by your browser';
+            const error = Object.assign(new Error(message), {
+              status: 400,
+              responseJSON: [
+                {
+                  propertyName: name,
+                  errorMessage: message,
+                },
+              ],
+            });
             throw error;
           }
 
