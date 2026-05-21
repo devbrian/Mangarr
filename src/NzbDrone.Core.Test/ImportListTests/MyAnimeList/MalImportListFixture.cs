@@ -41,6 +41,13 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
     //      Plan 27-01) (Test 7).
     //   8. fetch_401_force_refresh_then_retry — initial 401 ⇒ force-expire Expires,
     //      refresh, retry once (Test 8 — D-05 reactive 401-retry decorator).
+    //   9. get_oauth_token_reloads_pending_pkce_state_from_repository — GH #231
+    //      (2026-05-21 live smoke): when the FE round-trip wipes Settings.PendingPkceState
+    //      (SchemaBuilder.ReadFromSchema preserve-existing branch is gated on
+    //      Privacy=Password and PendingPkceState is Hidden-without-Privacy), the provider
+    //      reloads the DB-persisted blob via _importListRepository.Get before the
+    //      empty-check fires, so the validation proceeds to the exchange (Test 9 — Option
+    //      A per-provider reload; substrate-wide fix explicitly out-of-scope).
     //
     // No live HTTP — Mocker stubs IMalImportListProxy + IHttpClient + IImportListRepository.
     [TestFixture]
@@ -132,6 +139,22 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             var pending = MalOAuthState.Create();
             _settings.PendingPkceState = JsonConvert.SerializeObject(pending);
 
+            // GH #231: the Option A reload path looks up the persisted Definition. Return a
+            // Definition whose Settings carry the same PendingPkceState so the in-flight value
+            // is preserved and the happy-path exchange proceeds (this also documents the
+            // expected contract — a stub Definition that mirrors the in-flight state is the
+            // normal post-startOAuth shape).
+            _repo.Setup(r => r.Get(9012))
+                 .Returns(new ImportListDefinition
+                 {
+                     Id = 9012,
+                     Settings = new MalImportListSettings
+                     {
+                         ClientId = "fixture-client-id",
+                         PendingPkceState = _settings.PendingPkceState
+                     }
+                 });
+
             _proxy.Setup(p => p.ExchangeCodeForToken("fixture-client-id", "auth-code-fixture", pending.Verifier))
                   .Returns(new MalTokenResponse
                   {
@@ -179,6 +202,20 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             var pending = MalOAuthState.Create();
             _settings.PendingPkceState = JsonConvert.SerializeObject(pending);
 
+            // GH #231 reload: return a Definition with the same persisted PendingPkceState
+            // so we exercise the rejection path AFTER the reload (not a side-effect of the
+            // reload itself overwriting the value).
+            _repo.Setup(r => r.Get(9012))
+                 .Returns(new ImportListDefinition
+                 {
+                     Id = 9012,
+                     Settings = new MalImportListSettings
+                     {
+                         ClientId = "fixture-client-id",
+                         PendingPkceState = _settings.PendingPkceState
+                     }
+                 });
+
             // Attacker swaps the state nonce while keeping the code.
             var maliciousUrl = "https://mangarr.local/oauth/mal/callback?code=auth-code-fixture&state=ATTACKER_FORGED_NONCE";
 
@@ -208,6 +245,19 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
             var pending = MalOAuthState.Create();
             pending.ExpiresAt = DateTime.UtcNow.AddMinutes(-1); // already expired
             _settings.PendingPkceState = JsonConvert.SerializeObject(pending);
+
+            // GH #231 reload: return Definition with the same expired blob so the reload
+            // doesn't suppress the expiry-path under test.
+            _repo.Setup(r => r.Get(9012))
+                 .Returns(new ImportListDefinition
+                 {
+                     Id = 9012,
+                     Settings = new MalImportListSettings
+                     {
+                         ClientId = "fixture-client-id",
+                         PendingPkceState = _settings.PendingPkceState
+                     }
+                 });
 
             var redirectedUrl = $"https://mangarr.local/oauth/mal/callback?code=auth-code-fixture&state={pending.StateNonce}";
 
@@ -349,6 +399,78 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
 
             _settings.AccessToken.Should().Be("post-401-access",
                 "the post-401 refresh must persist the new access token.");
+        }
+
+        // ── Test 9: GH #231 — reload PendingPkceState from repository before validation ──
+        [Test]
+        public void get_oauth_token_reloads_pending_pkce_state_from_repository()
+        {
+            // Simulate the post-SchemaBuilder.ReadFromSchema wipe: the FE form-state
+            // round-trip carried pendingPkceState="" (the field is Hidden-without-Privacy,
+            // so the substrate's preserve-existing branch did NOT fire — see
+            // MalImportListSettings.cs comment block on the PendingPkceState field).
+            _settings.PendingPkceState = string.Empty;
+
+            // DB DOES carry a valid blob — the persisted MalOAuthState from the most-recent
+            // startOAuth call. Without the GH #231 reload, this value would never reach the
+            // in-flight Settings POCO and the validation would short-circuit on the empty-check.
+            var pending = MalOAuthState.Create();
+            var persistedSettings = new MalImportListSettings
+            {
+                ClientId = "fixture-client-id",
+                PendingPkceState = JsonConvert.SerializeObject(pending)
+            };
+
+            _repo.Setup(r => r.Get(9012))
+                 .Returns(new ImportListDefinition
+                 {
+                     Id = 9012,
+                     Settings = persistedSettings
+                 });
+
+            // Happy-path proxy: validates state, exchanges code+verifier for tokens.
+            _proxy.Setup(p => p.ExchangeCodeForToken("fixture-client-id", "auth-code-fixture", pending.Verifier))
+                  .Returns(new MalTokenResponse
+                  {
+                      AccessToken = "post-reload-access",
+                      RefreshToken = "post-reload-refresh",
+                      ExpiresIn = 2592000
+                  });
+
+            var redirectedUrl = $"https://mangarr.local/oauth/mal/callback?code=auth-code-fixture&state={pending.StateNonce}";
+
+            var result = Subject.RequestAction(
+                "getOAuthToken",
+                new Dictionary<string, string> { { "redirectedUrl", redirectedUrl } });
+
+            // The repository MUST have been queried for the persisted Definition.
+            _repo.Verify(
+                r => r.Get(9012),
+                Times.Once,
+                "GH #231 Option A reload: the provider must invoke _importListRepository.Get to " +
+                "restore the DB-persisted PendingPkceState before the empty-check fires.");
+
+            // The validation MUST have proceeded past the empty-check — proven by the proxy
+            // exchange call being dispatched with the persisted Verifier.
+            _proxy.Verify(
+                p => p.ExchangeCodeForToken("fixture-client-id", "auth-code-fixture", pending.Verifier),
+                Times.Once,
+                "GH #231 fix: after the reload restores PendingPkceState, validation must proceed " +
+                "past the empty-check, deserialize the persisted MalOAuthState, validate the state " +
+                "nonce, and exchange the code+verifier for tokens. Without the reload, " +
+                "Settings.PendingPkceState would be empty and the request would short-circuit " +
+                "with NoPendingPkceState.");
+
+            // Tokens persisted on Settings.
+            _settings.AccessToken.Should().Be("post-reload-access");
+
+            // Single-use clear must still apply after a successful exchange.
+            _settings.PendingPkceState.Should().BeNull(
+                "T-V11 single-use: even via the reload path, PendingPkceState must be cleared on " +
+                "successful exchange so a replay of the same callback URL fails.");
+
+            // Result envelope is the normal happy-path shape.
+            result.Should().NotBeNull();
         }
     }
 }
