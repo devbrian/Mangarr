@@ -26,6 +26,16 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 /// insertion order (CCC, AAA, BBB) so the unsorted raw cache disagrees with
 /// the visible (name-sorted) order.
 ///
+/// gh-226 absorption (2026-05-21): the dead-code
+/// frontend/src/Settings/ImportLists/ImportLists/Manage/ManageImportListsModalContent.test.tsx
+/// Jest fixture asserted the COLUMNS array shape (6 manga columns: name,
+/// implementation, enableAutomaticAdd, rootFolderPath, translationProfileId,
+/// tags) and that the 5 forbidden Sonarr-TV columns (protocol, enableRss,
+/// enableAutomaticSearch, enableInteractiveSearch, priority) are absent. Under
+/// Option B from devbrian/Mangarr#226 the Jest fixture is deleted and that
+/// behaviour moves into the second test method here:
+/// <c>manage_modal_renders_six_manga_columns_no_sonarr_tv_columns</c>.
+///
 /// Tier: nightly (no PRSmoke).
 /// </summary>
 [TestFixture]
@@ -137,5 +147,79 @@ public class ManageImportListsSortAndRangeSelectFixture : AutomationTest
             "[data-testid='manage-importlists-modal-content'] tbody input[type='checkbox']:checked");
         await Assertions.Expect(checkedInputs).ToHaveCountAsync(3,
             new LocatorAssertionsToHaveCountOptions { Timeout = 10_000 });
+    }
+
+    [Test]
+    public async Task manage_modal_renders_six_manga_columns_no_sonarr_tv_columns()
+    {
+        // gh-226 absorption — the deleted ManageImportListsModalContent.test.tsx
+        // Jest fixture asserted the COLUMNS array shape (6 manga columns; 5
+        // forbidden Sonarr TV columns absent). The live equivalent inspects
+        // the rendered <thead> on a real boot: each manga column header must
+        // be present by its translated label text, and no Sonarr-only column
+        // label (Protocol, RSS, Search, etc.) may render.
+        //
+        // Manga COLUMNS per ManageImportListsModalContent.tsx:54-92:
+        //   - Name                  (translate('Name'))
+        //   - Implementation        (translate('Implementation'))
+        //   - Automatic Add         (translate('AutomaticAdd'))
+        //   - Root Folder           (translate('RootFolder'))
+        //   - Translation Profile   (translate('TranslationProfile'))
+        //   - Tags                  (translate('Tags'))
+        //
+        // Forbidden Sonarr columns (Phase 27.1 D-03 substitution):
+        //   - Protocol, Enable RSS, Enable Automatic Search,
+        //     Enable Interactive Search, Priority
+        var page = await new SettingsImportListsPage(Page).OpenAsync(RootUri);
+
+        await Assertions.Expect(page.ManageButton).ToBeVisibleAsync(
+            new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+        await page.ManageButton.ClickAsync();
+
+        var manageContent = Page.GetByTestId("manage-importlists-modal-content");
+        await Assertions.Expect(manageContent).ToBeVisibleAsync(
+            new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+
+        // Wait for at least one row to be visible — confirms the table
+        // rendered fully (the empty-data path skips the <Table> entirely so
+        // there'd be no <thead> to inspect).
+        var firstRow = manageContent.Locator("tbody tr").First;
+        await Assertions.Expect(firstRow).ToBeVisibleAsync(
+            new LocatorAssertionsToBeVisibleOptions { Timeout = 10_000 });
+
+        // Manga column headers must each be present. Use a header-scoped
+        // locator so any sibling table on the page can't satisfy the assertion.
+        var headers = manageContent.Locator("thead th");
+        var headerText = await headers.AllTextContentsAsync();
+        var headerJoined = string.Join("|", headerText);
+
+        headerJoined.Should().Contain("Name", "Name column must be present");
+        headerJoined.Should().Contain("Implementation",
+            "Implementation column must be present");
+        headerJoined.Should().Contain("Automatic Add",
+            "Automatic Add (enableAutomaticAdd) column must be present");
+        headerJoined.Should().Contain("Root Folder",
+            "Root Folder column must be present (manga rootFolderPath)");
+        headerJoined.Should().Contain("Translation Profile",
+            "Translation Profile column must be present (replaces TV quality-profile)");
+        headerJoined.Should().Contain("Tags", "Tags column must be present");
+
+        // Forbidden Sonarr TV columns: none may render in any header cell.
+        // We assert exact-text equality (not Contain) per header so partial
+        // overlaps (e.g. "Implementation" containing "men") don't false-trip.
+        foreach (var th in headerText)
+        {
+            var trimmed = th.Trim();
+            trimmed.Should().NotBe("Protocol",
+                "Phase 27.1 D-03 forbids the Sonarr Protocol column on the Manage manga modal");
+            trimmed.Should().NotBe("Enable RSS",
+                "Phase 27.1 D-03 forbids the Sonarr Enable RSS column on the Manage manga modal");
+            trimmed.Should().NotBe("Enable Automatic Search",
+                "Phase 27.1 D-03 forbids the Sonarr Enable Automatic Search column");
+            trimmed.Should().NotBe("Enable Interactive Search",
+                "Phase 27.1 D-03 forbids the Sonarr Enable Interactive Search column");
+            trimmed.Should().NotBe("Priority",
+                "Phase 27.1 D-03 forbids the Sonarr Priority column on the Manage manga modal");
+        }
     }
 }

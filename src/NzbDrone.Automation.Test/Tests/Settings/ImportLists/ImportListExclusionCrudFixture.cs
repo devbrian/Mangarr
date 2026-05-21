@@ -22,6 +22,16 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 // So this fixture can run GREEN today against the substrate without forward-
 // staging Phase 27.
 //
+// gh-226 absorption (2026-05-21): the dead-code
+// frontend/src/Settings/ImportLists/ImportListExclusions/ImportListExclusions.test.tsx
+// Jest fixture asserted (a) Pitfall 7 — `malId ?? '—'` and `aniListId ?? '—'`
+// must render legal `0` as `'0'` not the en-dash; (b) column-header click
+// dispatches `setImportListExclusionSort` with the clicked sortKey. Under
+// Option B from devbrian/Mangarr#226 the Jest fixture is deleted and those
+// behaviours move here:
+//   - `exclusion_pitfall7_legal_zero_ids_render_as_zero_not_endash`
+//   - `exclusion_column_header_click_re_sorts_visible_rows`
+//
 // Pattern κ: zero series-*/episode-*/season-*/add-series- selectors. Uses
 // `settings-importlist-exclusions` + `edit-importlist-exclusion-modal` +
 // `settings-importlist-exclusion-row-{id}` v1.1 prefix family per Phase 18 D-18
@@ -163,5 +173,220 @@ public class ImportListExclusionCrudFixture : AutomationTest
             new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
         await Assertions.Expect(exclusionRow).ToHaveCountAsync(
             0, new LocatorAssertionsToHaveCountOptions { Timeout = 15_000 });
+    }
+
+    [Test]
+    public async Task exclusion_pitfall7_legal_zero_ids_render_as_zero_not_endash()
+    {
+        // gh-226 absorption — the deleted ImportListExclusions.test.tsx Jest
+        // fixture asserted Pitfall 7 via React-tree inspection on the Row
+        // component. ImportListExclusionRow.tsx renders `malId ?? '—'` and
+        // `aniListId ?? '—'` so a legal `0` (e.g. AniList's reserved root id)
+        // must render as the literal `0`, not the en-dash sentinel. The
+        // bug-shape we're guarding is a refactor that swaps `??` → `||`, which
+        // would silently mask `0` as falsy and render `'—'` in the cell.
+        //
+        // Strategy: seed one row with malId=0 and aniListId=0 via the V5 API,
+        // then walk the DOM to the specific cell positions in the rendered
+        // TableRow and assert TextContent is `"0"`, not `"—"`.
+        //
+        // Cell layout per ImportListExclusionRow.tsx:
+        //   td[0] = TableSelectCell (checkbox)
+        //   td[1] = title
+        //   td[2] = mangaDexId
+        //   td[3] = malId       <-- assert "0"
+        //   td[4] = aniListId   <-- assert "0"
+        //   td[5] = actions
+        using var http = new HttpClient { BaseAddress = new Uri($"{RootUri}/api/v5/") };
+        http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
+        http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        var runTag = Guid.NewGuid().ToString("N").Substring(0, 8);
+        var seedPayload = new
+        {
+            mangaDexId = $"00000000-pit7-zero-zero-{runTag}{runTag[..4]}",
+            malId = 0,        // Pitfall 7 regression guard — legal `0`
+            aniListId = 0,    // Pitfall 7 regression guard — legal `0`
+            title = $"Pitfall 7 Zero IDs [{runTag}]"
+        };
+
+        var seedResp = await http.PostAsJsonAsync("importlistexclusion", seedPayload);
+        seedResp.IsSuccessStatusCode.Should().BeTrue(
+            "POST seed row with malId=0 + aniListId=0 must succeed (body: {0})",
+            await seedResp.Content.ReadAsStringAsync());
+        using var seedDoc = JsonDocument.Parse(await seedResp.Content.ReadAsStringAsync());
+        var rowId = seedDoc.RootElement.GetProperty("id").GetInt32();
+
+        try
+        {
+            var settings = await new SettingsImportListsPage(Page).OpenAsync(RootUri);
+            await Assertions.Expect(settings.PageContainer).ToBeVisibleAsync(
+                new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+
+            var row = Page.GetByTestId($"settings-importlist-exclusion-row-{rowId}");
+            await Assertions.Expect(row).ToBeVisibleAsync(
+                new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+
+            // Walk to td[3] (malId cell — 0-indexed 4th cell, 1-indexed 4th in
+            // nth-child). nth-child is 1-indexed: TableSelectCell=1, title=2,
+            // mangaDexId=3, malId=4, aniListId=5.
+            var malIdCell = row.Locator("td:nth-child(4)");
+            var aniListIdCell = row.Locator("td:nth-child(5)");
+
+            var malIdText = (await malIdCell.TextContentAsync())?.Trim();
+            var aniListIdText = (await aniListIdCell.TextContentAsync())?.Trim();
+
+            // Pitfall 7 contract: legal `0` renders as `"0"`, NEVER as `"—"`.
+            // A refactor that swaps `malId ?? '—'` → `malId || '—'` fails here.
+            malIdText.Should().Be("0",
+                "Pitfall 7 — `malId ?? '—'` must render legal `0` as the literal '0' "
+                + "(a `||` regression would silently render '—' instead, masking valid AniList/MAL root ids)");
+            aniListIdText.Should().Be("0",
+                "Pitfall 7 — `aniListId ?? '—'` must render legal `0` as the literal '0'");
+
+            malIdText.Should().NotBe("—", "the en-dash sentinel must NOT appear for legal `0`");
+            aniListIdText.Should().NotBe("—", "the en-dash sentinel must NOT appear for legal `0`");
+        }
+        finally
+        {
+            _ = await http.DeleteAsync($"importlistexclusion/{rowId}");
+        }
+    }
+
+    [Test]
+    public async Task exclusion_column_header_click_re_sorts_visible_rows()
+    {
+        // gh-226 absorption — the deleted ImportListExclusions.test.tsx Jest
+        // fixture asserted the column-header click → `setImportListExclusionSort`
+        // dispatch shape (via mocked-store inspection). The live equivalent is
+        // a real boot: seed 3 rows with non-alphabetical insertion order on
+        // `title`, click the Title column header, assert the visible row order
+        // flips. This proves the Zustand sort store's `setImportListExclusionSort`
+        // is actually wired to the Table's `onSortPress` callback — the dispatch
+        // shape is the necessary precondition for the visible re-sort.
+        //
+        // Title column is sortable per ImportListExclusions.tsx:67-71 (COLUMNS
+        // array entry { name: 'title', isSortable: true }). Default sortKey
+        // is 'id' descending (importListExclusionOptionsStore initial state),
+        // so the first click lands on title + ascending; the second flips to
+        // descending. We assert the first-cell text changes between the two
+        // states.
+        using var http = new HttpClient { BaseAddress = new Uri($"{RootUri}/api/v5/") };
+        http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
+        http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        var runTag = Guid.NewGuid().ToString("N").Substring(0, 8);
+        var titleZ = $"ZZZ Exclusion [{runTag}]";
+        var titleA = $"AAA Exclusion [{runTag}]";
+        var titleM = $"MMM Exclusion [{runTag}]";
+
+        // Seed in non-alphabetical order (Z, A, M) so a default-id sort vs.
+        // ascending-title sort surface different first-row values.
+        var seedZResp = await http.PostAsJsonAsync("importlistexclusion", new
+        {
+            mangaDexId = $"zzzz0000-sort-zzzz-{runTag}{runTag[..4]}",
+            malId = 7771,
+            aniListId = 7771,
+            title = titleZ
+        });
+        seedZResp.IsSuccessStatusCode.Should().BeTrue("seed Z row must succeed");
+        using var seedZDoc = JsonDocument.Parse(await seedZResp.Content.ReadAsStringAsync());
+        var idZ = seedZDoc.RootElement.GetProperty("id").GetInt32();
+
+        var seedAResp = await http.PostAsJsonAsync("importlistexclusion", new
+        {
+            mangaDexId = $"aaaa0000-sort-aaaa-{runTag}{runTag[..4]}",
+            malId = 7772,
+            aniListId = 7772,
+            title = titleA
+        });
+        seedAResp.IsSuccessStatusCode.Should().BeTrue("seed A row must succeed");
+        using var seedADoc = JsonDocument.Parse(await seedAResp.Content.ReadAsStringAsync());
+        var idA = seedADoc.RootElement.GetProperty("id").GetInt32();
+
+        var seedMResp = await http.PostAsJsonAsync("importlistexclusion", new
+        {
+            mangaDexId = $"mmmm0000-sort-mmmm-{runTag}{runTag[..4]}",
+            malId = 7773,
+            aniListId = 7773,
+            title = titleM
+        });
+        seedMResp.IsSuccessStatusCode.Should().BeTrue("seed M row must succeed");
+        using var seedMDoc = JsonDocument.Parse(await seedMResp.Content.ReadAsStringAsync());
+        var idM = seedMDoc.RootElement.GetProperty("id").GetInt32();
+
+        try
+        {
+            var settings = await new SettingsImportListsPage(Page).OpenAsync(RootUri);
+            await Assertions.Expect(settings.PageContainer).ToBeVisibleAsync(
+                new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+
+            // Make all three rows visible by selecting page-size large enough.
+            // Initial render uses the default page-size (Sonarr canonical 20),
+            // which is plenty for our 3 seeded rows.
+            await Assertions.Expect(Page.GetByTestId($"settings-importlist-exclusion-row-{idA}"))
+                .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+            await Assertions.Expect(Page.GetByTestId($"settings-importlist-exclusion-row-{idM}"))
+                .ToBeVisibleAsync();
+            await Assertions.Expect(Page.GetByTestId($"settings-importlist-exclusion-row-{idZ}"))
+                .ToBeVisibleAsync();
+
+            // Find the Title header by visible text and click it. The Mangarr
+            // TableHeader maps `onSortPress` to a clickable Link wrapping the
+            // label; clicking the label text triggers the sort dispatch.
+            //
+            // Use a precise scope: only headers INSIDE the exclusions
+            // FieldSet, to avoid colliding with any other Title header on
+            // the page (notifications/notes/etc.).
+            var exclusionsContainer = Page.GetByTestId("settings-importlist-exclusions");
+            await Assertions.Expect(exclusionsContainer).ToBeVisibleAsync();
+
+            var titleHeader = exclusionsContainer.Locator("th").Filter(new()
+            {
+                HasText = "Title"
+            }).First;
+
+            await titleHeader.ClickAsync();
+
+            // After the click, the Zustand store updates sortKey='title';
+            // useImportListExclusions re-queries with the new sort; the table
+            // body re-renders with title-sorted rows. Default sort direction
+            // after the first click is ASCENDING per Table's
+            // toggleSortDirection (sortKey changed → reset to default
+            // ascending).
+            //
+            // Poll until the first body row matches AAA — proves dispatch
+            // wired to live store mutation + refetch.
+            var firstTitleCellSelector =
+                "[data-testid='settings-importlist-exclusions'] tbody tr:first-child td:nth-child(2)";
+            await Page.WaitForFunctionAsync(
+                $"() => document.querySelector(\"{firstTitleCellSelector}\")?.textContent?.trim().startsWith('AAA Exclusion')",
+                null,
+                new PageWaitForFunctionOptions { Timeout = 15_000, PollingInterval = 200 });
+
+            // State assertion: top row is AAA (i.e. our seeded `titleA`).
+            var firstTitleAfterAsc = await Page.Locator(firstTitleCellSelector).TextContentAsync();
+            firstTitleAfterAsc.Should().Contain("AAA Exclusion",
+                "column-header click on Title must dispatch sortKey='title' + ascending; "
+                + "AAA Exclusion sits first alphabetically");
+
+            // Click again — flips to descending. Top row should now be ZZZ.
+            await titleHeader.ClickAsync();
+            await Page.WaitForFunctionAsync(
+                $"() => document.querySelector(\"{firstTitleCellSelector}\")?.textContent?.trim().startsWith('ZZZ Exclusion')",
+                null,
+                new PageWaitForFunctionOptions { Timeout = 15_000, PollingInterval = 200 });
+
+            var firstTitleAfterDesc = await Page.Locator(firstTitleCellSelector).TextContentAsync();
+            firstTitleAfterDesc.Should().Contain("ZZZ Exclusion",
+                "second click on Title header must flip sortDirection to descending; "
+                + "ZZZ Exclusion sits first reverse-alphabetically");
+        }
+        finally
+        {
+            _ = await http.DeleteAsync($"importlistexclusion/{idZ}");
+            _ = await http.DeleteAsync($"importlistexclusion/{idA}");
+            _ = await http.DeleteAsync($"importlistexclusion/{idM}");
+        }
     }
 }
