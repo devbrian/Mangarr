@@ -282,9 +282,19 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     }
 
     [RestDeleteById]
-    public NoContent DeleteManga(int id, bool deleteFiles = false)
+    public NoContent DeleteManga(int id, bool deleteFiles = false, bool addImportListExclusion = true)
     {
-        _mangaService.DeleteManga(new List<int> { id }, deleteFiles);
+        // GH #241 follow-up: the single-manga DELETE endpoint previously called the
+        // 2-arg IMangaService.DeleteManga(List<int>, bool) overload, which unconditionally
+        // defaults addImportListExclusion to true in the underlying 3-arg delegate (see
+        // MangaService.cs ~line 162). That dropped the FE's `addImportListExclusion=false`
+        // query param silently, so unchecking the Delete modal checkbox still added an
+        // auto-exclusion row. Calling the 3-arg overload directly threads the user's
+        // choice through to MangaDeletedEvent → ImportListExclusionService.Handle.
+        //
+        // Default stays `true` to match Sonarr UX (re-add prevention is the safer default
+        // for users who don't toggle the checkbox).
+        _mangaService.DeleteManga(new List<int> { id }, deleteFiles, addImportListExclusion);
 
         return TypedResults.NoContent();
     }

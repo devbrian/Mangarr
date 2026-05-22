@@ -39,8 +39,11 @@ public class MangaEditorResource
     public bool MoveFiles { get; set; }
     public bool DeleteFiles { get; set; }
 
-    // Forward-compat no-op field — controller does not pass this to
-    // IMangaService.DeleteManga (RESEARCH §Pitfall 4 — manga's signature is
-    // 2-arg only). Preserved to keep useManga.ts:467 wire shape stable.
-    public bool AddImportListExclusion { get; set; }
+    // GH #241 follow-up: wired into MangaEditorController.DeleteManga's
+    // IMangaService.DeleteManga 3-arg call (previously dropped per the Phase 13
+    // RESEARCH §Pitfall 4 "deferred to v1.1" rationale — v1.1 has now shipped
+    // the ImportList substrate). Default `true` matches the single-manga DELETE
+    // endpoint's default + Sonarr UX (auto-exclude on delete unless explicitly
+    // opted out via the FE checkbox).
+    public bool AddImportListExclusion { get; set; } = true;
 }

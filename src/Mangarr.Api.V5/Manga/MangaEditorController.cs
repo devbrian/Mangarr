@@ -163,12 +163,15 @@ public class MangaEditorController : Controller
     [HttpDelete]
     public NoContent DeleteManga([FromBody] MangaEditorResource resource)
     {
-        // RESEARCH §Pitfall 4: 2-arg call only — manga's IMangaService.DeleteManga
-        // signature is (List<int> mangaIds, bool deleteFiles). The
-        // resource.AddImportListExclusion field is intentionally NOT passed
-        // (Import Lists deferred to v1.1 per PROJECT.md; field preserved on the
-        // resource for forward-compat wire shape).
-        _mangaService.DeleteManga(resource.MangaIds, resource.DeleteFiles);
+        // GH #241 follow-up: previously called the 2-arg IMangaService.DeleteManga
+        // overload (deferred per Phase 13 RESEARCH §Pitfall 4 "Import Lists deferred to
+        // v1.1"). v1.1 has now shipped the ImportList substrate, so the dropped flag
+        // is back in scope — the FE sends `addImportListExclusion: false` when the user
+        // unchecks the bulk-delete modal checkbox, and that intent needs to reach
+        // MangaDeletedEvent → ImportListExclusionService.Handle. Calling the 3-arg
+        // overload threads the resource flag through verbatim. Default in
+        // MangaEditorResource matches Sonarr UX (true = auto-exclude).
+        _mangaService.DeleteManga(resource.MangaIds, resource.DeleteFiles, resource.AddImportListExclusion);
 
         return TypedResults.NoContent();
     }
