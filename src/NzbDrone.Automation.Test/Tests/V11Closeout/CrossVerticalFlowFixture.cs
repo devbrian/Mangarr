@@ -47,6 +47,7 @@ namespace NzbDrone.Automation.Test.Tests.V11Closeout;
 // Pattern κ: zero series-*/episode-*/season-*/add-series- selectors.
 [TestFixture]
 [Category("AutomationTest")]
+[Category("PRSmoke")]
 public class CrossVerticalFlowFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;

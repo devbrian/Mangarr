@@ -23,6 +23,7 @@ namespace NzbDrone.Automation.Test.Tests.V11Closeout;
 // `add-series-*` testids in this fixture or in the routes it walks.
 [TestFixture]
 [Category("AutomationTest")]
+[Category("PRSmoke")]
 public class InteractiveImportClosingFixture : AutomationTest
 {
     [Test]
