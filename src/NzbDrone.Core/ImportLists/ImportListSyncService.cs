@@ -11,6 +11,7 @@ using NzbDrone.Core.Jobs;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.ThingiProvider.Events;
 
 namespace NzbDrone.Core.ImportLists
@@ -44,6 +45,7 @@ namespace NzbDrone.Core.ImportLists
         private readonly IAddMangaService _addMangaService;
         private readonly IConfigService _configService;
         private readonly ITaskManager _taskManager;
+        private readonly IMetadataSourceFactory _metadataSourceFactory;
         private readonly Logger _logger;
 
         public ImportListSyncService(IImportListFactory importListFactory,
@@ -55,6 +57,7 @@ namespace NzbDrone.Core.ImportLists
                               IAddMangaService addMangaService,
                               IConfigService configService,
                               ITaskManager taskManager,
+                              IMetadataSourceFactory metadataSourceFactory,
                               Logger logger)
         {
             _importListFactory = importListFactory;
@@ -66,6 +69,7 @@ namespace NzbDrone.Core.ImportLists
             _addMangaService = addMangaService;
             _configService = configService;
             _taskManager = taskManager;
+            _metadataSourceFactory = metadataSourceFactory;
             _logger = logger;
         }
 
@@ -163,14 +167,48 @@ namespace NzbDrone.Core.ImportLists
                     continue;
                 }
 
-                // Phase 27 owns cross-source ID resolution (AniList/MAL → MangaDexId).
-                // Until then, items without a MangaDexId are skipped — the substrate is
-                // ready for the lookup to be wired in; the lookup itself is the provider
-                // work that Phase 27 plans alongside the concrete providers.
+                // GH #241 v1.2 cross-source resolution wire-in:
+                // when an item arrives from AniList/MAL with only AniListId/MalId set,
+                // ask the primary metadata source (MangaDex by default) to search by title
+                // and pick the candidate whose own links.al / links.mal matches the item's
+                // cross-source id. This is the minimum-viable resolver — full Jaro-Winkler +
+                // multi-axis confirm (CrossSourceIdResolver) is a v1.2+ tightening for the
+                // ambiguous-title case.
                 if (item.MangaDexId.IsNullOrWhiteSpace())
                 {
-                    _logger.Debug("[{0}] Rejected, no MangaDexId — AniList/MAL cross-source resolution lives in Phase 27", item.Title);
-                    continue;
+                    if (item.AniListId.HasValue || item.MalId.HasValue)
+                    {
+                        try
+                        {
+                            var primaryDef = _metadataSourceFactory.GetPrimary();
+                            var primary = _metadataSourceFactory.GetInstance(primaryDef);
+                            var candidates = primary.SearchForNewManga(item.Title) ?? new List<Manga.Manga>();
+                            var match = candidates.FirstOrDefault(c =>
+                                (item.AniListId.HasValue && c.AniListId == item.AniListId) ||
+                                (item.MalId.HasValue && c.MalId == item.MalId));
+
+                            if (match?.MangaDexId != null)
+                            {
+                                item.MangaDexId = match.MangaDexId.ToString();
+                                _logger.Debug(
+                                    "[{0}] Cross-source resolved AniList={1}/MAL={2} → MangaDexId={3}",
+                                    item.Title,
+                                    item.AniListId,
+                                    item.MalId,
+                                    item.MangaDexId);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Warn(ex, "[{0}] Cross-source resolution failed; item will be skipped", item.Title);
+                        }
+                    }
+
+                    if (item.MangaDexId.IsNullOrWhiteSpace())
+                    {
+                        _logger.Debug("[{0}] Rejected, no MangaDexId — cross-source resolution did not find a match", item.Title);
+                        continue;
+                    }
                 }
 
                 // CodeRabbit PR #218 (initial review + outside-diff follow-up):
