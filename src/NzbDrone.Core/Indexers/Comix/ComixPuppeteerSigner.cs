@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using NLog;
@@ -16,13 +17,32 @@ namespace NzbDrone.Core.Indexers.Comix
     // Mangarr-only seam; Pattern S2 / sonarr-consistency-audit Pattern ι allowlist coverage.
 
     /// <summary>
-    /// Process-singleton runtime signer for comix.to. Mirrors keiyoushi <c>Signer.kt</c>
-    /// (Apache-2.0). Owns an embedded headless Chromium child process (PuppeteerSharp
-    /// 24.42.0): lazy-spawn warm page, behaviour-based namespace probe (D-14), idle-teardown
-    /// after 10 min (D-12), clean shutdown via
-    /// <see cref="ApplicationShutdownRequested"/>. Auto-registered <see cref="DryIoc.Reuse"/>.
-    /// <see cref="DryIoc.Reuse.Singleton"/> via the existing
-    /// <c>NzbDrone.Common/Composition/Extensions.cs:25-35</c> RegisterMany convention.
+    /// Process-singleton runtime signer for comix.to. Mirrors keiyoushi <c>Comix.kt</c>
+    /// <c>captureToken()</c> (Apache-2.0; upstream commit <c>965dc242</c> 2026-05-12 —
+    /// "Comix: only get token via webview"). Owns an embedded headless Chromium child
+    /// process (PuppeteerSharp 24.42.0): lazy-spawn warm page, idle-teardown after 10 min
+    /// (D-12), clean shutdown via <see cref="ApplicationShutdownRequested"/>.
+    /// Auto-registered <see cref="DryIoc.Reuse"/>.<see cref="DryIoc.Reuse.Singleton"/> via
+    /// the existing <c>NzbDrone.Common/Composition/Extensions.cs:25-35</c> RegisterMany
+    /// convention.
+    ///
+    /// <para>
+    /// <b>Architecture (post-2026-05-22 rotation):</b> comix.to's signer function is no
+    /// longer reachable from <c>globalThis.&lt;namespace&gt;.&lt;fn&gt;</c> shape — the
+    /// previous behaviour-probe approach (Phase 17 D-14) is upstream-obsolete. The new
+    /// shape <b>observes</b> the page's own outgoing API request and extracts the
+    /// <c>_=&lt;token&gt;</c> query parameter via PuppeteerSharp request interception. Once
+    /// the token is captured, the actual API GET is relayed through the page's same-origin
+    /// <c>fetch()</c> so the page's already-established Cloudflare session + cookies +
+    /// User-Agent apply automatically.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Token cache:</b> captured tokens are cached per-pageUrl with a 5-minute TTL so
+    /// chapter-list pagination loops can reuse a single capture (the upstream Android shape
+    /// re-captures per request because WebView spin-up is cheap there; PuppeteerSharp page
+    /// loads are 3-8s, worth caching).
+    /// </para>
     /// </summary>
     // NOTE: NOT `sealed` — Wave 1 fixtures (FastIdleSigner / ThrowingSigner /
     // ReprobableSigner / GatedSigner per Wave 0 fixture commentary) subclass this type to
@@ -40,100 +60,20 @@ namespace NzbDrone.Core.Indexers.Comix
         // ── Constants ────────────────────────────────────────────────────────────────
         // SA1203: const fields must precede static readonly + instance fields.
         private const string ComixSourceKey = "comix.to";
-        private const string ComixHomepageUrl = "https://comix.to/";
+        private const string ComixBaseUrl = "https://comix.to";
 
-        // PROBE_JS — behaviour-based detection of comix.to's anti-bot signer and axios
-        // installer (D-14). Mirrors keiyoushi Signer.kt's intent (Apache-2.0). Detects:
-        //   - signer:    fn(path) -> ≥40-char base64url string (different from input)
-        //   - installer: fn(axios) registers a response interceptor on a fake axios
-        // and the upstream Signer.kt comment "Names rotate per deploy; behaviour does not"
-        // means BOTH the namespace prefix AND function names rotate. The earlier port
-        // hardcoded `window.<vmf_*>.*`, but comix.to has since rotated to `vmX_<hex>`
-        // (observed live 2026-05-10) — drop the prefix filter and walk all window
-        // namespaces. The combined signer + installer behaviour is a strong enough
-        // filter on its own; a typical page exposes ~270 window keys but only one
-        // pair will have both behaviours.
-        //
-        // SignerExprAllowlistRegex (defense in depth, WR-02) constrains the captured
-        // names to identifier shape before they're interpolated into the in-page JS
-        // template, so any non-bundle namespace that accidentally passes the
-        // behaviour test is still rejected at the validation gate.
-        //
-        // GAP-17-C fix (Plan 17-07 Task 1): same-namespace gating — signer + installer
-        // MUST be discovered in the same `Object.keys(window)` outer-loop iteration. The
-        // earlier shape allowed cross-namespace pairs (signer from `ns_A`, installer from
-        // `ns_B`) which could produce mismatched function pairs from different bundles.
-        // The fix moves the `signerExpr`/`installerExpr` capture into per-namespace
-        // locals (`nsSigner` / `nsInstaller`); only when BOTH fire in the same iteration
-        // do they get committed to the outer `outerSignerExpr` / `outerInstallerExpr`
-        // and the walk terminates. Partial captures from non-pairing namespaces are
-        // dropped before moving on. See ComixSignerProbeSameNamespaceFixture for the
-        // Chromium-free regression guard locking this contract.
-        private const string PROBE_JS = @"
-          (() => {
-            const probe = (probePath) => {
-              let outerSignerExpr = null, outerInstallerExpr = null;
-              for (const ns of Object.keys(window)) {
-                const obj = window[ns];
-                if (!obj || typeof obj !== 'object') continue;
-                let fns;
-                try { fns = Object.keys(obj); } catch (_e) { continue; }
-                if (fns.length === 0 || fns.length > 200) continue;
+        // captureToken time budget (mirrors upstream Comix.kt:466 — `latch.await(30, SECONDS)`).
+        // Page DCL hits in ~1-3s on warm cache; the page's own bootstrap fires the
+        // /api/v1/manga/{hid}/chapters request 2-5s after that. 30s is comfortably above
+        // p99 with margin for Cloudflare slow path. Bounded so a wedged page (no API
+        // request ever fires) cannot stall the gate indefinitely.
+        private const int CaptureTimeoutSeconds = 30;
 
-                let nsSigner = null, nsInstaller = null;
-                for (const fn of fns) {
-                  if (nsSigner === null) {
-                    try {
-                      const out = obj[fn](probePath);
-                      if (typeof out === 'string'
-                          && out !== probePath
-                          && out.length >= 40
-                          && /^[A-Za-z0-9_-]+$/.test(out)) {
-                        nsSigner = ns + '.' + fn;
-                        continue;
-                      }
-                    } catch (_e) {}
-                  }
-                  if (nsInstaller === null) {
-                    try {
-                      let got = false;
-                      const fakeAxios = {
-                        interceptors: {
-                          response: { use: () => { got = true; } },
-                          request:  { use: () => {} },
-                        },
-                        defaults: { headers: { common: {} }, transformRequest: [], transformResponse: [] },
-                      };
-                      obj[fn](fakeAxios);
-                      if (got) nsInstaller = ns + '.' + fn;
-                    } catch (_e) {}
-                  }
-                  if (nsSigner !== null && nsInstaller !== null) break;
-                }
-                // Same-namespace gate (GAP-17-C): ONLY commit the pair when BOTH locals
-                // fire in this `ns` iteration. Otherwise drop nsSigner / nsInstaller and
-                // continue to the next namespace — partial captures must NOT cross the
-                // outer-loop boundary.
-                if (nsSigner !== null && nsInstaller !== null) {
-                  outerSignerExpr = nsSigner;
-                  outerInstallerExpr = nsInstaller;
-                  break;
-                }
-              }
-              return { signerExpr: outerSignerExpr, installerExpr: outerInstallerExpr };
-            };
-            return probe('/manga/__probe__/chapters');
-          })();
-        ";
-
-        /// <summary>
-        /// Plan 17-07 Task 1 test seam: exposes the PROBE_JS const to the
-        /// <see cref="T:NzbDrone.Core.Test.Indexers.Comix.ComixSignerProbeSameNamespaceFixture"/>
-        /// Chromium-free fixture so the same-namespace contract can be verified by
-        /// file-text grep without a real browser. NOT called from production code.
-        /// </summary>
-        // Sonarr divergence: test-only accessor; Mangarr-only signer seam (Pattern ι allowlist).
-        internal static string GetProbeJsForTest() => PROBE_JS;
+        // Token cache TTL — chapter-list pagination + multi-search loops within 5 minutes
+        // reuse the captured token instead of paying another page-load cost. Upstream
+        // re-captures per request because Android WebView spin-up is cheap; our
+        // PuppeteerSharp page loads are 3-8s so caching is a meaningful win.
+        private const int TokenCacheTtlMinutes = 5;
 
         // ── Static readonly fields ───────────────────────────────────────────────────
         // W-2 (revision iteration 1): drain timeout for in-flight requests on Dispose.
@@ -146,22 +86,19 @@ namespace NzbDrone.Core.Indexers.Comix
                 "^/[A-Za-z0-9_\\-/]+(\\?[A-Za-z0-9_\\-/=&%.]*)?$",
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
-        // WR-02 mitigation: defense-in-depth allowlist on the probe-captured
-        // signerExpr/installerExpr strings BEFORE they are interpolated into the
-        // in-page JS template. JS object property names CAN technically be arbitrary
-        // strings; bundlers in practice emit identifier-shaped keys. Anything
-        // outside that shape is either an upstream rotation we don't recognize OR
-        // an MITM rewrite — reject either way and surface as a probe failure
-        // (D-15 RecordFailure path).
-        //
-        // Earlier revision required a `vmf_` namespace prefix; comix.to rotated
-        // to `vmX_<hex>` (observed live 2026-05-10), so the allowlist no longer
-        // pins the prefix. PROBE_JS's behavioural detection (signer + installer
-        // both required) plus this identifier-shape gate together provide the
-        // safety envelope.
-        private static readonly System.Text.RegularExpressions.Regex SignerExprAllowlistRegex =
+        // captureToken apiPath shape parsers — derive (pageUrl, matchPredicate) from the
+        // path the caller passes to ProxyFetchAsync. These mirror upstream Comix.kt's two
+        // call-site routes:
+        //   /manga/{hid}/chapters[?...]  → load /title/{hid}; match /api/v1/manga/{hid}/chapters
+        //   /chapters/{chapterId}[?...]  → load /chapters/{chapterId}; match /api/v1/chapters/{chapterId}
+        private static readonly System.Text.RegularExpressions.Regex MangaChaptersPathRegex =
             new System.Text.RegularExpressions.Regex(
-                @"^[A-Za-z_$][A-Za-z0-9_$]{0,127}\.[A-Za-z_$0-9][A-Za-z0-9_$]{0,127}$",
+                "^/manga/(?<hid>[A-Za-z0-9_-]+)/chapters(?:\\?.*)?$",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        private static readonly System.Text.RegularExpressions.Regex ChaptersDetailPathRegex =
+            new System.Text.RegularExpressions.Regex(
+                "^/chapters/(?<chapterId>[A-Za-z0-9_-]+)(?:\\?.*)?$",
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
         // ── Test-overridable seams (D-12 / fixture overrides) ────────────────────────
@@ -210,104 +147,50 @@ namespace NzbDrone.Core.Indexers.Comix
             return await Puppeteer.LaunchAsync(launchOptions).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// Warm-start: launches a Chromium child + opens a single page. The page is reused
+        /// across requests; per-call <see cref="EvaluateProxyFetchAsync"/> installs a fresh
+        /// request-interception handler that captures the page's outgoing
+        /// <c>?_=&lt;token&gt;</c> query parameter on its OWN bootstrap API call.
+        ///
+        /// <para>
+        /// Previously this method evaluated a <c>PROBE_JS</c> namespace walker against
+        /// <c>https://comix.to/</c> to capture <c>window.&lt;namespace&gt;.signer</c> +
+        /// <c>installer</c> function refs. As of upstream commit <c>965dc242</c>
+        /// (2026-05-12), the signer is no longer reachable from globalThis at all — the
+        /// captureToken pattern observes the page's own request instead. Probe + the
+        /// Phase 17.2 D-1 networkidle-settle step were both retired.
+        /// </para>
+        /// </summary>
+        // Sonarr divergence: Mangarr-only seam (Pattern S2 / sonarr-consistency-audit
+        // Pattern ι allowlist coverage). See:
+        //   .planning/debug/comix-signer-rotation.md (root cause + captureToken pivot)
+        //   .planning/phases/17-comix-runtime-signer-port-puppeteersharp/17-LEARNINGS.md
         protected virtual async Task LaunchAndProbeAsync(CancellationToken ct)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 // WR-03 mitigation: observe ct between each await. PuppeteerSharp's
-                // NewPageAsync / GoToAsync / EvaluateExpressionAsync don't accept ct
-                // directly; throw-on-request between calls is the best we get.
+                // NewPageAsync doesn't accept ct directly; throw-on-request between calls
+                // is the best we get.
                 _browser = await LaunchBrowserAsync(ct).ConfigureAwait(false);
                 ct.ThrowIfCancellationRequested();
 
                 _page = await _browser.NewPageAsync().ConfigureAwait(false);
                 ct.ThrowIfCancellationRequested();
 
-                // WaitUntilNavigation.Networkidle0 — comix.to fronts a Cloudflare
-                // interstitial that responds 502 on initial load before the bundle
-                // finishes; the default Load event fires on the partial page and
-                // window.<bundle-namespace> isn't populated yet. Networkidle0 waits
-                // for ≥500ms of zero in-flight requests, which lets the bundle
-                // finish parsing and registering its `vmX_<hex>` namespace before
-                // PROBE_JS runs.
-                await _page.GoToAsync(
-                    ComixHomepageUrl,
-                    new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Networkidle0 } })
-                    .ConfigureAwait(false);
-                ct.ThrowIfCancellationRequested();
-
-                var probe = await _page.EvaluateExpressionAsync<ProbeResult>(PROBE_JS).ConfigureAwait(false);
-
-                // Phase 17.2 D-1 (Mitigation A): settle the page execution context after PROBE_JS
-                // so subsequent EvaluateExpressionAsync calls in EvaluateProxyFetchAsync hit a
-                // stable context, not one mid-Runtime.executionContextDestroyed from PROBE_JS's
-                // pushState side-effect. Per Phase 17 17-08-LIVE-VERIFICATION-EVIDENCE.md
-                // Finding 3 (orchestrator-driven Playwright re-verification 2026-05-10), running
-                // PROBE_JS against the live page changes the URL from `https://comix.to/` to
-                // `https://comix.to/[object%20Object]` — PROBE_JS indiscriminately calls every
-                // property of every window object with the probe path string, and at least one
-                // of those calls is a router function whose stringified-Object argument triggers
-                // a soft pushState. PuppeteerSharp 24.42.0 interprets the resulting
-                // `Page.frameNavigated` / `Runtime.executionContextDestroyed` event as a hard
-                // "context destroyed" before the next EvaluateExpressionAsync can run.
-                //
-                // Settle flavor chosen: WaitForNetworkIdleAsync(IdleTime=500ms, Timeout=5000ms).
-                // Rationale: a soft pushState does NOT necessarily generate network requests, so
-                // WaitForNavigationAsync's Networkidle0/Load wait conditions may never trigger
-                // and we'd time out spuriously even when no settle is actually needed. By
-                // contrast, WaitForNetworkIdleAsync is the safest superset — it converges to a
-                // stable signal regardless of whether pushState fired (when no nav occurred,
-                // network is already idle and the call returns near-instantly; when pushState
-                // fired, we wait the actual settle window). Polling EvaluateExpressionAsync<bool>
-                // (Option c per the plan) was rejected because it invokes the very
-                // EvaluateExpressionAsync call Mitigation A is trying to make safe, defeating
-                // the purpose. T-17.2-01 mitigation: bounded by the 5000ms Timeout (no infinite
-                // wait, no DoS surface).
-                //
-                // On any thrown exception (TimeoutException, ObjectDisposedException, etc.) the
-                // existing catch (lines 268-275) handles it: _probeFailureCount increments,
-                // RecordFailure(ComixSourceKey) fires, TeardownBrowserAsync runs, throw rethrows.
-                // No new catch added; no swallowing.
-                //
-                // PROBE_JS string literal byte-for-byte unchanged (D-14 inherited / SC#5).
-                // Sonarr divergence: Mangarr-only seam (Pattern S2 / sonarr-consistency-audit
-                // Pattern ι allowlist coverage). See:
-                //   .planning/phases/17-comix-runtime-signer-port-puppeteersharp/17-08-LIVE-VERIFICATION-EVIDENCE.md (Finding 3)
-                //   .planning/phases/17-comix-runtime-signer-port-puppeteersharp/17-LEARNINGS.md (L-1, S-2)
-                //   .planning/phases/17.2-comix-signer-driver-layer-fix/17.2-CONTEXT.md (D-1)
-                await _page.WaitForNetworkIdleAsync(
-                        new WaitForNetworkIdleOptions { IdleTime = 500, Timeout = 5000 })
-                    .ConfigureAwait(false);
-                ct.ThrowIfCancellationRequested();
-
-                if (probe == null
-                    || string.IsNullOrEmpty(probe.SignerExpr)
-                    || string.IsNullOrEmpty(probe.InstallerExpr))
-                {
-                    throw new InvalidOperationException(
-                        "Comix signer: probe failed; window.vmf_* signer/installer fns not found.");
-                }
-
-                // WR-02 mitigation: defense-in-depth allowlist on the probe-captured
-                // expressions. The strings are interpolated unescaped into
-                // EvaluateProxyFetchAsync's JS template; an MITM-rewritten or
-                // upstream-rotated key shape outside our identifier whitelist must NOT
-                // reach that interpolation. Reject as a probe failure (D-15 path).
-                if (!SignerExprAllowlistRegex.IsMatch(probe.SignerExpr)
-                    || !SignerExprAllowlistRegex.IsMatch(probe.InstallerExpr))
-                {
-                    throw new InvalidOperationException(
-                        "Comix signer: probe captured signer/installer expression(s) outside the identifier allowlist; rejecting as drift or MITM.");
-                }
-
-                _signerExpr = probe.SignerExpr;
-                _installerExpr = probe.InstallerExpr;
+                // Request interception is toggled per-call inside CaptureTokenAsync
+                // (NOT warm-attached here) — keeping interception ON across the relay
+                // fetch step would block the relay's outgoing /api/v1 GET (each
+                // intercepted request requires explicit ContinueAsync/AbortAsync;
+                // with no handler attached, the request stalls until PuppeteerSharp's
+                // 180s command timeout fires).
                 _probeFailureCount = 0;
                 sw.Stop();
 
                 _logger.Info(
-                    "Comix signer: Chromium launched, page loaded, probe captured signer/installer fns (probe latency: {0}ms).",
+                    "Comix signer: Chromium launched, page ready for captureToken interception (warm latency: {0}ms).",
                     sw.ElapsedMilliseconds);
             }
             catch (Exception ex)
@@ -320,158 +203,31 @@ namespace NzbDrone.Core.Indexers.Comix
             }
         }
 
-        // GAP-17-B Branch C (Plan 17-06) — REFINED by Phase 17.2 D-3 (Plan 17.2-03):
-        //
-        // Plan 17-06 shipped the in-IIFE try/catch around `await captured.res(fakeResp)` as
-        // a no-harm BRANCH-C measure: on decrypt-throw, the IIFE returns the JSON envelope
-        // `{result:null, e: raw.e, decryptError: String(decryptErr)}` instead of letting the
-        // rejection tear the page down. The original Plan 17-06 prose claimed the .NET
-        // caller's "existing JSON parser surfaces a parse error to RecordFailure" — Code
-        // Review WR-GC-01 (2026-05-10) falsified this: JsonConvert.DeserializeObject<typed-
-        // shape>(envelope) parses to a partially-populated POCO with the typed fields
-        // null'd; no parse error fires; RecordFailure never engages; the failure is
-        // SILENTLY SWALLOWED.
-        //
-        // Phase 17.2 D-3 fix (REFINE, do NOT revert per cutover-branch decision-history
-        // policy / SC#7 of ROADMAP):
-        //   1. The in-IIFE try/catch BELOW (lines ~407-420) is BYTE-FOR-BYTE UNCHANGED —
-        //      kept as cheap defensive code if a real decrypt exception ever surfaces in
-        //      production after Mitigation A (Plan 17.2-01 settle step) eliminated the
-        //      page-context-destroyed root cause.
-        //   2. The C# caller (ComixIndexer.DispatchSignerPathsAsync AND
-        //      ComixIndexer.GetChapterPages) now inspects the JSON envelope BEFORE
-        //      delegating to parser.ParseResponse / DeserializeObject<ComixChapterPagesResponse>;
-        //      on decryptError envelope hit → log Warn + _sourceStatusService.RecordFailure(SourceKey)
-        //      + continue/return-empty.
-        //   3. T-17.2-11 mitigation: only the decryptError STRING surfaces in the Warn log
-        //      — the `e` field's encrypted blob NEVER appears in the log surface
-        //      (verified by ComixDecryptErrorEnvelopeRoutingFixture.cs).
-        //
-        // *** DO NOT remove the in-IIFE catch ***: it is the defensive fallback if a real
-        // decrypt exception ever surfaces. The .NET-side envelope routing in ComixIndexer
-        // is the PRIMARY surface; the in-IIFE catch is a SECONDARY no-harm safety net.
-        //
-        // Regression guards:
-        //   - ComixDecryptErrorEnvelopeRoutingFixture.cs (NEW Phase 17.2-03; mock-based,
-        //     Chromium-free) asserts the envelope routes to RecordFailure on BOTH the
-        //     chapter-list dispatch path AND the GetChapterPages path.
-        //   - UpstreamSignerDriftFixture.Port_must_not_regress_GAP_17_B_decrypt_guard
-        //     (Phase 17 Plan 17-06; preserved verbatim) asserts the in-IIFE catch shape
-        //     stays present in this file.
+        /// <summary>
+        /// captureToken + relay flow (mirrors keiyoushi <c>Comix.kt</c>
+        /// <c>captureToken()</c> verbatim — upstream commit <c>965dc242</c>):
+        /// <list type="number">
+        ///   <item>Derive <c>pageUrl</c> + URL matcher from <paramref name="apiPath"/>.</item>
+        ///   <item>Check the per-pageUrl token cache; if hit, skip to step 6.</item>
+        ///   <item>Install a request-interception handler that aborts non-essential
+        ///         requests (images, fonts, analytics) and watches for the page's own
+        ///         outgoing API call.</item>
+        ///   <item>Navigate to <c>pageUrl</c> (<c>WaitUntil = DOMContentLoaded</c>; the page
+        ///         issues its API request shortly after).</item>
+        ///   <item>Await the captured token (bounded to 30s).</item>
+        ///   <item>Issue the actual <c>/api/v1{apiPath}?_=&lt;token&gt;</c> via the page's
+        ///         same-origin <c>fetch()</c> — the page's session cookies + UA apply.</item>
+        /// </list>
+        /// </summary>
         protected virtual async Task<string> EvaluateProxyFetchAsync(string apiPath, CancellationToken ct)
         {
             // CR-05 mitigation (revision iteration 2): snapshot fields under the gate before
             // any await against the page so a concurrent Dispose-after-drain-timeout that
-            // nulls _page / _signerExpr / _installerExpr cannot NRE us mid-evaluate. The
-            // gate's own contract enforces single-writer; the snapshot guards the read-
-            // before-await window. We additionally re-check _disposed (set by Dispose
-            // BEFORE it touches the gate) so a racing dispose bails cleanly with
-            // ObjectDisposedException instead of an NRE bubbling up the lazy-reprobe catch.
-            if (_disposed)
-            {
-                throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
-            }
-
-            var page = _page;
-            var signerExpr = _signerExpr;
-            var installerExpr = _installerExpr;
-            if (page == null || string.IsNullOrEmpty(signerExpr) || string.IsNullOrEmpty(installerExpr))
-            {
-                throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
-            }
-
-            // CR-01 + CR-02 mitigation (revision iteration 2): mirror upstream Signer.kt
-            // proxyFetch shape verbatim (Resources/upstream-signer.txt:76-117).
-            //  - Capture BOTH request + response interceptors registered by installer().
-            //  - Sign extractSignablePath(apiPath) — apiPath.split('?')[0] (CR-02 fix:
-            //    upstream signs the path WITHOUT the query string per
-            //    Resources/upstream-signer.txt:124-125).
-            //  - Append the token to the full apiPath (with query string preserved).
-            //  - On encrypted-body shape (`'e' in raw && captured.res`), build a fakeResp
-            //    and await captured.res(fakeResp) to obtain decoded.data; wrap as
-            //    `{result: <decoded>}` matching upstream bodyOut shape (CR-01 fix).
-            //
-            // Cached signerExpr / installerExpr are validated by an alphanumeric-only
-            // allowlist regex at probe time (WR-02 mitigation in LaunchAndProbeAsync) so
-            // the substitution below is JS-injection-safe even if a future comix.to
-            // deploy emits a hostile object key. JsString escapes the apiPath value
-            // (T-17-02-02 mitigation: JS-injection-safe single-quote string substitution).
-            var jsTemplate = $@"
-              (async () => {{
-                const captured = {{ req: null, res: null }};
-                const fakeAxios = {{
-                  interceptors: {{
-                    request:  {{ use: function(fn) {{ captured.req = fn; }} }},
-                    response: {{ use: function(fn) {{ captured.res = fn; }} }}
-                  }},
-                  defaults: {{ headers: {{ common: {{}} }}, transformRequest: [], transformResponse: [] }}
-                }};
-                const signer = {signerExpr};
-                const installer = {installerExpr};
-                installer(fakeAxios);
-
-                const apiPath = {JsString(apiPath)};
-                const signablePath = apiPath.split('?')[0];
-                const token = signer(signablePath);
-                const sep = apiPath.indexOf('?') === -1 ? '?' : '&';
-                const url = '/api/v1' + apiPath + sep + '_=' + encodeURIComponent(token);
-                const resp = await fetch(url, {{
-                  credentials: 'include',
-                  headers: {{ 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }}
-                }});
-                const text = await resp.text();
-                let raw;
-                try {{ raw = JSON.parse(text); }} catch (_e) {{ raw = null; }}
-                if (raw && typeof raw === 'object' && 'e' in raw && captured.res) {{
-                  // GAP-17-B Branch C fix (Plan 17-06): wrap the captured response interceptor
-                  // invocation in try/catch. Plan 17-05's Probe D diagnosis showed that
-                  // `await captured.res(fakeResp)` mutates window state (likely
-                  // window.location reload on stale-token defence OR a CSP-violating
-                  // side-effect) that destroys the page execution context. The catch
-                  // surfaces the encrypted shape + a `decryptError` string to the .NET
-                  // caller so ComixIndexer.Fetch's existing JSON-parse path can route to
-                  // IIndexerSourceStatusService.RecordFailure escalation, and — critically —
-                  // the warm page stays alive for the next request.
-                  try {{
-                    const fakeResp = {{
-                      data: raw,
-                      status: resp.status,
-                      statusText: resp.statusText,
-                      headers: Object.fromEntries([...resp.headers.entries()]),
-                      config: {{ url: url, method: 'get', baseURL: '/api/v1' }},
-                      request: {{}}
-                    }};
-                    const decoded = await captured.res(fakeResp);
-                    return JSON.stringify({{ result: decoded && decoded.data }});
-                  }} catch (decryptErr) {{
-                    return JSON.stringify({{ result: null, e: raw.e, decryptError: String(decryptErr) }});
-                  }}
-                }}
-                return text;
-              }})();";
-
-            // WR-03 mitigation: cancellation observation BEFORE the page evaluation —
-            // PuppeteerSharp.EvaluateExpressionAsync does not accept ct in 24.42.0,
-            // but a fast-fail on cancellation here saves the ~25s in-page fetch timeout.
-            ct.ThrowIfCancellationRequested();
-            return await page.EvaluateExpressionAsync<string>(jsTemplate).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Phase 17 GAP-17-B diagnostic seam (Plan 17-05 Task 1). Wraps the warm page's
-        /// <see cref="IPage.EvaluateExpressionAsync{T}(string)"/> for the diagnostic fixture
-        /// in <c>Mangarr.Comix.Live.Test</c> to drive raw probes against the SAME warm
-        /// page used by the production code path. NOT called from production code.
-        /// Fails fast with <see cref="ObjectDisposedException"/> if the page is gone.
-        /// </summary>
-        /// <remarks>
-        /// `protected internal` so the diagnostic fixture (which lives in a sibling test
-        /// project, NOT in NzbDrone.Core.Test) can subclass and access it. The seam is
-        /// VIRTUAL only to satisfy fixture-override patterns elsewhere in this class — no
-        /// production override is intended.
-        /// </remarks>
-        protected internal virtual async Task<string> EvaluateRawAsync(string js, CancellationToken ct)
-        {
+            // nulls _page cannot NRE us mid-evaluate. The gate's own contract enforces
+            // single-writer; the snapshot guards the read-before-await window. We
+            // additionally re-check _disposed (set by Dispose BEFORE it touches the gate)
+            // so a racing dispose bails cleanly with ObjectDisposedException instead of
+            // an NRE bubbling up the lazy-reprobe catch.
             if (_disposed)
             {
                 throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
@@ -483,26 +239,340 @@ namespace NzbDrone.Core.Indexers.Comix
                 throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
             }
 
+            // Derive (pageUrl, matchSuffix) from apiPath. Two call-site shapes mirroring
+            // upstream Comix.kt:
+            //   /manga/{hid}/chapters[?...]   →  https://comix.to/title/{hid}
+            //                                    match suffix: /api/v1/manga/{hid}/chapters
+            //   /chapters/{chapterId}[?...]   →  https://comix.to/chapters/{chapterId}
+            //                                    match suffix: /api/v1/chapters/{chapterId}
+            // Anything else is rejected — ApiPathRegex would have rejected unsigned shapes
+            // upstream, but the captureToken pattern only knows these two routes.
+            var (pageUrl, matchSuffix) = ResolveCaptureRoute(apiPath);
+
+            // Cache check: pagination loops within TokenCacheTtlMinutes reuse the captured
+            // token from a prior captureToken call. Cache key is the pageUrl (NOT the
+            // apiPath) — a chapter-list page-1 token works for page-2, page-3 of the
+            // same manga because the bundle issues additional requests through axios
+            // (with the response interceptor installed) once the page is fully
+            // bootstrapped.
+            var cachedToken = TryGetCachedToken(pageUrl);
+            if (cachedToken == null)
+            {
+                // FIRST request for this pageUrl: load the page, observe the bundle's own
+                // outgoing /api/v1/... call, capture the `?_=<token>` query parameter
+                // from the URL. We DO NOT read the bundle's response body — comix.to
+                // returns the {e:<base64>} encrypted envelope to browser-fetched
+                // requests (the bundle decrypts in-page via an internal interceptor we
+                // can't easily reach). Instead we use the captured token to issue a
+                // VANILLA HTTP GET via IHttpClient — this matches upstream Comix.kt's
+                // approach (Comix.kt:325 `client.newCall(GET(url, headers)).awaitSuccess()`)
+                // which is verified to return plaintext.
+                var capture = await CaptureTokenAndBodyAsync(page, pageUrl, matchSuffix, ct).ConfigureAwait(false);
+                CacheToken(pageUrl, capture.Token);
+            }
+
+            // Unified relay path: use the captured token (fresh or cached) to issue a
+            // VANILLA HTTP GET via IHttpClient. Mirrors upstream Comix.kt's
+            // `client.newCall(GET(url, headers)).awaitSuccess()` pattern (Comix.kt:325
+            // / Comix.kt:399). Choice B per .planning/debug/comix-signer-rotation.md
+            // Resolution.fix item 2 — relay outside the page is the only shape that
+            // currently returns plaintext from comix.to. Choice A (relay via page
+            // fetch / axios) was tested in the 2026-05-22 first-iteration rewrite and
+            // returned the {e:<base64>} encrypted envelope for browser-context fetches.
+            var sep = apiPath.IndexOf('?') == -1 ? "?" : "&";
+            var fullUrl = $"{ComixBaseUrl}/api/v1{apiPath}{sep}_={Uri.EscapeDataString(TryGetCachedToken(pageUrl) ?? string.Empty)}";
+
+            // Send the GET via a process-local System.Net.Http.HttpClient. We DON'T pull
+            // Mangarr's IHttpClient through DI because the signer is a process-singleton
+            // and we don't need rate-limiting / cookie-cache plumbing for this call (the
+            // token is per-page; comix.to's rate budget is handled by ComixIndexer's
+            // SourceKey rate budget on the front-door endpoints). Per upstream
+            // Comix.kt:325 the GET is intentionally a plain HTTP call.
+            using var httpClient = new System.Net.Http.HttpClient();
+            using var httpRequest = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, fullUrl);
+            httpRequest.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+            httpRequest.Headers.Referrer = new Uri(ComixBaseUrl + "/");
+
             ct.ThrowIfCancellationRequested();
-            return await page.EvaluateExpressionAsync<string>(js).ConfigureAwait(false);
+            using var httpResponse = await httpClient.SendAsync(httpRequest, ct).ConfigureAwait(false);
+            return await httpResponse.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         }
 
-        /// <summary>
-        /// Phase 17 GAP-17-B diagnostic accessor (Plan 17-05 Task 1). Exposes the
-        /// captured signer namespace expression so the diagnostic fixture can construct
-        /// stepwise probes WITHOUT reflection (a future rename of `_signerExpr` will
-        /// surface as a compile error rather than silently breaking the diagnostic).
-        /// `protected internal` so the diagnostic fixture in the sibling test project
-        /// can subclass and read. NOT called from production code.
-        /// </summary>
-        protected internal string SignerExprForTest => _signerExpr;
+        // Resolve which page URL to load + which outgoing request to match against to
+        // capture the token. Mirrors upstream Comix.kt's two call sites.
+        private static (string PageUrl, string MatchSuffix) ResolveCaptureRoute(string apiPath)
+        {
+            var m = MangaChaptersPathRegex.Match(apiPath);
+            if (m.Success)
+            {
+                var hid = m.Groups["hid"].Value;
+                return (
+                    $"{ComixBaseUrl}/title/{hid}",
+                    $"/api/v1/manga/{hid}/chapters");
+            }
 
-        /// <summary>
-        /// Phase 17 GAP-17-B diagnostic accessor (Plan 17-05 Task 1). Exposes the
-        /// captured installer namespace expression so the diagnostic fixture can
-        /// construct stepwise probes WITHOUT reflection. NOT called from production code.
-        /// </summary>
-        protected internal string InstallerExprForTest => _installerExpr;
+            m = ChaptersDetailPathRegex.Match(apiPath);
+            if (m.Success)
+            {
+                var chapterId = m.Groups["chapterId"].Value;
+                return (
+                    $"{ComixBaseUrl}/chapters/{chapterId}",
+                    $"/api/v1/chapters/{chapterId}");
+            }
+
+            throw new ArgumentException(
+                $"Comix signer: apiPath '{apiPath}' does not match a captureToken route " +
+                "(supported: /manga/{hid}/chapters or /chapters/{chapterId}).",
+                nameof(apiPath));
+        }
+
+        // Core captureToken loop — mirrors upstream Comix.kt:414-471 `captureToken()`
+        // verbatim:
+        //   • install shouldInterceptRequest handler that allows comix.to/.js + /api/ +
+        //     /title/ and aborts everything else
+        //   • on a request matching the suffix predicate, extract `_=<token>` and
+        //     fulfill the TaskCompletionSource (first-write-wins)
+        //   • navigate to pageUrl (DOMContentLoaded, NOT networkidle — the bundle's
+        //     long-lived sockets defeat networkidle)
+        //   • await tcs.Task bounded by CaptureTimeoutSeconds
+        //   • detach handler regardless of outcome
+        private sealed class CaptureResult
+        {
+            public string Token { get; set; }
+
+            public string Body { get; set; }
+        }
+
+        private static async Task<CaptureResult> CaptureTokenAndBodyAsync(
+            IPage page,
+            string pageUrl,
+            string matchSuffix,
+            CancellationToken ct)
+        {
+            var tokenTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var bodyTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            IRequest matchedRequest = null;
+
+            // Local handler closure; detached in finally so a leaked handler can't survive
+            // across requests (would race with the next captureToken).
+            EventHandler<RequestEventArgs> handler = null;
+            handler = async (sender, e) =>
+            {
+                try
+                {
+                    var req = e.Request;
+                    if (req == null)
+                    {
+                        return;
+                    }
+
+                    var urlStr = req.Url;
+                    if (string.IsNullOrEmpty(urlStr))
+                    {
+                        return;
+                    }
+
+                    // Try to capture the token BEFORE deciding allow/abort, mirroring
+                    // upstream's shouldInterceptRequest order — first observe, then route.
+                    if (Uri.TryCreate(urlStr, UriKind.Absolute, out var parsed))
+                    {
+                        if (parsed.AbsolutePath.EndsWith(matchSuffix, StringComparison.OrdinalIgnoreCase))
+                        {
+                            var query = parsed.Query;
+                            var token = ExtractQueryParam(query, "_");
+                            if (!string.IsNullOrEmpty(token) && tokenTcs.TrySetResult(token))
+                            {
+                                matchedRequest = req;
+                            }
+                        }
+
+                        // Allow comix.to bootstrap requests (.js, /api/, /title/) per
+                        // upstream Comix.kt:449-453; abort everything else (CDN images,
+                        // fonts, analytics) — saves bandwidth + speeds page-ready.
+                        var host = parsed.Host ?? string.Empty;
+                        var path = parsed.AbsolutePath ?? string.Empty;
+                        if (host.IndexOf("comix.to", StringComparison.OrdinalIgnoreCase) >= 0
+                            && (path.IndexOf(".js", StringComparison.OrdinalIgnoreCase) >= 0
+                                || path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
+                                || path.StartsWith("/title/", StringComparison.OrdinalIgnoreCase)
+                                || path.StartsWith("/chapters/", StringComparison.OrdinalIgnoreCase)
+                                || path == "/"))
+                        {
+                            await req.ContinueAsync().ConfigureAwait(false);
+                            return;
+                        }
+                    }
+
+                    await req.AbortAsync().ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Handler errors must not crash the page; swallow + let the navigation
+                    // proceed. If the abort/continue raced with a navigation, the request
+                    // is already resolved.
+                }
+            };
+
+            // Once a matching request is observed, RequestFinished fires when the
+            // response body is fully downloaded; we read req.Response.TextAsync() and
+            // resolve bodyTcs. The bundle's own request gets the plaintext shape because
+            // it carries all the page's legitimate headers + cookies + UA fingerprint —
+            // the encrypted {e:...} envelope is only returned to requests that fail the
+            // server-side check.
+            EventHandler<RequestEventArgs> finishedHandler = null;
+            finishedHandler = async (sender, e) =>
+            {
+                try
+                {
+                    if (matchedRequest == null || e.Request != matchedRequest)
+                    {
+                        return;
+                    }
+
+                    var resp = e.Request.Response;
+                    if (resp == null)
+                    {
+                        bodyTcs.TrySetException(new InvalidOperationException(
+                            "Comix signer: matching request finished with no Response attached."));
+                        return;
+                    }
+
+                    var text = await resp.TextAsync().ConfigureAwait(false);
+                    bodyTcs.TrySetResult(text);
+                }
+                catch (Exception ex)
+                {
+                    bodyTcs.TrySetException(ex);
+                }
+            };
+
+            await page.SetRequestInterceptionAsync(true).ConfigureAwait(false);
+            page.Request += handler;
+            page.RequestFinished += finishedHandler;
+            try
+            {
+                // WaitUntil = DOMContentLoaded — the bundle's long-lived sockets defeat
+                // Networkidle0 (the page never settles). DCL is sufficient because the
+                // bundle issues its bootstrap API request shortly after parse. We
+                // intentionally don't await the navTask — the captureToken is the
+                // synchronization point, not navigation completion.
+                _ = page.GoToAsync(
+                    pageUrl,
+                    new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded } });
+
+                using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
+                {
+                    var delayTask = Task.Delay(TimeSpan.FromSeconds(CaptureTimeoutSeconds), linkedCts.Token);
+                    var bothTask = Task.WhenAll(tokenTcs.Task, bodyTcs.Task);
+                    var winner = await Task.WhenAny(bothTask, delayTask).ConfigureAwait(false);
+
+                    if (winner == bothTask)
+                    {
+                        linkedCts.Cancel();
+                        return new CaptureResult
+                        {
+                            Token = await tokenTcs.Task.ConfigureAwait(false),
+                            Body = await bodyTcs.Task.ConfigureAwait(false),
+                        };
+                    }
+
+                    ct.ThrowIfCancellationRequested();
+                    throw new InvalidOperationException(
+                        $"Comix signer: captureToken timed out after {CaptureTimeoutSeconds}s waiting for " +
+                        $"matching outgoing request + response on '{matchSuffix}' (token captured: " +
+                        $"{tokenTcs.Task.IsCompletedSuccessfully}, body captured: {bodyTcs.Task.IsCompletedSuccessfully}).");
+                }
+            }
+            finally
+            {
+                page.Request -= handler;
+                page.RequestFinished -= finishedHandler;
+                try
+                {
+                    await page.SetRequestInterceptionAsync(false).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Toggling interception off on a half-disposed page can raise;
+                    // swallow because the failure mode is benign (page goes away on
+                    // teardown anyway).
+                }
+            }
+        }
+
+        // Extract a single query-parameter value WITHOUT pulling in System.Web. The query
+        // string passed in starts with '?' (Uri.Query convention). Returns null when the
+        // param isn't present.
+        private static string ExtractQueryParam(string query, string name)
+        {
+            if (string.IsNullOrEmpty(query))
+            {
+                return null;
+            }
+
+            var trimmed = query.StartsWith("?", StringComparison.Ordinal) ? query.Substring(1) : query;
+            foreach (var pair in trimmed.Split('&'))
+            {
+                if (string.IsNullOrEmpty(pair))
+                {
+                    continue;
+                }
+
+                var eq = pair.IndexOf('=');
+                if (eq < 0)
+                {
+                    continue;
+                }
+
+                var key = pair.Substring(0, eq);
+                if (string.Equals(key, name, StringComparison.Ordinal))
+                {
+                    var value = pair.Substring(eq + 1);
+                    return Uri.UnescapeDataString(value);
+                }
+            }
+
+            return null;
+        }
+
+        // ── Token cache ─────────────────────────────────────────────────────────────
+
+        private sealed class CachedToken
+        {
+            public string Token { get; set; }
+            public DateTimeOffset CapturedAt { get; set; }
+        }
+
+        // Per-pageUrl cache. ConcurrentDictionary because the gate serializes
+        // captureToken work but ProxyFetchAsync entries can read the cache snapshot
+        // before acquiring the gate (read-only race-tolerant); writers are gate-serialized.
+        private readonly ConcurrentDictionary<string, CachedToken> _tokenCache =
+            new ConcurrentDictionary<string, CachedToken>();
+
+        private string TryGetCachedToken(string pageUrl)
+        {
+            if (!_tokenCache.TryGetValue(pageUrl, out var entry))
+            {
+                return null;
+            }
+
+            if (DateTimeOffset.UtcNow - entry.CapturedAt > TimeSpan.FromMinutes(TokenCacheTtlMinutes))
+            {
+                _tokenCache.TryRemove(pageUrl, out _);
+                return null;
+            }
+
+            return entry.Token;
+        }
+
+        private void CacheToken(string pageUrl, string token)
+        {
+            _tokenCache[pageUrl] = new CachedToken
+            {
+                Token = token,
+                CapturedAt = DateTimeOffset.UtcNow,
+            };
+        }
 
         // T-17-02-02 mitigation: single-quote string substitution helper. Escapes \ and '
         // before string-format-style insertion into the page-context JS template.
@@ -569,7 +639,7 @@ namespace NzbDrone.Core.Indexers.Comix
         // for the production image), then local-dev conventions per OS. Yielded
         // lazily so HOME / LOCALAPPDATA are read on the host that's running.
         // `internal` so the regression guard in
-        // ComixSignerProbeSameNamespaceFixture.Launcher_must_have_platform_aware_cache_fallback
+        // ComixSignerPlatformCacheFallbackFixture.Launcher_must_have_platform_aware_cache_fallback
         // can spot-check the candidate list directly.
         internal static System.Collections.Generic.IEnumerable<string> GetPlatformCacheCandidates()
         {
@@ -600,16 +670,6 @@ namespace NzbDrone.Core.Indexers.Comix
             }
         }
 
-        // ProbeResult — JSON-serialisation target for the PROBE_JS return value.
-        private sealed class ProbeResult
-        {
-            [System.Text.Json.Serialization.JsonPropertyName("signerExpr")]
-            public string SignerExpr { get; set; }
-
-            [System.Text.Json.Serialization.JsonPropertyName("installerExpr")]
-            public string InstallerExpr { get; set; }
-        }
-
         // ── Fields ────────────────────────────────────────────────────────────────────
         private readonly IIndexerSourceStatusService _sourceStatusService;
         private readonly Logger _logger;
@@ -628,15 +688,13 @@ namespace NzbDrone.Core.Indexers.Comix
         private volatile bool _disposed;
 
         // _probeFailureCount tracks the n-count surfaced in the D-15 probe-failure Warn
-        // line. Reset to 0 on a successful probe; incremented on each probe throw.
+        // line. Reset to 0 on a successful warm-spawn; incremented on each spawn throw.
         private int _probeFailureCount;
 
         // Page-context state — mutated only under _gate.
         // Pitfall 4: nulled BEFORE awaiting browser.CloseAsync inside TeardownBrowserAsync.
         private IBrowser _browser;
         private IPage _page;
-        private string _signerExpr;
-        private string _installerExpr;
 
         private Timer _idleTimer;
 
@@ -690,10 +748,10 @@ namespace NzbDrone.Core.Indexers.Comix
         ///
         /// <para>
         /// B-2 path (a) — revision iteration 1 — LAZY REPROBE on EvaluateAsync error.
-        /// First attempt: try the cached (signerExpr, installerExpr) on the warm page.
-        /// If it throws (stale cache because comix.to re-deployed mid-session), tear down
-        /// + relaunch + retry ONCE. On second throw, fall through to the existing
-        /// RecordFailure path. This bounds re-entry to a single retry — no infinite recurse.
+        /// First attempt: try captureToken on the warm page. If it throws (page navigated
+        /// elsewhere, intercepted request never fired, etc.), tear down + relaunch + retry
+        /// ONCE. On second throw, fall through to the existing RecordFailure path. This
+        /// bounds re-entry to a single retry — no infinite recurse.
         /// </para>
         /// </summary>
         protected virtual async Task<string> ProxyFetchAsyncImpl(string apiPath, CancellationToken ct)
@@ -734,6 +792,9 @@ namespace NzbDrone.Core.Indexers.Comix
 
                     _logger.Warn(
                         "Comix signer: stale page detected (EvaluateAsync threw); relaunching and retrying once.");
+
+                    // Invalidate the token cache — a stale page implies a stale token too.
+                    _tokenCache.Clear();
                     try
                     {
                         await TeardownBrowserAsync().ConfigureAwait(false);
@@ -887,8 +948,7 @@ namespace NzbDrone.Core.Indexers.Comix
             var browser = _browser;
             _browser = null;
             _page = null;
-            _signerExpr = null;
-            _installerExpr = null;
+            _tokenCache.Clear();
 
             if (browser != null)
             {
@@ -964,8 +1024,7 @@ namespace NzbDrone.Core.Indexers.Comix
             var browser = _browser;
             _browser = null;
             _page = null;
-            _signerExpr = null;
-            _installerExpr = null;
+            _tokenCache.Clear();
 
             if (browser != null)
             {
