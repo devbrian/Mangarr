@@ -101,7 +101,7 @@ namespace NzbDrone.Core.ImportLists
             return anyRemoved;
         }
 
-        private void SyncAll()
+        private void SyncAll(bool ignoreRefreshInterval = false)
         {
             if (_importListFactory.AutomaticAddEnabled().Empty())
             {
@@ -112,7 +112,7 @@ namespace NzbDrone.Core.ImportLists
 
             _logger.ProgressInfo("Starting Import List Sync");
 
-            var result = _listFetcherAndParser.Fetch();
+            var result = _listFetcherAndParser.Fetch(ignoreRefreshInterval);
 
             var listItems = result.Manga.ToList();
 
@@ -382,7 +382,14 @@ namespace NzbDrone.Core.ImportLists
             }
             else
             {
-                SyncAll();
+                // GH #241 follow-up: user-initiated "Sync All" should run all lists
+                // immediately, even if the scheduled 24h cadence hasn't elapsed since
+                // the last run. The MinRefreshInterval gate is a courtesy to upstream
+                // APIs on the SCHEDULED cadence, not a hard throttle — when the user
+                // explicitly clicks "Sync All" (CommandTrigger.Manual), bypass it.
+                // CommandTrigger.Unspecified is treated as Scheduled for safety
+                // (programmatic callers that don't set Trigger should not bypass).
+                SyncAll(ignoreRefreshInterval: message.Trigger == CommandTrigger.Manual);
             }
         }
 
