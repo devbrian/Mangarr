@@ -246,6 +246,52 @@ public class TestKit
         return System.Text.Encoding.UTF8.GetString(stream.ToArray());
     }
 
+    /// <summary>
+    /// Debug session manage-indexers-sort-timeout (2026-05-22) — delete every
+    /// pre-existing indexer row via <c>DELETE /api/v5/indexer/{id}</c>. The
+    /// fresh-DB <c>IndexerFactory.InitializeProviders</c> auto-seed creates a
+    /// MangaDex + Comix pair before any fixture runs (NzbDrone.Core/Indexers/
+    /// IndexerFactory.cs:33 SeededIndexerImplementations). Fixtures that
+    /// validate the Manage modal's VISIBLE row order — where alphabetical
+    /// MangaDex / Comix names re-anchor the descending-sort first row away
+    /// from the fixture-seeded AAA/BBB/CCC trio — call this BEFORE seeding
+    /// to start the indexer table empty. Shares SeedBaselineAsync's startup-
+    /// race retry envelope on both the GET and per-id DELETE.
+    /// </summary>
+    public async Task DeleteAllIndexersAsync()
+    {
+        // 1. List indexers. Shares the same startup-race retry shape as
+        // DisableComixIndexerAsync (this runs in [OneTimeSetUp] right after
+        // the base seed, still inside the host's settling window).
+        var listResponse = await ExecuteWithStartupRetryAsync(
+            nameof(DeleteAllIndexersAsync),
+            "indexer GET",
+            () => BuildRequest("indexer", Method.GET));
+
+        using var doc = JsonDocument.Parse(listResponse.Content ?? "[]");
+
+        foreach (var entry in doc.RootElement.EnumerateArray())
+        {
+            if (!entry.TryGetProperty("id", out var idElement))
+            {
+                continue;
+            }
+
+            var id = idElement.GetInt32();
+
+            // 2. DELETE /api/v5/indexer/{id} — ProviderControllerBase.DeleteProvider.
+            //    Returns 200/NoContent on success; 404 if the row is gone (race
+            //    against another fixture's cleanup is harmless here, but inside
+            //    OneTimeSetUp the host is single-tenant so 404 would indicate a
+            //    real wiring issue and surfaces via ExecuteWithStartupRetryAsync's
+            //    throw).
+            await ExecuteWithStartupRetryAsync(
+                nameof(DeleteAllIndexersAsync),
+                $"indexer DELETE {id}",
+                () => BuildRequest($"indexer/{id}", Method.DELETE));
+        }
+    }
+
     // ────────────────────────────────────────────────────────────────────────
     // Phase 20 Plan 20-01 — API-driven Sonarr-canonical seeders (per D-06 / D-07).
     // Each ProviderControllerBase-descendant POST carries `?skipTesting=true`

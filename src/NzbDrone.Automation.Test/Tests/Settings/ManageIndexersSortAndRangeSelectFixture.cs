@@ -64,9 +64,22 @@ public class ManageIndexersSortAndRangeSelectFixture : AutomationTest
     {
         var kit = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
 
-        // Disable Comix per Pitfall 10 — picker schema warming would touch
-        // PuppeteerSharp otherwise.
-        await kit.DisableComixIndexerAsync();
+        // Debug session manage-indexers-sort-timeout (2026-05-22) — delete the
+        // auto-seeded MangaDex + Comix indexer rows BEFORE seeding the fixture's
+        // AAA/BBB/CCC trio. Pre-fix the fresh-DB
+        // IndexerFactory.InitializeProviders seed left the table containing
+        // [MangaDex, Comix] before fixture seed ran. After name-descending sort,
+        // the first visible row was "MangaDex" (not "CCC Indexer"), so the
+        // WaitForFunctionAsync at line 131 timed out. With the table empty
+        // pre-seed, the fixture-seeded trio is the only data the Manage modal
+        // renders and the descending-sort first row is deterministically
+        // "CCC Indexer".
+        //
+        // DisableComixIndexerAsync became a no-op once the row is deleted, so
+        // the explicit disable call is dropped (the pre-fix Pitfall 10 concern
+        // was that the EditIndexerModal's picker would warm Comix's schema and
+        // poke PuppeteerSharp; with the row gone the picker never reaches Comix).
+        await kit.DeleteAllIndexersAsync();
 
         // Seed 3 MangaDex-implementation indexer rows in NON-alphabetical
         // insertion order (C, A, B) so the unsorted raw cache shape disagrees
