@@ -155,6 +155,17 @@ namespace NzbDrone.Core.ImportLists
                                                    .Select(g => g.ToString())
                                                    .ToList();
 
+            // GH #241 follow-up: also load existing AniListId/MalId sets so we can
+            // short-circuit cross-source resolution when the item already corresponds
+            // to a library manga via its alternate ID. Without this, every AniList/MAL-
+            // only item (they NEVER carry MangaDexId from upstream) would hit
+            // MangaDex search on every 24h sync, burning the shared "mangadex" 40 req/min
+            // budget even though the dedup at the bottom of the loop would reject the
+            // resolved row anyway. HashSet for O(1) lookup; per-sync snapshot is fine
+            // because MangaAddedEvent fires after the loop completes.
+            var existingAniListIds = new HashSet<int>(_mangaService.AllAniListIds() ?? Enumerable.Empty<int>());
+            var existingMalIds = new HashSet<int>(_mangaService.AllMalIds() ?? Enumerable.Empty<int>());
+
             // GH #241 / Codex review: when MangaDex returns 429 on a cross-source
             // search, further per-item searches will also throttle. Latch this flag
             // and skip subsequent cross-source lookups (items with only AniListId/MalId)
@@ -185,6 +196,23 @@ namespace NzbDrone.Core.ImportLists
                 // ambiguous-title case.
                 if (item.MangaDexId.IsNullOrWhiteSpace())
                 {
+                    // GH #241 follow-up: short-circuit when this item is already in the
+                    // library by AniListId or MalId match. Without this guard, every
+                    // AniList/MAL-only item burns one MangaDex search per 24h sync (the
+                    // upstream NEVER carries MangaDexId, so the cross-source lookup runs
+                    // every time and the dedup at the bottom rejects the result). With
+                    // the guard, in-library items skip the lookup entirely.
+                    if ((item.AniListId.HasValue && existingAniListIds.Contains(item.AniListId.Value)) ||
+                        (item.MalId.HasValue && existingMalIds.Contains(item.MalId.Value)))
+                    {
+                        _logger.Debug(
+                            "[{0}] Rejected, already in library by alternate-ID (AniList={1}/MAL={2}); skipping cross-source lookup",
+                            item.Title,
+                            item.AniListId,
+                            item.MalId);
+                        continue;
+                    }
+
                     if ((item.AniListId.HasValue || item.MalId.HasValue) && !crossSourceThrottled)
                     {
                         try
