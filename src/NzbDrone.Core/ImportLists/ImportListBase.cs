@@ -109,6 +109,21 @@ namespace NzbDrone.Core.ImportLists
             {
                 c.ImportListId = Definition.Id;
                 c.ImportList = Definition.Name;
+
+                // GH #241 follow-up: ImportListItems.ImplementationName is NOT NULL at the
+                // DB layer (per Migration 001). Without this assignment the substrate's
+                // per-list cache table insert in ImportListItemService.SyncMangaForList
+                // throws SQLiteException "NOT NULL constraint failed:
+                // ImportListItems.ImplementationName" — caught by FetchAndParseImportListService
+                // as an Error-level log entry on every sync, even though the sync APPEARED
+                // to complete (the manga still landed via ImportListSyncService.ProcessListItems
+                // which doesn't depend on the cache row). The downstream consequence is that
+                // the per-list cache stays empty, so the substring-Title/cross-source-ID
+                // dedup that's supposed to suppress already-fetched-but-not-yet-added items
+                // never sees them — items pass through the dedup re-do on every sync.
+                // Definition.Implementation is the provider class name (e.g. "MangaDexImportList"),
+                // matching the corresponding ProviderDefinition row.
+                c.ImplementationName = Definition.Implementation;
             });
 
             return result;

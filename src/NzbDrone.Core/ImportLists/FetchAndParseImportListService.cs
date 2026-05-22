@@ -17,7 +17,15 @@ namespace NzbDrone.Core.ImportLists
     //     (MangaDexId, MalId, AniListId, Title).
     public interface IFetchAndParseImportList
     {
-        ImportListFetchResult Fetch();
+        // ignoreRefreshInterval=true bypasses the per-list MinRefreshInterval gate.
+        // GH #241 follow-up: user-initiated "Sync All" (CommandTrigger.Manual) should
+        // run all lists immediately even if the scheduled 24h cadence hasn't elapsed —
+        // the gate is a courtesy to upstream APIs on the SCHEDULED cadence, not a hard
+        // throttle. Manual triggers (Settings → Import Lists "Sync All" / System → Tasks
+        // → manual run) set ignoreRefreshInterval=true; the scheduled task itself leaves
+        // it false. FetchSingleList already bypasses by design (per-list explicit user
+        // action), so no overload is added there.
+        ImportListFetchResult Fetch(bool ignoreRefreshInterval = false);
         ImportListFetchResult FetchSingleList(ImportListDefinition definition);
     }
 
@@ -36,7 +44,7 @@ namespace NzbDrone.Core.ImportLists
             _logger = logger;
         }
 
-        public ImportListFetchResult Fetch()
+        public ImportListFetchResult Fetch(bool ignoreRefreshInterval = false)
         {
             var result = new ImportListFetchResult();
 
@@ -58,7 +66,7 @@ namespace NzbDrone.Core.ImportLists
                 var importListLocal = importList;
                 var importListStatus = _importListStatusService.GetListStatus(importListLocal.Definition.Id).LastInfoSync;
 
-                if (importListStatus.HasValue)
+                if (!ignoreRefreshInterval && importListStatus.HasValue)
                 {
                     var importListNextSync = importListStatus.Value + importListLocal.MinRefreshInterval;
 

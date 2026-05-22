@@ -130,30 +130,58 @@ namespace NzbDrone.Api.Test.Manga
         }
 
         [Test]
-        public void DeleteManga_DELETE_calls_2arg_DeleteManga_per_RESEARCH_Pitfall_4()
+        public void DeleteManga_DELETE_threads_addImportListExclusion_true_through_to_3arg_service()
         {
-            // RESEARCH §Pitfall 4: manga's IMangaService.DeleteManga signature is 2-arg
-            // (List<int> mangaIds, bool deleteFiles) — NOT 3-arg like TV's
-            // ISeriesService.DeleteSeries(List<int>, bool, bool). The MangaEditorResource
-            // KEEPS the AddImportListExclusion field for forward-compat (Import Lists deferred
-            // to v1.1 per PROJECT.md) but the controller MUST drop the third arg from the call
-            // (or treat as no-op). This test pins the 2-arg call signature so a future v1.1
-            // expansion to 3-arg cannot silently regress without updating this assertion.
+            // GH #241 follow-up: the v1.1 ImportList substrate is live, so the Phase 13
+            // RESEARCH §Pitfall 4 "deferred to v1.1" 2-arg shape no longer applies.
+            // MangaEditorController.DeleteManga must thread resource.AddImportListExclusion
+            // through to IMangaService.DeleteManga's 3-arg overload — otherwise the
+            // FE Delete modal checkbox is silently ignored and the auto-exclusion always
+            // fires (the 2-arg overload unconditionally defaults addImportListExclusion to
+            // true). This test pins the true-path of the fix.
             var resource = new MangaEditorResource
             {
                 MangaIds = new List<int> { 5, 9 },
                 DeleteFiles = true,
-                AddImportListExclusion = true, // forward-compat field — controller ignores it
+                AddImportListExclusion = true,
             };
 
             var result = Subject.DeleteManga(resource);
 
-            // The controller must call DeleteManga with exactly the 2-arg overload.
             Mocker.GetMock<IMangaService>()
                 .Verify(
                     s => s.DeleteManga(
                         It.Is<List<int>>(ids => ids.SequenceEqual(new[] { 5, 9 })),
+                        true,
                         true),
+                    Times.Once);
+
+            result.Should().BeOfType<NoContent>();
+        }
+
+        [Test]
+        public void DeleteManga_DELETE_threads_addImportListExclusion_false_through_to_3arg_service()
+        {
+            // GH #241 follow-up: pin the false-path. The bug report was specifically that
+            // unchecking the FE "Add to Import List Exclusion" checkbox had no effect —
+            // the controller must pass false through to the service so
+            // ImportListExclusionService.Handle(MangaDeletedEvent) sees
+            // message.AddImportListExclusion == false and skips the auto-exclusion insert.
+            var resource = new MangaEditorResource
+            {
+                MangaIds = new List<int> { 5, 9 },
+                DeleteFiles = false,
+                AddImportListExclusion = false,
+            };
+
+            var result = Subject.DeleteManga(resource);
+
+            Mocker.GetMock<IMangaService>()
+                .Verify(
+                    s => s.DeleteManga(
+                        It.Is<List<int>>(ids => ids.SequenceEqual(new[] { 5, 9 })),
+                        false,
+                        false),
                     Times.Once);
 
             result.Should().BeOfType<NoContent>();

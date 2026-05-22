@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NLog;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Common.Http;
 using NzbDrone.Common.Instrumentation.Extensions;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.ImportLists.Exclusions;
@@ -11,6 +12,7 @@ using NzbDrone.Core.Jobs;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.ThingiProvider.Events;
 
 namespace NzbDrone.Core.ImportLists
@@ -44,6 +46,7 @@ namespace NzbDrone.Core.ImportLists
         private readonly IAddMangaService _addMangaService;
         private readonly IConfigService _configService;
         private readonly ITaskManager _taskManager;
+        private readonly IMetadataSourceFactory _metadataSourceFactory;
         private readonly Logger _logger;
 
         public ImportListSyncService(IImportListFactory importListFactory,
@@ -55,6 +58,7 @@ namespace NzbDrone.Core.ImportLists
                               IAddMangaService addMangaService,
                               IConfigService configService,
                               ITaskManager taskManager,
+                              IMetadataSourceFactory metadataSourceFactory,
                               Logger logger)
         {
             _importListFactory = importListFactory;
@@ -66,6 +70,7 @@ namespace NzbDrone.Core.ImportLists
             _addMangaService = addMangaService;
             _configService = configService;
             _taskManager = taskManager;
+            _metadataSourceFactory = metadataSourceFactory;
             _logger = logger;
         }
 
@@ -96,7 +101,7 @@ namespace NzbDrone.Core.ImportLists
             return anyRemoved;
         }
 
-        private void SyncAll()
+        private void SyncAll(bool ignoreRefreshInterval = false)
         {
             if (_importListFactory.AutomaticAddEnabled().Empty())
             {
@@ -107,7 +112,7 @@ namespace NzbDrone.Core.ImportLists
 
             _logger.ProgressInfo("Starting Import List Sync");
 
-            var result = _listFetcherAndParser.Fetch();
+            var result = _listFetcherAndParser.Fetch(ignoreRefreshInterval);
 
             var listItems = result.Manga.ToList();
 
@@ -150,6 +155,25 @@ namespace NzbDrone.Core.ImportLists
                                                    .Select(g => g.ToString())
                                                    .ToList();
 
+            // GH #241 follow-up: also load existing AniListId/MalId sets so we can
+            // short-circuit cross-source resolution when the item already corresponds
+            // to a library manga via its alternate ID. Without this, every AniList/MAL-
+            // only item (they NEVER carry MangaDexId from upstream) would hit
+            // MangaDex search on every 24h sync, burning the shared "mangadex" 40 req/min
+            // budget even though the dedup at the bottom of the loop would reject the
+            // resolved row anyway. HashSet for O(1) lookup; per-sync snapshot is fine
+            // because MangaAddedEvent fires after the loop completes.
+            var existingAniListIds = new HashSet<int>(_mangaService.AllAniListIds() ?? Enumerable.Empty<int>());
+            var existingMalIds = new HashSet<int>(_mangaService.AllMalIds() ?? Enumerable.Empty<int>());
+
+            // GH #241 / Codex review: when MangaDex returns 429 on a cross-source
+            // search, further per-item searches will also throttle. Latch this flag
+            // and skip subsequent cross-source lookups (items with only AniListId/MalId)
+            // for the remainder of this sync — the next scheduled sync (24h cadence)
+            // will retry once the budget resets. Items that already carry MangaDexId
+            // are unaffected.
+            var crossSourceThrottled = false;
+
             foreach (var item in items)
             {
                 _logger.ProgressTrace("Processing list item {0}/{1}", reportNumber, items.Count);
@@ -163,14 +187,110 @@ namespace NzbDrone.Core.ImportLists
                     continue;
                 }
 
-                // Phase 27 owns cross-source ID resolution (AniList/MAL → MangaDexId).
-                // Until then, items without a MangaDexId are skipped — the substrate is
-                // ready for the lookup to be wired in; the lookup itself is the provider
-                // work that Phase 27 plans alongside the concrete providers.
+                // GH #241 v1.2 cross-source resolution wire-in:
+                // when an item arrives from AniList/MAL with only AniListId/MalId set,
+                // ask the primary metadata source (MangaDex by default) to search by title
+                // and pick the candidate whose own links.al / links.mal matches the item's
+                // cross-source id. This is the minimum-viable resolver — full Jaro-Winkler +
+                // multi-axis confirm (CrossSourceIdResolver) is a v1.2+ tightening for the
+                // ambiguous-title case.
                 if (item.MangaDexId.IsNullOrWhiteSpace())
                 {
-                    _logger.Debug("[{0}] Rejected, no MangaDexId — AniList/MAL cross-source resolution lives in Phase 27", item.Title);
-                    continue;
+                    // GH #241 follow-up: short-circuit when this item is already in the
+                    // library by AniListId or MalId match. Without this guard, every
+                    // AniList/MAL-only item burns one MangaDex search per 24h sync (the
+                    // upstream NEVER carries MangaDexId, so the cross-source lookup runs
+                    // every time and the dedup at the bottom rejects the result). With
+                    // the guard, in-library items skip the lookup entirely.
+                    if ((item.AniListId.HasValue && existingAniListIds.Contains(item.AniListId.Value)) ||
+                        (item.MalId.HasValue && existingMalIds.Contains(item.MalId.Value)))
+                    {
+                        _logger.Debug(
+                            "[{0}] Rejected, already in library by alternate-ID (AniList={1}/MAL={2}); skipping cross-source lookup",
+                            item.Title,
+                            item.AniListId,
+                            item.MalId);
+                        continue;
+                    }
+
+                    if ((item.AniListId.HasValue || item.MalId.HasValue) && !crossSourceThrottled)
+                    {
+                        // CodeRabbit review (narrowed-IOE-fallback): GetPrimary throws
+                        // InvalidOperationException when no primary metadata source is configured
+                        // (config-drift). Keep that catch SCOPED to the primary-source-acquisition
+                        // block ONLY, so an unrelated IOE thrown deeper inside SearchForNewManga
+                        // (provider bug, malformed search input, etc.) is NOT silently swallowed
+                        // here — it falls into the outer warn-and-log catch below where it can be
+                        // diagnosed instead of mistaken for "no primary configured".
+                        IMetadataSource primary = null;
+                        try
+                        {
+                            var primaryDef = _metadataSourceFactory.GetPrimary();
+                            primary = primaryDef != null
+                                ? _metadataSourceFactory.GetInstance(primaryDef)
+                                : null;
+                        }
+                        catch (InvalidOperationException)
+                        {
+                            // No primary metadata source configured (or factory has no providers
+                            // wired). Fall through silently — cross-source resolution is best-effort.
+                        }
+
+                        if (primary != null)
+                        {
+                            try
+                            {
+                                var candidates = primary.SearchForNewManga(item.Title) ?? new List<Manga.Manga>();
+
+                                // CodeRabbit review (strict-AND): when an item carries BOTH AniListId
+                                // AND MalId, require BOTH to agree with the candidate. The
+                                // OR-on-either pre-fix could pick a wrong candidate that happened to
+                                // share only one ID (e.g. title-collision sibling that has same MalId
+                                // but different AniListId). When an item carries only one of the IDs,
+                                // the missing clause is short-circuited (no opinion). The outer if
+                                // guarantees at least one ID is present so this never degenerates to
+                                // "match any".
+                                var match = candidates.FirstOrDefault(c =>
+                                    (!item.AniListId.HasValue || c.AniListId == item.AniListId) &&
+                                    (!item.MalId.HasValue || c.MalId == item.MalId));
+
+                                if (match?.MangaDexId != null)
+                                {
+                                    item.MangaDexId = match.MangaDexId.ToString();
+                                    _logger.Debug(
+                                        "[{0}] Cross-source resolved AniList={1}/MAL={2} → MangaDexId={3}",
+                                        item.Title,
+                                        item.AniListId,
+                                        item.MalId,
+                                        item.MangaDexId);
+                                }
+                            }
+                            catch (TooManyRequestsException)
+                            {
+                                // Codex review: MangaDex returned 429 (server-side budget exceeded —
+                                // the local RateLimit blocking-wait did NOT prevent it because the
+                                // "mangadex" SourceKey is SHARED with MetadataSource/Indexer/image-
+                                // downloader and we may have drained the budget through those peers).
+                                // Latch the flag so we don't keep hammering for the remainder of this
+                                // sync run; surface a single visible warning. The next scheduled sync
+                                // (24h cadence) will retry once the budget resets.
+                                crossSourceThrottled = true;
+                                _logger.Warn(
+                                    "Cross-source ID lookup against MangaDex throttled (HTTP 429); skipping cross-source resolution for the rest of this sync. Item [{0}] and subsequent AniList/MAL-only items will be retried on the next scheduled sync.",
+                                    item.Title);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Warn(ex, "[{0}] Cross-source resolution failed; item will be skipped", item.Title);
+                            }
+                        }
+                    }
+
+                    if (item.MangaDexId.IsNullOrWhiteSpace())
+                    {
+                        _logger.Debug("[{0}] Rejected, no MangaDexId — cross-source resolution did not find a match", item.Title);
+                        continue;
+                    }
                 }
 
                 // CodeRabbit PR #218 (initial review + outside-diff follow-up):
@@ -270,7 +390,14 @@ namespace NzbDrone.Core.ImportLists
             }
             else
             {
-                SyncAll();
+                // GH #241 follow-up: user-initiated "Sync All" should run all lists
+                // immediately, even if the scheduled 24h cadence hasn't elapsed since
+                // the last run. The MinRefreshInterval gate is a courtesy to upstream
+                // APIs on the SCHEDULED cadence, not a hard throttle — when the user
+                // explicitly clicks "Sync All" (CommandTrigger.Manual), bypass it.
+                // CommandTrigger.Unspecified is treated as Scheduled for safety
+                // (programmatic callers that don't set Trigger should not bypass).
+                SyncAll(ignoreRefreshInterval: message.Trigger == CommandTrigger.Manual);
             }
         }
 
