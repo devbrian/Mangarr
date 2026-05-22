@@ -32,7 +32,7 @@ env:
   FRAMEWORK: net10.0
   RAW_BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
   MANGARR_MAJOR_VERSION: 1                # Sonarr divergence: was 5 — Phase 21 D-07 reset to v1.0.0 series
-  VERSION: 1.0.0                          # Sonarr divergence: was 5.0.0 — Phase 21 D-07 reset
+  VERSION: 1.1.0                          # Sonarr divergence: was 5.0.0 — Phase 21 D-07 reset; bumped 1.0.0 -> 1.1.0 at Phase 28 close (v1.1 milestone close)
 
 jobs:
   prepare:
