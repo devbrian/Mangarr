@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NLog;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Common.Http;
 using NzbDrone.Common.Instrumentation.Extensions;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.ImportLists.Exclusions;
@@ -154,6 +155,14 @@ namespace NzbDrone.Core.ImportLists
                                                    .Select(g => g.ToString())
                                                    .ToList();
 
+            // GH #241 / Codex review: when MangaDex returns 429 on a cross-source
+            // search, further per-item searches will also throttle. Latch this flag
+            // and skip subsequent cross-source lookups (items with only AniListId/MalId)
+            // for the remainder of this sync — the next scheduled sync (24h cadence)
+            // will retry once the budget resets. Items that already carry MangaDexId
+            // are unaffected.
+            var crossSourceThrottled = false;
+
             foreach (var item in items)
             {
                 _logger.ProgressTrace("Processing list item {0}/{1}", reportNumber, items.Count);
@@ -176,27 +185,64 @@ namespace NzbDrone.Core.ImportLists
                 // ambiguous-title case.
                 if (item.MangaDexId.IsNullOrWhiteSpace())
                 {
-                    if (item.AniListId.HasValue || item.MalId.HasValue)
+                    if ((item.AniListId.HasValue || item.MalId.HasValue) && !crossSourceThrottled)
                     {
                         try
                         {
+                            // GetPrimary throws InvalidOperationException when no primary metadata
+                            // source is configured (config-drift). The catch on that exception
+                            // below silently falls through to the standard "no MangaDexId" reject
+                            // path — cross-source resolution is opportunistic, not load-bearing.
                             var primaryDef = _metadataSourceFactory.GetPrimary();
-                            var primary = _metadataSourceFactory.GetInstance(primaryDef);
-                            var candidates = primary.SearchForNewManga(item.Title) ?? new List<Manga.Manga>();
-                            var match = candidates.FirstOrDefault(c =>
-                                (item.AniListId.HasValue && c.AniListId == item.AniListId) ||
-                                (item.MalId.HasValue && c.MalId == item.MalId));
+                            var primary = primaryDef != null
+                                ? _metadataSourceFactory.GetInstance(primaryDef)
+                                : null;
 
-                            if (match?.MangaDexId != null)
+                            if (primary != null)
                             {
-                                item.MangaDexId = match.MangaDexId.ToString();
-                                _logger.Debug(
-                                    "[{0}] Cross-source resolved AniList={1}/MAL={2} → MangaDexId={3}",
-                                    item.Title,
-                                    item.AniListId,
-                                    item.MalId,
-                                    item.MangaDexId);
+                                var candidates = primary.SearchForNewManga(item.Title) ?? new List<Manga.Manga>();
+
+                                // CodeRabbit review: when an item carries BOTH AniListId AND MalId,
+                                // require BOTH to agree with the candidate. The OR-on-either pre-fix
+                                // could pick a wrong candidate that happened to share only one ID
+                                // (e.g. title-collision sibling that has same MalId but different
+                                // AniListId). When an item carries only one of the IDs, the missing
+                                // clause is short-circuited (no opinion). The outer if guarantees at
+                                // least one ID is present so this never degenerates to "match any".
+                                var match = candidates.FirstOrDefault(c =>
+                                    (!item.AniListId.HasValue || c.AniListId == item.AniListId) &&
+                                    (!item.MalId.HasValue || c.MalId == item.MalId));
+
+                                if (match?.MangaDexId != null)
+                                {
+                                    item.MangaDexId = match.MangaDexId.ToString();
+                                    _logger.Debug(
+                                        "[{0}] Cross-source resolved AniList={1}/MAL={2} → MangaDexId={3}",
+                                        item.Title,
+                                        item.AniListId,
+                                        item.MalId,
+                                        item.MangaDexId);
+                                }
                             }
+                        }
+                        catch (InvalidOperationException)
+                        {
+                            // No primary metadata source configured (or factory has no providers
+                            // wired). Fall through silently — cross-source resolution is best-effort.
+                        }
+                        catch (TooManyRequestsException)
+                        {
+                            // Codex review: MangaDex returned 429 (server-side budget exceeded —
+                            // the local RateLimit blocking-wait did NOT prevent it because the
+                            // "mangadex" SourceKey is SHARED with MetadataSource/Indexer/image-
+                            // downloader and we may have drained the budget through those peers).
+                            // Latch the flag so we don't keep hammering for the remainder of this
+                            // sync run; surface a single visible warning. The next scheduled sync
+                            // (24h cadence) will retry once the budget resets.
+                            crossSourceThrottled = true;
+                            _logger.Warn(
+                                "Cross-source ID lookup against MangaDex throttled (HTTP 429); skipping cross-source resolution for the rest of this sync. Item [{0}] and subsequent AniList/MAL-only items will be retried on the next scheduled sync.",
+                                item.Title);
                         }
                         catch (Exception ex)
                         {
