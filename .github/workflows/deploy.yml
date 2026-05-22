@@ -276,12 +276,21 @@ jobs:
         id: notes-source
         shell: bash
         run: |
-          # build_v5.yml prepare step produces 4-part `inputs.version` (1.0.0.<run_number>),
-          # so the release tag built here is `v1.0.0.<run>`. Accept the 3-part form too in
-          # case a future prepare-step change shortens it (CodeRabbit #23 defensive guard).
+          # build_v5.yml prepare step produces 4-part `inputs.version` (<MAJOR>.<MINOR>.0.<run_number>),
+          # so the release tag built here is `v<MAJOR>.<MINOR>.0.<run>`. Accept the 3-part base too.
+          # Phase 28 D-19 generalization: hand-curated RELEASE-NOTES-v<MAJOR>.<MINOR>.0.md if present,
+          # else fall through to actions/github-script generateReleaseNotes (Phase 21 D-12 fallback).
           tag="v${{ inputs.version }}"
-          if [[ "$tag" =~ ^v1\.0\.0(\.[0-9]+)?$ ]]; then
-            echo "use_file=true" >> "$GITHUB_OUTPUT"
+          if [[ "$tag" =~ ^v([0-9]+)\.([0-9]+)\.0(\.[0-9]+)?$ ]]; then
+            major="${BASH_REMATCH[1]}"
+            minor="${BASH_REMATCH[2]}"
+            notes_file="RELEASE-NOTES-v${major}.${minor}.0.md"
+            if [[ -f "$notes_file" ]]; then
+              echo "use_file=true" >> "$GITHUB_OUTPUT"
+              echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
+            else
+              echo "use_file=false" >> "$GITHUB_OUTPUT"
+            fi
           else
             echo "use_file=false" >> "$GITHUB_OUTPUT"
           fi
@@ -323,7 +332,7 @@ jobs:
           artifacts: _artifacts/Mangarr.*
           commit: ${{ github.sha }}
           generateReleaseNotes: false
-          bodyFile: ${{ steps.notes-source.outputs.use_file == 'true' && 'RELEASE-NOTES-v1.0.0.md' || '' }}
+          bodyFile: ${{ steps.notes-source.outputs.use_file == 'true' && steps.notes-source.outputs.notes_file || '' }}
           body: ${{ steps.notes-source.outputs.use_file == 'false' && steps.generate-release-notes.outputs.result || '' }}
           name: ${{ inputs.version }}
           # Was `inputs.branch != 'Mangarr-v0'` — always true in production because build_v5.yml
