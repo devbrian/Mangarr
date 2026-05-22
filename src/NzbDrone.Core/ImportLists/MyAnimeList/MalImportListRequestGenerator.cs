@@ -51,10 +51,11 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         {
             var chain = new ImportListPageableRequestChain();
 
-            // Initial request only — MAL cursor pagination is server-driven (the
-            // provider's FetchImportListResponse override walks paging.next at
-            // runtime). Building speculative offset-stepped URLs here would
-            // over-fetch on short lists.
+            // Initial request only — MAL cursor pagination via paging.next is
+            // NOT walked; the substrate's HttpImportListBase.FetchItems loop
+            // terminates on partial pages so lists under PageSize=1000 read
+            // correctly. Larger lists are truncated at the first page.
+            // Tracked in GH #223 for v1.x.
             var statusString = MapStatusToMalString(Settings?.Status ?? MalListStatus.Reading);
             var request = new HttpRequestBuilder("https://api.myanimelist.net/v2/users/@me/mangalist")
                 .AddQueryParam("status", statusString)
