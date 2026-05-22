@@ -50,9 +50,19 @@ public class ImportListsClosingFixture : AutomationTest
         await Assertions.Expect(Page.GetByTestId("settings-importlists-manage-button"))
             .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 
-        // Options FieldSet (closes GH #220 — Phase 27.1)
-        await Assertions.Expect(Page.GetByTestId("settings-importlists-options"))
-            .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
+        // Options FieldSet (closes GH #220 — Phase 27.1). Per Phase 7 D-05
+        // advanced-gating pattern (mirrored in ImportListOptionsAdvancedGatingFixture),
+        // the Options FieldSet is conditionally rendered behind the
+        // `settings-advanced-toggle` button; on a fresh DB the toggle may
+        // boot to OFF. Normalise to "advanced ON" before asserting.
+        var optionsContainer = Page.GetByTestId("settings-importlists-options");
+        if (!(await optionsContainer.IsVisibleAsync()))
+        {
+            await Page.GetByTestId("settings-advanced-toggle").ClickAsync();
+        }
+
+        await Assertions.Expect(optionsContainer).ToBeVisibleAsync(
+            new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 
         // Exclusions Table — 3 manga-ID column headers (Phase 27.1 D-01, mangaID triplet)
         await Assertions.Expect(Page.GetByTestId("settings-importlist-exclusion-mangadexid-header"))
@@ -66,9 +76,9 @@ public class ImportListsClosingFixture : AutomationTest
         var listResp = await Page.APIRequest.GetAsync($"{RootUri}/api/v5/importlist");
         listResp.Status.Should().Be(200, "Phase 26 ImportList substrate V5 controller");
 
-        var configResp = await Page.APIRequest.GetAsync($"{RootUri}/api/v5/importlistconfig");
+        var configResp = await Page.APIRequest.GetAsync($"{RootUri}/api/v5/config/importlist");
         configResp.Status.Should().Be(200,
-            "Phase 27.1 dedicated ImportListConfig V5 controller wires the Options FieldSet");
+            "Phase 27.1 dedicated ImportListConfig V5 controller wires the Options FieldSet (route /api/v5/config/importlist per [V5ApiController(\"config/importlist\")])");
 
         var exclResp = await Page.APIRequest.GetAsync($"{RootUri}/api/v5/importlistexclusion");
         exclResp.Status.Should().Be(200, "Phase 26 ImportListExclusion V5 controller");

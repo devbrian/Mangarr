@@ -180,7 +180,8 @@ public class CrossVerticalFlowFixture : AutomationTest
         await Assertions.Expect(Page.GetByTestId("manga-missing-page"))
             .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 
-        var manualImport = Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Manual Import" });
+        // Manual Import is a PageToolbarButton (<button>), not a link.
+        var manualImport = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Manual Import" });
         await Assertions.Expect(manualImport).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
         (await manualImport.IsDisabledAsync()).Should().BeFalse(

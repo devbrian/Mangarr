@@ -42,7 +42,10 @@ public class InteractiveImportClosingFixture : AutomationTest
         // Manual Import toolbar button MUST be enabled — the `mediaType !== 'manga'`
         // LOCK guard at Wanted/Missing/Missing.tsx was dropped as Plan 12-11's last
         // commit per ROADMAP Pitfall 16.
-        var manualImportButton = Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Manual Import" });
+        // Manual Import surfaces as a Sonarr-style toolbar PageToolbarButton — a
+        // <button> with text+title "Manual Import", NOT an <a role=link>. Use
+        // AriaRole.Button so the locator matches Mangarr's actual element shape.
+        var manualImportButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Manual Import" });
         await Assertions.Expect(manualImportButton).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
         var isDisabled = await manualImportButton.IsDisabledAsync();
