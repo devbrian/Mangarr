@@ -82,8 +82,13 @@ namespace Mangarr.Comix.Live.Test
             var tokenTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             string browserOwnBody = null;
 
-            EventHandler<RequestEventArgs> finishedHandler = null;
-            finishedHandler = async (s, e) =>
+            // page.Request fires as soon as the request is issued (URL is known here).
+            // page.RequestFinished fires later (after response body downloads).
+            // Splitting responsibilities: tokenTcs completes from page.Request so it
+            // doesn't race the 30s CaptureTimeoutSeconds Task.WhenAny when the body
+            // download is slow. RequestFinished only captures the encrypted body.
+            EventHandler<RequestEventArgs> requestHandler = null;
+            requestHandler = (s, e) =>
             {
                 try
                 {
@@ -108,6 +113,33 @@ namespace Mangarr.Comix.Live.Test
                     {
                         tokenTcs.TrySetResult(token);
                     }
+                }
+                catch
+                {
+                    // swallow
+                }
+            };
+
+            EventHandler<RequestEventArgs> finishedHandler = null;
+            finishedHandler = async (s, e) =>
+            {
+                try
+                {
+                    var req = e.Request;
+                    if (req?.Url == null)
+                    {
+                        return;
+                    }
+
+                    if (!Uri.TryCreate(req.Url, UriKind.Absolute, out var parsed))
+                    {
+                        return;
+                    }
+
+                    if (!parsed.AbsolutePath.EndsWith($"/api/v1/manga/{TargetHid}/chapters", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return;
+                    }
 
                     if (req.Response != null && browserOwnBody == null)
                     {
@@ -127,6 +159,7 @@ namespace Mangarr.Comix.Live.Test
                 }
             };
 
+            page.Request += requestHandler;
             page.RequestFinished += finishedHandler;
 
             try
@@ -316,6 +349,7 @@ JSON.stringify(['Mr','Ji','Ti','Ii','Pi','xi','Bi','Vi','Mi','Hi','Ai','Ci','Di'
             }
             finally
             {
+                page.Request -= requestHandler;
                 page.RequestFinished -= finishedHandler;
                 try
                 {

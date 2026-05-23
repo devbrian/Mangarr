@@ -196,8 +196,13 @@ namespace Mangarr.Comix.Live.Test
                 }
 
                 var capturedToken = await tokenTcs.Task;
-                result.CapturedToken = capturedToken;
-                result.TargetRequestUrl = targetRequestUrl;
+
+                // Redact before persisting anywhere — anything written to `result`
+                // ends up serialized to TestContext output AND to a JSON artifact
+                // committed under .planning/debug/evidence/. Live anti-bot/session
+                // tokens must NOT leak into version control.
+                result.CapturedToken = RedactToken(capturedToken);
+                result.TargetRequestUrl = RedactTokenInUrl(targetRequestUrl);
 
                 // Wait briefly for the browser's own response to finish so finishedHandler populates.
                 await Task.Delay(TimeSpan.FromSeconds(3));
@@ -487,6 +492,39 @@ namespace Mangarr.Comix.Live.Test
             }
 
             return null;
+        }
+
+        private static string RedactToken(string token)
+        {
+            if (string.IsNullOrEmpty(token))
+            {
+                return token;
+            }
+
+            return token.Length <= 8 ? "***" : token[..4] + "..." + token[^4..];
+        }
+
+        private static string RedactTokenInUrl(string url)
+        {
+            if (string.IsNullOrEmpty(url))
+            {
+                return url;
+            }
+
+            var marker = "_=";
+            var idx = url.IndexOf(marker, StringComparison.Ordinal);
+            if (idx < 0)
+            {
+                return url;
+            }
+
+            var start = idx + marker.Length;
+            var end = url.IndexOf('&', start);
+            var token = end >= 0 ? url[start..end] : url[start..];
+            var redacted = RedactToken(token);
+            return end >= 0
+                ? url[..start] + redacted + url[end..]
+                : url[..start] + redacted;
         }
 
         private static string ResolveChromiumExecutable()

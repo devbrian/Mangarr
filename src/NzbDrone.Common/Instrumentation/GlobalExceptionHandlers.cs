@@ -29,11 +29,22 @@ namespace NzbDrone.Common.Instrumentation
             // signer's correctness — the navigation that triggered the redirect completes — but
             // the noisy stack trace alarms users. Filtered by type-name (not reference) because
             // NzbDrone.Common is dependency-free per its CLAUDE.md.
-            if (exception.InnerException?.GetType().FullName == "PuppeteerSharp.PuppeteerException"
-                && exception.InnerException.Message == "Response body is unavailable for redirect responses")
+            //
+            // Only suppress when the FLATTENED inner-exception set contains exactly ONE
+            // PuppeteerSharp redirect-body exception. Mixed AggregateException payloads
+            // (the PuppeteerException AND a real bug) must surface normally — using
+            // exception.InnerException (singular) on an AggregateException is not
+            // deterministically "the first" inner and would silently swallow real failures.
+            if (exception is AggregateException aggregateException)
             {
-                e.SetObserved();
-                return;
+                var innerExceptions = aggregateException.Flatten().InnerExceptions;
+                if (innerExceptions.Count == 1
+                    && innerExceptions[0].GetType().FullName == "PuppeteerSharp.PuppeteerException"
+                    && innerExceptions[0].Message == "Response body is unavailable for redirect responses")
+                {
+                    e.SetObserved();
+                    return;
+                }
             }
 
             Console.WriteLine("Task Error: {0}", exception);

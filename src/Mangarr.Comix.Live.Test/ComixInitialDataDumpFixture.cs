@@ -86,7 +86,7 @@ JSON.stringify(Array.from(document.querySelectorAll('a[href*=""-chapter-""]')).m
                 var initialDataFile = Path.Combine(dir, $"initial-data-{ts}.json");
                 var domChaptersFile = Path.Combine(dir, $"dom-chapters-{ts}.json");
 
-                File.WriteAllText(initialDataFile, initialDataJson ?? "<null>");
+                File.WriteAllText(initialDataFile, initialDataJson ?? "null");
                 File.WriteAllText(domChaptersFile, domChapters);
 
                 TestContext.WriteLine("Initial data saved to: " + initialDataFile);

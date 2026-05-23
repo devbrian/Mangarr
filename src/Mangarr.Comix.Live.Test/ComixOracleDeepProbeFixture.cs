@@ -270,7 +270,11 @@ namespace Mangarr.Comix.Live.Test
 
             try
             {
-                _ = page.GoToAsync(
+                // Capture the navigation Task instead of discarding it — fire-and-forget
+                // would silently swallow DNS / TCP / HTTP failures and leave the polling
+                // loop to time out 45s later with no diagnostic. Observing IsFaulted
+                // inside the polling loop surfaces the real reason immediately.
+                var navigationTask = page.GoToAsync(
                     $"{ComixBase}/title/{TargetHid}",
                     new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded } });
 
@@ -280,6 +284,12 @@ namespace Mangarr.Comix.Live.Test
                 while (DateTimeOffset.UtcNow < deadline)
                 {
                     await Task.Delay(500);
+                    if (navigationTask.IsFaulted)
+                    {
+                        TestContext.WriteLine($"Navigation failed: {navigationTask.Exception?.GetBaseException().Message}");
+                        break;
+                    }
+
                     if (browserOwnEncrypted != null
                         && DateTimeOffset.UtcNow > deadline.AddSeconds(-PostCaptureWaitSeconds))
                     {
