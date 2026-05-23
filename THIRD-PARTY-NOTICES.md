@@ -62,7 +62,7 @@ commit SHA at port time, ported file location, and modifications list per method
 **NuGet:** https://www.nuget.org/packages/PuppeteerSharp
 **Source:** https://github.com/hardkoded/puppeteer-sharp
 **License:** MIT
-**Mangarr usage:** Phase 17 Comix runtime signer (`src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs`) drives an embedded headless Chromium child via DevTools Protocol to mirror keiyoushi `Signer.kt` (port broken 2026-05-10 by upstream key rotation + response-body encryption — see `.planning/debug/comix-invalid-token-403.md`).
+**Mangarr usage:** Phase 17 Comix runtime signer (`src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs`) drives an embedded headless Chromium child via DevTools Protocol to mirror keiyoushi `Comix.kt` `captureToken()` (the prior PROBE_JS approach was broken 2026-05-22 by upstream namespace-probe deletion + bundle rotation — see `.planning/debug/comix-signer-rotation.md`).
 **Modifications:** none (NuGet dep; no source-port modifications).
 
 MIT license boilerplate: see https://opensource.org/licenses/MIT.
@@ -78,19 +78,23 @@ MIT license boilerplate: see https://opensource.org/licenses/MIT.
 
 BSD-3-Clause license: see https://opensource.org/licenses/BSD-3-Clause.
 
-## Comix Signer (keiyoushi Signer.kt)
+## Comix Signer (keiyoushi Comix.kt `captureToken()`)
 
-**Upstream source path:** `keiyoushi/extensions-source/src/en/comix/src/eu/kanade/tachiyomi/extension/en/comix/Signer.kt`
-**Upstream commit SHA at port time:** `9ceeab04a7950173bb73a4e5b6f29cef5ded1457` (captured 2026-05-10 via `gh api repos/keiyoushi/extensions-source/commits/main --jq '.sha'` — same SHA as `src/NzbDrone.Core.Test/Indexers/Comix/Resources/upstream-signer.txt`)
+**Upstream source path (CURRENT — captureToken):** `keiyoushi/extensions-source/src/en/comix/src/eu/kanade/tachiyomi/extension/en/comix/Comix.kt` (function `captureToken` at lines 414-471 of head)
+**Upstream commit SHA at port time (CURRENT):** `965dc242` (2026-05-12 — "Comix: only get token via webview"). Captured 2026-05-22 via `gh api repos/keiyoushi/extensions-source/commits/main --jq '.sha'` during the `.planning/debug/comix-signer-rotation.md` investigation.
+**Historical (Phase 17 port-time) upstream source path:** `keiyoushi/extensions-source/src/en/comix/src/eu/kanade/tachiyomi/extension/en/comix/Signer.kt` (DELETED upstream in commit `965dc242`).
+**Historical (Phase 17 port-time) upstream commit SHA:** `9ceeab04a7950173bb73a4e5b6f29cef5ded1457` (captured 2026-05-10; preserved as the historical port baseline). `src/NzbDrone.Core.Test/Indexers/Comix/Resources/upstream-signer.txt` carries the SHA-pinned snapshot of the now-deleted `Signer.kt` for drift-history reference.
 **Mangarr ported file:** `src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs`
 **License:** Apache 2.0
 **Modifications:**
-- Translated from Kotlin (Android `WebView` + `JsBridge` shape) to C# (PuppeteerSharp `IBrowser` + DevTools Protocol).
+- Translated from Kotlin (Android `WebView` + `WebViewClient.shouldInterceptRequest`) to C# (PuppeteerSharp `IPage.SetRequestInterceptionAsync(true)` + `IPage.Request` event handler).
 - Single-process `IComixSigner` singleton replacing the upstream's per-source `Signer` companion-object pattern; lifecycle wired to `IHandle<ApplicationShutdownRequested>` for clean teardown.
-- Behaviour-based namespace probing (`window.vmf_*` walker) ported verbatim from upstream PROBE_JS at `Signer.kt:370-410`.
 - Idle-teardown timer added (D-12 — TimeSpan.FromMinutes(10) hardcoded const for v1.0); upstream Android WebView lacks a comparable shape (lifecycle managed by Android's Activity).
 - .NET-side serialization via `SemaphoreSlim(1,1)` mirrors upstream's single-thread WebView posture.
-- Lazy reprobe-on-EvaluateAsync-error layered on top of upstream's probe-once posture (Phase 17 B-2 path (a) revision — D-09 deferral retired).
+- Lazy reprobe-on-EvaluateAsync-error layered on top of upstream's capture-once posture (Phase 17 B-2 path (a) revision — D-09 deferral retired).
+- Per-`pageUrl` token cache with 5-minute TTL (Mangarr-only — pagination loop optimization; upstream re-captures per request because Android WebView spin-up is cheap, but PuppeteerSharp page loads are 3-8s).
+- 2026-05-22 captureToken rewrite: `captureToken()` ported verbatim from upstream `Comix.kt:414-471` (commit `965dc242`). Two call sites preserved: `/manga/{hid}/chapters` → load `https://comix.to/title/{hid}` (match `/api/v1/manga/{hid}/chapters`); `/chapters/{chapterId}` → load `https://comix.to/chapters/{chapterId}` (match `/api/v1/chapters/{chapterId}`). After token capture, the actual API GET is relayed through the page's same-origin `fetch()` (Choice A per `.planning/debug/comix-signer-rotation.md`) — preserves the existing `IComixSigner.ProxyFetchAsync` contract.
+- Replaces the prior Phase 17 namespace-probe approach (PROBE_JS walker against `Object.keys(window)`). The upstream `Signer.kt` file referenced by the Phase 17 port was DELETED in commit `965dc242` when the captureToken pattern landed.
 
 **Apache 2.0 license boilerplate:** See <https://www.apache.org/licenses/LICENSE-2.0>.
 The full Apache-2.0 license text is not inlined here; reference link satisfies §4(a) per discretion of the porter (no NOTICE file in upstream).

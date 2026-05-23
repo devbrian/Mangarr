@@ -67,8 +67,16 @@ namespace NzbDrone.Core.Indexers.Comix
             }
 
             // Probe envelope shape first via JObject so we can route deserialization without
-            // catching exceptions. comix.to wraps both endpoints in {status, result:{items[]}};
-            // route on the first item's keys (chapter rows have a numeric `number` and an
+            // catching exceptions.
+            //
+            // Two on-wire shapes are accepted for forward compatibility across rotations:
+            //   1. Unwrapped (env-module-oracle default, 2026-05-23+): the bundle's pre-
+            //      installed ok+result interceptor strips the `{status:"ok", result:{...}}`
+            //      envelope, so items sit at the JSON root: `{items:[...], meta:...}`.
+            //   2. Wrapped (legacy HTTP-relay path + pre-Phase-3 fixtures): items live
+            //      under `result.items` inside the full envelope.
+            //
+            // Route on the first item's keys (chapter rows have a numeric `number` and an
             // `id` plus typically a `group`; manga rows have `hid` + `title` + `latestChapter`).
             JObject envelope;
             try
@@ -80,10 +88,28 @@ namespace NzbDrone.Core.Indexers.Comix
                 return releases;
             }
 
-            var firstItem = envelope?["result"]?["items"]?[0] as JObject;
+            // Try unwrapped shape FIRST (post-Phase-3 oracle default); fall back to wrapped.
+            var topItems = envelope?["items"] as JArray;
+            var firstItem = (topItems != null && topItems.Count > 0)
+                ? topItems[0] as JObject
+                : envelope?["result"]?["items"]?[0] as JObject;
             if (firstItem == null)
             {
                 return releases;
+            }
+
+            // If the response was the unwrapped shape, lift it into the wrapped envelope
+            // shape so the existing typed POCO deserialization (ComixChapterListResponse /
+            // ComixMangaListResponse, both rooted at .Result) continues to work without
+            // ripple-changes to the per-shape Parse* methods.
+            if (topItems != null)
+            {
+                var wrapped = new JObject
+                {
+                    ["status"] = "ok",
+                    ["result"] = envelope
+                };
+                content = wrapped.ToString();
             }
 
             // Chapter rows always carry a numeric `number` and an integer `id` representing

@@ -61,7 +61,7 @@ MANGARR_UP() {
     # representation differences). If the HTTP probe fails AND we're confident
     # the port isn't bound to something else, we treat Mangarr as already down.
     local code
-    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://localhost:$PORT/login" 2>/dev/null || echo "000")
+    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 6 "http://localhost:$PORT/login" 2>/dev/null || echo "000")
     [[ "$code" =~ ^(200|3[0-9][0-9])$ ]]
 }
 

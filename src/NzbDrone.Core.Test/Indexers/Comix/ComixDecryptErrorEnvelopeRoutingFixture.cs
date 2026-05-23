@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +9,6 @@ using NLog;
 using NLog.Config;
 using NLog.Targets;
 using NUnit.Framework;
-using NzbDrone.Common.Http;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Comix;
 using NzbDrone.Core.IndexerSearch.Definitions;
@@ -84,33 +82,35 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 }
             };
 
-            // Mock<IComixSigner> returns the decryptError envelope verbatim — the production
-            // code under test must detect the envelope shape BEFORE delegating to the parser,
-            // because JsonConvert.DeserializeObject<typed-shape>(envelope) parses to a
-            // null-Result POCO that the existing parse path silently swallows (this is the
-            // WR-GC-01 finding).
+            // Mock<IComixSigner> returns the decryptError envelope verbatim for the
+            // chapter-list / chapter-detail paths — the production code under test must
+            // detect the envelope shape BEFORE delegating to the parser, because
+            // JsonConvert.DeserializeObject<typed-shape>(envelope) parses to a null-Result
+            // POCO that the existing parse path silently swallows (this is the WR-GC-01
+            // finding).
+            //
+            // 2026-05-23 cascade fix: ResolveMangaHashAsync now routes through the signer
+            // too (Cloudflare-403's plain GETs to /api/v1/manga?keyword=...). We must
+            // discriminate the mock by apiPath: the keyword-search call returns a valid
+            // unwrapped manga-list (so hid resolution yields a non-null hid + dispatch
+            // proceeds into the chapter-list path), and only the chapter-list call returns
+            // the decryptError envelope.
+            const string KeywordSearchResponse =
+                "{\"items\":[{\"id\":1,\"hid\":\"testhid\",\"title\":\"Test\"}],\"meta\":{}}";
             Mocker.GetMock<IComixSigner>()
                   .Setup(s => s.ProxyFetchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                  .ReturnsAsync(DecryptErrorEnvelope);
-
-            // ComixIndexer.Fetch(MangaSearchCriteria) calls ResolveMangaHashAsync FIRST
-            // (real HTTP via IHttpClient.GetAsync against /api/v1/manga?keyword=...). When
-            // the IHttpClient mock returns null/empty content, hid resolves null, Fetch
-            // short-circuits with an empty release list, and DispatchSignerPathsAsync is
-            // never reached — meaning the signer envelope is never seen by the production
-            // code under test. Mock the keyword-search endpoint to return a valid
-            // ComixMangaListResponse with one item so resolution yields a non-null hid +
-            // dispatch proceeds into the signer path.
-            const string KeywordSearchResponse =
-                "{\"status\":\"ok\",\"result\":{\"items\":[{\"id\":1,\"hid\":\"testhid\",\"title\":\"Test\"}]}}";
-            var keywordSearchHttpResponse = new HttpResponse(
-                new HttpRequest("https://comix.to/api/v1/manga?keyword=Test"),
-                new HttpHeader { ContentType = "application/json" },
-                KeywordSearchResponse,
-                HttpStatusCode.OK);
-            Mocker.GetMock<IHttpClient>()
-                  .Setup(c => c.GetAsync(It.IsAny<HttpRequest>()))
-                  .ReturnsAsync(keywordSearchHttpResponse);
+                  .Returns<string, CancellationToken>((apiPath, _) =>
+                  {
+                      // Discriminate on apiPath shape: keyword-search starts with "/manga?",
+                      // chapter-list with "/manga/<hid>/chapters", chapter-detail with
+                      // "/chapters/<id>". Only the latter two should hit the decryptError
+                      // envelope code path under test.
+                      var isKeywordSearch = apiPath != null
+                          && apiPath.StartsWith("/manga?", StringComparison.Ordinal);
+                      return Task.FromResult(isKeywordSearch
+                          ? KeywordSearchResponse
+                          : DecryptErrorEnvelope);
+                  });
         }
 
         [TearDown]

@@ -350,22 +350,25 @@ namespace NzbDrone.Core.Indexers.Comix
 
             try
             {
-                var generator = (ComixRequestGenerator)GetRequestGenerator();
-                var url = generator.BuildSearchUrl(keyword);
-                var request = new HttpRequest(url, HttpAccept.Json);
-                request.Headers["Referer"] = $"{Settings.BaseUrl.TrimEnd('/')}/";
-                request.RateLimitKey = SourceKey;
-                request.RateLimit = RateLimit;
-                request.Headers["User-Agent"] = ResolveUserAgent();
-
-                var response = await _httpClient.GetAsync(request);
-                if (string.IsNullOrWhiteSpace(response?.Content))
+                // 2026-05-22+ cascade fix: comix.to fronts /api/v1/* behind Cloudflare —
+                // plain GETs return 403 (see .planning/debug/comix-signer-rotation.md). The
+                // keyword-search endpoint shares the same gate as /manga/{hid}/chapters and
+                // /chapters/{id}, so route it through the env-module signer too. The signer
+                // returns the unwrapped `result` object directly (bundle's ok+result
+                // interceptor strips the `{status:"ok", result:{...}}` envelope) — we
+                // accept both shapes for forward compatibility across rotations (matches
+                // ComixParser pattern + ComixSignerLiveFixture.ExtractFirstChapterId).
+                var apiPath = $"/manga?keyword={Uri.EscapeDataString(keyword)}&limit=10";
+                var json = await _signer.ProxyFetchAsync(apiPath).ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(json))
                 {
                     return null;
                 }
 
-                var envelope = JsonConvert.DeserializeObject<ComixMangaListResponse>(response.Content);
-                if (envelope?.Result?.Items == null || envelope.Result.Items.Count == 0)
+                var probe = JObject.Parse(json);
+                var items = probe["items"] as JArray
+                         ?? probe["result"]?["items"] as JArray;
+                if (items == null || items.Count == 0)
                 {
                     return null;
                 }
@@ -373,16 +376,18 @@ namespace NzbDrone.Core.Indexers.Comix
                 // Match preference: exact (case-insensitive) title match if available, else
                 // first hit. comix.to's keyword search occasionally returns near-misses
                 // (sub-string hits) ahead of the exact title — guard against that.
-                foreach (var item in envelope.Result.Items)
+                foreach (var item in items)
                 {
-                    if (item != null && !string.IsNullOrWhiteSpace(item.Hid)
-                        && string.Equals(item.Title, keyword, StringComparison.OrdinalIgnoreCase))
+                    var itemTitle = item?["title"]?.ToString();
+                    var itemHid = item?["hid"]?.ToString();
+                    if (!string.IsNullOrWhiteSpace(itemHid)
+                        && string.Equals(itemTitle, keyword, StringComparison.OrdinalIgnoreCase))
                     {
-                        return item.Hid;
+                        return itemHid;
                     }
                 }
 
-                return envelope.Result.Items[0]?.Hid;
+                return items[0]?["hid"]?.ToString();
             }
             catch (OperationCanceledException)
             {

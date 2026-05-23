@@ -463,6 +463,37 @@ diversification.
 ---
 *Last updated: 2026-05-10 (Phase 17 plan 17-04 Wave 3 close-out — added Phase 17 entry documenting the Comix-only browser-automation reversal of Phase 3 D-13. Scope-limit explicit so future devs don't generalize: MangaDex stays browser-free; `IComixSigner` is a manga-side single-source pattern, NOT a Sonarr-substrate addition.)*
 
+### Addendum 2026-05-22 — captureToken pattern adopted
+
+**Trigger:** comix.to deployed a bundle rotation between 2026-05-12 and 2026-05-22 that moved the signer function out of `globalThis.<namespace>.<fn>` shape entirely. Concurrently, upstream keiyoushi recognized that namespace-walking is unsustainable and switched to a structurally simpler design: **don't probe — observe**. Upstream commit `965dc242` (2026-05-12, "Comix: only get token via webview") deletes `Signer.kt` entirely and pivots `Comix.kt` to a `captureToken()` shape. The Phase 17 architecture (process-singleton runtime signer that probes `globalThis.vmf_*` for behaviour-matching signer + installer fns) is upstream-obsolete. See `.planning/debug/comix-signer-rotation.md` for the full root-cause + decision record.
+
+**Architecture pivot (replaces the Phase 17 PROBE_JS shape):**
+- Drop PROBE_JS namespace walk + Phase 17.2 D-1 networkidle settle + in-IIFE BRANCH-C decrypt routing in the signer JS template + all `SignerExpr` / `InstallerExpr` cached state + `EvaluateRawAsync` diagnostic seam.
+- Replace with PuppeteerSharp request-interception: `page.SetRequestInterceptionAsync(true)` + `page.Request += handler` capture the `?_=<token>` query parameter off the page's OWN outgoing API request.
+- Two routes mirroring upstream `Comix.kt`: `/manga/{hid}/chapters` → load `/title/{hid}` (match `/api/v1/manga/{hid}/chapters`); `/chapters/{chapterId}` → load `/chapters/{chapterId}` (match `/api/v1/chapters/{chapterId}`).
+- After token capture, relay the API GET server-side via `System.Net.Http.HttpClient` (Choice B per debug doc — `client.newCall(GET(url, headers)).awaitSuccess()` analog) — preserves the existing `IComixSigner.ProxyFetchAsync(apiPath) → Task<string>` contract perfectly. PR #244 review feedback (Codex P1 + CodeRabbit Major) refined this further: the relay reuses a process-singleton `_relayHttpClient` (not per-call `new HttpClient()`), forwards browser session state onto the relay (cookies via `_page.GetCookiesAsync(comix.to)` + UA via `navigator.userAgent` cached at warm-time), and calls `EnsureSuccessStatusCode()` so non-2xx flows through to lazy-reprobe + `RecordFailure` instead of silently degrading.
+- Mangarr-only optimization: per-`pageUrl` token cache with 5-minute TTL so pagination loops reuse a single capture (upstream Android re-captures per request because WebView spin-up is cheap; PuppeteerSharp page loads are 3-8s, worth caching).
+- `WaitUntil = DOMContentLoaded` (not `Networkidle0`) — the bundle's long-lived sockets defeat network-idle. Bounded by `CaptureTimeoutSeconds = 30` (mirrors upstream `Comix.kt:466 latch.await(30, SECONDS)`). PR #244 review feedback (CodeRabbit Major #7): captureToken waits on the TOKEN alone (the bundle's response body is never consumed by the caller, so waiting on `RequestFinished` + `resp.TextAsync()` made the gate brittle — could time-out even after token was already captured).
+
+**Deleted/rewritten files:**
+- `src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs` — major rewrite (probe → captureToken).
+- `src/NzbDrone.Core.Test/Indexers/Comix/ComixSignerProbeSameNamespaceFixture.cs` — DELETED (probe-specific regression guards no longer applicable).
+- `src/NzbDrone.Core.Test/Indexers/Comix/ComixSignerPlatformCacheFallbackFixture.cs` — NEW (extracts the platform-cache fallback regression guards from the deleted ProbeSameNamespace fixture so the Phase 17.2 Chromium-cache contract stays locked).
+- `src/NzbDrone.Core.Test/Indexers/Comix/UpstreamSignerDriftFixture.cs` — rewritten to lock the captureToken contract (negative assertions on PROBE_JS / `Object.keys(window)` + positive assertions on `SetRequestInterceptionAsync`, `page.Request +=`, `DOMContentLoaded` navigation, `CaptureTimeoutSeconds`, and the relay-fetch shape).
+- `src/Mangarr.Comix.Live.Test/ComixSignerStepwiseDiagnosticFixture.cs` — rewritten for captureToken steps (chapter-list route + chapter-detail route, instead of the previous 4 probe sub-tests for signer/installer fn refs).
+- `src/Mangarr.Comix.Live.Test/ComixPagesEndpointSurveyFixture.cs` — DELETED (one-shot probe-specific survey fixture; depended on the deleted `DiagnosticHarnessSigner.SignerExprForDiagnostic`/`InstallerExprForDiagnostic` seams).
+- `src/NzbDrone.Core/Indexers/Comix/CLAUDE.md` — Phase 17 Invariants section refreshed for the captureToken architecture.
+- `THIRD-PARTY-NOTICES.md` — Comix Signer entry pivoted to `Comix.kt` `captureToken()` (commit `965dc242`); Phase 17 port-time SHA `9ceeab04…` preserved as historical baseline; `upstream-signer.txt` excerpt retained as drift-history breadcrumb.
+- `ComixIndexer.cs` `TryDetectDecryptErrorEnvelope` helper KEPT as defense-in-depth (the new captureToken shape never emits a decryptError envelope; the guard provides a soft landing if comix.to re-introduces response-body encryption in a future rotation).
+
+**Lessons:** namespace probing has a finite shelf-life; observing the page's own outgoing requests is a structurally simpler invariant against any signer-implementation rotation. Logged into `.planning/phases/17-comix-runtime-signer-port-puppeteersharp/17-LEARNINGS.md`.
+
+**Cross-references:**
+- `.planning/debug/comix-signer-rotation.md` — root-cause + decision record (5 evidence entries, 4 eliminated hypotheses, upstream commit references).
+- Upstream commit `965dc242` — <https://github.com/keiyoushi/extensions-source/commit/965dc242>.
+- Nightly soak red run that triggered the investigation: <https://github.com/devbrian/Mangarr/actions/runs/26275043814>.
+
+
 ## Phase 17.3 — Domain Rename Residue Sweep (pre-v1) (2026-05-12)
 
 **Goal:** Sweep TV-term residue that Phase 15 intentionally deferred so v1.0.0 ships free of TV vocabulary in the developer-facing code surface.

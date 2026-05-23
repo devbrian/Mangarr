@@ -6,48 +6,35 @@ using NzbDrone.Core.Test.Framework;
 namespace NzbDrone.Core.Test.Indexers.Comix
 {
     /// <summary>
-    /// Phase 17 W-4 (revision iteration 1): Chromium-free drift falsifier.
-    /// Compares the planned PROBE_JS const + proxyFetch JS shape in
-    /// <c>ComixPuppeteerSigner.cs</c> against the captured upstream excerpt at
-    /// <c>Resources/upstream-signer.txt</c>. If the SHA-pinned upstream changes
-    /// its PROBE_JS shape (e.g. abandons the <c>vmf_*</c> namespace prefix), this
-    /// fixture FAILS — the executor knows to re-port BEFORE the live test in Wave 3.
+    /// Chromium-free upstream-drift falsifier. Locks the structural shape of
+    /// <c>ComixPuppeteerSigner.cs</c> against keiyoushi <c>Comix.kt</c>'s
+    /// <c>captureToken()</c> pattern (upstream commit <c>965dc242</c>, 2026-05-12 —
+    /// "Comix: only get token via webview").
     ///
     /// <para>
-    /// Wave 0 leaves this fixture <c>[Ignore]</c>'d at class level because the
-    /// planned <c>ComixPuppeteerSigner.cs</c> file does not exist yet. Wave 1
-    /// (Plan 17-02 Task 1b) authors that file and un-Ignores this fixture.
-    /// </para>
-    ///
-    /// <para>
-    /// The upstream-signer.txt resource itself is verified non-empty +
-    /// vmf_-bearing by the build-time grep acceptance criterion in Plan 17-01
-    /// Task 4 verify; this fixture is the runtime cross-check.
+    /// History: the original Phase 17 shape probed <c>globalThis.vmf_*</c> namespaces
+    /// for behaviour-matching signer + installer fns; upstream <c>Signer.kt</c> was
+    /// deleted in commit <c>965dc242</c> (2026-05-12) and the strategy pivoted to
+    /// request-interception token capture. This fixture was rewritten on 2026-05-22
+    /// to lock the captureToken-shape contract — see
+    /// <c>.planning/debug/comix-signer-rotation.md</c> for the root-cause + decision
+    /// record. The <c>Resources/upstream-signer.txt</c> Phase 17 port-time snapshot
+    /// is retained in the repository as a historical reference documenting the
+    /// obsolete namespace-probe shape, but is no longer loaded by this fixture; the
+    /// captureToken-shape tests now use grep-against-implementation-source checks
+    /// (<c>_signerSource</c> / <c>_parserSource</c>) — see PR #244 Comment #5 for the
+    /// clarification reason.
     /// </para>
     /// </summary>
     [TestFixture]
     public class UpstreamSignerDriftFixture : CoreTest
     {
-        private string _upstreamExcerpt;
         private string _signerSource;
         private string _parserSource;
 
         [SetUp]
         public void Setup()
         {
-            // Resource shipped via csproj <None Update="..." CopyToOutputDirectory>.
-            var resourcePath = Path.Combine(
-                TestContext.CurrentContext.TestDirectory,
-                "Indexers",
-                "Comix",
-                "Resources",
-                "upstream-signer.txt");
-            _upstreamExcerpt = File.ReadAllText(resourcePath);
-
-            // ComixPuppeteerSigner.cs lives in NzbDrone.Core. The Wave 0 fixture climbed
-            // a fixed number of `..`s from `_tests/net10.0/`, which breaks in worktree
-            // layouts (the repo root may not be 2-or-4 levels up from the test dir).
-            // Walk parent directories until we find the canonical path.
             _signerSource = ReadCoreSource(
                 TestContext.CurrentContext.TestDirectory,
                 "src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs");
@@ -79,146 +66,155 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 $"Could not locate '{relative}' by walking up from '{startDir}'.");
         }
 
-        // Backwards-compat shim: the original `ReadSignerSource` helper signature is
-        // preserved so any external caller (none today) doesn't break. Internally
-        // delegates to ReadCoreSource with the canonical signer-source path.
-        private static string ReadSignerSource(string startDir)
-            => ReadCoreSource(startDir, "src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs");
+        [Test]
+        public void Signer_must_use_env_module_oracle_via_dynamic_import()
+        {
+            // 2026-05-23 oracle pivot (Investigation Phase 3): the signer no longer
+            // captureToken+relays via vanilla HTTP. comix.to's response encryption oracle
+            // is closure-scoped inside the secure-tfgaak bundle and is only invokable
+            // via the env-tfgaak module's exported axios instance (which already has
+            // the bundle's `Hi(ai)` decryption interceptor installed). The signer
+            // dynamic-imports the env module from page context + calls `mod.f.get(...)`
+            // to get plaintext JSON. If this assertion fails, someone has reverted to
+            // the upstream-obsolete captureToken+relay shape — read
+            // .planning/debug/comix-signer-rotation.md "Investigation Phase 3" for why
+            // that shape is structurally broken post-2026-05-23.
+            _signerSource.Should().Contain(
+                "env-tfgaak-",
+                "Signer must locate the env module (env-tfgaak-*.js) which exports the " +
+                "bundle's axios instance + b-wrapper. See bundle source dump in " +
+                ".planning/debug/evidence/comix-signer-rotation/bundle-source-*-env-tfgaak-*.");
+
+            _signerSource.Should().Contain(
+                "EnsureEnvModuleAsync",
+                "Signer must call EnsureEnvModuleAsync to sniff the env module URL from " +
+                "page network traffic + cache it across calls. The env module URL is " +
+                "content-hashed so it's stable per build but rotates per deploy.");
+
+            _signerSource.Should().Contain(
+                "await import(",
+                "Signer must dynamic-import the env module from page context. The bundle's " +
+                "decryption oracle (Hi(ai) axios interceptor) lives in module scope and is " +
+                "only reachable via ES module export.");
+
+            _signerSource.Should().Contain(
+                "mod.f",
+                "Signer must invoke the env module's `f` export (the b-wrapper around the " +
+                "decryption-installed axios instance). `mod.f.get(path, {params})` returns " +
+                "plaintext JSON via the bundle's own interceptor chain.");
+        }
 
         [Test]
-        public void PROBE_JS_should_reference_vm_namespace_family_per_upstream_post_phase_17_2_rotation_diagnosis()
+        public void Signer_must_NOT_probe_globalThis_namespaces()
         {
-            // WR-GC-03 (Phase 17.2): the original prefix-pin asserted the literal `vmf_`
-            // namespace but comix.to has rotated through `vmX_<hex>` (observed live
-            // 2026-05-10 during Phase 17.2 Plan 17.2-01 settle work) and again to
-            // `vmZ_<hex>` (observed live 2026-05-10 during Plan 17.2-02 pages-endpoint
-            // survey — see 17.2-PAGES-ENDPOINT-SURVEY.md). The behavioural detection in
-            // PROBE_JS (signer = ≥40-char base64url + installer = response-interceptor
-            // capture, gated to same namespace per GAP-17-C / Plan 17-07) is the safety
-            // envelope; the namespace prefix itself is incidental and rotates per deploy
-            // per upstream Signer.kt:28 ("Names rotate per deploy; behaviour does not").
-            //
-            // Option A (preferred — relax the prefix-pin to a regex covering the vm
-            // family broadly): preserves the upstream-drift signal (assertion still fires
-            // if upstream drops the vm family entirely) without coupling to a specific
-            // post-rotation letter. The companion `_upstreamExcerpt` assertion preserves
-            // the historical Signer.kt commit-time `vmf_` reference verbatim — that
-            // excerpt is the SHA-pinned snapshot of upstream at port time, NOT a
-            // floating reference, so it stays as-is.
-            _upstreamExcerpt.Should().Contain("vmf_",
-                "upstream Signer.kt at port-time SHA used the vmf_* window-namespace prefix; " +
-                "if upstream drifts AND the SHA is refreshed, this assertion documents the " +
-                "expected delta — capture a fresh excerpt at re-port time");
+            // Negative assertion — the namespace-probe shape is upstream-obsolete (commit
+            // 965dc242 deletes Signer.kt entirely). If anyone re-adds a PROBE_JS-style
+            // walker, this regression guard fires verbatim.
+            // Regex-based negative assertions: look for actual code usage, not historical
+            // mentions in commentary. A bare PROBE_JS const declaration would match
+            // `private const string PROBE_JS`; an Object.keys(window) walk would appear
+            // inside an EvaluateExpressionAsync template literal between `@"` and `"`.
+            _signerSource.Should().NotMatchRegex(
+                @"const\s+string\s+PROBE_JS",
+                "captureToken (2026-05-22 rewrite) deletes the PROBE_JS const. Re-adding " +
+                "a `const string PROBE_JS = @\"...\"` regresses to the upstream-obsolete " +
+                "namespace-probe pattern. See .planning/debug/comix-signer-rotation.md.");
+
+            _signerSource.Should().NotMatchRegex(
+                @"for\s*\(\s*const\s+ns\s+of\s+Object\.keys\(window\)",
+                "captureToken does NOT walk window namespaces — re-adding an " +
+                "`Object.keys(window)` loop regresses to the upstream-obsolete probe pattern.");
+        }
+
+        [Test]
+        public void Signer_must_route_apiPath_to_one_of_two_captureToken_call_sites()
+        {
+            // Upstream Comix.kt has TWO captureToken call sites:
+            //   - fetchChapterList: pageUrl=/title/{hid};    match /api/v1/manga/{hid}/chapters
+            //   - fetchPageList:    pageUrl=/chapters/{id};  match /api/v1/chapters/{id}
+            // The C# port routes via ResolveCaptureRoute. If those two shapes are gone,
+            // the port has lost upstream-fidelity.
             _signerSource.Should().MatchRegex(
-                @"vm[A-Za-z0-9]_(?:\*|<hex>|[a-z0-9])",
-                "WR-GC-03 (Phase 17.2): production code uses any-namespace probe-walk per " +
-                "Plan 17-07 (GAP-17-C same-namespace gate) + Plan 17.2 (rotation-tolerant " +
-                "naming). Source must reference the vm[A-Za-z0-9]_<hex> namespace family " +
-                "(vmf_/vmX_/vmZ_/...) somewhere — the comment block above PROBE_JS " +
-                "documents the rotation evidence per Phase 17.2 Plan 17.2-02 survey.");
+                @"/title/\{hid\}|""title""",
+                "The /manga/{hid}/chapters route must load the title page (`/title/{hid}`) " +
+                "so the bundle issues its /api/v1/manga/{hid}/chapters request. Upstream " +
+                "Comix.kt:307-309.");
+
+            _signerSource.Should().Contain(
+                "/api/v1/manga/",
+                "Match suffix for the chapter-list captureToken route must reference the " +
+                "/api/v1/manga/ API prefix (upstream Comix.kt:310).");
+
+            _signerSource.Should().Contain(
+                "/api/v1/chapters/",
+                "Match suffix for the chapter-pages captureToken route must reference the " +
+                "/api/v1/chapters/ API prefix (upstream Comix.kt:390).");
         }
 
         [Test]
-        public void Planned_proxyFetch_template_should_reference_response_interceptor_shape()
+        public void Signer_must_split_query_into_axios_params_object()
         {
-            _upstreamExcerpt.Should().Contain("interceptors",
-                "upstream Signer.kt is expected to install a response interceptor; " +
-                "if upstream changed shape, capture fresh excerpt");
-            _signerSource.Should().Contain("interceptors",
-                "ComixPuppeteerSigner.EvaluateProxyFetchAsync JS template must mirror upstream's interceptor shape");
-        }
-
-        [Test]
-        public void Port_must_capture_response_interceptor_not_no_op_it()
-        {
-            // CR-01 regression guard (revision iteration 2): the Wave 1 implementation
-            // initially wired `interceptors.response.use(() => {})` — a no-op that
-            // silently dropped the upstream-registered decrypt function. The above
-            // substring assertion ("interceptors" present) was too weak to catch this.
+            // The env-module oracle invokes axios via `f.get(pathPart, {params:obj})`
+            // (NOT `f.get(pathWithQuery)`). The signer must therefore split the
+            // caller's apiPath (e.g., `/manga/mr3m0/chapters?page=1&limit=20`) into
+            // path + params components.
             //
-            // The corrected port mirrors upstream's `use: function(fn) { captured.res = fn; }`
-            // shape (Resources/upstream-signer.txt:84). Assert the SHAPE — a `captured`
-            // variable is closed over, AND the response.use callback BODY assigns into
-            // captured.res (not an empty body).
-            _signerSource.Should().Contain("captured",
-                "EvaluateProxyFetchAsync template must close over a `captured` object holding " +
-                "the request + response interceptors registered by installer() — per " +
-                "upstream Signer.kt:80-84. A `() => {}` no-op silently drops the decrypt fn.");
-            _signerSource.Should().Contain("captured.res",
-                "EvaluateProxyFetchAsync template must assign the response interceptor into " +
-                "`captured.res` so the decrypt function can be invoked on encrypted bodies.");
+            // 2026-05-23 oracle pivot: this REPLACES the vanilla-HTTP relay path
+            // (which is structurally unviable post-rotation because comix.to encrypts
+            // response bodies regardless of which HTTP client issues the request — the
+            // decryption only happens through the bundle's own axios instance).
+            _signerSource.Should().Contain(
+                "SplitApiPathToAxiosCall",
+                "Signer must call SplitApiPathToAxiosCall to convert apiPath query " +
+                "parameters into a JSON object suitable for axios `{params: obj}`. " +
+                "See Investigation Phase 3 in .planning/debug/comix-signer-rotation.md.");
 
-            // Note: the production source's JS template lives inside a `$@""` interpolated
-            // verbatim string — literal braces are doubled (`{{` and `}}`). Match against
-            // the doubled-brace shape that actually appears in the .cs file.
-            _signerSource.Should().MatchRegex(
-                @"response\s*:\s*\{\{\s*use\s*:\s*function\s*\(\s*fn\s*\)\s*\{\{\s*captured\.res\s*=\s*fn\s*;",
-                "EvaluateProxyFetchAsync's fake-axios `interceptors.response.use` MUST capture " +
-                "the registered fn into a closure variable, NOT be a `() => {}` no-op. The no-op " +
-                "shape silently drops the upstream decrypt function and ships encrypted bodies.");
+            _signerSource.Should().Contain(
+                "/api/v1",
+                "Even though the env module's axios baseURL handles /api/v1, the route " +
+                "resolution still references the API prefix when matching outgoing " +
+                "requests in EnsureEnvModuleAsync.");
         }
 
         [Test]
-        public void Port_must_invoke_captured_response_interceptor_on_encrypted_body()
+        public void Signer_navigation_must_use_DOMContentLoaded_not_networkidle()
         {
-            // CR-01 regression guard: capturing `captured.res` is necessary but not
-            // sufficient — the template must also INVOKE it on the encrypted-body shape.
-            // Upstream's shape: detect `'e' in raw && captured.res`, build a fakeResp,
-            // `await captured.res(fakeResp)`, return `decoded.data` (Resources/upstream-signer.txt:101-110).
-            _signerSource.Should().Contain("'e' in raw",
-                "EvaluateProxyFetchAsync must detect the encrypted-body envelope (`{e: ...}`) " +
-                "before invoking the captured response interceptor — per upstream Signer.kt:101.");
-            _signerSource.Should().Contain("captured.res(",
-                "EvaluateProxyFetchAsync must INVOKE the captured response interceptor on the " +
-                "encrypted body — not just capture-and-discard. Upstream calls `await captured.res(fakeResp)`.");
+            // The pre-2026-05-22 shape used Networkidle0 (+ a Phase 17.2 D-1 settle step).
+            // The bundle's long-lived sockets defeat Networkidle0 — the page never settles.
+            // DOMContentLoaded is the upstream-aligned choice (WebView's `loadUrl` fires
+            // shouldInterceptRequest synchronously as the bundle bootstraps — no settle
+            // needed because we're waiting on the OUTGOING request, not the page's network
+            // quiescence).
+            _signerSource.Should().Contain(
+                "WaitUntilNavigation.DOMContentLoaded",
+                "captureToken navigation must use DOMContentLoaded — the bundle's long-lived " +
+                "sockets defeat Networkidle0. We wait on the captured token (the page's own " +
+                "outgoing API request) rather than network quiescence.");
+
+            // Detect actual code usage (NavigationOptions { WaitUntil = ... } / .WaitForNetworkIdleAsync(...))
+            // rather than mere mentions in comments/xmldoc.
+            _signerSource.Should().NotMatchRegex(
+                @"WaitUntilNavigation\.Networkidle0",
+                "Networkidle0 is incompatible with the captureToken shape (the bundle never " +
+                "settles to network-idle). Use DOMContentLoaded + bounded tcs.Task.WaitAsync.");
+
+            _signerSource.Should().NotMatchRegex(
+                @"\.WaitForNetworkIdleAsync\(",
+                "Phase 17.2 D-1's networkidle-settle step was retired alongside the namespace " +
+                "probe — the captureToken shape doesn't run an in-page probe, so the settle " +
+                "step is no longer needed (and would only spin for 5 seconds before timing out).");
         }
 
         [Test]
-        public void Port_must_sign_path_without_query_string()
+        public void Signer_captureToken_must_be_bounded_by_a_timeout()
         {
-            // CR-02 regression guard (revision iteration 2): the Wave 1 implementation
-            // initially called `signer(apiPath)` — passing the FULL path including the
-            // chapter-list `?order[number]=desc&limit=...&mangaSlug=...` query string.
-            // Per Resources/upstream-signer.txt:124-125, upstream signs
-            // `apiPath.substringBefore('?')` — the path WITHOUT the query string.
-            //
-            // Mismatched signer input → wrong token → comix.to backend rejects every
-            // chapter-list request with 403. The "interceptors substring present"
-            // assertion above did not catch this; this regex enforces the query-strip.
-            _signerSource.Should().MatchRegex(
-                @"signablePath\s*=\s*apiPath\.split\('\?'\)\[0\]",
-                "EvaluateProxyFetchAsync's JS template must strip the query string from apiPath " +
-                "before passing it to signer() — per upstream Signer.kt:124-125 " +
-                "(`apiPath.substringBefore('?')`). Signing the full path-with-query produces a " +
-                "token comix.to rejects.");
-            _signerSource.Should().Contain("signer(signablePath)",
-                "EvaluateProxyFetchAsync must pass the query-stripped `signablePath` (NOT the raw " +
-                "apiPath) into the upstream signer function.");
-        }
-
-        [Test]
-        public void Planned_decryptedBody_shim_should_match_upstream_response_handling()
-        {
-            // The window.__decryptedBody__ shim is the planner's best-effort port. If
-            // the upstream excerpt reveals a different shim name, the fixture fails
-            // and the live test in Wave 3 is bypassed (cheaper failure mode).
-            var hasShim = _upstreamExcerpt.Contains("__decryptedBody__")
-                       || _upstreamExcerpt.Contains("response.data")
-                       || _upstreamExcerpt.Contains("decoded.data");
-            hasShim.Should().BeTrue(
-                "upstream Signer.kt is expected to expose decoded body via either " +
-                "window.__decryptedBody__ shim OR response.data interceptor; " +
-                "if neither, re-port required");
-        }
-
-        [Test]
-        public void Captured_upstream_SHA_must_be_recorded_in_resource_header()
-        {
-            // T-17-01-05 mitigation: the resource is committed to repo at port-time
-            // SHA. If anyone refreshes the excerpt without updating the SHA header,
-            // we lose the pinning contract — this assertion catches that.
-            _upstreamExcerpt.Should().Contain("Upstream commit SHA:",
-                "Resources/upstream-signer.txt MUST carry a verbatim 'Upstream commit SHA:' header line");
+            // Upstream Comix.kt:466 — `latch.await(30, SECONDS)`. The C# port must
+            // mirror this: a wedged page (page loaded but bundle never fires its API
+            // request) cannot stall the gate indefinitely.
+            _signerSource.Should().Contain(
+                "CaptureTimeoutSeconds",
+                "captureToken MUST carry an explicit timeout const so a wedged page (no API " +
+                "request ever fires) cannot stall the gate. Upstream Comix.kt:466 uses 30s.");
         }
 
         [Test]
@@ -262,34 +258,6 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 "Pages-endpoint DownloadUrl construction must reference the survey-winner " +
                 "shape `/api/v1/chapters/{ch.Id}` (no /pages suffix) — see " +
                 "17.2-PAGES-ENDPOINT-SURVEY.md § Winner verdict.");
-        }
-
-        [Test]
-        public void Port_must_not_regress_GAP_17_B_decrypt_guard()
-        {
-            // GAP-17-B Branch C regression guard (Plan 17-06): Plan 17-05's Probe D
-            // diagnosis localized the cause of `EvaluationFailedException: Execution
-            // context was destroyed` to the in-page `await captured.res(fakeResp)`
-            // decrypt invocation — Probe D omits that step and returns 200 OK +
-            // `{"e":"..."}` cleanly; the production path WITH the decrypt step
-            // reliably fires the lazy-reprobe Warn on every WarmAsync.
-            //
-            // Plan 17-06 Branch C wrapped the decrypt invocation in an in-page
-            // try/catch that surfaces a `decryptError` envelope on throw instead
-            // of letting the rejection tear down the page. Removing the guard
-            // regresses GAP-17-B (the live fixture transitions back from passing
-            // to throwing EvaluationFailedException on every call).
-            _signerSource.Should().Contain("decryptError",
-                "Plan 17-06 Branch C wrapped `await captured.res(fakeResp)` in an " +
-                "in-page try/catch and surfaces the encrypted shape via a `decryptError` " +
-                "envelope on throw. Removing the guard regresses GAP-17-B — the " +
-                "decrypt interceptor's window mutation tears down the warm page on " +
-                "every call.");
-
-            _signerSource.Should().Contain("GAP-17-B Branch C",
-                "Branch C annotation block above EvaluateProxyFetchAsync must remain so " +
-                "future maintainers don't 'simplify' the catch back to a bare await — " +
-                "removing the annotation suggests the rationale has been lost.");
         }
     }
 }
