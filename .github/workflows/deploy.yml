@@ -419,26 +419,27 @@ jobs:
   # turns it on without re-touching deploy.yml.
   #
   # Two-layer gate per T-29-01-02 mitigation:
-  #   1. `if: secrets.DISCORD_WEBHOOK != ''` — skip the job entirely when the
-  #      secret is absent (cleanly no-ops; the job is skipped, not failed).
+  #   1. Step-level `if: env.DISCORD_WEBHOOK != ''` — skip the notify step when
+  #      the secret is absent (job runs but no-ops cleanly). GitHub Actions
+  #      forbids `secrets` context in job-level `if:` expressions, so the gate
+  #      MUST be evaluated at the step level via a job-level `env:` mapping.
   #   2. `continue-on-error: true` — second belt: if the webhook POST itself
   #      fails (404 / rate-limited / channel deleted), the workflow as a whole
   #      stays green.
   #
-  # Webhook URL is assigned to step-scoped env BEFORE the curl invocation so
-  # the URL is not inlined into the resolved command (avoids logging the secret
-  # via `-x` traces / verbose error output). GitHub Actions also masks the
-  # secret value in logs as a second defense.
+  # Webhook URL is mapped to job-level env from the secret, then read by the
+  # step `env:` block (which receives the same value). GitHub Actions masks the
+  # secret value in logs as a third defense.
   discord_notify:
     needs: [release]
     runs-on: ubuntu-latest
-    if: ${{ secrets.DISCORD_WEBHOOK != '' }}
     continue-on-error: true
+    env:
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
     steps:
       - name: Post release notification to Discord
+        if: env.DISCORD_WEBHOOK != ''
         shell: bash
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           curl -s -X POST \
             -H "Content-Type: application/json" \
