@@ -36,10 +36,14 @@ namespace Mangarr.Api.V5.Update
                 var first = resources.First();
                 first.Latest = true;
 
-                if (first.Version > BuildInfo.Version)
-                {
-                    first.Installable = true;
-                }
+                // Phase 29 D-04 (PR #248 review — Codex P1 #1 + #2): AND in the
+                // provider-declared Installable flag before exposing the resource as
+                // installable. Legacy providers default to model.Installable=true so
+                // the version-gate is the only effective check (behavior preserved);
+                // GitHubReleasesUpdatePackageProvider sets Installable=false to keep
+                // the broker banner-only (no built-in install path, so a missing
+                // Hash + asset-runtime-mismatch can't reach IVerifyUpdates.Verify).
+                first.Installable = first.Installable && first.Version > BuildInfo.Version;
 
                 var installed = resources.SingleOrDefault(r => r.Version == BuildInfo.Version);
 

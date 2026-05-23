@@ -138,12 +138,23 @@ namespace NzbDrone.Core.Update
 
         private UpdatePackage MapToUpdatePackage(GitHubReleaseResponse release, Version latestVersion, string branch)
         {
-            // Pick the matching-runtime asset. Mangarr release tarballs follow the
-            // Mangarr.<branch>.<version>.<runtime>.tar.gz naming from
-            // .github/actions/package/package.sh — fall back to the first .tar.gz
-            // asset (or any asset) if no exact runtime match is found. The banner
-            // doesn't itself trigger a download (D-04 banner-only); the asset
-            // metadata is informational.
+            // Phase 29 D-04 — banner-only: the GH-Releases broker does NOT participate
+            // in the built-in/script ApplicationUpdate install path. UpdatePackage.Installable
+            // is set to false below (PR #248 review response — Codex P1 #1 + #2). With
+            // Installable=false, the resource's "Install Latest" button never renders, so
+            // these fields are informational metadata only:
+            //   - FileName / Url:  picked as the first .tar.gz asset for display; no
+            //                      runtime-matching is needed because no download path
+            //                      consumes Url (Codex #2 — opt-out by Installable=false
+            //                      makes asset-runtime-mismatch impossible to trigger).
+            //   - Hash:             null is safe because IVerifyUpdates.Verify is never
+            //                      reached for a non-installable package (Codex #1 — the
+            //                      InstallUpdateService entrypoint is gated on the
+            //                      Installable flag at the V5 UpdateController layer).
+            // The banner consumes Version, HtmlUrl, and the tagName-derived docker-pull
+            // command (rendered in the frontend, not stored on UpdatePackage). If the
+            // banner-only design is ever lifted (v1.3+), revisit: populate Hash from a
+            // release-attached checksums.txt asset and pick the asset by host runtime.
             var preferredAsset = release.Assets?.FirstOrDefault(a =>
                 !string.IsNullOrEmpty(a?.Name) &&
                 a.Name.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase));
@@ -159,7 +170,8 @@ namespace NzbDrone.Core.Update
                 HtmlUrl = release.HtmlUrl,
                 Branch = branch,
                 Hash = null,
-                Changes = null
+                Changes = null,
+                Installable = false
             };
         }
 

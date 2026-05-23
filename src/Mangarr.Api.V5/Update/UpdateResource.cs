@@ -38,7 +38,13 @@ namespace Mangarr.Api.V5.Update
                 Url = model.Url,
 
                 // Installed
-                // Installable
+
+                // Phase 29 D-04 (PR #248 review): carry model.Installable through so
+                // banner-only providers (GitHubReleasesUpdatePackageProvider) can opt
+                // out of the built-in install path. UpdateController ANDs this with
+                // the version-newer check before the Install Latest button renders.
+                Installable = model.Installable,
+
                 // Latest
                 Changes = model.Changes,
                 Hash = model.Hash,

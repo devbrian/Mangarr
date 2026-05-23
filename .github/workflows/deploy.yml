@@ -280,7 +280,7 @@ jobs:
       # storage is auth-scoped per workflow run; same trust boundary as the
       # existing _artifacts/Mangarr.* glob.
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: mangarr-${{ inputs.version }}-sbom.spdx.json
@@ -322,7 +322,7 @@ jobs:
       # Phase 29 D-11 — download the SBOM produced by docker_publish so the
       # release-action artifacts glob can attach it to the GitHub Release.
       - name: Download SBOM artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: sbom
 
@@ -431,6 +431,7 @@ jobs:
   # step `env:` block (which receives the same value). GitHub Actions masks the
   # secret value in logs as a third defense.
   discord_notify:
+    name: Discord Release Notification
     needs: [release]
     runs-on: ubuntu-latest
     continue-on-error: true

@@ -68,7 +68,12 @@ function Updates() {
     docker: translate('DockerUpdater'),
   };
 
-  const { isMajorUpdate, hasUpdateToInstall } = useMemo(() => {
+  // Phase 29 D-04 (PR #248 review — CodeRabbit Major): select a single candidate
+  // for both eligibility AND banner content. The earlier code derived
+  // hasUpdateToInstall from `updates.some(u => u.installable && u.latest)` but the
+  // banner read every field from `updates[0]`, so a release ordering quirk could
+  // surface the wrong version/URL/docker-pull string in the banner.
+  const { isMajorUpdate, installableUpdate } = useMemo(() => {
     const majorVersion = parseInt(
       currentVersion.match(VERSION_REGEX)?.[0] ?? '0'
     );
@@ -80,12 +85,11 @@ function Updates() {
 
     return {
       isMajorUpdate: latestMajorVersion > majorVersion,
-      hasUpdateToInstall: updates.some(
-        (update) => update.installable && update.latest
-      ),
+      installableUpdate: updates.find((u) => u.installable && u.latest) ?? null,
     };
   }, [currentVersion, updates]);
 
+  const hasUpdateToInstall = installableUpdate !== null;
   const noUpdateToInstall = hasUpdates && !hasUpdateToInstall;
 
   const handleInstallLatestPress = useCallback(() => {
@@ -123,7 +127,7 @@ function Updates() {
             </Alert>
           ) : null}
 
-          {hasUpdateToInstall ? (
+          {hasUpdateToInstall && installableUpdate ? (
             <>
               {/*
                 Phase 29 D-04 — Update Available banner: docker-pull command +
@@ -131,26 +135,35 @@ function Updates() {
                 only — ROADMAP cross-cutting locks "no auto-update mechanism".
                 The existing Install button below stays for built-in / script
                 update mechanisms; the banner is the addition.
+
+                PR #248 review (CodeRabbit Major): all fields read from
+                `installableUpdate` (the SAME release that satisfied the
+                installable && latest predicate above) so banner copy can never
+                surface a different release than the one eligibility was derived from.
               */}
               <Alert kind={kinds.INFO}>
                 <div>
                   {translate('UpdateAvailableBannerMessage', {
-                    version: updates[0].version,
-                    tagName: updates[0].version,
+                    version: installableUpdate.version,
+                    tagName: installableUpdate.version,
                   })}
                 </div>
                 <div className={styles.bannerDockerPullRow}>
                   <code className={styles.bannerDockerPullCommand}>
-                    {`docker pull ghcr.io/devbrian/mangarr:${updates[0].version}`}
+                    {`docker pull ghcr.io/devbrian/mangarr:${installableUpdate.version}`}
                   </code>
                   <ClipboardButton
-                    value={`docker pull ghcr.io/devbrian/mangarr:${updates[0].version}`}
+                    value={`docker pull ghcr.io/devbrian/mangarr:${installableUpdate.version}`}
                   />
                 </div>
-                {updates[0].htmlUrl || updates[0].url ? (
+                {installableUpdate.htmlUrl || installableUpdate.url ? (
                   <div className={styles.bannerReleaseLink}>
                     <Link
-                      to={updates[0].htmlUrl ?? updates[0].url ?? undefined}
+                      to={
+                        installableUpdate.htmlUrl ??
+                        installableUpdate.url ??
+                        undefined
+                      }
                     >
                       {translate('ViewGitHubRelease')}
                     </Link>
