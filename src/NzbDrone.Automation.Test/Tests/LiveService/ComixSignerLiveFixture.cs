@@ -1,52 +1,132 @@
+using System.Text.Json;
+using System.Threading.Tasks;
+using FluentAssertions;
 using NUnit.Framework;
+using NzbDrone.Core.Indexers.Comix;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Automation.Test.Tests.LiveService;
 
 /// <summary>
-/// Phase 18 D-10 LiveService tier — graduates the Phase 17.2 ComixSignerLiveFixture
-/// pattern (originally at src/Mangarr.Comix.Live.Test/ComixSignerLiveFixture.cs) into
-/// Phase 18's nightly-only test tier. Excluded from PR CI smoke via the test-category
-/// filter `TestCategory=AutomationTest&amp;TestCategory!=LiveService` (D-14); included in
-/// Plan-10's `automation_test_liveservice` nightly workflow.
+/// Phase 18 D-10 LiveService tier — Phase 17.2's <c>ComixSignerLiveFixture</c>
+/// pattern (originally <c>src/Mangarr.Comix.Live.Test/ComixSignerLiveFixture.cs</c>)
+/// ported into Phase 18's nightly-only test tier. Excluded from PR CI smoke via
+/// the test-category filter <c>TestCategory=AutomationTest&amp;TestCategory!=LiveService</c>
+/// (D-14); included in Plan-10's <c>automation_test_liveservice</c> nightly workflow,
+/// which selects <c>TestCategory=AutomationTest&amp;TestCategory=LiveService</c>
+/// (see <c>.github/workflows/build_v5.yml</c>). Both categories are load-bearing —
+/// dropping either silently removes the fixture from nightly coverage.
 ///
-/// This fixture exists with the LiveService category so Plan-10 CI wiring has a target.
-/// The live-call body must still be ported from Phase 17.2 — tracked in
-/// https://github.com/devbrian/Mangarr/issues/101 (filed with label `enhancement` per
-/// memory `feedback_followup_issues_with_labels.md`; satisfies Plan-09 acceptance
-/// criterion 5b — "Assert.Inconclusive with explicit GitHub issue URL embedded").
+/// Closes GH #101. Per the issue's 2026-05-23 update, **Option A** chosen:
+/// inherit <c>TestBase&lt;ComixPuppeteerSigner&gt;</c> from
+/// <c>NzbDrone.Test.Common</c> (AutoMoq-resolved signer subject) instead of
+/// <c>AutomationTest</c> (which boots the Mangarr backend via NzbDroneRunner).
+/// LiveService probes for the signer don't need the backend — they exercise the
+/// PuppeteerSharp child process + decoded-body contract directly. This mirrors
+/// the Phase 17.2 sibling fixture verbatim so the two stay in sync across signer
+/// rotations.
 ///
-/// Cross-reference: INVENTORY.md LiveService row for COMIX-SIGNER-01.
+/// T-18-04 mitigation (DoS/rate-limit posture): nightly cadence; honest
+/// User-Agent <c>"Mangarr-CI/1.0 (https://github.com/devbrian/Mangarr; LiveService
+/// nightly contract probe)"</c>; single known-good comix slug; never crawls.
+///
+/// Cross-reference: <c>.planning/phases/18-.../INVENTORY.md</c> LiveService row
+/// for <c>COMIX-SIGNER-01</c>.
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
 [Category("LiveService")]
-public class ComixSignerLiveFixture : AutomationTest
+public class ComixSignerLiveFixture : TestBase<ComixPuppeteerSigner>
 {
     [Test]
-    public void comix_signer_returns_valid_token_against_live_site()
+    public async Task ProxyFetchManga_returns_decoded_JSON_with_chapters_array()
     {
-        // Per Phase 17.2 17.2-SUMMARY.md: ComixSignerLiveFixture is the canonical proof
-        // that PuppeteerSharp signer survives comix.to per-deploy function-name rotation.
-        // Phase 18 nightly-only (D-10/D-11): runs in CI nightly, not per-PR.
-        //
-        // Reference implementation: src/Mangarr.Comix.Live.Test/ComixSignerLiveFixture.cs
-        // ProxyFetchManga_returns_decoded_JSON_with_chapters_array — exercises the real
-        // ComixPuppeteerSigner subject (AutoMoq via TestBase<T>); asserts decoded body
-        // shape contains "items" (chapters list) per ComixDto.cs.
-        //
-        // Porting note (issue #101): the Phase 17.2 fixture inherits TestBase<ComixPuppeteerSigner>,
-        // whereas this Phase 18 fixture inherits AutomationTest (which boots the Mangarr backend
-        // via NzbDroneRunner). The base-class mismatch requires the choice between (A) switching
-        // base class to TestBase<ComixPuppeteerSigner> and dropping backend boot, or (B) calling
-        // the signer via an API round-trip. See issue #101 for the deferred decision.
-        //
-        // T-18-04 mitigation (DoS/rate-limit posture): nightly cadence; honest User-Agent
-        // "Mangarr-CI/1.0 (https://github.com/devbrian/Mangarr; LiveService nightly contract probe)";
-        // single known-good comix slug; never crawls.
+        var json = await Subject.ProxyFetchAsync("/manga/mr3m0/chapters");
+        json.Should().NotBeNullOrWhiteSpace();
+        json.Should().Contain("\"items\"", "decoded body shape per ComixDto.cs");
+    }
 
-        Assert.Inconclusive(
-            "ComixSignerLiveFixture pending live-call wiring — see " +
-            "https://github.com/devbrian/Mangarr/issues/101 (Phase 18 Plan-09 acceptance " +
-            "criterion 5b; cross-referenced in INVENTORY.md LiveService row).");
+    [Test]
+    public async Task ProxyFetchPages_returns_decoded_JSON_with_pages_object()
+    {
+        // Phase 17.2 GAP-17-E (2026-05-10): the bundle's signer allowlist no longer
+        // accepts /chapters/{id}/<suffix> shapes (per 17.2-PAGES-ENDPOINT-SURVEY.md
+        // winner verdict). The bare /chapters/{id} endpoint returns 200 with the
+        // pages list embedded under `result.pages.{baseUrl, items[]}` in the
+        // production decrypt-wrap envelope.
+        var chaptersJson = await Subject.ProxyFetchAsync("/manga/mr3m0/chapters");
+        var chapterId = ExtractFirstChapterId(chaptersJson);
+        chapterId.Should().NotBeNullOrEmpty("chapter list must contain at least one row");
+
+        var pagesJson = await Subject.ProxyFetchAsync($"/chapters/{chapterId}");
+        pagesJson.Should().NotBeNullOrWhiteSpace();
+        pagesJson.Should().Contain("\"pages\"",
+            "decoded body shape per ComixChapterPagesResponse — chapter detail embeds " +
+            "the pages list under result.pages.{baseUrl, items[]} per Phase 17.2 GAP-17-E " +
+            "winner verdict (17.2-PAGES-ENDPOINT-SURVEY.md). The legacy `\"images\"` shape " +
+            "was retired alongside response-body encryption + per-deploy signer rotation.");
+    }
+
+    [Test]
+    public async Task ProxyFetchKeywordSearch_returns_decoded_JSON_with_items_array()
+    {
+        // 2026-05-23 cascade fix (PR #244): the title→hid keyword-search endpoint
+        // /api/v1/manga?keyword=... now routes through the signer too. The bundle's
+        // pre-installed ok+result interceptor strips the envelope so items sit at the
+        // unwrapped JSON root.
+        var json = await Subject.ProxyFetchAsync("/manga?keyword=The%20Forgotten%20Field&limit=10");
+        json.Should().NotBeNullOrWhiteSpace();
+        json.Should().Contain("\"items\"",
+            "the env-module oracle returns the unwrapped result shape: " +
+            "{items:[...], meta:...}");
+    }
+
+    [TearDown]
+    public void DisposeSignerAfterEachTest()
+    {
+        // PR #246 review (Codex P1 r3293171698): per-test dispose, NOT per-fixture.
+        // TestBase<T>'s [SetUp] (CoreTestSetup) nulls _subject and the Subject getter
+        // lazily resolves a fresh Mocker.Resolve<ComixPuppeteerSigner>() on next access.
+        // Each test gets its own signer + its own Chromium child. Disposing only in
+        // [OneTimeTearDown] orphans the prior (N-1) signers' Chromium children — observed
+        // empirically as 16 leaked chrome.exe processes after a hung 3-test run in
+        // PR #246 local-verification (cleaned via scripts/kill-orphan-chromium.ps1).
+        Subject?.Dispose();
+    }
+
+    private static string ExtractFirstChapterId(string json)
+    {
+        var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        // PR #244 Investigation Phase 3 (2026-05-23) oracle pivot: the
+        // env-module-oracle returns the unwrapped `result` object directly (the
+        // bundle's ok+result unwrap interceptor strips the
+        // `{status:"ok", result:{...}}` envelope). Older Phase 17.2 shape kept the
+        // envelope intact; accept both for forward compatibility across rotations.
+        if (root.TryGetProperty("items", out var topItems))
+        {
+            if (topItems.GetArrayLength() > 0
+                && topItems[0].TryGetProperty("id", out var idEl1))
+            {
+                return idEl1.ValueKind == JsonValueKind.String
+                    ? idEl1.GetString()
+                    : idEl1.GetRawText();
+            }
+
+            return null;
+        }
+
+        if (root.TryGetProperty("result", out var result)
+            && result.TryGetProperty("items", out var items)
+            && items.GetArrayLength() > 0
+            && items[0].TryGetProperty("id", out var idEl2))
+        {
+            return idEl2.ValueKind == JsonValueKind.String
+                ? idEl2.GetString()
+                : idEl2.GetRawText();
+        }
+
+        return null;
     }
 }
