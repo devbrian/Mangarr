@@ -92,7 +92,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          action: actions/checkout@v6
+          attempt_limit: 3
+          attempt_delay: 60000
 
       - name: Build
         uses: ./.github/actions/build
@@ -107,7 +111,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          action: actions/checkout@v6
+          attempt_limit: 3
+          attempt_delay: 60000
 
       - name: Volta
         uses: volta-cli/action@v4
@@ -154,7 +162,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          action: actions/checkout@v6
+          attempt_limit: 3
+          attempt_delay: 60000
 
       - name: Test
         uses: ./.github/actions/test
@@ -173,7 +185,11 @@ jobs:
         postgres-version: [16, 17, 18]
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          action: actions/checkout@v6
+          attempt_limit: 3
+          attempt_delay: 60000
 
       - name: Test
         uses: ./.github/actions/test
@@ -220,7 +236,11 @@ jobs:
     timeout-minutes: 10                   # ~5 min target per D-14, 2× headroom
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          action: actions/checkout@v6
+          attempt_limit: 3
+          attempt_delay: 60000
 
       - name: Read Playwright version
         id: pw
@@ -332,7 +352,11 @@ jobs:
             postgres-version: 18
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          action: actions/checkout@v6
+          attempt_limit: 3
+          attempt_delay: 60000
 
       - name: Read Playwright version
         id: pw
@@ -397,7 +421,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          action: actions/checkout@v6
+          attempt_limit: 3
+          attempt_delay: 60000
 
       - name: Read Playwright version
         id: pw
@@ -452,7 +480,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          action: actions/checkout@v6
+          attempt_limit: 3
+          attempt_delay: 60000
 
       - name: Setup Python (for assertion audit)
         uses: actions/setup-python@v5
@@ -501,7 +533,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          action: actions/checkout@v6
+          attempt_limit: 3
+          attempt_delay: 60000
 
       - name: Test
         uses: ./.github/actions/test
