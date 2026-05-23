@@ -100,10 +100,15 @@ namespace NzbDrone.Core.Indexers.Comix
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
         // captureToken apiPath shape parsers — derive (pageUrl, matchPredicate) from the
-        // path the caller passes to ProxyFetchAsync. These mirror upstream Comix.kt's two
-        // call-site routes:
+        // path the caller passes to ProxyFetchAsync. These mirror upstream Comix.kt's call-
+        // site routes plus the title→hid resolution endpoint (2026-05-23 cascade fix from
+        // Phase 3 env-module-oracle pivot — keyword-search GETs were still going via plain
+        // HTTP and getting Cloudflare-403'd; routing them through the signer reuses the
+        // bundle's pre-installed axios interceptor chain which handles the CF challenge
+        // and the decryption + ok+result unwrap):
         //   /manga/{hid}/chapters[?...]  → load /title/{hid}; match /api/v1/manga/{hid}/chapters
         //   /chapters/{chapterId}[?...]  → load /chapters/{chapterId}; match /api/v1/chapters/{chapterId}
+        //   /manga[?keyword=...]         → load /; match /api/v1/manga
         private static readonly System.Text.RegularExpressions.Regex MangaChaptersPathRegex =
             new System.Text.RegularExpressions.Regex(
                 "^/manga/(?<hid>[A-Za-z0-9_-]+)/chapters(?:\\?.*)?$",
@@ -112,6 +117,11 @@ namespace NzbDrone.Core.Indexers.Comix
         private static readonly System.Text.RegularExpressions.Regex ChaptersDetailPathRegex =
             new System.Text.RegularExpressions.Regex(
                 "^/chapters/(?<chapterId>[A-Za-z0-9_-]+)(?:\\?.*)?$",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        private static readonly System.Text.RegularExpressions.Regex MangaSearchPathRegex =
+            new System.Text.RegularExpressions.Regex(
+                "^/manga(?:\\?.*)?$",
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
         // ── Test-overridable seams (D-12 / fixture overrides) ────────────────────────
@@ -271,9 +281,10 @@ namespace NzbDrone.Core.Indexers.Comix
                 throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
             }
 
-            // Derive bootstrap pageUrl from apiPath. Two call-site shapes:
+            // Derive bootstrap pageUrl from apiPath. Three call-site shapes:
             //   /manga/{hid}/chapters[?...]   →  https://comix.to/title/{hid}
             //   /chapters/{chapterId}[?...]   →  https://comix.to/chapters/{chapterId}
+            //   /manga[?keyword=...]          →  https://comix.to/
             var (pageUrl, _) = ResolveCaptureRoute(apiPath);
 
             // Ensure the env module URL is captured + cached. On first call this also
@@ -302,11 +313,21 @@ namespace NzbDrone.Core.Indexers.Comix
             // Phase 3 for full root-cause + decision.
             ct.ThrowIfCancellationRequested();
 
+            // 2026-05-23 cascade fix: paramsJson is a JSON STRING built C#-side (e.g.
+            // `{"keyword":"...","limit":"10"}`). PuppeteerSharp's EvaluateFunctionAsync
+            // serializes each arg via JSON, so a C# string lands as a JS string — meaning
+            // `paramsObj` was previously the literal text `"{}"` (NOT an object). axios
+            // tolerated this by accident on the chapter-list path (empty params object
+            // construction); the keyword-search path with non-empty params hit
+            // `TypeError: target must be an object` because axios's URL composition tried
+            // to iterate the string as if it were an object. Fix: parse the JSON inside
+            // the page-context wrapper so the axios call receives a real object.
             var resultJson = await page.EvaluateFunctionAsync<string>(
-                "async (modUrl, p, paramsObj) => {" +
+                "async (modUrl, p, paramsJson) => {" +
                 "  const mod = await import(modUrl);" +
                 "  const f = mod.f;" + // 'b as f' export — wraps ai.get with .data unwrap
-                "  const opts = paramsObj && Object.keys(paramsObj).length > 0 ? { params: paramsObj } : undefined;" +
+                "  const paramsObj = paramsJson ? JSON.parse(paramsJson) : {};" +
+                "  const opts = Object.keys(paramsObj).length > 0 ? { params: paramsObj } : undefined;" +
                 "  const res = await f.get(p, opts);" +
                 "  return typeof res === 'string' ? res : JSON.stringify(res);" +
                 "}",
@@ -463,9 +484,20 @@ namespace NzbDrone.Core.Indexers.Comix
                     $"/api/v1/chapters/{chapterId}");
             }
 
+            if (MangaSearchPathRegex.IsMatch(apiPath))
+            {
+                // 2026-05-23 cascade fix: bootstrap page for the keyword-search endpoint is
+                // the comix.to home page — it loads the bundle + env-tfgaak module, exposing
+                // the same axios instance that signs+decrypts the chapter-list path. The
+                // matchSuffix slot is unused for this route (EnsureEnvModuleAsync filters by
+                // env-tfgaak-*.js URL pattern, NOT by API path), so a plain "/api/v1/manga"
+                // is fine here.
+                return ($"{ComixBaseUrl}/", "/api/v1/manga");
+            }
+
             throw new ArgumentException(
                 $"Comix signer: apiPath '{apiPath}' does not match a supported route " +
-                "(supported: /manga/{hid}/chapters or /chapters/{chapterId}).",
+                "(supported: /manga/{hid}/chapters, /chapters/{chapterId}, or /manga[?keyword=...]).",
                 nameof(apiPath));
         }
 

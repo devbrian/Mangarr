@@ -173,17 +173,11 @@ namespace NzbDrone.Core.Indexers.Comix
             return path;
         }
 
-        /// <summary>
-        /// Build the <c>/api/v1/manga?keyword=...</c> search URL used by
-        /// <see cref="ComixIndexer"/> to resolve the manga title to its <c>hid</c>.
-        /// This endpoint is unsigned (per upstream keiyoushi behaviour).
-        /// </summary>
-        internal string BuildSearchUrl(string keyword)
-        {
-            return $"{Settings.BaseUrl.TrimEnd('/')}/api/v1/manga"
-                 + $"?keyword={System.Net.WebUtility.UrlEncode(keyword ?? string.Empty)}"
-                 + "&limit=10"
-                 + "&page=1";
-        }
+        // 2026-05-23 cascade fix: the former internal BuildSearchUrl helper that produced
+        // the /api/v1/manga?keyword=... URL for ComixIndexer.ResolveMangaHashAsync was
+        // deleted alongside the migration of title→hid resolution off the plain IHttpClient
+        // path and onto the signer (comix.to now Cloudflare-403's plain GETs). The path is
+        // now composed inline inside ResolveMangaHashAsync as a signer apiPath shape
+        // ("/manga?keyword=...&limit=10") matched by MangaSearchPathRegex.
     }
 }

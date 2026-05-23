@@ -59,6 +59,20 @@ namespace Mangarr.Comix.Live.Test
                 "was retired alongside response-body encryption + per-deploy signer rotation.");
         }
 
+        [Test]
+        public async Task ProxyFetchKeywordSearch_returns_decoded_JSON_with_items_array()
+        {
+            // 2026-05-23 cascade fix: the title→hid keyword-search endpoint
+            // /api/v1/manga?keyword=... now routes through the signer too. The bundle's
+            // pre-installed ok+result interceptor strips the envelope so items sit at the
+            // unwrapped JSON root.
+            var json = await Subject.ProxyFetchAsync("/manga?keyword=The%20Forgotten%20Field&limit=10");
+            json.Should().NotBeNullOrWhiteSpace();
+            json.Should().Contain("\"items\"",
+                "the env-module oracle returns the unwrapped result shape: " +
+                "{items:[...], meta:...}");
+        }
+
         [OneTimeTearDown]
         public void TearDownLiveSigner()
         {
