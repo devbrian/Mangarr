@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -9,10 +10,13 @@ namespace NzbDrone.Automation.Test.Tests.System;
 // Phase 18 Plan-17 (System cluster) — INVENTORY row 145
 // (`v5-endpoint GET /api/v5/update → System/Updates available list`).
 //
-// Non-cassette-dependent: /api/v5/update returns the local update package
-// list. On a fresh dev runner there are no updates available, so the page
-// renders the "On latest version" / "No updates are available" terminal
-// state. We assert the text matches one of the documented terminal states.
+// Phase 29 DIST2-03 broker swap: `IUpdatePackageProvider` is now backed by
+// `GitHubReleasesUpdatePackageProvider` (live HTTPS call to api.github.com),
+// not the synchronous `NoOpUpdatePackageProvider` placeholder. The page now
+// resolves through a real loading state — assertions MUST use Playwright's
+// auto-waiting `ToContainTextAsync(Regex)` to poll past the LoadingIndicator,
+// not a single `TextContentAsync()` snapshot (which races the API call and
+// returns the empty LoadingIndicator wrapper).
 [TestFixture]
 [Category("AutomationTest")]
 public class UpdatesAvailableFixture : AutomationTest
@@ -30,12 +34,13 @@ public class UpdatesAvailableFixture : AutomationTest
         //   (a) "No updates are available" (empty list — dev runner case)
         //   (b) "On latest version" (list contains current version)
         //   (c) "Install Latest" / version list (newer updates exist)
-        // Match any of the three terminal-state strings; this state assertion
-        // catches the stuck-spinner / failed-fetch regression that a pure
-        // visibility test on `system-updates-page` would miss.
-        var pageText = await Page.GetByTestId("system-updates-page").TextContentAsync();
-        pageText.Should().NotBeNullOrEmpty();
-        pageText.Should().MatchRegex(@"(No updates are available|On latest version|Install Latest|Recent Changes|version)");
+        //   (d) "Update Available" banner (Phase 29 DIST2-03 broker — newer GH release exists)
+        // Auto-waiting polls past the LoadingIndicator while
+        // `GitHubReleasesUpdatePackageProvider` completes its live API call.
+        await Assertions.Expect(Page.GetByTestId("system-updates-page"))
+            .ToContainTextAsync(
+                new Regex(@"No updates are available|On latest version|Install Latest|Recent Changes|Update Available|version"),
+                new LocatorAssertionsToContainTextOptions { Timeout = 15_000 });
 
         Page.Url.Should().EndWith("/system/updates");
     }

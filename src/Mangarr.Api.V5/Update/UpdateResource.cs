@@ -17,6 +17,11 @@ namespace Mangarr.Api.V5.Update
         public bool Latest { get; set; }
         public required UpdateChanges Changes { get; set; }
         public required string Hash { get; set; }
+
+        // Phase 29 D-04 — GitHub Release page URL for the Updates page "View GitHub
+        // Release" link. Nullable on legacy/no-op paths; populated by
+        // GitHubReleasesUpdatePackageProvider only.
+        public string? HtmlUrl { get; set; }
     }
 
     public static class UpdateResourceMapper
@@ -33,10 +38,17 @@ namespace Mangarr.Api.V5.Update
                 Url = model.Url,
 
                 // Installed
-                // Installable
+
+                // Phase 29 D-04 (PR #248 review): carry model.Installable through so
+                // banner-only providers (GitHubReleasesUpdatePackageProvider) can opt
+                // out of the built-in install path. UpdateController ANDs this with
+                // the version-newer check before the Install Latest button renders.
+                Installable = model.Installable,
+
                 // Latest
                 Changes = model.Changes,
                 Hash = model.Hash,
+                HtmlUrl = model.HtmlUrl,
             };
         }
 

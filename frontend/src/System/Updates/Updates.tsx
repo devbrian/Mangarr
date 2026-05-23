@@ -5,6 +5,8 @@ import { useCommandExecuting, useExecuteCommand } from 'Commands/useCommands';
 import Alert from 'Components/Alert';
 import Icon from 'Components/Icon';
 import Label from 'Components/Label';
+import ClipboardButton from 'Components/Link/ClipboardButton';
+import Link from 'Components/Link/Link';
 import SpinnerButton from 'Components/Link/SpinnerButton';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import InlineMarkdown from 'Components/Markdown/InlineMarkdown';
@@ -66,7 +68,12 @@ function Updates() {
     docker: translate('DockerUpdater'),
   };
 
-  const { isMajorUpdate, hasUpdateToInstall } = useMemo(() => {
+  // Phase 29 D-04 (PR #248 review — CodeRabbit Major): select a single candidate
+  // for both eligibility AND banner content. The earlier code derived
+  // hasUpdateToInstall from `updates.some(u => u.installable && u.latest)` but the
+  // banner read every field from `updates[0]`, so a release ordering quirk could
+  // surface the wrong version/URL/docker-pull string in the banner.
+  const { isMajorUpdate, installableUpdate } = useMemo(() => {
     const majorVersion = parseInt(
       currentVersion.match(VERSION_REGEX)?.[0] ?? '0'
     );
@@ -78,12 +85,11 @@ function Updates() {
 
     return {
       isMajorUpdate: latestMajorVersion > majorVersion,
-      hasUpdateToInstall: updates.some(
-        (update) => update.installable && update.latest
-      ),
+      installableUpdate: updates.find((u) => u.installable && u.latest) ?? null,
     };
   }, [currentVersion, updates]);
 
+  const hasUpdateToInstall = installableUpdate !== null;
   const noUpdateToInstall = hasUpdates && !hasUpdateToInstall;
 
   const handleInstallLatestPress = useCallback(() => {
@@ -121,37 +127,81 @@ function Updates() {
             </Alert>
           ) : null}
 
-          {hasUpdateToInstall ? (
-            <div className={styles.messageContainer}>
-              {updateMechanism === 'builtIn' || updateMechanism === 'script' ? (
-                <SpinnerButton
-                  kind={kinds.PRIMARY}
-                  isSpinning={isInstallingUpdate}
-                  onPress={handleInstallLatestPress}
-                >
-                  {translate('InstallLatest')}
-                </SpinnerButton>
-              ) : (
-                <>
-                  <Icon name={icons.WARNING} kind={kinds.WARNING} size={30} />
+          {hasUpdateToInstall && installableUpdate ? (
+            <>
+              {/*
+                Phase 29 D-04 — Update Available banner: docker-pull command +
+                copy-to-clipboard + GitHub Release link. Banner is INFORMATIONAL
+                only — ROADMAP cross-cutting locks "no auto-update mechanism".
+                The existing Install button below stays for built-in / script
+                update mechanisms; the banner is the addition.
 
-                  <div className={styles.message}>
-                    {externalUpdaterPrefix}{' '}
-                    <InlineMarkdown
-                      data={
-                        packageUpdateMechanismMessage ||
-                        externalUpdaterMessages[updateMechanism] ||
-                        externalUpdaterMessages.external
+                PR #248 review (CodeRabbit Major): all fields read from
+                `installableUpdate` (the SAME release that satisfied the
+                installable && latest predicate above) so banner copy can never
+                surface a different release than the one eligibility was derived from.
+              */}
+              <Alert kind={kinds.INFO}>
+                <div>
+                  {translate('UpdateAvailableBannerMessage', {
+                    version: installableUpdate.version,
+                    tagName: installableUpdate.version,
+                  })}
+                </div>
+                <div className={styles.bannerDockerPullRow}>
+                  <code className={styles.bannerDockerPullCommand}>
+                    {`docker pull ghcr.io/devbrian/mangarr:${installableUpdate.version}`}
+                  </code>
+                  <ClipboardButton
+                    value={`docker pull ghcr.io/devbrian/mangarr:${installableUpdate.version}`}
+                  />
+                </div>
+                {installableUpdate.htmlUrl || installableUpdate.url ? (
+                  <div className={styles.bannerReleaseLink}>
+                    <Link
+                      to={
+                        installableUpdate.htmlUrl ??
+                        installableUpdate.url ??
+                        undefined
                       }
-                    />
+                    >
+                      {translate('ViewGitHubRelease')}
+                    </Link>
                   </div>
-                </>
-              )}
+                ) : null}
+              </Alert>
+              <div className={styles.messageContainer}>
+                {updateMechanism === 'builtIn' ||
+                updateMechanism === 'script' ? (
+                  <SpinnerButton
+                    kind={kinds.PRIMARY}
+                    isSpinning={isInstallingUpdate}
+                    onPress={handleInstallLatestPress}
+                  >
+                    {translate('InstallLatest')}
+                  </SpinnerButton>
+                ) : (
+                  <>
+                    <Icon name={icons.WARNING} kind={kinds.WARNING} size={30} />
 
-              {isFetching ? (
-                <LoadingIndicator className={styles.loading} size={20} />
-              ) : null}
-            </div>
+                    <div className={styles.message}>
+                      {externalUpdaterPrefix}{' '}
+                      <InlineMarkdown
+                        data={
+                          packageUpdateMechanismMessage ||
+                          externalUpdaterMessages[updateMechanism] ||
+                          externalUpdaterMessages.external
+                        }
+                      />
+                    </div>
+                  </>
+                )}
+
+                {isFetching ? (
+                  <LoadingIndicator className={styles.loading} size={20} />
+                ) : null}
+              </div>
+            </>
           ) : null}
 
           {noUpdateToInstall && (

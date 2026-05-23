@@ -51,3 +51,26 @@
   margin-left: 10px;
   font-size: 14px;
 }
+
+/* Phase 29 D-04 — Update Available banner block: docker pull command row +
+   GitHub Release link. Sits inside the kinds.INFO Alert above the existing
+   Install button (banner is informational only; install path unchanged). */
+.bannerDockerPullRow {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.bannerDockerPullCommand {
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.05);
+  font-family: monospace;
+}
+
+.bannerReleaseLink {
+  display: block;
+  margin-top: 4px;
+}
+

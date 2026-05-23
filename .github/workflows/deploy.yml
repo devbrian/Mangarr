@@ -33,11 +33,11 @@ jobs:
           - runtime: freebsd-x64
             os: ubuntu-latest
           - runtime: linux-arm
-            os: ubuntu-latest
+            os: ubuntu-24.04-arm           # Phase 29 D-13 — native arm64 runner (CI wall-time only)
           - runtime: linux-arm64
-            os: ubuntu-latest
+            os: ubuntu-24.04-arm           # Phase 29 D-13 — native arm64 runner (CI wall-time only)
           - runtime: linux-musl-arm64
-            os: ubuntu-latest
+            os: ubuntu-24.04-arm           # Phase 29 D-13 — native arm64 runner (CI wall-time only)
           - runtime: linux-musl-x64
             os: ubuntu-latest
           - runtime: linux-x64
@@ -73,6 +73,7 @@ jobs:
     permissions:
       contents: read
       packages: write                 # Phase 21 D-05 / Lock #3 — GHCR push via OIDC (no PAT)
+      id-token: write                 # Phase 29 D-10 R-6 — cosign keyless OIDC token mint
     steps:
       - name: Check out
         uses: actions/checkout@v6
@@ -222,7 +223,12 @@ jobs:
       # TARGETARCH → PS_PLATFORM dispatch in distribution/docker/Dockerfile +
       # tools/ChromiumPrefetch/Program.cs --platform arg) is retained as
       # foundation for whichever v1.1-17 path lands.
+      # Phase 29 D-09 — install cosign for keyless OIDC sign + self-verify.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
       - name: Build and push multi-arch image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -233,6 +239,51 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             MANGARR_VERSION=${{ inputs.version }}
+
+      # Phase 29 D-09 — cosign keyless OIDC sign of the just-pushed image digest.
+      # --yes suppresses interactive tlog confirmation; the keyless OIDC token is
+      # auto-discovered from the workflow's id-token claim (permissions block above).
+      - name: Cosign sign multi-arch image
+        shell: bash
+        run: cosign sign --yes ghcr.io/devbrian/mangarr@${{ steps.build.outputs.digest }}
+
+      # Phase 29 D-10 + T-29-01-01 mitigation — cosign self-verify immediately
+      # after sign so the workflow itself proves "cosign signed but bundle didn't
+      # land on GHCR" cannot pass. --certificate-identity-regexp (not -identity)
+      # anchors to ^https://github.com/devbrian/Mangarr/.github/workflows/deploy.yml@refs/.*$
+      # so the same step works for both initial release tags and throwaway tag
+      # re-pushes against the same merge commit (Plan 29-03). A signature minted
+      # by a malicious forked workflow cannot pass because its identity claim
+      # would not match the regex anchored to devbrian/Mangarr.
+      - name: Cosign self-verify
+        shell: bash
+        run: |
+          cosign verify ghcr.io/devbrian/mangarr@${{ steps.build.outputs.digest }} \
+            --certificate-identity-regexp "^https://github\.com/devbrian/Mangarr/\.github/workflows/deploy\.yml@refs/.*$" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+      # Phase 29 D-11 / DIST2-02 — generate SPDX-JSON SBOM via syft against the
+      # just-pushed image digest. Output filename matches ROADMAP SC#2 exact
+      # string `mangarr-<version>-sbom.spdx.json`.
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate SBOM (syft, SPDX-JSON)
+        shell: bash
+        run: |
+          syft ghcr.io/devbrian/mangarr@${{ steps.build.outputs.digest }} \
+            -o spdx-json=mangarr-${{ inputs.version }}-sbom.spdx.json
+
+      # Phase 29 D-11 — round-trip the SBOM artifact from docker_publish → release
+      # so the release-action artifacts glob (line 332) can attach it to the
+      # GitHub Release. T-29-01-04 disposition `accept` — workflow-scoped artifact
+      # storage is auth-scoped per workflow run; same trust boundary as the
+      # existing _artifacts/Mangarr.* glob.
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: mangarr-${{ inputs.version }}-sbom.spdx.json
 
       # D-04 layer 2 — boot-smoke the just-pushed image; assert HTTP 200 at /api/v5/system/status
       # before declaring the publish successful. scripts/docker-smoke.sh ships from Plan 21-02.
@@ -267,6 +318,13 @@ jobs:
           path: _artifacts
           pattern: release-*
           merge-multiple: true
+
+      # Phase 29 D-11 — download the SBOM produced by docker_publish so the
+      # release-action artifacts glob can attach it to the GitHub Release.
+      - name: Download SBOM artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: sbom
 
       # Lock #4 + Pitfall 5 — defensive single-source resolution. For v1.0.0.<N> tags we use the
       # hand-curated RELEASE-NOTES-v1.0.0.md bodyFile (D-12); for v1.0.0.N+ follow-ups we fall back
@@ -329,7 +387,11 @@ jobs:
       - name: Create release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: _artifacts/Mangarr.*
+          # Phase 29 D-11 — attach SPDX-JSON SBOM alongside the existing runtime archives
+          # per ROADMAP SC#2 ("attached to the GitHub Release for that version"). The
+          # filename `mangarr-${{ inputs.version }}-sbom.spdx.json` is the exact-string
+          # ROADMAP SC#2 requirement.
+          artifacts: _artifacts/Mangarr.*,mangarr-${{ inputs.version }}-sbom.spdx.json
           commit: ${{ github.sha }}
           generateReleaseNotes: false
           bodyFile: ${{ steps.notes-source.outputs.use_file == 'true' && steps.notes-source.outputs.notes_file || '' }}
@@ -351,3 +413,36 @@ jobs:
       # (RESEARCH Pitfall 7 — Plan 21-05 deletes the orphaned secret from repo Settings).
       # (Literal step name + secret name + upstream endpoint intentionally omitted so repo-wide grep
       # gates in Task 4 stay clean.)
+
+  # Phase 29 D-14 / DIST2-05 — Discord notify scaffolding. Useless without a
+  # Mangarr Discord channel today, but flipping `DISCORD_WEBHOOK` secret on later
+  # turns it on without re-touching deploy.yml.
+  #
+  # Two-layer gate per T-29-01-02 mitigation:
+  #   1. Step-level `if: env.DISCORD_WEBHOOK != ''` — skip the notify step when
+  #      the secret is absent (job runs but no-ops cleanly). GitHub Actions
+  #      forbids `secrets` context in job-level `if:` expressions, so the gate
+  #      MUST be evaluated at the step level via a job-level `env:` mapping.
+  #   2. `continue-on-error: true` — second belt: if the webhook POST itself
+  #      fails (404 / rate-limited / channel deleted), the workflow as a whole
+  #      stays green.
+  #
+  # Webhook URL is mapped to job-level env from the secret, then read by the
+  # step `env:` block (which receives the same value). GitHub Actions masks the
+  # secret value in logs as a third defense.
+  discord_notify:
+    name: Discord Release Notification
+    needs: [release]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+    steps:
+      - name: Post release notification to Discord
+        if: env.DISCORD_WEBHOOK != ''
+        shell: bash
+        run: |
+          curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"content\":\"Mangarr v${{ inputs.version }} released: https://github.com/devbrian/Mangarr/releases/tag/v${{ inputs.version }}\"}" \
+            "$DISCORD_WEBHOOK"
