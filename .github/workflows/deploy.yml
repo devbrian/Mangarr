@@ -73,6 +73,7 @@ jobs:
     permissions:
       contents: read
       packages: write                 # Phase 21 D-05 / Lock #3 — GHCR push via OIDC (no PAT)
+      id-token: write                 # Phase 29 D-10 R-6 — cosign keyless OIDC token mint
     steps:
       - name: Check out
         uses: actions/checkout@v6
@@ -222,7 +223,12 @@ jobs:
       # TARGETARCH → PS_PLATFORM dispatch in distribution/docker/Dockerfile +
       # tools/ChromiumPrefetch/Program.cs --platform arg) is retained as
       # foundation for whichever v1.1-17 path lands.
+      # Phase 29 D-09 — install cosign for keyless OIDC sign + self-verify.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
       - name: Build and push multi-arch image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -233,6 +239,28 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             MANGARR_VERSION=${{ inputs.version }}
+
+      # Phase 29 D-09 — cosign keyless OIDC sign of the just-pushed image digest.
+      # --yes suppresses interactive tlog confirmation; the keyless OIDC token is
+      # auto-discovered from the workflow's id-token claim (permissions block above).
+      - name: Cosign sign multi-arch image
+        shell: bash
+        run: cosign sign --yes ghcr.io/devbrian/mangarr@${{ steps.build.outputs.digest }}
+
+      # Phase 29 D-10 + T-29-01-01 mitigation — cosign self-verify immediately
+      # after sign so the workflow itself proves "cosign signed but bundle didn't
+      # land on GHCR" cannot pass. --certificate-identity-regexp (not -identity)
+      # anchors to ^https://github.com/devbrian/Mangarr/.github/workflows/deploy.yml@refs/.*$
+      # so the same step works for both initial release tags and throwaway tag
+      # re-pushes against the same merge commit (Plan 29-03). A signature minted
+      # by a malicious forked workflow cannot pass because its identity claim
+      # would not match the regex anchored to devbrian/Mangarr.
+      - name: Cosign self-verify
+        shell: bash
+        run: |
+          cosign verify ghcr.io/devbrian/mangarr@${{ steps.build.outputs.digest }} \
+            --certificate-identity-regexp "^https://github\.com/devbrian/Mangarr/\.github/workflows/deploy\.yml@refs/.*$" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
       # D-04 layer 2 — boot-smoke the just-pushed image; assert HTTP 200 at /api/v5/system/status
       # before declaring the publish successful. scripts/docker-smoke.sh ships from Plan 21-02.
