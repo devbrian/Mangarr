@@ -82,10 +82,17 @@ namespace Mangarr.Comix.Live.Test
             };
         }
 
-        [OneTimeTearDown]
-        public void TearDownLiveSigner()
+        [TearDown]
+        public void DisposeSignerAfterEachTest()
         {
+            // PR #246 review (Codex P1 r3293171698): per-test dispose, NOT per-fixture.
+            // [SetUp] (SetUpRealSigner) overwrites _signer with a fresh
+            // Mocker.Resolve<ComixPuppeteerSigner>() on every test (TestBase's [TearDown]
+            // nulls _mocker, so each test gets a brand-new Mocker → brand-new signer).
+            // Disposing only in [OneTimeTearDown] orphans the prior (N-1) signers'
+            // Chromium children.
             _signer?.Dispose();
+            _signer = null;
         }
 
         [Test]

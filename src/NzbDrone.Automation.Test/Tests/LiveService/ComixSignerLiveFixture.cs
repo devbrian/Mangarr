@@ -81,9 +81,16 @@ public class ComixSignerLiveFixture : TestBase<ComixPuppeteerSigner>
             "{items:[...], meta:...}");
     }
 
-    [OneTimeTearDown]
-    public void TearDownLiveSigner()
+    [TearDown]
+    public void DisposeSignerAfterEachTest()
     {
+        // PR #246 review (Codex P1 r3293171698): per-test dispose, NOT per-fixture.
+        // TestBase<T>'s [SetUp] (CoreTestSetup) nulls _subject and the Subject getter
+        // lazily resolves a fresh Mocker.Resolve<ComixPuppeteerSigner>() on next access.
+        // Each test gets its own signer + its own Chromium child. Disposing only in
+        // [OneTimeTearDown] orphans the prior (N-1) signers' Chromium children — observed
+        // empirically as 16 leaked chrome.exe processes after a hung 3-test run in
+        // PR #246 local-verification (cleaned via scripts/kill-orphan-chromium.ps1).
         Subject?.Dispose();
     }
 
