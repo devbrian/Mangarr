@@ -17,7 +17,6 @@ using NzbDrone.Core.Test.Framework;
 using NzbDrone.Core.Update;
 using NzbDrone.Core.Update.Commands;
 using NzbDrone.Test.Common;
-using NzbDrone.Test.Common.Categories;
 
 namespace NzbDrone.Core.Test.UpdateTests
 {
@@ -253,12 +252,41 @@ namespace NzbDrone.Core.Test.UpdateTests
             Mocker.GetMock<IProcessProvider>().Verify(v => v.Start(scriptPath, It.IsAny<string>(), null, null, null), Times.Never());
         }
 
-        [Ignore("TODO fix")]
         [Test]
-        [IntegrationTest]
         public void Should_download_and_extract_to_temp_folder()
         {
-            UseRealHttp();
+            // Phase 29 DIST2-04 rewrite (Plan 29-02 Task 3, D-05..D-08): cassette-replay
+            // against an in-tree synthetic tarball. Drops [Ignore("TODO fix")] +
+            // UseRealHttp() per D-05. The Mocker IHttpClient.DownloadFile callback
+            // copies Files/Update/synthetic-mangarr.tar.gz to the destination path
+            // so the REAL ArchiveService can extract a real .tar.gz at runtime.
+            //
+            // R-3 audit: post-Phase-15 rebrand, the release-archive top-level subdir is
+            // 'Mangarr/' not 'NzbDrone/' — confirmed empirically against
+            // .github/actions/package/package.sh line 57
+            // (`tar -zcf "./$artifactsFolder/$archiveName.tar.gz" -C $folderName Mangarr`).
+            // The synthetic tarball at Files/Update/synthetic-mangarr.tar.gz mirrors this
+            // layout; assertion below uses the matching subdir name.
+            // In-tree fixture-file pattern per MangaDexParserFixture.cs:35 — bare relative
+            // path; the .csproj <None Update="Files\**\*.*"> glob auto-copies to the test
+            // output dir, which is the CWD at test runtime.
+            var syntheticTarballPath = Path.Combine("Files", "Update", "synthetic-mangarr.tar.gz");
+
+            // Force a .tar.gz extension on the package filename so ArchiveService.Extract
+            // dispatches to ExtractTgz on Windows too (Setup() defaults to .zip on Win).
+            _updatePackage.FileName = $"Mangarr.develop.{_updatePackage.Version}.linux-x64.tar.gz";
+
+            Mocker.GetMock<IHttpClient>()
+                  .Setup(c => c.DownloadFile(It.IsAny<string>(), It.IsAny<string>()))
+                  .Callback<string, string>((url, dest) =>
+                  {
+                      // Real HttpClient.DownloadFile creates parent dirs on demand; the
+                      // mock callback must mirror that contract for InstallUpdateService's
+                      // packageDestination path (the sandbox folder may not yet exist
+                      // when DownloadFile is invoked).
+                      Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                      File.Copy(syntheticTarballPath, dest, overwrite: true);
+                  });
 
             var updateSubFolder = new DirectoryInfo(Mocker.GetMock<IAppFolderInfo>().Object.GetUpdateSandboxFolder());
 
@@ -271,7 +299,7 @@ namespace NzbDrone.Core.Test.UpdateTests
             updateSubFolder.Refresh();
 
             updateSubFolder.Exists.Should().BeTrue();
-            updateSubFolder.GetDirectories("NzbDrone").Should().HaveCount(1);
+            updateSubFolder.GetDirectories("Mangarr").Should().HaveCount(1);
             updateSubFolder.GetDirectories().Should().HaveCount(1);
             updateSubFolder.GetFiles().Should().NotBeEmpty();
         }

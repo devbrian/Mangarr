@@ -5,6 +5,8 @@ import { useCommandExecuting, useExecuteCommand } from 'Commands/useCommands';
 import Alert from 'Components/Alert';
 import Icon from 'Components/Icon';
 import Label from 'Components/Label';
+import ClipboardButton from 'Components/Link/ClipboardButton';
+import Link from 'Components/Link/Link';
 import SpinnerButton from 'Components/Link/SpinnerButton';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import InlineMarkdown from 'Components/Markdown/InlineMarkdown';
@@ -122,36 +124,71 @@ function Updates() {
           ) : null}
 
           {hasUpdateToInstall ? (
-            <div className={styles.messageContainer}>
-              {updateMechanism === 'builtIn' || updateMechanism === 'script' ? (
-                <SpinnerButton
-                  kind={kinds.PRIMARY}
-                  isSpinning={isInstallingUpdate}
-                  onPress={handleInstallLatestPress}
-                >
-                  {translate('InstallLatest')}
-                </SpinnerButton>
-              ) : (
-                <>
-                  <Icon name={icons.WARNING} kind={kinds.WARNING} size={30} />
-
-                  <div className={styles.message}>
-                    {externalUpdaterPrefix}{' '}
-                    <InlineMarkdown
-                      data={
-                        packageUpdateMechanismMessage ||
-                        externalUpdaterMessages[updateMechanism] ||
-                        externalUpdaterMessages.external
-                      }
-                    />
+            <>
+              {/*
+                Phase 29 D-04 — Update Available banner: docker-pull command +
+                copy-to-clipboard + GitHub Release link. Banner is INFORMATIONAL
+                only — ROADMAP cross-cutting locks "no auto-update mechanism".
+                The existing Install button below stays for built-in / script
+                update mechanisms; the banner is the addition.
+              */}
+              <Alert kind={kinds.INFO}>
+                <div>
+                  {translate('UpdateAvailableBannerMessage', {
+                    version: updates[0].version,
+                    tagName: updates[0].version,
+                  })}
+                </div>
+                <div className={styles.bannerDockerPullRow}>
+                  <code className={styles.bannerDockerPullCommand}>
+                    {`docker pull ghcr.io/devbrian/mangarr:${updates[0].version}`}
+                  </code>
+                  <ClipboardButton
+                    value={`docker pull ghcr.io/devbrian/mangarr:${updates[0].version}`}
+                  />
+                </div>
+                {updates[0].htmlUrl || updates[0].url ? (
+                  <div className={styles.bannerReleaseLink}>
+                    <Link
+                      to={updates[0].htmlUrl ?? updates[0].url ?? undefined}
+                    >
+                      {translate('ViewGitHubRelease')}
+                    </Link>
                   </div>
-                </>
-              )}
+                ) : null}
+              </Alert>
+              <div className={styles.messageContainer}>
+                {updateMechanism === 'builtIn' ||
+                updateMechanism === 'script' ? (
+                  <SpinnerButton
+                    kind={kinds.PRIMARY}
+                    isSpinning={isInstallingUpdate}
+                    onPress={handleInstallLatestPress}
+                  >
+                    {translate('InstallLatest')}
+                  </SpinnerButton>
+                ) : (
+                  <>
+                    <Icon name={icons.WARNING} kind={kinds.WARNING} size={30} />
 
-              {isFetching ? (
-                <LoadingIndicator className={styles.loading} size={20} />
-              ) : null}
-            </div>
+                    <div className={styles.message}>
+                      {externalUpdaterPrefix}{' '}
+                      <InlineMarkdown
+                        data={
+                          packageUpdateMechanismMessage ||
+                          externalUpdaterMessages[updateMechanism] ||
+                          externalUpdaterMessages.external
+                        }
+                      />
+                    </div>
+                  </>
+                )}
+
+                {isFetching ? (
+                  <LoadingIndicator className={styles.loading} size={20} />
+                ) : null}
+              </div>
+            </>
           ) : null}
 
           {noUpdateToInstall && (

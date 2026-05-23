@@ -1,0 +1,46 @@
+{
+  "url": "https://api.github.com/repos/devbrian/Mangarr/releases/199999999",
+  "html_url": "https://github.com/devbrian/Mangarr/releases/tag/v9.9.9.999",
+  "id": 199999999,
+  "node_id": "RE_kwDOPlaceholder",
+  "tag_name": "v9.9.9.999",
+  "target_commitish": "Mangarr-v0",
+  "name": "9.9.9.999",
+  "draft": false,
+  "prerelease": false,
+  "created_at": "2026-05-23T00:00:00Z",
+  "published_at": "2026-05-23T00:00:00Z",
+  "assets": [
+    {
+      "url": "https://api.github.com/repos/devbrian/Mangarr/releases/assets/1",
+      "id": 1,
+      "node_id": "RA_kwDOPlaceholder",
+      "name": "Mangarr.Mangarr-v0.9.9.9.999.linux-x64.tar.gz",
+      "label": null,
+      "content_type": "application/gzip",
+      "state": "uploaded",
+      "size": 421,
+      "download_count": 0,
+      "created_at": "2026-05-23T00:00:00Z",
+      "updated_at": "2026-05-23T00:00:00Z",
+      "browser_download_url": "https://github.com/devbrian/Mangarr/releases/download/v9.9.9.999/Mangarr.Mangarr-v0.9.9.9.999.linux-x64.tar.gz"
+    },
+    {
+      "url": "https://api.github.com/repos/devbrian/Mangarr/releases/assets/2",
+      "id": 2,
+      "node_id": "RA_kwDOPlaceholder",
+      "name": "mangarr-9.9.9.999-sbom.spdx.json",
+      "label": null,
+      "content_type": "application/json",
+      "state": "uploaded",
+      "size": 12345,
+      "download_count": 0,
+      "created_at": "2026-05-23T00:00:00Z",
+      "updated_at": "2026-05-23T00:00:00Z",
+      "browser_download_url": "https://github.com/devbrian/Mangarr/releases/download/v9.9.9.999/mangarr-9.9.9.999-sbom.spdx.json"
+    }
+  ],
+  "tarball_url": "https://api.github.com/repos/devbrian/Mangarr/tarball/v9.9.9.999",
+  "zipball_url": "https://api.github.com/repos/devbrian/Mangarr/zipball/v9.9.9.999",
+  "body": "Phase 29 cassette — hand-crafted minimal GH Releases /latest response matching the upstream API shape per .planning/phases/29-distribution-hardening-v1-2-inserted-2026-05-23/29-PATTERNS.md §6. The browser_download_url field is REWRITTEN at replay time by UpdateServiceFixture.Should_download_and_extract_to_temp_folder's Mocker IHttpClient.DownloadFile callback to copy the synthetic-mangarr.tar.gz fixture asset to the destination path. The tag_name '9.9.9.999' is intentionally far ahead of any real BuildInfo.Version so latestVersion > currentVersion always evaluates true during replay. D-07 cassette re-record cadence lives in Plan 29-03."
+}
