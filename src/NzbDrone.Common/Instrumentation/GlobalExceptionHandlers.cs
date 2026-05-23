@@ -23,6 +23,19 @@ namespace NzbDrone.Common.Instrumentation
                 return;
             }
 
+            // PuppeteerSharp's internal response-body cache occasionally throws on 3xx redirect
+            // responses (the body is structurally unavailable). The throw escapes the internal
+            // handler and surfaces here as an unobserved task. It does not affect the comix
+            // signer's correctness — the navigation that triggered the redirect completes — but
+            // the noisy stack trace alarms users. Filtered by type-name (not reference) because
+            // NzbDrone.Common is dependency-free per its CLAUDE.md.
+            if (exception.InnerException?.GetType().FullName == "PuppeteerSharp.PuppeteerException"
+                && exception.InnerException.Message == "Response body is unavailable for redirect responses")
+            {
+                e.SetObserved();
+                return;
+            }
+
             Console.WriteLine("Task Error: {0}", exception);
             Logger.Error(exception, "Task Error");
         }
