@@ -18,9 +18,12 @@ namespace NzbDrone.Core.Test.Indexers.Comix
     /// request-interception token capture. This fixture was rewritten on 2026-05-22
     /// to lock the captureToken-shape contract — see
     /// <c>.planning/debug/comix-signer-rotation.md</c> for the root-cause + decision
-    /// record. The <c>Resources/upstream-signer.txt</c> excerpt is the SHA-pinned
-    /// Phase 17 port-time snapshot; it intentionally still describes the obsolete
-    /// namespace-probe shape and stays unchanged as a historical breadcrumb.
+    /// record. The <c>Resources/upstream-signer.txt</c> Phase 17 port-time snapshot
+    /// is retained in the repository as a historical reference documenting the
+    /// obsolete namespace-probe shape, but is no longer loaded by this fixture; the
+    /// captureToken-shape tests now use grep-against-implementation-source checks
+    /// (<c>_signerSource</c> / <c>_parserSource</c>) — see PR #244 Comment #5 for the
+    /// clarification reason.
     /// </para>
     /// </summary>
     [TestFixture]

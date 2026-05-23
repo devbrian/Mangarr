@@ -100,7 +100,10 @@ namespace Mangarr.Comix.Live.Test
         }
 
         // Defensive JSON parse — comix.to's chapter `id` is currently a number per the
-        // 2026-05-10 survey, but accept either kind so the helper isn't brittle.
+        // 2026-05-10 survey; PR #244 review feedback (CodeRabbit Minor #4): accept only
+        // string/number JSON kinds and fail-fast on anything else so a future schema
+        // regression (id → null/object/array) surfaces here, instead of getting silently
+        // forwarded as raw JSON text into a malformed chapter URL in Step 2.
         private static string ExtractFirstChapterId(string json)
         {
             try
@@ -111,10 +114,23 @@ namespace Mangarr.Comix.Live.Test
                     items.GetArrayLength() > 0 &&
                     items[0].TryGetProperty("id", out var idEl))
                 {
-                    return idEl.ValueKind == System.Text.Json.JsonValueKind.String
-                        ? idEl.GetString()
-                        : idEl.GetRawText();
+                    return idEl.ValueKind switch
+                    {
+                        System.Text.Json.JsonValueKind.String => idEl.GetString(),
+                        System.Text.Json.JsonValueKind.Number => idEl.GetRawText(),
+                        _ => throw new System.ArgumentException(
+                            $"Comix Step 2 preflight: unexpected `id` JSON kind '{idEl.ValueKind}' " +
+                            $"with raw value '{idEl.GetRawText()}'. Expected String or Number per " +
+                            "the 2026-05-10 survey. Schema regression surfaces here instead of " +
+                            "being silently forwarded as a malformed chapter URL."),
+                    };
                 }
+            }
+            catch (System.ArgumentException)
+            {
+                // Re-throw schema-regression assertions so the test failure surfaces
+                // the precise root cause (vs catching it as a null result below).
+                throw;
             }
             catch
             {

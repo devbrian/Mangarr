@@ -32,9 +32,11 @@ namespace NzbDrone.Core.Indexers.Comix
     /// previous behaviour-probe approach (Phase 17 D-14) is upstream-obsolete. The new
     /// shape <b>observes</b> the page's own outgoing API request and extracts the
     /// <c>_=&lt;token&gt;</c> query parameter via PuppeteerSharp request interception. Once
-    /// the token is captured, the actual API GET is relayed through the page's same-origin
-    /// <c>fetch()</c> so the page's already-established Cloudflare session + cookies +
-    /// User-Agent apply automatically.
+    /// the token is captured, the actual API GET is relayed server-side via a process-
+    /// singleton <see cref="System.Net.Http.HttpClient"/> (Choice B per
+    /// <c>.planning/debug/comix-signer-rotation.md</c>); PR #244 review feedback refined
+    /// this to forward the page's cookies + cached User-Agent onto the relay request so
+    /// the captured token reuses its originating session fingerprint.
     /// </para>
     ///
     /// <para>
@@ -78,6 +80,16 @@ namespace NzbDrone.Core.Indexers.Comix
         // ── Static readonly fields ───────────────────────────────────────────────────
         // W-2 (revision iteration 1): drain timeout for in-flight requests on Dispose.
         private static readonly TimeSpan DisposeDrainTimeout = TimeSpan.FromSeconds(5);
+
+        // PR #244 review feedback (Codex P1 / CodeRabbit Major) — shared HttpClient for the
+        // captured-token relay path. The standard .NET guidance is to reuse a single
+        // HttpClient across the process to avoid socket exhaustion + DNS pinning issues
+        // that a per-call `new HttpClient()` introduces. Process-lifetime ownership is
+        // acceptable here because the signer itself is a process singleton (DryIoc
+        // `Reuse.Singleton`) so the HttpClient lifetime ≡ process lifetime. Not wrapped
+        // in `using`; intentionally never disposed.
+        private static readonly System.Net.Http.HttpClient _relayHttpClient =
+            new System.Net.Http.HttpClient();
 
         // V5 input validation per RESEARCH §"Security Domain" / T-17-02-01.
         // Pre-compiled for hot-path performance; constraint: path-only, no scheme/host/..
@@ -180,6 +192,24 @@ namespace NzbDrone.Core.Indexers.Comix
                 _page = await _browser.NewPageAsync().ConfigureAwait(false);
                 ct.ThrowIfCancellationRequested();
 
+                // PR #244 review feedback (Codex P1 #2): cache navigator.userAgent off the
+                // warm page once so per-relay calls don't pay an extra EvaluateExpressionAsync
+                // round-trip. The UA is bound to the browser instance (not per-navigation)
+                // so caching at warm-time is safe — only invalidated on TeardownBrowserAsync.
+                try
+                {
+                    _cachedUserAgent = await _page
+                        .EvaluateExpressionAsync<string>("navigator.userAgent")
+                        .ConfigureAwait(false);
+                }
+                catch (Exception uaEx)
+                {
+                    // Non-fatal: UA capture is a best-effort forward; relay still works
+                    // without it (falls back to .NET's default User-Agent header).
+                    _logger.Debug(uaEx, "Comix signer: navigator.userAgent capture raised; relay will use default UA.");
+                    _cachedUserAgent = null;
+                }
+
                 // Request interception is toggled per-call inside CaptureTokenAsync
                 // (NOT warm-attached here) — keeping interception ON across the relay
                 // fetch step would block the relay's outgoing /api/v1 GET (each
@@ -215,8 +245,10 @@ namespace NzbDrone.Core.Indexers.Comix
         ///   <item>Navigate to <c>pageUrl</c> (<c>WaitUntil = DOMContentLoaded</c>; the page
         ///         issues its API request shortly after).</item>
         ///   <item>Await the captured token (bounded to 30s).</item>
-        ///   <item>Issue the actual <c>/api/v1{apiPath}?_=&lt;token&gt;</c> via the page's
-        ///         same-origin <c>fetch()</c> — the page's session cookies + UA apply.</item>
+        ///   <item>Issue the actual <c>/api/v1{apiPath}?_=&lt;token&gt;</c> server-side via
+        ///         the shared <c>_relayHttpClient</c>, forwarding the page's cookies + cached
+        ///         User-Agent so the captured token reuses its originating session
+        ///         fingerprint (PR #244 review feedback — Codex P1 + CodeRabbit Major).</item>
         /// </list>
         /// </summary>
         protected virtual async Task<string> EvaluateProxyFetchAsync(string apiPath, CancellationToken ct)
@@ -260,15 +292,13 @@ namespace NzbDrone.Core.Indexers.Comix
             {
                 // FIRST request for this pageUrl: load the page, observe the bundle's own
                 // outgoing /api/v1/... call, capture the `?_=<token>` query parameter
-                // from the URL. We DO NOT read the bundle's response body — comix.to
-                // returns the {e:<base64>} encrypted envelope to browser-fetched
-                // requests (the bundle decrypts in-page via an internal interceptor we
-                // can't easily reach). Instead we use the captured token to issue a
-                // VANILLA HTTP GET via IHttpClient — this matches upstream Comix.kt's
-                // approach (Comix.kt:325 `client.newCall(GET(url, headers)).awaitSuccess()`)
-                // which is verified to return plaintext.
-                var capture = await CaptureTokenAndBodyAsync(page, pageUrl, matchSuffix, ct).ConfigureAwait(false);
-                CacheToken(pageUrl, capture.Token);
+                // from the URL. PR #244 review feedback (CodeRabbit Major #7): we do NOT
+                // wait on the bundle's response body — only the URL token is needed for
+                // the vanilla relay below, and waiting on RequestFinished + resp.TextAsync()
+                // is brittle (the body capture can time-out even after the token was
+                // already captured). See CaptureTokenAsync for the simplified contract.
+                var captured = await CaptureTokenAsync(page, pageUrl, matchSuffix, ct).ConfigureAwait(false);
+                CacheToken(pageUrl, captured);
             }
 
             // Unified relay path: use the captured token (fresh or cached) to issue a
@@ -282,19 +312,55 @@ namespace NzbDrone.Core.Indexers.Comix
             var sep = apiPath.IndexOf('?') == -1 ? "?" : "&";
             var fullUrl = $"{ComixBaseUrl}/api/v1{apiPath}{sep}_={Uri.EscapeDataString(TryGetCachedToken(pageUrl) ?? string.Empty)}";
 
-            // Send the GET via a process-local System.Net.Http.HttpClient. We DON'T pull
-            // Mangarr's IHttpClient through DI because the signer is a process-singleton
-            // and we don't need rate-limiting / cookie-cache plumbing for this call (the
-            // token is per-page; comix.to's rate budget is handled by ComixIndexer's
-            // SourceKey rate budget on the front-door endpoints). Per upstream
-            // Comix.kt:325 the GET is intentionally a plain HTTP call.
-            using var httpClient = new System.Net.Http.HttpClient();
+            // PR #244 review feedback (Codex P1 #1 / CodeRabbit Major #6): use the shared
+            // process-singleton `_relayHttpClient` instead of `new HttpClient()` per call
+            // (socket-exhaustion + DNS-pinning avoidance). The per-request HttpRequestMessage
+            // is still `using` because it IS per-call.
             using var httpRequest = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, fullUrl);
             httpRequest.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
             httpRequest.Headers.Referrer = new Uri(ComixBaseUrl + "/");
 
+            // PR #244 review feedback (Codex P1 #2): forward browser session state onto the
+            // relay request — comix.to may bind `_=<token>` to the originating browser
+            // session (cookies + UA fingerprint). Without forwarding these, the captured
+            // token only authenticates the browser's own request; the relay's request
+            // arrives without session continuity and gets the encrypted-envelope fallback.
+            if (!string.IsNullOrEmpty(_cachedUserAgent))
+            {
+                httpRequest.Headers.TryAddWithoutValidation("User-Agent", _cachedUserAgent);
+            }
+
+            try
+            {
+                var cookies = await page.GetCookiesAsync(ComixBaseUrl).ConfigureAwait(false);
+                if (cookies != null && cookies.Length > 0)
+                {
+                    var cookieHeader = string.Join(
+                        "; ",
+                        System.Linq.Enumerable.Select(cookies, c => c.Name + "=" + c.Value));
+                    if (!string.IsNullOrEmpty(cookieHeader))
+                    {
+                        httpRequest.Headers.TryAddWithoutValidation("Cookie", cookieHeader);
+                    }
+                }
+            }
+            catch (Exception cookieEx)
+            {
+                // Cookie capture is best-effort forwarding; relay still issues without it
+                // (the captured token alone may or may not be enough — surfacing this at
+                // Debug so the operator can correlate session-mismatch failures).
+                _logger.Debug(cookieEx, "Comix signer: cookie capture for relay raised; sending relay without Cookie header.");
+            }
+
             ct.ThrowIfCancellationRequested();
-            using var httpResponse = await httpClient.SendAsync(httpRequest, ct).ConfigureAwait(false);
+            using var httpResponse = await _relayHttpClient.SendAsync(httpRequest, ct).ConfigureAwait(false);
+
+            // PR #244 review feedback (Codex P1 #1 / CodeRabbit Major #6): treat non-2xx
+            // responses as failures instead of silently forwarding the body to the parser
+            // (which would then return zero releases, masking real upstream outages).
+            // EnsureSuccessStatusCode raises HttpRequestException; that bubbles up to
+            // ProxyFetchAsyncImpl's lazy-reprobe catch + RecordFailure flow.
+            httpResponse.EnsureSuccessStatusCode();
             return await httpResponse.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         }
 
@@ -326,8 +392,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 nameof(apiPath));
         }
 
-        // Core captureToken loop — mirrors upstream Comix.kt:414-471 `captureToken()`
-        // verbatim:
+        // Core captureToken loop — mirrors upstream Comix.kt:414-471 `captureToken()`:
         //   • install shouldInterceptRequest handler that allows comix.to/.js + /api/ +
         //     /title/ and aborts everything else
         //   • on a request matching the suffix predicate, extract `_=<token>` and
@@ -336,22 +401,20 @@ namespace NzbDrone.Core.Indexers.Comix
         //     long-lived sockets defeat networkidle)
         //   • await tcs.Task bounded by CaptureTimeoutSeconds
         //   • detach handler regardless of outcome
-        private sealed class CaptureResult
-        {
-            public string Token { get; set; }
-
-            public string Body { get; set; }
-        }
-
-        private static async Task<CaptureResult> CaptureTokenAndBodyAsync(
+        //
+        // PR #244 review feedback (CodeRabbit Major #7): the previous shape also waited
+        // on a separate bodyTcs (resolved via RequestFinished + resp.TextAsync()), but
+        // the caller never consumed the body — only the token is needed for the vanilla
+        // relay GET. Waiting on the response-body capture made the gate brittle (could
+        // time-out even after the token had already been captured). Token-only wait now;
+        // RequestFinished subscription dropped.
+        private static async Task<string> CaptureTokenAsync(
             IPage page,
             string pageUrl,
             string matchSuffix,
             CancellationToken ct)
         {
             var tokenTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var bodyTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-            IRequest matchedRequest = null;
 
             // Local handler closure; detached in finally so a leaked handler can't survive
             // across requests (would race with the next captureToken).
@@ -380,9 +443,9 @@ namespace NzbDrone.Core.Indexers.Comix
                         {
                             var query = parsed.Query;
                             var token = ExtractQueryParam(query, "_");
-                            if (!string.IsNullOrEmpty(token) && tokenTcs.TrySetResult(token))
+                            if (!string.IsNullOrEmpty(token))
                             {
-                                matchedRequest = req;
+                                tokenTcs.TrySetResult(token);
                             }
                         }
 
@@ -413,42 +476,8 @@ namespace NzbDrone.Core.Indexers.Comix
                 }
             };
 
-            // Once a matching request is observed, RequestFinished fires when the
-            // response body is fully downloaded; we read req.Response.TextAsync() and
-            // resolve bodyTcs. The bundle's own request gets the plaintext shape because
-            // it carries all the page's legitimate headers + cookies + UA fingerprint —
-            // the encrypted {e:...} envelope is only returned to requests that fail the
-            // server-side check.
-            EventHandler<RequestEventArgs> finishedHandler = null;
-            finishedHandler = async (sender, e) =>
-            {
-                try
-                {
-                    if (matchedRequest == null || e.Request != matchedRequest)
-                    {
-                        return;
-                    }
-
-                    var resp = e.Request.Response;
-                    if (resp == null)
-                    {
-                        bodyTcs.TrySetException(new InvalidOperationException(
-                            "Comix signer: matching request finished with no Response attached."));
-                        return;
-                    }
-
-                    var text = await resp.TextAsync().ConfigureAwait(false);
-                    bodyTcs.TrySetResult(text);
-                }
-                catch (Exception ex)
-                {
-                    bodyTcs.TrySetException(ex);
-                }
-            };
-
             await page.SetRequestInterceptionAsync(true).ConfigureAwait(false);
             page.Request += handler;
-            page.RequestFinished += finishedHandler;
             try
             {
                 // WaitUntil = DOMContentLoaded — the bundle's long-lived sockets defeat
@@ -463,30 +492,23 @@ namespace NzbDrone.Core.Indexers.Comix
                 using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
                 {
                     var delayTask = Task.Delay(TimeSpan.FromSeconds(CaptureTimeoutSeconds), linkedCts.Token);
-                    var bothTask = Task.WhenAll(tokenTcs.Task, bodyTcs.Task);
-                    var winner = await Task.WhenAny(bothTask, delayTask).ConfigureAwait(false);
+                    var winner = await Task.WhenAny(tokenTcs.Task, delayTask).ConfigureAwait(false);
 
-                    if (winner == bothTask)
+                    if (winner == tokenTcs.Task)
                     {
                         linkedCts.Cancel();
-                        return new CaptureResult
-                        {
-                            Token = await tokenTcs.Task.ConfigureAwait(false),
-                            Body = await bodyTcs.Task.ConfigureAwait(false),
-                        };
+                        return await tokenTcs.Task.ConfigureAwait(false);
                     }
 
                     ct.ThrowIfCancellationRequested();
                     throw new InvalidOperationException(
                         $"Comix signer: captureToken timed out after {CaptureTimeoutSeconds}s waiting for " +
-                        $"matching outgoing request + response on '{matchSuffix}' (token captured: " +
-                        $"{tokenTcs.Task.IsCompletedSuccessfully}, body captured: {bodyTcs.Task.IsCompletedSuccessfully}).");
+                        $"matching outgoing request on '{matchSuffix}'.");
                 }
             }
             finally
             {
                 page.Request -= handler;
-                page.RequestFinished -= finishedHandler;
                 try
                 {
                     await page.SetRequestInterceptionAsync(false).ConfigureAwait(false);
@@ -695,6 +717,12 @@ namespace NzbDrone.Core.Indexers.Comix
         // Pitfall 4: nulled BEFORE awaiting browser.CloseAsync inside TeardownBrowserAsync.
         private IBrowser _browser;
         private IPage _page;
+
+        // PR #244 review feedback (Codex P1 #2): cached page User-Agent string snapshot
+        // captured at warm-time. Forwarded onto the relay HttpClient request so the
+        // captured-token GET reuses the page's session fingerprint (Cloudflare + comix.to
+        // session-mismatch hypothesis). Reset to null on TeardownBrowserAsync.
+        private string _cachedUserAgent;
 
         private Timer _idleTimer;
 
@@ -948,6 +976,7 @@ namespace NzbDrone.Core.Indexers.Comix
             var browser = _browser;
             _browser = null;
             _page = null;
+            _cachedUserAgent = null;
             _tokenCache.Clear();
 
             if (browser != null)
@@ -1024,6 +1053,7 @@ namespace NzbDrone.Core.Indexers.Comix
             var browser = _browser;
             _browser = null;
             _page = null;
+            _cachedUserAgent = null;
             _tokenCache.Clear();
 
             if (browser != null)
