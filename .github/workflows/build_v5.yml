@@ -565,6 +565,7 @@ jobs:
     permissions:
       contents: write                 # reusable deploy.yml release job creates a GitHub release; caller must grant the ceiling (repo default token perms are read-only)
       packages: write                 # Sonarr divergence: Phase 21 D-05 — GHCR push permission for docker_publish job (OIDC via GITHUB_TOKEN; no PAT secret)
+      id-token: write                 # Phase 29 D-10 R-6 — cosign keyless OIDC needs id-token mint in docker_publish; caller MUST grant since reusable-workflow permissions are ceiling-gated
     secrets: inherit
     uses: ./.github/workflows/deploy.yml
     with:
