@@ -908,6 +908,72 @@ The v1.1 milestone deliberately considered and rejected two patterns as divergen
 Subsequent v1.x phases extend this delta; deviations from the snapshot are documented as new top-level rows above with phase attribution.
 
 
+## Phase 29 — Distribution Hardening (2026-05-23..)
+
+**Status:** Active (Phase 29 in-flight; Plan 29-01 lands the CI-side surfaces; Plan 29-02 will land the 4th — backend GitHub Releases-backed in-app update broker — atomically with the frontend banner + UpdateServiceFixture rewrite; Plan 29-03 fires the throwaway-tag live-verify exercise and writes the audit-pass).
+
+**Trigger:** Phase 21 shipped v1.0.0 with GHCR-published Docker images but no supply-chain attestation (no cosign signature, no SBOM, no community-notify hook). Phase 29 hardens the distribution surface for v1.2+: cosign keyless OIDC image signing (ROADMAP SC#1), SPDX-JSON SBOM as a GitHub Release asset (ROADMAP SC#2), Discord notify CI job scaffolding (ROADMAP SC#5), and native `ubuntu-24.04-arm` CI runner promotion on the 3 arm matrix rows (CI wall-time only — native arm64 Mangarr Docker IMAGE explicitly deferred per user exclusion 2026-05-23). This plan owns 3 of the 4 CI-side Sonarr-divergent surfaces; the 4th (GitHub Releases-backed in-app update broker) is owned by Plan 29-02's DIVERGENCE.md entry.
+
+### Entry 1 — Cosign keyless OIDC image signing
+
+**Scope:** Sonarr's `deploy.yml` performs no Docker publish at all (per Phase 21 D-15 audit — entire `docker_publish` job is Mangarr-only). Mangarr now signs every multi-arch GHCR push via cosign keyless OIDC and self-verifies the signature in the same workflow run. The signature lands on GHCR alongside the image manifest (cosign auto-discovers the OCI signature suffix); consumers can verify out-of-band via `cosign verify ghcr.io/devbrian/mangarr@<digest> --certificate-identity-regexp ... --certificate-oidc-issuer https://token.actions.githubusercontent.com`.
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `.github/workflows/deploy.yml` `docker_publish.permissions: id-token: write` | extend | Phase 29 (D-10 R-6) | Required for cosign keyless OIDC to mint the short-lived signing cert from `https://token.actions.githubusercontent.com`. Scoped to `docker_publish` only — the `release` job (which has `contents: write` for tag creation) does NOT get `id-token: write` per T-29-01-03 mitigation. Sonarr's deploy.yml has no analog. |
+| `.github/workflows/deploy.yml` step `Install cosign` (uses: `sigstore/cosign-installer@v3`) | new | Phase 29 (D-09) | Installs cosign before the build-push step so the signing tool is available immediately after the digest is known. Pinned to major v3.x. |
+| `.github/workflows/deploy.yml` step `Build and push multi-arch image` (`id: build` added) | extend | Phase 29 (D-09) | Adds `id: build` so `steps.build.outputs.digest` is referenceable by the subsequent cosign sign step. Sonarr doesn't sign images so the upstream `docker/build-push-action@v6` step has no `id`. |
+| `.github/workflows/deploy.yml` step `Cosign sign multi-arch image` | new | Phase 29 (D-09 / DIST2-01) | Runs `cosign sign --yes ghcr.io/devbrian/mangarr@${{ steps.build.outputs.digest }}` immediately after the build-push step and before the boot-smoke step. `--yes` suppresses interactive tlog confirmation; the keyless OIDC token is auto-discovered from the workflow's id-token claim. |
+| `.github/workflows/deploy.yml` step `Cosign self-verify` | new | Phase 29 (D-10 / T-29-01-01) | Belt-and-suspenders self-verify runs in the same workflow that produced the signature. Mirrors Phase 21 D-04 layer-2 boot-smoke pattern ("prove what was just pushed actually works"). Identity pinned via `--certificate-identity-regexp "^https://github\.com/devbrian/Mangarr/\.github/workflows/deploy\.yml@refs/.*$"` so the same step works for both initial release tags and throwaway-tag re-pushes against the same merge commit (Plan 29-03's D-09 + D-12 throwaway-tag exercise). A signature minted by a malicious forked workflow run cannot pass because its identity claim would not match the regex anchored to `devbrian/Mangarr`. Issuer pinned to `https://token.actions.githubusercontent.com`. |
+
+**Why-not-Sonarr:** Sonarr's `deploy.yml` ships zero Docker publishing infrastructure — every `docker_publish`-job step in Mangarr's deploy.yml is a Phase 21 / Phase 29 Mangarr-only addition. Cosign keyless OIDC has no peer concept in upstream Sonarr. v1.2+ supply-chain-conscious consumers (large NAS distros, security-team-gated homelab installs) gain the ability to assert that a given GHCR image was minted by the `devbrian/Mangarr` `deploy.yml` workflow and not by a forked CI run that happens to push the same tag.
+
+### Entry 2 — SPDX-JSON SBOM via syft, attached to GitHub Release
+
+**Scope:** Sonarr's release pipeline does not generate an SBOM. Mangarr now generates an SPDX-JSON SBOM of the just-pushed multi-arch image via syft in the `docker_publish` job, round-trips it as a workflow artifact, and attaches it to the GitHub Release for that version via the existing `ncipollo/release-action@v1` `artifacts:` glob. Filename matches ROADMAP SC#2 exact string `mangarr-<version>-sbom.spdx.json`. OCI registry SBOM attestation (`cosign attach sbom`) is explicitly deferred to v1.3+ per CONTEXT.md D-11 / Deferred Ideas.
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `.github/workflows/deploy.yml` step `Install syft` (uses: `anchore/sbom-action/download-syft@v0`) | new | Phase 29 (D-11 / DIST2-02) | Official upstream syft installer. Runs after the cosign self-verify step so the SBOM is generated against the same digest that was just signed. Sonarr has no analog. |
+| `.github/workflows/deploy.yml` step `Generate SBOM (syft, SPDX-JSON)` | new | Phase 29 (D-11 / DIST2-02) | Runs `syft <image>@<digest> -o spdx-json=mangarr-${{ inputs.version }}-sbom.spdx.json`. Exact-string filename match per ROADMAP SC#2. SPDX 2.x JSON output format is the consumer-tooling-friendly default (cyclonedx-json + syft-table alternatives deferred to v1.3+). |
+| `.github/workflows/deploy.yml` step `Upload SBOM artifact` (`actions/upload-artifact@v4` name: `sbom`) | new | Phase 29 (D-11 / T-29-01-04) | Round-trip the SBOM from `docker_publish` to `release` so the release-action artifacts glob can attach it. Workflow-scoped artifact storage is auth-scoped per workflow run — same trust boundary as the existing `_artifacts/Mangarr.*` glob (T-29-01-04 `accept` disposition). |
+| `.github/workflows/deploy.yml` step `Download SBOM artifact` (`actions/download-artifact@v4`) in `release` job | new | Phase 29 (D-11) | Hydrates the SBOM file at workflow root immediately before the `Create release` step so the artifacts glob picks it up. |
+| `.github/workflows/deploy.yml` `Create release` artifacts glob extended | extend | Phase 29 (D-11) | Glob extended from `_artifacts/Mangarr.*` to `_artifacts/Mangarr.*,mangarr-${{ inputs.version }}-sbom.spdx.json` (comma-delimited per `ncipollo/release-action@v1` docs). SBOM attaches alongside the 10-runtime archive bundle. R-2 note: `skipIfReleaseExists: true` short-circuits release amendment when the throwaway-tag exercise (Plan 29-03) re-fires; D-12 covers the `gh release upload --clobber` fallback in the orchestrator runbook. |
+
+**Why-not-Sonarr:** Sonarr emits no SBOM artifact in any release channel. Manufacturers and security-team-gated deployments increasingly require an SPDX-JSON SBOM as a release-asset prerequisite (CRA, EO 14028, NIST SSDF). Attaching SBOM-per-release is the lowest-tooling-delta path to satisfying that requirement — single source-of-truth (GitHub Release), reuses the existing release-action pipeline, no OCI-registry attestation tooling required.
+
+### Entry 3 — Native `ubuntu-24.04-arm` CI runner promotion (3 arm matrix rows)
+
+**Scope:** The `package` matrix in `deploy.yml` flips `os: ubuntu-latest` → `os: ubuntu-24.04-arm` on EXACTLY the three runtime rows that compile arm-targeted .NET binaries: `linux-arm`, `linux-arm64`, `linux-musl-arm64`. All other rows (`linux-x64`, `linux-musl-x64`, `freebsd-x64`, `osx-arm64`, `osx-x64`, `win-x64`, `win-x86`) are unchanged. This is **CI wall-time only** — the buildx `platforms:` list inside the `docker_publish` job is UNCHANGED (still `linux/amd64`); native arm64 Mangarr Docker IMAGE is explicitly deferred to v1.3+ per user exclusion 2026-05-23 (pending the Comix signer PuppeteerSharp → Playwright .NET switch, the only path that ships arm64 chromium for the headless signer).
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `.github/workflows/deploy.yml` `package` matrix rows for `linux-arm` / `linux-arm64` / `linux-musl-arm64` | extend | Phase 29 (D-13 / DIST2-06) | `os: ubuntu-latest` → `os: ubuntu-24.04-arm` on three matrix rows. Native arm64 GitHub-hosted runners reduce wall-time ~50% on the per-arch publish step vs QEMU emulation on amd64. T-29-01-05 `accept` disposition: at 2026-05-23 the runner pool is public-beta; saturation manifests as queue time, not failure. If empirically bad during Plan 29-03 throwaway-tag CI run, revert the affected row(s) to `ubuntu-latest` + the existing QEMU path. |
+| (`docker/build-push-action@v6` `platforms:` list — UNCHANGED) | preserve | Phase 29 (DIST2-06 cross-cutting) | `platforms: linux/amd64` stays single-arch per the existing `Build and push multi-arch image` step comment block (PuppeteerSharp arm64 chromium mismatch). DIST2-06 is CI-only by design; native arm64 IMAGE remains v1.3+ work. |
+
+**Why-not-Sonarr:** Sonarr's `deploy.yml` has no Docker publishing path, so the per-arch runtime archive promotion is the only place where runner-arch choice matters. Sonarr publishes a similar 10-runtime archive matrix from `ubuntu-latest`+QEMU for all arm targets; Mangarr diverges by using native arm64 runners on the 3 arm rows for ~50% wall-time savings. The divergence is cost/time optimization, not behavioral — same .NET output ELFs reach the GitHub Release.
+
+### Entry 4 — Discord notify CI job scaffold
+
+**Scope:** Sonarr's `deploy.yml` posts nothing to community channels. Mangarr now ships a `discord_notify` job at the workflow tail that posts a one-liner release notification to `${{ secrets.DISCORD_WEBHOOK }}` if the secret is set. Useless at v1.2 (no Mangarr Discord channel exists yet) but the scaffolding ships so flipping the secret on later turns the feature on without re-touching deploy.yml. Cleanly no-ops when secret is absent (job is skipped, not failed).
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `.github/workflows/deploy.yml` job `discord_notify` | new | Phase 29 (D-14 / DIST2-05) | `needs: [release]`, `runs-on: ubuntu-latest`, `if: ${{ secrets.DISCORD_WEBHOOK != '' }}` (skip-when-absent gate), `continue-on-error: true` (belt-and-suspenders gate against webhook POST failures: 404, channel-deleted, rate-limit). Single curl step POSTing `"Mangarr v${{ inputs.version }} released: https://github.com/devbrian/Mangarr/releases/tag/v${{ inputs.version }}"` JSON payload. Webhook URL assigned to step-scoped `env: DISCORD_WEBHOOK` BEFORE the curl invocation per T-29-01-02 mitigation — avoids inline-expansion logging risk; GitHub Actions log-masking is the second defense. Fires AFTER `release` job completes so the linked Release page is live on click. No changelog excerpt parsing (markdown-truncation edge case not worth the LoC for scaffolding-only); no GHCR pull command in body (redundant with the in-app banner DIST2-03 which Plan 29-02 ships). |
+
+**Why-not-Sonarr:** Sonarr's release flow has no community-notify hook of any kind; the equivalent integration would have to be added downstream by users via webhook or RSS-to-Discord bridge. Mangarr's `discord_notify` job is the upstream-shipped alternative — zero-config for users who set the secret, zero-impact for those who don't.
+
+**Cross-references:**
+
+- `.planning/phases/29-distribution-hardening-v1-2-inserted-2026-05-23/29-CONTEXT.md` — D-09, D-10, D-11, D-13, D-14 decision narratives + R-1..R-8 risk register.
+- `.planning/phases/29-distribution-hardening-v1-2-inserted-2026-05-23/29-PATTERNS.md` — §1 cosign sign step insertion point + permissions pattern, arm64 runner promotion pattern, SBOM attachment pattern, Discord notify job pattern.
+- `.planning/phases/29-distribution-hardening-v1-2-inserted-2026-05-23/29-01-SUMMARY.md` — Plan 29-01 execution record (this entry's source plan).
+- `.planning/phases/21-distribution-v1-release/21-CONTEXT.md` D-04 / D-15 — Phase 21 layer-2 boot-smoke pattern + DIVERGENCE.md audit-pass pattern that this entry extends.
+- `.planning/REQUIREMENTS.md` DIST2-01, DIST2-02, DIST2-05, DIST2-06 — REQ-ID acceptance criteria language.
+
+Plan 29-02 appends the 4th Phase 29 divergent surface (GitHub Releases-backed in-app update broker — replaces Phase 15 D-21 `NoOpUpdatePackageProvider` placeholder).
+
+
 *Last updated: 2026-05-12 (issue #92 close-out -- vocabulary-parity rename of the shared RootFolderSelectInput option-row prop + matching CSS class; closes the follow-up retained at issue #81 close-out 2026-05-13. Issue #81 + #84 + #92 close-outs preserved verbatim above per historical-accuracy contract.)*
 *Last updated: 2026-05-16 (Phase 21 Plan 21-01 — v1.0.0 release-snapshot section appended per D-15; full audit pass of Phase 0/15/16/16.1/17/17.3 entries verified against post-Phase-20 codebase. Previous trailer preserved verbatim above per historical-accuracy contract. Audit findings: 1 strike-through applied at row 38 — `src/NzbDrone.Core/Indexers/MangaFire/` never shipped, descoped per Phase 3 D-19; remaining Phase 0/15/16.1/17/17.3 entries verified accurate against post-Phase-20 codebase. Historical Phase 7/Phase 8 plan rows referencing pre-Phase-15 paths (`src/Sonarr.Api.V5/`, `frontend/src/Series/`, etc.) left untouched per provenance-value rule — actual completion paths are documented in the Phase 15 + Phase 17.3 sections below them.)*
 
