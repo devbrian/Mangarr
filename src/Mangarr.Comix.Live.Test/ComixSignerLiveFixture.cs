@@ -68,16 +68,34 @@ namespace Mangarr.Comix.Live.Test
         private static string ExtractFirstChapterId(string json)
         {
             var doc = System.Text.Json.JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("result", out var result) &&
-                result.TryGetProperty("items", out var items) &&
-                items.GetArrayLength() > 0 &&
-                items[0].TryGetProperty("id", out var idEl))
+            var root = doc.RootElement;
+
+            // Investigation Phase 3 (2026-05-23) oracle pivot: the env-module-oracle
+            // returns the unwrapped `result` object directly (the bundle's ok+result
+            // unwrap interceptor strips the `{status:"ok", result:{...}}` envelope).
+            // Older Phase 17.2 shape kept the envelope intact; we accept both for
+            // forward compatibility across rotations.
+            if (root.TryGetProperty("items", out var topItems))
             {
-                // Phase 17.2: live chapter `id` is JSON Number (not String) per the
-                // 2026-05-10 survey. Accept either kind so the helper isn't brittle.
-                return idEl.ValueKind == System.Text.Json.JsonValueKind.String
-                    ? idEl.GetString()
-                    : idEl.GetRawText();
+                if (topItems.GetArrayLength() > 0
+                    && topItems[0].TryGetProperty("id", out var idEl1))
+                {
+                    return idEl1.ValueKind == System.Text.Json.JsonValueKind.String
+                        ? idEl1.GetString()
+                        : idEl1.GetRawText();
+                }
+
+                return null;
+            }
+
+            if (root.TryGetProperty("result", out var result)
+                && result.TryGetProperty("items", out var items)
+                && items.GetArrayLength() > 0
+                && items[0].TryGetProperty("id", out var idEl2))
+            {
+                return idEl2.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? idEl2.GetString()
+                    : idEl2.GetRawText();
             }
 
             return null;

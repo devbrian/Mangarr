@@ -67,26 +67,41 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         }
 
         [Test]
-        public void Signer_must_use_captureToken_via_request_interception()
+        public void Signer_must_use_env_module_oracle_via_dynamic_import()
         {
-            // 2026-05-22 rotation pivot: the signer no longer probes globalThis. It
-            // observes the page's own outgoing `/api/v1/...` request and extracts the
-            // `_=<token>` query parameter via PuppeteerSharp's request-interception
-            // event (`SetRequestInterceptionAsync(true)` + `page.Request += handler`).
-            // If this assertion fails, someone has reverted to the upstream-obsolete
-            // namespace-probe shape — read .planning/debug/comix-signer-rotation.md
-            // for why that shape is structurally broken.
+            // 2026-05-23 oracle pivot (Investigation Phase 3): the signer no longer
+            // captureToken+relays via vanilla HTTP. comix.to's response encryption oracle
+            // is closure-scoped inside the secure-tfgaak bundle and is only invokable
+            // via the env-tfgaak module's exported axios instance (which already has
+            // the bundle's `Hi(ai)` decryption interceptor installed). The signer
+            // dynamic-imports the env module from page context + calls `mod.f.get(...)`
+            // to get plaintext JSON. If this assertion fails, someone has reverted to
+            // the upstream-obsolete captureToken+relay shape — read
+            // .planning/debug/comix-signer-rotation.md "Investigation Phase 3" for why
+            // that shape is structurally broken post-2026-05-23.
             _signerSource.Should().Contain(
-                "SetRequestInterceptionAsync(true)",
-                "Signer must enable request interception on the warm page so the per-call " +
-                "handler can observe outgoing requests + extract `_=<token>`. See upstream " +
-                "Comix.kt:414-471 captureToken() (commit 965dc242).");
+                "env-tfgaak-",
+                "Signer must locate the env module (env-tfgaak-*.js) which exports the " +
+                "bundle's axios instance + b-wrapper. See bundle source dump in " +
+                ".planning/debug/evidence/comix-signer-rotation/bundle-source-*-env-tfgaak-*.");
 
             _signerSource.Should().Contain(
-                "page.Request +=",
-                "Signer must attach a request handler that captures the token off the page's " +
-                "OWN bootstrap API call. Removing the +=/-= pair re-introduces the namespace-" +
-                "probe pattern that comix.to rotated away from on 2026-05-22.");
+                "EnsureEnvModuleAsync",
+                "Signer must call EnsureEnvModuleAsync to sniff the env module URL from " +
+                "page network traffic + cache it across calls. The env module URL is " +
+                "content-hashed so it's stable per build but rotates per deploy.");
+
+            _signerSource.Should().Contain(
+                "await import(",
+                "Signer must dynamic-import the env module from page context. The bundle's " +
+                "decryption oracle (Hi(ai) axios interceptor) lives in module scope and is " +
+                "only reachable via ES module export.");
+
+            _signerSource.Should().Contain(
+                "mod.f",
+                "Signer must invoke the env module's `f` export (the b-wrapper around the " +
+                "decryption-installed axios instance). `mod.f.get(path, {params})` returns " +
+                "plaintext JSON via the bundle's own interceptor chain.");
         }
 
         [Test]
@@ -137,28 +152,28 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         }
 
         [Test]
-        public void Signer_must_relay_API_GET_with_captured_token_via_vanilla_http()
+        public void Signer_must_split_query_into_axios_params_object()
         {
-            // After token capture, the actual API GET is relayed via a vanilla
-            // System.Net.Http.HttpClient (Choice B per .planning/debug/comix-signer-rotation.md
-            // Resolution.fix item 2). Page-relay (fetch / axios) returns encrypted
-            // {e:<base64>} envelopes — confirmed live 2026-05-22. Vanilla HTTP matches
-            // upstream Comix.kt:325 verbatim shape.
+            // The env-module oracle invokes axios via `f.get(pathPart, {params:obj})`
+            // (NOT `f.get(pathWithQuery)`). The signer must therefore split the
+            // caller's apiPath (e.g., `/manga/mr3m0/chapters?page=1&limit=20`) into
+            // path + params components.
+            //
+            // 2026-05-23 oracle pivot: this REPLACES the vanilla-HTTP relay path
+            // (which is structurally unviable post-rotation because comix.to encrypts
+            // response bodies regardless of which HTTP client issues the request — the
+            // decryption only happens through the bundle's own axios instance).
             _signerSource.Should().Contain(
-                "System.Net.Http.HttpClient",
-                "Signer must relay the captured-token API GET via System.Net.Http.HttpClient " +
-                "(NOT via page.fetch / axios) — comix.to encrypts in-page-fetched responses but " +
-                "returns plaintext to vanilla HTTP calls. Choice B per debug-doc.");
-
-            _signerSource.Should().Contain(
-                "Uri.EscapeDataString",
-                "The relay URL must append the captured token as `_=<encoded>` per upstream " +
-                "Comix.kt:323 (chapter list) / Comix.kt:396 (chapter pages); the C# port uses " +
-                "Uri.EscapeDataString for the encoding step.");
+                "SplitApiPathToAxiosCall",
+                "Signer must call SplitApiPathToAxiosCall to convert apiPath query " +
+                "parameters into a JSON object suitable for axios `{params: obj}`. " +
+                "See Investigation Phase 3 in .planning/debug/comix-signer-rotation.md.");
 
             _signerSource.Should().Contain(
                 "/api/v1",
-                "The relay URL must target the /api/v1 prefix that comix.to's API serves.");
+                "Even though the env module's axios baseURL handles /api/v1, the route " +
+                "resolution still references the API prefix when matching outgoing " +
+                "requests in EnsureEnvModuleAsync.");
         }
 
         [Test]

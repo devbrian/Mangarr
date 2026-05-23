@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using NLog;
@@ -220,7 +221,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 sw.Stop();
 
                 _logger.Info(
-                    "Comix signer: Chromium launched, page ready for captureToken interception (warm latency: {0}ms).",
+                    "Comix signer: Chromium launched, page ready for env-module oracle (warm latency: {0}ms).",
                     sw.ElapsedMilliseconds);
             }
             catch (Exception ex)
@@ -234,32 +235,31 @@ namespace NzbDrone.Core.Indexers.Comix
         }
 
         /// <summary>
-        /// captureToken + relay flow (mirrors keiyoushi <c>Comix.kt</c>
-        /// <c>captureToken()</c> verbatim — upstream commit <c>965dc242</c>):
+        /// ENV-MODULE ORACLE flow (2026-05-23 — Investigation Phase 3):
         /// <list type="number">
-        ///   <item>Derive <c>pageUrl</c> + URL matcher from <paramref name="apiPath"/>.</item>
-        ///   <item>Check the per-pageUrl token cache; if hit, skip to step 6.</item>
-        ///   <item>Install a request-interception handler that aborts non-essential
-        ///         requests (images, fonts, analytics) and watches for the page's own
-        ///         outgoing API call.</item>
-        ///   <item>Navigate to <c>pageUrl</c> (<c>WaitUntil = DOMContentLoaded</c>; the page
-        ///         issues its API request shortly after).</item>
-        ///   <item>Await the captured token (bounded to 30s).</item>
-        ///   <item>Issue the actual <c>/api/v1{apiPath}?_=&lt;token&gt;</c> server-side via
-        ///         the shared <c>_relayHttpClient</c>, forwarding the page's cookies + cached
-        ///         User-Agent so the captured token reuses its originating session
-        ///         fingerprint (PR #244 review feedback — Codex P1 + CodeRabbit Major).</item>
+        ///   <item>Derive <c>pageUrl</c> from <paramref name="apiPath"/> (the bootstrap
+        ///         page that loads the bundle into context).</item>
+        ///   <item>Navigate to <c>pageUrl</c> (only once per warm page — subsequent
+        ///         calls reuse the already-loaded env module without re-navigating).</item>
+        ///   <item>Capture the URL of the bundle's <c>env-tfgaak-*.js</c> module while
+        ///         the page loads (it imports the secure bundle's <c>Hi</c> decryption
+        ///         installer and calls <c>Hi(ai)</c> to add an axios interceptor that
+        ///         automatically handles the <c>{e:"..."}</c> envelope).</item>
+        ///   <item>From page context, dynamically import the env module and call
+        ///         <c>mod.f.get(apiPath, {params})</c>. Returns plaintext JSON via the
+        ///         pre-installed decryption + ok+result unwrap interceptor chain.</item>
         /// </list>
+        /// <para>
+        /// Investigation Phase 3 (2026-05-23) proved this oracle returns plaintext for
+        /// both endpoints: <c>/manga/{hid}/chapters</c> → <c>{items:[...], meta:...}</c>
+        /// and <c>/chapters/{id}</c> → <c>{id, ..., pages:{baseUrl, items:[...]}, ...}</c>.
+        /// </para>
         /// </summary>
         protected virtual async Task<string> EvaluateProxyFetchAsync(string apiPath, CancellationToken ct)
         {
-            // CR-05 mitigation (revision iteration 2): snapshot fields under the gate before
-            // any await against the page so a concurrent Dispose-after-drain-timeout that
-            // nulls _page cannot NRE us mid-evaluate. The gate's own contract enforces
-            // single-writer; the snapshot guards the read-before-await window. We
-            // additionally re-check _disposed (set by Dispose BEFORE it touches the gate)
-            // so a racing dispose bails cleanly with ObjectDisposedException instead of
-            // an NRE bubbling up the lazy-reprobe catch.
+            // CR-05 mitigation (revision iteration 2): snapshot fields under the gate
+            // before any await against the page so a concurrent Dispose-after-drain that
+            // nulls _page cannot NRE us mid-evaluate.
             if (_disposed)
             {
                 throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
@@ -271,101 +271,178 @@ namespace NzbDrone.Core.Indexers.Comix
                 throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
             }
 
-            // Derive (pageUrl, matchSuffix) from apiPath. Two call-site shapes mirroring
-            // upstream Comix.kt:
+            // Derive bootstrap pageUrl from apiPath. Two call-site shapes:
             //   /manga/{hid}/chapters[?...]   →  https://comix.to/title/{hid}
-            //                                    match suffix: /api/v1/manga/{hid}/chapters
             //   /chapters/{chapterId}[?...]   →  https://comix.to/chapters/{chapterId}
-            //                                    match suffix: /api/v1/chapters/{chapterId}
-            // Anything else is rejected — ApiPathRegex would have rejected unsigned shapes
-            // upstream, but the captureToken pattern only knows these two routes.
-            var (pageUrl, matchSuffix) = ResolveCaptureRoute(apiPath);
+            var (pageUrl, _) = ResolveCaptureRoute(apiPath);
 
-            // Cache check: pagination loops within TokenCacheTtlMinutes reuse the captured
-            // token from a prior captureToken call. Cache key is the pageUrl (NOT the
-            // apiPath) — a chapter-list page-1 token works for page-2, page-3 of the
-            // same manga because the bundle issues additional requests through axios
-            // (with the response interceptor installed) once the page is fully
-            // bootstrapped.
-            var cachedToken = TryGetCachedToken(pageUrl);
-            if (cachedToken == null)
-            {
-                // FIRST request for this pageUrl: load the page, observe the bundle's own
-                // outgoing /api/v1/... call, capture the `?_=<token>` query parameter
-                // from the URL. PR #244 review feedback (CodeRabbit Major #7): we do NOT
-                // wait on the bundle's response body — only the URL token is needed for
-                // the vanilla relay below, and waiting on RequestFinished + resp.TextAsync()
-                // is brittle (the body capture can time-out even after the token was
-                // already captured). See CaptureTokenAsync for the simplified contract.
-                var captured = await CaptureTokenAsync(page, pageUrl, matchSuffix, ct).ConfigureAwait(false);
-                CacheToken(pageUrl, captured);
-            }
+            // Ensure the env module URL is captured + cached. On first call this also
+            // navigates to pageUrl (bootstraps the bundle). Subsequent calls within
+            // BootstrapCacheTtlMinutes reuse the warm page + cached env module URL.
+            var envModuleUrl = await EnsureEnvModuleAsync(page, pageUrl, ct).ConfigureAwait(false);
 
-            // Unified relay path: use the captured token (fresh or cached) to issue a
-            // VANILLA HTTP GET via IHttpClient. Mirrors upstream Comix.kt's
-            // `client.newCall(GET(url, headers)).awaitSuccess()` pattern (Comix.kt:325
-            // / Comix.kt:399). Choice B per .planning/debug/comix-signer-rotation.md
-            // Resolution.fix item 2 — relay outside the page is the only shape that
-            // currently returns plaintext from comix.to. Choice A (relay via page
-            // fetch / axios) was tested in the 2026-05-22 first-iteration rewrite and
-            // returned the {e:<base64>} encrypted envelope for browser-context fetches.
-            var sep = apiPath.IndexOf('?') == -1 ? "?" : "&";
-            var fullUrl = $"{ComixBaseUrl}/api/v1{apiPath}{sep}_={Uri.EscapeDataString(TryGetCachedToken(pageUrl) ?? string.Empty)}";
+            // Split apiPath into path + query params for axios. The query portion (if
+            // any) is converted into a params object for `f.get(path, {params})`.
+            var (pathPart, paramsJson) = SplitApiPathToAxiosCall(apiPath);
 
-            // PR #244 review feedback (Codex P1 #1 / CodeRabbit Major #6): use the shared
-            // process-singleton `_relayHttpClient` instead of `new HttpClient()` per call
-            // (socket-exhaustion + DNS-pinning avoidance). The per-request HttpRequestMessage
-            // is still `using` because it IS per-call.
-            using var httpRequest = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, fullUrl);
-            httpRequest.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-            httpRequest.Headers.Referrer = new Uri(ComixBaseUrl + "/");
-
-            // PR #244 review feedback (Codex P1 #2): forward browser session state onto the
-            // relay request — comix.to may bind `_=<token>` to the originating browser
-            // session (cookies + UA fingerprint). Without forwarding these, the captured
-            // token only authenticates the browser's own request; the relay's request
-            // arrives without session continuity and gets the encrypted-envelope fallback.
-            if (!string.IsNullOrEmpty(_cachedUserAgent))
-            {
-                httpRequest.Headers.TryAddWithoutValidation("User-Agent", _cachedUserAgent);
-            }
-
-            try
-            {
-                var cookies = await page.GetCookiesAsync(ComixBaseUrl).ConfigureAwait(false);
-                if (cookies != null && cookies.Length > 0)
-                {
-                    var cookieHeader = string.Join(
-                        "; ",
-                        System.Linq.Enumerable.Select(cookies, c => c.Name + "=" + c.Value));
-                    if (!string.IsNullOrEmpty(cookieHeader))
-                    {
-                        httpRequest.Headers.TryAddWithoutValidation("Cookie", cookieHeader);
-                    }
-                }
-            }
-            catch (Exception cookieEx)
-            {
-                // Cookie capture is best-effort forwarding; relay still issues without it
-                // (the captured token alone may or may not be enough — surfacing this at
-                // Debug so the operator can correlate session-mismatch failures).
-                _logger.Debug(cookieEx, "Comix signer: cookie capture for relay raised; sending relay without Cookie header.");
-            }
-
+            // Call mod.f.get(pathPart, {params: paramsObj}) from page context. The 'f'
+            // export IS the 'b' wrapper from env-tfgaak: it returns `(await ai.get(...)).data`
+            // post both the decryption interceptor (installed by Hi(ai)) and the
+            // ok+result unwrap interceptor — so the result is the inner `.result` object
+            // already-decrypted.
+            //
+            // Mirrors upstream Comix.kt's `client.newCall(GET(url, headers))` shape
+            // semantically (returns plaintext JSON body), but routes through the bundle's
+            // own already-installed decryption interceptor instead of doing a vanilla
+            // HTTP relay. Choice B (vanilla HTTP relay) does NOT work post-2026-05-22
+            // rotation: comix.to encrypts response bodies REGARDLESS of which HTTP client
+            // issues the request, and the decryption oracle lives inside the bundle's
+            // closure-scoped VMP-protected runtime (only invokable via the env module's
+            // axios instance). See .planning/debug/comix-signer-rotation.md Investigation
+            // Phase 3 for full root-cause + decision.
             ct.ThrowIfCancellationRequested();
-            using var httpResponse = await _relayHttpClient.SendAsync(httpRequest, ct).ConfigureAwait(false);
 
-            // PR #244 review feedback (Codex P1 #1 / CodeRabbit Major #6): treat non-2xx
-            // responses as failures instead of silently forwarding the body to the parser
-            // (which would then return zero releases, masking real upstream outages).
-            // EnsureSuccessStatusCode raises HttpRequestException; that bubbles up to
-            // ProxyFetchAsyncImpl's lazy-reprobe catch + RecordFailure flow.
-            httpResponse.EnsureSuccessStatusCode();
-            return await httpResponse.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            var resultJson = await page.EvaluateFunctionAsync<string>(
+                "async (modUrl, p, paramsObj) => {" +
+                "  const mod = await import(modUrl);" +
+                "  const f = mod.f;" + // 'b as f' export — wraps ai.get with .data unwrap
+                "  const opts = paramsObj && Object.keys(paramsObj).length > 0 ? { params: paramsObj } : undefined;" +
+                "  const res = await f.get(p, opts);" +
+                "  return typeof res === 'string' ? res : JSON.stringify(res);" +
+                "}",
+                envModuleUrl,
+                pathPart,
+                paramsJson).ConfigureAwait(false);
+
+            return resultJson;
         }
 
-        // Resolve which page URL to load + which outgoing request to match against to
-        // capture the token. Mirrors upstream Comix.kt's two call sites.
+        // Bootstrap-cache: env module URL is stable per comix.to build (bundle URL is
+        // content-hashed). Cache for 5 minutes so multi-search loops don't re-navigate.
+        private string _cachedEnvModuleUrl;
+        private DateTimeOffset _envModuleCachedAt;
+
+        private static readonly TimeSpan BootstrapCacheTtl = TimeSpan.FromMinutes(5);
+
+        // EnsureEnvModuleAsync: navigates to pageUrl (only if env module URL not cached),
+        // sniffs the env module URL from network traffic, caches it, returns it.
+        private async Task<string> EnsureEnvModuleAsync(IPage page, string pageUrl, CancellationToken ct)
+        {
+            if (!string.IsNullOrEmpty(_cachedEnvModuleUrl)
+                && DateTimeOffset.UtcNow - _envModuleCachedAt < BootstrapCacheTtl)
+            {
+                return _cachedEnvModuleUrl;
+            }
+
+            var envUrlTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            EventHandler<RequestEventArgs> finishedHandler = null;
+            finishedHandler = (sender, e) =>
+            {
+                try
+                {
+                    var url = e.Request?.Url;
+                    if (url != null
+                        && url.IndexOf("env-tfgaak-", StringComparison.OrdinalIgnoreCase) >= 0
+                        && url.IndexOf("comix.to", StringComparison.OrdinalIgnoreCase) >= 0
+                        && url.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
+                    {
+                        envUrlTcs.TrySetResult(url);
+                    }
+                }
+                catch
+                {
+                    // swallow
+                }
+            };
+
+            page.RequestFinished += finishedHandler;
+            try
+            {
+                // Fire-and-forget navigation — the env module capture is our sync point.
+                _ = page.GoToAsync(
+                    pageUrl,
+                    new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded } });
+
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                var delayTask = Task.Delay(TimeSpan.FromSeconds(CaptureTimeoutSeconds), linkedCts.Token);
+                var winner = await Task.WhenAny(envUrlTcs.Task, delayTask).ConfigureAwait(false);
+
+                if (winner != envUrlTcs.Task)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    throw new InvalidOperationException(
+                        $"Comix signer: env module capture timed out after {CaptureTimeoutSeconds}s while loading '{pageUrl}'.");
+                }
+
+                linkedCts.Cancel();
+                var envUrl = await envUrlTcs.Task.ConfigureAwait(false);
+                _cachedEnvModuleUrl = envUrl;
+                _envModuleCachedAt = DateTimeOffset.UtcNow;
+
+                // Give the bundle a brief beat to finish loading the env module (it's the
+                // last script in the dependency chain, so once RequestFinished fires the
+                // import side-effects — calling Hi(ai) to install the decryption
+                // interceptor — should be complete in ms). 500ms is overkill but cheap.
+                await Task.Delay(500, ct).ConfigureAwait(false);
+
+                return envUrl;
+            }
+            finally
+            {
+                page.RequestFinished -= finishedHandler;
+            }
+        }
+
+        // SplitApiPathToAxiosCall: turn `/manga/mr3m0/chapters?page=1&limit=20` into
+        // (pathPart="/manga/mr3m0/chapters", paramsJson="{\"page\":\"1\",\"limit\":\"20\"}")
+        // so it can be passed to `mod.f.get(pathPart, {params: paramsObj})` from page JS.
+        private static (string PathPart, string ParamsJson) SplitApiPathToAxiosCall(string apiPath)
+        {
+            var qIdx = apiPath.IndexOf('?');
+            if (qIdx < 0)
+            {
+                return (apiPath, "{}");
+            }
+
+            var pathPart = apiPath[..qIdx];
+            var query = apiPath[(qIdx + 1)..];
+            var pairs = new List<string>();
+            foreach (var pair in query.Split('&'))
+            {
+                if (string.IsNullOrEmpty(pair))
+                {
+                    continue;
+                }
+
+                var eq = pair.IndexOf('=');
+                string key;
+                string value;
+                if (eq < 0)
+                {
+                    key = pair;
+                    value = string.Empty;
+                }
+                else
+                {
+                    key = pair[..eq];
+                    value = pair[(eq + 1)..];
+                }
+
+                // Decode + re-encode as JSON string.
+                var decodedKey = Uri.UnescapeDataString(key);
+                var decodedValue = Uri.UnescapeDataString(value);
+                var keyJson = System.Text.Json.JsonSerializer.Serialize(decodedKey);
+                var valueJson = System.Text.Json.JsonSerializer.Serialize(decodedValue);
+                pairs.Add($"{keyJson}:{valueJson}");
+            }
+
+            return (pathPart, "{" + string.Join(",", pairs) + "}");
+        }
+
+        // Resolve which page URL to load to bootstrap the bundle. Two call-site shapes
+        // mirror upstream Comix.kt's `getMangaUrl` / `getChapterUrl` routes — preserved
+        // even after the 2026-05-23 oracle pivot because the bootstrap pageUrl must be
+        // sensible for the bundle to render normally (so it loads the env module).
         private static (string PageUrl, string MatchSuffix) ResolveCaptureRoute(string apiPath)
         {
             var m = MangaChaptersPathRegex.Match(apiPath);
@@ -387,139 +464,9 @@ namespace NzbDrone.Core.Indexers.Comix
             }
 
             throw new ArgumentException(
-                $"Comix signer: apiPath '{apiPath}' does not match a captureToken route " +
+                $"Comix signer: apiPath '{apiPath}' does not match a supported route " +
                 "(supported: /manga/{hid}/chapters or /chapters/{chapterId}).",
                 nameof(apiPath));
-        }
-
-        // Core captureToken loop — mirrors upstream Comix.kt:414-471 `captureToken()`:
-        //   • install shouldInterceptRequest handler that allows comix.to/.js + /api/ +
-        //     /title/ and aborts everything else
-        //   • on a request matching the suffix predicate, extract `_=<token>` and
-        //     fulfill the TaskCompletionSource (first-write-wins)
-        //   • navigate to pageUrl (DOMContentLoaded, NOT networkidle — the bundle's
-        //     long-lived sockets defeat networkidle)
-        //   • await tcs.Task bounded by CaptureTimeoutSeconds
-        //   • detach handler regardless of outcome
-        //
-        // PR #244 review feedback (CodeRabbit Major #7): the previous shape also waited
-        // on a separate bodyTcs (resolved via RequestFinished + resp.TextAsync()), but
-        // the caller never consumed the body — only the token is needed for the vanilla
-        // relay GET. Waiting on the response-body capture made the gate brittle (could
-        // time-out even after the token had already been captured). Token-only wait now;
-        // RequestFinished subscription dropped.
-        private static async Task<string> CaptureTokenAsync(
-            IPage page,
-            string pageUrl,
-            string matchSuffix,
-            CancellationToken ct)
-        {
-            var tokenTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-            // Local handler closure; detached in finally so a leaked handler can't survive
-            // across requests (would race with the next captureToken).
-            EventHandler<RequestEventArgs> handler = null;
-            handler = async (sender, e) =>
-            {
-                try
-                {
-                    var req = e.Request;
-                    if (req == null)
-                    {
-                        return;
-                    }
-
-                    var urlStr = req.Url;
-                    if (string.IsNullOrEmpty(urlStr))
-                    {
-                        return;
-                    }
-
-                    // Try to capture the token BEFORE deciding allow/abort, mirroring
-                    // upstream's shouldInterceptRequest order — first observe, then route.
-                    if (Uri.TryCreate(urlStr, UriKind.Absolute, out var parsed))
-                    {
-                        if (parsed.AbsolutePath.EndsWith(matchSuffix, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var query = parsed.Query;
-                            var token = ExtractQueryParam(query, "_");
-                            if (!string.IsNullOrEmpty(token))
-                            {
-                                tokenTcs.TrySetResult(token);
-                            }
-                        }
-
-                        // Allow comix.to bootstrap requests (.js, /api/, /title/) per
-                        // upstream Comix.kt:449-453; abort everything else (CDN images,
-                        // fonts, analytics) — saves bandwidth + speeds page-ready.
-                        var host = parsed.Host ?? string.Empty;
-                        var path = parsed.AbsolutePath ?? string.Empty;
-                        if (host.IndexOf("comix.to", StringComparison.OrdinalIgnoreCase) >= 0
-                            && (path.IndexOf(".js", StringComparison.OrdinalIgnoreCase) >= 0
-                                || path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
-                                || path.StartsWith("/title/", StringComparison.OrdinalIgnoreCase)
-                                || path.StartsWith("/chapters/", StringComparison.OrdinalIgnoreCase)
-                                || path == "/"))
-                        {
-                            await req.ContinueAsync().ConfigureAwait(false);
-                            return;
-                        }
-                    }
-
-                    await req.AbortAsync().ConfigureAwait(false);
-                }
-                catch
-                {
-                    // Handler errors must not crash the page; swallow + let the navigation
-                    // proceed. If the abort/continue raced with a navigation, the request
-                    // is already resolved.
-                }
-            };
-
-            await page.SetRequestInterceptionAsync(true).ConfigureAwait(false);
-            page.Request += handler;
-            try
-            {
-                // WaitUntil = DOMContentLoaded — the bundle's long-lived sockets defeat
-                // Networkidle0 (the page never settles). DCL is sufficient because the
-                // bundle issues its bootstrap API request shortly after parse. We
-                // intentionally don't await the navTask — the captureToken is the
-                // synchronization point, not navigation completion.
-                _ = page.GoToAsync(
-                    pageUrl,
-                    new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded } });
-
-                using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
-                {
-                    var delayTask = Task.Delay(TimeSpan.FromSeconds(CaptureTimeoutSeconds), linkedCts.Token);
-                    var winner = await Task.WhenAny(tokenTcs.Task, delayTask).ConfigureAwait(false);
-
-                    if (winner == tokenTcs.Task)
-                    {
-                        linkedCts.Cancel();
-                        return await tokenTcs.Task.ConfigureAwait(false);
-                    }
-
-                    ct.ThrowIfCancellationRequested();
-                    throw new InvalidOperationException(
-                        $"Comix signer: captureToken timed out after {CaptureTimeoutSeconds}s waiting for " +
-                        $"matching outgoing request on '{matchSuffix}'.");
-                }
-            }
-            finally
-            {
-                page.Request -= handler;
-                try
-                {
-                    await page.SetRequestInterceptionAsync(false).ConfigureAwait(false);
-                }
-                catch
-                {
-                    // Toggling interception off on a half-disposed page can raise;
-                    // swallow because the failure mode is benign (page goes away on
-                    // teardown anyway).
-                }
-            }
         }
 
         // Extract a single query-parameter value WITHOUT pulling in System.Web. The query
