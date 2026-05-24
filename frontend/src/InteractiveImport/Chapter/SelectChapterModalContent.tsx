@@ -4,10 +4,12 @@
 // Sonarr divergence: Phase 25 Plan 25-04 Task 1 — subdir rename
 // `InteractiveImport/Episode/` → `InteractiveImport/Chapter/` (Pitfall 13
 // atomic-per-decision commit). Identifiers SelectEpisodeModalContent →
-// SelectChapterModalContent; SelectedEpisode → SelectedChapter. The
-// `episodes` field NAME on the interface is preserved here — the broader
-// TV-shape field rename (episodes → chapters, etc.) is the responsibility
-// of Plan 25-04 Task 4's typed discriminator union rewrite.
+// SelectChapterModalContent; SelectedEpisode → SelectedChapter.
+// Sonarr divergence: Phase 30 Plan 30-01 Task 1 (II2-04) — TV-shape field
+// rename catch-up per CONTEXT.md `<domain>` §4 + PATTERNS.md §Plan 30-01:
+// episodes? -> chapters?, episodeNumber? -> chapterNumber?, seasonNumber?
+// DROPPED (no Season concept in manga per PROJECT.md DOMAIN-02). Atomically
+// propagated to all SelectedChapter consumers in this commit.
 import Chapter from 'Chapter/Chapter';
 
 export default function SelectChapterModalContent(
@@ -18,7 +20,6 @@ export default function SelectChapterModalContent(
 export interface SelectedChapter {
   id: number;
   title?: string;
-  episodes?: Chapter[];
-  episodeNumber?: number;
-  seasonNumber?: number;
+  chapters?: Chapter[];
+  chapterNumber?: number;
 }
