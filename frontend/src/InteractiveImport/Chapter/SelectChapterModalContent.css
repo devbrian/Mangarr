@@ -1,0 +1,55 @@
+/*
+ * Sonarr divergence: NEW per Phase 30 Plan 30-03 (II2-01) — see DIVERGENCE.md.
+ * Role-match analog: SelectLanguageModalContent.css (per-row form spacing) +
+ * Sonarr v5-develop frontend/src/InteractiveImport/Episode/
+ * SelectEpisodeModalContent.css (multi-select chapter rows).
+ *
+ * Inherits modal body padding (30px) from ModalBody.css; this stylesheet
+ * adds only the per-row checkbox layout + select-all action row + empty
+ * state copy. No new theme tokens introduced.
+ */
+
+.actionRow {
+  display: flex;
+  margin-bottom: 15px;
+}
+
+.selectAllButton {
+  margin-right: auto;
+}
+
+.chapterRow {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--borderColor);
+}
+
+.chapterRow:hover {
+  background-color: var(--tableRowHoverBackgroundColor);
+}
+
+.checkboxColumn {
+  margin-right: 10px;
+}
+
+.chapterNumber {
+  width: 80px;
+  font-weight: 500;
+}
+
+.title {
+  flex: 1;
+}
+
+.releaseDate {
+  color: var(--disabledColor);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 30px 0;
+  text-align: center;
+  color: var(--disabledColor);
+}
