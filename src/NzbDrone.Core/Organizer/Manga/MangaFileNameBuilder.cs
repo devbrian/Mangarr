@@ -7,6 +7,7 @@ using NLog;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.MediaFiles;
+using NzbDrone.Core.MediaFiles.MediaInfo;
 using NzbDrone.Core.Parser.Model;
 using MangaModel = NzbDrone.Core.Manga.Manga;
 
@@ -232,6 +233,20 @@ namespace NzbDrone.Core.Organizer.Manga
                     // belongs in Phase 6 if we want the {Source} token to use the canonical key.
                     return release?.Indexer;
 
+                // Phase 30 Plan 30-05 (II2-03) — MediaInfo-backed tokens. Render empty
+                // (null) when the relevant subfield is null per D-09 (no "0 pages" /
+                // "Unknown" defaults); ResolveTokens line 159-162 converts null -> empty.
+                case "page.count":
+                case "pagecount":
+                    return GetChapterFileMediaInfo(chapters)?.PageCount?.ToString(CultureInfo.InvariantCulture);
+
+                case "color":
+                    var color = GetChapterFileMediaInfo(chapters)?.Color;
+                    return color switch { true => "Color", false => "B&W", null => null };
+
+                case "dpi":
+                    return GetChapterFileMediaInfo(chapters)?.DpiHorizontal?.ToString(CultureInfo.InvariantCulture);
+
                 default:
                     return null;   // unknown token — silently dropped (Sonarr precedent)
             }
@@ -340,6 +355,27 @@ namespace NzbDrone.Core.Organizer.Manga
             }
 
             return _chapterFileRepository.GetFilesByChapter(chapterId).FirstOrDefault()?.TranslatedLanguage;
+        }
+
+        // Phase 30 Plan 30-05 (II2-03) — sibling to GetChapterFileScanlationGroup /
+        // GetChapterFileLanguage above. Resolves the ChapterFile.MediaInfo blob for
+        // the first chapter in the list so {Page Count} / {Color} / {DPI} tokens can
+        // read PageCount / Color / DpiHorizontal. Returns null when the chapter has
+        // no file or the MediaInfo column is NULL (pre-Migration-004 rows per D-05);
+        // the token resolver renders null as empty per D-09 null-skip.
+        private ChapterMediaInfo GetChapterFileMediaInfo(List<NzbDrone.Core.Manga.Chapter> chapters)
+        {
+            var chapterId = chapters?.FirstOrDefault()?.Id ?? 0;
+            if (chapterId == 0)
+            {
+                return null;
+            }
+
+            // Defensive null-guard on the repo return: when no ChapterFile rows exist
+            // for the chapter (or, in tests, when the repo mock has no setup for this
+            // id), GetFilesByChapter may return null; .FirstOrDefault() on null throws.
+            var files = _chapterFileRepository.GetFilesByChapter(chapterId);
+            return files?.FirstOrDefault()?.MediaInfo;
         }
     }
 }

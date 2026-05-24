@@ -140,6 +140,16 @@ const releaseTokens = [
   { token: '{Language}', example: 'en' },
 ];
 
+// Phase 30 Plan 30-05 (II2-03) — MediaInfo-backed naming tokens. Populated by
+// the ImageSharp probe at ImportApprovedChapters step 3.5. D-09 null-skip: each
+// token renders empty when the relevant subfield is null (e.g., DPI is null for
+// scans without EXIF metadata; pre-Migration-004 files stay null entirely).
+const mediaInfoTokens = [
+  { token: '{Page Count}', example: '24' },
+  { token: '{Color}', example: 'Color' },
+  { token: '{DPI}', example: '300' },
+];
+
 interface MangaNamingModalProps {
   isOpen: boolean;
   name: keyof Pick<
@@ -334,6 +344,22 @@ function MangaNamingModal(props: MangaNamingModalProps) {
               <FieldSet legend={translate('Release')}>
                 <div className={styles.groups}>
                   {releaseTokens.map(({ token, example }) => (
+                    <NamingOption
+                      key={token}
+                      token={token}
+                      example={example}
+                      tokenSeparator={tokenSeparator}
+                      tokenCase={tokenCase}
+                      onPress={handleOptionPress}
+                    />
+                  ))}
+                </div>
+              </FieldSet>
+
+              {/* Phase 30 Plan 30-05 (II2-03) — MediaInfo-backed tokens (probe result). */}
+              <FieldSet legend={translate('MediaInfo')}>
+                <div className={styles.groups}>
+                  {mediaInfoTokens.map(({ token, example }) => (
                     <NamingOption
                       key={token}
                       token={token}
