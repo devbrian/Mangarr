@@ -17,7 +17,8 @@ import DownloadProtocol from 'DownloadClient/DownloadProtocol';
 // to Manga/Manga + Manga/useManga (useSingleManga) peers.
 import usePrevious from 'Helpers/Hooks/usePrevious';
 import SelectChapterModal from 'InteractiveImport/Chapter/SelectChapterModal';
-import { SelectedChapter } from 'InteractiveImport/Chapter/SelectChapterModalContent';
+// Phase 30 Plan 30-01 Task 2 (II2-05) — SelectedChapter import removed
+// along with the dead `on-episodes-select` useCallback (only consumer).
 import SelectLanguageModal from 'InteractiveImport/Language/SelectLanguageModal';
 import SelectMangaModal from 'InteractiveImport/Manga/SelectMangaModal';
 import SelectQualityModal from 'InteractiveImport/Quality/SelectQualityModal';
@@ -75,9 +76,14 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
     onModalClose,
   } = props;
 
-  const [seriesId, setSeriesId] = useState(props.seriesId);
-  const [seasonNumber, setSeasonNumber] = useState(props.seasonNumber);
-  const [episodes, setEpisodes] = useState(props.episodes);
+  // Phase 30 Plan 30-01 Task 2 (II2-05) — setSeriesId / setSeasonNumber /
+  // setEpisodes setters became orphans after the `on-series-select` +
+  // `on-episodes-select` callback deletes (the only callers). Collapse to
+  // plain const reads from props; the values were never user-mutable here
+  // post-Phase 15 Episode/Season deletion.
+  const seriesId = props.seriesId;
+  const seasonNumber = props.seasonNumber;
+  const episodes = props.episodes;
   const [languages, setLanguages] = useState(props.languages);
   const [quality, setQuality] = useState(props.quality);
   const [downloadClientId, setDownloadClientId] = useState<number | null>(null);
@@ -116,33 +122,24 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
     setSelectModalOpen('series');
   }, [setSelectModalOpen]);
 
-  const onSeriesSelect = useCallback(
-    (s: Manga) => {
-      setSeriesId(s.id);
-      setSeasonNumber(undefined);
-      setEpisodes([]);
-      setSelectModalOpen(null);
-    },
-    [setSeriesId, setSeasonNumber, setEpisodes, setSelectModalOpen]
-  );
-
   // Plan 25-04 Task 3 — onSelectSeasonPress + onSeasonSelect dropped
   // alongside SelectSeasonModal (manga has no season per DOMAIN-02; Season/
   // subdir deleted in same commit). seasonNumber state remains for TV
   // fallback consumer typing; it is no longer user-mutable here.
+  //
+  // Phase 30 Plan 30-01 Task 2 (II2-05) — `on-series-select` +
+  // `on-episodes-select` useCallback blocks deleted per CONTEXT.md
+  // `<domain>` §4 + PATTERNS.md §Plan 30-01 II2-05. These were preserved
+  // through Plan 15-12 + Plan 25-04 Task 1/2 as stubs against TV-only
+  // modals; post-Phase-15 Episode/Season deletion they were provably
+  // unreachable. The deleted `on-episodes-select` block carried a
+  // ts-expect-error directive that violated Phase 25 Plan 25-04 Task 4's
+  // grep gate (Pitfall 3 in CONTEXT.md); removing the block clears the
+  // directive.
 
   const onSelectEpisodePress = useCallback(() => {
     setSelectModalOpen('episode');
   }, [setSelectModalOpen]);
-
-  const onEpisodesSelect = useCallback(
-    (episodeMap: SelectedChapter[]) => {
-      // @ts-expect-error — Plan 15-12 / Plan 25-04 Task 1: SelectedChapter.episodes typed Chapter[]; setEpisodes expects ReleaseEpisode[]. Not reached at runtime (manga override path uses the manga-shape sibling).
-      setEpisodes(episodeMap[0].episodes ?? []);
-      setSelectModalOpen(null);
-    },
-    [setEpisodes, setSelectModalOpen]
-  );
 
   const onSelectQualityPress = useCallback(() => {
     setSelectModalOpen('quality');
@@ -336,7 +333,6 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
       <SelectMangaModal
         isOpen={selectModalOpen === 'series'}
         modalTitle={modalTitle}
-        onSeriesSelect={onSeriesSelect}
         onModalClose={onSelectModalClose}
       />
 
@@ -350,7 +346,6 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
         seasonNumber={seasonNumber}
         selectedDetails={title}
         modalTitle={modalTitle}
-        onEpisodesSelect={onEpisodesSelect}
         onModalClose={onSelectModalClose}
       />
 

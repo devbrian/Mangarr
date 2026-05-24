@@ -489,8 +489,30 @@ function InteractiveImportContentInner(
       return;
     }
 
+    // Phase 30 Plan 30-01 Task 3 (II2-06) — Phase 25 REVIEW.md WR-03 fix:
+    // hoist in-batch chapter-dedupe scan ABOVE the file-build loop so we
+    // short-circuit before any per-row work runs. Exploits Set.add returning
+    // false on duplicate insertion — inverted `!` makes `some` predicate
+    // true on first collision.
     const seenChapterIds = new Set<number>();
-    let hasDuplicateChapters = false;
+    const duplicateChapter = items.find((item) => {
+      if (!selectedIds.includes(item.id) || !item.chapters?.length) {
+        return false;
+      }
+      return item.chapters.some((c) => !seenChapterIds.add(c.id));
+    });
+
+    if (duplicateChapter) {
+      setInteractiveImportErrorMessage(
+        translate('InteractiveImportDuplicateChapters')
+      );
+      return;
+    }
+
+    // Clear any stale error message from the previous render before the
+    // file-build loop sets a new one (or completes cleanly). Single call —
+    // no more inside-loop ping-pong.
+    setInteractiveImportErrorMessage(null);
 
     items.forEach((item) => {
       const isSelected = selectedIds.indexOf(item.id) > -1;
@@ -520,20 +542,6 @@ function InteractiveImportContentInner(
         );
         return;
       }
-
-      if (!hasDuplicateChapters) {
-        for (const chapter of chapters) {
-          const hasAlreadySeen = seenChapterIds.has(chapter.id);
-          seenChapterIds.add(chapter.id);
-
-          if (hasAlreadySeen) {
-            hasDuplicateChapters = true;
-            return;
-          }
-        }
-      }
-
-      setInteractiveImportErrorMessage(null);
 
       // Existing-file fast-path — only meaningful for manga-imported rows
       // (the row already maps to a ChapterFile id). Preserves the prior
@@ -575,14 +583,6 @@ function InteractiveImportContentInner(
         existingFileBehavior,
       });
     });
-
-    if (hasDuplicateChapters) {
-      setInteractiveImportErrorMessage(
-        translate('InteractiveImportDuplicateChapters')
-      );
-
-      return;
-    }
 
     let shouldClose = false;
 
@@ -699,9 +699,12 @@ function InteractiveImportContentInner(
 
   const handleChaptersSelect = useCallback(
     (selectedChapters: SelectedChapter[]) => {
-      selectedChapters.forEach(({ id, episodes }) => {
+      // Phase 30 Plan 30-01 (II2-04) — SelectedChapter TV-shape `episodes`
+      // field renamed to `chapters` per CONTEXT.md `<domain>` §4 +
+      // PATTERNS.md §Plan 30-01.
+      selectedChapters.forEach(({ id, chapters }) => {
         if (id == null) return;
-        updateInteractiveImportItem(id, { chapters: episodes ?? [] });
+        updateInteractiveImportItem(id, { chapters: chapters ?? [] });
       });
 
       const ids = selectedChapters
