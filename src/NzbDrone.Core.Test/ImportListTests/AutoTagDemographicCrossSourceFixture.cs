@@ -204,15 +204,22 @@ namespace NzbDrone.Core.Test.ImportListTests
                 Times.AtLeastOnce,
                 "post-D-02 MangaDex (sole primary) MUST be the cross-source resolver target for AniList-only items — closes the IL2-01 Demographic+Artist gap by deprecation");
 
-            // Phase 31 D-01 closure: the resolved candidate's Demographic field is
-            // populated (Phase 24 v1.1 MangaDexMetadataSource.MapManga contract).
-            // Downstream AddMangaService.PrepareForAdd refetches via
-            // primary.GetMangaInfo + newManga.ApplyChanges (RESEARCH §Item 4 verified)
-            // — the in-flight Manga inherits Demographic + Artist.
-            _mangaDexCandidateForAniList.Demographic.Should().NotBeNull(
-                "the MangaDex candidate MUST carry Demographic — that's the gap-closing field per D-01");
-            _mangaDexCandidateForAniList.Artist.Should().NotBeNullOrEmpty(
-                "the MangaDex candidate MUST carry Artist — that's the gap-closing field per D-01");
+            // Phase 31 fix-forward (REVIEW.md §WR-04 remediation, 2026-05-24):
+            // Replaced the tautological `_mangaDexCandidateForAniList.Demographic
+            // .Should().NotBeNull()` + `.Artist.Should().NotBeNullOrEmpty()` pair —
+            // those assertions read the test's OWN mock object initialized in
+            // SetUp with the asserted values, providing zero production-behavior
+            // signal. The load-bearing post-execute state mutation is
+            // ImportListSyncService.cs:259 (`item.MangaDexId = match.MangaDexId
+            // .ToString()`). Asserting that mutation proves the cross-source
+            // resolver wrote the resolved ID back into the in-flight item, which
+            // is the actual D-01 mechanical-soundness contract: the downstream
+            // AddMangaService.PrepareForAdd refetches via primary.GetMangaInfo
+            // + newManga.ApplyChanges (RESEARCH §Item 4) keyed on the mutated
+            // MangaDexId — Demographic + Artist then populate from the
+            // re-fetched MangaDex.MapManga record (Phase 24 v1.1 contract).
+            items[0].MangaDexId.Should().Be(ResolvedMangaDexGuid,
+                "ImportListSyncService.ProcessListItems must mutate the in-flight item with the resolved MangaDexId so downstream AddMangaService re-fetches via MangaDex.MapManga (where Demographic + Artist populate per Phase 24 v1.1)");
         }
 
         // ============================================================
@@ -244,10 +251,13 @@ namespace NzbDrone.Core.Test.ImportListTests
                 Times.AtLeastOnce,
                 "post-D-02 MangaDex (sole primary) MUST be the cross-source resolver target for MAL-only items — closes the IL2-01 Demographic+Artist gap by deprecation");
 
-            _mangaDexCandidateForMal.Demographic.Should().NotBeNull(
-                "the MangaDex candidate MUST carry Demographic for MAL-sourced cross-resolution");
-            _mangaDexCandidateForMal.Artist.Should().NotBeNullOrEmpty(
-                "the MangaDex candidate MUST carry Artist for MAL-sourced cross-resolution");
+            // Phase 31 fix-forward (REVIEW.md §WR-04 remediation, 2026-05-24):
+            // Same tautological-assertion replacement as Test 1. The MAL-only
+            // path runs through the identical ImportListSyncService.cs:259
+            // mutation surface — assert the post-execute MangaDexId, which is
+            // the actual D-01 mechanical-soundness contract.
+            items[0].MangaDexId.Should().Be(ResolvedMangaDexGuid,
+                "ImportListSyncService.ProcessListItems must mutate the in-flight item with the resolved MangaDexId so downstream AddMangaService re-fetches via MangaDex.MapManga (where Demographic + Artist populate per Phase 24 v1.1)");
         }
 
         // ============================================================
