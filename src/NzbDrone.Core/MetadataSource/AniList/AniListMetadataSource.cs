@@ -42,6 +42,8 @@ namespace NzbDrone.Core.MetadataSource.AniList
 
         public override bool DefaultIsPrimary => false;     // D-16 — secondary fallback
 
+        public override bool IsDeprecated => true;          // Phase 31 D-02 — hidden from Add picker.
+
         public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)
         {
             if (!int.TryParse(sourceId, out var anilistId))

@@ -43,6 +43,16 @@ namespace NzbDrone.Core.MetadataSource
         /// </summary>
         public abstract bool DefaultIsPrimary { get; }
 
+        /// <summary>
+        /// Phase 31 D-02 (IL2-01 reframe) — providers overriding this to true are
+        /// excluded from the GET /api/v5/metadatasource/schema response (hidden from
+        /// the Settings → MetadataSources Add picker). Provider class stays registered
+        /// for cross-source SearchForNewManga lookups via the resolver in
+        /// ImportListSyncService.cs:240-244 (D-05). MangaDex inherits the default
+        /// false; AniList + MAL override to true post-Phase-31.
+        /// </summary>
+        public virtual bool IsDeprecated => false;
+
         public Type ConfigContract => typeof(TSettings);
 
         public virtual ProviderMessage Message => null;
