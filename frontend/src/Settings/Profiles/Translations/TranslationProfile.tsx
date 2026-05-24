@@ -103,17 +103,21 @@ function TranslationProfile(props: TranslationProfileProps) {
   // `languages` is already in preference-rank order (array index = rank); render as-is.
   const orderedLanguages = languages ?? [];
 
-  // Phase 18 Plan 18-07: per-row testid for SettingsFlow.SetTranslationProfileOrderAsync
-  // (D-08 catalog). The inner wrapper <div data-testid="settings-translation-profiles-
-  // row-{id}"> guarantees the testid lands on a real DOM node regardless of Card's
-  // prop-spread behavior.
+  // Phase 30 Plan 30-02 fix-forward: data-testid moves from the inner content
+  // <div> to the Card prop so it lands on the Card-underlay <Link> (the actual
+  // interactive <button>). Card.tsx:12-17 documents this contract — placing the
+  // testid on a child div produces the "Card-underlay intercepts pointer events"
+  // Playwright failure mode (see .planning/debug/live-indexer-card-click.md).
+  // SettingsFlow.SetTranslationProfileOrderAsync's row.ClickAsync() now lands
+  // directly on the underlay button → onPress fires → EditModal opens.
   return (
     <Card
       className={styles.translationProfile}
       overlayContent={true}
       onPress={handleEditPress}
+      data-testid={`settings-translation-profiles-row-${id}`}
     >
-      <div data-testid={`settings-translation-profiles-row-${id}`}>
+      <div>
         <div className={styles.nameContainer}>
           <div
             className={styles.name}

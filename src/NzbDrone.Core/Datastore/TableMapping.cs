@@ -144,7 +144,8 @@ namespace NzbDrone.Core.Datastore
             // from ApplicationStartedEvent) throws KeyNotFoundException at TableMapper line 52
             // because the Repository's SelectTemplate cannot resolve the entity → SQL columns.
             Mapper.Entity<MetadataDefinition>("Metadata").RegisterModel()
-                  .Ignore(x => x.ImplementationName);
+                  .Ignore(x => x.ImplementationName)
+                  .Ignore(d => d.Tags);
 
             // Phase 2 (Plan 02-11) — IMetadataSource ProviderDefinition. Distinct from
             // the Sonarr-inherited Metadata IMetadataConsumer table above (Pitfall 2).

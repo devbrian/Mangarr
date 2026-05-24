@@ -63,12 +63,11 @@ public static class SettingsFlow
         var row = pageObject.Row(profileId);
         await row.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
 
-        // Open the EditTranslationProfileModal — Card.onPress on the row opens it.
-        // Force=true: the Card-underlay <button> child sits on top of the row <div>
-        // (Components/Card/Card.css positions the underlay over the whole card surface)
-        // and intercepts pointer events on the wrapper. The underlay IS the intended
-        // onPress target; forcing bypasses Playwright's actionability retry loop.
-        await row.ClickAsync(new LocatorClickOptions { Force = true });
+        // Open the EditTranslationProfileModal — the row testid is now on the Card
+        // underlay <Link> (the actual interactive button) per the Card.tsx contract
+        // (TranslationProfile.tsx fix-forward 2026-05-24), so the click lands
+        // directly on the onPress handler without underlay-intercept retries.
+        await row.ClickAsync();
 
         // Wait for the modal's Save button (anchors on the modal being open + interactive).
         await pageObject.EditSaveButton.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
