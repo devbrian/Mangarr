@@ -17,8 +17,12 @@ import DownloadProtocol from 'DownloadClient/DownloadProtocol';
 // to Manga/Manga + Manga/useManga (useSingleManga) peers.
 import usePrevious from 'Helpers/Hooks/usePrevious';
 import SelectChapterModal from 'InteractiveImport/Chapter/SelectChapterModal';
-// Phase 30 Plan 30-01 Task 2 (II2-05) — SelectedChapter import removed
-// along with the dead `on-episodes-select` useCallback (only consumer).
+// Phase 31 D-11 (IL2-06) — SelectedChapter import restored alongside the
+// onEpisodesSelect useCallback (Plan 30-01 II2-05 deletion reverted; the
+// callback's consumer-side adapter at lines below maps the modal's emitted
+// SelectedChapter[] to ReleaseEpisode[] per RESEARCH §Item 3 — no modal
+// contract retrofit needed, Plan 30-03 anticipated this restore).
+import { SelectedChapter } from 'InteractiveImport/Chapter/SelectChapterModalContent';
 import SelectLanguageModal from 'InteractiveImport/Language/SelectLanguageModal';
 import SelectMangaModal from 'InteractiveImport/Manga/SelectMangaModal';
 import SelectQualityModal from 'InteractiveImport/Quality/SelectQualityModal';
@@ -76,14 +80,19 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
     onModalClose,
   } = props;
 
-  // Phase 30 Plan 30-01 Task 2 (II2-05) — setSeriesId / setSeasonNumber /
-  // setEpisodes setters became orphans after the `on-series-select` +
-  // `on-episodes-select` callback deletes (the only callers). Collapse to
-  // plain const reads from props; the values were never user-mutable here
-  // post-Phase 15 Episode/Season deletion.
-  const seriesId = props.seriesId;
+  // Phase 31 D-11 (IL2-06) — restore Sonarr-canonical useState wire-through.
+  // Plan 30-01 Task 2 (II2-05) collapsed these to props-destructure reads
+  // based on the THEN-true observation that SelectMangaModal +
+  // SelectChapterModal returned `null` stubs (no selections could ever
+  // arrive). Plan 30-03 (II2-01) shipped real modal bodies that emit
+  // selections — the wire-through is meaningful again. The `seasonNumber`
+  // carry-over remains a non-mutable TV-fallback (manga has no season per
+  // DOMAIN-02; the field is consumed by the existing JSX guard at
+  // OverrideMatchModalContent.tsx:264 `isNaN(Number(seasonNumber))` which
+  // disables the Chapter trigger on the TV fallback path).
+  const [seriesId, setSeriesId] = useState<number | undefined>(props.seriesId);
   const seasonNumber = props.seasonNumber;
-  const episodes = props.episodes;
+  const [episodes, setEpisodes] = useState<ReleaseEpisode[]>(props.episodes);
   const [languages, setLanguages] = useState(props.languages);
   const [quality, setQuality] = useState(props.quality);
   const [downloadClientId, setDownloadClientId] = useState<number | null>(null);
@@ -126,16 +135,44 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
   // alongside SelectSeasonModal (manga has no season per DOMAIN-02; Season/
   // subdir deleted in same commit). seasonNumber state remains for TV
   // fallback consumer typing; it is no longer user-mutable here.
+
+  // Phase 31 D-11 (IL2-06) — restore Sonarr-canonical onSeriesSelect /
+  // onEpisodesSelect callbacks. Plan 30-03 (II2-01) shipped SelectMangaModal
+  // + SelectChapterModal bodies that emit selections; these callbacks wire
+  // the emitted shape into local useState.
   //
-  // Phase 30 Plan 30-01 Task 2 (II2-05) — `on-series-select` +
-  // `on-episodes-select` useCallback blocks deleted per CONTEXT.md
-  // `<domain>` §4 + PATTERNS.md §Plan 30-01 II2-05. These were preserved
-  // through Plan 15-12 + Plan 25-04 Task 1/2 as stubs against TV-only
-  // modals; post-Phase-15 Episode/Season deletion they were provably
-  // unreachable. The deleted `on-episodes-select` block carried a
-  // ts-expect-error directive that violated Phase 25 Plan 25-04 Task 4's
-  // grep gate (Pitfall 3 in CONTEXT.md); removing the block clears the
-  // directive.
+  // onMangaSelect emits the full Manga object (SelectMangaModalContent.tsx:41)
+  // — adapter takes manga.id for setSeriesId.
+  // onChaptersSelect emits SelectedChapter[] (SelectChapterModalContent.tsx:43)
+  // — adapter maps each entry to ReleaseEpisode { id, episodeNumber, title }
+  // per RESEARCH §Item 3. episodeFileId + seasonNumber default to 0 (no
+  // chapter-file id is known until import; manga has no season per
+  // DOMAIN-02). The explicit adapter compiles clean — no TypeScript
+  // suppression directive is needed (Pitfall 3 / Phase 25 Plan 25-04
+  // Task 4 grep gate stays green).
+  const onSeriesSelect = useCallback(
+    (manga: Manga) => {
+      setSeriesId(manga.id);
+      setSelectModalOpen(null);
+    },
+    [setSeriesId, setSelectModalOpen]
+  );
+
+  const onEpisodesSelect = useCallback(
+    (selectedChapters: SelectedChapter[]) => {
+      setEpisodes(
+        selectedChapters.map((c) => ({
+          id: c.id,
+          episodeFileId: 0,
+          seasonNumber: 0,
+          episodeNumber: c.chapterNumber ?? 0,
+          title: c.title ?? '',
+        }))
+      );
+      setSelectModalOpen(null);
+    },
+    [setEpisodes, setSelectModalOpen]
+  );
 
   const onSelectEpisodePress = useCallback(() => {
     setSelectModalOpen('episode');
@@ -330,28 +367,37 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
         </div>
       </ModalFooter>
 
+      {/* Phase 31 D-11 (IL2-06) — wire SelectMangaModal.onMangaSelect ->
+          onSeriesSelect. Plan 30-03 SelectMangaModal exposes onMangaSelect
+          (optional per the anticipatory wrapper comment at
+          SelectMangaModal.tsx:18-25). The local useState restored above is
+          the consumer of this wire. */}
       <SelectMangaModal
         isOpen={selectModalOpen === 'series'}
         modalTitle={modalTitle}
+        onMangaSelect={onSeriesSelect}
         onModalClose={onSelectModalClose}
       />
 
       {/* Plan 25-04 Task 3 — SelectSeasonModal JSX dropped (manga has no
           season per DOMAIN-02; Season/ subdir deleted in same commit). */}
 
-      {/* Phase 30 Plan 30-03 (II2-01) — SelectChapterModal R-5 strip: the
-          Sonarr TV-shape seriesId/seasonNumber props were dropped per
-          PROJECT.md DOMAIN-02 (no Season in manga). For the OverrideMatch
-          consumer here the manga peer is mangaId (re-uses the existing
-          seriesId variable, which the post-Phase-15 OverrideMatch state
-          still names with the TV-fallback identifier per CONTEXT.md
-          `<deferred>` "OverrideMatchModalContent broader refactor"). */}
+      {/* Phase 31 D-11 (IL2-06) — wire SelectChapterModal.onChaptersSelect
+          -> onEpisodesSelect. The consumer-side adapter inside
+          onEpisodesSelect maps SelectedChapter[] -> ReleaseEpisode[] per
+          RESEARCH §Item 3 (no modal contract retrofit needed — Plan 30-03
+          anticipated this restore via the optional wrapper callback at
+          SelectChapterModal.tsx:28-37). The mangaId prop continues to use
+          the local seriesId state per the Phase 30 D-01 / CONTEXT.md
+          `<deferred>` "OverrideMatchModalContent broader refactor" scope
+          carve-out. */}
       <SelectChapterModal
         isOpen={selectModalOpen === 'episode'}
         selectedIds={[guid]}
         mangaId={seriesId}
         selectedDetails={title}
         modalTitle={modalTitle}
+        onChaptersSelect={onEpisodesSelect}
         onModalClose={onSelectModalClose}
       />
 
