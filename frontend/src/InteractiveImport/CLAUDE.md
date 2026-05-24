@@ -35,8 +35,8 @@
 | Subdir | Modal | Purpose |
 |--------|-------|---------|
 | `Folder/` | `InteractiveImportSelectFolderModalContent`, `FavoriteFolderRow`, `RecentFolderRow` | Pick the source folder |
-| `Chapter/` | `SelectChapterModal`, `SelectChapterModalContent` | Pick chapter(s) — Plan 25-04 Task 1 renamed `Episode/` → `Chapter/` per Pitfall 13 atomic-per-decision commit; stub body preserved per Plan 15-12 |
-| `Manga/` | `SelectMangaModal` | Pick or correct manga — Plan 25-04 Task 2 renamed `Series/` → `Manga/` per Pitfall 13; stub body preserved per Plan 15-12 |
+| `Chapter/` | `SelectChapterModal`, `SelectChapterModalContent` | Pick chapter(s) — Plan 25-04 Task 1 renamed `Episode/` → `Chapter/` per Pitfall 13 atomic-per-decision commit. **Shipped Phase 30 Plan 30-03 (2026-05-23+)** — Sonarr v5-develop `SelectEpisodeModal` port with R-5 aggressive strip (1 CBZ = 1 chapter per Phase 4 ARCHIVE invariant; no Season; no scene-numbering; no multi-episode-per-file slice logic). Testid family: `select-chapter-modal-*`. |
+| `Manga/` | `SelectMangaModal`, `SelectMangaModalContent` | Pick or correct manga — Plan 25-04 Task 2 renamed `Series/` → `Manga/` per Pitfall 13. **Shipped Phase 30 Plan 30-03 (2026-05-23+)** — Sonarr v5-develop `SelectSeriesModal` port with title autocomplete picker over `useManga()` library entries (columns title/year/mangaDexId; `imdbId` dropped; `malId` deferred to v1.3+). Testid family: `select-manga-modal-*`. |
 | `Season/` | (deleted Plan 25-04 Task 3 — manga has no season per DOMAIN-02; SelectSeasonModal stub + per-row season cell + season-modal trigger removed) | n/a |
 | `Language/` | `SelectLanguageModal`, `SelectLanguageModalContent` | Set language(s) |
 | `Quality/` | `SelectQualityModal`, `SelectQualityModalContent` | Set quality |
@@ -72,6 +72,22 @@ This module needs updates per the Series→Manga, Episode→Chapter, Season→Vo
 | `ReleaseType` | New types: `singleChapter`/`multiChapter`/`volumePack` |
 
 The table-with-editable-cells pattern is reusable. The per-cell modals just need updated entity types.
+
+## Automation Test Surface (Phase 30+)
+
+The Plan 30-03 modal-body ship is accompanied by a shared cross-page helper at `src/NzbDrone.Automation.Test/Flows/InteractiveImportFlow.cs` (Phase 18 D-08 first-class shared-flow convention). It exposes 5 static methods on `IPage`:
+
+| Method | Drives |
+|--------|--------|
+| `SelectMangaAsync(page, mangaId)` | The autocomplete picker shipped in Plan 30-03 Task 1 |
+| `SelectChaptersAsync(page, chapterIds)` | The multi-select picker shipped in Plan 30-03 Task 2 |
+| `OpenFromQueueAsync(page, rootUri)` | Activity/Queue toolbar entry point (`Queue.tsx:409`) |
+| `OpenFromQueueRowAsync(page, rootUri, queueItemId)` | Per-row Queue entry point (`QueueRow.tsx:430`) |
+| `OpenFromMissingAsync(page, rootUri)` | Wanted/Missing toolbar entry point (`Missing.tsx:375`; Plan 12-11 LOCK guard removed in Phase 25-05) |
+
+Each of the 3 entry-point methods is exercised by at least one fixture in `src/NzbDrone.Automation.Test/Tests/InteractiveImport/InteractiveImportEntryPointFixture.cs` per CONTEXT.md D-01 verify pass. References:
+- `.planning/phases/30-manual-import-settings-completeness-v1-2-inserted-2026-05-23/30-PATTERNS.md` §Plan 30-03
+- `.planning/phases/30-manual-import-settings-completeness-v1-2-inserted-2026-05-23/30-RESEARCH.md` §3 (SelectSeriesModal / SelectEpisodeModal templates)
 
 ## Cross-References
 

@@ -339,11 +339,17 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
       {/* Plan 25-04 Task 3 — SelectSeasonModal JSX dropped (manga has no
           season per DOMAIN-02; Season/ subdir deleted in same commit). */}
 
+      {/* Phase 30 Plan 30-03 (II2-01) — SelectChapterModal R-5 strip: the
+          Sonarr TV-shape seriesId/seasonNumber props were dropped per
+          PROJECT.md DOMAIN-02 (no Season in manga). For the OverrideMatch
+          consumer here the manga peer is mangaId (re-uses the existing
+          seriesId variable, which the post-Phase-15 OverrideMatch state
+          still names with the TV-fallback identifier per CONTEXT.md
+          `<deferred>` "OverrideMatchModalContent broader refactor"). */}
       <SelectChapterModal
         isOpen={selectModalOpen === 'episode'}
         selectedIds={[guid]}
-        seriesId={seriesId}
-        seasonNumber={seasonNumber}
+        mangaId={seriesId}
         selectedDetails={title}
         modalTitle={modalTitle}
         onModalClose={onSelectModalClose}

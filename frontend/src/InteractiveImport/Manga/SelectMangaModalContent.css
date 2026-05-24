@@ -1,0 +1,49 @@
+/*
+ * Sonarr divergence: NEW per Phase 30 Plan 30-03 (II2-01) — see DIVERGENCE.md.
+ * Role-match analog: SelectLanguageModalContent.css (per-row form spacing).
+ *
+ * Inherits modal body padding (30px) from ModalBody.css; this stylesheet adds
+ * only the autocomplete filter input width + row spacing + empty-state copy
+ * box. No new theme tokens introduced (UI-SPEC §Color + §Spacing both lock
+ * "no new tokens authored in Phase 30").
+ */
+
+.filterInput {
+  display: flex;
+  margin-bottom: 15px;
+}
+
+.mangaRow {
+  cursor: pointer;
+  padding: 10px;
+  border-bottom: 1px solid var(--borderColor);
+}
+
+.mangaRow:hover {
+  background-color: var(--tableRowHoverBackgroundColor);
+}
+
+.title {
+  font-weight: 500;
+}
+
+.metadata {
+  margin-top: 4px;
+  color: var(--disabledColor);
+  font-size: 12px;
+}
+
+.empty {
+  padding: 30px 0;
+  text-align: center;
+}
+
+.emptyHeading {
+  font-weight: 500;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.emptyHelp {
+  color: var(--disabledColor);
+}
