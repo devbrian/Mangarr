@@ -227,8 +227,13 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             }
             else
             {
+                // Phase 31 D-10 (IL2-03): status sourced from MalListStatusExtensions.ToApiString
+                // (reads [EnumMember(Value="...")] on MalListStatus via cached reflection). The
+                // duplicated local MapStatus switch helper that previously lived in this
+                // file at :283-298 was DELETED — single source-of-truth is now the [EnumMember]
+                // attribute strings on MalListStatus.cs:25-41.
                 request = new HttpRequestBuilder($"{MalConstants.ApiBaseUrl}/users/@me/mangalist")
-                    .AddQueryParam("status", MapStatusToMalString(settings?.Status ?? MalListStatus.Reading))
+                    .AddQueryParam("status", (settings?.Status ?? MalListStatus.Reading).ToApiString())
                     .AddQueryParam("limit", 1000)
                     .AddQueryParam("offset", 0)
                     .AddQueryParam("fields", "list_status,num_chapters")
@@ -278,23 +283,6 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             request.RateLimitKey = SharedSourceKey;
             request.Headers["User-Agent"] = $"Mangarr/{BuildInfo.Version.ToString(2)}";
             request.Headers["Accept"] = "application/json";
-        }
-
-        // MalListStatus → MAL API snake_case string. Mirrors the [EnumMember(Value)]
-        // attributes on MalListStatus.cs members — kept as a switch here so the proxy
-        // does not pull in Newtonsoft EnumMember reflection on every call site (faster
-        // + simpler than ToString() + Newtonsoft attribute lookup).
-        private static string MapStatusToMalString(MalListStatus status)
-        {
-            return status switch
-            {
-                MalListStatus.Reading => "reading",
-                MalListStatus.PlanToRead => "plan_to_read",
-                MalListStatus.Completed => "completed",
-                MalListStatus.OnHold => "on_hold",
-                MalListStatus.Dropped => "dropped",
-                _ => "reading",
-            };
         }
 
         private MalTokenResponse ExecuteTokenRequest(HttpRequest request)

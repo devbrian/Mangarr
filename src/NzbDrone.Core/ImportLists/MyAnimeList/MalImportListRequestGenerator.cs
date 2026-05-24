@@ -51,12 +51,17 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         {
             var chain = new ImportListPageableRequestChain();
 
-            // Initial request only — MAL cursor pagination via paging.next is
-            // NOT walked; the substrate's HttpImportListBase.FetchItems loop
-            // terminates on partial pages so lists under PageSize=1000 read
-            // correctly. Larger lists are truncated at the first page.
-            // Tracked in GH #223 for v1.x.
-            var statusString = MapStatusToMalString(Settings?.Status ?? MalListStatus.Reading);
+            // Initial request only — MAL cursor pagination via paging.next is walked
+            // by MalImportList.FetchPage (Phase 31 D-08 / IL2-05 — closes GH #223).
+            // This generator builds the FIRST request; the FetchPage override walks
+            // the cursor chain at runtime.
+            //
+            // Phase 31 D-10 (IL2-03): statusString sourced from MalListStatusExtensions.ToApiString
+            // (reads [EnumMember(Value="...")] on MalListStatus via cached reflection). The
+            // duplicated local MapStatus switch helper that previously lived in this
+            // file at :86-101 was DELETED — single source-of-truth is now the [EnumMember]
+            // attribute strings on MalListStatus.cs:25-41.
+            var statusString = (Settings?.Status ?? MalListStatus.Reading).ToApiString();
             var request = new HttpRequestBuilder("https://api.myanimelist.net/v2/users/@me/mangalist")
                 .AddQueryParam("status", statusString)
                 .AddQueryParam("limit", PageSize)
@@ -81,23 +86,6 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
 
             chain.Add(new[] { new ImportListRequest(request) });
             return chain;
-        }
-
-        // MalListStatus → MAL API snake_case string. Mirrors the [EnumMember(Value)]
-        // attributes on MalListStatus.cs members. Kept local to the generator (instead
-        // of cross-file shared utility) so this class stays self-contained — D-10
-        // single-select propagation invariant is enforced at exactly one call site.
-        private static string MapStatusToMalString(MalListStatus status)
-        {
-            return status switch
-            {
-                MalListStatus.Reading => "reading",
-                MalListStatus.PlanToRead => "plan_to_read",
-                MalListStatus.Completed => "completed",
-                MalListStatus.OnHold => "on_hold",
-                MalListStatus.Dropped => "dropped",
-                _ => "reading",
-            };
         }
     }
 }
