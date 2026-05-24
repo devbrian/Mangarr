@@ -395,12 +395,12 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
           Phase 31 fix-forward (REVIEW.md §WR-03 remediation, 2026-05-24):
           selectedIds now passes the locally-mutable `episodes` state's
           numeric `id` field, NOT the release GUID. The previous shape
-          `selectedIds={[guid]}` passed a non-numeric hash through
-          SelectChapterModalContent.onSubmitPress where parseInt(id) returns
-          NaN (filtered → empty payload → user-facing "no chapter" error)
-          or a partial-digit-prefix parse that fabricates a numeric ID
-          unrelated to any real chapter row. Passing numeric episode IDs
-          preserves the selection-state fidelity through the picker. */}
+          passed a [guid] array through SelectChapterModalContent.onSubmitPress
+          where parseInt(id) returns NaN (filtered → empty payload →
+          user-facing "no chapter" error) or a partial-digit-prefix parse
+          that fabricates a numeric ID unrelated to any real chapter row.
+          Passing numeric episode IDs preserves the selection-state
+          fidelity through the picker. */}
       <SelectChapterModal
         isOpen={selectModalOpen === 'episode'}
         selectedIds={episodes.map((e) => e.id)}
