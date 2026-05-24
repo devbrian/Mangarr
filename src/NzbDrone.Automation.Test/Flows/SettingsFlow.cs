@@ -98,15 +98,27 @@ public static class SettingsFlow
     }
 
     /// <summary>
-    /// D-08 catalog item — add a root folder via the FileBrowser modal flow.
+    /// D-08 catalog item — add a root folder via the FileBrowser modal flow, typing
+    /// <paramref name="folderPath"/> into the modal's path input and confirming.
     /// </summary>
     /// <remarks>
-    /// Opens /settings/mediamanagement and clicks the AddRootFolder button. The
-    /// generic FileBrowserModal that opens does not have data-testid coverage yet
-    /// (it is wide-radius infrastructure used by every path-picker field — testid
-    /// annotation is out of scope for Plan-07's settings cluster). Until the modal
-    /// is annotated, the helper terminates at the button click — sufficient for any
-    /// test that wants to assert the modal opens.
+    /// <para>
+    /// Phase 30 Plan 30-02 (II2-08) replaces the Phase-18 stub that discarded
+    /// <paramref name="folderPath"/>. Wired via the Strategy-A wrapper testid
+    /// <c>add-root-folder-modal</c> (open-state detection) plus role-based descent
+    /// into the portal'd <c>&lt;div role="dialog"&gt;</c> for the inner path input
+    /// and Ok button — keeps the shared <c>frontend/src/Components/FileBrowser/</c>
+    /// infrastructure testid-free per R-9.
+    /// </para>
+    /// <para>
+    /// Sequence:
+    ///   1. Open <c>/settings/mediamanagement</c> and click the Add Root Folder button.
+    ///   2. Wait for the Strategy-A wrapper (<c>add-root-folder-modal</c> testid) +
+    ///      the portal'd FileBrowser dialog to materialize.
+    ///   3. Fill the dialog's textbox with <paramref name="folderPath"/>.
+    ///   4. Click the dialog's Ok button — the modal closes and AddRootFolder.tsx
+    ///      POSTs <c>/api/v5/rootfolder</c> via <c>useAddRootFolder</c>.
+    /// </para>
     /// </remarks>
     public static async Task AddRootFolderAsync(
         IPage page,
@@ -117,9 +129,29 @@ public static class SettingsFlow
         await pageObject.OpenAsync(rootUri);
         await pageObject.AddButton.ClickAsync();
 
-        // TODO Plan-07 follow-up: wire folderPath into the FileBrowserModal once it
-        // grows root-folder-modal-* testids (out-of-scope for Plan-07 — the modal is
-        // generic infrastructure shared with EditManga / InteractiveImport).
-        _ = folderPath;
+        // Strategy-A wrapper indicates the modal has been opened (conditionally
+        // rendered in AddRootFolder.tsx). The wrapper itself is empty in the DOM
+        // because Modal portals; the inner widgets live under <div role="dialog">.
+        await page.GetByTestId("add-root-folder-modal")
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
+
+        await pageObject.AddRootFolderModalDialog
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
+
+        // Type the requested folder path. FileBrowserModalContent's PathInputInternal
+        // is the only textbox inside the dialog, so role-based descent unambiguously
+        // resolves it without bypassing any FormInputGroup-emitted testid (#180 Gate 2).
+        await pageObject.AddRootFolderModalPathInput.FillAsync(folderPath);
+
+        // Click Ok — closes the modal and fires onChange -> useAddRootFolder -> POST.
+        await pageObject.AddRootFolderModalConfirm.ClickAsync();
+
+        // Wait for the wrapper to detach (conditional render flips back to null on close).
+        await page.GetByTestId("add-root-folder-modal")
+            .WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Detached,
+                Timeout = 15_000
+            });
     }
 }

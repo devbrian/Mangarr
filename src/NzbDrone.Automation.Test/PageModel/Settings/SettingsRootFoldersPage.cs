@@ -20,6 +20,23 @@ public class SettingsRootFoldersPage : PageBase
     public ILocator SaveButton    => Page.GetByTestId("settings-save-button");
     public ILocator AddButton     => Page.GetByTestId("settings-root-folders-add-button");
 
+    // Phase 30 Plan 30-02 (II2-08) — AddRootFolderModal Strategy-A wrapper testid
+    // annotated in frontend/src/Settings/MediaManagement/RootFolder/AddRootFolder.tsx.
+    // The wrapper renders only when the modal is open; the inner path-input + Ok
+    // button live inside a React portal (Components/Modal/Modal.tsx:169) so they are
+    // reached via role-based selectors against the rendered <div role="dialog"> — see
+    // SettingsFlow.AddRootFolderAsync for the descent.
+    public ILocator AddRootFolderModal => Page.GetByTestId("add-root-folder-modal");
+
+    public ILocator AddRootFolderModalDialog
+        => Page.GetByRole(AriaRole.Dialog, new() { Name = "File Browser" });
+
+    public ILocator AddRootFolderModalPathInput
+        => AddRootFolderModalDialog.GetByRole(AriaRole.Textbox);
+
+    public ILocator AddRootFolderModalConfirm
+        => AddRootFolderModalDialog.GetByRole(AriaRole.Button, new() { Name = "Ok" });
+
     public async Task<SettingsRootFoldersPage> OpenAsync(string rootUri)
     {
         await Page.GotoAsync($"{rootUri}/settings/mediamanagement");
