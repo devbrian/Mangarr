@@ -39,6 +39,21 @@ namespace NzbDrone.Core.Datastore.Migration
     // (DefaultIsPrimary=true) so _metadataSourceFactory.GetPrimary() never throws
     // on user databases coming through Migration 005.
     //
+    // WR-02 defensive-primary-promotion (fix-forward pass 2 — closes GH #255): The
+    // auto-seed safety net above ONLY fires when `All().Any() == false`. A user who
+    // promoted AniList or MAL to `IsPrimary=true` (via MetadataSourceFactory.SetPrimary)
+    // before Migration 005 lands has MangaDex with `IsPrimary=false` AND AniList/MAL
+    // with `IsPrimary=true`. The DELETE above removes the only primary row, but
+    // MangaDex still exists so InitializeProviders skips re-seeding. Post-migration
+    // GetPrimary() returns null and downstream consumers (AddMangaService,
+    // ImportListSyncService cross-source resolver) throw InvalidOperationException
+    // or silently skip resolution.
+    //
+    // Fix: after the DELETE, if no IsPrimary=true row remains, promote MangaDex.
+    // `NOT EXISTS (SELECT 1 ... WHERE IsPrimary = 1)` runs identically on SQLite and
+    // PostgreSQL (both support correlated subqueries with NOT EXISTS). Identifier
+    // quoting matches the existing DELETE statement.
+    //
     // Pre-v1 dev-migration policy ENDED at Phase 21 close (v1.0.0 tag 2026-05-17).
     // Sequential post-baseline migration: NEVER edits 001_mangarr_baseline.cs.
     // Succeeds Migration 004 (Phase 30 — ChapterFile.MediaInfo + ComicInfoMetadata
@@ -60,6 +75,17 @@ namespace NzbDrone.Core.Datastore.Migration
                 cmd.CommandText = @"DELETE FROM ""MetadataSources""
                                     WHERE ""Implementation"" IN ('AniListMetadataSource', 'MyAnimeListMetadataSource')";
                 cmd.ExecuteNonQuery();
+
+                // WR-02 (GH #255) — defensively promote MangaDex to IsPrimary=true
+                // when the DELETE above removed the only primary row. Cross-dialect:
+                // SQLite + PostgreSQL both accept `NOT EXISTS (SELECT 1 ...)`.
+                using var promoteCmd = connection.CreateCommand();
+                promoteCmd.Transaction = transaction;
+                promoteCmd.CommandText = @"UPDATE ""MetadataSources""
+                                           SET ""IsPrimary"" = 1
+                                           WHERE ""Implementation"" = 'MangaDexMetadataSource'
+                                             AND NOT EXISTS (SELECT 1 FROM ""MetadataSources"" WHERE ""IsPrimary"" = 1)";
+                promoteCmd.ExecuteNonQuery();
             });
         }
     }
