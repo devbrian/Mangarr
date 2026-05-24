@@ -173,13 +173,18 @@ function LanguageRankRow({
           onChange={handleCodeChange}
         />
       </div>
+      {/* Phase 30 Plan 30-02 (II2-07) — testid for SettingsFlow.SetTranslationProfileOrderAsync.
+          The IconButton wrapper forwards data-testid via Link's ...otherProps (per
+          frontend/src/Components/Link/Link.tsx — Phase 18 wrapper-sweep contract). */}
       <IconButton
+        data-testid={`settings-translation-profiles-edit-row-${idx}-up`}
         name={icons.SORT_ASCENDING}
         title={translate('MoveUp')}
         isDisabled={idx === 0}
         onPress={handleMoveUp}
       />
       <IconButton
+        data-testid={`settings-translation-profiles-edit-row-${idx}-down`}
         name={icons.SORT_DESCENDING}
         title={translate('MoveDown')}
         isDisabled={isLast}
@@ -499,6 +504,7 @@ function EditTranslationProfileModalContent({
         <Button onPress={onModalClose}>{translate('Cancel')}</Button>
 
         <SpinnerErrorButton
+          data-testid="settings-translation-profiles-edit-save"
           isSpinning={isSaving}
           error={saveError}
           onPress={handleSavePress}

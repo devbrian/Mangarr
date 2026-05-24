@@ -24,6 +24,17 @@ public class SettingsTranslationProfilesPage : PageBase
     public ILocator RowName(int profileId)
         => Page.GetByTestId($"settings-translation-profiles-row-{profileId}-name");
 
+    // Phase 30 Plan 30-02 (II2-07) — EditModal language reorder locators.
+    // Annotated in frontend/src/Settings/Profiles/Translations/EditTranslationProfileModalContent.tsx.
+    public ILocator EditRowUpArrow(int idx)
+        => Page.GetByTestId($"settings-translation-profiles-edit-row-{idx}-up");
+
+    public ILocator EditRowDownArrow(int idx)
+        => Page.GetByTestId($"settings-translation-profiles-edit-row-{idx}-down");
+
+    public ILocator EditSaveButton
+        => Page.GetByTestId("settings-translation-profiles-edit-save");
+
     public async Task<SettingsTranslationProfilesPage> OpenAsync(string rootUri)
     {
         await Page.GotoAsync($"{rootUri}/settings/profiles");
