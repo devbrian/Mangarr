@@ -61,13 +61,25 @@ function AddRootFolder() {
           {translate('AddRootFolder')}
         </Button>
 
-        <FileBrowserModal
-          isOpen={isAddNewRootFolderModalOpen}
-          name="rootFolderPath"
-          value=""
-          onChange={onNewRootFolderSelect}
-          onModalClose={onAddRootFolderModalClose}
-        />
+        {/* Phase 30 Plan 30-02 (II2-08) Strategy A — wrap the modal in a labeled,
+            conditionally-rendered div so SettingsFlow.AddRootFolderAsync can detect
+            the modal-open state without modifying the shared FileBrowserModal infra
+            (which would collide with EditManga + InteractiveImport consumers per R-9).
+            The wrapper itself is empty in the rendered DOM because Modal portals to
+            #modal-root; the testid still ships into the React tree so Playwright can
+            wait on it as the open-state indicator. Inner path-input + Ok button are
+            reached via role-based selectors against the portal'd <div role="dialog">. */}
+        {isAddNewRootFolderModalOpen ? (
+          <div data-testid="add-root-folder-modal">
+            <FileBrowserModal
+              isOpen={isAddNewRootFolderModalOpen}
+              name="rootFolderPath"
+              value=""
+              onChange={onNewRootFolderSelect}
+              onModalClose={onAddRootFolderModalClose}
+            />
+          </div>
+        ) : null}
       </div>
     </>
   );
