@@ -27,6 +27,7 @@ using NzbDrone.Core.Instrumentation;
 using NzbDrone.Core.Jobs;
 using NzbDrone.Core.Languages;
 using NzbDrone.Core.MediaFiles;
+using NzbDrone.Core.MediaFiles.MediaInfo;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.Notifications;
@@ -320,6 +321,14 @@ namespace NzbDrone.Core.Datastore
             // type-handler args are needed — unlike TV's ParsedEpisodeInfo which embeds
             // QualityModel + Languages. Mirrors the precedent above for the TV analog.
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<ParsedChapterInfo>());
+
+            // Phase 30 Plan 30-05 (II2-03) — ChapterFile.MediaInfo round-trip via Dapper
+            // EmbeddedDocumentConverter. JSON-serialized into the TEXT column added by
+            // Migration 004. R-12 mitigation: explicit registration alongside ParsedChapterInfo
+            // ensures Dapper hydrates the property even though ChapterMediaInfo does not
+            // implement IEmbeddedDocument (the auto-scan in RegisterEmbeddedConverter only
+            // catches IEmbeddedDocument markers — see line 355 below).
+            SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<ChapterMediaInfo>());
 
             SqlMapper.AddTypeHandler(new EmbeddedDocumentConverter<ReleaseInfo>());
 
