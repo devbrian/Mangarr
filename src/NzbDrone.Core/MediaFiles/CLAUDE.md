@@ -64,6 +64,14 @@ The most complex sub-area. Imports completed downloads into the library.
 | `MediaInfoModel.cs` | DTO of probed metadata |
 | `MediaInfoFormatter.cs` | Format mediainfo for filename tokens |
 | `UpdateMediaInfoService.cs` | Refresh mediainfo for existing files |
+| `ChapterMediaInfo.cs` | **Phase 30 Plan 30-05 (II2-03)** — Manga peer of `MediaInfoModel`. POCO with nullable `PageCount` / `Color` / `DpiHorizontal` + non-nullable `SchemaRevision`. Round-tripped via `EmbeddedDocumentConverter<ChapterMediaInfo>` Dapper TypeHandler. JSON-serialized into the `ChapterFiles.MediaInfo` TEXT column added by Migration 004. |
+| `IUpdateChapterInfo.cs` / `UpdateChapterInfoService.cs` | **Phase 30 Plan 30-05 (II2-03)** — Manga peer of `IUpdateMediaInfo` / `UpdateMediaInfoService`. SixLabors.ImageSharp 3.1.12 probe per CONTEXT.md D-06. **D-05: probe-on-import only — explicitly NO `IHandle<...>` backfill daemon contract.** Sampling = first + middle + last page (D-07). Color detection via 100-pixel fixed-seed RNG (RESEARCH §5.3). DPI extraction accepts PixelsPerInch / PixelsPerMeter / PixelsPerCentimeter; filters out the ImageSharp default 96 fallback per R-4. D-09 non-fatal: outer `try/catch` logs `Warn` + returns null on any probe failure. |
+
+#### Pitfall 4 — step 3.5 inline probe invocation (Phase 30 Plan 30-05 Task 4)
+
+`ImportApprovedChapters.cs` calls `_updateChapterInfoService.Update(chapterFile, lc.Manga)` at **step 3.5** of the per-decision success path — **AFTER** step 3 `_chapterFileService.Add(chapterFile)` (DB commit) and step 2 `_diskProvider.MoveFile` (filesystem move), but **BEFORE** step 6 `_eventAggregator.PublishEvent(new ChapterImportedEvent {...})`. Notification fan-out (Komga / Kavita rescan handlers) fires on `ChapterImportedEvent`; if it published before `MediaInfo` populated, the rescan would see a fresh-but-incomplete row (probe runs later, fan-out already done). The invocation is wrapped in its own `try/catch` so any probe failure that escapes `UpdateChapterInfoService`'s internal handler still leaves the import success path intact (D-09 non-fatal).
+
+Cross-reference: `src/NzbDrone.Core/Metadata/CLAUDE.md` (Plan 30-04) — the V5 Metadata ThingiProvider substrate that the ComicInfo writer routes through; companion atomic-pair with Plan 30-05's Migration 004 seed row per D-11.
 
 ### `TorrentInfo/`
 | File | Purpose |
