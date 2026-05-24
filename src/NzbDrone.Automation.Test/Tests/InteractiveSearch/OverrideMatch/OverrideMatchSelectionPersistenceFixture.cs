@@ -148,15 +148,16 @@ public class OverrideMatchSelectionPersistenceFixture : AutomationTest
             "II2-05 — setSeriesId / setSeasonNumber / setEpisodes setters became orphans",
             "OverrideMatchModalContent.tsx must remove the Phase 30 II2-05 dead-branch deletion comment block (now stale)");
 
-        // PR #262 Codex P2 — onSeriesSelect MUST reset episodes to []
-        // when the picked manga changes, so the next Grab can't submit
-        // cross-manga stale chapter IDs. The prior shape updated only
-        // seriesId, leaving the old episodes state intact.
-        var seriesSelectResetsEpisodes = new Regex(
-            @"const onSeriesSelect = useCallback\([\s\S]*?setSeriesId\(manga\.id\);[\s\S]*?setEpisodes\(\[\]\);",
+        // PR #262 Codex P2 + CodeRabbit Minor follow-up — onSeriesSelect MUST
+        // reset episodes to [] when the picked manga CHANGES (guarded by
+        // `manga.id !== seriesId`), so the next Grab can't submit cross-manga
+        // stale chapter IDs. The guard prevents erasing a valid override when
+        // the user re-confirms the current manga in the picker.
+        var seriesSelectResetsEpisodesOnChange = new Regex(
+            @"const onSeriesSelect = useCallback\([\s\S]*?if\s*\(\s*manga\.id\s*!==\s*seriesId\s*\)\s*\{\s*setEpisodes\(\[\]\);\s*\}[\s\S]*?setSeriesId\(manga\.id\);",
             RegexOptions.Multiline);
-        seriesSelectResetsEpisodes.IsMatch(source).Should().BeTrue(
-            "PR #262 Codex P2: onSeriesSelect must call setEpisodes([]) after setSeriesId(manga.id) so cross-manga stale chapter IDs cannot leak into the next Grab payload");
+        seriesSelectResetsEpisodesOnChange.IsMatch(source).Should().BeTrue(
+            "PR #262 Codex P2 + CodeRabbit Minor: onSeriesSelect must conditionally call setEpisodes([]) only when manga.id !== seriesId, so cross-manga stale chapter IDs cannot leak into the next Grab AND re-selecting the current manga does not erase a valid in-progress override.");
 
         // Live-surface reachability — mirrors OverrideMatchModalFixture's
         // canonical AddManga seed + InteractiveSearch trigger-surface check.
@@ -180,9 +181,11 @@ public class OverrideMatchSelectionPersistenceFixture : AutomationTest
                 "InteractiveSearch must render at least one release row to host the OverrideMatch trigger surface (precondition for the SelectMangaModal wire-through)");
 
             // PR #262 CodeRabbit nit: prefer data-testid (i18n-stable) over
-            // title-attribute selector. interactive-search-row-override-trigger
-            // is mounted on the Override trigger Link in InteractiveSearchRow.tsx.
-            var overrideTriggers = Page.Locator("[data-testid='interactive-search-row-override-trigger']");
+            // title-attribute selector + Playwright's GetByTestId helper over
+            // raw CSS Locator (CLAUDE.md D-18 convention).
+            // interactive-search-row-override-trigger is mounted on the
+            // Override trigger Link in InteractiveSearchRow.tsx.
+            var overrideTriggers = Page.GetByTestId("interactive-search-row-override-trigger");
             var triggerCount = await overrideTriggers.CountAsync();
             triggerCount.Should().BeGreaterThan(
                 0,
@@ -321,9 +324,11 @@ public class OverrideMatchSelectionPersistenceFixture : AutomationTest
                 "InteractiveSearch must render at least one release row to host the OverrideMatch trigger surface (precondition for the SelectChapterModal multi-select wire-through)");
 
             // PR #262 CodeRabbit nit: prefer data-testid (i18n-stable) over
-            // title-attribute selector. interactive-search-row-override-trigger
-            // is mounted on the Override trigger Link in InteractiveSearchRow.tsx.
-            var overrideTriggers = Page.Locator("[data-testid='interactive-search-row-override-trigger']");
+            // title-attribute selector + Playwright's GetByTestId helper over
+            // raw CSS Locator (CLAUDE.md D-18 convention).
+            // interactive-search-row-override-trigger is mounted on the
+            // Override trigger Link in InteractiveSearchRow.tsx.
+            var overrideTriggers = Page.GetByTestId("interactive-search-row-override-trigger");
             var triggerCount = await overrideTriggers.CountAsync();
             triggerCount.Should().BeGreaterThan(
                 0,

@@ -159,13 +159,18 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
   // we take the first row's chapters and project each Chapter -> ReleaseEpisode.
   const onSeriesSelect = useCallback(
     (manga: Manga) => {
+      // PR #262 Codex P2 + CodeRabbit Minor follow-up: only clear chapter
+      // selection when the manga ACTUALLY changes. Re-selecting the current
+      // manga should not erase a valid in-progress override. Cross-manga
+      // chapter IDs still can't leak into the next Grab because the picker
+      // would need a different manga.id to even reach this branch.
+      if (manga.id !== seriesId) {
+        setEpisodes([]);
+      }
       setSeriesId(manga.id);
-      // PR #262 Codex P2: clear chapter selection when the picked manga changes
-      // (cross-manga chapter IDs would otherwise leak into the next Grab).
-      setEpisodes([]);
       setSelectModalOpen(null);
     },
-    [setSeriesId, setEpisodes, setSelectModalOpen]
+    [seriesId, setSeriesId, setEpisodes, setSelectModalOpen]
   );
 
   const onEpisodesSelect = useCallback(
