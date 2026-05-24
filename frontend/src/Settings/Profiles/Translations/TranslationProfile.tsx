@@ -113,9 +113,9 @@ function TranslationProfile(props: TranslationProfileProps) {
   return (
     <Card
       className={styles.translationProfile}
+      data-testid={`settings-translation-profiles-row-${id}`}
       overlayContent={true}
       onPress={handleEditPress}
-      data-testid={`settings-translation-profiles-row-${id}`}
     >
       <div>
         <div className={styles.nameContainer}>

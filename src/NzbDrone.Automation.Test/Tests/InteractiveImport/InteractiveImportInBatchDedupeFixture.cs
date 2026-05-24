@@ -151,15 +151,16 @@ public class InteractiveImportInBatchDedupeFixture : AutomationTest
         var manualImportResp = await http.GetAsync("manualimport?folder=" +
             Uri.EscapeDataString(Path.GetTempPath()));
 
-        // The endpoint either returns 200 (when #175 ships) or 404 (today).
-        // Either is a documented contract state. Document only — no hard
-        // assertion on the status because both are valid pre/post #175.
+        // #175 shipped in Phase 25 — src/Mangarr.Api.V5/ManualImport/ManualImportController.cs.
+        // The endpoint must return 2xx; accepting 404 would let a regression silently slip
+        // through (e.g. controller deletion, route rename). The fixture exercises the
+        // happy path only — empty-folder probe response shape isn't asserted here because
+        // Plan 25 owns those contract fixtures (ManualImportControllerFixture / etc).
         var statusCode = (int)manualImportResp.StatusCode;
-        statusCode.Should().BeOneOf(
-            new[] { 200, 404 },
-            "manualimport endpoint must either be implemented (200; #175 shipped) " +
-            "or absent (404; pending #175). Any other status code is a regression " +
-            "in the documented contract. Observed: {0}",
+        statusCode.Should().BeInRange(
+            200,
+            299,
+            "manualimport endpoint must be reachable (Phase 25 shipped #175). Observed: {0}",
             statusCode);
     }
 }

@@ -47,13 +47,19 @@ namespace NzbDrone.Core.Datastore.Migration
             //
             // INSERT uses the LOCKED column list from 001_mangarr_baseline.cs:129-134
             // (5 columns; no Tags). Column order matches baseline declaration order exactly.
+            //
+            // Cross-dialect SQL contract: ALL identifiers are double-quoted so Postgres
+            // preserves case (without quotes Postgres folds `Config` -> `config` and
+            // fails with `42P01: relation "config" does not exist`). SQLite accepts
+            // double-quoted identifiers identically. Boolean literal uses TRUE
+            // (Postgres-canonical, also valid in SQLite 3.23+ as a 1/0 alias).
             Execute.WithConnection((connection, transaction) =>
             {
                 string rawFormats;
                 using (var cmd = connection.CreateCommand())
                 {
                     cmd.Transaction = transaction;
-                    cmd.CommandText = "SELECT Value FROM Config WHERE Key = 'metadataformats'";
+                    cmd.CommandText = "SELECT \"Value\" FROM \"Config\" WHERE \"Key\" = 'metadataformats'";
                     rawFormats = cmd.ExecuteScalar() as string;
                 }
 
@@ -64,8 +70,8 @@ namespace NzbDrone.Core.Datastore.Migration
                 {
                     using var ins = connection.CreateCommand();
                     ins.Transaction = transaction;
-                    ins.CommandText = @"INSERT INTO Metadata (Enable, Name, Implementation, Settings, ConfigContract)
-                                        VALUES (1, 'ComicInfo', 'ComicInfoMetadata', '{}', 'ComicInfoMetadataSettings')";
+                    ins.CommandText = @"INSERT INTO ""Metadata"" (""Enable"", ""Name"", ""Implementation"", ""Settings"", ""ConfigContract"")
+                                        VALUES (TRUE, 'ComicInfo', 'ComicInfoMetadata', '{}', 'ComicInfoMetadataSettings')";
                     ins.ExecuteNonQuery();
                 }
             });

@@ -1,3 +1,5 @@
+using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Playwright;
 using NzbDrone.Automation.Test.PageModel.Settings;
@@ -71,6 +73,23 @@ public static class SettingsFlow
 
         // Wait for the modal's Save button (anchors on the modal being open + interactive).
         await pageObject.EditSaveButton.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
+
+        // Bounds-check targetOrdinal against the rendered language count BEFORE
+        // entering the click loop — a negative or beyond-end value would let the
+        // loop spin forever clicking non-existent arrow testids (Playwright
+        // 30s default per click). Read the count off the rendered DOM
+        // (modal re-binds rows by index, so a brief delay-free count is reliable).
+        var languageCount = await pageObject.EditRowDownArrow(0)
+            .Page
+            .GetByTestId(new Regex(@"^settings-translation-profiles-edit-row-\d+-down$"))
+            .CountAsync();
+        if (targetOrdinal < 0 || targetOrdinal >= languageCount)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(targetOrdinal),
+                targetOrdinal,
+                $"targetOrdinal must be in [0, {languageCount}); profile {profileId} renders {languageCount} languages.");
+        }
 
         // Walk the moving row from index 0 to targetOrdinal, clicking the appropriate
         // arrow once per ordinal step. The modal re-binds testids by index after every

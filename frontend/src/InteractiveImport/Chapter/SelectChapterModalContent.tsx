@@ -90,7 +90,15 @@ function SelectChapterModalContent(props: SelectChapterModalContentProps) {
 
   const onRowCheckedChange = useCallback(
     ({ name, value }: CheckInputChanged) => {
+      // CheckInput emits `name` as a string. The row checkbox is constructed
+      // with `name={String(chapter.id)}`, so parseInt(name) is the inverse.
+      // Guard against malformed input (NaN) so a non-id sentinel never pollutes
+      // the Set — downstream `selectedChapterIds.has(c.id)` would silently miss it.
+      // Mangarr ESLint `radix: as-needed` forbids the explicit 10 argument.
       const chapterId = parseInt(name);
+      if (!Number.isFinite(chapterId)) {
+        return;
+      }
       setSelectedChapterIds((prev) => {
         const next = new Set(prev);
         if (value) {
@@ -122,12 +130,22 @@ function SelectChapterModalContent(props: SelectChapterModalContentProps) {
     // 1:1; every selected row receives the SAME picked chapters list (the
     // row may consume just selectedChapters[0]?.chapters per Plan 30-01
     // Task 1 SelectedChapter shape).
-    const payload: SelectedChapter[] = selectedIds.map((id) => ({
-      id: typeof id === 'number' ? id : parseInt(id),
-      chapters: pickedChapters,
-      chapterNumber: pickedChapters[0]?.chapterNumber,
-      title: pickedChapters[0]?.title,
-    }));
+    // selectedIds is (string | number)[] — guarded parseInt with radix; entries
+    // that fail to parse drop out so we never emit NaN-id rows to the caller.
+    const payload: SelectedChapter[] = selectedIds
+      .map((id): SelectedChapter | null => {
+        const numericId = typeof id === 'number' ? id : parseInt(id);
+        if (!Number.isFinite(numericId)) {
+          return null;
+        }
+        return {
+          id: numericId,
+          chapters: pickedChapters,
+          chapterNumber: pickedChapters[0]?.chapterNumber,
+          title: pickedChapters[0]?.title,
+        };
+      })
+      .filter((row): row is SelectedChapter => row !== null);
     onChaptersSelect(payload);
   }, [
     onChaptersSelect,
