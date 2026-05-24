@@ -407,6 +407,7 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
 
         <Link
           className={styles.manualDownloadContent}
+          data-testid="interactive-search-row-override-trigger"
           title={translate('OverrideAndAddToDownloadQueue')}
           onPress={onOverridePress}
         >
