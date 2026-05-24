@@ -64,7 +64,11 @@ public static class SettingsFlow
         await row.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
 
         // Open the EditTranslationProfileModal — Card.onPress on the row opens it.
-        await row.ClickAsync();
+        // Force=true: the Card-underlay <button> child sits on top of the row <div>
+        // (Components/Card/Card.css positions the underlay over the whole card surface)
+        // and intercepts pointer events on the wrapper. The underlay IS the intended
+        // onPress target; forcing bypasses Playwright's actionability retry loop.
+        await row.ClickAsync(new LocatorClickOptions { Force = true });
 
         // Wait for the modal's Save button (anchors on the modal being open + interactive).
         await pageObject.EditSaveButton.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
@@ -130,10 +134,16 @@ public static class SettingsFlow
         await pageObject.AddButton.ClickAsync();
 
         // Strategy-A wrapper indicates the modal has been opened (conditionally
-        // rendered in AddRootFolder.tsx). The wrapper itself is empty in the DOM
-        // because Modal portals; the inner widgets live under <div role="dialog">.
+        // rendered in AddRootFolder.tsx). The wrapper itself is empty in the rendered
+        // DOM because Modal portals its content to #modal-root, so the <div> has zero
+        // dimensions and never satisfies Playwright's default Visible check. Use
+        // Attached state — presence in the React-rendered DOM tree is the contract.
         await page.GetByTestId("add-root-folder-modal")
-            .WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
+            .WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Attached,
+                Timeout = 15_000
+            });
 
         await pageObject.AddRootFolderModalDialog
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
