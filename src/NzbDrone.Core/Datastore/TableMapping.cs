@@ -29,6 +29,7 @@ using NzbDrone.Core.Languages;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.MediaInfo;
 using NzbDrone.Core.Messaging.Commands;
+using NzbDrone.Core.Metadata;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.Notifications;
 using NzbDrone.Core.Organizer;
@@ -135,11 +136,15 @@ namespace NzbDrone.Core.Datastore
                   .Ignore(i => i.SupportsOnChapterFileDelete)
                   .Ignore(i => i.SupportsOnChapterFileDeleteForUpgrade);
 
-            // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption —
-            // MetadataDefinition entity registration stripped (Extras/Metadata/ deleted).
-            //   Mapper.Entity<MetadataDefinition>("Metadata").RegisterModel()
-            //         .Ignore(x => x.ImplementationName)
-            //         .Ignore(d => d.Tags);
+            // Phase 30 Plan 30-04 (II2-02) RESTORED — IMetadata ThingiProvider substrate.
+            // Sonarr-canonical registration for the "Metadata" table baseline (Migration 001:129-134).
+            // ProviderDefinition.ImplementationName is computed (no column); Tags rides the
+            // global EmbeddedDocumentConverter<HashSet<int>> registered in RegisterMappers.
+            // Without this registration, MetadataFactory.RemoveMissingImplementations (called
+            // from ApplicationStartedEvent) throws KeyNotFoundException at TableMapper line 52
+            // because the Repository's SelectTemplate cannot resolve the entity → SQL columns.
+            Mapper.Entity<MetadataDefinition>("Metadata").RegisterModel()
+                  .Ignore(x => x.ImplementationName);
 
             // Phase 2 (Plan 02-11) — IMetadataSource ProviderDefinition. Distinct from
             // the Sonarr-inherited Metadata IMetadataConsumer table above (Pitfall 2).
