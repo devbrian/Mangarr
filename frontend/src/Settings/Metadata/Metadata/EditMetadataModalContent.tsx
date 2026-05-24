@@ -42,7 +42,12 @@ function EditMetadataModalContent({
 
   const wasSaving = usePrevious(isSaving);
 
-  const { name, enable, fields, message } = item;
+  // Phase 30 fix-forward 2026-05-24 (UAT-discovered): `fields` is undefined when
+  // the provider's Settings class ships ZERO [FieldDefinition] attributes — D-04
+  // single-toggle UX. selectSettings.ts:166-168 only writes `settings.fields`
+  // when fields.length > 0, so ComicInfoMetadata's empty fields[] never lands
+  // on `item`. Default to [] so `fields.map()` below does not crash.
+  const { name, enable, fields = [], message } = item;
 
   const handleInputChange = useCallback(
     ({ name, value }: InputChanged) => {
