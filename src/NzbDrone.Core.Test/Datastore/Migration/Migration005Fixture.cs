@@ -125,5 +125,87 @@ namespace NzbDrone.Core.Test.Datastore.Migration
             var total = db.Query<int>("SELECT COUNT(*) FROM \"MetadataSources\"").Single();
             total.Should().Be(1, "fresh-DB users without prior AniList/MAL rows see no churn after Migration 005");
         }
+
+        // ============================================================
+        // Test 6 — IN-03 (GH #260): multiple deprecated rows of the same Implementation
+        //
+        // Probes DELETE WHERE IN (...) on a UNIQUE-constraint-relaxed shape: two AniList
+        // rows (e.g., from a botched re-add or pre-existing user state where the unique
+        // index over Implementation was absent). The DELETE must remove BOTH rows in
+        // one pass; no partial-delete or skipped-row pathology.
+        // ============================================================
+        [Test]
+        public void should_delete_multiple_deprecated_rows_of_same_implementation()
+        {
+            var db = WithDapperMigrationTestDb(beforeMigration: m =>
+            {
+                // Seed two AniList rows + one MAL row + MangaDex primary.
+                // Different Name values keep both AniList rows distinguishable when the
+                // unique index isn't constraining Implementation (per 001_mangarr_baseline.cs
+                // schema — MetadataSources table has no UNIQUE constraint over Implementation).
+                m.Execute.Sql(
+                    "INSERT INTO \"MetadataSources\" " +
+                    "(\"Name\", \"Implementation\", \"Settings\", \"ConfigContract\", \"Enable\", \"IsPrimary\", \"Tags\") " +
+                    "VALUES " +
+                    "('MangaDex', 'MangaDexMetadataSource', '{}', 'MangaDexMetadataSourceSettings', 1, 1, NULL)," +
+                    "('AniList A', 'AniListMetadataSource', '{}', 'AniListMetadataSourceSettings', 1, 0, NULL)," +
+                    "('AniList B', 'AniListMetadataSource', '{}', 'AniListMetadataSourceSettings', 1, 0, NULL)," +
+                    "('MyAnimeList', 'MyAnimeListMetadataSource', '{}', 'MyAnimeListMetadataSourceSettings', 1, 0, NULL)");
+            });
+
+            var aniListCount = db.Query<int>(
+                "SELECT COUNT(*) FROM \"MetadataSources\" WHERE \"Implementation\" = 'AniListMetadataSource'").Single();
+            aniListCount.Should().Be(0, "Migration 005 DELETE WHERE IN (...) must remove ALL AniList rows in one pass, even when duplicates exist");
+
+            var malCount = db.Query<int>(
+                "SELECT COUNT(*) FROM \"MetadataSources\" WHERE \"Implementation\" = 'MyAnimeListMetadataSource'").Single();
+            malCount.Should().Be(0, "Migration 005 must also delete MAL rows");
+
+            var mangaDexCount = db.Query<int>(
+                "SELECT COUNT(*) FROM \"MetadataSources\" WHERE \"Implementation\" = 'MangaDexMetadataSource'").Single();
+            mangaDexCount.Should().Be(1, "MangaDex row must remain after deduplicated DELETE");
+        }
+
+        // ============================================================
+        // Test 7 — WR-02 (GH #255) load-bearing: deprecated row was IsPrimary, MangaDex
+        //          was IsPrimary=false → after migration MangaDex becomes IsPrimary=true.
+        //
+        // A user previously promoted AniList to primary via MetadataSourceFactory.SetPrimary.
+        // Migration 005 deletes the AniList row (the only IsPrimary=true row). Without the
+        // WR-02 defensive UPDATE, GetPrimary() would return null and downstream consumers
+        // would throw InvalidOperationException or silently skip cross-source resolution.
+        // This test pins the WR-02 fix landed correctly.
+        // ============================================================
+        [Test]
+        public void should_promote_mangadex_when_deprecated_was_primary()
+        {
+            var db = WithDapperMigrationTestDb(beforeMigration: m =>
+            {
+                // Pre-Migration-005 state: AniList is primary, MangaDex exists but is not primary.
+                m.Execute.Sql(
+                    "INSERT INTO \"MetadataSources\" " +
+                    "(\"Name\", \"Implementation\", \"Settings\", \"ConfigContract\", \"Enable\", \"IsPrimary\", \"Tags\") " +
+                    "VALUES " +
+                    "('MangaDex', 'MangaDexMetadataSource', '{}', 'MangaDexMetadataSourceSettings', 1, 0, NULL)," +
+                    "('AniList', 'AniListMetadataSource', '{}', 'AniListMetadataSourceSettings', 1, 1, NULL)");
+            });
+
+            // AniList must be deleted (D-03).
+            var aniListCount = db.Query<int>(
+                "SELECT COUNT(*) FROM \"MetadataSources\" WHERE \"Implementation\" = 'AniListMetadataSource'").Single();
+            aniListCount.Should().Be(0, "Migration 005 must delete AniList per D-03");
+
+            // MangaDex must remain — and the WR-02 UPDATE must have promoted it to IsPrimary=true.
+            var mangaDexIsPrimary = db.Query<int>(
+                "SELECT \"IsPrimary\" FROM \"MetadataSources\" WHERE \"Implementation\" = 'MangaDexMetadataSource'").Single();
+            mangaDexIsPrimary.Should().Be(1,
+                "WR-02 (GH #255): when Migration 005 deletes the only IsPrimary row, MangaDex must " +
+                "be defensively promoted to IsPrimary=true so GetPrimary() never returns null post-migration");
+
+            // Exactly one IsPrimary row in the table — invariant restored.
+            var primaryCount = db.Query<int>(
+                "SELECT COUNT(*) FROM \"MetadataSources\" WHERE \"IsPrimary\" = 1").Single();
+            primaryCount.Should().Be(1, "exactly one primary row must exist post-migration");
+        }
     }
 }
