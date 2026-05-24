@@ -29,6 +29,13 @@ namespace NzbDrone.Core.Metadata
 
         public virtual ProviderMessage Message => null;
 
+        // DefaultDefinitions is the per-provider template the Add-Metadata UI
+        // shows; Enable=true so a user adding ComicInfo through the UI gets it
+        // enabled immediately. This is INTENTIONALLY divergent from
+        // MetadataFactory.InitializeProviders which seeds Enable=false per D-03
+        // (preserve-disabled UX for users upgrading from a config where
+        // Config.MetadataFormats already excluded "comicinfo"). Two callers, two
+        // semantics — same pattern as ImportListBase / IndexerBase precedent.
         public virtual IEnumerable<ProviderDefinition> DefaultDefinitions
         {
             get
@@ -37,7 +44,7 @@ namespace NzbDrone.Core.Metadata
 
                 yield return new MetadataDefinition
                 {
-                    Name = GetType().Name,
+                    Name = Name,
                     Enable = config.Validate().IsValid,
                     Implementation = GetType().Name,
                     Settings = config

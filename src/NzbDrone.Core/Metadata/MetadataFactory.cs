@@ -56,10 +56,16 @@ namespace NzbDrone.Core.Metadata
 
             foreach (var provider in _providers)
             {
+                // Name = provider.Name (friendly) per IndexerFactory:155 Sonarr-canonical
+                // pattern — the row label users see in Settings/Metadata matches the
+                // Add-Metadata modal's Implementation label. Using GetType().Name here
+                // would surface "ComicInfoMetadata" instead of "ComicInfo" on the only
+                // codepath that reaches this branch (Migration 004 D-03 skipped the seed
+                // because Config.MetadataFormats lacked "comicinfo" pre-upgrade).
                 var def = new MetadataDefinition
                 {
                     Enable = false,
-                    Name = provider.GetType().Name,
+                    Name = provider.Name,
                     Implementation = provider.GetType().Name,
                     Settings = (IProviderConfig)Activator.CreateInstance(provider.ConfigContract)
                 };
