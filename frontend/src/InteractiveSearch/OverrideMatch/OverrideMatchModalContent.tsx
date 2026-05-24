@@ -390,10 +390,20 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
           SelectChapterModal.tsx:28-37). The mangaId prop continues to use
           the local seriesId state per the Phase 30 D-01 / CONTEXT.md
           `<deferred>` "OverrideMatchModalContent broader refactor" scope
-          carve-out. */}
+          carve-out.
+
+          Phase 31 fix-forward (REVIEW.md §WR-03 remediation, 2026-05-24):
+          selectedIds now passes the locally-mutable `episodes` state's
+          numeric `id` field, NOT the release GUID. The previous shape
+          `selectedIds={[guid]}` passed a non-numeric hash through
+          SelectChapterModalContent.onSubmitPress where parseInt(id) returns
+          NaN (filtered → empty payload → user-facing "no chapter" error)
+          or a partial-digit-prefix parse that fabricates a numeric ID
+          unrelated to any real chapter row. Passing numeric episode IDs
+          preserves the selection-state fidelity through the picker. */}
       <SelectChapterModal
         isOpen={selectModalOpen === 'episode'}
-        selectedIds={[guid]}
+        selectedIds={episodes.map((e) => e.id)}
         mangaId={seriesId}
         selectedDetails={title}
         modalTitle={modalTitle}
