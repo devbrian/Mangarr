@@ -1,3 +1,6 @@
+using System;
+using System.Reflection;
+using System.Runtime.Serialization;
 using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Core.ImportLists.MyAnimeList;
@@ -60,6 +63,36 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
                 first,
                 "second invocation must return the SAME string (cached reflection is deterministic; " +
                 "calling twice does NOT re-enumerate [EnumMember] attributes).");
+        }
+
+        // ── WR-06 (GH #257) regression guard ───────────────────────────────────────
+        //
+        // MalListStatusExtensions.BuildMap throws InvalidOperationException at
+        // static-init time when any enum value is missing its [EnumMember(Value="...")]
+        // attribute (fix-forward pass 2 — see MalListStatusExtensions.cs comment block).
+        //
+        // This test defensively verifies the invariant at test-time: every member of
+        // MalListStatus carries a non-empty [EnumMember(Value=...)] attribute. If a
+        // future refactor drops the attribute (e.g., during a Sonarr upstream sync that
+        // strips annotations), this test fails LOUDLY before the missing-attribute
+        // pathology can land and break MAL API calls in production.
+        [Test]
+        public void all_MalListStatus_members_have_EnumMember_attribute()
+        {
+            var type = typeof(MalListStatus);
+            foreach (var value in Enum.GetValues<MalListStatus>())
+            {
+                var field = type.GetField(value.ToString());
+                field.Should().NotBeNull($"MalListStatus.{value} must be a defined enum member with a backing static field");
+
+                var attr = field!.GetCustomAttribute<EnumMemberAttribute>();
+                attr.Should().NotBeNull(
+                    $"MalListStatus.{value} must carry [EnumMember(Value=\"...\")] for MAL API compatibility — " +
+                    "MalListStatusExtensions.BuildMap now throws at static-init if this invariant is violated " +
+                    "(WR-06 / GH #257 hardening).");
+                attr!.Value.Should().NotBeNullOrEmpty(
+                    $"MalListStatus.{value} [EnumMember] must have a non-empty Value to round-trip through ToApiString.");
+            }
         }
     }
 }

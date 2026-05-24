@@ -41,10 +41,19 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
 
         // Build the dictionary once at type-init time. Uses Enum.GetValues<T>() +
         // reflection over the enum's static fields to read the [EnumMember]
-        // attribute on each value. If a value is somehow missing the [EnumMember]
-        // attribute (shouldn't happen — all 5 values have it on MalListStatus.cs)
-        // the fallback is `value.ToString().ToLowerInvariant()` which preserves
-        // some semblance of correctness.
+        // attribute on each value.
+        //
+        // WR-06 (GH #257): if a future refactor drops the [EnumMember] attribute from
+        // any value (e.g., PlanToRead, OnHold) the prior fallback `v.ToString().ToLowerInvariant()`
+        // would yield "plantoread" / "onhold" — incorrect MAL API snake_case. MAL's API
+        // would 400 silently, breaking the corresponding ImportList until a user reports
+        // it. We now throw at static-init time so the failure is LOUD: assembly load
+        // fails immediately with a clear actionable message, and the regression is
+        // impossible to land via PR review without surfacing.
+        //
+        // The defensive regression-guard test
+        // (MalListStatusExtensionsFixture.all_MalListStatus_members_have_EnumMember_attribute)
+        // pins this invariant at test-time.
         private static Dictionary<MalListStatus, string> BuildMap()
         {
             var type = typeof(MalListStatus);
@@ -52,7 +61,9 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
                 v => v,
                 v => type.GetField(v.ToString())
                          ?.GetCustomAttribute<EnumMemberAttribute>()
-                         ?.Value ?? v.ToString().ToLowerInvariant());
+                         ?.Value ?? throw new InvalidOperationException(
+                             $"MalListStatus.{v} is missing [EnumMember(Value=\"...\")] attribute — " +
+                             "required for ToApiString() to return the canonical MAL snake_case string."));
         }
     }
 }
