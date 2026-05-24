@@ -196,16 +196,66 @@ namespace NzbDrone.Core.Test.Datastore.Migration
             aniListCount.Should().Be(0, "Migration 005 must delete AniList per D-03");
 
             // MangaDex must remain — and the WR-02 UPDATE must have promoted it to IsPrimary=true.
-            var mangaDexIsPrimary = db.Query<int>(
-                "SELECT \"IsPrimary\" FROM \"MetadataSources\" WHERE \"Implementation\" = 'MangaDexMetadataSource'").Single();
-            mangaDexIsPrimary.Should().Be(1,
+            // Boolean read uses bool param + COUNT to stay cross-dialect: SQLite stores
+            // bool as INTEGER (works with `= @primary` after Dapper binds true→1); Postgres
+            // stores bool natively (works after Dapper binds true→TRUE). The prior
+            // `Query<int>("SELECT \"IsPrimary\" ...")` would have failed on Postgres because
+            // boolean → int isn't a valid Dapper coercion. (PR #262 PG unit_test failures
+            // surfaced this — the prior production migration used `= 1` and the test mirrored
+            // that pattern.)
+            var mangaDexPrimaryCount = db.Query<int>(
+                "SELECT COUNT(*) FROM \"MetadataSources\" WHERE \"Implementation\" = 'MangaDexMetadataSource' AND \"IsPrimary\" = @primary",
+                new { primary = true }).Single();
+            mangaDexPrimaryCount.Should().Be(1,
                 "WR-02 (GH #255): when Migration 005 deletes the only IsPrimary row, MangaDex must " +
                 "be defensively promoted to IsPrimary=true so GetPrimary() never returns null post-migration");
 
             // Exactly one IsPrimary row in the table — invariant restored.
             var primaryCount = db.Query<int>(
-                "SELECT COUNT(*) FROM \"MetadataSources\" WHERE \"IsPrimary\" = 1").Single();
+                "SELECT COUNT(*) FROM \"MetadataSources\" WHERE \"IsPrimary\" = @primary",
+                new { primary = true }).Single();
             primaryCount.Should().Be(1, "exactly one primary row must exist post-migration");
+        }
+
+        // ============================================================
+        // Test 8 — PR #262 CodeRabbit Major: single-primary invariant under duplicate
+        //          MangaDex rows. The unconstrained `UPDATE WHERE Implementation = …`
+        //          would promote EVERY MangaDexMetadataSource row to IsPrimary=true
+        //          when no primary remained. The MIN(Id) restriction in the WR-02
+        //          fix ensures exactly one row is promoted (the earliest by id).
+        //
+        // Seeds: AniList (primary=true, deleted by D-03) + two MangaDex rows (both
+        // primary=false). Post-migration: AniList gone; exactly one of the two
+        // MangaDex rows is primary; the other stays primary=false.
+        // ============================================================
+        [Test]
+        public void should_promote_single_mangadex_row_when_duplicates_exist()
+        {
+            var db = WithDapperMigrationTestDb(beforeMigration: m =>
+            {
+                m.Execute.Sql(
+                    "INSERT INTO \"MetadataSources\" " +
+                    "(\"Name\", \"Implementation\", \"Settings\", \"ConfigContract\", \"Enable\", \"IsPrimary\", \"Tags\") " +
+                    "VALUES " +
+                    "('MangaDex A', 'MangaDexMetadataSource', '{}', 'MangaDexMetadataSourceSettings', 1, 0, NULL)," +
+                    "('MangaDex B', 'MangaDexMetadataSource', '{}', 'MangaDexMetadataSourceSettings', 1, 0, NULL)," +
+                    "('AniList', 'AniListMetadataSource', '{}', 'AniListMetadataSourceSettings', 1, 1, NULL)");
+            });
+
+            // Both MangaDex rows survive (D-03 only targets deprecated implementations).
+            var mangaDexCount = db.Query<int>(
+                "SELECT COUNT(*) FROM \"MetadataSources\" WHERE \"Implementation\" = 'MangaDexMetadataSource'").Single();
+            mangaDexCount.Should().Be(2, "both MangaDex rows must survive the DELETE (only deprecated impls are deleted)");
+
+            // Exactly ONE primary row exists — the unrestricted UPDATE would have promoted
+            // both MangaDex rows, violating the single-primary invariant. The MIN(Id)
+            // restriction (PR #262 CodeRabbit Major flag) keeps it to one.
+            var primaryCount = db.Query<int>(
+                "SELECT COUNT(*) FROM \"MetadataSources\" WHERE \"IsPrimary\" = @primary",
+                new { primary = true }).Single();
+            primaryCount.Should().Be(1,
+                "single-primary invariant: exactly one IsPrimary row must exist post-migration " +
+                "even when duplicate MangaDex rows are present (PR #262 CodeRabbit Major)");
         }
     }
 }

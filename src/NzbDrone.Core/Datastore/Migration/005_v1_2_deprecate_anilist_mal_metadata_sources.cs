@@ -1,3 +1,4 @@
+using System.Data;
 using FluentMigrator;
 using NzbDrone.Core.Datastore.Migration.Framework;
 
@@ -49,10 +50,20 @@ namespace NzbDrone.Core.Datastore.Migration
     // ImportListSyncService cross-source resolver) throw InvalidOperationException
     // or silently skip resolution.
     //
-    // Fix: after the DELETE, if no IsPrimary=true row remains, promote MangaDex.
-    // `NOT EXISTS (SELECT 1 ... WHERE IsPrimary = 1)` runs identically on SQLite and
-    // PostgreSQL (both support correlated subqueries with NOT EXISTS). Identifier
-    // quoting matches the existing DELETE statement.
+    // Fix: after the DELETE, if no IsPrimary=true row remains, promote MangaDex via
+    // a parameterized boolean comparison. PostgreSQL rejects `IsPrimary = 1` with
+    // `42883: operator does not exist: boolean = integer` (caught by PR #262 CI
+    // unit_test_postgres 16/17/18); SQLite would accept it because SQLite stores
+    // booleans as integers. Using a typed `DbType.Boolean` parameter lets Npgsql
+    // bind it as native `boolean` and Microsoft.Data.Sqlite bind it as `INTEGER`
+    // (`1`) — both dialects then evaluate the comparison correctly.
+    //
+    // Single-row promotion via `Id = (SELECT MIN(Id) ...)` defends the
+    // single-primary invariant: if duplicate MangaDexMetadataSource rows exist
+    // (botched re-adds, manual SQL edits), the unconstrained UPDATE would set
+    // EVERY MangaDex row to IsPrimary=true. The MIN(Id) restriction promotes
+    // exactly one (the earliest by id, matching `MetadataSourceFactory.SetPrimary`
+    // tie-breaker convention).
     //
     // Pre-v1 dev-migration policy ENDED at Phase 21 close (v1.0.0 tag 2026-05-17).
     // Sequential post-baseline migration: NEVER edits 001_mangarr_baseline.cs.
@@ -77,14 +88,35 @@ namespace NzbDrone.Core.Datastore.Migration
                 cmd.ExecuteNonQuery();
 
                 // WR-02 (GH #255) — defensively promote MangaDex to IsPrimary=true
-                // when the DELETE above removed the only primary row. Cross-dialect:
-                // SQLite + PostgreSQL both accept `NOT EXISTS (SELECT 1 ...)`.
+                // when the DELETE above removed the only primary row.
+                //
+                // PR #262 review feedback fixes (folded into the WR-02 implementation
+                // before merge):
+                //   • Cross-dialect boolean — parameterized `@primary` with
+                //     `DbType.Boolean`; Npgsql binds as native `boolean`,
+                //     Microsoft.Data.Sqlite binds as `INTEGER 1`. PR #262 CI
+                //     unit_test_postgres 16/17/18 failed with
+                //     `42883: operator does not exist: boolean = integer` on the
+                //     prior `= 1` literal — this parameterization is the fix.
+                //   • Single-row promotion — `Id = (SELECT MIN(Id) WHERE Implementation = …)`
+                //     restricts the UPDATE to a single row. The prior unbounded
+                //     `WHERE Implementation = 'MangaDexMetadataSource'` would
+                //     set IsPrimary=true on every duplicate MangaDex row,
+                //     violating the single-primary invariant (PR #262 CodeRabbit
+                //     Major flag).
                 using var promoteCmd = connection.CreateCommand();
                 promoteCmd.Transaction = transaction;
                 promoteCmd.CommandText = @"UPDATE ""MetadataSources""
-                                           SET ""IsPrimary"" = 1
-                                           WHERE ""Implementation"" = 'MangaDexMetadataSource'
-                                             AND NOT EXISTS (SELECT 1 FROM ""MetadataSources"" WHERE ""IsPrimary"" = 1)";
+                                           SET ""IsPrimary"" = @primary
+                                           WHERE ""Id"" = (SELECT MIN(""Id"") FROM ""MetadataSources"" WHERE ""Implementation"" = 'MangaDexMetadataSource')
+                                             AND NOT EXISTS (SELECT 1 FROM ""MetadataSources"" WHERE ""IsPrimary"" = @primary)";
+
+                var primaryParam = promoteCmd.CreateParameter();
+                primaryParam.ParameterName = "@primary";
+                primaryParam.DbType = DbType.Boolean;
+                primaryParam.Value = true;
+                promoteCmd.Parameters.Add(primaryParam);
+
                 promoteCmd.ExecuteNonQuery();
             });
         }
