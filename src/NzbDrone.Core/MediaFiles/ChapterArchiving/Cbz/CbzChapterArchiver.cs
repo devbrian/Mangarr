@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -7,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using NLog;
 using NzbDrone.Common.Disk;
-using NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata;
+using NzbDrone.Core.Metadata;
 
 namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Cbz
 {
@@ -25,19 +24,26 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Cbz
     /// Page entries are 4-digit zero-padded preserving original extension (D-15) — sourced from
     /// the scratch-dir filenames written by <c>ChapterDownloadService</c> (plan 04-03) under
     /// the canonical <c>&lt;PageIndex:D4&gt;.&lt;ext&gt;</c> shape.
+    ///
+    /// Phase 30 Plan 30-04 D-02 flip — metadata writer enumeration changed from the
+    /// DryIoc auto-discovered legacy metadata-writer enumeration to
+    /// <see cref="IMetadataFactory.Enabled"/>. The MetadataDefinition.Enable toggle in
+    /// Settings/Metadata is now the canonical signal; the legacy ConfigService
+    /// metadata-formats global key is no longer read by archivers (stays in the Config
+    /// table per project_dev_migration_policy).
     /// </summary>
     public class CbzChapterArchiver : IChapterArchiver
     {
         public string FormatKey => "cbz";
 
         private readonly IDiskProvider _diskProvider;
-        private readonly IEnumerable<IMetadataWriter> _metadataWriters;
+        private readonly IMetadataFactory _metadataFactory;
         private readonly Logger _logger;
 
-        public CbzChapterArchiver(IDiskProvider diskProvider, IEnumerable<IMetadataWriter> metadataWriters, Logger logger)
+        public CbzChapterArchiver(IDiskProvider diskProvider, IMetadataFactory metadataFactory, Logger logger)
         {
             _diskProvider = diskProvider;
-            _metadataWriters = metadataWriters;
+            _metadataFactory = metadataFactory;
             _logger = logger;
         }
 
@@ -86,8 +92,11 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Cbz
                     await pageStream.CopyToAsync(entryStream, ct).ConfigureAwait(false);
                 }
 
-                // D-14 — iterate metadata writers; CBZ ctx streams ComicInfo into the open zip.
-                foreach (var writer in _metadataWriters.Where(w => w.AppliesTo(request)))
+                // D-14 + Phase 30 D-02 — iterate metadata providers via the ThingiProvider
+                // factory; CBZ ctx streams ComicInfo into the open zip. Only enabled
+                // MetadataDefinition rows surface here (Settings/Metadata enable toggle is
+                // the signal).
+                foreach (var writer in _metadataFactory.Enabled().Where(w => w.AppliesTo(request)))
                 {
                     await writer.WriteAsync(request, new CbzArchiveOutputContext(archive), ct).ConfigureAwait(false);
                 }

@@ -11,7 +11,7 @@ using NUnit.Framework;
 using NzbDrone.Common.Disk;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.MediaFiles.ChapterArchiving.Folder;
-using NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata;
+using NzbDrone.Core.Metadata;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common.Categories;
 
@@ -48,8 +48,12 @@ namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving
 
             WireDiskProvider();
 
-            // Default: no metadata writers (ComicInfoMetadataWriter ships in plan 04-07).
-            Mocker.SetConstant<IEnumerable<IMetadataWriter>>(new List<IMetadataWriter>());
+            // Default: no metadata providers (ComicInfoMetadataWriter ships in plan 04-07;
+            // Phase 30 Plan 30-04 Task 5 flipped the iteration to IMetadataFactory.Enabled()).
+            // The Iterates_metadata_writers_into_tmp_before_rename test overrides this setup.
+            Mocker.GetMock<IMetadataFactory>()
+                  .Setup(f => f.Enabled())
+                  .Returns(new List<IMetadata>());
         }
 
         private void WireDiskProvider()
@@ -124,7 +128,9 @@ namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving
         [Test]
         public async Task Iterates_metadata_writers_into_tmp_before_rename()
         {
-            var writer = new Mock<IMetadataWriter>();
+            // Phase 30 Plan 30-04 Task 5 flip — archivers iterate IMetadataFactory.Enabled()
+            // returning List<IMetadata> instead of IEnumerable<IMetadataWriter>.
+            var writer = new Mock<IMetadata>();
             writer.Setup(w => w.AppliesTo(It.IsAny<ChapterArchiveRequest>())).Returns(true);
             writer.Setup(w => w.WriteAsync(It.IsAny<ChapterArchiveRequest>(), It.IsAny<ArchiveOutputContext>(), It.IsAny<CancellationToken>()))
                   .Returns(async (ChapterArchiveRequest r, ArchiveOutputContext ctx, CancellationToken ct) =>
@@ -134,7 +140,9 @@ namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving
                       await s.WriteAsync(bytes.AsMemory(), ct);
                   });
 
-            Mocker.SetConstant<IEnumerable<IMetadataWriter>>(new[] { writer.Object });
+            Mocker.GetMock<IMetadataFactory>()
+                  .Setup(f => f.Enabled())
+                  .Returns(new List<IMetadata> { writer.Object });
 
             var req = MakeRequest(_scratchDir, _stagingDir, "Chapter 132");
             var finalDir = await Subject.ArchiveAsync(req, CancellationToken.None);
