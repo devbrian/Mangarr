@@ -194,9 +194,18 @@ namespace Mangarr.Api.V5.Provider
             return TypedResults.NoContent();
         }
 
+        // Phase 31 fix-forward (REVIEW.md §WR-01 remediation, 2026-05-24): marked
+        // virtual so MetadataSourceController can `override` (not `new`-shadow) for
+        // the Phase 31 D-02 deprecation filter. The prior `new`-modifier shadow
+        // meant both base and derived methods existed on the runtime type with the
+        // same [HttpGet("schema")] route attribute — ASP.NET MVC's action discovery
+        // surfaces inherited non-virtual methods as candidates which can produce
+        // AmbiguousActionException on first GET. Marking the base virtual + using
+        // `override` eliminates the ambiguity (the derived method completely
+        // replaces the base in the action discovery scan).
         [HttpGet("schema")]
         [Produces("application/json")]
-        public Ok<List<TProviderResource>> GetTemplates()
+        public virtual Ok<List<TProviderResource>> GetTemplates()
         {
             var defaultDefinitions = _providerFactory.GetDefaultDefinitions().OrderBy(p => p.ImplementationName).ToList();
 
