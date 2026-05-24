@@ -12,6 +12,7 @@ using NzbDrone.Core.ImportLists.MyAnimeList;
 using NzbDrone.Core.Localization;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
 {
@@ -172,6 +173,12 @@ namespace NzbDrone.Core.Test.ImportListTests.MyAnimeList
                 Times.Once,
                 "T-V13: exactly 1 outbound HTTP call (the initial); the malicious paging.next cursor " +
                 "MUST NOT have been followed.");
+
+            // The base FetchItems exception ladder at HttpImportListBase.cs:174-179 calls
+            // _logger.Error(...) for the InvalidOperationException. Tell the LoggingTest
+            // base that we expect exactly 1 error log on this test so the TearDown's
+            // ExceptionVerification doesn't fail with "0 Error(s) expected but 1 received".
+            ExceptionVerification.ExpectedErrors(1);
         }
 
         // ── Test (c): MaxCursorPages safety cap terminates self-referencing walk ──────
