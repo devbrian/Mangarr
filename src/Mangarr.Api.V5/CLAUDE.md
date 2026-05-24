@@ -75,7 +75,7 @@ All endpoints are prefixed with **`/api/v5`** (configured by the `[V5ApiControll
 | `Localization/` | `LocalizationController`, `LanguageController` |
 | `CustomFilters/` | `CustomFilterController` |
 | `ImportLists/` | `ImportListExclusionController` |
-| `Metadata/` | `MetadataController` |
+| `Metadata/` | `MetadataController` — **NEW Phase 30 Plan 30-04 (II2-02)** — `ProviderControllerBase<MetadataResource, MetadataBulkResource, IMetadata, MetadataDefinition>` subclass routed at `/api/v5/metadata`. 8 active CRUD/schema/test endpoints inherited + 2 `[NonAction]` bulk overrides throwing NotImplementedException (single-instance UX per D-04 — bulk has no use case while ComicInfo is the only v1.2 provider). Authored from `ConnectionController.cs:11` template per PATTERNS.md §Plan 30-04 (closer match than ImportListController because Metadata has no FK validators). Closes the long-standing Settings/Metadata 404 since Phase 15 deleted V3. |
 | `Provider/` | (provider-base resource — used by indexer/dlclient/etc. lookup) |
 | `SeasonPass/` | `SeasonPassController` (bulk season operations — possibly N/A for manga) |
 

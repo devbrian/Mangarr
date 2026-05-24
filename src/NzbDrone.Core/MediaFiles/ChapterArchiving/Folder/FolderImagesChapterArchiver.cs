@@ -1,12 +1,11 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NLog;
 using NzbDrone.Common.Disk;
-using NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata;
+using NzbDrone.Core.Metadata;
 
 namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Folder
 {
@@ -29,19 +28,24 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Folder
     /// - <see cref="IDiskProvider.MoveFolder"/> instead of <see cref="IDiskProvider.MoveFile"/>
     /// - <see cref="FolderArchiveOutputContext"/> instead of <c>CbzArchiveOutputContext</c>
     /// - No compression decision (folder mode = pass-through bytes; ZIP doesn't enter the picture).
+    ///
+    /// Phase 30 Plan 30-04 D-02 flip — metadata writer enumeration changed from the
+    /// DryIoc auto-discovered legacy metadata-writer enumeration to
+    /// <see cref="IMetadataFactory.Enabled"/>. See <c>CbzChapterArchiver</c> header for full
+    /// flip rationale.
     /// </summary>
     public class FolderImagesChapterArchiver : IChapterArchiver
     {
         public string FormatKey => "folder";
 
         private readonly IDiskProvider _diskProvider;
-        private readonly IEnumerable<IMetadataWriter> _metadataWriters;
+        private readonly IMetadataFactory _metadataFactory;
         private readonly Logger _logger;
 
-        public FolderImagesChapterArchiver(IDiskProvider diskProvider, IEnumerable<IMetadataWriter> metadataWriters, Logger logger)
+        public FolderImagesChapterArchiver(IDiskProvider diskProvider, IMetadataFactory metadataFactory, Logger logger)
         {
             _diskProvider = diskProvider;
-            _metadataWriters = metadataWriters;
+            _metadataFactory = metadataFactory;
             _logger = logger;
         }
 
@@ -86,9 +90,10 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Folder
                     _diskProvider.CopyFile(pageFile, dest);
                 }
 
-                // D-14 — iterate metadata writers; folder writer drops sibling files into tmpDir
-                // BEFORE the rename so they land inside the final dir atomically.
-                foreach (var writer in _metadataWriters.Where(w => w.AppliesTo(request)))
+                // D-14 + Phase 30 D-02 — iterate metadata providers via the ThingiProvider
+                // factory; folder writer drops sibling files into tmpDir BEFORE the rename
+                // so they land inside the final dir atomically.
+                foreach (var writer in _metadataFactory.Enabled().Where(w => w.AppliesTo(request)))
                 {
                     ct.ThrowIfCancellationRequested();
                     await writer.WriteAsync(request, new FolderArchiveOutputContext(tmpDir, _diskProvider), ct).ConfigureAwait(false);
