@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Http;
 
@@ -46,9 +47,18 @@ namespace NzbDrone.Core.ImportLists.MangaDex
         {
             var chain = new ImportListPageableRequestChain();
 
-            // Single tier (no fallback strategy needed for follows-list — there's no
-            // search/recent split like the Indexer tier carries). Walk pages 0..N within
-            // a single tier; the base's pagedReleases-cum-cap break terminates.
+            // Phase 31 D-07 (IL2-02) — single chain.Add(IEnumerable) puts all 10 offset-stepped
+            // requests into ONE ImportListPageableRequest so the substrate's inner foreach loop
+            // at HttpImportListBase.cs:80-97 can break early on IsFullPage()==false (partial page).
+            // The 10 separate chain.Add() calls in the prior shape defeated the inner-loop break
+            // because each PageableRequest contained only 1 request — the break had nothing to
+            // break out of, so all 10 fired regardless of partial-page state.
+            //
+            // Companion edit: MangaDexImportList.cs ships `public override int PageSize => 100;`
+            // so the substrate's IsFullPage default impl (HttpImportListBase.cs:203-206:
+            // `PageSize != 0 && page.Count >= PageSize`) evaluates correctly and the inner-loop
+            // break at HttpImportListBase.cs:88-96 actually fires on the first partial page.
+            var requests = new List<ImportListRequest>();
             for (var offset = 0; offset < MaxItems; offset += PageSize)
             {
                 var request = new HttpRequestBuilder("https://api.mangadex.org/user/follows/manga")
@@ -71,8 +81,10 @@ namespace NzbDrone.Core.ImportLists.MangaDex
                 request.Headers["User-Agent"] = HonestUserAgent;
                 request.Headers["Accept"] = "application/json";
 
-                chain.Add(new[] { new ImportListRequest(request) });
+                requests.Add(new ImportListRequest(request));
             }
+
+            chain.Add(requests);
 
             return chain;
         }

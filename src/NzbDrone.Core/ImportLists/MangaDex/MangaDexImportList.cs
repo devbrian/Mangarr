@@ -60,6 +60,17 @@ namespace NzbDrone.Core.ImportLists.MangaDex
 
         public override TimeSpan MinRefreshInterval => TimeSpan.FromHours(24);
 
+        // Phase 31 D-07 (IL2-02) — MangaDex /user/follows/manga page-size cap per the
+        // MangaDex API docs (https://api.mangadex.org/docs/02-authentication/personal-clients/).
+        // The substrate's IsFullPage default impl (HttpImportListBase.cs:203-206:
+        // `PageSize != 0 && page.Count >= PageSize`) returns false when fewer than 100 items
+        // arrive on a page, triggering the inner-loop break at HttpImportListBase.cs:88-96 →
+        // walk terminates on the first partial page. Companion edit:
+        // MangaDexImportListRequestGenerator.GetListItems uses a single chain.Add(IEnumerable)
+        // so all 10 offset-stepped requests live in ONE ImportListPageableRequest the
+        // inner-loop can break out of.
+        public override int PageSize => 100;
+
         public override IImportListRequestGenerator GetRequestGenerator()
             => new MangaDexImportListRequestGenerator { Settings = Settings };
 
