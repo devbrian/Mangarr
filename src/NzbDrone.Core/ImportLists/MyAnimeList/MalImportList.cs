@@ -5,7 +5,6 @@ using System.Net;
 using System.Web;
 using Newtonsoft.Json;
 using NLog;
-using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Http;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.ImportLists.MyAnimeList.Resource;
@@ -433,7 +432,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
                     break;
                 }
 
-                if (!IsTrustedMalCursor(nextCursor))
+                if (!MalConstants.IsTrustedMalCursor(nextCursor))
                 {
                     throw new InvalidOperationException(
                         "Refusing to follow MAL paging.next cursor: not on the canonical api.myanimelist.net host. " +
@@ -443,32 +442,12 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
                 var nextHttpRequest = new HttpRequest(nextCursor);
                 nextHttpRequest.RateLimitKey = "myanimelist";                                                 // Pitfall 10 — same bucket
                 nextHttpRequest.Headers["Authorization"] = $"Bearer {Settings?.AccessToken}";
-                nextHttpRequest.Headers["User-Agent"] = $"Mangarr/{BuildInfo.Version.ToString(2)}";
+                nextHttpRequest.Headers["User-Agent"] = MalConstants.HonestUserAgent;                          // IN-01 — single source-of-truth
                 nextHttpRequest.Headers["Accept"] = "application/json";
                 currentRequest = new ImportListRequest(nextHttpRequest);
             }
 
             return aggregated;
-        }
-
-        // T-V13 cursor-host validation — mirrors MalImportListProxy.IsTrustedMalCursor:255-268.
-        // Kept local here per CONTEXT.md Claude's Discretion ("duplicate locally to keep plan
-        // scope narrow; v1.3+ refactor candidate" — extracting to MalConstants would touch
-        // MalImportListProxy.cs in this plan, broadening surface for no v1.2 user-visible win).
-        // The 8-line duplication is a tracked v1.3+ refactor candidate.
-        private static bool IsTrustedMalCursor(string cursor)
-        {
-            if (!Uri.TryCreate(cursor, UriKind.Absolute, out var uri))
-            {
-                return false;
-            }
-
-            if (!string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            return string.Equals(uri.Host, "api.myanimelist.net", StringComparison.OrdinalIgnoreCase);
         }
 
         // D-05 reactive 401-retry decorator at the per-request level. The base

@@ -1,4 +1,3 @@
-using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Http;
 
 namespace NzbDrone.Core.ImportLists.MyAnimeList
@@ -41,10 +40,9 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // maximum the API accepts; values above are clamped server-side).
         private const int PageSize = 1000;
 
-        // Pre-baked User-Agent literal so the generator stays static-ish (no
-        // BuildInfo reflection per request). Phase 1 D-13 honest UA mandatory.
-        private static readonly string HonestUserAgent = $"Mangarr/{BuildInfo.Version.ToString(2)}";
-
+        // Phase 31 IN-01 (GH #258): HonestUserAgent moved to MalConstants.HonestUserAgent
+        // (single source-of-truth shared with MalImportList.FetchPage cursor follow-ups
+        // and MalImportListProxy.ApplySharedHeaders).
         public MalImportListSettings Settings { get; init; }
 
         public ImportListPageableRequestChain GetListItems()
@@ -80,8 +78,8 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             // credentials and retries.
             request.Headers["Authorization"] = $"Bearer {Settings?.AccessToken}";
 
-            // Phase 1 D-13 — honest UA per MAL ToS.
-            request.Headers["User-Agent"] = HonestUserAgent;
+            // Phase 1 D-13 — honest UA per MAL ToS. Phase 31 IN-01: shared constant.
+            request.Headers["User-Agent"] = MalConstants.HonestUserAgent;
             request.Headers["Accept"] = "application/json";
 
             chain.Add(new[] { new ImportListRequest(request) });
