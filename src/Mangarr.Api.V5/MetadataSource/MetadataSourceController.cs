@@ -14,6 +14,14 @@ namespace Mangarr.Api.V5.MetadataSource;
 // against the IMetadataSource ThingiProvider family. Adds the bespoke SetPrimary route
 // that delegates to MetadataSourceFactory.SetPrimary and enforces the D-15 at-most-one
 // invariant atomically.
+//
+// Phase 31 (v1.2 — INSERTED 2026-05-24) D-02 (IL2-01 reframe): adds a `new`-modifier
+// override of the inherited GET /api/v5/metadatasource/schema endpoint that filters
+// out deprecated providers (AniList + MAL post-Phase-31). The filter reads the
+// IsDeprecated virtual on MetadataSourceBase via reflection so provider classes
+// stay registered (cross-source SearchForNewManga resolver in
+// ImportListSyncService.cs:240-244 continues to work) but are hidden from the
+// user-facing Settings → MetadataSources Add picker.
 [V5ApiController]
 public class MetadataSourceController
     : ProviderControllerBase<MetadataSourceResource, MetadataSourceBulkResource, IMetadataSource, MetadataSourceDefinition>
@@ -51,5 +59,37 @@ public class MetadataSourceController
         {
             return TypedResults.NotFound();
         }
+    }
+
+    /// <summary>
+    /// Phase 31 D-02 (IL2-01 reframe) — filter AniList + MAL out of the Settings →
+    /// MetadataSources Add picker by reading the IsDeprecated virtual on each
+    /// provider's MetadataSourceBase. Provider classes stay registered (cross-source
+    /// SearchForNewManga resolver continues to work) but are hidden from the
+    /// user-facing schema endpoint.
+    ///
+    /// The <c>new</c> modifier shadows the inherited base
+    /// <see cref="ProviderControllerBase{TProviderResource,TBulkProviderResource,TProvider,TProviderDefinition}.GetTemplates"/>;
+    /// we re-emit the base result with the deprecation filter applied. The reflection
+    /// read on the IsDeprecated property avoids generic-cast gymnastics against the
+    /// closed-generic MetadataSourceBase&lt;TSettings&gt; shape (each concrete
+    /// provider binds TSettings to a different settings class).
+    /// </summary>
+    [HttpGet("schema")]
+    [Produces("application/json")]
+    public new Ok<List<MetadataSourceResource>> GetTemplates()
+    {
+        var baseResult = base.GetTemplates();
+
+        var deprecatedImpls = _factory.GetAvailableProviders()
+            .Where(p => (bool)(p.GetType().GetProperty("IsDeprecated")?.GetValue(p) ?? false))
+            .Select(p => p.GetType().Name)
+            .ToHashSet();
+
+        var filtered = (baseResult.Value ?? new List<MetadataSourceResource>())
+            .Where(r => !deprecatedImpls.Contains(r.Implementation ?? string.Empty))
+            .ToList();
+
+        return TypedResults.Ok(filtered);
     }
 }
