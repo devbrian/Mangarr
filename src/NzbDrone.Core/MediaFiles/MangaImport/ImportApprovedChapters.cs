@@ -14,6 +14,7 @@ using NzbDrone.Core.MediaFiles.MangaImport.Manual;
 
 // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — MediaFiles/EpisodeImport/ DELETED.
 //   using NzbDrone.Core.MediaFiles.EpisodeImport; ← deleted
+using NzbDrone.Core.MediaFiles.MediaInfo;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Organizer.Manga;
@@ -70,6 +71,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
         private readonly ITranslationProfileService _translationProfileService;
         private readonly IConfigService _configService;
         private readonly IUpgradeChapterFiles _upgradeChapterFileService;   // Phase 9 D-09-05
+        private readonly IUpdateChapterInfo _updateChapterInfoService;      // Phase 30 Plan 30-05 (II2-03)
         private readonly Logger _logger;
 
         public ImportApprovedChapters(
@@ -83,6 +85,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             ITranslationProfileService translationProfileService,
             IConfigService configService,
             IUpgradeChapterFiles upgradeChapterFileService,                  // Phase 9 D-09-05
+            IUpdateChapterInfo updateChapterInfoService,                      // Phase 30 Plan 30-05 (II2-03)
             Logger logger)
         {
             _chapterFileService = chapterFileService;
@@ -95,6 +98,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             _translationProfileService = translationProfileService;
             _configService = configService;
             _upgradeChapterFileService = upgradeChapterFileService;
+            _updateChapterInfoService = updateChapterInfoService;
             _logger = logger;
         }
 
@@ -238,6 +242,21 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                     };
 
                     chapterFile = _chapterFileService.Add(chapterFile);
+
+                    // ---- 3.5 Plan 30-05 (II2-03 D-05) — ImageSharp probe inline (probe-on-import only; NO daemon).
+                    // PITFALL 4 ORDERING PRESERVED: runs AFTER step 3 DB write + filesystem move (step 2)
+                    // + BEFORE step 6 ChapterImportedEvent publish. Probe populates chapterFile.MediaInfo
+                    // (PageCount + Color + DpiHorizontal) via ImageSharp 3.1.12 sampling first + middle + last
+                    // page (D-07). D-09 non-fatal: probe failures log Warn + leave MediaInfo null; import
+                    // succeeds. Token render (MangaFileNameBuilder) skips null per D-09 (no "0 pages" defaults).
+                    try
+                    {
+                        _updateChapterInfoService.Update(chapterFile, lc.Manga);
+                    }
+                    catch (Exception probeEx)
+                    {
+                        _logger.Warn(probeEx, "ImageSharp probe failed for {0}; MediaInfo left null", chapterFile.Path);
+                    }
 
                     // ---- 4. Wire Chapter.ChapterFileId FK (Plan 06-01 PIPELINE-04 column) ----
                     lc.Chapter.ChapterFileId = chapterFile.Id;

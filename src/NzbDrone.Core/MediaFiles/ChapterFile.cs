@@ -1,6 +1,7 @@
 using System;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Datastore;
+using NzbDrone.Core.MediaFiles.MediaInfo;
 
 namespace NzbDrone.Core.MediaFiles
 {
@@ -26,6 +27,12 @@ namespace NzbDrone.Core.MediaFiles
         // renamed from Sonarr's EpisodeFile.ReleaseGroup because scanlation groups ARE the
         // release groups for manga. (D-06; DIVERGENCE.md ScanlationGroup-as-canonical entry.)
         public string ScanlationGroup { get; set; }
+
+        // Phase 30 Plan 30-05 (II2-03) — ImageSharp probe result. Nullable: existing rows
+        // pre-Migration-004 stay NULL (D-05 probe-on-import only — no backfill daemon).
+        // Round-tripped via EmbeddedDocumentConverter<ChapterMediaInfo> Dapper TypeHandler
+        // (registered in TableMapping.cs); TEXT column added by Migration 004.
+        public ChapterMediaInfo MediaInfo { get; set; }
 
         public override string ToString()
         {
