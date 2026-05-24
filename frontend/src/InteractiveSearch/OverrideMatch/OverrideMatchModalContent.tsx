@@ -142,31 +142,47 @@ function OverrideMatchModalContent(props: OverrideMatchModalContentProps) {
   // the emitted shape into local useState.
   //
   // onMangaSelect emits the full Manga object (SelectMangaModalContent.tsx:41)
-  // — adapter takes manga.id for setSeriesId.
-  // onChaptersSelect emits SelectedChapter[] (SelectChapterModalContent.tsx:43)
-  // — adapter maps each entry to ReleaseEpisode { id, episodeNumber, title }
-  // per RESEARCH §Item 3. episodeFileId + seasonNumber default to 0 (no
-  // chapter-file id is known until import; manga has no season per
-  // DOMAIN-02). The explicit adapter compiles clean — no TypeScript
-  // suppression directive is needed (Pitfall 3 / Phase 25 Plan 25-04
-  // Task 4 grep gate stays green).
+  // — adapter takes manga.id for setSeriesId. PR #262 Codex P2 fix: when
+  // the user picks a NEW manga, clear `episodes` so a subsequent Grab can't
+  // submit chapter IDs that belong to the previously selected manga (the
+  // prior behavior dropped dependent selection on series change; restoring
+  // that here closes the cross-manga stale-chapter-submission window).
+  //
+  // onChaptersSelect emits SelectedChapter[] (SelectChapterModalContent.tsx:135-148).
+  // PR #262 Codex P1 fix: project from `c.chapters` (the user's picker
+  // selection — full Chapter objects), NOT `c.id` (which is the CALLER's
+  // row id, i.e. the prior selectedIds we seeded the modal with). The bug
+  // was that mapping `c.id` -> ReleaseEpisode.id copies the seed back into
+  // the override grab payload, so the user's new chapter pick never reaches
+  // the wire. SelectChapterModalContent writes the SAME picker selection
+  // into every row's `chapters[]` (1 CBZ = 1 chapter, R-5 manga shape), so
+  // we take the first row's chapters and project each Chapter -> ReleaseEpisode.
   const onSeriesSelect = useCallback(
     (manga: Manga) => {
       setSeriesId(manga.id);
+      // PR #262 Codex P2: clear chapter selection when the picked manga changes
+      // (cross-manga chapter IDs would otherwise leak into the next Grab).
+      setEpisodes([]);
       setSelectModalOpen(null);
     },
-    [setSeriesId, setSelectModalOpen]
+    [setSeriesId, setEpisodes, setSelectModalOpen]
   );
 
   const onEpisodesSelect = useCallback(
     (selectedChapters: SelectedChapter[]) => {
+      // PR #262 Codex P1: project from c.chapters (picker selection), not c.id
+      // (caller's prior seed). The picker writes the same chapters[] into every
+      // row; the first row carries the full selection. episodeFileId + seasonNumber
+      // default to 0 (no chapter-file id is known until import; manga has no
+      // season per DOMAIN-02).
+      const pickedChapters = selectedChapters[0]?.chapters ?? [];
       setEpisodes(
-        selectedChapters.map((c) => ({
-          id: c.id,
+        pickedChapters.map((ch) => ({
+          id: ch.id,
           episodeFileId: 0,
           seasonNumber: 0,
-          episodeNumber: c.chapterNumber ?? 0,
-          title: c.title ?? '',
+          episodeNumber: ch.chapterNumber ?? 0,
+          title: ch.title ?? '',
         }))
       );
       setSelectModalOpen(null);

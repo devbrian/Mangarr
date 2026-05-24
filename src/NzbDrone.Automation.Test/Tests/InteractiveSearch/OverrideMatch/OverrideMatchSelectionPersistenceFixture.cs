@@ -148,6 +148,16 @@ public class OverrideMatchSelectionPersistenceFixture : AutomationTest
             "II2-05 — setSeriesId / setSeasonNumber / setEpisodes setters became orphans",
             "OverrideMatchModalContent.tsx must remove the Phase 30 II2-05 dead-branch deletion comment block (now stale)");
 
+        // PR #262 Codex P2 — onSeriesSelect MUST reset episodes to []
+        // when the picked manga changes, so the next Grab can't submit
+        // cross-manga stale chapter IDs. The prior shape updated only
+        // seriesId, leaving the old episodes state intact.
+        var seriesSelectResetsEpisodes = new Regex(
+            @"const onSeriesSelect = useCallback\([\s\S]*?setSeriesId\(manga\.id\);[\s\S]*?setEpisodes\(\[\]\);",
+            RegexOptions.Multiline);
+        seriesSelectResetsEpisodes.IsMatch(source).Should().BeTrue(
+            "PR #262 Codex P2: onSeriesSelect must call setEpisodes([]) after setSeriesId(manga.id) so cross-manga stale chapter IDs cannot leak into the next Grab payload");
+
         // Live-surface reachability — mirrors OverrideMatchModalFixture's
         // canonical AddManga seed + InteractiveSearch trigger-surface check.
         // Wrapped in try/catch so transient MangaDex upstream throttling
@@ -169,7 +179,10 @@ public class OverrideMatchSelectionPersistenceFixture : AutomationTest
                 0,
                 "InteractiveSearch must render at least one release row to host the OverrideMatch trigger surface (precondition for the SelectMangaModal wire-through)");
 
-            var overrideTriggers = Page.Locator("[title='Override and add to download queue']");
+            // PR #262 CodeRabbit nit: prefer data-testid (i18n-stable) over
+            // title-attribute selector. interactive-search-row-override-trigger
+            // is mounted on the Override trigger Link in InteractiveSearchRow.tsx.
+            var overrideTriggers = Page.Locator("[data-testid='interactive-search-row-override-trigger']");
             var triggerCount = await overrideTriggers.CountAsync();
             triggerCount.Should().BeGreaterThan(
                 0,
@@ -234,13 +247,22 @@ public class OverrideMatchSelectionPersistenceFixture : AutomationTest
             "const onEpisodesSelect = useCallback",
             "OverrideMatchModalContent.tsx must restore the onEpisodesSelect useCallback (Plan 31-03 Task 2 edit zone 2). Pre-Task-2: deleted by Plan 30-01 II2-05.");
 
-        // Wire-through marker C — SelectedChapter → ReleaseEpisode adapter.
-        // Per RESEARCH §Item 3 the adapter maps c.chapterNumber → episodeNumber
-        // and c.title → title; selectedChapters.map(...) is the canonical
-        // adapter shape.
+        // Wire-through marker C — picker-selection projection (PR #262 Codex P1 fix).
+        // Pre-fix shape mapped `selectedChapters.map(c => ({ id: c.id, ... }))`,
+        // copying the CALLER's prior selectedIds back as ReleaseEpisode.id —
+        // the user's actual picker selection (in c.chapters) never reached the
+        // grab payload. Post-fix flattens c.chapters from the first row and
+        // projects each Chapter -> ReleaseEpisode { id: ch.id, ... }, so the
+        // user's pick propagates correctly into override.episodeIds.
         source.Should().Contain(
-            "selectedChapters.map",
-            "OverrideMatchModalContent.tsx must include the consumer-side SelectedChapter[] → ReleaseEpisode[] adapter (per RESEARCH §Item 3 — no modal contract retrofit needed)");
+            "selectedChapters[0]?.chapters",
+            "PR #262 Codex P1: OverrideMatchModalContent.tsx must read picker selection from selectedChapters[0]?.chapters (the user's picker output), NOT iterate selectedChapters and copy c.id (the CALLER's prior selectedIds seed).");
+        source.Should().Contain(
+            "pickedChapters.map",
+            "PR #262 Codex P1: OverrideMatchModalContent.tsx must project Chapter -> ReleaseEpisode via pickedChapters.map(ch => ({ id: ch.id, ... })) — the variable extracted from selectedChapters[0]?.chapters carries the user's picker selection.");
+        source.Should().NotContain(
+            "selectedChapters.map((c) => ({\n          id: c.id,",
+            "PR #262 Codex P1: the pre-fix shape `selectedChapters.map((c) => ({ id: c.id, ... }))` must NOT regress — c.id is the CALLER's prior selectedIds seed, not the user's picker selection.");
 
         // Wire-through marker D — SelectChapterModal JSX prop wire.
         source.Should().Contain(
@@ -298,7 +320,10 @@ public class OverrideMatchSelectionPersistenceFixture : AutomationTest
                 0,
                 "InteractiveSearch must render at least one release row to host the OverrideMatch trigger surface (precondition for the SelectChapterModal multi-select wire-through)");
 
-            var overrideTriggers = Page.Locator("[title='Override and add to download queue']");
+            // PR #262 CodeRabbit nit: prefer data-testid (i18n-stable) over
+            // title-attribute selector. interactive-search-row-override-trigger
+            // is mounted on the Override trigger Link in InteractiveSearchRow.tsx.
+            var overrideTriggers = Page.Locator("[data-testid='interactive-search-row-override-trigger']");
             var triggerCount = await overrideTriggers.CountAsync();
             triggerCount.Should().BeGreaterThan(
                 0,
