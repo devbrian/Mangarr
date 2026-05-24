@@ -123,6 +123,16 @@ function substituteSampleTokens(format: string): string {
     [/\{Chapter CleanTitle\}/g, 'The Eclipse'],
     [/\{ScanlationGroup\}/g, 'Evil-Genius'],
     [/\{Language\}/g, 'en'],
+    // Phase 30 Plan 30-05 (II2-03) MediaInfo tokens — same sample values as the
+    // MangaNamingModal token-reference picker (MangaNamingModal.tsx:148-150).
+    // Names match BACKEND MangaFileNameBuilder.cs tokens exactly. Null-skip on
+    // missing MediaInfo is owned by the backend builder (verified by
+    // MangaFileNameBuilderTokenFixture); the live preview always shows the
+    // populated-value example so users can see what the template would render
+    // for chapters that have been probed.
+    [/\{Page Count\}/g, '24'],
+    [/\{Color\}/g, 'Color'],
+    [/\{DPI\}/g, '300'],
   ];
 
   return replacements.reduce(
