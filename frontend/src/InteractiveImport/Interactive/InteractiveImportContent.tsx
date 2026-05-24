@@ -699,8 +699,9 @@ function InteractiveImportContentInner(
 
   const handleChaptersSelect = useCallback(
     (selectedChapters: SelectedChapter[]) => {
-      // Phase 30 Plan 30-01 (II2-04) — SelectedChapter.episodes renamed to
-      // .chapters per CONTEXT.md `<domain>` §4 + PATTERNS.md §Plan 30-01.
+      // Phase 30 Plan 30-01 (II2-04) — SelectedChapter TV-shape `episodes`
+      // field renamed to `chapters` per CONTEXT.md `<domain>` §4 +
+      // PATTERNS.md §Plan 30-01.
       selectedChapters.forEach(({ id, chapters }) => {
         if (id == null) return;
         updateInteractiveImportItem(id, { chapters: chapters ?? [] });

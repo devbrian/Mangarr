@@ -229,8 +229,8 @@ function InteractiveImportRow(props: InteractiveImportRowProps) {
   const onChaptersSelect = useCallback(
     (selectedChapters: SelectedChapter[]) => {
       // SelectedChapter is the no-op stub interface (Plan 15-12); its
-      // .chapters field holds the actual chapter rows. Phase 30 Plan 30-01
-      // (II2-04) renamed TV-shape `.episodes` -> `.chapters` to align with
+      // `chapters` field holds the actual chapter rows. Phase 30 Plan 30-01
+      // (II2-04) renamed TV-shape `episodes` -> `chapters` to align with
       // the manga domain (PROJECT.md DOMAIN-02).
       const picked = selectedChapters[0]?.chapters ?? [];
       updateInteractiveImportItem(id, { chapters: picked });
