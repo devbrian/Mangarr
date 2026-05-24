@@ -167,7 +167,14 @@ namespace NzbDrone.Core.ImportLists.MangaDex
                     // controller returns 500 — masking the canonical D-08 envelope contract
                     // (RequestAction never returns 500; failures round-trip as
                     // `{ success: false, error: ... }`). T-V7 invariant maintained.
-                    _logger.Warn(ex, "MangaDex startOAuth failed with non-HttpException; returning envelope");
+                    //
+                    // WR-05 (GH #256): log message-only (NOT the ex object) to stay consistent
+                    // with sibling branches at lines 215-217 (HttpException) and 222-228
+                    // (RefreshToken non-HTTP). The original `_logger.Warn(ex, "...")` form
+                    // had NLog render the full exception chain — for a JsonException raised
+                    // by a malformed password-grant response, that chain could include the
+                    // response body (potentially echoing credentials via a misconfigured edge).
+                    _logger.Warn("MangaDex startOAuth failed with non-HttpException; returning envelope. {0}", ex.Message);
                     return new
                     {
                         success = false,
