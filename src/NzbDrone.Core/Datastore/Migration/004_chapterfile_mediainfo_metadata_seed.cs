@@ -68,10 +68,19 @@ namespace NzbDrone.Core.Datastore.Migration
 
                 if (formats.IndexOf("comicinfo", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
+                    // INSERT ... SELECT ... WHERE NOT EXISTS guard prevents duplicate seed
+                    // rows on dev/upgraded databases that already carry a `ComicInfoMetadata`
+                    // row from a prior run. Phase 15 D-02/D-03 preserved the Sonarr `Metadata`
+                    // table; any existing implementation row must NOT be re-inserted, otherwise
+                    // MetadataFactory.RemoveMissingImplementations() observes two rows for the
+                    // same Implementation key and provider resolution becomes ambiguous.
                     using var ins = connection.CreateCommand();
                     ins.Transaction = transaction;
                     ins.CommandText = @"INSERT INTO ""Metadata"" (""Enable"", ""Name"", ""Implementation"", ""Settings"", ""ConfigContract"")
-                                        VALUES (TRUE, 'ComicInfo', 'ComicInfoMetadata', '{}', 'ComicInfoMetadataSettings')";
+                                        SELECT TRUE, 'ComicInfo', 'ComicInfoMetadata', '{}', 'ComicInfoMetadataSettings'
+                                        WHERE NOT EXISTS (
+                                            SELECT 1 FROM ""Metadata"" WHERE ""Implementation"" = 'ComicInfoMetadata'
+                                        )";
                     ins.ExecuteNonQuery();
                 }
             });

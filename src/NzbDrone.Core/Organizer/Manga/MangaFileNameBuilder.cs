@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -138,6 +139,12 @@ namespace NzbDrone.Core.Organizer.Manga
 
         private string ResolveTokens(string pattern, MangaModel manga, List<NzbDrone.Core.Manga.Chapter> chapters, ReleaseInfo release)
         {
+            // Lazily resolve the MediaInfo blob once per ResolveTokens call. Patterns
+            // containing multiple media-info tokens (e.g. `{Page Count}p {Color} {DPI}dpi`)
+            // would otherwise issue duplicate GetFilesByChapter repository queries per
+            // token. Lazy avoids paying the cost for patterns with zero media-info tokens.
+            var mediaInfo = new Lazy<ChapterMediaInfo>(() => GetChapterFileMediaInfo(chapters));
+
             return TitleRegex.Replace(pattern, match =>
             {
                 if (match.Groups["escaped"].Success)
@@ -155,7 +162,7 @@ namespace NzbDrone.Core.Organizer.Manga
                 var prefix = match.Groups["prefix"].Value;
                 var suffix = match.Groups["suffix"].Value;
 
-                var resolved = ResolveTokenValue(canonicalToken, formatSpec, manga, chapters, release);
+                var resolved = ResolveTokenValue(canonicalToken, formatSpec, manga, chapters, release, mediaInfo);
 
                 if (resolved.IsNullOrWhiteSpace())
                 {
@@ -181,7 +188,8 @@ namespace NzbDrone.Core.Organizer.Manga
             string formatSpec,
             MangaModel manga,
             List<NzbDrone.Core.Manga.Chapter> chapters,
-            ReleaseInfo release)
+            ReleaseInfo release,
+            Lazy<ChapterMediaInfo> mediaInfo)
         {
             // D-14 token set — see Phase 5 CONTEXT item 11 + RESEARCH §"Token semantics".
             // Note: Phase 2 D-09 — Manga.MangaDexId is Guid? (singular), Manga.MalId is int? (singular),
@@ -236,16 +244,18 @@ namespace NzbDrone.Core.Organizer.Manga
                 // Phase 30 Plan 30-05 (II2-03) — MediaInfo-backed tokens. Render empty
                 // (null) when the relevant subfield is null per D-09 (no "0 pages" /
                 // "Unknown" defaults); ResolveTokens line 159-162 converts null -> empty.
+                // Lazy is materialized once per ResolveTokens call regardless of how
+                // many of these 3 tokens the pattern contains.
                 case "page.count":
                 case "pagecount":
-                    return GetChapterFileMediaInfo(chapters)?.PageCount?.ToString(CultureInfo.InvariantCulture);
+                    return mediaInfo.Value?.PageCount?.ToString(CultureInfo.InvariantCulture);
 
                 case "color":
-                    var color = GetChapterFileMediaInfo(chapters)?.Color;
+                    var color = mediaInfo.Value?.Color;
                     return color switch { true => "Color", false => "B&W", null => null };
 
                 case "dpi":
-                    return GetChapterFileMediaInfo(chapters)?.DpiHorizontal?.ToString(CultureInfo.InvariantCulture);
+                    return mediaInfo.Value?.DpiHorizontal?.ToString(CultureInfo.InvariantCulture);
 
                 default:
                     return null;   // unknown token — silently dropped (Sonarr precedent)

@@ -39,33 +39,57 @@ public class RootFolderAddFixture : AutomationTest
         // {AppData}/MangaLibrary, so we use a sibling that the RootFolder validator
         // will accept (must exist + must be writable).
         var folderPath = Path.Combine(Path.GetTempPath(), $"mangarr-30-02-rf-{Guid.NewGuid():N}");
+
+        // JSON-escaped form for response-body grep — folderPath contains backslashes
+        // on Windows which JSON serializes as `\\`; computed once + reused at both
+        // assertion sites.
+        var jsonEscapedPath = folderPath.Replace("\\", "\\\\");
         Directory.CreateDirectory(folderPath);
 
-        // Act — invoke the helper. Pre-Plan-30-02 this would click the AddButton and
-        // return without ever typing folderPath; post-Plan-30-02 it walks through the
-        // FileBrowser modal annotated with add-root-folder-modal and clicks Ok.
-        await SettingsFlow.AddRootFolderAsync(Page, RootUri, folderPath);
-
-        // Assert — STATE assertion: GET /api/v5/rootfolder returns the new path.
-        // Poll briefly to absorb any SignalR-refresh latency between the modal close
-        // and the row being persisted to the DB.
-        var body = string.Empty;
-        var deadline = DateTime.UtcNow.AddSeconds(10);
-        while (DateTime.UtcNow < deadline)
+        try
         {
-            var listResp = await Page.APIRequest.GetAsync($"{RootUri}/api/v5/rootfolder");
-            listResp.Status.Should().Be(200);
-            body = await listResp.TextAsync();
-            if (body.Contains(folderPath.Replace("\\", "\\\\")))
+            // Act — invoke the helper. Pre-Plan-30-02 this would click the AddButton and
+            // return without ever typing folderPath; post-Plan-30-02 it walks through the
+            // FileBrowser modal annotated with add-root-folder-modal and clicks Ok.
+            await SettingsFlow.AddRootFolderAsync(Page, RootUri, folderPath);
+
+            // Assert — STATE assertion: GET /api/v5/rootfolder returns the new path.
+            // Poll briefly to absorb any SignalR-refresh latency between the modal close
+            // and the row being persisted to the DB.
+            var body = string.Empty;
+            var deadline = DateTime.UtcNow.AddSeconds(10);
+            while (DateTime.UtcNow < deadline)
             {
-                break;
+                var listResp = await Page.APIRequest.GetAsync($"{RootUri}/api/v5/rootfolder");
+                listResp.Status.Should().Be(200);
+                body = await listResp.TextAsync();
+                if (body.Contains(jsonEscapedPath))
+                {
+                    break;
+                }
+
+                await Task.Delay(250);
             }
 
-            await Task.Delay(250);
+            body.Should().Contain(
+                jsonEscapedPath,
+                "the helper must have persisted folderPath to /api/v5/rootfolder; otherwise the folderPath arg is still being discarded");
         }
-
-        body.Should().Contain(
-            folderPath.Replace("\\", "\\\\"),
-            $"the helper must have persisted folderPath to /api/v5/rootfolder; otherwise the folderPath arg is still being discarded");
+        finally
+        {
+            // Cleanup — temp dirs accumulate across test runs otherwise; the GUID
+            // suffix prevents collisions but disk fill is real over many CI runs.
+            try
+            {
+                if (Directory.Exists(folderPath))
+                {
+                    Directory.Delete(folderPath, recursive: true);
+                }
+            }
+            catch
+            {
+                // best-effort — never fail the test on cleanup
+            }
+        }
     }
 }

@@ -58,15 +58,16 @@ public class MetadataSettingsFixture : AutomationTest
             "ComicInfo",
             "Provider Card name text content must equal the IMetadata.Name override exactly");
 
-        // 3. STATE assertion — Migration 004 D-03 seeded Enable=true (Config
-        // .MetadataFormats defaulted to [\"comicinfo\"] per Phase 4), so the
-        // Enabled/Disabled Label must render the SUCCESS variant. The Metadata.tsx
-        // component renders <Label kind={kinds.SUCCESS}>Enabled</Label> when enable
-        // is true; we don't pin to the kind class (CSS-name reshuffle risk), we pin
-        // to the visible "Enabled" text.
-        var enabledLabel = page.PageContainer
-            .GetByText("Enabled", new() { Exact = true })
-            .First;
+        // 3. STATE assertion — scope to the ComicInfo provider row so a future
+        // multi-provider Settings page (v1.3+ Kodi/Komga NFO etc.) doesn't false-
+        // positive on a different row's "Enabled" label. Row testid lives on the
+        // Card itself per the Card.tsx:12-17 overlayContent contract.
+        var (comicInfoId, comicInfoEnable, _) =
+            await GetComicInfoAsync(new RestClient($"{RootUri}/api/v5"));
+        var comicInfoRow = page.PageContainer
+            .GetByTestId($"settings-metadata-item-{comicInfoId}");
+        var expectedInitialLabel = comicInfoEnable ? "Enabled" : "Disabled";
+        var enabledLabel = comicInfoRow.GetByText(expectedInitialLabel, new() { Exact = true });
         await Assertions.Expect(enabledLabel).ToBeVisibleAsync(
             new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
     }
@@ -94,13 +95,13 @@ public class MetadataSettingsFixture : AutomationTest
             await Assertions.Expect(page.PageContainer).ToBeVisibleAsync(
                 new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 
-            // 4. STATE assertion — the visible Label flips to the post-flip
-            // variant. When we flipped to Enable=false, the Label text is
-            // "Disabled"; when flipped to true, "Enabled".
+            // 4. STATE assertion — the visible Label on the ComicInfo row flips to
+            // the post-flip variant. Scope to the row testid so a future multi-
+            // provider Settings page can't false-positive on another row's label.
             var expectedLabelText = !initialEnable ? "Enabled" : "Disabled";
-            var flippedLabel = page.PageContainer
-                .GetByText(expectedLabelText, new() { Exact = true })
-                .First;
+            var comicInfoRow = page.PageContainer
+                .GetByTestId($"settings-metadata-item-{initialId}");
+            var flippedLabel = comicInfoRow.GetByText(expectedLabelText, new() { Exact = true });
             await Assertions.Expect(flippedLabel).ToBeVisibleAsync(
                 new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 
@@ -109,9 +110,9 @@ public class MetadataSettingsFixture : AutomationTest
             await Page.ReloadAsync();
             await Assertions.Expect(page.PageContainer).ToBeVisibleAsync(
                 new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
-            var afterReloadLabel = page.PageContainer
-                .GetByText(expectedLabelText, new() { Exact = true })
-                .First;
+            var afterReloadRow = page.PageContainer
+                .GetByTestId($"settings-metadata-item-{initialId}");
+            var afterReloadLabel = afterReloadRow.GetByText(expectedLabelText, new() { Exact = true });
             await Assertions.Expect(afterReloadLabel).ToBeVisibleAsync(
                 new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 

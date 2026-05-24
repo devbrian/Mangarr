@@ -114,8 +114,11 @@ namespace NzbDrone.Core.Test.OrganizerTests.Manga
 
             var name = Subject.BuildFileName(_chapters, _manga);
 
-            name.Should().Contain("B");
-            name.Should().Contain("W");
+            // Exact assertion catches regressions (e.g. naming-config colon-replacement
+            // mangling `&` to a different separator) that Contain("B")+Contain("W") would
+            // silently miss. The token resolver at MangaFileNameBuilder.cs:245 returns
+            // the literal "B&W" string for Color = false.
+            name.Should().Be("B&W");
         }
 
         [Test]

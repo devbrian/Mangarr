@@ -43,6 +43,7 @@ function Metadata({ id, name, enable, fields }: MetadataProps) {
   return (
     <Card
       className={styles.metadata}
+      data-testid={`settings-metadata-item-${id}`}
       overlayContent={true}
       onPress={handleOpenPress}
     >

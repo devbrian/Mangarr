@@ -44,12 +44,12 @@
 
 .releaseDate {
   color: var(--disabledColor);
-  font-size: 12px;
   white-space: nowrap;
+  font-size: 12px;
 }
 
 .empty {
   padding: 30px 0;
-  text-align: center;
   color: var(--disabledColor);
+  text-align: center;
 }

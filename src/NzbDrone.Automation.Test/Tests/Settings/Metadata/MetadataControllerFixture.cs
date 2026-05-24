@@ -29,9 +29,13 @@ namespace NzbDrone.Automation.Test.Tests.Settings.Metadata;
 //
 // Closes II2-02 V5 endpoint smoke coverage. Analog pattern:
 // IndexerActionEndpointApiFixture (API-only direct RestSharp + X-Api-Key).
+// Not [Category("PRSmoke")] — per data-testid-spec / Phase 18 D-14: PRSmoke is
+// reserved for top-nav route loads + AddManga happy path + SearchAndGrab happy
+// path + one Settings save/load round-trip. This is a pure-API contract fixture
+// (no Page interaction); the Settings/Metadata save/load round-trip is covered
+// by MetadataSettingsFixture which IS the canonical PRSmoke entry for this surface.
 [TestFixture]
 [Category("AutomationTest")]
-[Category("PRSmoke")]
 public class MetadataControllerFixture : AutomationTest
 {
     [Test]

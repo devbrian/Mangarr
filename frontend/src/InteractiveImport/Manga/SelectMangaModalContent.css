@@ -14,9 +14,9 @@
 }
 
 .mangaRow {
-  cursor: pointer;
   padding: 10px;
   border-bottom: 1px solid var(--borderColor);
+  cursor: pointer;
 }
 
 .mangaRow:hover {
@@ -39,9 +39,9 @@
 }
 
 .emptyHeading {
+  margin-bottom: 10px;
   font-weight: 500;
   font-size: 16px;
-  margin-bottom: 10px;
 }
 
 .emptyHelp {

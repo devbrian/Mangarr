@@ -44,6 +44,13 @@ namespace NzbDrone.Core.MediaFiles.MediaInfo
     // page). 3 samples => max ~72 MB transient. `using` rigorously to release between pages.
     public class UpdateChapterInfoService : IUpdateChapterInfo
     {
+        // Memory-safety cap on per-entry CopyTo(MemoryStream). 64 MiB covers any
+        // realistic manga page (typical pages 100KB-2MB; large raw scans ~20MB).
+        // A hostile or malformed CBZ with an enormous "image" entry would otherwise
+        // OOM the probe step. Entries exceeding this cap are logged + skipped per
+        // D-09 non-fatal contract.
+        private const long MaxProbeEntryBytes = 64L * 1024 * 1024;
+
         private static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png", ".webp" };
 
         private readonly IDiskProvider _diskProvider;
@@ -118,6 +125,22 @@ namespace NzbDrone.Core.MediaFiles.MediaInfo
                     var entry = imageEntries[idx];
                     try
                     {
+                        // Size cap: a hostile or accidentally-large entry could spike memory
+                        // when copied into a MemoryStream for ImageSharp.Identify/Load.
+                        // 64 MiB covers any realistic manga page (typical pages are 100KB-2MB
+                        // for digital, up to ~20MB for raw scans); anything larger is almost
+                        // certainly malformed/malicious and not worth probing.
+                        if (entry.Length <= 0 || entry.Length > MaxProbeEntryBytes)
+                        {
+                            _logger.Warn(
+                                "Skipping media-info sample '{0}' in '{1}' due to size {2} bytes (exceeds {3} byte cap)",
+                                entry.Name,
+                                cbzPath,
+                                entry.Length,
+                                MaxProbeEntryBytes);
+                            continue;
+                        }
+
                         using var entryStream = entry.Open();
                         using var ms = new MemoryStream();
                         entryStream.CopyTo(ms);
