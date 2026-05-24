@@ -1,4 +1,5 @@
 using System;
+using NzbDrone.Common.EnvironmentInfo;
 
 namespace NzbDrone.Core.ImportLists.MyAnimeList
 {
@@ -60,5 +61,42 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // paste the callback URL but tight enough to limit the window for replay if the
         // browser history leaks the state value.
         public static readonly TimeSpan StateTtl = TimeSpan.FromMinutes(10);
+
+        // Phase 31 IN-01 (GH #258) — pre-baked honest User-Agent literal so call sites
+        // stay static-ish (no BuildInfo reflection per request). Phase 1 D-13 honest UA
+        // mandatory. Single source-of-truth replaces the prior inline string at
+        // MalImportList.FetchPage:446 and the duplicated static field on
+        // MalImportListRequestGenerator + MalImportListProxy.
+        //
+        // Format MUST match the literal shape used across all MAL call sites byte-for-byte
+        // (`Mangarr/{major}.{minor}`) — verified against MalImportListProxy.cs:284 and
+        // MalImportListRequestGenerator.cs:46 prior to consolidation.
+        public static readonly string HonestUserAgent = $"Mangarr/{BuildInfo.Version.ToString(2)}";
+
+        // T-V13 cursor-host validation: MAL's paging.next is returned by the upstream
+        // server, but we never blindly trust it for an authenticated request — the
+        // Authorization header carries the user's Bearer token, so following a cursor
+        // to an attacker-controlled host would leak the token. Pin to the canonical
+        // MAL API host AND require an HTTPS scheme.
+        //
+        // Phase 31 IN-02 (GH #259) — extracted from the byte-for-byte duplication
+        // between MalImportList.IsTrustedMalCursor and MalImportListProxy.IsTrustedMalCursor.
+        // If one copy is hardened in the future (e.g., IDN host check or path-prefix
+        // allow-list) and the other isn't, the divergence becomes a real security hole.
+        // Single source-of-truth eliminates that risk surface.
+        public static bool IsTrustedMalCursor(string cursor)
+        {
+            if (!Uri.TryCreate(cursor, UriKind.Absolute, out var uri))
+            {
+                return false;
+            }
+
+            if (!string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return string.Equals(uri.Host, "api.myanimelist.net", StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

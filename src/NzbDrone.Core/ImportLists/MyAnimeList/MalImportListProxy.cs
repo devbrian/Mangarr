@@ -1,7 +1,6 @@
 using System;
 using System.Net;
 using NLog;
-using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Http;
 using NzbDrone.Common.Serializer;
 using NzbDrone.Core.ImportLists.MyAnimeList.Resource;
@@ -216,7 +215,7 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             HttpRequest request;
             if (!string.IsNullOrWhiteSpace(nextCursor))
             {
-                if (!IsTrustedMalCursor(nextCursor))
+                if (!MalConstants.IsTrustedMalCursor(nextCursor))
                 {
                     throw new InvalidOperationException(
                         $"Refusing to follow MAL paging.next cursor: not on the canonical api.myanimelist.net host. " +
@@ -227,8 +226,13 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             }
             else
             {
+                // Phase 31 D-10 (IL2-03): status sourced from MalListStatusExtensions.ToApiString
+                // (reads [EnumMember(Value="...")] on MalListStatus via cached reflection). The
+                // duplicated local MapStatus switch helper that previously lived in this
+                // file at :283-298 was DELETED — single source-of-truth is now the [EnumMember]
+                // attribute strings on MalListStatus.cs:25-41.
                 request = new HttpRequestBuilder($"{MalConstants.ApiBaseUrl}/users/@me/mangalist")
-                    .AddQueryParam("status", MapStatusToMalString(settings?.Status ?? MalListStatus.Reading))
+                    .AddQueryParam("status", (settings?.Status ?? MalListStatus.Reading).ToApiString())
                     .AddQueryParam("limit", 1000)
                     .AddQueryParam("offset", 0)
                     .AddQueryParam("fields", "list_status,num_chapters")
@@ -247,54 +251,23 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             return _httpClient.Get<MalMangaListResource>(request);
         }
 
-        // T-V13 cursor-host validation: MAL's paging.next is returned by the upstream
-        // server, but we never blindly trust it for an authenticated request — the
-        // Authorization header carries the user's Bearer token, so following a cursor
-        // to an attacker-controlled host would leak the token. Pin to the canonical
-        // MAL API host AND require an HTTPS scheme.
-        private static bool IsTrustedMalCursor(string cursor)
-        {
-            if (!Uri.TryCreate(cursor, UriKind.Absolute, out var uri))
-            {
-                return false;
-            }
-
-            if (!string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            return string.Equals(uri.Host, "api.myanimelist.net", StringComparison.OrdinalIgnoreCase);
-        }
-
         // Pitfall 10 + Phase 1 D-13: every outbound request from this proxy carries
         //   * RateLimitKey="myanimelist"        — NEW bucket per CONTEXT line 36
-        //   * User-Agent="Mangarr/{version}"    — honest UA per MAL ToS
+        //   * User-Agent="Mangarr/{version}"    — honest UA per MAL ToS (Phase 31 IN-01:
+        //                                         single source-of-truth via MalConstants.HonestUserAgent)
         //   * Accept="application/json"         — MAL OAuth + API v2 both speak JSON
         // Keep this helper as the SINGLE write-point so the SourceKey audit gate at
         // Plan 27-05 close-out (Pattern κ grep) catches any drift.
+        //
+        // Phase 31 IN-02 (GH #259): IsTrustedMalCursor previously duplicated here was
+        // extracted to MalConstants.IsTrustedMalCursor. Cursor validation in this proxy
+        // is invoked by MalImportListProxy callers prior to /v2 requests; the proxy's
+        // GetMangaList method passes nextCursor through that helper.
         private static void ApplySharedHeaders(HttpRequest request)
         {
             request.RateLimitKey = SharedSourceKey;
-            request.Headers["User-Agent"] = $"Mangarr/{BuildInfo.Version.ToString(2)}";
+            request.Headers["User-Agent"] = MalConstants.HonestUserAgent;
             request.Headers["Accept"] = "application/json";
-        }
-
-        // MalListStatus → MAL API snake_case string. Mirrors the [EnumMember(Value)]
-        // attributes on MalListStatus.cs members — kept as a switch here so the proxy
-        // does not pull in Newtonsoft EnumMember reflection on every call site (faster
-        // + simpler than ToString() + Newtonsoft attribute lookup).
-        private static string MapStatusToMalString(MalListStatus status)
-        {
-            return status switch
-            {
-                MalListStatus.Reading => "reading",
-                MalListStatus.PlanToRead => "plan_to_read",
-                MalListStatus.Completed => "completed",
-                MalListStatus.OnHold => "on_hold",
-                MalListStatus.Dropped => "dropped",
-                _ => "reading",
-            };
         }
 
         private MalTokenResponse ExecuteTokenRequest(HttpRequest request)

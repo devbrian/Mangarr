@@ -1,4 +1,3 @@
-using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Http;
 
 namespace NzbDrone.Core.ImportLists.MyAnimeList
@@ -41,22 +40,26 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
         // maximum the API accepts; values above are clamped server-side).
         private const int PageSize = 1000;
 
-        // Pre-baked User-Agent literal so the generator stays static-ish (no
-        // BuildInfo reflection per request). Phase 1 D-13 honest UA mandatory.
-        private static readonly string HonestUserAgent = $"Mangarr/{BuildInfo.Version.ToString(2)}";
-
+        // Phase 31 IN-01 (GH #258): HonestUserAgent moved to MalConstants.HonestUserAgent
+        // (single source-of-truth shared with MalImportList.FetchPage cursor follow-ups
+        // and MalImportListProxy.ApplySharedHeaders).
         public MalImportListSettings Settings { get; init; }
 
         public ImportListPageableRequestChain GetListItems()
         {
             var chain = new ImportListPageableRequestChain();
 
-            // Initial request only — MAL cursor pagination via paging.next is
-            // NOT walked; the substrate's HttpImportListBase.FetchItems loop
-            // terminates on partial pages so lists under PageSize=1000 read
-            // correctly. Larger lists are truncated at the first page.
-            // Tracked in GH #223 for v1.x.
-            var statusString = MapStatusToMalString(Settings?.Status ?? MalListStatus.Reading);
+            // Initial request only — MAL cursor pagination via paging.next is walked
+            // by MalImportList.FetchPage (Phase 31 D-08 / IL2-05 — closes GH #223).
+            // This generator builds the FIRST request; the FetchPage override walks
+            // the cursor chain at runtime.
+            //
+            // Phase 31 D-10 (IL2-03): statusString sourced from MalListStatusExtensions.ToApiString
+            // (reads [EnumMember(Value="...")] on MalListStatus via cached reflection). The
+            // duplicated local MapStatus switch helper that previously lived in this
+            // file at :86-101 was DELETED — single source-of-truth is now the [EnumMember]
+            // attribute strings on MalListStatus.cs:25-41.
+            var statusString = (Settings?.Status ?? MalListStatus.Reading).ToApiString();
             var request = new HttpRequestBuilder("https://api.myanimelist.net/v2/users/@me/mangalist")
                 .AddQueryParam("status", statusString)
                 .AddQueryParam("limit", PageSize)
@@ -75,29 +78,12 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
             // credentials and retries.
             request.Headers["Authorization"] = $"Bearer {Settings?.AccessToken}";
 
-            // Phase 1 D-13 — honest UA per MAL ToS.
-            request.Headers["User-Agent"] = HonestUserAgent;
+            // Phase 1 D-13 — honest UA per MAL ToS. Phase 31 IN-01: shared constant.
+            request.Headers["User-Agent"] = MalConstants.HonestUserAgent;
             request.Headers["Accept"] = "application/json";
 
             chain.Add(new[] { new ImportListRequest(request) });
             return chain;
-        }
-
-        // MalListStatus → MAL API snake_case string. Mirrors the [EnumMember(Value)]
-        // attributes on MalListStatus.cs members. Kept local to the generator (instead
-        // of cross-file shared utility) so this class stays self-contained — D-10
-        // single-select propagation invariant is enforced at exactly one call site.
-        private static string MapStatusToMalString(MalListStatus status)
-        {
-            return status switch
-            {
-                MalListStatus.Reading => "reading",
-                MalListStatus.PlanToRead => "plan_to_read",
-                MalListStatus.Completed => "completed",
-                MalListStatus.OnHold => "on_hold",
-                MalListStatus.Dropped => "dropped",
-                _ => "reading",
-            };
         }
     }
 }

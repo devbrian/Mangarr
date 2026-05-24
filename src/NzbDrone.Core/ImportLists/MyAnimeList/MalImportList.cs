@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Web;
 using Newtonsoft.Json;
 using NLog;
 using NzbDrone.Common.Http;
 using NzbDrone.Core.Configuration;
+using NzbDrone.Core.ImportLists.MyAnimeList.Resource;
 using NzbDrone.Core.Localization;
 using NzbDrone.Core.Parser.Manga;
 
@@ -379,6 +381,73 @@ namespace NzbDrone.Core.ImportLists.MyAnimeList
                 // the sync. Symmetric with the MangaDex provider — T-V7: message-only log.
                 _logger.Warn("Error refreshing MyAnimeList access token (non-HTTP): {0}", ex.Message);
             }
+        }
+
+        // Phase 31 D-08 (IL2-05) — MAL cursor-pagination walker. Closes GH #223.
+        //
+        // MAL emits `paging.next` as an opaque server-issued cursor URL; the offset-style
+        // IsFullPage early-exit from HttpImportListBase doesn't apply (no Sonarr precedent
+        // for cursor-paginated providers in the preserved slice — per RESEARCH §Item 8 +
+        // Sonarr divergence noted in DIVERGENCE.md by Plan 31-04 close-out).
+        //
+        // Composition rationale: this overrides FetchPage(request, parser), NOT
+        // FetchImportListResponse. The existing FetchImportListResponse override below
+        // (the D-05 401-retry decorator) STAYS UNTOUCHED. Each FetchImportListResponse(...)
+        // call below still routes through that decorator, so the 401-retry concern composes
+        // with the cursor-walk concern without double-wrapping. Two concerns, two override
+        // sites; each is single-purpose.
+        //
+        // T-V13 cursor-host validation: paging.next is upstream-controlled, so we pin the
+        // host to api.myanimelist.net + require an HTTPS scheme via IsTrustedMalCursor
+        // (mirrors the existing defense at MalImportListProxy.cs:255-268). On mismatch we
+        // throw InvalidOperationException — the base's exception ladder catches the throw
+        // and records the failure WITHOUT firing the Bearer-token-bearing follow-up request
+        // against the attacker host.
+        //
+        // Safety bound MaxCursorPages=10: defensive against a self-referencing paging.next
+        // (upstream bug) that would otherwise loop forever. Per RESEARCH §A1: bound chosen
+        // so 1000-item pages × 10 = 10000 list items max. Users with >10k followed manga
+        // experience truncation rather than an infinite loop; v1.3+ raises the bound if
+        // user demand surfaces.
+        //
+        // Pitfall 10 HARD RULE: every cursor-follow request sets RateLimitKey="myanimelist"
+        // (NEVER fragment to a `-pagination`/`-cursor` sub-bucket). The Plan 27-05 /
+        // Plan 31-04 close-out grep gates have zero tolerance for sub-bucket drift.
+        protected override IList<ImportListItemInfo> FetchPage(ImportListRequest request, IParseImportListResponse parser)
+        {
+            const int MaxCursorPages = 10;
+            var aggregated = new List<ImportListItemInfo>();
+            var currentRequest = request;
+
+            for (var i = 0; i < MaxCursorPages; i++)
+            {
+                var response = FetchImportListResponse(currentRequest);
+                var page = parser.ParseResponse(response).ToList();
+                aggregated.AddRange(page);
+
+                var envelope = JsonConvert.DeserializeObject<MalMangaListResource>(response.HttpResponse.Content);
+                var nextCursor = envelope?.Paging?.Next;
+                if (string.IsNullOrWhiteSpace(nextCursor))
+                {
+                    break;
+                }
+
+                if (!MalConstants.IsTrustedMalCursor(nextCursor))
+                {
+                    throw new InvalidOperationException(
+                        "Refusing to follow MAL paging.next cursor: not on the canonical api.myanimelist.net host. " +
+                        "T-V13 defense against token exfiltration via a malicious cursor URL.");
+                }
+
+                var nextHttpRequest = new HttpRequest(nextCursor);
+                nextHttpRequest.RateLimitKey = "myanimelist";                                                 // Pitfall 10 — same bucket
+                nextHttpRequest.Headers["Authorization"] = $"Bearer {Settings?.AccessToken}";
+                nextHttpRequest.Headers["User-Agent"] = MalConstants.HonestUserAgent;                          // IN-01 — single source-of-truth
+                nextHttpRequest.Headers["Accept"] = "application/json";
+                currentRequest = new ImportListRequest(nextHttpRequest);
+            }
+
+            return aggregated;
         }
 
         // D-05 reactive 401-retry decorator at the per-request level. The base

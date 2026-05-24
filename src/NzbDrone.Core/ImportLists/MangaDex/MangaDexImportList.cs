@@ -60,6 +60,17 @@ namespace NzbDrone.Core.ImportLists.MangaDex
 
         public override TimeSpan MinRefreshInterval => TimeSpan.FromHours(24);
 
+        // Phase 31 D-07 (IL2-02) — MangaDex /user/follows/manga page-size cap per the
+        // MangaDex API docs (https://api.mangadex.org/docs/02-authentication/personal-clients/).
+        // The substrate's IsFullPage default impl (HttpImportListBase.cs:203-206:
+        // `PageSize != 0 && page.Count >= PageSize`) returns false when fewer than 100 items
+        // arrive on a page, triggering the inner-loop break at HttpImportListBase.cs:88-96 →
+        // walk terminates on the first partial page. Companion edit:
+        // MangaDexImportListRequestGenerator.GetListItems uses a single chain.Add(IEnumerable)
+        // so all 10 offset-stepped requests live in ONE ImportListPageableRequest the
+        // inner-loop can break out of.
+        public override int PageSize => 100;
+
         public override IImportListRequestGenerator GetRequestGenerator()
             => new MangaDexImportListRequestGenerator { Settings = Settings };
 
@@ -156,7 +167,14 @@ namespace NzbDrone.Core.ImportLists.MangaDex
                     // controller returns 500 — masking the canonical D-08 envelope contract
                     // (RequestAction never returns 500; failures round-trip as
                     // `{ success: false, error: ... }`). T-V7 invariant maintained.
-                    _logger.Warn(ex, "MangaDex startOAuth failed with non-HttpException; returning envelope");
+                    //
+                    // WR-05 (GH #256): log message-only (NOT the ex object) to stay consistent
+                    // with sibling branches at lines 215-217 (HttpException) and 222-228
+                    // (RefreshToken non-HTTP). The original `_logger.Warn(ex, "...")` form
+                    // had NLog render the full exception chain — for a JsonException raised
+                    // by a malformed password-grant response, that chain could include the
+                    // response body (potentially echoing credentials via a misconfigured edge).
+                    _logger.Warn("MangaDex startOAuth failed with non-HttpException; returning envelope. {0}", ex.Message);
                     return new
                     {
                         success = false,

@@ -33,6 +33,8 @@ namespace NzbDrone.Core.MetadataSource.MyAnimeList
 
         public override bool DefaultIsPrimary => false;     // D-16 — secondary fallback
 
+        public override bool IsDeprecated => true;          // Phase 31 D-02 — hidden from Add picker.
+
         // Lazy: Definition.Settings is bound after ctor, so the api can't be built eagerly.
         private MalApi Api => _api ??= new MalApi(
             _httpClient,
