@@ -117,6 +117,10 @@ LABEL org.opencontainers.image.source="https://github.com/devbrian/Mangarr" \
       org.opencontainers.image.licenses="GPL-3.0-only"
 
 # Hotio-style user-facing convention (Lock #8) + s6-overlay v3 boot tuning.
+# Phase 33.3: DISPLAY=:99 points the headed Comix signer Chromium at the svc-xvfb virtual X
+# display (comix.to's Cloudflare MANAGED challenge does NOT clear for a headless browser — proven
+# on this Docker target). The svc-mangarr process + its Chromium child inherit DISPLAY; the
+# svc-xvfb s6 longrun serves :99. See distribution/docker/root/.../svc-xvfb/run + 33.3 phase docs.
 ENV DEBIAN_FRONTEND=noninteractive \
     PUPPETEER_CACHE_DIR=/opt/mangarr-chromium \
     WEBUI_PORTS=8989/tcp \
@@ -125,7 +129,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     UMASK=002 \
     TZ=Etc/UTC \
     S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
-    S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
+    S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0 \
+    DISPLAY=:99
 
 # Chromium runtime sys-deps — 36-pkg list LIFTED VERBATIM from Phase 17
 # distribution/docker-build/Dockerfile:66-74 (the explicit Phase 17 reference
@@ -144,6 +149,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libxtst6 lsb-release wget xdg-utils libdrm2 libxkbcommon0 \
         libicu72 libssl3 \
         xz-utils ca-certificates curl \
+        # Phase 33.3: Xvfb virtual X display for the HEADED Comix signer Chromium (comix.to's
+        # Cloudflare managed challenge does not clear headless). Started by the svc-xvfb s6 longrun.
+        xvfb \
         # .NET runtime deps (covered by libssl3 + libicu72 above for net10.0)
         passwd \
  && rm -rf /var/lib/apt/lists/*

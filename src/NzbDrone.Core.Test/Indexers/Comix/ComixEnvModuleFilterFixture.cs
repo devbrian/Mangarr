@@ -6,19 +6,18 @@ using NzbDrone.Core.Test.Framework;
 namespace NzbDrone.Core.Test.Indexers.Comix
 {
     /// <summary>
-    /// Phase 33.1 (2026-05-25) regression lock for the env-module URL filter substring in
-    /// <c>ComixPuppeteerSigner.EnsureEnvModuleAsync</c>. comix.to rotates its build bundle
-    /// URLs roughly every 24-72h (Risk Register row 6); each rotation changes the env-module
-    /// filename's per-build token, which breaks the <c>RequestFinished</c> filter and surfaces
-    /// as a silent 30s timeout in the LIVE fixture. This Chromium-free grep-against-source lock
-    /// turns the NEXT rotation into a build-time failure instead — the same role the Phase 17.2
-    /// <c>UpstreamSignerDriftFixture</c> plays for the oracle architecture shape.
+    /// Regression lock for the oracle-bundle URL filter in
+    /// <c>ComixPuppeteerSigner.EnsureEnvModuleAsync</c>.
     ///
     /// <para>
-    /// The 2026-05-25 rotation moved the env module from <c>env-tfgaak-*.js</c> to
-    /// <c>env-tfkr3g-*.js</c>. See <c>.planning/debug/comix-signer-rotation-2026-05-25.md</c>
-    /// for the LIVE investigation and <c>33.1-CONTEXT.md</c> "Investigation Outcome" for the
-    /// confirmed hypothesis (H1) that surfaced the new substring.
+    /// <b>Phase 33.3 (2026-05-25) — STRUCTURAL pivot.</b> comix.to rotates a per-build token across
+    /// all bundle filenames roughly every 24-72h (Risk Register row 6; GH #266). The earlier locks
+    /// chased that token (<c>env-tfgaak-</c> → <c>env-tfkr3g-</c>) and re-broke every rotation. The
+    /// signer now sniffs the STABLE structural prefix <c>…/dist/manga-</c> (the <c>env-*</c> bundle is
+    /// gone; the decrypting path client lives in the <c>manga-*</c> chunk), so the per-deploy token
+    /// rotation no longer breaks capture. This lock therefore pins the STRUCTURAL match and FORBIDS
+    /// re-introducing any per-build token literal in the executable filter — a token literal coming
+    /// back is the rotation-treadmill anti-pattern this phase eliminated.
     /// </para>
     /// </summary>
     [TestFixture]
@@ -53,39 +52,34 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         }
 
         [Test]
-        public void Signer_must_filter_request_finished_for_current_env_module_pattern()
+        public void Signer_must_filter_request_finished_on_structural_manga_bundle_prefix()
         {
-            // Phase 33.1 (2026-05-25): the env module URL pattern rotated from
-            // 'env-tfgaak-' to 'env-tfkr3g-'. Locking the new substring here so a
-            // future rotation surfaces as a fixture failure before the LIVE fixture
-            // burns 30s on each ProxyFetchAsync call.
-            //
-            // See .planning/debug/comix-signer-rotation-2026-05-25.md for the
-            // investigation that surfaced the new pattern.
+            // Phase 33.3: the oracle bundle is matched STRUCTURALLY on the '/dist/manga-' prefix
+            // (stable across the per-deploy token rotation), NOT on a per-build token literal.
+            // If this fails, comix.to may have renamed the oracle bundle off the 'manga-' prefix —
+            // re-run the LIVE investigation (.planning/phases/33.3-.../33.3-RESEARCH.md) to find the
+            // new structural prefix; do NOT replace it with a per-build token (that re-creates the
+            // rotation treadmill this phase removed).
             _signerSource.Should().MatchRegex(
-                @"url\.IndexOf\(\s*""env-tfkr3g-""\s*,\s*StringComparison\.OrdinalIgnoreCase\s*\)\s*>=\s*0",
-                "EnsureEnvModuleAsync must filter RequestFinished events for the current " +
-                "env module URL pattern via the executable url.IndexOf(\"env-tfkr3g-\") call " +
-                "(NOT merely as a comment token). If this assertion fails, comix.to may have " +
-                "rotated the bundle URL pattern again — read the rotation log under " +
-                ".planning/debug/comix-signer-rotation-*.md and re-run the Phase 33.1 " +
-                "investigate-patch-verify loop with the new substring.");
+                @"url\.IndexOf\(\s*""/dist/manga-""\s*,\s*StringComparison\.OrdinalIgnoreCase\s*\)\s*>=\s*0",
+                "EnsureEnvModuleAsync must filter RequestFinished events on the structural " +
+                "url.IndexOf(\"/dist/manga-\") prefix (the stable oracle-bundle name), not a " +
+                "rotating per-build token.");
         }
 
         [Test]
-        public void Signer_must_not_re_introduce_retired_env_module_substring()
+        public void Signer_must_not_re_introduce_a_per_build_token_filter_literal()
         {
-            // The Phase 33.1 rotation-event marker comment IS allowed to reference the
-            // retired 'env-tfgaak-' substring as documentation (single-quoted, inside a
-            // // comment). What MUST NOT come back is the EXECUTABLE filter literal — the
-            // double-quoted "env-tfgaak-" string used by url.IndexOf(...). Anchoring the
-            // negative assertion on the double-quoted form lets the documentation comment
-            // survive while still tripping if anyone reverts the filter literal.
+            // The rotation-treadmill anti-pattern (GH #266): pinning the filter to a per-build token
+            // (e.g. url.IndexOf("env-tfgaak-") / "env-tfkr3g-" / any "env-<token>-") re-breaks the
+            // signer on the next comix.to deploy. Rotation-event marker comments MAY mention retired
+            // tokens as documentation; what must NOT return is the EXECUTABLE filter literal
+            // url.IndexOf("env-...").
             _signerSource.Should().NotMatchRegex(
-                @"url\.IndexOf\(\s*""env-tfgaak-""",
-                "Phase 33.1 retired the 'env-tfgaak-' substring on 2026-05-25. Re-introducing " +
-                "the executable filter literal url.IndexOf(\"env-tfgaak-\") will re-surface the " +
-                "30s env-module capture timeout — see .planning/debug/comix-signer-rotation-2026-05-25.md.");
+                @"url\.IndexOf\(\s*""env-",
+                "Phase 33.3 replaced per-build token filters with the structural '/dist/manga-' match. " +
+                "Re-introducing an executable url.IndexOf(\"env-<token>-\") filter re-creates the " +
+                "24-72h rotation treadmill (GH #266) — match the stable structural prefix instead.");
         }
     }
 }

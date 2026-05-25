@@ -67,51 +67,54 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         }
 
         [Test]
-        public void Signer_must_use_env_module_oracle_via_dynamic_import()
+        public void Signer_must_use_manga_bundle_oracle_via_dynamic_import_and_structural_export_probe()
         {
-            // 2026-05-23 oracle pivot (Investigation Phase 3): the signer no longer
-            // captureToken+relays via vanilla HTTP. comix.to's response encryption oracle
-            // is closure-scoped inside the secure-tfgaak bundle and is only invokable
-            // via the env-tfgaak module's exported axios instance (which already has
-            // the bundle's `Hi(ai)` decryption interceptor installed). The signer
-            // dynamic-imports the env module from page context + calls `mod.f.get(...)`
-            // to get plaintext JSON. If this assertion fails, someone has reverted to
-            // the upstream-obsolete captureToken+relay shape — read
-            // .planning/debug/comix-signer-rotation.md "Investigation Phase 3" for why
-            // that shape is structurally broken post-2026-05-23.
+            // 2026-05-23 oracle pivot + Phase 33.3 structural hardening: the signer does NOT
+            // captureToken+relay via vanilla HTTP. comix.to's response-encryption oracle is
+            // closure-scoped inside the secure-* bundle and is only invokable via the manga-*
+            // bundle's exported axios path client (which already has the bundle's `Hi(ai)`
+            // decryption interceptor installed). The signer dynamic-imports that bundle from page
+            // context and calls the discovered client's `.get(apiPath)` to get plaintext JSON.
+            // Phase 33.3 made BOTH halves STRUCTURAL (GH #266): the bundle is matched on the stable
+            // `/dist/manga-` prefix (not a per-build token) and the path-client export is DISCOVERED
+            // at runtime (not pinned to a re-mangling letter like the old `mod.f`/`mod.g`). If this
+            // fails, someone reverted to the upstream-obsolete captureToken+relay shape OR re-pinned
+            // a rotating token/letter — read .planning/phases/33.3-…/33.3-RESEARCH.md.
             _signerSource.Should().MatchRegex(
-                @"url\.IndexOf\(\s*""env-tfkr3g-""\s*,\s*StringComparison\.OrdinalIgnoreCase\s*\)\s*>=\s*0",
-                "Signer must locate the env module (env-tfkr3g-*.js) via the executable " +
-                "url.IndexOf(\"env-tfkr3g-\") filter (NOT merely a comment token). Phase 33.1 " +
-                "(2026-05-25) rotated this substring from env-tfgaak- to env-tfkr3g- — see bundle " +
-                "source dump in .planning/debug/evidence/comix-signer-rotation-2026-05-25/bundle-source-*-env-tfkr3g-*.");
+                @"url\.IndexOf\(\s*""/dist/manga-""\s*,\s*StringComparison\.OrdinalIgnoreCase\s*\)\s*>=\s*0",
+                "Signer must locate the oracle bundle via the executable structural filter " +
+                "url.IndexOf(\"/dist/manga-\") (the stable manga-* chunk prefix), NOT a per-build token.");
 
             _signerSource.Should().Contain(
                 "EnsureEnvModuleAsync",
-                "Signer must call EnsureEnvModuleAsync to sniff the env module URL from " +
-                "page network traffic + cache it across calls. The env module URL is " +
-                "content-hashed so it's stable per build but rotates per deploy.");
+                "Signer must call EnsureEnvModuleAsync to sniff the oracle bundle URL from " +
+                "page network traffic + cache it across calls. The bundle URL is content-hashed " +
+                "so it's stable per build but rotates per deploy.");
 
             _signerSource.Should().Contain(
                 "await import(",
-                "Signer must dynamic-import the env module from page context. The bundle's " +
+                "Signer must dynamic-import the manga-* bundle from page context. The bundle's " +
                 "decryption oracle (Hi(ai) axios interceptor) lives in module scope and is " +
                 "only reachable via ES module export.");
 
-            _signerSource.Should().MatchRegex(
-                @"const\s+f\s*=\s*mod\.g\s*;",
-                "Signer must invoke the env module's `.get->.data` axios wrapper export via the " +
-                "executable `const f = mod.g;` accessor (NOT merely a comment token). Phase 33.1 " +
-                "(2026-05-25): the export name rotated from `f` to `g` (the bundler re-mangles " +
-                "single-letter export names every build). If this fails, comix.to may have " +
-                "re-mangled the export — re-run the Phase 33.1 LIVE investigate-patch-verify " +
-                "loop. See .planning/debug/comix-signer-rotation-2026-05-25.md.");
+            _signerSource.Should().Contain(
+                "window.__mangarrOracleKey",
+                "Signer must DISCOVER the decrypting path-client export at runtime (probing the " +
+                "manga-* bundle's exports for the `.get` client that returns a top-level `items` " +
+                "array) and cache the key on `window.__mangarrOracleKey`. This structural discovery " +
+                "replaces the old `mod.f`/`mod.g` pinned-letter accessor that re-broke every deploy " +
+                "(export letters re-mangle per build — GH #266).");
+
+            _signerSource.Should().NotMatchRegex(
+                @"const\s+f\s*=\s*mod\.[a-z]\s*;",
+                "Phase 33.3 removed the pinned single-letter accessor (`const f = mod.g;`). " +
+                "Re-introducing a `mod.<letter>` pin re-creates the per-deploy rotation treadmill — " +
+                "discover the export by probing for the `.get` client returning `items` instead.");
 
             _signerSource.Should().MatchRegex(
-                @"await\s+f\.get\(",
-                "Signer must call `.get(...)` on the rotated wrapper export (`await f.get(`) — " +
-                "this is the executable invocation that returns plaintext JSON via the bundle's " +
-                "own interceptor chain.");
+                @"await\s+client\.get\(",
+                "Signer must invoke the DISCOVERED client (`await client.get(apiPath, opts)`) — " +
+                "the executable call that returns plaintext JSON via the bundle's own interceptor chain.");
         }
 
         [Test]

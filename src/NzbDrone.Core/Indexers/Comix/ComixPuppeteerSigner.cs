@@ -88,6 +88,62 @@ namespace NzbDrone.Core.Indexers.Comix
         // W-2 (revision iteration 1): drain timeout for in-flight requests on Dispose.
         private static readonly TimeSpan DisposeDrainTimeout = TimeSpan.FromSeconds(5);
 
+        // Phase 33.3 (front 1): Playwright's `assistantMode=true` Chromium switch set, ported
+        // VERBATIM from `_tests/net10.0/.playwright/package/lib/server/chromium/chromiumSwitches.js`
+        // (Playwright bundled-Chromium version current at port time). Playwright's Chromium with
+        // exactly these switches cold-solves comix.to's Cloudflare managed challenge; the signer's
+        // prior basic-stealth set did not. `--enable-automation` is OMITTED here (assistant mode)
+        // and dropped from Puppeteer's defaults via IgnoredDefaultArgs; `AutomationControlled` is in
+        // the --disable-features list (assistant-mode half of the same evasion). NOT included:
+        // Playwright-internal-only switches that would break or no-op under PuppeteerSharp
+        // (--enable-features=CDPScreenshotNewSurface, --edge-skip-compat-layer-relaunch, --remote-
+        // debugging-* which PuppeteerSharp owns). Keep this array in sync with chromiumSwitches.js
+        // on Playwright upgrades (the durable risk: comix.to re-rotates + Playwright re-tunes).
+        private static readonly string[] PlaywrightAssistantModeArgs =
+        {
+            "--disable-field-trial-config",
+            "--disable-background-networking",
+            "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows",
+            "--disable-back-forward-cache",
+            "--disable-breakpad",
+            "--disable-client-side-phishing-detection",
+            "--disable-component-extensions-with-background-pages",
+            "--disable-component-update",
+            "--no-default-browser-check",
+            "--disable-default-apps",
+            "--disable-dev-shm-usage",
+            "--disable-extensions",
+            "--disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,AutomationControlled",
+            "--allow-pre-commit-input",
+            "--disable-hang-monitor",
+            "--disable-ipc-flooding-protection",
+            "--disable-popup-blocking",
+            "--disable-prompt-on-repost",
+            "--disable-renderer-backgrounding",
+            "--force-color-profile=srgb",
+            "--metrics-recording-only",
+            "--no-first-run",
+            "--password-store=basic",
+            "--use-mock-keychain",
+            "--no-service-autorun",
+            "--export-tagged-pdf",
+            "--disable-search-engine-choice-screen",
+            "--unsafely-disable-devtools-self-xss-warnings",
+            "--disable-infobars",
+            "--disable-sync",
+
+            // chromium.js always pushes this alongside the switch set — software WebGL so a
+            // headless context still exposes a real WebGL vendor/renderer (vs --disable-gpu's
+            // missing-WebGL tell).
+            "--enable-unsafe-swiftshader",
+
+            // puppeteer-stealth's blink-level webdriver hide. Distinct flag from the
+            // --disable-features=...,AutomationControlled above (different Chromium layer);
+            // belt-and-braces, both target the navigator.webdriver / automation surface.
+            "--disable-blink-features=AutomationControlled",
+        };
+
         // PR #244 review feedback (Codex P1 / CodeRabbit Major) — shared HttpClient for the
         // captured-token relay path. The standard .NET guidance is to reuse a single
         // HttpClient across the process to avoid socket exhaustion + DNS pinning issues
@@ -153,48 +209,52 @@ namespace NzbDrone.Core.Indexers.Comix
             // calls between awaits to abort partway through the spawn sequence.
             ct.ThrowIfCancellationRequested();
 
-            // Pitfall 7 (Chromium-as-root in container): launch args required for headless
-            // Chrome inside Docker — --no-sandbox + setuid disable + dev/shm fallback +
-            // GPU disable. ExecutablePath comes from PUPPETEER_EXECUTABLE_PATH (D-03 escape
-            // hatch) or the baked image-layer path resolved by GetBakedChromiumPath (Phase 17
-            // D-03 default plus Phase 17.2 follow-up Windows / Mac / Linux non-Docker
-            // platform-aware fallbacks — see comment above GetBakedChromiumPath).
-            // Phase 33.3: headed-mode escape hatch. Default is headless (prod/Docker has no
-            // display). Cloudflare's managed challenge is materially easier to clear in a headed
-            // (real-display) browser; on a machine WITH a display (e.g. the Windows recording
-            // box) set MANGARR_COMIX_HEADED=1 so the LIVE cassette recording can clear comix.to.
-            // Prod headless clearance is a separate axis (the Phase 33.2 solver / future xvfb).
-            var headed = Environment.GetEnvironmentVariable("MANGARR_COMIX_HEADED") == "1";
+            // ExecutablePath comes from PUPPETEER_EXECUTABLE_PATH (D-03 escape hatch) or the baked
+            // image-layer path resolved by GetBakedChromiumPath (Phase 17 D-03 default plus Phase 17.2
+            // follow-up Windows / Mac / Linux non-Docker platform-aware fallbacks).
+            //
+            // Phase 33.3 (front 1 — HEADED, LINUX-SPIKE-PROVEN): comix.to's Cloudflare MANAGED
+            // challenge (challenge-platform / "Just a moment") does NOT auto-solve for a HEADLESS
+            // browser — headless Chromium reports window.outerWidth=0, which the challenge reads as a
+            // bot tell. The signer therefore runs HEADED against a REAL display. Empirically validated
+            // on the Linux Docker target (see .planning/phases/33.3-…/33.3-RESEARCH.md +
+            // .continue-here.md "PROVEN RECIPE"): headed Chromium under Xvfb with
+            // navigator.webdriver=false COLD-SOLVES comix.to in ~3s. The recipe is LIBRARY-AGNOSTIC —
+            // PuppeteerSharp's puppeteer-core twin AND Playwright both clear it identically; the
+            // discriminator is "real (non-zero) window + webdriver=false", NOT the driving library.
+            // In Docker/prod the app process runs under Xvfb so DISPLAY is present (see the Docker
+            // image's Xvfb entrypoint). MANGARR_COMIX_HEADLESS=1 forces headless — debug-only; it will
+            // NOT clear the managed challenge (kept as an escape hatch for display-less environments
+            // where Comix clearance is knowingly sacrificed, e.g. unit/CI hosts).
+            var headless = Environment.GetEnvironmentVariable("MANGARR_COMIX_HEADLESS") == "1";
+
+            // webdriver=false is THE load-bearing tell (Linux spike: flipping AutomationControlled +
+            // dropping --enable-automation turned a 45s "Just a moment" stall into a 3s cold-solve).
+            // PlaywrightAssistantModeArgs carries `--disable-features=…,AutomationControlled` +
+            // `--disable-blink-features=AutomationControlled`; IgnoredDefaultArgs drops the
+            // `--enable-automation` switch Puppeteer adds by default. Together → navigator.webdriver=false.
+            // --enable-unsafe-swiftshader gives a working software-WebGL pipeline (no missing-WebGL tell).
+            // Sandbox flags kept for Docker-as-root (Pitfall 7). --window-size sets a real non-zero
+            // window under Xvfb (headless reports 0,0 = the CF bot tell we are defeating).
+            var args = new List<string>(PlaywrightAssistantModeArgs)
+            {
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--window-size=1920,1080",
+            };
 
             var launchOptions = new LaunchOptions
             {
-                Headless = !headed,
+                Headless = headless,
                 ExecutablePath = Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH")
                                 ?? GetBakedChromiumPath(),
 
-                // Phase 33.3: drop PuppeteerSharp's default `--enable-automation` switch. That
-                // switch is the single biggest managed-challenge tell — it flips
-                // `navigator.webdriver = true` and surfaces the "controlled by automated test
-                // software" infobar fingerprint, which Cloudflare's `challenge-platform` reads
-                // to block headless bots. Removing it (plus the AutomationControlled blink flag
-                // + the navigator.webdriver init-script scrub in LaunchAndProbeAsync) lets the
-                // signer's own Chromium pass the same managed challenge a real browser clears.
+                // Drop PuppeteerSharp's default `--enable-automation` switch (assistant mode — see
+                // above). That switch flips `navigator.webdriver = true` and surfaces the "controlled
+                // by automated test software" infobar fingerprint Cloudflare's challenge-platform reads.
                 IgnoredDefaultArgs = new[] { "--enable-automation" },
 
-                Args = new[]
-                {
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-
-                    // Phase 33.3 managed-challenge bypass: blink-level webdriver hiding +
-                    // suppress the automation extension. Modern Chrome (147) `--headless`
-                    // is already the less-detectable "new" headless; these close the
-                    // remaining automation fingerprint gaps.
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-features=IsolateOrigins,site-per-process",
-                },
+                Args = args.ToArray(),
             };
 
             return await Puppeteer.LaunchAsync(launchOptions).ConfigureAwait(false);
@@ -389,18 +449,39 @@ namespace NzbDrone.Core.Indexers.Comix
             // to iterate the string as if it were an object. Fix: parse the JSON inside
             // the page-context wrapper so the axios call receives a real object.
             //
-            // Phase 33.1 (2026-05-25): the env module's export-name map rotated alongside the
-            // URL token. The .get->.data axios wrapper (internal `N = {get:async(e,t)=>
-            // (await oi.get(e,t)).data,...}` over `oi = axios.create({baseURL:"/api/v1"})`) is
-            // now exported as `g` (was `f`); `mod.f` now maps to a zustand modal store. Accessor
-            // swapped mod.f -> mod.g. See .planning/debug/comix-signer-rotation-2026-05-25.md.
+            // Phase 33.3 (front 2, structural oracle — defeats per-build export-letter re-mangling,
+            // GH #266): the manga-* bundle's export NAMES re-mangle every deploy (the old `env-*`
+            // bundle's wrapper was `mod.f`, then `mod.g`; the manga-* bundle exposes it as `mod.p`
+            // today, `m` is the wrapped {data:…} axios shape). Rather than pin a letter that breaks
+            // on the next rotation, DISCOVER the right export at runtime: probe each `.get`-bearing
+            // export with a cheap `/manga?limit=1` call and pick the one whose result has a top-level
+            // `items` array (the UNWRAPPED, already-decrypted path client — the bundle's own ok+result
+            // + Hi(ai) decryption interceptors run inside its axios instance). Cache the discovered
+            // key on `window` so later calls in this warm page session skip the probe. LIVE-validated
+            // on the Linux Docker target (build token tfl4t2 → export `p`); see .continue-here.md.
             var resultJson = await page.EvaluateFunctionAsync<string>(
-                "async (modUrl, p, paramsJson) => {" +
+                "async (modUrl, apiPath, paramsJson) => {" +
                 "  const mod = await import(modUrl);" +
-                "  const f = mod.g;" + // 'N as g' export — wraps oi.get with .data unwrap
+                "  let key = window.__mangarrOracleKey;" +
+                "  if (!key || !mod[key] || typeof mod[key].get !== 'function') {" +
+                "    key = null;" +
+                "    for (const k of Object.keys(mod)) {" +
+                "      try {" +
+                "        const v = mod[k];" +
+                "        if (v && typeof v.get === 'function') {" +
+                "          const probe = await v.get('/manga?limit=1');" +
+                "          const obj = (probe && typeof probe === 'object') ? probe : JSON.parse(probe);" +
+                "          if (obj && Array.isArray(obj.items)) { key = k; break; }" +
+                "        }" +
+                "      } catch (e) { /* not the path client */ }" +
+                "    }" +
+                "    window.__mangarrOracleKey = key;" +
+                "  }" +
+                "  if (!key) { throw new Error('Comix oracle: no manga-bundle export exposes a .get client returning an items array'); }" +
+                "  const client = mod[key];" +
                 "  const paramsObj = paramsJson ? JSON.parse(paramsJson) : {};" +
                 "  const opts = Object.keys(paramsObj).length > 0 ? { params: paramsObj } : undefined;" +
-                "  const res = await f.get(p, opts);" +
+                "  const res = await client.get(apiPath, opts);" +
                 "  return typeof res === 'string' ? res : JSON.stringify(res);" +
                 "}",
                 envModuleUrl,
@@ -429,14 +510,15 @@ namespace NzbDrone.Core.Indexers.Comix
 
             var envUrlTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            // Phase 33.1 (2026-05-25): env module URL pattern rotated from 'env-tfgaak-' to
-            // 'env-tfkr3g-' (comix.to rebuilt; the per-build token changed across all bundles).
-            // Filter narrowed to the new pattern per .planning/debug/comix-signer-rotation-2026-05-25.md.
-            // Do NOT broaden to all .js requests (Phase 17 RESEARCH N-3 + Phase 17.2 D-1
-            // constraint — broadening picks up chunked bundles / polyfills as the env module,
-            // which won't export `mod.f`). This is the 5th rotation event since Phase 17 shipped;
-            // ComixEnvModuleFilterFixture grep-locks this literal so the next rotation surfaces
-            // at build time instead of as a silent 30s timeout.
+            // Phase 33.3 (front 2, STRUCTURAL sniff — defeats the per-deploy token rotation, GH #266):
+            // the oracle bundle is the `manga-*` chunk. comix.to rotates a per-build token across all
+            // bundles every deploy (`env-tfgaak-` → `env-tfkr3g-` → and the env-* bundle is GONE; the
+            // oracle now lives in `manga-<token>-<hash>.js`). Match the STABLE structural prefix
+            // `…/dist/manga-` (on comix.to, `.js` suffix) instead of any token literal, so the next
+            // token rotation no longer breaks the signer. Still narrow (NOT all .js — Phase 17 RESEARCH
+            // N-3 / Phase 17.2 D-1: broadening picks up chunked bundles/polyfills that don't expose the
+            // path client). ComixEnvModuleFilterFixture locks the structural `/dist/manga-` match (NOT a
+            // token) so a future *structural* change (e.g. bundle renamed off `manga-`) surfaces in tests.
             EventHandler<RequestEventArgs> finishedHandler = null;
             finishedHandler = (sender, e) =>
             {
@@ -444,7 +526,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 {
                     var url = e.Request?.Url;
                     if (url != null
-                        && url.IndexOf("env-tfkr3g-", StringComparison.OrdinalIgnoreCase) >= 0
+                        && url.IndexOf("/dist/manga-", StringComparison.OrdinalIgnoreCase) >= 0
                         && url.IndexOf("comix.to", StringComparison.OrdinalIgnoreCase) >= 0
                         && url.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
                     {
