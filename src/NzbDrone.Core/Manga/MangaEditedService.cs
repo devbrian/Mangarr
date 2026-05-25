@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using NLog;
@@ -13,30 +14,15 @@ namespace NzbDrone.Core.Manga
     // Manga-side mirror of Tv/SeriesEditedService.cs (Phase 8 audit cluster 04-edit-lifecycle,
     // audit gap `single` per audit/no-sibling/SeriesEditedService.md).
     //
-    // Phase 8 audit gap-09 (MangaEditedEvent semantic split — landed in MangaService.UpdateManga):
-    //   - Mangarr's SeriesEditedService consumes SeriesEditedEvent (carries Series + OldSeries
-    //     diff) and pushes RefreshSeriesCommand only when SeriesType changes.
-    //   - MangaEditedEvent NOW carries `Manga` + `OldManga` + `ChaptersChanged` (mirrors
-    //     SeriesEditedEvent) so this handler can diff the old-vs-new snapshot to gate the
-    //     refresh push (path change → rescan, cross-source ID flip → relink-style refresh,
-    //     etc.). Conservative port still queues a refresh unconditionally — TV's
-    //     SeriesEditedService only refreshes on SeriesType change, but the manga equivalent
-    //     ("MangaType change") is rare AND existing fixtures assert refresh-on-update; we
-    //     keep the always-queue behavior pending an explicit Phase 8 follow-up audit.
-    //   - MangaBulkEditedEvent (bulk-edit) still carries List<Manga> only — bulk path is
-    //     unchanged by gap-09.
-    //   - RescanMangaCommand does NOT yet exist (peer Tv/MediaFiles/Commands/RescanSeriesCommand
-    //     has no manga sibling at this point in Phase 8). The path-change rescan branch is
-    //     therefore deferred — see TODO below. RenameMangaCommand IS available
-    //     (MediaFiles/Commands/RenameMangaCommand.cs) and is wired on the bulk path.
+    // Single-edit Handle(MangaEditedEvent) gates command-queue pushes on a diff against
+    // message.OldManga (Phase 8 audit gap-09 substrate). Refresh fires on cross-source ID
+    // triplet (MangaDexId/MalId/AniListId) change; Rescan fires on Manga.Path change
+    // (Phase 32 CORR-02). No-op edits (e.g., Tags-only) push neither command.
     //
-    // TODO (future Phase 8 cluster, post-RescanMangaCommand backfill):
-    //   - When a RescanMangaCommand is added on the manga side, push it here on the path-
-    //     changed branch (compare message.Manga.Path vs message.OldManga.Path; TV pushes
-    //     Rescan after edits that move the series folder).
-    //   - Gate the refresh push behind cross-source ID change detection
-    //     (message.OldManga.MangaDexId/MalId/AniListId vs message.Manga's — manual relink
-    //     trigger per audit-report backfill_notes).
+    // Bulk-edit Handle(MangaBulkEditedEvent) preserves the conservative always-refresh +
+    // rename behavior because MangaBulkEditedEvent carries List<Manga> only with no
+    // OldManga snapshots — the per-entity diff cannot be applied (Phase 32 D-07; bulk-path
+    // tightening tracked for v1.3+ if user signal emerges).
     public class MangaEditedService : IHandle<MangaEditedEvent>, IHandle<MangaBulkEditedEvent>
     {
         private readonly IManageCommandQueue _commandQueueManager;
@@ -54,11 +40,23 @@ namespace NzbDrone.Core.Manga
 
         public void Handle(MangaEditedEvent message)
         {
-            // Single-edit path: refresh metadata for the edited manga. Conservative port —
-            // we now have OldManga but keep unconditional refresh for now; gating on
-            // field-level diffs is a future iteration (see class-level TODO).
-            _logger.Debug("Manga {0} edited; queueing refresh.", message.Manga);
-            _commandQueueManager.Push(new RefreshMangaCommand(new List<int> { message.Manga.Id }, false));
+            // Single-edit path. Refresh gated on cross-source ID triplet (MangaDexId/MalId/AniListId) diff; Rescan pushed on Manga.Path diff (CORR-02).
+            var pathChanged = !string.Equals(message.Manga.Path, message.OldManga.Path, StringComparison.Ordinal);
+            var idsChanged = message.Manga.MangaDexId != message.OldManga.MangaDexId
+                          || message.Manga.MalId != message.OldManga.MalId
+                          || message.Manga.AniListId != message.OldManga.AniListId;
+
+            if (pathChanged)
+            {
+                _logger.Debug("Manga {0} path changed ({1} -> {2}); queueing rescan.", message.Manga, message.OldManga.Path, message.Manga.Path);
+                _commandQueueManager.Push(new RescanMangaCommand(message.Manga.Id));
+            }
+
+            if (idsChanged)
+            {
+                _logger.Debug("Manga {0} cross-source IDs changed; queueing refresh.", message.Manga);
+                _commandQueueManager.Push(new RefreshMangaCommand(new List<int> { message.Manga.Id }, false));
+            }
         }
 
         public void Handle(MangaBulkEditedEvent message)
