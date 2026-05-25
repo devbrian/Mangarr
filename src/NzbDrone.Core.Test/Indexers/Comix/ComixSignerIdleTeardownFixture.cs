@@ -47,7 +47,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             private readonly TimeSpan _idleTimeout;
 
             public FastIdleSigner(IIndexerSourceStatusService s, Logger l, TimeSpan idleTimeout)
-                : base(s, l)
+                : base(s, new Moq.Mock<NzbDrone.Core.Indexers.Cloudflare.ICloudflareClearanceService>().Object, new Moq.Mock<NzbDrone.Core.Configuration.IConfigService>().Object, l)
             {
                 _idleTimeout = idleTimeout;
             }

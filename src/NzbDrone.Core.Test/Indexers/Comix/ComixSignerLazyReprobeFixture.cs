@@ -44,7 +44,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             public Func<int, bool> ShouldThrow { get; set; } = _ => false;
 
             public ReprobableSigner(IIndexerSourceStatusService s, Logger l)
-                : base(s, l)
+                : base(s, new Moq.Mock<NzbDrone.Core.Indexers.Cloudflare.ICloudflareClearanceService>().Object, new Moq.Mock<NzbDrone.Core.Configuration.IConfigService>().Object, l)
             {
             }
 

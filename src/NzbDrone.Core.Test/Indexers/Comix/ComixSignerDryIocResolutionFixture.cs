@@ -80,6 +80,17 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 LogManager.GetLogger("ComixPuppeteerSigner"),
                 ifAlreadyRegistered: IfAlreadyRegistered.Replace);
 
+            // Phase 33.2 (D-02): ComixPuppeteerSigner now also takes IConfigService (for the
+            // empty-CloudflareSolverUrl off switch) and ICloudflareClearanceService. The real
+            // ConfigService impl drags in the IConfigRepository / IDatabase / SQLite chain that
+            // Mangarr.Host wires explicitly at boot (out of scope for this reachability check),
+            // so replace it with a mock — mirroring the IIndexerSourceStatusService mock above.
+            // ICloudflareClearanceService's impl lives in Mangarr.Core.dll and resolves via the
+            // RegisterMany convention; it only needs the (now-mocked) IConfigService.
+            container.RegisterInstance<NzbDrone.Core.Configuration.IConfigService>(
+                new Mock<NzbDrone.Core.Configuration.IConfigService>().Object,
+                ifAlreadyRegistered: IfAlreadyRegistered.Replace);
+
             return container;
         }
 
