@@ -353,6 +353,19 @@ done
 UNIT_FILTERS="${UNIT_FILTERS#|}"
 AUTOMATION_FILTERS="${AUTOMATION_FILTERS#|}"
 
+# Exclude live-network / manual-only categories, mirroring the canonical filters:
+#   - scripts/test.sh:           Category!=ManualTest & Category!=LiveComix
+#   - build_v5.yml PR-smoke (268) + automation (383): TestCategory!=LiveService
+# LiveComix (unit-side) and LiveService (automation-side) fixtures hit the real
+# internet (comix.to / MangaDex / AniList / MAL). They are non-deterministic,
+# excluded from CI + the unit suite by design (see the fixture doc-comments + the
+# mangarr-phase-smoke-test skill: "Don't run the full [Category(\"LiveService\")]
+# tier — that's the nightly job, not the per-phase smoke"), and MUST NOT gate the
+# smoke run: a transient comix.to Cloudflare challenge or bundle rotation would
+# otherwise red the gate on an external condition, not a code regression. The
+# name-OR group is parenthesized so the trailing AND binds to the whole set.
+CATEGORY_EXCLUDE="Category!=LiveComix&Category!=LiveService&Category!=ManualTest"
+
 RESULTS_FILE=$(mktemp)
 EXIT_CODE=0
 
@@ -371,11 +384,12 @@ EXIT_CODE=0
 # No persistent pipe-write FD = no orphan-process handle leak.
 if [ -n "$UNIT_FILTERS" ]; then
   echo "==== Running UNIT fixtures ===="
-  echo "Filter: $UNIT_FILTERS"
+  UNIT_FILTER_EXPR="(${UNIT_FILTERS})&${CATEGORY_EXCLUDE}"
+  echo "Filter: $UNIT_FILTER_EXPR"
   RUN_LOG=$(mktemp)
   if ! dotnet test src/Mangarr.sln \
        --configuration Debug \
-       --filter "$UNIT_FILTERS" \
+       --filter "$UNIT_FILTER_EXPR" \
        --logger "console;verbosity=normal" > "$RUN_LOG" 2>&1; then
     EXIT_CODE=1
   fi
@@ -391,7 +405,8 @@ fi
 # can race the start. Wipe DB so the runner gets a clean baseline.
 if [ -n "$AUTOMATION_FILTERS" ]; then
   echo "==== Running AUTOMATION (Playwright) fixtures ===="
-  echo "Filter: $AUTOMATION_FILTERS"
+  AUTOMATION_FILTER_EXPR="(${AUTOMATION_FILTERS})&${CATEGORY_EXCLUDE}"
+  echo "Filter: $AUTOMATION_FILTER_EXPR"
 
   # Sanity: Playwright provisioning check
   if ! ls "$HOME/.cache/ms-playwright" >/dev/null 2>&1 && \
@@ -410,7 +425,7 @@ if [ -n "$AUTOMATION_FILTERS" ]; then
     RUN_LOG=$(mktemp)
     if ! dotnet test src/NzbDrone.Automation.Test/Mangarr.Automation.Test.csproj \
          --configuration Debug \
-         --filter "$AUTOMATION_FILTERS" \
+         --filter "$AUTOMATION_FILTER_EXPR" \
          --logger "console;verbosity=normal" > "$RUN_LOG" 2>&1; then
       EXIT_CODE=1
     fi
