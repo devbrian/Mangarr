@@ -74,7 +74,7 @@ Per profile (matched to series via tags):
 - **Ignored**: Release must contain 0 ignored terms (regex)
 - **Preferred**: Each preferred term has a weight; matching adds to score (passed to DecisionEngine)
 
-Used by `LanguageSpecification`, `RequiredTermsSpecification`, `IgnoredTermsSpecification` and similar.
+Used by `RequiredTermsSpecification`, `IgnoredTermsSpecification` and similar. (The TV-region CF language spec previously referenced here was deleted Phase 32 — CORR-04; manga-canonical language authority lives at `LanguageInTranslationProfileSpecification` under `DecisionEngine/Manga/Specifications/`.)
 
 ## Default Profiles
 

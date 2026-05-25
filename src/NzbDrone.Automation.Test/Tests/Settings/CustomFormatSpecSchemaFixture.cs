@@ -14,7 +14,7 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// Hits the schema endpoint directly via Page.APIRequest (inherits X-Api-Key
 /// from the browser context). State-assertion = response 200 + body
 /// contains the canonical spec implementation names (e.g.
-/// <c>SourceSpecification</c>, <c>LanguageSpecification</c>).
+/// <c>SourceSpecification</c>, <c>ResolutionSpecification</c>).
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
@@ -34,7 +34,7 @@ public class CustomFormatSpecSchemaFixture : AutomationTest
 
         // The schema endpoint returns a JSON array of specification
         // implementations. The body should start with '[' and contain at least
-        // one canonical spec name (LanguageSpecification ships in
+        // one canonical spec name (e.g. SourceSpecification ships in
         // src/NzbDrone.Core/CustomFormats/Specifications/).
         body.Should().StartWith("[");
         body.Should().Contain("Specification");

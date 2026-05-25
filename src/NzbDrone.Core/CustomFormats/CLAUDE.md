@@ -28,7 +28,6 @@ The available **format-condition primitives** users compose:
 | Specification | Matches |
 |---------------|---------|
 | `ReleaseTitleSpecification` | Regex on release title |
-| `LanguageSpecification` | Specific language present |
 | `ReleaseGroupSpecification` | Regex on release group |
 | `IndexerFlagSpecification` | Indexer flag (e.g. Internal) |
 | `ResolutionSpecification` | Resolution (e.g., 1080p) |
@@ -68,7 +67,7 @@ The custom-format **architecture is fully reusable**. Specifications need adapta
 |-------------|-------------------|
 | `ResolutionSpecification` (480p / 720p / 1080p) | DPI tier or "high quality" / "low quality" / "raw" |
 | `SourceSpecification` (BluRay / WebRip) | Source ("Official" / "Scan" / "Raw" / "Magazine") |
-| `LanguageSpecification` | Reusable as-is (English vs Japanese vs Korean) |
+| (TV-region language spec deleted Phase 32 — CORR-04) | Manga peer is `TranslatedLanguageSpecification` (BCP-47) at `Specifications/Manga/` |
 | `ReleaseGroupSpecification` | Maps to "Scanlation Group" |
 | `IndexerFlagSpecification` | Reusable |
 

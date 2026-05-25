@@ -48,7 +48,7 @@ public interface IDownloadDecisionEngineSpecification
 | `EpisodeRequestedSpecification` | Permanent | Was this episode part of the search? |
 | `FullSeasonReleaseSpecification` | Permanent | Don't grab season pack if singles already grabbed |
 | `HistorySpecification` | Permanent | Recent failed grab from same indexer? |
-| `LanguageSpecification` | Permanent | Language matches profile |
+| `LanguageInTranslationProfileSpecification` (manga-canonical; lives at `DecisionEngine/Manga/Specifications/`) | Permanent | Translated language matches TranslationProfile ordinal ranking. Replaces the TV-region CF language spec deleted Phase 32 — CORR-04 |
 | `MaximumSizeSpecification` | Permanent | Hard size cap |
 | `MinimumAgeSpecification` | Temporary | Release is at least N hours old (avoid uploads still propagating) |
 | `MonitoredEpisodeSpecification` | Permanent | Episode (and series) is monitored |
