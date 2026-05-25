@@ -72,7 +72,11 @@ namespace NzbDrone.Core.Indexers.Comix
         // /api/v1/manga/{hid}/chapters request 2-5s after that. 30s is comfortably above
         // p99 with margin for Cloudflare slow path. Bounded so a wedged page (no API
         // request ever fires) cannot stall the gate indefinitely.
-        private const int CaptureTimeoutSeconds = 30;
+        // Phase 33.3: bumped 30 → 45s. When comix.to serves a Cloudflare managed challenge,
+        // the interstitial solves in ~12s (LIVE-measured) and THEN reloads to the real page
+        // which finally loads the env bundle — so the sniff must outlast challenge-solve +
+        // real-page load + bundle fetch. 45s leaves margin over the ~17s observed worst case.
+        private const int CaptureTimeoutSeconds = 45;
 
         // Token cache TTL — chapter-list pagination + multi-search loops within 5 minutes
         // reuse the captured token instead of paying another page-load cost. Upstream
@@ -155,17 +159,41 @@ namespace NzbDrone.Core.Indexers.Comix
             // hatch) or the baked image-layer path resolved by GetBakedChromiumPath (Phase 17
             // D-03 default plus Phase 17.2 follow-up Windows / Mac / Linux non-Docker
             // platform-aware fallbacks — see comment above GetBakedChromiumPath).
+            // Phase 33.3: headed-mode escape hatch. Default is headless (prod/Docker has no
+            // display). Cloudflare's managed challenge is materially easier to clear in a headed
+            // (real-display) browser; on a machine WITH a display (e.g. the Windows recording
+            // box) set MANGARR_COMIX_HEADED=1 so the LIVE cassette recording can clear comix.to.
+            // Prod headless clearance is a separate axis (the Phase 33.2 solver / future xvfb).
+            var headed = Environment.GetEnvironmentVariable("MANGARR_COMIX_HEADED") == "1";
+
             var launchOptions = new LaunchOptions
             {
-                Headless = true,
+                Headless = !headed,
                 ExecutablePath = Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH")
                                 ?? GetBakedChromiumPath(),
+
+                // Phase 33.3: drop PuppeteerSharp's default `--enable-automation` switch. That
+                // switch is the single biggest managed-challenge tell — it flips
+                // `navigator.webdriver = true` and surfaces the "controlled by automated test
+                // software" infobar fingerprint, which Cloudflare's `challenge-platform` reads
+                // to block headless bots. Removing it (plus the AutomationControlled blink flag
+                // + the navigator.webdriver init-script scrub in LaunchAndProbeAsync) lets the
+                // signer's own Chromium pass the same managed challenge a real browser clears.
+                IgnoredDefaultArgs = new[] { "--enable-automation" },
+
                 Args = new[]
                 {
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
                     "--disable-dev-shm-usage",
                     "--disable-gpu",
+
+                    // Phase 33.3 managed-challenge bypass: blink-level webdriver hiding +
+                    // suppress the automation extension. Modern Chrome (147) `--headless`
+                    // is already the less-detectable "new" headless; these close the
+                    // remaining automation fingerprint gaps.
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-features=IsolateOrigins,site-per-process",
                 },
             };
 
@@ -205,6 +233,32 @@ namespace NzbDrone.Core.Indexers.Comix
                 _page = await _browser.NewPageAsync().ConfigureAwait(false);
                 ct.ThrowIfCancellationRequested();
 
+                // Phase 33.3 managed-challenge bypass: puppeteer-stealth-style page evasions,
+                // installed on EVERY document (survives the challenge page's reload to the real
+                // page). Cloudflare's `challenge-platform` reads these signals to fingerprint
+                // headless automation; scrubbing them lets the signer's own Chromium pass the
+                // same managed challenge a real browser clears in ~12s.
+                try
+                {
+                    await _page.EvaluateFunctionOnNewDocumentAsync(
+                        "() => {" +
+                        "  Object.defineProperty(navigator, 'webdriver', { get: () => undefined });" +
+                        "  if (!window.chrome) { window.chrome = { runtime: {} }; }" +
+                        "  Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });" +
+                        "  Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });" +
+                        "  const origQuery = window.navigator.permissions && window.navigator.permissions.query;" +
+                        "  if (origQuery) {" +
+                        "    window.navigator.permissions.query = (p) => (p && p.name === 'notifications')" +
+                        "      ? Promise.resolve({ state: Notification.permission }) : origQuery(p);" +
+                        "  }" +
+                        "}")
+                        .ConfigureAwait(false);
+                }
+                catch (Exception stealthEx)
+                {
+                    _logger.Debug(stealthEx, "Comix signer: stealth init-script install raised (non-fatal; challenge clearance may degrade).");
+                }
+
                 // PR #244 review feedback (Codex P1 #2): cache navigator.userAgent off the
                 // warm page once so per-relay calls don't pay an extra EvaluateExpressionAsync
                 // round-trip. The UA is bound to the browser instance (not per-navigation)
@@ -214,6 +268,16 @@ namespace NzbDrone.Core.Indexers.Comix
                     _cachedUserAgent = await _page
                         .EvaluateExpressionAsync<string>("navigator.userAgent")
                         .ConfigureAwait(false);
+
+                    // Phase 33.3: strip the `HeadlessChrome` UA token (the most blatant
+                    // managed-challenge tell) and pin the cleaned UA on the page so every
+                    // navigation — incl. the challenge solve — presents a real-browser UA.
+                    if (!string.IsNullOrEmpty(_cachedUserAgent)
+                        && _cachedUserAgent.IndexOf("HeadlessChrome", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        _cachedUserAgent = _cachedUserAgent.Replace("HeadlessChrome", "Chrome", StringComparison.OrdinalIgnoreCase);
+                        await _page.SetUserAgentAsync(_cachedUserAgent).ConfigureAwait(false);
+                    }
                 }
                 catch (Exception uaEx)
                 {
@@ -417,8 +481,24 @@ namespace NzbDrone.Core.Indexers.Comix
                 if (winner != envUrlTcs.Task)
                 {
                     ct.ThrowIfCancellationRequested();
+
+                    // Phase 33.3 diag: on timeout, capture the page's title + URL so the failure
+                    // distinguishes "stuck on Cloudflare 'Just a moment' challenge" from "real page
+                    // loaded but env bundle pattern rotated". Best-effort; never masks the timeout.
+                    string diagTitle = "?", diagUrl = "?";
+                    try
+                    {
+                        diagTitle = await page.GetTitleAsync().ConfigureAwait(false);
+                        diagUrl = page.Url;
+                    }
+                    catch
+                    {
+                        // swallow — diagnostics only
+                    }
+
                     throw new InvalidOperationException(
-                        $"Comix signer: env module capture timed out after {CaptureTimeoutSeconds}s while loading '{pageUrl}'.");
+                        $"Comix signer: env module capture timed out after {CaptureTimeoutSeconds}s while loading '{pageUrl}'. " +
+                        $"[diag: pageTitle='{diagTitle}' pageUrl='{diagUrl}']");
                 }
 
                 linkedCts.Cancel();
