@@ -32,6 +32,7 @@ using NzbDrone.Common.Processes;
 using NzbDrone.Common.Serializer;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Datastore;
+using NzbDrone.Core.Indexers.Comix;
 using NzbDrone.Core.Instrumentation;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging.Events;
@@ -316,6 +317,51 @@ namespace NzbDrone.Host
             }
 
             SchemaBuilder.Initialize(container);
+
+            // Phase 33 (COMIX2-01) Plan 33-02 — env-var-gated DryIoc swap of IComixSigner
+            // for the offline-tier CassettingComixSigner. Per CONTEXT.md:
+            //   D-03: single env-var pair (MANGARR_TEST_CASSETTE_MODE +
+            //         MANGARR_TEST_CASSETTE_DIR) drives BOTH the existing HTTP-layer
+            //         CassetteHandler (wired in Common/Http/Dispatchers/ManagedHttpDispatcher.cs:171-245)
+            //         AND the new signer-layer CassettingComixSigner.
+            //   D-04: Replay-mode miss throws InvalidOperationException with miss
+            //         message shaped verbatim to CassetteHandler — forces explicit
+            //         recording, prevents silent CI gaps.
+            //   Production-safety guard: env vars unset / empty / unparseable → the
+            //   entire registration block short-circuits and the prior RegisterMany
+            //   scan in NzbDrone.Common/Composition/Extensions.cs:29-31 keeps
+            //   ComixPuppeteerSigner as the IComixSigner singleton. Production
+            //   deployment manifests (Docker image / systemd unit / etc.) do NOT set
+            //   MANGARR_TEST_CASSETTE_*; only the test harness does.
+            // Mirrors the env-var detection pattern at
+            // ManagedHttpDispatcher.cs:175-185 — same var names, same TryParse-with-
+            // Trace.WriteLine-on-failure semantics. Mangarr.Core IS the assembly that
+            // defines CassettingComixSigner so this uses direct typeof() instead of
+            // the reflection-load shape Mangarr.Common needs for the test-assembly hop.
+            var comixCassetteMode = Environment.GetEnvironmentVariable("MANGARR_TEST_CASSETTE_MODE");
+            var comixCassetteDir = Environment.GetEnvironmentVariable("MANGARR_TEST_CASSETTE_DIR");
+            if (!string.IsNullOrEmpty(comixCassetteMode) && !string.IsNullOrEmpty(comixCassetteDir))
+            {
+                if (Enum.TryParse<CassetteMode>(comixCassetteMode, ignoreCase: true, out var parsedMode))
+                {
+                    // Capture the auto-discovered ComixPuppeteerSigner as the cassetting
+                    // signer's `inner` delegate — needed for Record / ReplayOrRecord-miss
+                    // paths where the cassetting layer falls through to live comix.to
+                    // signing. Resolve BEFORE the Register-replace call so we don't
+                    // resolve our own replacement back into ourselves.
+                    var realSigner = container.Resolve<ComixPuppeteerSigner>();
+
+                    container.Register<IComixSigner>(
+                        made: Made.Of(() => new CassettingComixSigner(comixCassetteDir, parsedMode, realSigner)),
+                        reuse: Reuse.Singleton,
+                        ifAlreadyRegistered: IfAlreadyRegistered.Replace);
+                }
+                else
+                {
+                    System.Diagnostics.Trace.WriteLine(
+                        $"MANGARR_TEST_CASSETTE_MODE='{comixCassetteMode}' is not a valid CassetteMode; ignoring (IComixSigner stays as ComixPuppeteerSigner).");
+                }
+            }
 
             if (OsInfo.IsNotWindows)
             {
