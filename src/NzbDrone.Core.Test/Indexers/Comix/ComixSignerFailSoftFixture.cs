@@ -31,7 +31,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             public int LaunchAttempts;
 
             public ThrowingSigner(IIndexerSourceStatusService s, Logger l)
-                : base(s, l)
+                : base(s, new Moq.Mock<NzbDrone.Core.Indexers.Cloudflare.ICloudflareClearanceService>().Object, new Moq.Mock<NzbDrone.Core.Configuration.IConfigService>().Object, l)
             {
             }
 
@@ -50,7 +50,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             public int LaunchAttempts;
 
             public RecoveringSigner(IIndexerSourceStatusService s, Logger l)
-                : base(s, l)
+                : base(s, new Moq.Mock<NzbDrone.Core.Indexers.Cloudflare.ICloudflareClearanceService>().Object, new Moq.Mock<NzbDrone.Core.Configuration.IConfigService>().Object, l)
             {
             }
 

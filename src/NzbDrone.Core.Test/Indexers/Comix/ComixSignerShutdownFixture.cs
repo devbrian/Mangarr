@@ -40,7 +40,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             public TaskCompletionSource<string> Gate { get; } = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public GatedSigner(IIndexerSourceStatusService s, Logger l)
-                : base(s, l)
+                : base(s, new Moq.Mock<NzbDrone.Core.Indexers.Cloudflare.ICloudflareClearanceService>().Object, new Moq.Mock<NzbDrone.Core.Configuration.IConfigService>().Object, l)
             {
             }
 
@@ -108,6 +108,8 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // async + await the assertion so the contract is actually enforced.
             var subject = new ComixPuppeteerSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
+                Mocker.GetMock<NzbDrone.Core.Indexers.Cloudflare.ICloudflareClearanceService>().Object,
+                Mocker.GetMock<NzbDrone.Core.Configuration.IConfigService>().Object,
                 LogManager.GetLogger("ComixPuppeteerSigner"));
 
             subject.Handle(new ApplicationShutdownRequested(restarting: false));
@@ -121,6 +123,8 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             var subject = new ComixPuppeteerSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
+                Mocker.GetMock<NzbDrone.Core.Indexers.Cloudflare.ICloudflareClearanceService>().Object,
+                Mocker.GetMock<NzbDrone.Core.Configuration.IConfigService>().Object,
                 LogManager.GetLogger("ComixPuppeteerSigner"));
 
             subject.Handle(new ApplicationShutdownRequested());
