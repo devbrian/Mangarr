@@ -4,6 +4,7 @@ using FizzWare.NBuilder;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
+using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Profiles.Delay;
@@ -109,6 +110,17 @@ namespace NzbDrone.Core.Test.Profiles.Delay
             var afterMove = result.Single(d => d.Id == after.Id);
 
             afterMove.Order.Should().BeLessThan(afterOrder);
+        }
+
+        // Phase 32 CORR-03 (D-08/D-09) — Reorder previously silent-no-op'd on unknown id;
+        // canonical behavior is to throw ModelNotFoundException so the V5 controller's
+        // existing exception filter converts to HTTP 404 with the model name + id.
+        [Test]
+        public void Reorder_throws_when_id_not_found()
+        {
+            var unknownId = 9999;
+
+            Assert.Throws<ModelNotFoundException>(() => Subject.Reorder(unknownId, null));
         }
     }
 

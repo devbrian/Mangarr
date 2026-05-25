@@ -22,9 +22,7 @@ namespace NzbDrone.Core.Manga
     //          SearchForMissingChapters && SearchForCutoffUnmetChapters are set, push ONE bulk
     //          MangaSearchCommand (whole-manga search, monitored-chapter-only filter) — TV equivalent
     //          of SeriesSearchCommand. Otherwise push MissingChapterSearchCommand for the missing-only
-    //          flag, and fall back to MangaSearchCommand for the cutoff-unmet-only flag (no
-    //          CutoffUnmetChapterSearchCommand sibling exists in v1; closest semantic is the bulk
-    //          whole-manga MangaSearchCommand which Phase 5 quality specs will narrow at decision time).
+    //          flag, and CutoffUnmetChapterSearchCommand for the cutoff-unmet-only flag.
     //       4. Clear AddOptions via IMangaService.RemoveAddOptions (mirrors
     //          Tv/SeriesService.RemoveAddOptions — uses repository SetFields so only the AddOptions
     //          column is persisted and no MangaUpdatedEvent is fired).
@@ -91,11 +89,8 @@ namespace NzbDrone.Core.Manga
 
                 if (addOptions.SearchForCutoffUnmetChapters)
                 {
-                    // No CutoffUnmetChapterSearchCommand sibling exists in v1 — closest semantic
-                    // is the bulk whole-manga MangaSearchCommand. Phase 5 cutoff specs narrow at
-                    // decision time. TODO: introduce CutoffUnmetChapterSearchCommand if Phase 6
-                    // wants finer-grained cutoff-only sweeps.
-                    _commandQueueManager.Push(new MangaSearchCommand(new List<int> { manga.Id }));
+                    // Narrow cutoff-only sweep. Consumer = CutoffUnmetChapterSearchService (Phase 8 audit gap-04).
+                    _commandQueueManager.Push(new CutoffUnmetChapterSearchCommand(manga.Id));
                 }
             }
 

@@ -4,6 +4,7 @@ using System.Linq;
 using NLog;
 using NzbDrone.Common.Cache;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging.Events;
@@ -129,8 +130,7 @@ namespace NzbDrone.Core.Profiles.Delay
 
             if (moving == null)
             {
-                // TODO: This should throw
-                return all;
+                throw new ModelNotFoundException(typeof(DelayProfile), id);
             }
 
             var afterOrder = GetAfterOrder(moving, after);

@@ -7,6 +7,7 @@ using NzbDrone.Common.Disk;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.MediaFiles.MangaImport.Manual;
 using NzbDrone.Core.Test.Framework;
@@ -31,6 +32,14 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport.Manual
     // overridden folder from the state row". IMangaService.GetManga(int) is the proxy for
     // "downstream consumed mangaId" — mirrors the production GetMediaFiles → ProcessFolder
     // call chain at MangaImport/Manual/ManualImportService.cs:189-191.
+    //
+    // Phase 32 CORR-05 — ctor pair-injection of IMangaDiskScanService landed in commit
+    // 4ce9475df (Plan 32-05 Task 1). IMangaDiskScanService now owns the .cbz/.cbr/.zip/.cb7
+    // extension allowlist (sourced from MangaFileExtensions). The fixture's [SetUp] now stubs
+    // the new dep so the existing 5 downloadId fast-path tests still drive through
+    // ListMangaArchives -> ProcessFolder cleanly; the new test
+    // `should_filter_to_manga_archive_extensions_via_disk_scan_service` verifies the
+    // GetMangaFiles + FilterPaths(filterExtras: false) pair-call (D-15 explicit param).
     [TestFixture]
     public class ManualImportServiceFixture : CoreTest<ManualImportService>
     {
@@ -66,6 +75,18 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport.Manual
             Mocker.GetMock<IDiskProvider>()
                 .Setup(d => d.GetDirectories(It.IsAny<string>()))
                 .Returns(Array.Empty<string>());
+
+            // CORR-05 — IMangaDiskScanService default stubs. Without these the production
+            // ListMangaArchives helper would NRE on the empty Moq defaults (string[] -> null,
+            // List<string> -> null). Existing tests need these to drive through ProcessFolder
+            // unchanged; the new GetMangaFiles invocation test re-uses these defaults.
+            Mocker.GetMock<IMangaDiskScanService>()
+                .Setup(s => s.GetMangaFiles(It.IsAny<string>(), It.IsAny<bool>()))
+                .Returns(Array.Empty<string>());
+
+            Mocker.GetMock<IMangaDiskScanService>()
+                .Setup(s => s.FilterPaths(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<bool>()))
+                .Returns(new List<string>());
 
             // GetManga(int) returns _manga for any int — downstream consumes mangaId via this call.
             Mocker.GetMock<IMangaService>()
@@ -181,6 +202,29 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport.Manual
             // mangaId WAS seeded from stateRow.
             Mocker.GetMock<IMangaService>()
                 .Verify(s => s.GetManga(42), Times.AtLeastOnce);
+        }
+
+        // ===================== CORR-05 — IMangaDiskScanService pair-call =====================
+
+        [Test]
+        public void should_filter_to_manga_archive_extensions_via_disk_scan_service()
+        {
+            // Caller folder exists (default setup), no downloadId fast-path; the production
+            // flow reaches ProcessFolder -> ListMangaArchives which is now the
+            // IMangaDiskScanService.GetMangaFiles + FilterPaths(filterExtras: false) pair-call.
+            // GetMangaFiles passes allDirectories: false (mirrors Sonarr-canonical pattern —
+            // ManualImport scans the top level of the folder only and recurses via
+            // ProcessFolder subfolder fan-out).
+            Subject.GetMediaFiles(folder: _callerFolder, downloadId: null, mangaId: 42, filterExistingFiles: false);
+
+            // GetMangaFiles called with allDirectories: false (CORR-05 D-13 pair-call shape).
+            Mocker.GetMock<IMangaDiskScanService>()
+                .Verify(s => s.GetMangaFiles(It.IsAny<string>(), false), Times.AtLeastOnce);
+
+            // FilterPaths called with filterExtras: false (CORR-05 D-15 explicit param —
+            // documents manga's no-Extras-subtree divergence at the call site).
+            Mocker.GetMock<IMangaDiskScanService>()
+                .Verify(s => s.FilterPaths(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), false), Times.AtLeastOnce);
         }
     }
 }

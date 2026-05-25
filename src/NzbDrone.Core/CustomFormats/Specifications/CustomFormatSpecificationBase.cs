@@ -28,9 +28,9 @@ namespace NzbDrone.Core.CustomFormats
             // every spec is evaluated against every input — including the manga overload. The
             // manga-side specs already use an `is not MangaCustomFormatInput → return false`
             // cast guard to skip TV inputs; mirror the inverse here so MediaType.Series specs
-            // (e.g. ResolutionSpecification, SourceSpecification, ReleaseTypeSpecification,
-            // LanguageSpecification) refuse to match a MangaCustomFormatInput rather than
-            // silently returning true on Resolution.Unknown / QualitySource.Unknown / etc.
+            // (e.g. ResolutionSpecification, SourceSpecification, ReleaseTypeSpecification)
+            // refuse to match a MangaCustomFormatInput rather than silently returning true on
+            // Resolution.Unknown / QualitySource.Unknown / etc.
             //
             // Note: this short-circuits BEFORE Negate flips, so MediaType.Series + Negate=true
             // does NOT spuriously match every manga release.

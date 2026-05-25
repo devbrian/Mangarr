@@ -24,8 +24,9 @@ namespace NzbDrone.Core.CustomFormats
     // Reads ParsedChapterInfo.ChapterType enum (Phase 2 D-09: Regular / Extra / Bonus /
     // SideStory / Oneshot / Prologue / Epilogue / Special). Lets users filter or score
     // by chapter type (e.g., negative CF score on SideStory so they don't pollute the
-    // main feed). Mirrors LanguageSpecification's enum-select shape (FieldType.Select +
-    // typeof(ChapterType) generates the dropdown in Phase 7 UI).
+    // main feed). Uses the canonical FieldType.Select + typeof(ChapterType) enum-select
+    // shape (generates the dropdown in Phase 7 UI; same pattern previously demonstrated
+    // by the TV-region language CF spec [deleted Phase 32 — CORR-04]).
     //
     // ChapterType enum lives at NzbDrone.Core.Parser.Manga (NOT NzbDrone.Core.Manga as
     // the plan's draft suggested) — verified location at src/NzbDrone.Core/Parser/Manga/

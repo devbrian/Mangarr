@@ -18,7 +18,7 @@
 - All 4 specs cast `input is not MangaCustomFormatInput → return false` per Pitfall 4 + the Wave 0 sibling-input choice (MangaCustomFormatInput derives from CustomFormatInput, so the cast is type-safe)
 - TranslatedLanguageSpecification uses BCP-47 string Value (Adaptation Hotspot 2 — distinct from Mangarr's int-keyed Language enum). BCP-47 validation uses `IsoLanguages.Find(code) != null` (the canonical Mangarr API; `IsoLanguages.IsBcp47Valid` does NOT exist in this codebase per plan 05-02 SUMMARY)
 - ScanlationGroup + SourceKey extend `RegexSpecificationBase` — they inherit `Regex.Compiled | RegexOptions.IgnoreCase` and the null-safe `MatchString(compared)` helper. T-05-19 (catastrophic-backtracking DoS) mitigation surface lives on the base class
-- ChapterType uses `[FieldDefinition(... Type = FieldType.Select, SelectOptions = typeof(ChapterType))]` pattern (mirror of `LanguageSpecification.cs:30`); enum lives at `NzbDrone.Core.Parser.Manga.ChapterType`
+- ChapterType uses `[FieldDefinition(... Type = FieldType.Select, SelectOptions = typeof(ChapterType))]` pattern (canonical FieldType.Select + enum-select dropdown shape; the TV-region language CF spec demonstrated this pattern before its Phase 32 — CORR-04 deletion); enum lives at `NzbDrone.Core.Parser.Manga.ChapterType`
 
 ## Override hook
 The base `CustomFormatSpecificationBase` provides the `IsSatisfiedBy(CustomFormatInput)` entry-point with negate handling and exposes `protected abstract bool IsSatisfiedByWithoutNegate(CustomFormatInput)` for derived classes to implement. All 4 specs override `IsSatisfiedByWithoutNegate` (NOT the public `IsSatisfiedBy`).
