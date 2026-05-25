@@ -99,10 +99,13 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 "only reachable via ES module export.");
 
             _signerSource.Should().Contain(
-                "mod.f",
-                "Signer must invoke the env module's `f` export (the b-wrapper around the " +
-                "decryption-installed axios instance). `mod.f.get(path, {params})` returns " +
-                "plaintext JSON via the bundle's own interceptor chain.");
+                "mod.g",
+                "Signer must invoke the env module's `.get->.data` axios wrapper export. " +
+                "Phase 33.1 (2026-05-25): the export name rotated from `f` to `g` (the bundler " +
+                "re-mangles single-letter export names every build); `mod.g.get(path, {params})` " +
+                "returns plaintext JSON via the bundle's own interceptor chain. If this fails, " +
+                "comix.to may have re-mangled the export — re-run the Phase 33.1 LIVE " +
+                "investigate-patch-verify loop. See .planning/debug/comix-signer-rotation-2026-05-25.md.");
         }
 
         [Test]

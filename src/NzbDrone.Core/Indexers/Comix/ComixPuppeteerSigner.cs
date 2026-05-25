@@ -322,10 +322,16 @@ namespace NzbDrone.Core.Indexers.Comix
             // `TypeError: target must be an object` because axios's URL composition tried
             // to iterate the string as if it were an object. Fix: parse the JSON inside
             // the page-context wrapper so the axios call receives a real object.
+            //
+            // Phase 33.1 (2026-05-25): the env module's export-name map rotated alongside the
+            // URL token. The .get->.data axios wrapper (internal `N = {get:async(e,t)=>
+            // (await oi.get(e,t)).data,...}` over `oi = axios.create({baseURL:"/api/v1"})`) is
+            // now exported as `g` (was `f`); `mod.f` now maps to a zustand modal store. Accessor
+            // swapped mod.f -> mod.g. See .planning/debug/comix-signer-rotation-2026-05-25.md.
             var resultJson = await page.EvaluateFunctionAsync<string>(
                 "async (modUrl, p, paramsJson) => {" +
                 "  const mod = await import(modUrl);" +
-                "  const f = mod.f;" + // 'b as f' export — wraps ai.get with .data unwrap
+                "  const f = mod.g;" + // 'N as g' export — wraps oi.get with .data unwrap
                 "  const paramsObj = paramsJson ? JSON.parse(paramsJson) : {};" +
                 "  const opts = Object.keys(paramsObj).length > 0 ? { params: paramsObj } : undefined;" +
                 "  const res = await f.get(p, opts);" +
