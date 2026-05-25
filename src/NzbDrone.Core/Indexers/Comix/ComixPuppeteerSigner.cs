@@ -356,6 +356,15 @@ namespace NzbDrone.Core.Indexers.Comix
             }
 
             var envUrlTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            // Phase 33.1 (2026-05-25): env module URL pattern rotated from 'env-tfgaak-' to
+            // 'env-tfkr3g-' (comix.to rebuilt; the per-build token changed across all bundles).
+            // Filter narrowed to the new pattern per .planning/debug/comix-signer-rotation-2026-05-25.md.
+            // Do NOT broaden to all .js requests (Phase 17 RESEARCH N-3 + Phase 17.2 D-1
+            // constraint — broadening picks up chunked bundles / polyfills as the env module,
+            // which won't export `mod.f`). This is the 5th rotation event since Phase 17 shipped;
+            // ComixEnvModuleFilterFixture grep-locks this literal so the next rotation surfaces
+            // at build time instead of as a silent 30s timeout.
             EventHandler<RequestEventArgs> finishedHandler = null;
             finishedHandler = (sender, e) =>
             {
@@ -363,7 +372,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 {
                     var url = e.Request?.Url;
                     if (url != null
-                        && url.IndexOf("env-tfgaak-", StringComparison.OrdinalIgnoreCase) >= 0
+                        && url.IndexOf("env-tfkr3g-", StringComparison.OrdinalIgnoreCase) >= 0
                         && url.IndexOf("comix.to", StringComparison.OrdinalIgnoreCase) >= 0
                         && url.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
                     {
