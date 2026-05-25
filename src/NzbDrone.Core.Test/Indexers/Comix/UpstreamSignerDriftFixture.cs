@@ -80,10 +80,11 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // .planning/debug/comix-signer-rotation.md "Investigation Phase 3" for why
             // that shape is structurally broken post-2026-05-23.
             _signerSource.Should().Contain(
-                "env-tfgaak-",
-                "Signer must locate the env module (env-tfgaak-*.js) which exports the " +
-                "bundle's axios instance + b-wrapper. See bundle source dump in " +
-                ".planning/debug/evidence/comix-signer-rotation/bundle-source-*-env-tfgaak-*.");
+                "env-tfkr3g-",
+                "Signer must locate the env module (env-tfkr3g-*.js) which exports the " +
+                "bundle's axios instance + b-wrapper. Phase 33.1 (2026-05-25) rotated this " +
+                "substring from env-tfgaak- to env-tfkr3g- — see bundle source dump in " +
+                ".planning/debug/evidence/comix-signer-rotation-2026-05-25/bundle-source-*-env-tfkr3g-*.");
 
             _signerSource.Should().Contain(
                 "EnsureEnvModuleAsync",
