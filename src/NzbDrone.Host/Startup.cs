@@ -351,8 +351,18 @@ namespace NzbDrone.Host
                     // resolve our own replacement back into ourselves.
                     var realSigner = container.Resolve<ComixPuppeteerSigner>();
 
-                    container.Register<IComixSigner>(
-                        made: Made.Of(() => new CassettingComixSigner(comixCassetteDir, parsedMode, realSigner)),
+                    // RegisterDelegate (not Made.Of) — DryIoc's Made.Of-with-lambda compiles
+                    // the lambda to an Expression tree, which requires each parameter to be a
+                    // ConstantExpression. The closure-captured locals (`comixCassetteDir`,
+                    // `parsedMode`, `realSigner`) appear in the expression tree as
+                    // MemberAccess on the C# compiler-generated `<>c__DisplayClass*` closure
+                    // type, which trips DryIoc.Error.UnexpectedExpressionInsteadOfConstantInMadeOf
+                    // (#33-03 LIVE recording surfaced this — Made.Of path was never exercised
+                    // at runtime because ComixSignerDryIocResolutionFixture only tests the
+                    // env-unset fall-through). RegisterDelegate bypasses the expression-tree
+                    // analyzer and accepts a plain Func<IResolverContext, IComixSigner>.
+                    container.RegisterDelegate<IComixSigner>(
+                        _ => new CassettingComixSigner(comixCassetteDir, parsedMode, realSigner),
                         reuse: Reuse.Singleton,
                         ifAlreadyRegistered: IfAlreadyRegistered.Replace);
                 }

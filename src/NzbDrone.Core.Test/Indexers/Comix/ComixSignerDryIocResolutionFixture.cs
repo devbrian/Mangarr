@@ -123,5 +123,41 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             container.IsRegistered(concreteType).Should().BeTrue(
                 "RegisterMany convention with Transient reuse on concrete classes per Extensions.cs:33-35");
         }
+
+        [Test]
+        public void Env_set_path_replaces_IComixSigner_with_CassettingComixSigner_via_RegisterDelegate()
+        {
+            // Phase 33 Plan 33-02 / Plan 33-03 LIVE-recording regression lock — the
+            // Startup.cs:341-369 env-var-gated swap must use RegisterDelegate (NOT
+            // Made.Of-with-lambda) because the closure-captured locals
+            // (`comixCassetteDir`, `parsedMode`, `realSigner`) trip
+            // DryIoc.Error.UnexpectedExpressionInsteadOfConstantInMadeOf at Configure-time.
+            // Originally landed with Made.Of and never caught because the existing
+            // ComixSignerDryIocResolutionFixture tests only the env-unset fall-through;
+            // surfaced when Plan 33-03 actually drove the SET path against a live backend.
+            //
+            // This test mirrors the Startup.cs shape verbatim — captured local names,
+            // RegisterDelegate signature, IfAlreadyRegistered.Replace, Reuse.Singleton —
+            // so future edits to that block keep the registration shape compatible with
+            // closure-captured construction.
+            using var container = BuildRealContainer();
+
+            var comixCassetteDir = System.IO.Path.GetTempPath();
+            var parsedMode = CassetteMode.Replay;
+            var realSigner = container.Resolve<ComixPuppeteerSigner>();
+
+            container.RegisterDelegate<IComixSigner>(
+                _ => new CassettingComixSigner(comixCassetteDir, parsedMode, realSigner),
+                reuse: Reuse.Singleton,
+                ifAlreadyRegistered: IfAlreadyRegistered.Replace);
+
+            var first = container.Resolve<IComixSigner>();
+            var second = container.Resolve<IComixSigner>();
+
+            first.Should().BeOfType<CassettingComixSigner>(
+                "env-SET path must swap the IComixSigner registration to the cassetting layer per Plan 33-02 D-03");
+            first.Should().BeSameAs(second,
+                "Reuse.Singleton on the replacement must yield same-instance on consecutive Resolve calls");
+        }
     }
 }
