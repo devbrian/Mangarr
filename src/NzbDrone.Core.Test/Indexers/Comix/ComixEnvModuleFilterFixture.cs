@@ -62,10 +62,11 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             //
             // See .planning/debug/comix-signer-rotation-2026-05-25.md for the
             // investigation that surfaced the new pattern.
-            _signerSource.Should().Contain(
-                "env-tfkr3g-",
+            _signerSource.Should().MatchRegex(
+                @"url\.IndexOf\(\s*""env-tfkr3g-""\s*,\s*StringComparison\.OrdinalIgnoreCase\s*\)\s*>=\s*0",
                 "EnsureEnvModuleAsync must filter RequestFinished events for the current " +
-                "env module URL pattern. If this assertion fails, comix.to may have " +
+                "env module URL pattern via the executable url.IndexOf(\"env-tfkr3g-\") call " +
+                "(NOT merely as a comment token). If this assertion fails, comix.to may have " +
                 "rotated the bundle URL pattern again — read the rotation log under " +
                 ".planning/debug/comix-signer-rotation-*.md and re-run the Phase 33.1 " +
                 "investigate-patch-verify loop with the new substring.");
@@ -81,10 +82,10 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // negative assertion on the double-quoted form lets the documentation comment
             // survive while still tripping if anyone reverts the filter literal.
             _signerSource.Should().NotMatchRegex(
-                "\"env-tfgaak-\"",
+                @"url\.IndexOf\(\s*""env-tfgaak-""",
                 "Phase 33.1 retired the 'env-tfgaak-' substring on 2026-05-25. Re-introducing " +
-                "the executable filter literal \"env-tfgaak-\" will re-surface the 30s env-module " +
-                "capture timeout — see .planning/debug/comix-signer-rotation-2026-05-25.md.");
+                "the executable filter literal url.IndexOf(\"env-tfgaak-\") will re-surface the " +
+                "30s env-module capture timeout — see .planning/debug/comix-signer-rotation-2026-05-25.md.");
         }
     }
 }

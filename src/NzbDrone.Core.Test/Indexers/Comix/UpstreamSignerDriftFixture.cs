@@ -79,12 +79,12 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // the upstream-obsolete captureToken+relay shape — read
             // .planning/debug/comix-signer-rotation.md "Investigation Phase 3" for why
             // that shape is structurally broken post-2026-05-23.
-            _signerSource.Should().Contain(
-                "env-tfkr3g-",
-                "Signer must locate the env module (env-tfkr3g-*.js) which exports the " +
-                "bundle's axios instance + b-wrapper. Phase 33.1 (2026-05-25) rotated this " +
-                "substring from env-tfgaak- to env-tfkr3g- — see bundle source dump in " +
-                ".planning/debug/evidence/comix-signer-rotation-2026-05-25/bundle-source-*-env-tfkr3g-*.");
+            _signerSource.Should().MatchRegex(
+                @"url\.IndexOf\(\s*""env-tfkr3g-""\s*,\s*StringComparison\.OrdinalIgnoreCase\s*\)\s*>=\s*0",
+                "Signer must locate the env module (env-tfkr3g-*.js) via the executable " +
+                "url.IndexOf(\"env-tfkr3g-\") filter (NOT merely a comment token). Phase 33.1 " +
+                "(2026-05-25) rotated this substring from env-tfgaak- to env-tfkr3g- — see bundle " +
+                "source dump in .planning/debug/evidence/comix-signer-rotation-2026-05-25/bundle-source-*-env-tfkr3g-*.");
 
             _signerSource.Should().Contain(
                 "EnsureEnvModuleAsync",
@@ -98,14 +98,20 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 "decryption oracle (Hi(ai) axios interceptor) lives in module scope and is " +
                 "only reachable via ES module export.");
 
-            _signerSource.Should().Contain(
-                "mod.g",
-                "Signer must invoke the env module's `.get->.data` axios wrapper export. " +
-                "Phase 33.1 (2026-05-25): the export name rotated from `f` to `g` (the bundler " +
-                "re-mangles single-letter export names every build); `mod.g.get(path, {params})` " +
-                "returns plaintext JSON via the bundle's own interceptor chain. If this fails, " +
-                "comix.to may have re-mangled the export — re-run the Phase 33.1 LIVE " +
-                "investigate-patch-verify loop. See .planning/debug/comix-signer-rotation-2026-05-25.md.");
+            _signerSource.Should().MatchRegex(
+                @"const\s+f\s*=\s*mod\.g\s*;",
+                "Signer must invoke the env module's `.get->.data` axios wrapper export via the " +
+                "executable `const f = mod.g;` accessor (NOT merely a comment token). Phase 33.1 " +
+                "(2026-05-25): the export name rotated from `f` to `g` (the bundler re-mangles " +
+                "single-letter export names every build). If this fails, comix.to may have " +
+                "re-mangled the export — re-run the Phase 33.1 LIVE investigate-patch-verify " +
+                "loop. See .planning/debug/comix-signer-rotation-2026-05-25.md.");
+
+            _signerSource.Should().MatchRegex(
+                @"await\s+f\.get\(",
+                "Signer must call `.get(...)` on the rotated wrapper export (`await f.get(`) — " +
+                "this is the executable invocation that returns plaintext JSON via the bundle's " +
+                "own interceptor chain.");
         }
 
         [Test]
