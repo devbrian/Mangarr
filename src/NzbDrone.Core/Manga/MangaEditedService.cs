@@ -1,7 +1,7 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using NLog;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Manga.Commands;
 using NzbDrone.Core.Manga.Events;
@@ -41,7 +41,7 @@ namespace NzbDrone.Core.Manga
         public void Handle(MangaEditedEvent message)
         {
             // Single-edit path. Refresh gated on cross-source ID triplet (MangaDexId/MalId/AniListId) diff; Rescan pushed on Manga.Path diff (CORR-02).
-            var pathChanged = !string.Equals(message.Manga.Path, message.OldManga.Path, StringComparison.Ordinal);
+            var pathChanged = !message.Manga.Path.PathEquals(message.OldManga.Path);
             var idsChanged = message.Manga.MangaDexId != message.OldManga.MangaDexId
                           || message.Manga.MalId != message.OldManga.MalId
                           || message.Manga.AniListId != message.OldManga.AniListId;

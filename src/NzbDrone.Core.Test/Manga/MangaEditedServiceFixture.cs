@@ -131,5 +131,24 @@ namespace NzbDrone.Core.Test.MangaTests
                       It.IsAny<CommandTrigger>()),
                           Times.Never);
         }
+
+        [Test]
+        [Platform("Win")]
+        public void Handle_with_case_only_path_change_on_case_insensitive_fs_pushes_neither_command()
+        {
+            // WR-01 regression: PathEquals respects OS-level case sensitivity.
+            // On Windows / macOS a case-different re-save is a no-op and must not queue Rescan.
+            var oldManga = BuildManga(42, @"C:\Manga\Foo", MangaDexId1, 100, 200);
+            var newManga = BuildManga(42, @"c:\manga\foo", MangaDexId1, 100, 200);
+
+            Subject.Handle(new MangaEditedEvent(newManga, oldManga));
+
+            Mocker.GetMock<IManageCommandQueue>()
+                  .Verify(q => q.Push(
+                      It.IsAny<RescanMangaCommand>(),
+                      It.IsAny<CommandPriority>(),
+                      It.IsAny<CommandTrigger>()),
+                          Times.Never);
+        }
     }
 }
