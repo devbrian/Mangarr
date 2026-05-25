@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using NLog;
+using NzbDrone.Core.Configuration;
+using NzbDrone.Core.Indexers.Cloudflare;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging.Events;
 using PuppeteerSharp;
@@ -394,6 +396,15 @@ namespace NzbDrone.Core.Indexers.Comix
             page.RequestFinished += finishedHandler;
             try
             {
+                // Phase 33.2 (D-02): inject the cleared (UA, cookie) BEFORE navigating so the
+                // env-module capture loads past Cloudflare's "Just a moment" managed challenge.
+                // ORDER IS LOAD-BEARING — SetUserAgentAsync MUST precede SetCookieAsync MUST
+                // precede GoToAsync (Pitfall 1 — a cf_clearance cookie is bound to the UA that
+                // earned it; splitting them re-triggers the challenge). Degrades gracefully
+                // (skips injection, lets the existing CF-403 -> RecordFailure path engage) when
+                // no solver URL is configured.
+                await ApplyCloudflareClearanceAsync(page, ct).ConfigureAwait(false);
+
                 // Fire-and-forget navigation — the env module capture is our sync point.
                 _ = page.GoToAsync(
                     pageUrl,
@@ -427,6 +438,66 @@ namespace NzbDrone.Core.Indexers.Comix
             {
                 page.RequestFinished -= finishedHandler;
             }
+        }
+
+        // Phase 33.2 (D-02): atomic cleared-session injection. Hook point is immediately BEFORE
+        // the fire-and-forget GoToAsync inside EnsureEnvModuleAsync. The solver UA SUPERSEDES the
+        // honest Mangarr/{version} UA / _cachedUserAgent for cleared requests — NEVER split the
+        // cookie from its UA (Pitfall 1). The injected cookie reuses the solver's EXACT
+        // domain/path/secure/httpOnly fields (Pitfall 5), never a hardcoded `.comix.to`.
+        //
+        // protected virtual so a test fixture can observe / substitute the injection without a real
+        // Chromium child (matches the file's existing test-seam style — IdleTimeout / LaunchBrowserAsync
+        // / LaunchAndProbeAsync / EvaluateProxyFetchAsync). The DEFAULT body here is the production path
+        // and runs against a Mock<IPage> in ComixSignerCloudflareInjectionFixture so the real
+        // UA->cookie ordering is asserted.
+        protected virtual async Task ApplyCloudflareClearanceAsync(IPage page, CancellationToken ct)
+        {
+            // Empty-URL-means-off (the resolved lower-risk threading default per 33.2-PATTERNS.md):
+            // the global solver URL being unset is the off switch. Skip injection entirely — the
+            // existing CF-403 -> RecordFailure path + the Plan 03 D-07 Health Check surface the remedy.
+            if (string.IsNullOrWhiteSpace(_configService.CloudflareSolverUrl))
+            {
+                return;
+            }
+
+            CloudflareClearance clearance;
+            try
+            {
+                clearance = await _clearanceService
+                    .GetClearanceAsync(ComixBaseUrl + "/", ct)
+                    .ConfigureAwait(false);
+            }
+            catch (CloudflareSolverException ex)
+            {
+                // Degrade, do NOT hard-fail (Anti-Patterns / T-33.2-08 accept). Log host + typed
+                // error class ONLY — NEVER the cf_clearance cookie value (ASVS V7 / T-33.2-06).
+                _logger.Warn(
+                    "Comix signer: Cloudflare clearance unavailable for {0} ({1}); proceeding without injection.",
+                    ComixBaseUrl,
+                    ex.GetType().Name);
+                return;
+            }
+
+            if (clearance == null || string.IsNullOrEmpty(clearance.CfClearanceCookie))
+            {
+                _logger.Warn(
+                    "Comix signer: Cloudflare clearance for {0} returned no cf_clearance cookie; proceeding without injection.",
+                    ComixBaseUrl);
+                return;
+            }
+
+            // ORDER IS LOAD-BEARING: UA first (solver UA supersedes honest/override UA), cookie second.
+            await page.SetUserAgentAsync(clearance.UserAgent).ConfigureAwait(false);
+            await page.SetCookieAsync(new CookieParam
+            {
+                Name = "cf_clearance",
+                Value = clearance.CfClearanceCookie,
+                Domain = clearance.CookieDomain,
+                Path = clearance.CookiePath,
+                Secure = clearance.Secure,
+                HttpOnly = clearance.HttpOnly,
+            }).ConfigureAwait(false);
         }
 
         // SplitApiPathToAxiosCall: turn `/manga/mr3m0/chapters?page=1&limit=20` into
@@ -688,6 +759,17 @@ namespace NzbDrone.Core.Indexers.Comix
 
         // ── Fields ────────────────────────────────────────────────────────────────────
         private readonly IIndexerSourceStatusService _sourceStatusService;
+
+        // Phase 33.2 (D-02): generic CF clearance seam + config gate. The clearance service is
+        // NON-disposable and resolved through the normal DI graph, so adding it as a ctor param
+        // does NOT reintroduce the Phase 33 eager-disposal pitfall (the signer itself is resolved
+        // lazily inside its Reuse.Singleton registration delegate). _configService supplies the
+        // global CloudflareSolverUrl off switch (empty-URL-means-off — the resolved lower-risk
+        // threading default per 33.2-PATTERNS.md lines 225-230; the per-indexer Settings checkbox
+        // is NOT threaded down into this process-singleton).
+        private readonly ICloudflareClearanceService _clearanceService;
+        private readonly IConfigService _configService;
+
         private readonly Logger _logger;
 
         private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
@@ -730,9 +812,15 @@ namespace NzbDrone.Core.Indexers.Comix
         // wraparound interval at 1 increment per minute is ~4000 years.
         private int _idleTimerGeneration;
 
-        public ComixPuppeteerSigner(IIndexerSourceStatusService sourceStatusService, Logger logger)
+        public ComixPuppeteerSigner(
+            IIndexerSourceStatusService sourceStatusService,
+            ICloudflareClearanceService clearanceService,
+            IConfigService configService,
+            Logger logger)
         {
             _sourceStatusService = sourceStatusService;
+            _clearanceService = clearanceService;
+            _configService = configService;
             _logger = logger;
         }
 
