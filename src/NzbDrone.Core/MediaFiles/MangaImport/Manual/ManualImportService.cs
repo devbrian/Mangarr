@@ -40,9 +40,9 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
     //     v1.1 follow-up (NOT Plan 09-14): introduce IMangaTrackedDownloadService analog if
     //     multi-consumer pattern emerges (per audit gap-06 OPTION B notes — currently
     //     IChapterDownloadStateRepository covers all in-scope consumers).
-    //   * No IDiskScanService manga peer in v1 — uses raw IDiskProvider + the manga
-    //     archive-extension allowlist (mirrors MangaTitleNormalizer's allowlist convention).
-    //     TODO Phase 8 follow-up: replace with IMangaDiskScanService when that ships.
+    //   * IMangaDiskScanService pair-injection lands at CORR-05 (Phase 32 2026-05-24).
+    //     GetMangaFiles + FilterPaths(filterExtras: false) is the manga-canonical pair
+    //     mirroring Sonarr's EpisodeImport ManualImportService.cs:48-92.
     //   * No V5 controller wiring in this plan (deferred — see Plan 08-08 scope).
     //   * No frontend wiring in this plan (deferred).
     //
@@ -60,15 +60,8 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
 
     public class ManualImportService : IExecute<ManualImportCommand>, IManualImportService
     {
-        // Manga archive extensions — matches MangaParser's allowlist (Phase 2 Parser/Manga
-        // CLAUDE.md). Path.GetExtension is unsafe for `Ch.1` filenames so we lowercase-compare
-        // the trailing token explicitly.
-        private static readonly HashSet<string> MangaArchiveExtensions = new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".cbz", ".cbr", ".cb7", ".cbt", ".zip", ".rar", ".pdf", ".epub"
-        };
-
         private readonly IDiskProvider _diskProvider;
+        private readonly IMangaDiskScanService _mangaDiskScanService;            // CORR-05 — pair-injection per Sonarr-canonical D-13
         private readonly IMangaParsingService _parsingService;
         private readonly IMangaService _mangaService;
         private readonly IChapterService _chapterService;
@@ -79,6 +72,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
         private readonly Logger _logger;
 
         public ManualImportService(IDiskProvider diskProvider,
+                                   IMangaDiskScanService mangaDiskScanService,             // CORR-05 — pair-injection per Sonarr-canonical D-13
                                    IMangaParsingService parsingService,
                                    IMangaService mangaService,
                                    IChapterService chapterService,
@@ -89,6 +83,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
                                    Logger logger)
         {
             _diskProvider = diskProvider;
+            _mangaDiskScanService = mangaDiskScanService;
             _parsingService = parsingService;
             _mangaService = mangaService;
             _chapterService = chapterService;
@@ -577,17 +572,11 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
 
         private List<string> ListMangaArchives(string folder)
         {
-            // No IMangaDiskScanService peer yet (TODO Phase 8 follow-up). Use the raw disk
-            // provider + manga archive extension allowlist. Mirrors the corpus-validated
-            // Parser/Manga extension list (CBZ/CBR/CB7/CBT/ZIP/RAR/PDF/EPUB).
-            var allFiles = _diskProvider.GetFiles(folder, false);
-            return allFiles
-                .Where(f =>
-                {
-                    var ext = Path.GetExtension(f);
-                    return !string.IsNullOrWhiteSpace(ext) && MangaArchiveExtensions.Contains(ext);
-                })
-                .ToList();
+            // Sonarr-canonical pair-call: GetMangaFiles owns the extension allowlist (single
+            // source-of-truth = MangaFileExtensions); FilterPaths(filterExtras: false) honors
+            // manga's no-Extras-subtree divergence (CORR-05 D-13/D-14/D-15).
+            var files = _mangaDiskScanService.GetMangaFiles(folder, allDirectories: false);
+            return _mangaDiskScanService.FilterPaths(folder, files, filterExtras: false);
         }
 
         private ManualImportItem MapItem(MangaImportDecision decision, string rootFolder, string downloadId, string folderName)
