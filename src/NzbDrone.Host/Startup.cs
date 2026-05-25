@@ -344,25 +344,29 @@ namespace NzbDrone.Host
             {
                 if (Enum.TryParse<CassetteMode>(comixCassetteMode, ignoreCase: true, out var parsedMode))
                 {
-                    // Capture the auto-discovered ComixPuppeteerSigner as the cassetting
-                    // signer's `inner` delegate — needed for Record / ReplayOrRecord-miss
-                    // paths where the cassetting layer falls through to live comix.to
-                    // signing. Resolve BEFORE the Register-replace call so we don't
-                    // resolve our own replacement back into ourselves.
-                    var realSigner = container.Resolve<ComixPuppeteerSigner>();
-
                     // RegisterDelegate (not Made.Of) — DryIoc's Made.Of-with-lambda compiles
                     // the lambda to an Expression tree, which requires each parameter to be a
                     // ConstantExpression. The closure-captured locals (`comixCassetteDir`,
-                    // `parsedMode`, `realSigner`) appear in the expression tree as
-                    // MemberAccess on the C# compiler-generated `<>c__DisplayClass*` closure
-                    // type, which trips DryIoc.Error.UnexpectedExpressionInsteadOfConstantInMadeOf
-                    // (#33-03 LIVE recording surfaced this — Made.Of path was never exercised
-                    // at runtime because ComixSignerDryIocResolutionFixture only tests the
-                    // env-unset fall-through). RegisterDelegate bypasses the expression-tree
-                    // analyzer and accepts a plain Func<IResolverContext, IComixSigner>.
+                    // `parsedMode`) appear in the expression tree as MemberAccess on the C#
+                    // compiler-generated `<>c__DisplayClass*` closure type, which trips
+                    // DryIoc.Error.UnexpectedExpressionInsteadOfConstantInMadeOf. RegisterDelegate
+                    // bypasses the expression-tree analyzer and accepts a plain
+                    // Func<IResolverContext, IComixSigner>.
+                    //
+                    // Resolve the inner ComixPuppeteerSigner LAZILY from the resolver context
+                    // (`r.Resolve<...>()`) inside the delegate body — NOT eagerly via a
+                    // pre-captured `container.Resolve<ComixPuppeteerSigner>()`. The eager-capture
+                    // shape disposed the inner signer before first use: resolving a disposable
+                    // singleton during ConfigureServices (before the DryIoc/MS.DI container is
+                    // fully built) materializes it in a transient composition scope that gets
+                    // disposed when host-build completes, so by request time the captured inner
+                    // threw ObjectDisposedException (33-03 LIVE recording surfaced this; the
+                    // ComixSignerDryIocResolutionFixture validated registration SHAPE but never
+                    // called ProxyFetchAsync on the inner, so the disposal slipped through).
+                    // The delegate is Reuse.Singleton, so the inner is resolved exactly once,
+                    // after the permanent root singleton scope exists — no premature disposal.
                     container.RegisterDelegate<IComixSigner>(
-                        _ => new CassettingComixSigner(comixCassetteDir, parsedMode, realSigner),
+                        r => new CassettingComixSigner(comixCassetteDir, parsedMode, r.Resolve<ComixPuppeteerSigner>()),
                         reuse: Reuse.Singleton,
                         ifAlreadyRegistered: IfAlreadyRegistered.Replace);
                 }
