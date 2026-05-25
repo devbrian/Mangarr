@@ -251,5 +251,73 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             releases.Should().NotBeNull();
             releases.Should().BeEmpty("zero-hit keyword-search must produce zero releases; no fallthrough to chapter-list dispatch.");
         }
+
+        [Test]
+        public async Task Fetch_MangaSearchCriteria_prefers_chaptered_series_over_chapterless_oneshot()
+        {
+            // Phase 33 COMIX2-01 regression (Plan 33-03 LIVE recording surfaced this):
+            // comix.to's keyword search ranks a chapterless oneshot (hasChapters=false)
+            // ahead of the canonical chaptered series for some titles. The live
+            // "Komi Can't Communicate" case returned the oneshot `e0nkm` (0 chapters)
+            // FIRST, then the 500-chapter romaji-titled "Komi-san wa Komyushou Desu."
+            // (`xkvvj`). The English Manga.Title never exact-matches the romaji comix
+            // title, so the pre-Phase-33 first-hit fallback picked the oneshot →
+            // an empty /manga/e0nkm/chapters body → 0 Comix releases → no Comix row in
+            // InteractiveSearch. ResolveMangaHashAsync must now prefer hasChapters=true
+            // entries so the chaptered series is chosen.
+            const string searchHitOneshotFirst = @"{
+                ""items"": [
+                    { ""id"": 48650, ""hid"": ""e0nkm"", ""title"": ""Komi Can't Communicate. (Oneshot)"", ""hasChapters"": false, ""latestChapter"": 0 },
+                    { ""id"": 1, ""hid"": ""xkvvj"", ""title"": ""Komi-san wa Komyushou Desu."", ""hasChapters"": true, ""latestChapter"": 500.5 }
+                ],
+                ""meta"": { ""current_page"": 1, ""last_page"": 1 }
+            }";
+            const string chapteredList = @"{
+                ""items"": [
+                    { ""id"": 9000, ""hid"": ""ch-1"", ""number"": 1, ""name"": null, ""title"": null, ""updatedAt"": ""2026-05-01T00:00:00.000000Z"", ""publishedAt"": null, ""group"": null, ""isOfficial"": 1, ""language"": ""en"" }
+                ],
+                ""meta"": { ""current_page"": 1, ""last_page"": 1 }
+            }";
+
+            var requestedChapterListPaths = new System.Collections.Generic.List<string>();
+            Mocker.GetMock<IComixSigner>()
+                  .Setup(s => s.ProxyFetchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Returns<string, CancellationToken>((path, _) =>
+                  {
+                      if (path.StartsWith("/manga?keyword=", System.StringComparison.Ordinal))
+                      {
+                          return Task.FromResult(searchHitOneshotFirst);
+                      }
+
+                      if (path.Contains("/chapters"))
+                      {
+                          requestedChapterListPaths.Add(path);
+                          return Task.FromResult(chapteredList);
+                      }
+
+                      return Task.FromResult<string>(null);
+                  });
+
+            var criteria = new MangaSearchCriteria
+            {
+                Manga = new NzbDrone.Core.Manga.Manga
+                {
+                    Title = "Komi Can't Communicate",
+                    CleanTitle = "komicantcommunicate"
+                }
+            };
+
+            var releases = await Subject.Fetch(criteria);
+
+            // The chapter-list dispatch must target the CHAPTERED series xkvvj — NOT the
+            // chapterless oneshot e0nkm that comix.to ranked first.
+            requestedChapterListPaths.Should().NotBeEmpty("a chaptered hid must be resolved and dispatched to the chapter-list endpoint");
+            requestedChapterListPaths.Should().OnlyContain(
+                p => p.StartsWith("/manga/xkvvj/chapters", System.StringComparison.Ordinal),
+                "Phase 33 COMIX2-01: ResolveMangaHashAsync must prefer the hasChapters=true series (xkvvj) over the chapterless oneshot (e0nkm) even though neither exact-matches the English Manga.Title");
+            requestedChapterListPaths.Should().NotContain(p => p.Contains("/manga/e0nkm/"));
+
+            releases.Should().NotBeEmpty("the chaptered series must yield at least one release");
+        }
     }
 }

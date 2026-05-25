@@ -1051,6 +1051,27 @@ Subsequent v1.x phases extend this delta; deviations from the snapshot are docum
 - `.planning/REQUIREMENTS.md` IL2-05 — REQ-ID acceptance criteria language (Complete post-Phase 31).
 
 
+## Phase 33 — Comix Coverage Restore (v1.2) — keyword-search prefers chaptered series over chapterless oneshots (2026-05-25)
+
+**Phase 33 (v1.2) — Comix title→hid resolution prefers `hasChapters=true`.** `ComixIndexer.ResolveMangaHashAsync` resolves a comix.to manga `hid` from the keyword-search results. comix.to's keyword search ranks a chapterless oneshot ahead of the canonical chaptered series for some titles — the live "Komi Can't Communicate" case returned the oneshot `e0nkm` (`hasChapters:false`, 0 chapters) BEFORE the 500-chapter romaji-titled "Komi-san wa Komyushou Desu." (`xkvvj`). Because Mangarr stores the English MangaDex altTitle as `Manga.Title` and comix.to indexes under the romaji title, the exact-title match never fires, and the pre-Phase-33 first-hit fallback picked the chapterless oneshot → an empty `/manga/{hid}/chapters` body → 0 Comix releases in InteractiveSearch. The fix prefers `hasChapters=true` entries: (1) exact-title match among chaptered entries, (2) first chaptered entry, (3) exact-title match among all entries, (4) first entry — (3)+(4) preserve the pre-Phase-33 fallback so titles with no chaptered hit still degrade gracefully. Surfaced by Plan 33-03's LIVE cassette recording.
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `src/NzbDrone.Core/Indexers/Comix/ComixIndexer.cs` | extend | Phase 33 Plan 33-03 (COMIX2-01) | `ResolveMangaHashAsync` match-preference now prefers `hasChapters=true` keyword-search hits over chapterless oneshots before falling back to the legacy first-hit behavior. Regression-locked by `ComixIndexerFixture.Fetch_MangaSearchCriteria_prefers_chaptered_series_over_chapterless_oneshot`. |
+| `src/NzbDrone.Host/Startup.cs` | fix | Phase 33 Plan 33-02 fix-forward (COMIX2-01) | Cassetting-signer DryIoc swap resolves its inner `ComixPuppeteerSigner` LAZILY inside the registration delegate instead of eagerly during `ConfigureServices` — the eager resolve materialized the disposable singleton in a transient composition scope that was disposed before first use (`ObjectDisposedException`). Surfaced by Plan 33-03's LIVE recording; the 33-02 `ComixSignerDryIocResolutionFixture` validated registration shape but never exercised `ProxyFetchAsync` on the inner. |
+
+**Why-not-Sonarr:** Comix is a Mangarr-only indexer (no Sonarr peer — Sonarr has no browser-driven anti-bot signing indexer; see the Phase 17 IComixSigner divergence). The keyword-search title→hid disambiguation and the cassetting-signer DI swap are both Mangarr-only seams with no Sonarr-canonical shape to mirror.
+
+**Cross-references:**
+
+- `.planning/phases/33-comix-coverage-restore-v1-2-inserted-2026-05-23/33-03-PLAN.md` — Plan 33-03 LIVE cassette recording (surfaced both fixes).
+- `.planning/phases/33-comix-coverage-restore-v1-2-inserted-2026-05-23/33-03-RECORDING-LOG.md` — recording-session record incl. the comix.to title-mismatch + Cloudflare-block findings.
+- `src/NzbDrone.Core/Indexers/Comix/CLAUDE.md` — "Phase 17 Invariants" (IComixSigner architecture) + the keyword-search route.
+- `.planning/REQUIREMENTS.md` COMIX2-01 — REQ-ID acceptance criteria language.
+
+
+*Last updated: 2026-05-25 (Phase 33 Plan 33-03 in-progress — Comix keyword-search chaptered-preference + cassetting-signer lazy-resolve DryIoc fix appended; both surfaced by the LIVE cassette recording session. All previous trailers preserved verbatim below per historical-accuracy contract.)*
+
 *Last updated: 2026-05-24 (Phase 31 Plan 31-04 close — Phase 31 entry above appended for MAL ImportList cursor pagination Sonarr-divergence. Per-provider `FetchPage` override walking opaque server-issued `paging.next` cursor URLs is Sonarr-divergent — Sonarr's preserved vertical slice contains zero cursor-paginated providers per RESEARCH §Item 8 grep gate. Substrate-level option explicitly rejected during Phase 31 discussion. v1.3+ candidate if a 2nd cursor-paginated provider lands. All previous trailers preserved verbatim below per historical-accuracy contract.)*
 
 *Last updated: 2026-05-12 (issue #92 close-out -- vocabulary-parity rename of the shared RootFolderSelectInput option-row prop + matching CSS class; closes the follow-up retained at issue #81 close-out 2026-05-13. Issue #81 + #84 + #92 close-outs preserved verbatim above per historical-accuracy contract.)*

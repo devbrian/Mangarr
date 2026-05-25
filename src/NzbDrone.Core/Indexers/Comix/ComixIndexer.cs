@@ -373,21 +373,47 @@ namespace NzbDrone.Core.Indexers.Comix
                     return null;
                 }
 
-                // Match preference: exact (case-insensitive) title match if available, else
-                // first hit. comix.to's keyword search occasionally returns near-misses
-                // (sub-string hits) ahead of the exact title — guard against that.
-                foreach (var item in items)
+                // Match preference (Phase 33 COMIX2-01 — Sonarr divergence: no Sonarr peer;
+                // comix.to-specific keyword-search disambiguation):
+                // comix.to's keyword search ranks a chapterless oneshot (hasChapters=false)
+                // ahead of the canonical chaptered series for some titles — e.g. the English
+                // altTitle "Komi Can't Communicate" returns the oneshot `e0nkm` (0 chapters)
+                // before the 500-chapter romaji-titled "Komi-san wa Komyushou Desu." (`xkvvj`),
+                // so an exact-title match on the English title fails and the pre-Phase-33
+                // first-hit fallback picked the oneshot → an empty /manga/{hid}/chapters body.
+                // Prefer entries that actually have chapters. Priority:
+                //   (1) exact (case-insensitive) title match among chaptered entries,
+                //   (2) first chaptered entry,
+                //   (3) exact title match among all entries,
+                //   (4) first entry — (3)+(4) preserve the pre-Phase-33 fallback so titles
+                //       with no chaptered hit at all still degrade gracefully.
+                bool HasChapters(JToken it) => it?["hasChapters"]?.Value<bool?>() == true;
+                bool ExactTitle(JToken it) =>
+                    string.Equals(it?["title"]?.ToString(), keyword, StringComparison.OrdinalIgnoreCase);
+
+                string FirstHidWhere(Func<JToken, bool> predicate)
                 {
-                    var itemTitle = item?["title"]?.ToString();
-                    var itemHid = item?["hid"]?.ToString();
-                    if (!string.IsNullOrWhiteSpace(itemHid)
-                        && string.Equals(itemTitle, keyword, StringComparison.OrdinalIgnoreCase))
+                    foreach (var item in items)
                     {
-                        return itemHid;
+                        if (!predicate(item))
+                        {
+                            continue;
+                        }
+
+                        var hid = item?["hid"]?.ToString();
+                        if (!string.IsNullOrWhiteSpace(hid))
+                        {
+                            return hid;
+                        }
                     }
+
+                    return null;
                 }
 
-                return items[0]?["hid"]?.ToString();
+                return FirstHidWhere(it => HasChapters(it) && ExactTitle(it))
+                    ?? FirstHidWhere(HasChapters)
+                    ?? FirstHidWhere(ExactTitle)
+                    ?? items[0]?["hid"]?.ToString();
             }
             catch (OperationCanceledException)
             {
