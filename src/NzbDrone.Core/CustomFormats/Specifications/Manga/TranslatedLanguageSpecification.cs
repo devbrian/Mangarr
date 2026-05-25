@@ -21,9 +21,9 @@ namespace NzbDrone.Core.CustomFormats
     }
 
     // Sonarr divergence: BCP-47 string field instead of Sonarr Language enum (Adaptation Hotspot 2).
-    // Distinct from LanguageSpecification (which uses Sonarr's TV-region Language enum and applies
-    // to MediaType.Series). This sibling spec pairs with TranslationProfile (BCP-47 string list).
-    // See DIVERGENCE.md per Phase 5 D-09.
+    // The legacy TV-region language CF spec (which used Sonarr's Language enum and applied to
+    // MediaType.Series) was deleted Phase 32 — CORR-04. This sibling spec pairs with
+    // TranslationProfile (BCP-47 string list). See DIVERGENCE.md per Phase 5 D-09.
     //
     // BCP-47 validation uses NzbDrone.Core.Parser.IsoLanguages.Find(code) — Find returns non-null
     // for valid 2-letter / 3-letter / 2-letter-COUNTRY shapes (e.g., en, eng, pt-br) per plan
