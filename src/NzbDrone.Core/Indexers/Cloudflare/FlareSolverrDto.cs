@@ -27,6 +27,13 @@ namespace NzbDrone.Core.Indexers.Cloudflare
     /// </summary>
     public sealed class FlareSolverrRequest
     {
+        /// <summary>
+        /// Default sidecar solve budget (ms). The clearance service's HttpClient timeout is
+        /// set above this (see <c>CloudflareClearanceService.SolverHttpTimeoutMs</c>) so a hung
+        /// solve fails on the server budget, not on a longer client default (WR-03 / IN-04).
+        /// </summary>
+        public const int DefaultMaxTimeoutMs = 60000;
+
         [JsonProperty("cmd")]
         public string Cmd { get; set; } = "request.get";
 
@@ -34,7 +41,7 @@ namespace NzbDrone.Core.Indexers.Cloudflare
         public string Url { get; set; }
 
         [JsonProperty("maxTimeout")]
-        public int MaxTimeout { get; set; } = 60000;
+        public int MaxTimeout { get; set; } = DefaultMaxTimeoutMs;
     }
 
     public sealed class FlareSolverrResponse

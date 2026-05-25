@@ -32,10 +32,19 @@ namespace NzbDrone.Core.Indexers.Cloudflare
     // the Reuse.Singleton via the interface.
     public class CloudflareClearanceService : ICloudflareClearanceService
     {
+        // Bounded above the FlareSolverr server-side solve budget (WR-03 / IN-04) so a hung or
+        // unreachable solver fails in ~75s instead of stalling on the HttpClient 100s default —
+        // which matters because the Comix injection path awaits this inside the signer's _gate
+        // critical section, and the Health Check probes it on startup.
+        private const int SolverHttpTimeoutMs = FlareSolverrRequest.DefaultMaxTimeoutMs + 15000;
+
         // PR-#244-style shared HttpClient (copies ComixPuppeteerSigner._relayHttpClient):
         // process-lifetime, never `using`, intentionally never disposed. Lifetime ≡ process
         // because the service is a DryIoc Reuse.Singleton.
-        private static readonly HttpClient _solverHttpClient = new HttpClient();
+        private static readonly HttpClient _solverHttpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromMilliseconds(SolverHttpTimeoutMs)
+        };
 
         private readonly IConfigService _configService;
         private readonly Logger _logger;
@@ -44,6 +53,13 @@ namespace NzbDrone.Core.Indexers.Cloudflare
         // across indexer pollers + the Phase 4 in-process downloader.
         private readonly ConcurrentDictionary<string, CloudflareClearance> _cache =
             new ConcurrentDictionary<string, CloudflareClearance>();
+
+        // WR-01: per-host in-flight solve coalescing. A burst of concurrent cold-cache callers
+        // for the same host shares ONE sidecar solve instead of queueing N×60s solves behind the
+        // single-Chromium sidecar. The entry is removed when the solve settles so the next miss
+        // (after completion or TTL expiry) re-solves.
+        private readonly ConcurrentDictionary<string, Lazy<Task<CloudflareClearance>>> _inflight =
+            new ConcurrentDictionary<string, Lazy<Task<CloudflareClearance>>>();
 
         public CloudflareClearanceService(IConfigService configService, Logger logger)
         {
@@ -60,7 +76,18 @@ namespace NzbDrone.Core.Indexers.Cloudflare
 
         public async Task<CloudflareClearance> GetClearanceAsync(string targetUrl, CancellationToken ct)
         {
-            var host = new Uri(targetUrl).Host;
+            // WR-05: a null/malformed targetUrl must surface as the documented exception family
+            // (the interface contract is CloudflareSolverNotConfiguredException | CloudflareSolverException),
+            // not a raw UriFormatException/ArgumentNullException that consumers' catch blocks miss.
+            string host;
+            try
+            {
+                host = new Uri(targetUrl).Host;
+            }
+            catch (Exception ex) when (ex is UriFormatException or ArgumentException)
+            {
+                throw new CloudflareSolverException($"Invalid target URL for Cloudflare clearance: {ex.Message}");
+            }
 
             if (_cache.TryGetValue(host, out var entry) && DateTimeOffset.UtcNow < entry.ExpiresAt)
             {
@@ -68,45 +95,68 @@ namespace NzbDrone.Core.Indexers.Cloudflare
                 return entry;
             }
 
-            var solverUrl = _configService.CloudflareSolverUrl;
-            if (string.IsNullOrWhiteSpace(solverUrl))
-            {
-                // No POST attempted — distinct typed exception feeds the D-07 Health Check.
-                throw new CloudflareSolverNotConfiguredException();
-            }
-
-            _logger.Debug("Cloudflare clearance cache MISS for host {0}; solving via sidecar", host);
-
-            var solved = await PostSolveAsync(solverUrl, targetUrl, ct).ConfigureAwait(false);
-
-            if (solved?.Status != "ok")
-            {
-                // Log host + status + solver message only — never the HTML response body.
-                _logger.Warn("Cloudflare solver returned non-ok status for host {0}: {1}", host, solved?.Message);
-                throw new CloudflareSolverException(solved?.Message ?? "Cloudflare solver returned a non-ok status");
-            }
-
-            var cfCookie = solved.Solution?.Cookies?.FirstOrDefault(c => c.Name == "cf_clearance");
-            if (cfCookie == null)
-            {
-                _logger.Warn("Cloudflare solver returned no cf_clearance cookie for host {0}", host);
-                throw new CloudflareSolverException("Cloudflare solver returned no cf_clearance cookie");
-            }
-
-            var clearance = new CloudflareClearance(
-                cfCookie,
-                solved.Solution.UserAgent,
-                DateTimeOffset.UtcNow + ClearanceTtl);
-
-            _cache[host] = clearance;
-
-            // Never log the cookie value (T-33.2-01) — host + UA presence only.
-            _logger.Debug(
-                "Cloudflare clearance resolved for host {0} (UA captured: {1})",
+            // WR-01: coalesce concurrent misses for this host into one shared solve. The shared
+            // solve runs to completion regardless of any single caller's cancellation (bounded by
+            // the HttpClient timeout, WR-03); each caller's own ct only abandons THEIR await via
+            // WaitAsync — it cannot abort a solve the other coalesced callers are awaiting.
+            var lazy = _inflight.GetOrAdd(
                 host,
-                !string.IsNullOrEmpty(clearance.UserAgent));
+                h => new Lazy<Task<CloudflareClearance>>(() => SolveAndCacheAsync(h, targetUrl)));
 
-            return clearance;
+            return await lazy.Value.WaitAsync(ct).ConfigureAwait(false);
+        }
+
+        private async Task<CloudflareClearance> SolveAndCacheAsync(string host, string targetUrl)
+        {
+            try
+            {
+                var solverUrl = _configService.CloudflareSolverUrl;
+                if (string.IsNullOrWhiteSpace(solverUrl))
+                {
+                    // No POST attempted — distinct typed exception feeds the D-07 Health Check.
+                    throw new CloudflareSolverNotConfiguredException();
+                }
+
+                _logger.Debug("Cloudflare clearance cache MISS for host {0}; solving via sidecar", host);
+
+                // CancellationToken.None: the solve is shared across coalesced callers (WR-01) and
+                // bounded by the HttpClient timeout (WR-03), so it is not tied to one caller's ct.
+                var solved = await PostSolveAsync(solverUrl, targetUrl, CancellationToken.None).ConfigureAwait(false);
+
+                if (solved?.Status != "ok")
+                {
+                    // Log host + status + solver message only — never the HTML response body.
+                    _logger.Warn("Cloudflare solver returned non-ok status for host {0}: {1}", host, solved?.Message);
+                    throw new CloudflareSolverException(solved?.Message ?? "Cloudflare solver returned a non-ok status");
+                }
+
+                var cfCookie = solved.Solution?.Cookies?.FirstOrDefault(c => c.Name == "cf_clearance");
+                if (cfCookie == null)
+                {
+                    _logger.Warn("Cloudflare solver returned no cf_clearance cookie for host {0}", host);
+                    throw new CloudflareSolverException("Cloudflare solver returned no cf_clearance cookie");
+                }
+
+                var clearance = new CloudflareClearance(
+                    cfCookie,
+                    solved.Solution.UserAgent,
+                    DateTimeOffset.UtcNow + ClearanceTtl);
+
+                _cache[host] = clearance;
+
+                // Never log the cookie value (T-33.2-01) — host + UA presence only.
+                _logger.Debug(
+                    "Cloudflare clearance resolved for host {0} (UA captured: {1})",
+                    host,
+                    !string.IsNullOrEmpty(clearance.UserAgent));
+
+                return clearance;
+            }
+            finally
+            {
+                // Allow the next miss (after this solve settles, or after TTL expiry) to re-solve.
+                _inflight.TryRemove(host, out _);
+            }
         }
 
         /// <summary>
@@ -116,6 +166,16 @@ namespace NzbDrone.Core.Indexers.Cloudflare
         /// </summary>
         protected virtual async Task<FlareSolverrResponse> PostSolveAsync(string solverUrl, string targetUrl, CancellationToken ct)
         {
+            // WR-04: defense-in-depth SSRF guard. The V5 boundary already enforces .ValidRootUrl(),
+            // but any other write path to the CloudflareSolverUrl config key (config.xml hand-edit,
+            // a future settings surface, the V3 API) would bypass it. Re-validate the scheme here so
+            // the service never POSTs to a non-http(s) endpoint regardless of how the key was set.
+            if (!Uri.TryCreate(solverUrl, UriKind.Absolute, out var solverUri) ||
+                (solverUri.Scheme != Uri.UriSchemeHttp && solverUri.Scheme != Uri.UriSchemeHttps))
+            {
+                throw new CloudflareSolverException("Cloudflare solver URL must be an absolute http(s) URL");
+            }
+
             var body = JsonConvert.SerializeObject(new FlareSolverrRequest { Url = targetUrl });
             using var content = new StringContent(body, Encoding.UTF8, "application/json");
 

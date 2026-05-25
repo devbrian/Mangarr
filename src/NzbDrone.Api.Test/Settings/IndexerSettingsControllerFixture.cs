@@ -30,7 +30,7 @@ namespace NzbDrone.Api.Test.Settings
     public class IndexerSettingsControllerFixture : TestBase<IndexerSettingsController>
     {
         [Test]
-        public void Test_returns_ok_valid_when_clearance_succeeds()
+        public async Task Test_returns_ok_valid_when_clearance_succeeds()
         {
             Mocker.GetMock<ICloudflareClearanceService>()
                 .Setup(s => s.GetClearanceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -43,7 +43,7 @@ namespace NzbDrone.Api.Test.Settings
                     httpOnly: true,
                     expiresAt: System.DateTimeOffset.UtcNow.AddMinutes(20))));
 
-            var result = Subject.TestSolver(CancellationToken.None);
+            var result = await Subject.TestSolver(CancellationToken.None);
 
             result.Should().NotBeNull();
             result.Value.Should().NotBeNull();
@@ -51,32 +51,32 @@ namespace NzbDrone.Api.Test.Settings
         }
 
         [Test]
-        public void Test_returns_not_configured_when_solver_url_missing()
+        public async Task Test_returns_not_configured_when_solver_url_missing()
         {
             Mocker.GetMock<ICloudflareClearanceService>()
                 .Setup(s => s.GetClearanceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new CloudflareSolverNotConfiguredException());
 
-            var result = Subject.TestSolver(CancellationToken.None);
+            var result = await Subject.TestSolver(CancellationToken.None);
 
             result.Value!.IsValid.Should().BeFalse();
             result.Value.Message.Should().Contain("not configured");
         }
 
         [Test]
-        public void Test_returns_error_when_solver_throws()
+        public async Task Test_returns_error_when_solver_throws()
         {
             Mocker.GetMock<ICloudflareClearanceService>()
                 .Setup(s => s.GetClearanceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new CloudflareSolverException("comix.to: 502 Bad Gateway"));
 
-            var result = Subject.TestSolver(CancellationToken.None);
+            var result = await Subject.TestSolver(CancellationToken.None);
 
             result.Value!.IsValid.Should().BeFalse();
         }
 
         [Test]
-        public void Test_response_never_contains_cf_clearance_value()
+        public async Task Test_response_never_contains_cf_clearance_value()
         {
             // T-33.2-10 / ASVS V7: the cf_clearance cookie value must NEVER leak into the Test
             // response body. The clearance service returns a secret cookie; the response must
@@ -94,7 +94,7 @@ namespace NzbDrone.Api.Test.Settings
                     httpOnly: true,
                     expiresAt: System.DateTimeOffset.UtcNow.AddMinutes(20))));
 
-            var result = Subject.TestSolver(CancellationToken.None);
+            var result = await Subject.TestSolver(CancellationToken.None);
 
             (result.Value!.Message ?? string.Empty).Should().NotContain(secret);
         }

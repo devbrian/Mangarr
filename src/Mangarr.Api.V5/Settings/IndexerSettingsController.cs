@@ -52,12 +52,14 @@ namespace Mangarr.Api.V5.Settings
         // value or the solver's HTML — only a boolean + a non-sensitive message.
         [HttpPost("test")]
         [Produces("application/json")]
-        public Ok<CloudflareSolverTestResult> TestSolver(CancellationToken cancellationToken)
+        public async Task<Ok<CloudflareSolverTestResult>> TestSolver(CancellationToken cancellationToken)
         {
             try
             {
-                _clearanceService.GetClearanceAsync("https://comix.to/", cancellationToken)
-                                 .GetAwaiter().GetResult();
+                // WR-02: honor the async chain (no sync-over-async block); the solve is bounded by
+                // the clearance service's HttpClient timeout (WR-03).
+                await _clearanceService.GetClearanceAsync("https://comix.to/", cancellationToken)
+                                       .ConfigureAwait(false);
 
                 return TypedResults.Ok(new CloudflareSolverTestResult
                 {

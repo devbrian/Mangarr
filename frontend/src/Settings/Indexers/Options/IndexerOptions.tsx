@@ -48,14 +48,22 @@ function IndexerOptions({
     isPending: isTesting,
     error: testError,
     data: testResult,
+    reset: resetTestResult,
   } = useTestCloudflareSolver();
 
   const handleInputChange = useCallback(
     ({ name, value }: InputChanged) => {
+      // WR-06: the Test result reflects the solver URL at probe time. Clear any stale
+      // success/error verdict when the URL changes so the operator can't mistake a prior
+      // probe's verdict for the just-edited (untested) URL.
+      if (name === 'cloudflareSolverUrl') {
+        resetTestResult();
+      }
+
       // @ts-expect-error - InputChanged name/value are not typed as keyof IndexerSettingsModel
       updateSetting(name, value);
     },
-    [updateSetting]
+    [updateSetting, resetTestResult]
   );
 
   const handleTestPress = useCallback(() => {

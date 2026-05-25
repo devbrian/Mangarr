@@ -90,9 +90,11 @@ namespace NzbDrone.Core.HealthCheck.Checks
             return new HealthCheck(GetType());
         }
 
-        // Probe-solve is a network call; do not run it on every startup tick. The config-empty
-        // branch (the common misconfiguration) still runs on startup because it short-circuits
-        // before the probe.
+        // The probe-solve IS a network call and DOES run on startup + on schedule whenever a URL is
+        // configured (the common config-empty case short-circuits before the probe). It is bounded:
+        // the clearance service's HttpClient timeout (CloudflareClearanceService.SolverHttpTimeoutMs,
+        // ~75s) caps the worst-case blocking window for an unreachable solver, so this sync wait
+        // cannot run to the 100s HttpClient default (WR-02/WR-03).
         public override bool CheckOnStartup => true;
 
         public override bool CheckOnSchedule => true;
