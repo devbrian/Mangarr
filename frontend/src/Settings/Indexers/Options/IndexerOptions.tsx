@@ -5,6 +5,7 @@ import Form from 'Components/Form/Form';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
+import SpinnerErrorButton from 'Components/Link/SpinnerErrorButton';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import { inputTypes, kinds } from 'Helpers/Props';
 import { useShowAdvancedSettings } from 'Settings/advancedSettingsStore';
@@ -14,7 +15,10 @@ import {
   SetChildSave,
 } from 'typings/Settings/SettingsState';
 import translate from 'Utilities/String/translate';
-import { useManageIndexerSettings } from './useIndexerSettings';
+import {
+  useManageIndexerSettings,
+  useTestCloudflareSolver,
+} from './useIndexerSettings';
 
 interface IndexerOptionsProps {
   setChildSave: SetChildSave;
@@ -39,6 +43,13 @@ function IndexerOptions({
 
   const showAdvancedSettings = useShowAdvancedSettings();
 
+  const {
+    mutate: testSolver,
+    isPending: isTesting,
+    error: testError,
+    data: testResult,
+  } = useTestCloudflareSolver();
+
   const handleInputChange = useCallback(
     ({ name, value }: InputChanged) => {
       // @ts-expect-error - InputChanged name/value are not typed as keyof IndexerSettingsModel
@@ -46,6 +57,10 @@ function IndexerOptions({
     },
     [updateSetting]
   );
+
+  const handleTestPress = useCallback(() => {
+    testSolver();
+  }, [testSolver]);
 
   useEffect(() => {
     setChildSave(saveSettings);
@@ -110,6 +125,45 @@ function IndexerOptions({
               onChange={handleInputChange}
               {...settings.maximumSize}
             />
+          </FormGroup>
+
+          <FormGroup>
+            <FormLabel>{translate('CloudflareSolverUrl')}</FormLabel>
+
+            <FormInputGroup
+              type={inputTypes.TEXT}
+              name="cloudflareSolverUrl"
+              helpText={translate('CloudflareSolverUrlHelpText')}
+              onChange={handleInputChange}
+              {...settings.cloudflareSolverUrl}
+            />
+          </FormGroup>
+
+          <FormGroup>
+            <FormLabel>{translate('Test')}</FormLabel>
+
+            <div>
+              <SpinnerErrorButton
+                isSpinning={isTesting}
+                error={testError}
+                onPress={handleTestPress}
+              >
+                {translate('CloudflareSolverTestConnection')}
+              </SpinnerErrorButton>
+
+              {!isTesting && testResult ? (
+                <Alert
+                  kind={testResult.isValid ? kinds.SUCCESS : kinds.DANGER}
+                >
+                  {testResult.message ||
+                    translate(
+                      testResult.isValid
+                        ? 'CloudflareSolverTestSuccess'
+                        : 'CloudflareSolverTestFailed'
+                    )}
+                </Alert>
+              ) : null}
+            </div>
           </FormGroup>
 
           <FormGroup advancedSettings={showAdvancedSettings} isAdvanced={true}>
