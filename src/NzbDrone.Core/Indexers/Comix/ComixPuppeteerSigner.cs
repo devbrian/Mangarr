@@ -133,9 +133,15 @@ namespace NzbDrone.Core.Indexers.Comix
             "--disable-infobars",
             "--disable-sync",
 
-            // chromium.js always pushes this alongside the switch set — software WebGL so a
-            // headless context still exposes a real WebGL vendor/renderer (vs --disable-gpu's
-            // missing-WebGL tell).
+            // Phase 33.3 (2026-05-25, iteration 4 — RESTORED after iteration-2 wrongly removed it):
+            // `--enable-unsafe-swiftshader` enables Chromium's ANGLE/Vulkan SwiftShader software
+            // WebGL backend. DIAGNOSTIC-PROVEN this is REQUIRED, not a tell: the proven spike that
+            // cold-solves CF in 3s reports WebGL renderer "ANGLE (Google, Vulkan 1.3.0 (SwiftShader
+            // Device (Subzero)), SwiftShader driver)" — i.e. it HAS WebGL via SwiftShader. The real
+            // tell CF rejects is WebGL being ABSENT ("no-webgl"): iteration 3 removed this flag and
+            // Chromium reported no-webgl, which kept the challenge stuck. SwiftShader WebGL present
+            // (this flag) + inner viewport 1920x1080 (DefaultViewport=null) + webdriver=false are the
+            // three discriminators the spike satisfies. See 33.3 .continue-here.md iteration log.
             "--enable-unsafe-swiftshader",
 
             // puppeteer-stealth's blink-level webdriver hide. Distinct flag from the
@@ -254,6 +260,17 @@ namespace NzbDrone.Core.Indexers.Comix
                 // by automated test software" infobar fingerprint Cloudflare's challenge-platform reads.
                 IgnoredDefaultArgs = new[] { "--enable-automation" },
 
+                // Phase 33.3 (2026-05-25, iteration 3 — THE FIX): DefaultViewport=null tells
+                // PuppeteerSharp NOT to override the render viewport. Its default is 800x600, which
+                // produced the fingerprint mismatch that kept the managed challenge stuck: a real
+                // 1919x1079 window (from --window-size) but an 800x600 inner viewport — a glaring
+                // automation tell (CF reads window.innerWidth/Height). With null, Chromium uses the
+                // real window size (inner≈1920x1080), matching the proven spike fingerprint
+                // (inner:[1920,1080]) that cold-solves CF in 3s. Diagnostic-confirmed: iteration 2
+                // logged inner:[800,600] (webdriver:false + real outer window were already correct,
+                // so this viewport mismatch was the sole remaining tell).
+                DefaultViewport = null,
+
                 Args = args.ToArray(),
             };
 
@@ -353,6 +370,26 @@ namespace NzbDrone.Core.Indexers.Comix
                 // intercepted request requires explicit ContinueAsync/AbortAsync;
                 // with no handler attached, the request stalls until PuppeteerSharp's
                 // 180s command timeout fires).
+                // Phase 33.3 (2026-05-25, iteration 2): warm-time fingerprint diagnostic.
+                // Logged on about:blank BEFORE the CF-challenge navigation (which reloads + destroys
+                // the eval context, so a post-nav probe races the reload). Surfaces the exact tells
+                // the managed challenge fingerprints: navigator.webdriver (must be false/undefined),
+                // window.outerWidth (must be NON-ZERO under Xvfb — 0 = headless tell), and the WebGL
+                // UNMASKED_RENDERER (must NOT be "SwiftShader" — that's the headless tell we dropped
+                // --enable-unsafe-swiftshader to defeat). Compare against the proven spike fingerprint
+                // (webdriver:false, outer:[1928,1165]) in 33.3 .continue-here.md.
+                try
+                {
+                    var fp = await _page.EvaluateExpressionAsync<string>(
+                        "(() => { let r='n/a'; try { const c=document.createElement('canvas'); const gl=c.getContext('webgl')||c.getContext('experimental-webgl'); if(!gl){ r='no-webgl'; } else { const e=gl.getExtension('WEBGL_debug_renderer_info'); r=e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):('no-ext;vendor='+gl.getParameter(gl.VENDOR)); } } catch(x){ r='err:'+x.message; } return JSON.stringify({ webdriver: navigator.webdriver, outer:[window.outerWidth,window.outerHeight], inner:[window.innerWidth,window.innerHeight], webgl: r, ua: navigator.userAgent }); })()")
+                        .ConfigureAwait(false);
+                    _logger.Info("Comix signer: [fingerprint] {0}", fp);
+                }
+                catch (Exception fpEx)
+                {
+                    _logger.Warn(fpEx, "Comix signer: fingerprint diagnostic raised (non-fatal).");
+                }
+
                 _probeFailureCount = 0;
                 sw.Stop();
 
@@ -551,22 +588,77 @@ namespace NzbDrone.Core.Indexers.Comix
                 // no solver URL is configured.
                 await ApplyCloudflareClearanceAsync(page, ct).ConfigureAwait(false);
 
-                // Fire-and-forget navigation — the env module capture is our sync point.
+                // Fire-and-forget navigation — we wait out the CF challenge below, then the
+                // env module capture (bundle sniff) is the final sync point.
                 _ = page.GoToAsync(
                     pageUrl,
                     new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded } });
 
+                // Phase 33.3 (2026-05-25, iteration 5 — CHALLENGE-RELOAD WAIT): comix.to's Cloudflare
+                // MANAGED challenge serves a "Just a moment" interstitial, runs its JS challenge, then
+                // RELOADS to the real page. Each reload destroys the page's JS execution context — the
+                // source of the repeating PuppeteerException "Execution Context was destroyed" whenever
+                // an eval (incl. the oracle import) races a reload. The fingerprint already matches the
+                // proven spike (webdriver:false + real 1920 window + SwiftShader WebGL); the missing
+                // piece was the spike's wait loop. Poll the page title until it is no longer the
+                // challenge interstitial BEFORE relying on the bundle sniff / oracle. Title reads can
+                // themselves land mid-reload (context destroyed) — expected; swallow + retry.
+                var clearDeadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(CaptureTimeoutSeconds);
+                var cfCleared = false;
+                while (DateTimeOffset.UtcNow < clearDeadline)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    // The manga-* chunk only loads on the real (cleared) page, never on the challenge
+                    // interstitial — so a completed bundle sniff is definitive proof CF cleared.
+                    if (envUrlTcs.Task.IsCompleted)
+                    {
+                        cfCleared = true;
+                        break;
+                    }
+
+                    string title = null;
+                    try
+                    {
+                        title = await page.GetTitleAsync().ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // Context destroyed mid-reload (challenge cycling) — expected; retry.
+                    }
+
+                    if (!string.IsNullOrEmpty(title)
+                        && title.IndexOf("just a moment", StringComparison.OrdinalIgnoreCase) < 0
+                        && title.IndexOf("attention required", StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        cfCleared = true;
+                        break;
+                    }
+
+                    await Task.Delay(1000, ct).ConfigureAwait(false);
+                }
+
+                // Wait for the manga-* bundle sniff (the env module URL). After CF clears the bundle
+                // loads within ~1-2s; give it the remaining budget (floored at 5s so a just-cleared
+                // page still has room to fire the bundle request). If CF never cleared, this falls
+                // through to the timeout diagnostic below.
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                var delayTask = Task.Delay(TimeSpan.FromSeconds(CaptureTimeoutSeconds), linkedCts.Token);
+                var remaining = clearDeadline - DateTimeOffset.UtcNow;
+                if (remaining < TimeSpan.FromSeconds(5))
+                {
+                    remaining = TimeSpan.FromSeconds(5);
+                }
+
+                var delayTask = Task.Delay(remaining, linkedCts.Token);
                 var winner = await Task.WhenAny(envUrlTcs.Task, delayTask).ConfigureAwait(false);
 
                 if (winner != envUrlTcs.Task)
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    // Phase 33.3 diag: on timeout, capture the page's title + URL so the failure
-                    // distinguishes "stuck on Cloudflare 'Just a moment' challenge" from "real page
-                    // loaded but env bundle pattern rotated". Best-effort; never masks the timeout.
+                    // Phase 33.3 diag: on timeout, capture the page's title + URL + whether CF cleared
+                    // so the failure distinguishes "stuck on Cloudflare 'Just a moment' challenge" from
+                    // "real page loaded but env bundle pattern rotated". Best-effort; never masks timeout.
                     string diagTitle = "?", diagUrl = "?";
                     try
                     {
@@ -580,7 +672,7 @@ namespace NzbDrone.Core.Indexers.Comix
 
                     throw new InvalidOperationException(
                         $"Comix signer: env module capture timed out after {CaptureTimeoutSeconds}s while loading '{pageUrl}'. " +
-                        $"[diag: pageTitle='{diagTitle}' pageUrl='{diagUrl}']");
+                        $"[diag: cfCleared={cfCleared} pageTitle='{diagTitle}' pageUrl='{diagUrl}']");
                 }
 
                 linkedCts.Cancel();
@@ -588,11 +680,12 @@ namespace NzbDrone.Core.Indexers.Comix
                 _cachedEnvModuleUrl = envUrl;
                 _envModuleCachedAt = DateTimeOffset.UtcNow;
 
-                // Give the bundle a brief beat to finish loading the env module (it's the
-                // last script in the dependency chain, so once RequestFinished fires the
-                // import side-effects — calling Hi(ai) to install the decryption
-                // interceptor — should be complete in ms). 500ms is overkill but cheap.
-                await Task.Delay(500, ct).ConfigureAwait(false);
+                // Give the bundle a beat to finish loading the env module AND let any final CF
+                // post-clear reload settle before the oracle eval. The proven spike waits 2s after
+                // clearance for exactly this reason (the bundle's Hi(ai) decryption-interceptor install
+                // + the real page's last navigation completing). 2s mirrors the spike; cheap insurance
+                // against the "Execution Context was destroyed" oracle-eval race.
+                await Task.Delay(2000, ct).ConfigureAwait(false);
 
                 return envUrl;
             }
