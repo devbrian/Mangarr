@@ -322,10 +322,16 @@ namespace NzbDrone.Core.Indexers.Comix
             // `TypeError: target must be an object` because axios's URL composition tried
             // to iterate the string as if it were an object. Fix: parse the JSON inside
             // the page-context wrapper so the axios call receives a real object.
+            //
+            // Phase 33.1 (2026-05-25): the env module's export-name map rotated alongside the
+            // URL token. The .get->.data axios wrapper (internal `N = {get:async(e,t)=>
+            // (await oi.get(e,t)).data,...}` over `oi = axios.create({baseURL:"/api/v1"})`) is
+            // now exported as `g` (was `f`); `mod.f` now maps to a zustand modal store. Accessor
+            // swapped mod.f -> mod.g. See .planning/debug/comix-signer-rotation-2026-05-25.md.
             var resultJson = await page.EvaluateFunctionAsync<string>(
                 "async (modUrl, p, paramsJson) => {" +
                 "  const mod = await import(modUrl);" +
-                "  const f = mod.f;" + // 'b as f' export — wraps ai.get with .data unwrap
+                "  const f = mod.g;" + // 'N as g' export — wraps oi.get with .data unwrap
                 "  const paramsObj = paramsJson ? JSON.parse(paramsJson) : {};" +
                 "  const opts = Object.keys(paramsObj).length > 0 ? { params: paramsObj } : undefined;" +
                 "  const res = await f.get(p, opts);" +
@@ -356,6 +362,15 @@ namespace NzbDrone.Core.Indexers.Comix
             }
 
             var envUrlTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            // Phase 33.1 (2026-05-25): env module URL pattern rotated from 'env-tfgaak-' to
+            // 'env-tfkr3g-' (comix.to rebuilt; the per-build token changed across all bundles).
+            // Filter narrowed to the new pattern per .planning/debug/comix-signer-rotation-2026-05-25.md.
+            // Do NOT broaden to all .js requests (Phase 17 RESEARCH N-3 + Phase 17.2 D-1
+            // constraint — broadening picks up chunked bundles / polyfills as the env module,
+            // which won't export `mod.f`). This is the 5th rotation event since Phase 17 shipped;
+            // ComixEnvModuleFilterFixture grep-locks this literal so the next rotation surfaces
+            // at build time instead of as a silent 30s timeout.
             EventHandler<RequestEventArgs> finishedHandler = null;
             finishedHandler = (sender, e) =>
             {
@@ -363,7 +378,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 {
                     var url = e.Request?.Url;
                     if (url != null
-                        && url.IndexOf("env-tfgaak-", StringComparison.OrdinalIgnoreCase) >= 0
+                        && url.IndexOf("env-tfkr3g-", StringComparison.OrdinalIgnoreCase) >= 0
                         && url.IndexOf("comix.to", StringComparison.OrdinalIgnoreCase) >= 0
                         && url.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
                     {
