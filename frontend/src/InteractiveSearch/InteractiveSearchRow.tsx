@@ -264,7 +264,11 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
   };
 
   return (
-    <TableRow data-testid={rowTestId}>
+    // Phase 33 D-11: data-source attribute exposes the originating
+    // IndexerDefinition.Name so InteractiveSearch fixtures can assert
+    // mixed-source rows render. Consumer: Plan 33-04 (3 InteractiveSearch
+    // fixtures). Do not strip — Plan 33-04's assertion depends on it.
+    <TableRow data-testid={rowTestId} data-source={indexer}>
       <TableRowCell className={styles.protocol}>
         <ProtocolLabel protocol={protocol} />
       </TableRowCell>

@@ -74,6 +74,35 @@ Still pending Phase 8 cleanup:
 - Result row column extension (Page Count, Scanlation Group, etc.) — deferred.
 - Override Match `chapter` mapping — deferred.
 
+## Stable test attributes
+
+`InteractiveSearchRow.tsx` emits two stable HTML attributes on every release
+row's `<TableRow>` element. Both are render-only metadata (no new state,
+no new fetch, no new prop) and are the durable selectors Playwright fixtures
+target instead of brittle CSS-class / text matches.
+
+| Attribute | Value | Contract |
+|-----------|-------|----------|
+| `data-testid` | `interactive-search-row-{guid}` | Per-row testid keyed by release `guid` (Phase 18 Plan-08 D-18). PageObjects target individual rows via `Locator("[data-testid='interactive-search-row-{guid}']")`. |
+| `data-source` | `{release.indexer}` verbatim (e.g. `MangaDex`, `Comix`) | Originating `IndexerDefinition.Name` (Phase 33 D-11). Reflects the live `release.indexer` API field — state-not-rendering compliant per `scripts/audit-test-assertions.sh`. Empty/missing `indexer` renders as `data-source=""` (absence is itself a signal — no conditional branch). |
+
+**Consumers (Plan 33-04):**
+- `src/NzbDrone.Automation.Test/Tests/InteractiveSearch/InteractiveSearchModalFixture.cs`
+- `src/NzbDrone.Automation.Test/Tests/InteractiveSearch/InteractiveSearchGrabFixture.cs`
+- `src/NzbDrone.Automation.Test/Tests/InteractiveSearch/InteractiveSearchOpenFixture.cs`
+
+Plan 33-04 asserts at least one `data-source='Comix'` row alongside the
+existing MangaDex assertions — proves the cassetting signer's payload flows
+end-to-end (signer → indexer → DecisionEngine → API → React modal) per
+`feedback_verify_ui_state_not_just_rendering` memory.
+
+**Do not strip either attribute.** The 5 additional `data-testid` emissions
+on inner cells (`{rowTestId}-title`, `{rowTestId}-decision`,
+`{rowTestId}-rejected-icon`, `{rowTestId}-grab-button`,
+`interactive-search-row-override-trigger`) are also stable test contracts
+documented inline in `InteractiveSearchRow.tsx` at the `rowTestId` comment
+block (lines ~201-212).
+
 ## Cross-References
 
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview
