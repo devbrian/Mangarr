@@ -32,12 +32,18 @@ import translate from 'Utilities/String/translate';
 //   * importlist-anilist-pin-submit — submit button (exchanges the pin)
 //   * importlist-anilist-pin-cancel — cancel button (closes the modal)
 //
-// Component is standalone — the FE wiring that opens this modal in response to
-// the FieldType.OAuth Connect-click is reserved for a follow-up plan (substrate
-// touches to OAuthInput.tsx live outside Plan 27-03's scope). For Plan 27-03 the
-// modal proves out the structure + data-testid ledger; integration with the
-// startOAuth click handler ships when the substrate adds AniList-aware OAuth
-// dispatch.
+// WIRING (GH #221, commit 8948346d0 — supersedes the Plan 27-03 deferral; GH #261):
+// This modal is NOT standalone. `Components/Form/OAuthInput.tsx` renders it when
+// `deriveCompletionMode(providerData)` resolves to `'paste-pin'` (i.e. the
+// `AniListImportList` implementation), and opens it via `useOAuth`'s `pendingPaste`
+// state: `startOAuth` opens the AniList authorize URL in a new tab and parks the
+// flow with `pendingPaste.mode === 'paste-pin'` (which flips `isOpen` true here);
+// on submit, OAuthInput's `handleAniListPinSubmit` dispatches
+// `completeOAuth('getAuthPin', { pin })` to exchange the pasted pin for the JWT and
+// write the token envelope into the form's hidden fields. The Plan-27-03-era
+// "deferred to a follow-up substrate plan" gap was closed by GH #221; this comment
+// documents the live wiring so the closed deferral is not re-mistaken for an open
+// bug (see GH #261).
 
 interface AniListPinModalProps {
   isOpen: boolean;
