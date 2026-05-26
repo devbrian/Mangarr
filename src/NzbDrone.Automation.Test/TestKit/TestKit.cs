@@ -45,7 +45,16 @@ public class TestKit
         _postgresOptions = postgresOptions;
     }
 
-    public async Task SeedBaselineAsync()
+    /// <param name="disableComixIndexer">
+    /// GH #268: when true (the automation-tier default), the auto-seeded Comix
+    /// indexer is disabled as the final baseline step so an un-cassetted indexer
+    /// fan-out (InteractiveSearch / add-manga backfill / ImportListSync) cannot
+    /// escape to the live network — comix.to cannot be HTTP-cassette'd (Phase 18
+    /// D-11). Fixtures that DO exercise Comix offline via CassettingComixSigner
+    /// (recorded cassettes under Fixtures/Cassettes/Comix/) opt out by overriding
+    /// AutomationTest.DisableComixIndexerInBaseline => false, which passes false here.
+    /// </param>
+    public async Task SeedBaselineAsync(bool disableComixIndexer = true)
     {
         // BL-03 (18-REVIEW): every ExecuteAsync call must check IsSuccessful and throw
         // on 4xx/5xx. Silent seed failure -> downstream AddMangaFlow.AddByMangaDexIdAsync
@@ -101,6 +110,19 @@ public class TestKit
             });
 
         // 3. Default TranslationProfile is already seeded by Phase 5 baseline migration; no-op.
+
+        // 4. GH #268: disable the auto-seeded Comix indexer by default. comix.to
+        // cannot be HTTP-cassette'd (Phase 18 D-11), so leaving it enabled lets an
+        // un-cassetted fan-out (InteractiveSearch / add-manga conditional backfill
+        // search / ImportListSync) escape to the live network. Inverting the default
+        // to "disabled in the baseline" makes every fixture offline-safe by
+        // construction (GH #268 — replaces the ~92 per-fixture DisableComixIndexerAsync
+        // callsites). The 3 CassettingComixSigner fixtures opt out via
+        // AutomationTest.DisableComixIndexerInBaseline => false.
+        if (disableComixIndexer)
+        {
+            await DisableComixIndexerInternalAsync();
+        }
     }
 
     // Plan 19-02 (Rule 3): execute a seed request, retrying on the transient
@@ -150,46 +172,28 @@ public class TestKit
     }
 
     /// <summary>
-    /// Disable the Comix indexer via the indexer PUT endpoint. Phase 19 D-05 / Plan
-    /// 19-01: Comix cannot be HTTP-cassette'd (Phase 18 D-11 — the runtime signer
-    /// hits comix.to live), so any Cat B / chained-grab fixture that fans out an
-    /// InteractiveSearch must disable Comix in OneTimeSetUp BEFORE the first search,
-    /// or the un-cassetted Comix request escapes to the live network (and throws on
-    /// cassette-miss in Replay mode — RESEARCH Pitfall 3).
+    /// GH #268: disable the auto-seeded Comix indexer via the indexer PUT endpoint.
+    /// Comix cannot be HTTP-cassette'd (Phase 18 D-11 — the runtime signer hits
+    /// comix.to live), so leaving it enabled lets an un-cassetted fan-out
+    /// (InteractiveSearch / add-manga conditional backfill search / ImportListSync)
+    /// escape to the live network (and throw on cassette-miss in Replay mode).
+    /// Called as the final step of <see cref="SeedBaselineAsync(bool)"/> so every
+    /// automation fixture is offline-safe by construction — this replaces the ~92
+    /// per-fixture <c>DisableComixIndexerAsync</c> callsites that GH #268 retired.
     ///
     /// API-driven: GET /api/v5/indexer → find Implementation == "ComixIndexer" → PUT
     /// it back with all three Enable* flags cleared (IndexerDefinition.Enable is
     /// EnableRss || EnableAutomaticSearch || EnableInteractiveSearch — clearing all
     /// three disables the indexer entirely). Mirrors SeedBaselineAsync's BuildRequest
     /// + IsSuccessful-throw pattern on BOTH the GET and the PUT.
-    ///
-    /// NOTE (Plan 19-02 cross-plan dependency): Plan 19-01 is the canonical home for
-    /// this helper. It runs in the same Wave 1 as Plan 19-02 in a parallel worktree,
-    /// so at 19-02 execution time TestKit.cs does not yet carry this method. Plan
-    /// 19-02 adds it here (Rule 3 — missing dependency) matching 19-01's documented
-    /// contract verbatim so the orchestrator's wave merge is a no-op identity.
     /// </summary>
-    /// <remarks>
-    /// Phase 33 D-10: marked <see cref="ObsoleteAttribute"/> (warning, not error) to
-    /// steer new fixtures toward the preferred offline-tier seam —
-    /// <c>CassettingComixSigner</c> + recorded cassettes under
-    /// <c>Fixtures/Cassettes/Comix/</c> (Phase 33 D-09). Disable only when the fixture
-    /// has no reason to exercise Comix's search/grab fan-out. The ~93 legacy callers are
-    /// pragma-suppressed pending the v1.3 audit-and-delete cleanup (GH #268).
-    /// </remarks>
-    [Obsolete(
-        "Prefer recording Comix coverage via MANGARR_TEST_CASSETTE_MODE=ReplayOrRecord + " +
-        "CassettingComixSigner (Phase 33 D-09). Disable only when the fixture has no reason " +
-        "to exercise Comix's search/grab path. v1.3 GH #268 audits remaining callers.",
-        error: false)]
-    public async Task DisableComixIndexerAsync()
+    private async Task DisableComixIndexerInternalAsync()
     {
         // 1. List indexers. Shares SeedBaselineAsync's startup-race retry — this
-        // runs in a derived [OneTimeSetUp] right after the base seed, still inside
-        // the host's settling window, so the same transport-flap / auth-wiring
-        // race applies.
+        // runs at the tail of the base seed, still inside the host's settling
+        // window, so the same transport-flap / auth-wiring race applies.
         var listResponse = await ExecuteWithStartupRetryAsync(
-            "DisableComixIndexerAsync",
+            nameof(DisableComixIndexerInternalAsync),
             "indexer GET",
             () => BuildRequest("indexer", Method.GET));
 
@@ -202,7 +206,7 @@ public class TestKit
         if (comix.ValueKind == JsonValueKind.Undefined)
         {
             throw new InvalidOperationException(
-                "TestKit.DisableComixIndexerAsync: no ComixIndexer found in /api/v5/indexer — fresh-DB seed regressed?");
+                "TestKit.DisableComixIndexerInternalAsync: no ComixIndexer found in /api/v5/indexer — fresh-DB seed regressed?");
         }
 
         var comixId = comix.GetProperty("id").GetInt32();
@@ -220,7 +224,7 @@ public class TestKit
         // parameter with an application/json content type instead. Shares the
         // startup-race retry for the same reason as the GET above.
         await ExecuteWithStartupRetryAsync(
-            "DisableComixIndexerAsync",
+            nameof(DisableComixIndexerInternalAsync),
             "indexer PUT",
             () =>
             {
@@ -232,7 +236,7 @@ public class TestKit
 
     // Serialize a JsonElement back to a raw JSON string with the three indexer
     // Enable* flags forced to false. The result is sent verbatim as a RequestBody
-    // parameter (see DisableComixIndexerAsync) — no re-serialization.
+    // parameter (see DisableComixIndexerInternalAsync) — no re-serialization.
     private static string RewriteEnableFlags(JsonElement original)
     {
         using var stream = new System.IO.MemoryStream();
@@ -274,8 +278,8 @@ public class TestKit
     public async Task DeleteAllIndexersAsync()
     {
         // 1. List indexers. Shares the same startup-race retry shape as
-        // DisableComixIndexerAsync (this runs in [OneTimeSetUp] right after
-        // the base seed, still inside the host's settling window).
+        // DisableComixIndexerInternalAsync (this runs in [OneTimeSetUp] right
+        // after the base seed, still inside the host's settling window).
         var listResponse = await ExecuteWithStartupRetryAsync(
             nameof(DeleteAllIndexersAsync),
             "indexer GET",

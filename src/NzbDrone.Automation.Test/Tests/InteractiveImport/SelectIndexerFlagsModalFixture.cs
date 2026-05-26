@@ -49,9 +49,6 @@ public class SelectIndexerFlagsModalFixture : AutomationTest
     public async Task SeedAsync()
     {
         var testKit = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
-        await testKit.DisableComixIndexerAsync();
-#pragma warning restore CS0618
         var folderPath = Path.Combine(Path.GetTempPath(), $"ii-flags-{Guid.NewGuid():N}");
         _seededFolder = await testKit.SeedInteractiveImportFolderAsync(folderPath);
     }

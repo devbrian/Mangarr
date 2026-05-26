@@ -46,8 +46,10 @@ public class InteractiveSearchGrabFixture : AutomationTest
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
 
     // Phase 33 COMIX2-01: Comix exercised offline via CassettingComixSigner +
-    // recorded cassettes under Fixtures/Cassettes/Comix/. No [OneTimeSetUp]
-    // Comix-disable needed.
+    // recorded cassettes under Fixtures/Cassettes/Comix/. GH #268 inverted the
+    // automation baseline to disable Comix by default, so this fixture opts out to
+    // keep the seeded Comix indexer ENABLED for its offline cassette-replayed fan-out.
+    protected override bool DisableComixIndexerInBaseline => false;
 
     [Test]
     public async Task grab_writes_to_history()

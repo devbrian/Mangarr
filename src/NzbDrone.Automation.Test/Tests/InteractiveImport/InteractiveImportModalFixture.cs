@@ -63,9 +63,6 @@ public class InteractiveImportModalFixture : AutomationTest
     public async Task SeedAsync()
     {
         var testKit = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
-        await testKit.DisableComixIndexerAsync();
-#pragma warning restore CS0618
 
         // Blocker #4: seed a folder with placeholder CBZs so the
         // manualimport scanner has deterministic rows to render.

@@ -24,15 +24,6 @@ namespace NzbDrone.Automation.Test.Tests.AddManga.ImportManga;
 [Category("PRSmoke")]
 public class ImportMangaPageRoutingFixture : AutomationTest
 {
-    [OneTimeSetUp]
-    public async Task DisableComixAsync()
-    {
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
-        await new TestKit.TestKit(RootUri, ApiKey, string.Empty)
-            .DisableComixIndexerAsync();
-#pragma warning restore CS0618
-    }
-
     [Test]
     public async Task rootFolderId_path_does_not_match_selector()
     {

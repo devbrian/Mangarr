@@ -75,10 +75,11 @@ public class ManageIndexersSortAndRangeSelectFixture : AutomationTest
         // renders and the descending-sort first row is deterministically
         // "CCC Indexer".
         //
-        // DisableComixIndexerAsync became a no-op once the row is deleted, so
-        // the explicit disable call is dropped (the pre-fix Pitfall 10 concern
-        // was that the EditIndexerModal's picker would warm Comix's schema and
-        // poke PuppeteerSharp; with the row gone the picker never reaches Comix).
+        // GH #268: the baseline now disables the Comix indexer by default
+        // (TestKit.SeedBaselineAsync), but this fixture deletes ALL indexer rows
+        // anyway, so Comix's enabled/disabled state is moot here — the pre-fix
+        // Pitfall 10 concern (the EditIndexerModal picker warming Comix's schema)
+        // cannot arise once the row is gone.
         await kit.DeleteAllIndexersAsync();
 
         // Seed 3 MangaDex-implementation indexer rows in NON-alphabetical
