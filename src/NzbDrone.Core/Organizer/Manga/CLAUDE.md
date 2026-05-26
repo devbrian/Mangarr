@@ -36,5 +36,4 @@ When `Tv/` deletes in Phase 8, this directory collapses into the canonical `Orga
 - [Phase 5 CONTEXT](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md) — D-13, D-14, D-15, D-16
 - [Phase 5 RESEARCH](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-RESEARCH.md) — Pattern 5 (locked preset templates), Pitfall 7 (padding)
 - [Phase 5 PATTERNS-MAP](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-PATTERNS.md) — pattern S10 ([SetCulture("de-DE")] regression)
-- [Mangarr FileNameBuilder pattern source](../FileNameBuilder.cs)
-- [Mangarr SeriesPathBuilder pattern source](../../Tv/SeriesPathBuilder.cs)
+- Sonarr pattern sources this tree was modelled on — `Organizer/FileNameBuilder.cs` + `Tv/SeriesPathBuilder.cs` — DELETED in the Phase 15 `Tv/` removal; cited for provenance only, absent at HEAD. The live builders are [`MangaFileNameBuilder.cs`](./MangaFileNameBuilder.cs) + [`MangaPathBuilder.cs`](./MangaPathBuilder.cs) in this directory.

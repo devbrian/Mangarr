@@ -76,7 +76,7 @@ When `Tv/` deletes (Phase 8 milestone), this directory collapses with `src/NzbDr
 
 ## Cross-References
 
-- TV side: [src/NzbDrone.Core/History/EpisodeHistory.cs](../EpisodeHistory.cs), [HistoryService.cs](../HistoryService.cs), [HistoryRepository.cs](../HistoryRepository.cs)
+- TV side (the Sonarr peers these manga files were modelled on): `src/NzbDrone.Core/History/{EpisodeHistory,HistoryService,HistoryRepository}.cs` — DELETED in the Phase 15 `Tv/` removal; cited for provenance only, absent at HEAD (the `History/Manga/` subtree is now the sole content of this directory).
 - Schema: [001_mangarr_baseline.cs lines 705-729](../../Datastore/Migration/001_mangarr_baseline.cs)
 - TableMapping: [src/NzbDrone.Core/Datastore/TableMapping.cs](../../Datastore/TableMapping.cs) — registration after `ChapterFile`
 - Spec consumer: [src/NzbDrone.Core/DecisionEngine/Manga/Specifications/AlreadyImportedChapterSpecification.cs](../../DecisionEngine/Manga/Specifications/AlreadyImportedChapterSpecification.cs) — Phase 6 D-21 STUB body replacement

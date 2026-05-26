@@ -362,7 +362,7 @@ Fresh DB required to pick up schema changes. Once v1.0.0 tag ships, this
 flips to sequential migration files:
 
 ```csharp
-// src/NzbDrone.Core/Datastore/Migration/002_my_new_change.cs (post-v1.0.0 only)
+// NzbDrone.Core/Datastore/Migration/002_my_new_change.cs (illustrative example, post-v1.0.0 only)
 [Migration(2)]
 public class my_new_change : NzbDroneMigrationBase
 {

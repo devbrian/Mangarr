@@ -2,21 +2,25 @@
 
 ## Purpose
 
-The **release-title parsing engine** — converts raw release titles (and filenames) into structured metadata. This is one of the **most critical Sonarr→Mangarr migration targets**: the parser is exclusively built around TV/anime release naming conventions.
+The **release-title parsing engine** — converts raw release titles (and filenames) into structured metadata. The Sonarr→Mangarr migration of this engine SHIPPED in Phase 2/6: the TV/anime parser (`Parser.cs`, `ParsingService.cs`, `QualityParser.cs`, `LanguageParser.cs`) was removed and the manga parser now lives under `Parser/Manga/`. The notes below preserve the TV-parser shape for migration provenance, but the live engine at HEAD is the manga one.
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Parser\`
 
-## Files
+## Files (live at HEAD)
 
 | File | Purpose |
 |------|---------|
-| `Parser.cs` | **~71 KB** central regex parser. Static class. The bulk of the project's regex patterns. |
-| `ParsingService.cs` | Maps `ParsedEpisodeInfo` → `RemoteEpisode` (resolves Series + Episodes from DB) |
-| `IParsingService.cs` | Interface |
-| `QualityParser.cs` | Extract video quality (480p/720p/1080p/2160p/REMUX/etc.) from a title |
-| `LanguageParser.cs` | Extract language(s) |
-| `ReleaseGroupParser.cs` | Extract release-group / scene tag |
-| `IsoLanguages.cs` | Language code lookup |
+| `Manga/MangaParser.cs` | Central manga regex parser (chapter/volume numbers, scanlation groups, ranges). Replaced the deleted TV `Parser.cs`. |
+| `Manga/MangaParsingService.cs` | Maps the manga parse result → `RemoteChapter` (resolves Manga + Chapters via `IMangaService` / `IChapterService`). Replaced the deleted TV `ParsingService.cs`. |
+| `Manga/MangaLanguageParser.cs` | BCP-47 language extraction from `[EN]` / `(Spanish)` / `[ja]` markers. Replaced the deleted TV `LanguageParser.cs`. |
+| `Manga/MangaScanlationGroupParser.cs` | `^[Group]` scanlation-group extraction. Replaced the deleted TV `ReleaseGroupParser.cs` role for manga. |
+| `Manga/MangaTitleNormalizer.cs` | Manga title normalization. |
+| `Manga/ChapterType.cs` | Chapter-type enum (Special / Extra / Oneshot / etc.). |
+| `ReleaseGroupParser.cs` | Shared release-group / scene-tag helper (still present at HEAD). |
+| `IsoLanguages.cs` / `IsoLanguage.cs` | Language-code lookup. |
+| `ParserCommon.cs` / `RegexReplace.cs` | Shared regex helpers. |
+
+> The TV files below (`Parser.cs`, `ParsingService.cs`, `IParsingService.cs`, `QualityParser.cs`, `LanguageParser.cs`) were DELETED in the Sonarr→Mangarr migration; the API/struct/pipeline snippets that follow are preserved as migration provenance, not as a description of HEAD.
 
 ### Subdirectories
 - `Model/` — DTOs produced/consumed by the parser:
@@ -126,13 +130,12 @@ Series Name - 042.5 (Special) [Group]
 | Air date `2024.01.15` | Release date (often missing or just year) |
 | Absolute episode numbering (anime) | Chapter numbering (closest analog) |
 
-### Recommended Approach
+### Approach taken (SHIPPED in Phase 2/6 — historical record)
 
-1. **Don't replace `Parser.cs` in-place.** Add a new `MangaParser.cs` (or `ChapterParser.cs`) alongside it. Have a feature flag or media-type switch to choose.
-2. Add new model types: `ParsedChapterInfo`, `RemoteChapter`, `ParsedMangaInfo`.
-3. Update `ParsingService` to have a manga code path that returns `RemoteChapter`.
-4. Migrate `DecisionEngine` specs to operate on a base `RemoteRelease<TItem>` once both code paths exist.
-5. Once stable, delete TV-only regex patterns from `Parser.cs`.
+1. A new `Manga/MangaParser.cs` was added alongside the TV `Parser.cs` (leaf-first), then the TV parser was deleted once the manga path was stable.
+2. New manga model types landed: `RemoteChapter` (`Parser/Manga/Model/`) plus the manga parse-result shape consumed by `MangaParsingService`.
+3. `MangaParsingService` returns `RemoteChapter`; the manga decision pipeline (`DecisionEngine/Manga/`) consumes it.
+4. The TV-only regex/code paths were removed in the Phase 15 `Tv/` deletion.
 
 ### New Tokens to Parse
 - `Ch.042`, `c042`, `Chapter 42`, ` 042 ` (bare number)
@@ -145,18 +148,22 @@ Series Name - 042.5 (Special) [Group]
 
 ## Tests
 
-Parser is the **most heavily tested** part of the codebase. Tests live in:
-- `src/NzbDrone.Core.Test/ParserTests/` — title parsing
-- `src/NzbDrone.Core.Test/ParserTests/QualityParserFixture.cs` — quality
-- `src/NzbDrone.Core.Test/ParserTests/LanguageParserFixture.cs` — language
-- `src/NzbDrone.Core.Test/ParserTests/ReleaseGroupParserFixture.cs` — group
+The parser is one of the **most heavily tested** parts of the codebase. The manga parser tests live in:
+- `src/NzbDrone.Core.Test/Parser/Manga/MangaParserCorpusFixture.cs` — corpus-driven title parsing
+- `src/NzbDrone.Core.Test/Parser/Manga/MangaParserRegressionFixture.cs` — regression cases
+- `src/NzbDrone.Core.Test/Parser/Manga/MangaParsingServiceFixture.cs` — parse → `RemoteChapter` mapping
+- `src/NzbDrone.Core.Test/Parser/Manga/MangaLanguageParserFixture.cs` — BCP-47 language extraction
+- `src/NzbDrone.Core.Test/Parser/Manga/MangaScanlationGroupParserFixture.cs` — scanlation group
+- `src/NzbDrone.Core.Test/Parser/Manga/MangaTitleNormalizerFixture.cs` — title normalization
+
+(The Sonarr TV `src/NzbDrone.Core.Test/ParserTests/` fixtures — `QualityParserFixture`, `LanguageParserFixture`, `ReleaseGroupParserFixture`, etc. — were deleted in the Phase 15 TV-test removal.)
 
 When adding patterns, add a TestCase row to the relevant fixture covering both positive and negative examples.
 
 ## Cross-References
 
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview
-- [../Tv/CLAUDE.md](../Tv/CLAUDE.md) — Series/Episode that ParsingService resolves to
-- [../DecisionEngine/CLAUDE.md](../DecisionEngine/CLAUDE.md) — Consumer of `RemoteEpisode`
+- [./Manga/CLAUDE.md](./Manga/CLAUDE.md) — the live manga parser tree (`MangaParser` + `MangaParsingService`) that resolves Manga/Chapter (the Sonarr `Tv/` analog was deleted in Phase 15)
+- [../DecisionEngine/Manga/CLAUDE.md](../DecisionEngine/Manga/CLAUDE.md) — Consumer of `RemoteChapter`
 - [../Indexers/CLAUDE.md](../Indexers/CLAUDE.md) — Source of `ReleaseInfo`
 - [../DataAugmentation/](../DataAugmentation/) — Scene mapping / alternate-title overrides

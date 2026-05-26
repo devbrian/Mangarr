@@ -1,8 +1,10 @@
 # MetadataSource/AniList
 
 ## Purpose
-v1 SECONDARY metadata source (D-16). NEW file per D-25 — does NOT modify existing
-`ImportLists/AniList/AniListAPI.cs` (anime ImportList).
+v1 SECONDARY metadata source (D-16). NEW file per D-25 — kept separate from the
+`src/NzbDrone.Core/ImportLists/AniList/` vertical (the AniList ImportList provider, rebuilt
+in Phase 26/27 as `AniListImportList*.cs`; the original Phase-2-era `AniListAPI.cs` stub the
+D-25 note referenced no longer exists at HEAD).
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MetadataSource\AniList`
 
@@ -36,9 +38,8 @@ v1 SECONDARY metadata source (D-16). NEW file per D-25 — does NOT modify exist
 | `staff.edges[role=Story]` | Primary-author axis (exact match gate, D-21)              |
 
 ## Manga Adaptation Notes
-- DO NOT modify `src/NzbDrone.Core/ImportLists/AniList/AniListAPI.cs` (anime ImportList, untouched per D-25)
-- v2 manga ImportLists may extract a shared GraphQL transport base — out of Phase 2 scope per
-  CONTEXT Deferred Ideas (REQUIREMENTS IMP-02 lands the v2 surface)
+- Kept separate from the `src/NzbDrone.Core/ImportLists/AniList/` vertical per D-25 (the original Phase-2-era `AniListAPI.cs` stub no longer exists; the AniList ImportList was rebuilt as `AniListImportList*.cs` in Phase 26/27).
+- A shared AniList GraphQL transport was extracted in Phase 26 (`src/NzbDrone.Core/MetadataSource/AniList/AniListGraphQlTransport.cs`) — both this metadata source and the AniList ImportList provider consume it (IL-07).
 
 ## Cross-References
 - Scaffold: [`../CLAUDE.md`](../CLAUDE.md)

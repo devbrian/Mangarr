@@ -23,19 +23,18 @@ Unit fixtures for Phase 3 manga aggregator indexers (MangaDex, comix.to). Siblin
 
 ## Patterns / Conventions
 
-- All fixtures use `CoreTest<TSubject>` + Moq + FluentAssertions per Mangarr precedent (`IndexerTests/NewznabTests/NewznabFixture.cs`).
+- All fixtures use `CoreTest<TSubject>` + Moq + FluentAssertions per the inherited Sonarr precedent (the TV `IndexerTests/NewznabTests/NewznabFixture.cs` that this shape was modelled on was deleted in the Phase 15 TV-test removal; the live siblings are the `Indexers/Comix/` + `Indexers/MangaDex/` fixtures).
 - JSON fixtures load via `File.ReadAllText("Files/Indexers/{MangaDex,Comix}/...json")`; the `.csproj` `<None Update="Files\**\*.*">` glob copies them to test output.
 - ToS reflection assertions (Pitfall 4) are CRITICAL — adding `[FieldDefinition]` to MangaDex UA override is a ban-risk regression.
 - Tests start RED at Wave 0; flip GREEN as Plans 03-02..03-05 land production code. The Wave 0 commit is INTENTIONALLY a compile-fail for many tests because the production types do not exist yet — this is the "lock the contract before implementation" Nyquist pattern from `03-VALIDATION.md`.
 
 ## Manga Adaptation Notes
 
-- Phase 8 cutover will rename `Indexers/` → final manga indexer test tree; will collapse with TV `IndexerTests/` if symmetry suggests it.
-- The split between this directory (`Indexers/`) and the legacy `IndexerTests/` (TV) is intentional during the transition. Don't move TV fixtures into `Indexers/` until Phase 8.
+- `Indexers/` is the final manga indexer test tree at HEAD. The legacy TV `IndexerTests/` directory was deleted in the Phase 15 TV-test removal (the planned Phase 8 collapse / symmetry merge was overtaken by that deletion).
 
 ## Cross-References
 
-- Mangarr analog: `src/NzbDrone.Core.Test/IndexerTests/NewznabTests/NewznabFixture.cs`
+- Sonarr analog (the TV indexer-fixture shape this was modelled on): `NzbDrone.Core.Test/IndexerTests/NewznabTests/NewznabFixture.cs` — DELETED in the Phase 15 TV-test removal; cited for provenance only, absent at HEAD (path shown repo-relative-from-`src/` since it no longer resolves).
 - Phase 2 sibling: `src/NzbDrone.Core.Test/MetadataSource/MangaDex/MangaDexMetadataSourceFixture.cs`
 - Production code (lands in Plans 03-02..03-05): `src/NzbDrone.Core/Indexers/{MangaDex,Comix}/`
 - Validation map: `.planning/phases/03-indexer-contract-aggregator-sources/03-VALIDATION.md`

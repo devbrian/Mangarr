@@ -161,10 +161,10 @@ to keep the registries clean.
 ## Cross-References
 
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview
-- [../Tv/CLAUDE.md](../Tv/CLAUDE.md) — Series/Episode populated from this
-- [../Tv/RefreshSeriesService.cs](../Tv/RefreshSeriesService.cs) — Caller
-- [../../Mangarr.Api.V5/Series/SeriesLookupController.cs](../../Mangarr.Api.V5/Series/SeriesLookupController.cs) — Search-add UX entrypoint
-- [../../../frontend/src/AddSeries/CLAUDE.md](../../../frontend/src/AddSeries/CLAUDE.md) — Frontend "Add" flow
+- [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Manga/Chapter populated from this (the Sonarr `Tv/` analog was deleted in Phase 15)
+- [../Manga/RefreshMangaService.cs](../Manga/RefreshMangaService.cs) — Caller (replaced the deleted Sonarr `Tv/RefreshSeriesService.cs`)
+- [../../Mangarr.Api.V5/Manga/MangaLookupController.cs](../../Mangarr.Api.V5/Manga/MangaLookupController.cs) — Search-add UX entrypoint (replaced the deleted Sonarr `Series/SeriesLookupController.cs`)
+- [../../../frontend/src/AddManga/CLAUDE.md](../../../frontend/src/AddManga/CLAUDE.md) — Frontend "Add" flow (Sonarr `AddSeries/` renamed in Phase 17.3)
 - [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Manga / Chapter domain models consumed by `IProvideMangaInfo` / `ISearchForNewManga`
 - [../Indexers/Http/HttpAggregatorBase.cs](../Indexers/Http/HttpAggregatorBase.cs) — Sibling Phase 1 base; intentional duplication source
 - [../ThingiProvider/](../ThingiProvider/) — ProviderBase / ProviderDefinition / ProviderFactory / ProviderRepository
