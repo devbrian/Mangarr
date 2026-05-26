@@ -77,10 +77,7 @@ function ChapterDetailsModal({
         </ModalHeader>
 
         <ModalBody>
-          <InteractiveSearch
-            type="chapter"
-            searchPayload={{ kind: 'chapter', chapterId }}
-          />
+          <InteractiveSearch searchPayload={{ kind: 'chapter', chapterId }} />
         </ModalBody>
 
         <ModalFooter>

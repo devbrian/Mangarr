@@ -390,63 +390,27 @@ const releaseStore = create<ReleaseStore>(() => ({
 const DEFAULT_RELEASES: Release[] = [];
 const THIRTY_MINUTES = 30 * 60 * 1000;
 
-// Phase 7 Plan 07-05 — Manga sibling per RESEARCH Lock #14:
-// ChapterSearchPayload + MangaSearchPayload route to /api/v5/manga/release
-// (Phase 6 MangaReleaseController) instead of the inherited Mangarr /release
-// endpoint. TV variants preserved verbatim.
-function getReleasePath(payload: InteractiveSearchPayload): string {
-  if ('chapterId' in payload || 'mangaId' in payload) {
-    return '/manga/release';
-  }
-
-  return '/release';
-}
-
-// Phase 12 Plan 12-10 — Sub-wave-B-addition (audit row C closure):
-// ChapterSearchPayload + MangaSearchPayload grab POSTs route to /api/v5/manga/release
-// (Phase 6 MangaReleaseController.DownloadRelease) — companion to getReleasePath.
-// TV variants preserved verbatim. See Plan 12-05 audit
-// .planning/phases/08-tv-manga-parity-audit/audit/OverrideMatch-vs-MangaPayloadRouting.md.
-// Exported for v1.1+ when ChapterOverrideMatchModal vs MangaOverrideMatchModal siblings
-// route discriminately by payload variant per Plan 12-98 v1.1-roadmap promotion.
-export function getGrabPath(payload: InteractiveSearchPayload): string {
-  if ('chapterId' in payload || 'mangaId' in payload) {
-    return '/manga/release';
-  }
-
-  return '/release';
-}
-
 const useReleases = (payload: InteractiveSearchPayload) => {
   const customFilters = useCustomFiltersList('releases');
-  const {
-    episodeSelectedFilterKey,
-    seasonSelectedFilterKey,
-    chapterSelectedFilterKey,
-    mangaSelectedFilterKey,
-  } = useReleaseOptions();
+  const { chapterSelectedFilterKey, mangaSelectedFilterKey } =
+    useReleaseOptions();
 
   const { sortKey, sortDirection } = releaseStore();
 
-  // Manga payloads route to dedicated filter slots so the chapter-scope default
-  // ('not-rejected') doesn't bleed into TV episode searches. Manga indexers
+  // Chapter and manga payloads route to dedicated filter slots. Manga indexers
   // (MangaDex, Comix) can fan out the whole-manga chapter list when a
   // server-side point query is unavailable; defaulting chapter searches to
   // 'not-rejected' hides the chapter-mismatch rejections that would otherwise
   // dwarf the matching releases. User can toggle to 'all' to inspect rejections.
-  let selectedFilterKey: typeof episodeSelectedFilterKey =
-    episodeSelectedFilterKey;
-
-  if ('chapterId' in payload) {
-    selectedFilterKey = chapterSelectedFilterKey;
-  } else if ('mangaId' in payload) {
-    selectedFilterKey = mangaSelectedFilterKey;
-  } else if ('seriesId' in payload) {
-    selectedFilterKey = seasonSelectedFilterKey;
-  }
+  const selectedFilterKey =
+    payload.kind === 'chapter'
+      ? chapterSelectedFilterKey
+      : mangaSelectedFilterKey;
 
   const { data, queryKey, ...result } = useApiQuery<Release[]>({
-    path: getReleasePath(payload),
+    // The InteractiveSearch union is manga-only — both flavors POST to the
+    // Phase 6 MangaReleaseController at /api/v5/manga/release.
+    path: '/manga/release',
     queryParams: {
       ...payload,
     },
@@ -518,54 +482,6 @@ const useReleases = (payload: InteractiveSearchPayload) => {
 
 export default useReleases;
 
-interface OverrideRelease {
-  seriesId: number;
-  episodeIds: number[];
-  downloadClientId: number | null;
-  quality: QualityModel;
-  languages: Language[];
-}
-
-interface GrabRelease {
-  guid: string;
-  indexerId: number;
-  override?: OverrideRelease;
-  searchInfo?: InteractiveSearchPayload;
-}
-
-export const useGrabRelease = () => {
-  const [isGrabbed, setIsGrabbed] = useState(false);
-
-  // Explicitly define the types for the mutation so we can pass in no arguments to mutate as expected.
-  const { mutate, isPending, error } = useApiMutation<unknown, GrabRelease>({
-    path: '/release',
-    method: 'POST',
-    mutationOptions: {
-      onMutate: () => {
-        setIsGrabbed(false);
-      },
-      onSuccess: () => {
-        setIsGrabbed(true);
-      },
-    },
-  });
-
-  const grabError = useMemo(() => {
-    if (!error) {
-      return undefined;
-    }
-
-    return error.statusBody?.message ?? translate('InteractiveSearchGrabError');
-  }, [error]);
-
-  return {
-    grabRelease: mutate,
-    isGrabbing: isPending,
-    isGrabbed,
-    grabError,
-  };
-};
-
 // Phase 12 Plan 12-10 — Sub-wave-B-addition (audit row C closure):
 // Manga-shaped grab override body. MangaReleaseResource (backend
 // src/Mangarr.Api.V5/Manga/Release/MangaReleaseResource.cs) carries no
@@ -589,10 +505,9 @@ interface MangaGrabRelease {
 // Phase 12 Plan 12-10 — Sub-wave-B-addition (audit row C closure):
 // Manga grab POST handler — POSTs to /manga/release (Phase 6 MangaReleaseController);
 // path-keyed cache invalidation flows via SignalR listener (Components/SignalRListener.tsx
-// 'manga' resource handler at lines 399-419) per Plan 07-02 URL-shaped key contract;
-// Pitfall 5 — TV/manga cache MUST NOT collide because path: '/manga/release' produces
-// query keys that auto-namespace under ['/manga/release'] (NOT ['/release']). Existing TV
-// useGrabRelease above preserved verbatim per D-12-18.
+// 'manga' resource handler) per Plan 07-02 URL-shaped key contract. The grab POST
+// query keys auto-namespace under ['/manga/release']. The TV-shape useGrabRelease
+// that hard-coded /release was retired in issue #263.
 export const useGrabMangaRelease = () => {
   const [isGrabbed, setIsGrabbed] = useState(false);
 

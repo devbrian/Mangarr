@@ -1,38 +1,37 @@
 import React, { useCallback } from 'react';
 import { SetFilter } from 'Components/Filter/Filter';
 import FilterModal, { FilterModalProps } from 'Components/Filter/FilterModal';
-import InteractiveSearchType from 'InteractiveSearch/InteractiveSearchType';
 import InteractiveSearchPayload from './InteractiveSearchPayload';
 import { setReleaseOption } from './releaseOptionsStore';
 import useReleases, { FILTER_BUILDER, Release } from './useReleases';
 
 interface InteractiveSearchFilterModalProps extends FilterModalProps<Release> {
-  type: InteractiveSearchType;
   searchPayload: InteractiveSearchPayload;
 }
 
 export default function InteractiveSearchFilterModal({
-  type,
   searchPayload,
   ...otherProps
 }: InteractiveSearchFilterModalProps) {
   const { data } = useReleases(searchPayload);
 
+  // Write the filter slot from searchPayload.kind — the same source useReleases
+  // reads from — so read/write paths can't diverge.
   const handleFilterSelect = useCallback(
     (selectedFilter: SetFilter) => {
-      if (type === 'episode') {
+      if (searchPayload.kind === 'chapter') {
         setReleaseOption(
-          'episodeSelectedFilterKey',
+          'chapterSelectedFilterKey',
           selectedFilter.selectedFilterKey
         );
       } else {
         setReleaseOption(
-          'seasonSelectedFilterKey',
+          'mangaSelectedFilterKey',
           selectedFilter.selectedFilterKey
         );
       }
     },
-    [type]
+    [searchPayload.kind]
   );
 
   return (

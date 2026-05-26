@@ -69,9 +69,10 @@ on `Chapter`.
   `kinds.INFO` Alerts so users see the surface without faking data.
 - **Search tab uses the extended InteractiveSearch payload union** — Plan
   07-05 Task 3 added `MangaSearchPayload` (`{ mangaId }`); the Search tab
-  fires `<InteractiveSearch type="manga" searchPayload={{ mangaId }} />`
+  fires `<InteractiveSearch searchPayload={{ kind: 'manga', mangaId }} />`
   (whole-manga search). Per-chapter search lives on `ChapterSearchCell`
-  inside the Chapters tab via `<InteractiveSearch type="chapter" />`.
+  inside the Chapters tab via `<InteractiveSearch searchPayload={{ kind: 'chapter', chapterId }} />`.
+  (The `type` prop was retired in issue #263; `searchPayload.kind` is the sole discriminator.)
 - **TranslationProfileName lookup is inlined** — until Plan 07 ships
   `Settings/Profiles/Translations/TranslationProfileName.tsx`, the Manga
   Details metadata strip resolves the profile name via a local `useApiQuery`

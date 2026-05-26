@@ -6,7 +6,7 @@
 //   * Auto search button → POST /api/v5/chapter/{id}/search (Plan 07-01;
 //     enqueues a ChapterSearchCommand which runs the auto pipeline).
 //   * Interactive search button → opens ChapterDetailsModal which renders
-//     <InteractiveSearch type="chapter" searchPayload={{ chapterId }} />.
+//     <InteractiveSearch searchPayload={{ kind: 'chapter', chapterId }} />.
 //
 // Manga sibling preserves: TableRowCell wrapper + IconButton + SpinnerIconButton.
 // Manga sibling diverges from EpisodeSearchCell:

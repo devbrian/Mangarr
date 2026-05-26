@@ -21,7 +21,7 @@ URL-shaped React Query cache contract from Plan 07-02 SignalR handlers.
 | `LanguageBadge.tsx` + `.css` + `.css.d.ts` | Pill-shaped BCP-47 badge (UI-SPEC §Translation language badge). Background flips to `themeBlue` accent when chapter language matches the user's #1-ranked language on the default Translation Profile (Phase 5 D-01). Phase 11 rebrands `themeBlue` from Sonarr cyan to manga pink (`#f06292`); accent flip lands automatically. **(Plan 07-05)** |
 | `ChapterNumber.tsx` | Decimal-aware chapter-number formatter — integer-shorthand for whole numbers; trimmed-decimal for fractional values (`1.5` not `1.500`). Optional `volumeNumber` rendered as `Vol. N ` prefix when `showVolumeNumber={true}`. Volumes are display-only — no Volumes table per PROJECT.md "Volumes/Seasons" Out-of-Scope. **(Plan 07-05)** |
 | `ChapterTitleLink.tsx` | `<Link>` wrapper that opens `ChapterDetailsModal` on press. **(Plan 07-05)** |
-| `ChapterDetailsModal.tsx` | Modal wrapper for the chapter detail view — v1 ships search-first (always lands on the InteractiveSearch panel; per-chapter Details / History tabs deferred to a future plan). Body renders `<InteractiveSearch type="chapter" searchPayload={{ chapterId }} />` per Plan 07-05 Lock #14. **(Plan 07-05)** |
+| `ChapterDetailsModal.tsx` | Modal wrapper for the chapter detail view — v1 ships search-first (always lands on the InteractiveSearch panel; per-chapter Details / History tabs deferred to a future plan). Body renders `<InteractiveSearch searchPayload={{ kind: 'chapter', chapterId }} />` per Plan 07-05 Lock #14 (the `type` prop was retired in issue #263 — `searchPayload.kind` is the sole discriminator). **(Plan 07-05)** |
 | `ChapterSearchCell.tsx` | Per-row search affordance pair (UI-04 + Open Question 3 lean): an Auto Search button (POST `/api/v5/chapter/{id}/search` — Plan 07-01 endpoint, enqueues `ChapterSearchCommand`) AND an Interactive Search button (opens `ChapterDetailsModal`). Mounted by `Manga/Details/ChapterRow.tsx` in the `actions` column. **(Plan 07-05)** |
 
 ## Patterns / Conventions
@@ -81,7 +81,7 @@ is the canonical Mangarr default.
 
 - [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Sibling manga type.
 - [../Manga/Details/CLAUDE.md](../Manga/Details/CLAUDE.md) — Manga details page (Plan 07-05) — primary consumer of ChapterRow + ChapterStatus + ChapterSearchCell + LanguageBadge + ChapterNumber. Hosts `MangaDetailsProvider` + `MangaChapterHistoryContext` (issue #51 N+1 fix).
-- [../InteractiveSearch/CLAUDE.md](../InteractiveSearch/CLAUDE.md) — `InteractiveSearch` component invoked by ChapterDetailsModal + ChapterSearchCell with `type="chapter" searchPayload={{ chapterId }}`.
+- [../InteractiveSearch/CLAUDE.md](../InteractiveSearch/CLAUDE.md) — `InteractiveSearch` component invoked by ChapterDetailsModal + ChapterSearchCell with `searchPayload={{ kind: 'chapter', chapterId }}`.
 - [../../../src/Mangarr.Api.V5/Manga/Chapter/ChapterResource.cs](../../../src/Mangarr.Api.V5/Manga/Chapter/ChapterResource.cs) — Backend resource shape this type mirrors (Phase 7 Plan 07-01).
 - [../../../src/Mangarr.Api.V5/Manga/Chapter/CLAUDE.md](../../../src/Mangarr.Api.V5/Manga/Chapter/CLAUDE.md) — Backend Chapter API surface.
 - [../../../.planning/phases/07-api-v5-frontend-manga-shell/07-RESEARCH.md](../../../.planning/phases/07-api-v5-frontend-manga-shell/07-RESEARCH.md) — Lock #4 (6-state status badge sources), Lock #14 (InteractiveSearch payload extension).

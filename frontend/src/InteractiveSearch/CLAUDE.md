@@ -13,8 +13,7 @@
 | `InteractiveSearch.tsx` | Main modal with sortable/filterable release list |
 | `InteractiveSearchRow.tsx` | One release row (title, indexer, size, peers, quality, language, custom format score, rejections) |
 | `InteractiveSearchFilterModal.tsx` | Filter popup |
-| `InteractiveSearchPayload.ts` | Discriminated union for what to search. **Phase 7 Plan 07-05** extended with `ChapterSearchPayload` (`{ chapterId }`) + `MangaSearchPayload` (`{ mangaId }`) variants per RESEARCH Lock #14. |
-| `InteractiveSearchType.ts` | enum: `'episode' \| 'season' \| 'chapter' \| 'manga'` (Phase 7 Plan 07-05 added the `chapter` + `manga` literals). |
+| `InteractiveSearchPayload.ts` | Manga-only discriminated union: `ChapterSearchPayload` (`{ kind: 'chapter', chapterId }`) + `MangaSearchPayload` (`{ kind: 'manga', mangaId }`). The TV-shape `EpisodeSearchPayload` / `SeasonSearchPayload` variants were retired in issue #263. `searchPayload.kind` is the single routing discriminator (the redundant `InteractiveSearchType` prop + file were deleted in issue #263). |
 | `Peers.tsx` | Seeders/peers display |
 | `ReleaseSceneIndicator.tsx` | Scene release indicator |
 | `releaseOptionsStore.ts` | Zustand: search options |
@@ -24,9 +23,13 @@
 
 | File | Purpose |
 |------|---------|
-| `OverrideMatchModal.tsx` / `OverrideMatchModalContent.tsx` | "I want to override the auto-match" — let user manually choose series/episode mapping for a release |
-| `OverrideMatchData.tsx` | Display form |
+| `Chapter/ChapterOverrideMatchModal.tsx` / `ChapterOverrideMatchModalContent.tsx` | Chapter-flavor override-match (chapterIds + mangaId=0 wire sentinel) |
+| `Manga/MangaOverrideMatchModal.tsx` / `MangaOverrideMatchModalContent.tsx` | Manga-flavor override-match (mangaId) |
+| `OverrideMatchData.tsx` | Shared per-row "selected value + change-button" presenter (used by both Chapter + Manga content bodies) |
+| `OverrideMatchModalContent.css` | Shared CSS module for the override-match content bodies (the TV-shape `OverrideMatchModalContent.tsx` it was named for was retired in issue #263; the stylesheet survives as shared styling) |
 | `DownloadClient/SelectDownloadClientModal.tsx` / `SelectDownloadClientModalContent.tsx` / `SelectDownloadClientRow.tsx` | Pick which download client |
+
+The TV-shape `OverrideMatchModal.tsx` + `OverrideMatchModalContent.tsx` fallback was deleted in issue #263 (the `InteractiveSearch` union became manga-only, so the 3-way row discriminator in `InteractiveSearchRow.tsx` collapsed to 2-way).
 
 ## Flow
 
@@ -67,8 +70,9 @@ Adapted in Plan 07-05:
 - `InteractiveSearchType.ts` — added `'chapter'` + `'manga'` literals.
 - `useReleases.ts` — added `getReleasePath(payload)` discriminator routing
   chapter/manga payloads to `/api/v5/manga/release` (Phase 6 endpoint).
-- `<InteractiveSearch type="chapter" searchPayload={{ chapterId }} />` is the
-  caller pattern from `Manga/Details/MangaDetails.tsx` Search tab.
+- `<InteractiveSearch searchPayload={{ kind: 'chapter', chapterId }} />` is the
+  caller pattern from `Chapter/ChapterDetailsModal.tsx` / `Manga/Details/MangaDetails.tsx`
+  Search tab (the `type` prop was retired in issue #263).
 
 Still pending Phase 8 cleanup:
 - Result row column extension (Page Count, Scanlation Group, etc.) — deferred.
