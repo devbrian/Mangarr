@@ -77,6 +77,7 @@ namespace NzbDrone.Core.Test.HistoryTests.Manga
             Subject.Insert(history);
 
             StoredModel.Date.Should().Be(when);
+            StoredModel.Date.Kind.Should().Be(System.DateTimeKind.Utc);
         }
 
         [Test]

@@ -119,7 +119,9 @@ namespace NzbDrone.Core.Test.MangaTests
             var c = BuildChapter();
             c.LastSearchTime = when;
             Subject.Insert(c);
-            Subject.Get(c.Id).LastSearchTime.Should().Be(when);
+            var fetched = Subject.Get(c.Id);
+            fetched.LastSearchTime.Should().Be(when);
+            fetched.LastSearchTime.Value.Kind.Should().Be(DateTimeKind.Utc);
         }
 
         // STRUCT-04 release-grain-agnostic guard: Plan 16-03 Task 4 reflection check.

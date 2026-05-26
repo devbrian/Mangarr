@@ -55,7 +55,9 @@ namespace NzbDrone.Core.Test.MangaTests
 
             var fetched = Subject.Get(manga.Id);
             fetched.Added.Should().Be(added);
+            fetched.Added.Kind.Should().Be(DateTimeKind.Utc);
             fetched.LastInfoSync.Should().Be(synced);
+            fetched.LastInfoSync.Value.Kind.Should().Be(DateTimeKind.Utc);
         }
 
         [Test]

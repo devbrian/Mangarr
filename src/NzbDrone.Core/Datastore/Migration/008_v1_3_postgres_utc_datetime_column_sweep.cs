@@ -46,17 +46,24 @@ namespace NzbDrone.Core.Datastore.Migration
     //   Commands.QueuedAt/StartedAt/EndedAt, DownloadHistory.Date,
     //   Manga.Added/LastInfoSync, Chapters.LastSearchTime, ChapterHistory.Date,
     //   MangaBlocklist.Date, ChapterFiles.DateAdded, Indexers.LastRssSync.
-    //   Plus (LogDbUpgrade) UpdateHistory.Date — same Dapper defect class, in logs.db
-    //   (which is ALSO Postgres when Postgres is configured — ConnectionStringFactory.cs:31-32).
+    //   Plus (LogDbUpgrade) UpdateHistory.Date AND Logs.Time — both in logs.db (which is
+    //   ALSO Postgres when Postgres is configured — ConnectionStringFactory.cs:31-32).
     //
-    // SCOPE — deliberately NOT swept:
+    //   Logs.Time is written by NLog's DatabaseTarget via a raw
+    //   `NpgsqlParameter("Time", DbType.DateTime)` whose value is pre-converted with
+    //   `.ToUniversalTime()` (DatabaseTarget.cs:122) — NOT the Dapper converter. An earlier
+    //   draft of this migration EXCLUDED it on the theory that DbType.DateTime pins the
+    //   parameter to `timestamp without time zone`, making a TZ-less column "correct".
+    //   That theory was empirically WRONG (PR #275 Codex P1): under a non-UTC Postgres
+    //   session timezone, modern Npgsql sends the Kind=Utc value as an instant and the
+    //   `timestamp` column applies a session-TZ offset shift on round-trip (probe: wrote
+    //   12:00Z, read back 02:00 under America/New_York), whereas a `timestamptz` column
+    //   round-trips bit-for-bit (read back 12:00). The raw NpgsqlParameter writes cleanly
+    //   to BOTH column types (no error), so ONLY the column type needs to change — the
+    //   write path is left untouched. Logs.Time is therefore swept like every other column.
+    //
+    // SCOPE — NOT swept:
     //   * Chapters.FirstReleaseDate — already altered to timestamptz by Migration 007.
-    //   * Logs.Time — NOT a Dapper-path column. It is written by NLog's DatabaseTarget
-    //     via a raw `NpgsqlParameter("Time", DbType.DateTime)` whose value is
-    //     pre-converted with `.ToUniversalTime()` (DatabaseTarget.cs:122). DbType.DateTime
-    //     pins the parameter to `timestamp without time zone`, so a TZ-less column is the
-    //     CORRECT match for that write path; altering it to timestamptz would mismatch the
-    //     explicit parameter type. Excluded by design, not deferred.
     //
     // Sequential post-baseline (post-v1.0.0 — append-only migration policy). Succeeds
     // Migration 007. NEVER edits 001_mangarr_baseline.cs.
@@ -119,10 +126,15 @@ namespace NzbDrone.Core.Datastore.Migration
         protected override void LogDbUpgrade()
         {
             // logs.db is Postgres when Postgres is configured (ConnectionStringFactory.cs:31-32).
-            // UpdateHistory is a Dapper repository (UpdateHistoryRepository : BasicRepository),
-            // so UpdateHistory.Date is the same UTC-round-trip defect class as the main-DB columns.
+            // UpdateHistory.Date — Dapper repository (UpdateHistoryRepository : BasicRepository),
+            // same UTC-round-trip defect class as the main-DB columns.
+            // Logs.Time — raw NLog DatabaseTarget write path; empirically shifts on a non-UTC
+            // session under the tz-less column and round-trips correctly under timestamptz
+            // (PR #275 Codex P1). Write path unchanged; only the column type is altered.
             IfDatabase(ProcessorIdConstants.PostgreSQL)
                 .Execute.Sql("ALTER TABLE \"UpdateHistory\" ALTER COLUMN \"Date\" TYPE timestamptz USING \"Date\" AT TIME ZONE 'UTC'");
+            IfDatabase(ProcessorIdConstants.PostgreSQL)
+                .Execute.Sql("ALTER TABLE \"Logs\" ALTER COLUMN \"Time\" TYPE timestamptz USING \"Time\" AT TIME ZONE 'UTC'");
         }
     }
 }
