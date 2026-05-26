@@ -97,7 +97,9 @@ namespace Mangarr.Api.V5.Provider
         [Produces("application/json")]
         public Results<Accepted<TProviderResource>, NotFound> UpdateProvider([FromRoute] int id, [FromBody] TProviderResource providerResource, [FromQuery] bool skipTesting = false, [FromQuery] SkipValidation skipValidation = SkipValidation.None)
         {
-            // TODO: Remove fallback to Id from body in next API version bump
+            // TODO: Remove fallback to Id from body in next API version bump (v6) — GH #272 (DD-01).
+            // Deliberate backwards-compat affordance for older clients that put Id in the body; removing it is a
+            // breaking change, so it is deferred to the v6 API design milestone. Do not remove before v6.
             var existingDefinition = _providerFactory.Find(id) ?? _providerFactory.Find(providerResource.Id);
 
             if (existingDefinition == null)

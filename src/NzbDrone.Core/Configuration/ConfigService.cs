@@ -195,7 +195,10 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("DownloadClientHistoryLimit", value); }
         }
 
-        // TODO: Rename to 'Skip Free Space Check'
+        // TODO: Rename to 'Skip Free Space Check'. Cosmetic rename only; deferred because the config KEY
+        // ("SkipFreeSpaceCheckWhenImporting") is persisted in the Config table, so renaming the property requires
+        // a Config-table migration. Trigger: do it when the Settings -> MediaManagement copy is next touched
+        // (so the user-facing label and the property name change together). Tracked: post-v1.1-tracker DD-02.
         public bool SkipFreeSpaceCheckWhenImporting
         {
             get { return GetValueBoolean("SkipFreeSpaceCheckWhenImporting", false); }
