@@ -169,11 +169,11 @@ The `MangaController` fans out SignalR resource changes for the manga lifecycle.
 ## Cross-References
 
 - Mangarr V5 analogs (each Phase 6 controller mirrors a TV peer):
-  - `src/Mangarr.Api.V5/History/HistoryController.cs` (history listing + retry)
-  - `src/Mangarr.Api.V5/Blocklist/BlocklistController.cs` (blocklist CRUD)
-  - `src/Mangarr.Api.V5/Queue/QueueController.cs` (in-flight queue + SignalR)
-  - `src/Mangarr.Api.V5/Release/ReleaseController.cs` (Interactive Search + Grab)
-  - `src/Mangarr.Api.V5/Wanted/MissingController.cs` (Missing list)
+  - `src/Mangarr.Api.V5/Manga/History/ChapterHistoryController.cs` (history listing + retry)
+  - `src/Mangarr.Api.V5/Manga/Blocklist/MangaBlocklistController.cs` (blocklist CRUD)
+  - `src/Mangarr.Api.V5/Manga/Queue/MangaQueueController.cs` (in-flight queue + SignalR)
+  - `src/Mangarr.Api.V5/Manga/Release/MangaReleaseController.cs` (Interactive Search + Grab)
+  - `src/Mangarr.Api.V5/Manga/Wanted/MangaMissingController.cs` (Missing list)
 - Phase 6 backing services:
   - `src/NzbDrone.Core/History/Manga/IChapterHistoryService.cs` (Plan 06-03)
   - `src/NzbDrone.Core/Blocklisting/Manga/IMangaBlocklistService.cs` (Plan 06-04)

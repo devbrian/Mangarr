@@ -136,7 +136,7 @@ All subscribers (`IHandle<X>`) update accordingly.
 ## Cross-References
 
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview
-- [../Tv/Events/](../Tv/Events/) — Series-specific events
+- [../Manga/Events/](../Manga/Events/) — Manga/Chapter-specific events (the Sonarr `Tv/Events/` analog was deleted in Phase 15)
 - [../MediaFiles/Events/](../MediaFiles/Events/) — File-specific events
 - [../../NzbDrone.SignalR/CLAUDE.md](../../NzbDrone.SignalR/CLAUDE.md) — Translates these events to SignalR pushes
 - [../../Mangarr.Api.V5/Commands/](../../Mangarr.Api.V5/Commands/) — REST endpoint for commands

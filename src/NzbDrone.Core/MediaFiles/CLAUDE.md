@@ -194,7 +194,7 @@ Phase 6 ships the manga import pipeline + supporting events as parallel siblings
 ## Cross-References
 
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview
-- [../Tv/CLAUDE.md](../Tv/CLAUDE.md) — Episode that EpisodeFile is linked to
+- [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Chapter that ChapterFile is linked to (the Sonarr `Tv/` Episode analog was deleted in Phase 15)
 - [../Download/CLAUDE.md](../Download/CLAUDE.md) — Source of completed downloads
 - [../Organizer/](../Organizer/) — `FileNameBuilder` token system
 - [../Parser/CLAUDE.md](../Parser/CLAUDE.md) — Parses filenames during scan/import

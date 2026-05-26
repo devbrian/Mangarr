@@ -70,11 +70,7 @@ Compiles to: `_output/net10.0/Mangarr.Console.{exe,dll}` plus all referenced ass
 
 ## Manga Adaptation Notes
 
-- The csproj is named `Mangarr.Console.csproj` and produces `Mangarr.Console.exe`. As part of rebranding, this should eventually be renamed `Mangarr.Console.csproj` / `Mangarr.Console.exe`. Renaming requires updating:
-  - Solution file (`src/Mangarr.sln`)
-  - Distribution scripts under `distribution/`
-  - Service install scripts under `src/ServiceHelpers/`
-  - GitHub Actions / build pipelines
+- The csproj is named `Mangarr.Console.csproj` and produces `Mangarr.Console.exe`. The Phase 15 hard-fork rebrand (closed 2026-05-08) completed this rename across the solution file (`src/Mangarr.sln`), distribution scripts under `distribution/`, service install scripts under `src/ServiceHelpers/`, and the GitHub Actions / build pipelines. The source-tree directory retains the `NzbDrone.Console/` name as a fork-heritage breadcrumb per Phase 15 D-06.
 
 ## Cross-References
 

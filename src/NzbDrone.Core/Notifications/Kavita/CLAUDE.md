@@ -64,10 +64,10 @@ If a Mihon/Tachidesk/Suwayomi notification provider ships in v2, it slots in as 
 ## Cross-References
 
 - `src/NzbDrone.Core/Notifications/Komga/` — manga-reader sibling shipped in Plan 06-10 (REQUIRED LibraryId, X-API-Key auth, no JWT)
-- `src/NzbDrone.Core/Notifications/MediaBrowser/` — TV analog (Emby/Jellyfin) — provider/service/proxy/settings shape
-- `src/NzbDrone.Core/Notifications/Plex/PlexTv/` — TV analog token-cache pattern reference (Plex pin flow inspired Pattern 6)
+- `src/NzbDrone.Core/Notifications/MediaBrowser/` — Sonarr analog (Emby/Jellyfin) provider/service/proxy/settings shape — NOT in the live tree at HEAD; moved to `.planning/reference/sonarr-vertical-slices/notifications-extra/` per the Reference Preservation Policy (Komga + Kavita are the only live notifiers).
+- `src/NzbDrone.Core/Notifications/Plex/PlexTv/` — Sonarr analog token-cache pattern reference (Plex pin flow inspired Pattern 6) — NOT in the live tree at HEAD; reference-preserved per the policy above.
 - `src/NzbDrone.Core/Notifications/MediaServerUpdateQueue.cs` — shared debounce queue (Series-coupled overload + info-only overload)
-- `src/NzbDrone.Common/Cache/ICacheManager.cs` — token cache primitive
+- `src/NzbDrone.Common/Cache/CacheManager.cs` — token cache primitive (the `ICacheManager` interface is declared in this file)
 - `src/NzbDrone.Core/Notifications/NotificationBase.cs` — `OnChapterImport` virtual + `SupportsOnChapterImport` reflection helper (added in Plan 06-02)
 - `src/NzbDrone.Core/Notifications/NotificationService.cs` — `Handle(ChapterImportedEvent)` fans out via `INotificationFactory.OnChapterImportEnabled()`
 - `.planning/phases/06-…/06-CONTEXT.md` D-16/D-17/D-18

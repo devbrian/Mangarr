@@ -19,8 +19,8 @@ Manga parser test fixtures + the 500-title corpus that gates Phase 2 completion.
 
 ## Patterns / Conventions
 
-- **TestCase rows for unit fixtures.** Mirrors `src/NzbDrone.Core.Test/ParserTests/ParserFixture.cs`. Use one `[TestCase(input, expected)]` line per scenario.
-- **`CoreTest<TSubject>` for service fixtures.** Mirrors `src/NzbDrone.Core.Test/TvTests/AddSeriesFixture.cs`. `Subject` resolves `MangaParsingService`; mock `IMangaService` + `IChapterService` via `Mocker.GetMock<T>()`.
+- **TestCase rows for unit fixtures.** Modelled on the Sonarr TV `NzbDrone.Core.Test/ParserTests/ParserFixture.cs` (DELETED in the Phase 15 TV-test removal; cited for provenance only, absent at HEAD — path shown repo-relative-from-`src/` since it no longer resolves). Use one `[TestCase(input, expected)]` line per scenario.
+- **`CoreTest<TSubject>` for service fixtures.** Modelled on the Sonarr TV `NzbDrone.Core.Test/TvTests/AddSeriesFixture.cs` (DELETED in the Phase 15 TV-test removal; cited for provenance only, absent at HEAD — path shown repo-relative-from-`src/` since it no longer resolves). `Subject` resolves `MangaParsingService`; mock `IMangaService` + `IChapterService` via `Mocker.GetMock<T>()`.
 - **`File.ReadAllText` + `Path.Combine(TestContext.CurrentContext.TestDirectory, ...)`** for the corpus JSON. Per RESEARCH.md Pitfall 8 the corpus is read once on disk and never regenerated at test time.
 - **Newtonsoft.Json + `JsonProperty` attributes** to deserialize the snake_case corpus schema into a private `CorpusEntry` POCO with PascalCase fields.
 

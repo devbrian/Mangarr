@@ -38,7 +38,7 @@ Honest UA per Phase 1 D-13/D-14 + MangaDex ToS. **`UserAgentOverride` is NOT exp
 
 - Scaffold: `src/NzbDrone.Core/MetadataSource/CLAUDE.md`
 - Phase 1 HTTP rate budget: `src/NzbDrone.Core/Indexers/Http/CLAUDE.md`
-- Mangarr analog: `src/NzbDrone.Core/MetadataSource/SkyHook/CLAUDE.md`
+- Sonarr analog (the TVDB/SkyHook metadata source this MangaDex source replaced): `src/NzbDrone.Core/MetadataSource/SkyHook/` — DELETED in Phase 15; cited for provenance only, absent at HEAD.
 - Title normalizer: `src/NzbDrone.Core/Parser/Manga/CLAUDE.md`
 - API docs: https://api.mangadex.org/docs
 

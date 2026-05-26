@@ -9,11 +9,11 @@ pending releases) plus the queue-action endpoints (grab, remove). The pre-existi
 the three peer controllers that mirror TV's `Queue/` directory layout
 (`QueueDetailsController` + `QueueStatusController` + `QueueActionController`).
 
-Sonarr divergence: NEW manga sibling of `src/Sonarr.Api.V5/Queue/`. Phase 15 cleanup
-collapses the four manga controllers with their TV peers when `Tv/` deletes per
-D-13-16 (purely additive in v1).
+Sonarr divergence: originally added as the NEW manga sibling of `src/Sonarr.Api.V5/Queue/`.
+Phase 15 completed the hard-fork rename (`src/Sonarr.Api.V5/` → `src/Mangarr.Api.V5/`) and
+collapsed the TV Queue peers per D-13-16; only the four manga controllers remain at HEAD.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Sonarr.Api.V5\Manga\Queue`
+**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Api.V5\Manga\Queue`
 
 ## Key Files
 
@@ -189,7 +189,7 @@ project-reference `Sonarr.Api.V5`; `Sonarr.Api.Test` does. Phase 13 fixtures:
 - `src/NzbDrone.Api.Test/Manga/Queue/MangaQueueDetailsControllerFixture.cs` (Plan 13-08; 4 tests)
 - `src/NzbDrone.Api.Test/Manga/Queue/MangaQueueStatusControllerFixture.cs` (Plan 13-09; 4 tests)
 - `src/NzbDrone.Api.Test/Manga/Queue/MangaQueueActionControllerFixture.cs` (Plan 13-10; 5 tests)
-- `src/NzbDrone.Api.Test/Manga/Queue/MangaQueueControllerBulkDeleteFixture.cs` (Plan 13-12; 3 tests — F-01 gap closure for the new `[HttpDelete("bulk")]` RemoveMany action)
+- `src/NzbDrone.Api.Test/Manga/Queue/MangaQueueControllerFixture.cs` `RemoveMany_*` tests (Plan 13-12; F-01 gap closure for the new `[HttpDelete("bulk")]` RemoveMany action — folded into the main fixture rather than a separate `BulkDelete` file)
 
 ## Cross-References
 
@@ -199,11 +199,11 @@ project-reference `Sonarr.Api.V5`; `Sonarr.Api.Test` does. Phase 13 fixtures:
   - [Plan 13-09 SUMMARY](../../../../.planning/phases/13-api-v5-surface-audit/13-09-SUMMARY.md) — `MangaQueueStatusController` + `MangaQueueStatusResource`
   - [Plan 13-10 SUMMARY](../../../../.planning/phases/13-api-v5-surface-audit/13-10-SUMMARY.md) — `MangaQueueActionController`
   - [Plan 13-12 SUMMARY](../../../../.planning/phases/13-api-v5-surface-audit/13-12-SUMMARY.md) — `MangaQueueController.RemoveMany` (`[HttpDelete("bulk")]`) F-01 gap closure
-- TV peers (Phase 15 collapse targets):
-  - `src/Sonarr.Api.V5/Queue/QueueController.cs`
-  - `src/Sonarr.Api.V5/Queue/QueueDetailsController.cs`
-  - `src/Sonarr.Api.V5/Queue/QueueStatusController.cs`
-  - `src/Sonarr.Api.V5/Queue/QueueActionController.cs`
+- TV peers (deleted in the Phase 15 hard-fork rename — `Sonarr.Api.V5/` → `Mangarr.Api.V5/`, TV Queue controllers collapsed/removed; cited for provenance only, absent at HEAD — paths shown repo-relative-from-`src/` since they no longer resolve):
+  - `Sonarr.Api.V5/Queue/QueueController.cs` _(deleted)_
+  - `Sonarr.Api.V5/Queue/QueueDetailsController.cs` _(deleted)_
+  - `Sonarr.Api.V5/Queue/QueueStatusController.cs` _(deleted)_
+  - `Sonarr.Api.V5/Queue/QueueActionController.cs` _(deleted)_
 - Backing services (Phase 6/9):
   - [`IMangaQueueService`](../../../NzbDrone.Core/Queue/Manga/IMangaQueueService.cs) — Plan 06-05 / 06-09
   - [`IMangaPendingReleaseService`](../../../NzbDrone.Core/Download/Pending/Manga/IMangaPendingReleaseService.cs) — Plan 09-10

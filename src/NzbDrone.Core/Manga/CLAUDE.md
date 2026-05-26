@@ -111,7 +111,7 @@ Phase 16.1 reverted Phase 16's `ChapterRelease` sibling table in favor of routin
 - **Table mapping**: `src/NzbDrone.Core/Datastore/TableMapping.cs` registers `Manga` + `Chapter` entities (the Phase 16 `ChapterRelease` registration was removed in Phase 16.1 Wave 4a). Dapper handles `Guid?` round-trips through the global `GuidConverter` registered for `Users.Identifier` (Phase 1 baseline).
 - **Parser tree**: `src/NzbDrone.Core/Parser/Manga/CLAUDE.md` (parser side) — `MangaParsingService.Map` consumes `IChapterService.FindByMangaAndNumber` per D-03.
 - **Metadata sources**: `src/NzbDrone.Core/MetadataSource/CLAUDE.md` (Plan 02-05+) — providers read/write Manga via `IMangaService`.
-- **Mangarr analogs**: `src/NzbDrone.Core/Tv/CLAUDE.md` — domain-model precedents this directory mirrors.
+- **Sonarr precedent**: the `src/NzbDrone.Core/Tv/` directory (with its `Series`/`Episode` domain models) was the precedent this `Manga/` directory mirrors — DELETED in Phase 15 Plan 15-03 (`Tv/` removal); cited for provenance only, absent at HEAD.
 - **Phase 10 Plan 10-07 SUMMARY** (3-arg `UpdateManga` overload + Option B controller opt-in): [`.planning/phases/10-events-and-subscribers-sweep/10-07-SUMMARY.md`](../../../.planning/phases/10-events-and-subscribers-sweep/10-07-SUMMARY.md).
 
 ---

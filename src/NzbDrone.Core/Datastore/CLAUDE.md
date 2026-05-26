@@ -190,6 +190,6 @@ This directory is **infrastructure** and reusable. Migration plan:
 ## Cross-References
 
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview
-- [../Tv/CLAUDE.md](../Tv/CLAUDE.md) — `SeriesRepository` extends `BasicRepository`
+- [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — `MangaRepository` extends `BasicRepository` (the Sonarr `Tv/` `SeriesRepository` analog was deleted in Phase 15)
 - [../Messaging/CLAUDE.md](../Messaging/CLAUDE.md) — `ModelEvent<T>` published from BasicRepository
 - [Phase 1 Foundation Plans](../../../.planning/phases/01-foundation/)

@@ -31,7 +31,7 @@ v1 SECONDARY metadata source (D-16). Uses MAL v2 official API with client-ID-onl
 - `MalApi.GetById` sets `req.SuppressHttpError = true` so HTTP 404 maps cleanly to `MangaNotFoundException` instead of throwing the generic `HttpException` from `IHttpClient.Get<T>`. Mirrors `SkyHookProxy.GetSeriesInfo` precedent.
 
 ## Manga Adaptation Notes
-- DO NOT modify `src/NzbDrone.Core/ImportLists/MyAnimeList/MyAnimeListSettings.cs` (anime ImportList uses OAuth flow; D-24 explicitly chooses client-ID-only for Phase 2 metadata source)
+- Kept separate from the `src/NzbDrone.Core/ImportLists/MyAnimeList/` vertical (the MAL ImportList uses an OAuth flow; D-24 explicitly chooses client-ID-only for the Phase 2 metadata source). The original Phase-2-era `MyAnimeListSettings.cs` filename the D-24 note referenced no longer exists at HEAD — the MAL ImportList was rebuilt in Phase 26/27 with `MalImportListSettings.cs` + `MalConstants.cs`.
 - `ClientId` stored in `ProviderDefinition.Settings` JSON blob (plaintext-on-disk; same threat model as Mangarr indexer API keys per RESEARCH §Security Domain)
 
 ## Cross-References

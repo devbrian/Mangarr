@@ -138,7 +138,7 @@ When `Tv/` deletes (Phase 8 milestone), this directory collapses with `src/NzbDr
 - Plan 06-03 history substrate: [src/NzbDrone.Core/History/Manga/IChapterHistoryService.cs](../../History/Manga/IChapterHistoryService.cs), [src/NzbDrone.Core/History/Manga/ChapterHistoryEventType.cs](../../History/Manga/ChapterHistoryEventType.cs)
 - Plan 06-06 search command: [src/NzbDrone.Core/IndexerSearch/Manga/ChapterSearchCommand.cs](../../IndexerSearch/Manga/ChapterSearchCommand.cs)
 - Plan 06-07 import pipeline: [src/NzbDrone.Core/MediaFiles/MangaImport/IImportApprovedChapters.cs](../../MediaFiles/MangaImport/IImportApprovedChapters.cs), [src/NzbDrone.Core/MediaFiles/MangaImport/MangaImportDecisionMaker.cs](../../MediaFiles/MangaImport/MangaImportDecisionMaker.cs)
-- TV side: [src/NzbDrone.Core/Download/CompletedDownloadService.cs](../CompletedDownloadService.cs) (Phase 4 D-10 early-return guard for Protocol=Http)
+- TV side (the Sonarr peer this manga handler was modelled on): `NzbDrone.Core/Download/CompletedDownloadService.cs` (Phase 4 D-10 early-return guard for Protocol=Http) — DELETED in the Phase 15 `Tv/` removal; cited for provenance only, absent at HEAD (path shown repo-relative-from-`src/` since it no longer resolves).
 - TaskManager registration: [src/NzbDrone.Core/Jobs/TaskManager.cs](../../Jobs/TaskManager.cs) — `defaultTasks` block contains the `ProcessMangaCompletedCommand` entry
 - Anti-pattern C skill: [.claude/skills/sonarr-consistency-audit/SKILL.md](../../../../.claude/skills/sonarr-consistency-audit/SKILL.md)
 - Tests: [src/NzbDrone.Core.Test/Download/Manga/](../../../NzbDrone.Core.Test/Download/Manga/) — `ProcessMangaCompletedDownloadsFixture` (11 tests) + `AutoRetryOrchestratorFixture` (8 tests)

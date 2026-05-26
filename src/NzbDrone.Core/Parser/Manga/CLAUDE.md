@@ -39,9 +39,9 @@ The parser is the leaf-most computation layer Phase 2 ships — every later phas
 
 ## Manga Adaptation Notes
 
-- DO NOT modify `src/NzbDrone.Core/Parser/Parser.cs`, `LanguageParser.cs`, `ReleaseGroupParser.cs`, `Model/ParsedEpisodeInfo.cs` — Phase 8 owns the rename. The Phase 2 parser tree is **already manga-named**, so Phase 8 is move-up + delete-TV-peers, NOT search-replace.
+- Historical note: the Phase 2 manga parser tree was authored under `Parser/Manga/` alongside the TV parser, deferring the collapse to Phase 8. Phase 8 + the Phase 15 `Tv/` deletion since removed the TV peers — `Parser.cs`, `LanguageParser.cs`, and `Model/ParsedEpisodeInfo.cs` no longer exist at HEAD; only `src/NzbDrone.Core/Parser/ReleaseGroupParser.cs` survives as a shared helper. The manga parser tree is the live engine.
 - Corpus is committed in-tree at `src/NzbDrone.Core.Test/Parser/Manga/test_corpus_v1.json` per **D-07**; refresh is a manual operation via `scripts/regenerate-manga-corpus.ps1` (Phase 0 RESEARCH.md Pitfall 8).
-- The two type-vs-namespace collisions (`Manga.Manga` ambiguous inside `NzbDrone.Core.Parser.Manga`) are resolved by full qualification (`NzbDrone.Core.Manga.Manga`) in service signatures. Phase 8 rename eliminates this when `NzbDrone.Core.Parser.Manga` collapses to `NzbDrone.Core.Parser`.
+- The two type-vs-namespace collisions (`Manga.Manga` ambiguous inside `NzbDrone.Core.Parser.Manga`) are resolved by full qualification (`NzbDrone.Core.Manga.Manga`) in service signatures. The `NzbDrone.Core.Parser.Manga` namespace was retained at HEAD (the planned Phase 8 collapse to `NzbDrone.Core.Parser` was not performed — the manga tree lives under `Parser/Manga/`).
 
 ## Cross-References
 
