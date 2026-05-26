@@ -20,7 +20,7 @@
 // Missing.tsx:332 `<MissingRow {...item} />` over the controller's
 // PagingResource<ChapterResource> records. Resolves manga-title link via
 // useSingleManga(mangaId) (cached in the React Query `['/manga']` store
-// already populated by the sidebar Series list page).
+// already populated by the sidebar Manga index page).
 //
 // Phase 8 cleanup: collapse with the manga sibling when Tv/ deletes —
 // at that point this row is the canonical "Missing" row.
@@ -55,7 +55,7 @@ import styles from './MissingRow.css';
 // is hydrated when the parent fetch passes `?includeSubresources=Manga`
 // (currently it does not, so we resolve via useSingleManga(mangaId) below —
 // keeps zero added network round-trips because the manga is already cached
-// in the `['/manga']` React Query store from the sidebar Series page).
+// in the `['/manga']` React Query store from the sidebar Manga index page).
 interface MissingRowProps extends Chapter {
   columns: Column[];
 }
@@ -77,7 +77,7 @@ function MissingRow({
   columns,
 }: MissingRowProps) {
   // Prefer hydrated subresource when present; fall back to the cached
-  // /manga lookup (populated by the sidebar Series page on mount). The
+  // /manga lookup (populated by the sidebar Manga index page on mount). The
   // hook returns `undefined` while the cache hydrates — we still render
   // the row with the chapter data so the user sees Missing chapters
   // immediately; the title-link cell renders an empty link until the
