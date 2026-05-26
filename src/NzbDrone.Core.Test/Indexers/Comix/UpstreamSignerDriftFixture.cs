@@ -198,17 +198,19 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // shouldInterceptRequest synchronously as the bundle bootstraps — no settle
             // needed because we're waiting on the OUTGOING request, not the page's network
             // quiescence).
+            // Phase 33.3 (Playwright port): the navigation option is Playwright's
+            // PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded } (was PuppeteerSharp's
+            // NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded } }).
             _signerSource.Should().Contain(
-                "WaitUntilNavigation.DOMContentLoaded",
+                "WaitUntilState.DOMContentLoaded",
                 "captureToken navigation must use DOMContentLoaded — the bundle's long-lived " +
-                "sockets defeat Networkidle0. We wait on the captured token (the page's own " +
+                "sockets defeat NetworkIdle. We wait on the captured token (the page's own " +
                 "outgoing API request) rather than network quiescence.");
 
-            // Detect actual code usage (NavigationOptions { WaitUntil = ... } / .WaitForNetworkIdleAsync(...))
-            // rather than mere mentions in comments/xmldoc.
+            // Detect actual code usage rather than mere mentions in comments/xmldoc.
             _signerSource.Should().NotMatchRegex(
-                @"WaitUntilNavigation\.Networkidle0",
-                "Networkidle0 is incompatible with the captureToken shape (the bundle never " +
+                @"WaitUntilState\.NetworkIdle",
+                "NetworkIdle is incompatible with the captureToken shape (the bundle never " +
                 "settles to network-idle). Use DOMContentLoaded + bounded tcs.Task.WaitAsync.");
 
             _signerSource.Should().NotMatchRegex(

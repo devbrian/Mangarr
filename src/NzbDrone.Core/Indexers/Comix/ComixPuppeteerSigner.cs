@@ -3,12 +3,12 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Playwright;
 using NLog;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Indexers.Cloudflare;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging.Events;
-using PuppeteerSharp;
 using Timer = System.Timers.Timer;
 
 namespace NzbDrone.Core.Indexers.Comix
@@ -19,15 +19,24 @@ namespace NzbDrone.Core.Indexers.Comix
     // .planning/debug/comix-invalid-token-403.md).
     // Mangarr-only seam; Pattern S2 / sonarr-consistency-audit Pattern ι allowlist coverage.
 
+    // NOTE (Phase 33.3): the type name retains the historical "Puppeteer" token but the
+    // browser layer is now Microsoft.Playwright .NET (the PuppeteerSharp CDP `Runtime.enable`
+    // leak is a Cloudflare challenge-platform bot-detection vector Playwright avoids via
+    // isolated worlds — see the csproj comment + .planning/phases/33.3-…/.continue-here.md
+    // "DE-RISK PASSED"). A rename to `ComixPlaywrightSigner` is a mechanical follow-up
+    // (touches DryIoc delegate in Startup.cs + the Comix signer fixtures + docs); deferred
+    // to keep this port's blast radius on the browser layer.
+
     /// <summary>
     /// Process-singleton runtime signer for comix.to. Mirrors keiyoushi <c>Comix.kt</c>
     /// <c>captureToken()</c> (Apache-2.0; upstream commit <c>965dc242</c> 2026-05-12 —
-    /// "Comix: only get token via webview"). Owns an embedded headless Chromium child
-    /// process (PuppeteerSharp 24.42.0): lazy-spawn warm page, idle-teardown after 10 min
-    /// (D-12), clean shutdown via <see cref="ApplicationShutdownRequested"/>.
-    /// Auto-registered <see cref="DryIoc.Reuse"/>.<see cref="DryIoc.Reuse.Singleton"/> via
-    /// the existing <c>NzbDrone.Common/Composition/Extensions.cs:25-35</c> RegisterMany
-    /// convention.
+    /// "Comix: only get token via webview"). Owns an embedded Chromium child process
+    /// (Microsoft.Playwright .NET 1.59.0; HEADED under Xvfb in the Linux Docker image so
+    /// comix.to's Cloudflare managed challenge cold-solves): lazy-spawn warm page,
+    /// idle-teardown after 10 min (D-12), clean shutdown via
+    /// <see cref="ApplicationShutdownRequested"/>. Auto-registered
+    /// <see cref="DryIoc.Reuse"/>.<see cref="DryIoc.Reuse.Singleton"/> via the existing
+    /// <c>NzbDrone.Common/Composition/Extensions.cs:25-35</c> RegisterMany convention.
     ///
     /// <para>
     /// <b>Architecture (post-2026-05-22 rotation):</b> comix.to's signer function is no
@@ -88,66 +97,25 @@ namespace NzbDrone.Core.Indexers.Comix
         // W-2 (revision iteration 1): drain timeout for in-flight requests on Dispose.
         private static readonly TimeSpan DisposeDrainTimeout = TimeSpan.FromSeconds(5);
 
-        // Phase 33.3 (front 1): Playwright's `assistantMode=true` Chromium switch set, ported
-        // VERBATIM from `_tests/net10.0/.playwright/package/lib/server/chromium/chromiumSwitches.js`
-        // (Playwright bundled-Chromium version current at port time). Playwright's Chromium with
-        // exactly these switches cold-solves comix.to's Cloudflare managed challenge; the signer's
-        // prior basic-stealth set did not. `--enable-automation` is OMITTED here (assistant mode)
-        // and dropped from Puppeteer's defaults via IgnoredDefaultArgs; `AutomationControlled` is in
-        // the --disable-features list (assistant-mode half of the same evasion). NOT included:
-        // Playwright-internal-only switches that would break or no-op under PuppeteerSharp
-        // (--enable-features=CDPScreenshotNewSurface, --edge-skip-compat-layer-relaunch, --remote-
-        // debugging-* which PuppeteerSharp owns). Keep this array in sync with chromiumSwitches.js
-        // on Playwright upgrades (the durable risk: comix.to re-rotates + Playwright re-tunes).
-        private static readonly string[] PlaywrightAssistantModeArgs =
+        // Phase 33.3 (front 1 — Playwright .NET port): the minimal launch-arg set the de-risk
+        // probe proved sufficient to cold-solve comix.to's Cloudflare managed challenge in ~3s
+        // under Xvfb (C:/tmp/pwprobe — `mcr.microsoft.com/playwright/dotnet:v1.59.0-noble`). The
+        // discriminator that flips a 45s "Just a moment" stall into a clean clear is the DRIVER
+        // (Playwright defers CDP `Runtime.enable`; PuppeteerSharp enables it) plus a real
+        // (non-zero) window + `navigator.webdriver = false`. Playwright gives `webdriver=false`
+        // natively (no init-script scrub needed) and manages the viewport via the browser context
+        // (`ViewportSize` in NewContextAsync — no DefaultViewport hack). So the heavy
+        // assistant-mode switch list, `--enable-unsafe-swiftshader`, `--window-size`, and the
+        // init-script evasions the PuppeteerSharp version carried are ALL dropped — they were
+        // PuppeteerSharp-era compensation for the protocol leak that the driver swap fixes.
+        //   - `--disable-blink-features=AutomationControlled` + IgnoreDefaultArgs(--enable-automation)
+        //     → navigator.webdriver = false (belt-and-braces over Playwright's native default).
+        //   - `--no-sandbox` / `--disable-setuid-sandbox` → Docker-as-root (Pitfall 7).
+        private static readonly string[] LaunchArgs =
         {
-            "--disable-field-trial-config",
-            "--disable-background-networking",
-            "--disable-background-timer-throttling",
-            "--disable-backgrounding-occluded-windows",
-            "--disable-back-forward-cache",
-            "--disable-breakpad",
-            "--disable-client-side-phishing-detection",
-            "--disable-component-extensions-with-background-pages",
-            "--disable-component-update",
-            "--no-default-browser-check",
-            "--disable-default-apps",
-            "--disable-dev-shm-usage",
-            "--disable-extensions",
-            "--disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,AutomationControlled",
-            "--allow-pre-commit-input",
-            "--disable-hang-monitor",
-            "--disable-ipc-flooding-protection",
-            "--disable-popup-blocking",
-            "--disable-prompt-on-repost",
-            "--disable-renderer-backgrounding",
-            "--force-color-profile=srgb",
-            "--metrics-recording-only",
-            "--no-first-run",
-            "--password-store=basic",
-            "--use-mock-keychain",
-            "--no-service-autorun",
-            "--export-tagged-pdf",
-            "--disable-search-engine-choice-screen",
-            "--unsafely-disable-devtools-self-xss-warnings",
-            "--disable-infobars",
-            "--disable-sync",
-
-            // Phase 33.3 (2026-05-25, iteration 4 — RESTORED after iteration-2 wrongly removed it):
-            // `--enable-unsafe-swiftshader` enables Chromium's ANGLE/Vulkan SwiftShader software
-            // WebGL backend. DIAGNOSTIC-PROVEN this is REQUIRED, not a tell: the proven spike that
-            // cold-solves CF in 3s reports WebGL renderer "ANGLE (Google, Vulkan 1.3.0 (SwiftShader
-            // Device (Subzero)), SwiftShader driver)" — i.e. it HAS WebGL via SwiftShader. The real
-            // tell CF rejects is WebGL being ABSENT ("no-webgl"): iteration 3 removed this flag and
-            // Chromium reported no-webgl, which kept the challenge stuck. SwiftShader WebGL present
-            // (this flag) + inner viewport 1920x1080 (DefaultViewport=null) + webdriver=false are the
-            // three discriminators the spike satisfies. See 33.3 .continue-here.md iteration log.
-            "--enable-unsafe-swiftshader",
-
-            // puppeteer-stealth's blink-level webdriver hide. Distinct flag from the
-            // --disable-features=...,AutomationControlled above (different Chromium layer);
-            // belt-and-braces, both target the navigator.webdriver / automation surface.
             "--disable-blink-features=AutomationControlled",
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
         };
 
         // PR #244 review feedback (Codex P1 / CodeRabbit Major) — shared HttpClient for the
@@ -208,73 +176,46 @@ namespace NzbDrone.Core.Indexers.Comix
         /// </summary>
         protected virtual async Task<IBrowser> LaunchBrowserAsync(CancellationToken ct)
         {
-            // WR-03 mitigation (revision iteration 2): observe ct before issuing the
-            // (synchronously-launching) Puppeteer call. PuppeteerSharp's LaunchAsync
-            // does not accept a CancellationToken in 24.42.0; the most we can do is
-            // bail before starting and rely on subsequent ct.ThrowIfCancellationRequested()
-            // calls between awaits to abort partway through the spawn sequence.
             ct.ThrowIfCancellationRequested();
 
-            // ExecutablePath comes from PUPPETEER_EXECUTABLE_PATH (D-03 escape hatch) or the baked
-            // image-layer path resolved by GetBakedChromiumPath (Phase 17 D-03 default plus Phase 17.2
-            // follow-up Windows / Mac / Linux non-Docker platform-aware fallbacks).
-            //
             // Phase 33.3 (front 1 — HEADED, LINUX-SPIKE-PROVEN): comix.to's Cloudflare MANAGED
             // challenge (challenge-platform / "Just a moment") does NOT auto-solve for a HEADLESS
-            // browser — headless Chromium reports window.outerWidth=0, which the challenge reads as a
-            // bot tell. The signer therefore runs HEADED against a REAL display. Empirically validated
-            // on the Linux Docker target (see .planning/phases/33.3-…/33.3-RESEARCH.md +
-            // .continue-here.md "PROVEN RECIPE"): headed Chromium under Xvfb with
-            // navigator.webdriver=false COLD-SOLVES comix.to in ~3s. The recipe is LIBRARY-AGNOSTIC —
-            // PuppeteerSharp's puppeteer-core twin AND Playwright both clear it identically; the
-            // discriminator is "real (non-zero) window + webdriver=false", NOT the driving library.
-            // In Docker/prod the app process runs under Xvfb so DISPLAY is present (see the Docker
-            // image's Xvfb entrypoint). MANGARR_COMIX_HEADLESS=1 forces headless — debug-only; it will
-            // NOT clear the managed challenge (kept as an escape hatch for display-less environments
-            // where Comix clearance is knowingly sacrificed, e.g. unit/CI hosts).
+            // browser (headless Chromium reports window.outerWidth=0, a bot tell). The signer runs
+            // HEADED against a REAL display; in Docker/prod the app process runs under Xvfb so
+            // DISPLAY is present (see the image's svc-xvfb longrun + DISPLAY=:99). Empirically
+            // validated on the Linux Docker target via the Microsoft.Playwright .NET de-risk probe
+            // (.continue-here.md "DE-RISK PASSED"): headed Chromium under Xvfb with the Playwright
+            // driver cold-solves comix.to in ~3s. MANGARR_COMIX_HEADLESS=1 forces headless —
+            // debug-only; will NOT clear the managed challenge (escape hatch for display-less hosts
+            // where Comix clearance is knowingly sacrificed, e.g. unit/CI runners).
             var headless = Environment.GetEnvironmentVariable("MANGARR_COMIX_HEADLESS") == "1";
 
-            // webdriver=false is THE load-bearing tell (Linux spike: flipping AutomationControlled +
-            // dropping --enable-automation turned a 45s "Just a moment" stall into a 3s cold-solve).
-            // PlaywrightAssistantModeArgs carries `--disable-features=…,AutomationControlled` +
-            // `--disable-blink-features=AutomationControlled`; IgnoredDefaultArgs drops the
-            // `--enable-automation` switch Puppeteer adds by default. Together → navigator.webdriver=false.
-            // --enable-unsafe-swiftshader gives a working software-WebGL pipeline (no missing-WebGL tell).
-            // Sandbox flags kept for Docker-as-root (Pitfall 7). --window-size sets a real non-zero
-            // window under Xvfb (headless reports 0,0 = the CF bot tell we are defeating).
-            var args = new List<string>(PlaywrightAssistantModeArgs)
-            {
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--window-size=1920,1080",
-            };
+            // Create the Playwright driver once per process; kept alive across idle teardowns
+            // (only Dispose tears it down). Chromium is resolved from PLAYWRIGHT_BROWSERS_PATH
+            // (set in the Docker image) — Playwright's own bundled-browser resolution. An explicit
+            // PLAYWRIGHT_EXECUTABLE_PATH override is honored as a D-03-style escape hatch.
+            _playwright ??= await Playwright.CreateAsync().ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
 
-            var launchOptions = new LaunchOptions
+            var launchOptions = new BrowserTypeLaunchOptions
             {
                 Headless = headless,
-                ExecutablePath = Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH")
-                                ?? GetBakedChromiumPath(),
 
-                // Drop PuppeteerSharp's default `--enable-automation` switch (assistant mode — see
-                // above). That switch flips `navigator.webdriver = true` and surfaces the "controlled
-                // by automated test software" infobar fingerprint Cloudflare's challenge-platform reads.
-                IgnoredDefaultArgs = new[] { "--enable-automation" },
-
-                // Phase 33.3 (2026-05-25, iteration 3 — THE FIX): DefaultViewport=null tells
-                // PuppeteerSharp NOT to override the render viewport. Its default is 800x600, which
-                // produced the fingerprint mismatch that kept the managed challenge stuck: a real
-                // 1919x1079 window (from --window-size) but an 800x600 inner viewport — a glaring
-                // automation tell (CF reads window.innerWidth/Height). With null, Chromium uses the
-                // real window size (inner≈1920x1080), matching the proven spike fingerprint
-                // (inner:[1920,1080]) that cold-solves CF in 3s. Diagnostic-confirmed: iteration 2
-                // logged inner:[800,600] (webdriver:false + real outer window were already correct,
-                // so this viewport mismatch was the sole remaining tell).
-                DefaultViewport = null,
-
-                Args = args.ToArray(),
+                // IgnoreDefaultArgs drops Playwright's `--enable-automation` (which would flip
+                // navigator.webdriver=true + the "controlled by automated test software" infobar
+                // the challenge-platform reads). Combined with --disable-blink-features=
+                // AutomationControlled in LaunchArgs → navigator.webdriver=false.
+                IgnoreDefaultArgs = new[] { "--enable-automation" },
+                Args = LaunchArgs,
             };
 
-            return await Puppeteer.LaunchAsync(launchOptions).ConfigureAwait(false);
+            var execPath = Environment.GetEnvironmentVariable("PLAYWRIGHT_EXECUTABLE_PATH");
+            if (!string.IsNullOrEmpty(execPath))
+            {
+                launchOptions.ExecutablePath = execPath;
+            }
+
+            return await _playwright.Chromium.LaunchAsync(launchOptions).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -301,93 +242,80 @@ namespace NzbDrone.Core.Indexers.Comix
             var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                // WR-03 mitigation: observe ct between each await. PuppeteerSharp's
-                // NewPageAsync doesn't accept ct directly; throw-on-request between calls
-                // is the best we get.
                 _browser = await LaunchBrowserAsync(ct).ConfigureAwait(false);
                 ct.ThrowIfCancellationRequested();
 
-                _page = await _browser.NewPageAsync().ConfigureAwait(false);
+                // Phase 33.2 (D-02) CF clearance, Playwright-idiomatic ordering: Playwright sets the
+                // User-Agent at CONTEXT creation (no per-page SetUserAgent) — so resolve clearance
+                // FIRST, apply the matched UA via the context options, then add the cf_clearance
+                // cookie to the context. This preserves Pitfall 1's load-bearing invariant (the
+                // cookie's matched UA is in place BEFORE the cookie, BEFORE any navigation) by
+                // construction. Empty solver URL / solver failure → clearance == null → context built
+                // with the browser's own UA (the existing CF-403 → RecordFailure path engages).
+                var clearance = await ResolveClearanceAsync(ct).ConfigureAwait(false);
                 ct.ThrowIfCancellationRequested();
 
-                // Phase 33.3 managed-challenge bypass: puppeteer-stealth-style page evasions,
-                // installed on EVERY document (survives the challenge page's reload to the real
-                // page). Cloudflare's `challenge-platform` reads these signals to fingerprint
-                // headless automation; scrubbing them lets the signer's own Chromium pass the
-                // same managed challenge a real browser clears in ~12s.
-                try
+                // ViewportSize gives the page a real 1920x1080 inner viewport (replaces the
+                // PuppeteerSharp DefaultViewport=null hack); under Xvfb this matches the proven
+                // spike fingerprint that cold-solves CF.
+                var contextOptions = new BrowserNewContextOptions
                 {
-                    await _page.EvaluateFunctionOnNewDocumentAsync(
-                        "() => {" +
-                        "  Object.defineProperty(navigator, 'webdriver', { get: () => undefined });" +
-                        "  if (!window.chrome) { window.chrome = { runtime: {} }; }" +
-                        "  Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });" +
-                        "  Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });" +
-                        "  const origQuery = window.navigator.permissions && window.navigator.permissions.query;" +
-                        "  if (origQuery) {" +
-                        "    window.navigator.permissions.query = (p) => (p && p.name === 'notifications')" +
-                        "      ? Promise.resolve({ state: Notification.permission }) : origQuery(p);" +
-                        "  }" +
-                        "}")
-                        .ConfigureAwait(false);
-                }
-                catch (Exception stealthEx)
+                    ViewportSize = new ViewportSize { Width = 1920, Height = 1080 },
+                };
+
+                if (clearance != null && !string.IsNullOrEmpty(clearance.UserAgent))
                 {
-                    _logger.Debug(stealthEx, "Comix signer: stealth init-script install raised (non-fatal; challenge clearance may degrade).");
+                    // Solver UA SUPERSEDES the browser's own UA for cleared sessions (Pitfall 1).
+                    contextOptions.UserAgent = clearance.UserAgent;
                 }
 
-                // PR #244 review feedback (Codex P1 #2): cache navigator.userAgent off the
-                // warm page once so per-relay calls don't pay an extra EvaluateExpressionAsync
-                // round-trip. The UA is bound to the browser instance (not per-navigation)
-                // so caching at warm-time is safe — only invalidated on TeardownBrowserAsync.
+                _context = await _browser.NewContextAsync(contextOptions).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
+                if (clearance != null && !string.IsNullOrEmpty(clearance.CfClearanceCookie))
+                {
+                    // Cookie added AFTER the context (whose UA is the matched solver UA) exists —
+                    // the cf_clearance cookie reuses the solver's EXACT domain/path/secure/httpOnly
+                    // (Pitfall 5), never a hardcoded `.comix.to`.
+                    await _context.AddCookiesAsync(new[] { BuildClearanceCookie(clearance) }).ConfigureAwait(false);
+                }
+
+                _page = await _context.NewPageAsync().ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
+                // Cache navigator.userAgent off the warm page once (PR #244 Codex P1 #2). With the
+                // Playwright driver the UA is already a real-browser UA (no `HeadlessChrome` token to
+                // strip — that was a PuppeteerSharp headless tell); just snapshot it. Reset on teardown.
                 try
                 {
                     _cachedUserAgent = await _page
-                        .EvaluateExpressionAsync<string>("navigator.userAgent")
+                        .EvaluateAsync<string>("navigator.userAgent")
                         .ConfigureAwait(false);
-
-                    // Phase 33.3: strip the `HeadlessChrome` UA token (the most blatant
-                    // managed-challenge tell) and pin the cleaned UA on the page so every
-                    // navigation — incl. the challenge solve — presents a real-browser UA.
-                    if (!string.IsNullOrEmpty(_cachedUserAgent)
-                        && _cachedUserAgent.IndexOf("HeadlessChrome", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        _cachedUserAgent = _cachedUserAgent.Replace("HeadlessChrome", "Chrome", StringComparison.OrdinalIgnoreCase);
-                        await _page.SetUserAgentAsync(_cachedUserAgent).ConfigureAwait(false);
-                    }
                 }
                 catch (Exception uaEx)
                 {
-                    // Non-fatal: UA capture is a best-effort forward; relay still works
-                    // without it (falls back to .NET's default User-Agent header).
-                    _logger.Debug(uaEx, "Comix signer: navigator.userAgent capture raised; relay will use default UA.");
+                    _logger.Debug(uaEx, "Comix signer: navigator.userAgent capture raised; continuing without cached UA.");
                     _cachedUserAgent = null;
                 }
 
-                // Request interception is toggled per-call inside CaptureTokenAsync
-                // (NOT warm-attached here) — keeping interception ON across the relay
-                // fetch step would block the relay's outgoing /api/v1 GET (each
-                // intercepted request requires explicit ContinueAsync/AbortAsync;
-                // with no handler attached, the request stalls until PuppeteerSharp's
-                // 180s command timeout fires).
-                // Phase 33.3 (2026-05-25, iteration 2): warm-time fingerprint diagnostic.
-                // Logged on about:blank BEFORE the CF-challenge navigation (which reloads + destroys
-                // the eval context, so a post-nav probe races the reload). Surfaces the exact tells
-                // the managed challenge fingerprints: navigator.webdriver (must be false/undefined),
-                // window.outerWidth (must be NON-ZERO under Xvfb — 0 = headless tell), and the WebGL
-                // UNMASKED_RENDERER (must NOT be "SwiftShader" — that's the headless tell we dropped
-                // --enable-unsafe-swiftshader to defeat). Compare against the proven spike fingerprint
-                // (webdriver:false, outer:[1928,1165]) in 33.3 .continue-here.md.
-                try
+                // Phase 33.3 fingerprint diagnostic (env-gated — MANGARR_COMIX_FINGERPRINT_DIAG=1).
+                // Logged on about:blank BEFORE the CF-challenge navigation. Surfaces the tells the
+                // managed challenge fingerprints (webdriver / outer-window / WebGL renderer) so the
+                // signer's fingerprint can be compared against the proven spike across rotations. Off
+                // by default to avoid log noise in normal operation.
+                if (Environment.GetEnvironmentVariable("MANGARR_COMIX_FINGERPRINT_DIAG") == "1")
                 {
-                    var fp = await _page.EvaluateExpressionAsync<string>(
-                        "(() => { let r='n/a'; try { const c=document.createElement('canvas'); const gl=c.getContext('webgl')||c.getContext('experimental-webgl'); if(!gl){ r='no-webgl'; } else { const e=gl.getExtension('WEBGL_debug_renderer_info'); r=e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):('no-ext;vendor='+gl.getParameter(gl.VENDOR)); } } catch(x){ r='err:'+x.message; } return JSON.stringify({ webdriver: navigator.webdriver, outer:[window.outerWidth,window.outerHeight], inner:[window.innerWidth,window.innerHeight], webgl: r, ua: navigator.userAgent }); })()")
-                        .ConfigureAwait(false);
-                    _logger.Info("Comix signer: [fingerprint] {0}", fp);
-                }
-                catch (Exception fpEx)
-                {
-                    _logger.Warn(fpEx, "Comix signer: fingerprint diagnostic raised (non-fatal).");
+                    try
+                    {
+                        var fp = await _page.EvaluateAsync<string>(
+                            "() => { let r='n/a'; try { const c=document.createElement('canvas'); const gl=c.getContext('webgl')||c.getContext('experimental-webgl'); if(!gl){ r='no-webgl'; } else { const e=gl.getExtension('WEBGL_debug_renderer_info'); r=e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):('no-ext;vendor='+gl.getParameter(gl.VENDOR)); } } catch(x){ r='err:'+x.message; } return JSON.stringify({ webdriver: navigator.webdriver, outer:[window.outerWidth,window.outerHeight], inner:[window.innerWidth,window.innerHeight], webgl: r, ua: navigator.userAgent }); }")
+                            .ConfigureAwait(false);
+                        _logger.Info("Comix signer: [fingerprint] {0}", fp);
+                    }
+                    catch (Exception fpEx)
+                    {
+                        _logger.Warn(fpEx, "Comix signer: fingerprint diagnostic raised (non-fatal).");
+                    }
                 }
 
                 _probeFailureCount = 0;
@@ -477,8 +405,8 @@ namespace NzbDrone.Core.Indexers.Comix
             ct.ThrowIfCancellationRequested();
 
             // 2026-05-23 cascade fix: paramsJson is a JSON STRING built C#-side (e.g.
-            // `{"keyword":"...","limit":"10"}`). PuppeteerSharp's EvaluateFunctionAsync
-            // serializes each arg via JSON, so a C# string lands as a JS string — meaning
+            // `{"keyword":"...","limit":"10"}`). The page-context eval serializes each arg via
+            // JSON, so a C# string lands as a JS string — meaning
             // `paramsObj` was previously the literal text `"{}"` (NOT an object). axios
             // tolerated this by accident on the chapter-list path (empty params object
             // construction); the keyword-search path with non-empty params hit
@@ -496,8 +424,13 @@ namespace NzbDrone.Core.Indexers.Comix
             // + Hi(ai) decryption interceptors run inside its axios instance). Cache the discovered
             // key on `window` so later calls in this warm page session skip the probe. LIVE-validated
             // on the Linux Docker target (build token tfl4t2 → export `p`); see .continue-here.md.
-            var resultJson = await page.EvaluateFunctionAsync<string>(
-                "async (modUrl, apiPath, paramsJson) => {" +
+            // Playwright .NET's EvaluateAsync takes a SINGLE arg (PuppeteerSharp accepted varargs),
+            // so the page-context function destructures a 3-element array. Semantics unchanged from
+            // the PuppeteerSharp version: dynamic-import the manga-* bundle, runtime-probe its exports
+            // for the `.get` path client returning an `items` array (defeats per-build export-letter
+            // re-mangling — front 2 / GH #266), cache the discovered key on `window`, then call it.
+            var resultJson = await page.EvaluateAsync<string>(
+                "async ([modUrl, apiPath, paramsJson]) => {" +
                 "  const mod = await import(modUrl);" +
                 "  let key = window.__mangarrOracleKey;" +
                 "  if (!key || !mod[key] || typeof mod[key].get !== 'function') {" +
@@ -521,9 +454,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 "  const res = await client.get(apiPath, opts);" +
                 "  return typeof res === 'string' ? res : JSON.stringify(res);" +
                 "}",
-                envModuleUrl,
-                pathPart,
-                paramsJson).ConfigureAwait(false);
+                new[] { envModuleUrl, pathPart, paramsJson }).ConfigureAwait(false);
 
             return resultJson;
         }
@@ -556,12 +487,12 @@ namespace NzbDrone.Core.Indexers.Comix
             // N-3 / Phase 17.2 D-1: broadening picks up chunked bundles/polyfills that don't expose the
             // path client). ComixEnvModuleFilterFixture locks the structural `/dist/manga-` match (NOT a
             // token) so a future *structural* change (e.g. bundle renamed off `manga-`) surfaces in tests.
-            EventHandler<RequestEventArgs> finishedHandler = null;
-            finishedHandler = (sender, e) =>
+            EventHandler<IRequest> finishedHandler = null;
+            finishedHandler = (sender, request) =>
             {
                 try
                 {
-                    var url = e.Request?.Url;
+                    var url = request?.Url;
                     if (url != null
                         && url.IndexOf("/dist/manga-", StringComparison.OrdinalIgnoreCase) >= 0
                         && url.IndexOf("comix.to", StringComparison.OrdinalIgnoreCase) >= 0
@@ -579,20 +510,16 @@ namespace NzbDrone.Core.Indexers.Comix
             page.RequestFinished += finishedHandler;
             try
             {
-                // Phase 33.2 (D-02): inject the cleared (UA, cookie) BEFORE navigating so the
-                // env-module capture loads past Cloudflare's "Just a moment" managed challenge.
-                // ORDER IS LOAD-BEARING — SetUserAgentAsync MUST precede SetCookieAsync MUST
-                // precede GoToAsync (Pitfall 1 — a cf_clearance cookie is bound to the UA that
-                // earned it; splitting them re-triggers the challenge). Degrades gracefully
-                // (skips injection, lets the existing CF-403 -> RecordFailure path engage) when
-                // no solver URL is configured.
-                await ApplyCloudflareClearanceAsync(page, ct).ConfigureAwait(false);
+                // Phase 33.2 (D-02) CF clearance is applied at CONTEXT creation in LaunchAndProbeAsync
+                // (Playwright sets UA per-context, not per-page) — the matched UA + cf_clearance cookie
+                // are already in place on this page's context before this navigation. No per-page
+                // injection step here.
 
                 // Fire-and-forget navigation — we wait out the CF challenge below, then the
                 // env module capture (bundle sniff) is the final sync point.
-                _ = page.GoToAsync(
+                _ = page.GotoAsync(
                     pageUrl,
-                    new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded } });
+                    new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
 
                 // Phase 33.3 (2026-05-25, iteration 5 — CHALLENGE-RELOAD WAIT): comix.to's Cloudflare
                 // MANAGED challenge serves a "Just a moment" interstitial, runs its JS challenge, then
@@ -620,7 +547,7 @@ namespace NzbDrone.Core.Indexers.Comix
                     string title = null;
                     try
                     {
-                        title = await page.GetTitleAsync().ConfigureAwait(false);
+                        title = await page.TitleAsync().ConfigureAwait(false);
                     }
                     catch
                     {
@@ -662,7 +589,7 @@ namespace NzbDrone.Core.Indexers.Comix
                     string diagTitle = "?", diagUrl = "?";
                     try
                     {
-                        diagTitle = await page.GetTitleAsync().ConfigureAwait(false);
+                        diagTitle = await page.TitleAsync().ConfigureAwait(false);
                         diagUrl = page.Url;
                     }
                     catch
@@ -695,25 +622,23 @@ namespace NzbDrone.Core.Indexers.Comix
             }
         }
 
-        // Phase 33.2 (D-02): atomic cleared-session injection. Hook point is immediately BEFORE
-        // the fire-and-forget GoToAsync inside EnsureEnvModuleAsync. The solver UA SUPERSEDES the
-        // honest Mangarr/{version} UA / _cachedUserAgent for cleared requests — NEVER split the
-        // cookie from its UA (Pitfall 1). The injected cookie reuses the solver's EXACT
-        // domain/path/secure/httpOnly fields (Pitfall 5), never a hardcoded `.comix.to`.
+        // Phase 33.2 (D-02) → Phase 33.3 (Playwright port): resolve a cleared CF session for the
+        // signer's browser CONTEXT. Playwright sets the User-Agent at context creation (no per-page
+        // SetUserAgent), so the clearance is resolved here and APPLIED by LaunchAndProbeAsync — the
+        // matched UA goes onto the context (so it is necessarily in place before the cookie, before
+        // any navigation: Pitfall 1 satisfied by construction) and BuildClearanceCookie maps the
+        // cf_clearance cookie with the solver's EXACT domain/path/secure/httpOnly (Pitfall 5).
         //
-        // protected virtual so a test fixture can observe / substitute the injection without a real
-        // Chromium child (matches the file's existing test-seam style — IdleTimeout / LaunchBrowserAsync
-        // / LaunchAndProbeAsync / EvaluateProxyFetchAsync). The DEFAULT body here is the production path
-        // and runs against a Mock<IPage> in ComixSignerCloudflareInjectionFixture so the real
-        // UA->cookie ordering is asserted.
-        protected virtual async Task ApplyCloudflareClearanceAsync(IPage page, CancellationToken ct)
+        // protected virtual so a fixture can observe / substitute clearance resolution without a real
+        // Chromium child (matches the file's existing test-seam style). Returns null when the global
+        // solver URL is unset (empty-URL-means-off — 33.2-PATTERNS.md) OR the solver errors — in both
+        // cases the context is built with the browser's own UA and the existing CF-403 → RecordFailure
+        // path + the Plan 03 D-07 Health Check surface the remedy.
+        protected virtual async Task<CloudflareClearance> ResolveClearanceAsync(CancellationToken ct)
         {
-            // Empty-URL-means-off (the resolved lower-risk threading default per 33.2-PATTERNS.md):
-            // the global solver URL being unset is the off switch. Skip injection entirely — the
-            // existing CF-403 -> RecordFailure path + the Plan 03 D-07 Health Check surface the remedy.
             if (string.IsNullOrWhiteSpace(_configService.CloudflareSolverUrl))
             {
-                return;
+                return null;
             }
 
             CloudflareClearance clearance;
@@ -731,7 +656,7 @@ namespace NzbDrone.Core.Indexers.Comix
                     "Comix signer: Cloudflare clearance unavailable for {0} ({1}); proceeding without injection.",
                     ComixBaseUrl,
                     ex.GetType().Name);
-                return;
+                return null;
             }
 
             if (clearance == null || string.IsNullOrEmpty(clearance.CfClearanceCookie))
@@ -739,12 +664,17 @@ namespace NzbDrone.Core.Indexers.Comix
                 _logger.Warn(
                     "Comix signer: Cloudflare clearance for {0} returned no cf_clearance cookie; proceeding without injection.",
                     ComixBaseUrl);
-                return;
+                return null;
             }
 
-            // ORDER IS LOAD-BEARING: UA first (solver UA supersedes honest/override UA), cookie second.
-            await page.SetUserAgentAsync(clearance.UserAgent).ConfigureAwait(false);
-            await page.SetCookieAsync(new CookieParam
+            return clearance;
+        }
+
+        // Map a resolved clearance to a Playwright context cookie, reusing the solver's EXACT
+        // domain/path/secure/httpOnly (Pitfall 5), never a hardcoded `.comix.to`. `internal` so the
+        // Comix signer fixture can assert the attribute mapping without a real Chromium child.
+        internal static Cookie BuildClearanceCookie(CloudflareClearance clearance)
+            => new Cookie
             {
                 Name = "cf_clearance",
                 Value = clearance.CfClearanceCookie,
@@ -752,8 +682,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 Path = clearance.CookiePath,
                 Secure = clearance.Secure,
                 HttpOnly = clearance.HttpOnly,
-            }).ConfigureAwait(false);
-        }
+            };
 
         // SplitApiPathToAxiosCall: turn `/manga/mr3m0/chapters?page=1&limit=20` into
         // (pathPart="/manga/mr3m0/chapters", paramsJson="{\"page\":\"1\",\"limit\":\"20\"}")
@@ -921,96 +850,10 @@ namespace NzbDrone.Core.Indexers.Comix
         private static string JsString(string s) =>
             "'" + s.Replace("\\", "\\\\").Replace("'", "\\'") + "'";
 
-        // Phase 17.2 follow-up — platform-aware Chromium cache discovery.
-        //
-        // Resolution order:
-        //   1. PUPPETEER_CACHE_DIR env var (operator override; D-03 escape hatch)
-        //   2. Platform-conventional candidates (first one with an installed browser wins):
-        //        - /opt/mangarr-chromium               (Linux Docker — D-03 image-layer default)
-        //        - $HOME/.cache/mangarr-chromium       (Linux non-Docker, XDG; matches
-        //                                                tools/ChromiumPrefetch local-dev path)
-        //        - %LOCALAPPDATA%\mangarr-chromium     (Windows convention)
-        //        - $HOME/Library/Caches/mangarr-chromium (macOS convention)
-        //
-        // Phase 17 shipped only the /opt/mangarr-chromium default — it works in the production
-        // Docker image but returns null on every other host (Windows / Mac / Linux non-Docker
-        // dev), so PuppeteerSharp falls back to looking for chrome relative to the working dir
-        // at `_output/net10.0/Chrome/...` and throws ProcessException at first request. This
-        // gap was invisible in Phase 17 (the live signer never actually worked end-to-end so
-        // no one hit the launcher path); Phase 17.2's Mitigation A re-greened the live fixtures
-        // and surfaced it on the very first manual search through the running app.
-        //
-        // Returns null only when no candidate has an installed browser — Puppeteer.LaunchAsync
-        // will then surface its own error (caught + RecordFailure'd by LaunchAndProbeAsync).
-        private static string GetBakedChromiumPath()
-        {
-            var explicitOverride = Environment.GetEnvironmentVariable("PUPPETEER_CACHE_DIR");
-            var candidates = explicitOverride != null
-                ? new[] { explicitOverride }
-                : GetPlatformCacheCandidates();
-
-            foreach (var cacheDir in candidates)
-            {
-                if (string.IsNullOrEmpty(cacheDir))
-                {
-                    continue;
-                }
-
-                try
-                {
-                    var fetcher = new BrowserFetcher(new BrowserFetcherOptions { Path = cacheDir });
-                    var installed = System.Linq.Enumerable.FirstOrDefault(fetcher.GetInstalledBrowsers());
-                    var execPath = installed?.GetExecutablePath();
-                    if (!string.IsNullOrEmpty(execPath))
-                    {
-                        return execPath;
-                    }
-                }
-                catch
-                {
-                    // Try next candidate.
-                }
-            }
-
-            return null;
-        }
-
-        // Phase 17.2 follow-up — platform-conventional Chromium cache directories.
-        //
-        // Order: production Docker default first (preserves Phase 17 D-03 semantics
-        // for the production image), then local-dev conventions per OS. Yielded
-        // lazily so HOME / LOCALAPPDATA are read on the host that's running.
-        // `internal` so the regression guard in
-        // ComixSignerPlatformCacheFallbackFixture.Launcher_must_have_platform_aware_cache_fallback
-        // can spot-check the candidate list directly.
-        internal static System.Collections.Generic.IEnumerable<string> GetPlatformCacheCandidates()
-        {
-            // Linux Docker default first (production image-layer path; Phase 17 D-03)
-            yield return "/opt/mangarr-chromium";
-
-            var home = Environment.GetEnvironmentVariable("HOME")
-                       ?? Environment.GetEnvironmentVariable("USERPROFILE");
-            if (!string.IsNullOrEmpty(home))
-            {
-                // XDG cache convention (Linux non-Docker; also matches the path
-                // tools/ChromiumPrefetch writes to on the local Windows dev host
-                // when invoked with `--output-dir $HOME/.cache/mangarr-chromium`)
-                yield return System.IO.Path.Combine(home, ".cache", "mangarr-chromium");
-            }
-
-            // Windows %LOCALAPPDATA% (Windows convention; preferred when set)
-            var localAppData = Environment.GetEnvironmentVariable("LOCALAPPDATA");
-            if (!string.IsNullOrEmpty(localAppData))
-            {
-                yield return System.IO.Path.Combine(localAppData, "mangarr-chromium");
-            }
-
-            // macOS ~/Library/Caches (macOS convention)
-            if (!string.IsNullOrEmpty(home))
-            {
-                yield return System.IO.Path.Combine(home, "Library", "Caches", "mangarr-chromium");
-            }
-        }
+        // Phase 33.3 (Playwright port): the PuppeteerSharp BrowserFetcher cache-discovery
+        // (GetBakedChromiumPath / GetPlatformCacheCandidates) is removed. Microsoft.Playwright
+        // resolves its bundled Chromium from PLAYWRIGHT_BROWSERS_PATH (set in the Docker image);
+        // an explicit PLAYWRIGHT_EXECUTABLE_PATH override is honored in LaunchBrowserAsync.
 
         // ── Fields ────────────────────────────────────────────────────────────────────
         private readonly IIndexerSourceStatusService _sourceStatusService;
@@ -1046,7 +889,12 @@ namespace NzbDrone.Core.Indexers.Comix
 
         // Page-context state — mutated only under _gate.
         // Pitfall 4: nulled BEFORE awaiting browser.CloseAsync inside TeardownBrowserAsync.
+        // _playwright is the Microsoft.Playwright driver root (IDisposable); created once in
+        // LaunchBrowserAsync and kept alive across idle teardowns (only Dispose tears it down).
+        // _context is the Playwright browser context that owns the UA + cf_clearance cookie.
+        private IPlaywright _playwright;
         private IBrowser _browser;
+        private IBrowserContext _context;
         private IPage _page;
 
         // PR #244 review feedback (Codex P1 #2): cached page User-Agent string snapshot
@@ -1312,10 +1160,14 @@ namespace NzbDrone.Core.Indexers.Comix
         {
             var browser = _browser;
             _browser = null;
+            _context = null;
             _page = null;
             _cachedUserAgent = null;
             _tokenCache.Clear();
 
+            // Closing the browser disposes its contexts/pages; an explicit context close is not
+            // required (and would race the browser close). The Playwright driver (_playwright) is
+            // kept alive across teardowns — only Dispose() disposes it.
             if (browser != null)
             {
                 try
@@ -1388,8 +1240,11 @@ namespace NzbDrone.Core.Indexers.Comix
 
             // Pitfall 4: null fields BEFORE the (sync) browser-close.
             var browser = _browser;
+            var playwright = _playwright;
             _browser = null;
+            _context = null;
             _page = null;
+            _playwright = null;
             _cachedUserAgent = null;
             _tokenCache.Clear();
 
@@ -1398,6 +1253,20 @@ namespace NzbDrone.Core.Indexers.Comix
                 try
                 {
                     browser.CloseAsync().GetAwaiter().GetResult();
+                }
+                catch
+                {
+                    // Swallow at shutdown — the process is going down.
+                }
+            }
+
+            // Dispose the Playwright driver root (the node driver process) after the browser
+            // close. IPlaywright is IDisposable, not IAsyncDisposable.
+            if (playwright != null)
+            {
+                try
+                {
+                    playwright.Dispose();
                 }
                 catch
                 {

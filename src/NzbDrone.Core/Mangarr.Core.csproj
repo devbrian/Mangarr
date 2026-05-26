@@ -14,7 +14,13 @@
     <PackageReference Include="Openur.FFMpegCore" Version="5.4.0.31" />
     <PackageReference Include="Openur.FFprobeStatic" Version="8.1.0.334" />
     <PackageReference Include="Polly" Version="8.6.6" />
-    <PackageReference Include="PuppeteerSharp" Version="24.42.0" />
+    <!-- Phase 33.3: signer browser layer ported PuppeteerSharp -> Microsoft.Playwright .NET.
+         PuppeteerSharp issued CDP Runtime.enable, a Cloudflare challenge-platform bot-detection
+         vector; Playwright defers it (isolated worlds) and cold-solves comix.to's managed
+         challenge where fingerprint-matched PuppeteerSharp could not (Phase 33.3 in-image
+         diagnostic + de-risk). PuppeteerSharp dropped — the Comix signer was its only consumer.
+         Version pinned to match Mangarr.Automation.Test. -->
+    <PackageReference Include="Microsoft.Playwright" Version="1.59.0" />
     <PackageReference Include="System.Drawing.Common" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.7" />

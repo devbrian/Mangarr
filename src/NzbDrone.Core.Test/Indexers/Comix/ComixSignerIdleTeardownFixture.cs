@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Microsoft.Playwright;
 using Moq;
 using NLog;
 using NLog.Config;
@@ -10,7 +11,6 @@ using NUnit.Framework;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Comix;
 using NzbDrone.Core.Test.Framework;
-using PuppeteerSharp;
 
 namespace NzbDrone.Core.Test.Indexers.Comix
 {
