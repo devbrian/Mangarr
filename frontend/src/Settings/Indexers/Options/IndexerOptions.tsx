@@ -160,9 +160,7 @@ function IndexerOptions({
               </SpinnerErrorButton>
 
               {!isTesting && testResult ? (
-                <Alert
-                  kind={testResult.isValid ? kinds.SUCCESS : kinds.DANGER}
-                >
+                <Alert kind={testResult.isValid ? kinds.SUCCESS : kinds.DANGER}>
                   {testResult.message ||
                     translate(
                       testResult.isValid
