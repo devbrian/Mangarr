@@ -418,12 +418,27 @@ if [ -n "$AUTOMATION_FILTERS" ]; then
     # DB wipe per feedback_db_wipe_no_backup
     rm -f /c/ProgramData/Mangarr/mangarr.db /c/ProgramData/Mangarr/mangarr.db-shm /c/ProgramData/Mangarr/mangarr.db-wal 2>/dev/null || true
 
+    # Cassette env applies ONLY to the AUTOMATION run — it configures the spawned
+    # NzbDroneRunner backend to replay recorded cassettes (MangaDex HTTP layer +
+    # Comix IComixSigner swap) offline, mirroring build_v5.yml's automation jobs.
+    # It MUST NOT leak into the UNIT run above: the in-process CassetteHandler would
+    # otherwise intercept real-HTTP unit fixtures (e.g. HttpClientFixture hitting
+    # httpbin.servarr.com) and fail them on a cassette miss. CI keeps these in
+    # separate jobs; this script runs both, so scope the env to this command only.
+    # Unset unless the caller explicitly pre-set a value (don't clobber an override).
+    AUTO_CASSETTE_MODE="${MANGARR_TEST_CASSETTE_MODE:-Replay}"
+    AUTO_CASSETTE_DIR="${MANGARR_TEST_CASSETTE_DIR:-$(pwd)/src/NzbDrone.Automation.Test/Fixtures/Cassettes}"
+    AUTO_CASSETTE_ASM="${MANGARR_TEST_ASSEMBLY_PATH:-$(pwd)/_tests/net10.0/Mangarr.Automation.Test.dll}"
+
     # See hang-fix note above for the no-pipe pattern. AUTOMATION fixtures spawn
     # Playwright browser worker node.exe processes — those PARTICULARLY tend to
     # leak the parent stdout pipe FD on Windows; this pattern bypasses the issue
     # entirely.
     RUN_LOG=$(mktemp)
-    if ! dotnet test src/NzbDrone.Automation.Test/Mangarr.Automation.Test.csproj \
+    if ! MANGARR_TEST_CASSETTE_MODE="$AUTO_CASSETTE_MODE" \
+         MANGARR_TEST_CASSETTE_DIR="$AUTO_CASSETTE_DIR" \
+         MANGARR_TEST_ASSEMBLY_PATH="$AUTO_CASSETTE_ASM" \
+         dotnet test src/NzbDrone.Automation.Test/Mangarr.Automation.Test.csproj \
          --configuration Debug \
          --filter "$AUTOMATION_FILTER_EXPR" \
          --logger "console;verbosity=normal" > "$RUN_LOG" 2>&1; then

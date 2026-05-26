@@ -175,12 +175,12 @@ public class TestKit
     /// <c>CassettingComixSigner</c> + recorded cassettes under
     /// <c>Fixtures/Cassettes/Comix/</c> (Phase 33 D-09). Disable only when the fixture
     /// has no reason to exercise Comix's search/grab fan-out. The ~93 legacy callers are
-    /// pragma-suppressed pending the v1.3 audit-and-delete cleanup (GH #XXX).
+    /// pragma-suppressed pending the v1.3 audit-and-delete cleanup (GH #268).
     /// </remarks>
     [Obsolete(
         "Prefer recording Comix coverage via MANGARR_TEST_CASSETTE_MODE=ReplayOrRecord + " +
         "CassettingComixSigner (Phase 33 D-09). Disable only when the fixture has no reason " +
-        "to exercise Comix's search/grab path. v1.3 GH #XXX audits remaining callers.",
+        "to exercise Comix's search/grab path. v1.3 GH #268 audits remaining callers.",
         error: false)]
     public async Task DisableComixIndexerAsync()
     {

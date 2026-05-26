@@ -56,7 +56,7 @@ public class HistoryFilterFixture : AutomationTest
         // cassette-replayable path). NUnit runs the base AutomationTest
         // [OneTimeSetUp] (boot + baseline seed) before this derived one, so
         // RootUri/ApiKey are wired by the time this runs.
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #XXX]
+#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
         await new TestKit.TestKit(RootUri, ApiKey, string.Empty)
             .DisableComixIndexerAsync();
 #pragma warning restore CS0618

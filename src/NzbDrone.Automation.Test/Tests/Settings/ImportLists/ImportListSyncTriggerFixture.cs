@@ -37,7 +37,7 @@ public class ImportListSyncTriggerFixture : AutomationTest
     [OneTimeSetUp]
     public async Task DisableComixAsync()
     {
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #XXX]
+#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
         await new TestKit.TestKit(RootUri, ApiKey, string.Empty).DisableComixIndexerAsync();
 #pragma warning restore CS0618
     }

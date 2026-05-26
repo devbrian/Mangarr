@@ -109,7 +109,7 @@ in `[OneTimeSetUp]` so an un-cassetted Comix fan-out can't escape to the live ne
 As of Phase 33 D-10 the method is `[Obsolete]` (warning, not error) — a forcing
 function for the v1.3 audit. New fixtures should explicitly justify the choice in a
 comment. The ~92 existing legacy callers are pragma-suppressed
-(`#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #XXX]`)
+(`#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]`)
 pending the v1.3 audit-and-delete cleanup.
 
 Full mechanism: `.planning/phases/33-comix-coverage-restore-v1-2-inserted-2026-05-23/33-CONTEXT.md`

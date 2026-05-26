@@ -36,7 +36,7 @@ public class AutoExclusionOnDeleteFixture : AutomationTest
     public async Task DisableComixAndRegisterProviderAsync()
     {
         var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #XXX]
+#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
         await tk.DisableComixIndexerAsync();
 #pragma warning restore CS0618
 
