@@ -129,6 +129,6 @@ wrapper is deleted. The hook loses the discriminator (single URL).
 
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview
 - [../Activity/CLAUDE.md](../Activity/CLAUDE.md) — Plan 07-09 mediaType pattern (copy-target)
-- [../Episode/CLAUDE.md](../Episode/CLAUDE.md) — Episode types used
-- [../Series/CLAUDE.md](../Series/CLAUDE.md) — Each row links back to series
+- [../Chapter/CLAUDE.md](../Chapter/CLAUDE.md) — Chapter types used (Sonarr `Episode/` deleted Phase 17.3 Plan 17.3-13)
+- [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Each row links back to manga (Sonarr `Series/` deleted Phase 17.3 Plan 17.3-13)
 - [../../../src/NzbDrone.Core/DecisionEngine/CLAUDE.md](../../../src/NzbDrone.Core/DecisionEngine/CLAUDE.md) — Cutoff logic lives in `CutoffSpecification`

@@ -36,4 +36,4 @@ atomic stub-dir delete (D-09/D-10).
 - [../useManga.ts](../useManga.ts) — `useDeleteManga` hook (lines 523-553).
 - [../Details/MangaDetails.tsx](../Details/MangaDetails.tsx) — call-site (Delete toolbar button + modal mount).
 - [../Details/MangaDetailsPage.tsx](../Details/MangaDetailsPage.tsx) — owner of the redirect-on-vanish effect that handles post-delete navigation.
-- [../../../../.planning/debug/manga-delete-button-no-op.md](../../../../.planning/debug/manga-delete-button-no-op.md) — debug session that produced this fix.
+- [manga-delete-button-no-op.md](../../../../.planning/debug/resolved/manga-delete-button-no-op.md) — debug session that produced this fix (moved to `debug/resolved/`).

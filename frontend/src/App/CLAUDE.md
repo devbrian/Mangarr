@@ -118,6 +118,6 @@ Used throughout the codebase via `window.Mangarr` (no helper hook).
 ## Cross-References
 
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview
-- [../Series/CLAUDE.md](../Series/CLAUDE.md) — Home page
+- [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Home page (Sonarr `Series/` deleted Phase 17.3 Plan 17.3-13)
 - [../Components/CLAUDE.md](../Components/CLAUDE.md) — `<Page>` layout
 - [../Store/CLAUDE.md](../Store/CLAUDE.md) — Redux store

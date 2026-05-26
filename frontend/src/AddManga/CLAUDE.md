@@ -71,7 +71,7 @@ cleanup will collapse the two when `AddSeries/` deletes.
 
 ## Cross-References
 
-- [../AddSeries/CLAUDE.md](../AddSeries/CLAUDE.md) — Sibling AddSeries flow (Phase 8 cleanup target).
+- Sonarr `AddSeries/` (the sibling this flow was forked from) was deleted in Phase 17.3 Plan 17.3-13 atomic stub-dir delete — see `DIVERGENCE.md`. This `AddManga/` subtree is now the single canonical add flow.
 - [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Source of `MangaMonitor` / `MangaImage` / `MangaStatus` types.
 - [../Helpers/Hooks/useOptionsStore.ts](../Helpers/Hooks/useOptionsStore.ts) — `createOptionsStore<T>(name, state, options?)` factory.
 - [../../../src/Mangarr.Api.V5/Manga/MangaController.cs](../../../src/Mangarr.Api.V5/Manga/MangaController.cs) — Backend POST `/api/v5/manga` consumer of `AddMangaPayload`.

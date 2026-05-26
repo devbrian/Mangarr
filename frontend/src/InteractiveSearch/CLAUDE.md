@@ -108,5 +108,5 @@ block (lines ~201-212).
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview
 - [../../../src/NzbDrone.Core/IndexerSearch/](../../../src/NzbDrone.Core/IndexerSearch/) — Backend search criteria
 - [../../../src/NzbDrone.Core/DecisionEngine/CLAUDE.md](../../../src/NzbDrone.Core/DecisionEngine/CLAUDE.md) — Backend that emits rejection reasons
-- [../../../src/Mangarr.Api.V5/Release/](../../../src/Mangarr.Api.V5/Release/) — REST endpoints
+- [../../../src/Mangarr.Api.V5/Manga/Release/](../../../src/Mangarr.Api.V5/Manga/Release/) — REST endpoints
 - [../InteractiveImport/CLAUDE.md](../InteractiveImport/CLAUDE.md) — Sibling: import existing files manually

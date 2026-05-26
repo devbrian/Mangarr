@@ -117,7 +117,7 @@ Inherited (Mangarr already ships these keys): `RootFolder`, `Monitor`,
 - [../AddManga.ts](../AddManga.ts) — `AddMangaResult` + `AddMangaPayload` types.
 - [../addMangaOptionsStore.ts](../addMangaOptionsStore.ts) — zustand store backing the form's persisted defaults.
 - [../MangaMonitoringOptionsPopoverContent.tsx](../MangaMonitoringOptionsPopoverContent.tsx) — Help-popover content for the Monitor dropdown.
-- [../../AddSeries/AddNewSeries/](../../AddSeries/AddNewSeries/) — Mangarr analog subtree (Phase 8 cleanup target).
+- Sonarr `AddSeries/AddNewSeries/` (the subtree this was forked from) was deleted in Phase 17.3 Plan 17.3-13 atomic stub-dir delete — see `DIVERGENCE.md`.
 - [../../Manga/useManga.ts](../../Manga/useManga.ts) — `useManga` for "already in library" check.
 - [../../../../src/Mangarr.Api.V5/Manga/MangaController.cs](../../../../src/Mangarr.Api.V5/Manga/MangaController.cs) — Backend POST /api/v5/manga.
 - [../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-06-PLAN.md](../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-06-PLAN.md) — Plan that created this subtree.
