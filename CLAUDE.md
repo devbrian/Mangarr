@@ -187,7 +187,7 @@ yarn watch                                                  # Webpack watch mode
 ## Development Notes
 
 - **Solution file**: `src/Mangarr.sln`
-- **Database migrations**: Auto-applied on startup. Add new migration in `src/NzbDrone.Core/Datastore/Migration/`. Migrations are sequential and post-baseline (`001_mangarr_baseline.cs` → `007_…` currently); per the pre-v1 dev-migration policy, schema changes edit `001_mangarr_baseline.cs` in place pre-v1.0.0 and append a new sequential migration thereafter.
+- **Database migrations**: Auto-applied on startup. Add new migration in `src/NzbDrone.Core/Datastore/Migration/`. Migrations are sequential and post-baseline (`001_mangarr_baseline.cs` → `008_…` currently); per the pre-v1 dev-migration policy, schema changes edit `001_mangarr_baseline.cs` in place pre-v1.0.0 and append a new sequential migration thereafter.
 - **Default data dir**: `C:\ProgramData\Mangarr` (Win) / `~/.config/Mangarr` (Linux/Mac). Logs in `<data>/logs/`.
 - **Default port**: 8989 (override with `--port=NNNN`).
 - **API key**: Auto-generated on first run; check `<data>/config.xml` or General settings.

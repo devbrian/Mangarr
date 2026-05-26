@@ -110,6 +110,20 @@ namespace NzbDrone.Core.Test.MangaTests
             Subject.Get(c.Id).FirstReleaseDate.Should().Be(when);
         }
 
+        // Issue #270 (Migration 008): Chapters.LastSearchTime is a UTC-instant column
+        // swept to timestamptz on Postgres. Round-trip must be bit-for-bit on both backends.
+        [Test]
+        public void Insert_persists_LastSearchTime_utc_round_trip()
+        {
+            var when = new DateTime(2026, 3, 9, 8, 30, 0, DateTimeKind.Utc);
+            var c = BuildChapter();
+            c.LastSearchTime = when;
+            Subject.Insert(c);
+            var fetched = Subject.Get(c.Id);
+            fetched.LastSearchTime.Should().Be(when);
+            fetched.LastSearchTime.Value.Kind.Should().Be(DateTimeKind.Utc);
+        }
+
         // STRUCT-04 release-grain-agnostic guard: Plan 16-03 Task 4 reflection check.
         // ChaptersWhereCutoffUnmet at ChapterRepository.cs:88-139 already filters by
         // Manga.TranslationProfileId / CustomFormatProfileId — never reads

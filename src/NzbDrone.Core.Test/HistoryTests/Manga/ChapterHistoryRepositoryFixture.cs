@@ -59,6 +59,27 @@ namespace NzbDrone.Core.Test.HistoryTests.Manga
             StoredModel.Data["indexer"].Should().Be("MangaDex");
         }
 
+        // Issue #270 (Migration 008): ChapterHistory.Date is a UTC-instant column swept to
+        // timestamptz on Postgres. Round-trip must be bit-for-bit on both backends.
+        [Test]
+        public void should_round_trip_Date_as_utc()
+        {
+            var when = new System.DateTime(2026, 4, 20, 14, 5, 0, System.DateTimeKind.Utc);
+            var history = new ChapterHistory
+            {
+                MangaId = 3,
+                ChapterId = 9,
+                EventType = ChapterHistoryEventType.Grabbed,
+                Date = when,
+                SourceTitle = "Test Manga - Chapter 009",
+            };
+
+            Subject.Insert(history);
+
+            StoredModel.Date.Should().Be(when);
+            StoredModel.Date.Kind.Should().Be(System.DateTimeKind.Utc);
+        }
+
         [Test]
         public void FindByChapterId_returns_only_rows_for_that_chapter()
         {

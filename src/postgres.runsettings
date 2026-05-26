@@ -1,11 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Postgres test configuration. Run the suite against a live Postgres backend with:
+
+        dotnet test <Test.dll> --settings src/postgres.runsettings
+
+    The env-var prefix MUST be `Mangarr__Postgres__*` — PostgresOptions.GetOptions()
+    binds config section `Mangarr:Postgres` (PostgresOptions.cs:23) and .NET maps
+    `Mangarr__Postgres__Host` -> `Mangarr:Postgres:Host`. The legacy `Sonarr__Postgres__*`
+    prefix (pre-Phase-15 rebrand) is silently ignored: with no matching binding the suite
+    falls back to SQLite (DbTest.cs selects Postgres only when Host is non-empty), so a
+    Postgres-only regression like Issue #270 / Migration 007/008 would pass green on a
+    SQLite run and the round-trip break would go unnoticed.
+
+    Values below target the purpose-built `mangarr-pg-test` container documented in
+    .planning/phases/34-postgres-parser-fix-forward-v1-2-inserted-2026-05-23/34-POSTGRES-VERDICT.md
+    (Postgres 15.17 on the LAN media-stack host). The test harness creates and DROPs its
+    own throwaway per-UID `<uid>_main` / `<uid>_log` databases — no existing data is touched.
+    Override per-machine via real environment variables if your test Postgres differs.
+-->
 <RunSettings>
     <RunConfiguration>
         <EnvironmentVariables>
-            <Sonarr__Postgres__Host>192.168.100.5</Sonarr__Postgres__Host>
-			<Sonarr__Postgres__Port>5432</Sonarr__Postgres__Port>
-			<Sonarr__Postgres__User>abc</Sonarr__Postgres__User>
-			<Sonarr__Postgres__Password>abc</Sonarr__Postgres__Password>
+            <Mangarr__Postgres__Host>192.168.0.246</Mangarr__Postgres__Host>
+            <Mangarr__Postgres__Port>5432</Mangarr__Postgres__Port>
+            <Mangarr__Postgres__User>postgres</Mangarr__Postgres__User>
+            <Mangarr__Postgres__Password>test</Mangarr__Postgres__Password>
         </EnvironmentVariables>
     </RunConfiguration>
 </RunSettings>
