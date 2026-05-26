@@ -315,6 +315,43 @@ write_report() {
 EOF
 }
 
+# classify_run_log: distinguish a REAL fixture failure from the benign
+# "No test matches the given testcase filter" non-zero that
+# `dotnet test <solution> --filter` emits for EACH test project in the
+# solution that contains none of the in-scope fixtures. Without this, any
+# phase whose touched type-names map to fixtures spread across multiple
+# test projects red-flags the gate even when every executed fixture is green
+# (Phase 35 close-out: 70 in-scope fixtures across Core/Api/Common, leaving
+# Libraries/Comix.Live/Update/Integration/Host/Mono with zero matches → each
+# emits a non-zero "No test matches" that the solution-wide exit conflated
+# with a real failure). Returns 0 (pass) / 1 (fail).
+#   Real failure   := compile error, build failure, OR an executed test failed.
+#   Benign no-match := non-zero dotnet exit whose ONLY cause is per-project
+#                      "No test matches" lines (every executed run was green).
+# Args: $1 = run log path, $2 = raw dotnet exit code.
+classify_run_log() {
+  local log="$1" raw="$2"
+  # Hard failures regardless of exit code: compile/build break or a failed run.
+  if grep -qE 'error CS[0-9]+|Build FAILED|Test Run Failed\.' "$log"; then
+    return 1
+  fi
+  # A non-zero "Failed: N" count in any VSTest summary line is a real failure.
+  if grep -qE 'Failed:[[:space:]]*[1-9]' "$log"; then
+    return 1
+  fi
+  # dotnet succeeded outright.
+  [ "$raw" -eq 0 ] && return 0
+  # Non-zero exit, but no real-failure signal. Accept ONLY when the non-zero
+  # is attributable to benign per-project "No test matches" AND at least one
+  # run executed green.
+  if grep -q 'No test matches the given testcase filter' "$log" \
+     && grep -q 'Test Run Successful\.' "$log"; then
+    return 0
+  fi
+  # Unknown non-zero (nothing executed, runner crash, etc.) → treat as failure.
+  return 1
+}
+
 echo "==== In-scope fixtures (NEW + EXISTING-touched) ===="
 if [ -z "$IN_SCOPE" ]; then
   echo "  (none — empty phase touch or no fixture references)"
@@ -387,12 +424,12 @@ if [ -n "$UNIT_FILTERS" ]; then
   UNIT_FILTER_EXPR="(${UNIT_FILTERS})&${CATEGORY_EXCLUDE}"
   echo "Filter: $UNIT_FILTER_EXPR"
   RUN_LOG=$(mktemp)
-  if ! dotnet test src/Mangarr.sln \
+  RAW_EXIT=0
+  dotnet test src/Mangarr.sln \
        --configuration Debug \
        --filter "$UNIT_FILTER_EXPR" \
-       --logger "console;verbosity=normal" > "$RUN_LOG" 2>&1; then
-    EXIT_CODE=1
-  fi
+       --logger "console;verbosity=normal" > "$RUN_LOG" 2>&1 || RAW_EXIT=$?
+  classify_run_log "$RUN_LOG" "$RAW_EXIT" || EXIT_CODE=1
   cat "$RUN_LOG"
   cat "$RUN_LOG" >> "$RESULTS_FILE"
   rm -f "$RUN_LOG"
@@ -435,15 +472,15 @@ if [ -n "$AUTOMATION_FILTERS" ]; then
     # leak the parent stdout pipe FD on Windows; this pattern bypasses the issue
     # entirely.
     RUN_LOG=$(mktemp)
-    if ! MANGARR_TEST_CASSETTE_MODE="$AUTO_CASSETTE_MODE" \
+    RAW_EXIT=0
+    MANGARR_TEST_CASSETTE_MODE="$AUTO_CASSETTE_MODE" \
          MANGARR_TEST_CASSETTE_DIR="$AUTO_CASSETTE_DIR" \
          MANGARR_TEST_ASSEMBLY_PATH="$AUTO_CASSETTE_ASM" \
          dotnet test src/NzbDrone.Automation.Test/Mangarr.Automation.Test.csproj \
          --configuration Debug \
          --filter "$AUTOMATION_FILTER_EXPR" \
-         --logger "console;verbosity=normal" > "$RUN_LOG" 2>&1; then
-      EXIT_CODE=1
-    fi
+         --logger "console;verbosity=normal" > "$RUN_LOG" 2>&1 || RAW_EXIT=$?
+    classify_run_log "$RUN_LOG" "$RAW_EXIT" || EXIT_CODE=1
     cat "$RUN_LOG"
     cat "$RUN_LOG" >> "$RESULTS_FILE"
     rm -f "$RUN_LOG"
