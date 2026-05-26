@@ -1,8 +1,6 @@
 using System.Collections.Generic;
-using System.Linq;
 using NLog;
 using NzbDrone.Common.Extensions;
-using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Manga.Commands;
 using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaFiles.Commands;
@@ -11,30 +9,32 @@ using NzbDrone.Core.Messaging.Events;
 
 namespace NzbDrone.Core.Manga
 {
-    // Manga-side mirror of Tv/SeriesEditedService.cs (Phase 8 audit cluster 04-edit-lifecycle,
-    // audit gap `single` per audit/no-sibling/SeriesEditedService.md).
+    // Manga-side mirror of Sonarr's Tv/SeriesEditedService.cs. Sonarr's SeriesEditedService is
+    // IHandle<SeriesEditedEvent> ONLY — it does not subscribe to SeriesBulkEditedEvent.
     //
     // Single-edit Handle(MangaEditedEvent) gates command-queue pushes on a diff against
     // message.OldManga (Phase 8 audit gap-09 substrate). Refresh fires on cross-source ID
     // triplet (MangaDexId/MalId/AniListId) change; Rescan fires on Manga.Path change
-    // (Phase 32 CORR-02). No-op edits (e.g., Tags-only) push neither command.
+    // (Phase 32 CORR-02). No-op edits (e.g. Tags-only) push neither command.
     //
-    // Bulk-edit Handle(MangaBulkEditedEvent) preserves the conservative always-refresh +
-    // rename behavior because MangaBulkEditedEvent carries List<Manga> only with no
-    // OldManga snapshots — the per-entity diff cannot be applied (Phase 32 D-07; bulk-path
-    // tightening tracked for v1.3+ if user signal emerges).
-    public class MangaEditedService : IHandle<MangaEditedEvent>, IHandle<MangaBulkEditedEvent>
+    // Bulk edits are intentionally NOT handled here (issue #264). In Sonarr the bulk-edit side
+    // effects are owned by two OTHER subscribers, both already mirrored in Mangarr: SignalR
+    // fan-out (MangaController.IHandle<MangaBulkEditedEvent>) and the explicit root-folder move
+    // (BulkMoveMangaCommand, pushed by MangaEditorController.SaveAll when moveFiles=true). The
+    // prior unconditional RefreshMangaCommand + RenameMangaCommand on the bulk path was a
+    // Mangarr-invented divergence — NOT a Sonarr mirror, despite an earlier comment claiming so
+    // — and was removed. Do not re-add a refresh/rename push here. The one remaining Sonarr
+    // parity gap is TrackedDownloadService's bulk cache reconcile, tracked in issue #278 and
+    // only relevant if a downloader other than the in-process image client is ever added.
+    public class MangaEditedService : IHandle<MangaEditedEvent>
     {
         private readonly IManageCommandQueue _commandQueueManager;
-        private readonly IConfigService _configService;
         private readonly Logger _logger;
 
         public MangaEditedService(IManageCommandQueue commandQueueManager,
-                                  IConfigService configService,
                                   Logger logger)
         {
             _commandQueueManager = commandQueueManager;
-            _configService = configService;
             _logger = logger;
         }
 
@@ -57,24 +57,6 @@ namespace NzbDrone.Core.Manga
                 _logger.Debug("Manga {0} cross-source IDs changed; queueing refresh.", message.Manga);
                 _commandQueueManager.Push(new RefreshMangaCommand(new List<int> { message.Manga.Id }, false));
             }
-        }
-
-        public void Handle(MangaBulkEditedEvent message)
-        {
-            // Bulk-edit path: queue a refresh for every edited manga and a rename pass over
-            // the full set. TV's equivalent (SeriesBulkEditedEvent handler in Mangarr) treats
-            // bulk edits as potentially folder-affecting (root folder moves, monitor toggles
-            // that may rename) and queues a rename. Without OldManga snapshots we mirror that
-            // conservative behavior here.
-            if (message.Manga == null || message.Manga.Count == 0)
-            {
-                return;
-            }
-
-            var mangaIds = message.Manga.Select(m => m.Id).ToList();
-            _logger.Debug("Bulk manga edit ({0} entities); queueing refresh + rename.", mangaIds.Count);
-            _commandQueueManager.Push(new RefreshMangaCommand(mangaIds, false));
-            _commandQueueManager.Push(new RenameMangaCommand { MangaIds = mangaIds });
         }
     }
 }
