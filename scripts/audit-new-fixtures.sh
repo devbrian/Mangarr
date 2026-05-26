@@ -331,8 +331,15 @@ EOF
 # Args: $1 = run log path, $2 = raw dotnet exit code.
 classify_run_log() {
   local log="$1" raw="$2"
-  # Hard failures regardless of exit code: compile/build break or a failed run.
-  if grep -qE 'error CS[0-9]+|Build FAILED|Test Run Failed\.' "$log"; then
+  # Hard failures regardless of exit code: compile/build break, a failed run,
+  # OR an aborted/crashed run. The abort/crash signals are checked explicitly
+  # because the benign no-match path below would otherwise mask a matched
+  # project that aborted mid-run — a solution-level run can carry "No test
+  # matches" lines from unrelated projects AND "Test Run Successful." from
+  # green projects while a third project's test host crashed (Codex P1 on
+  # PR #274). VSTest emits "Test Run Aborted." / "Aborted!" summaries and the
+  # runner emits "Test host process crashed" / "active test run was aborted".
+  if grep -qE 'error CS[0-9]+|Build FAILED|Test Run Failed\.|Test Run Aborted\.|^Aborted!|Test host process crashed|active test run was aborted' "$log"; then
     return 1
   fi
   # A non-zero "Failed: N" count in any VSTest summary line is a real failure.
