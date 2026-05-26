@@ -142,4 +142,4 @@ The Activity Queue / History / Blocklist row components were rewritten to consum
 - [../../../src/NzbDrone.Core/Queue/](../../../src/NzbDrone.Core/Queue/) — Backend Queue
 - [../../../src/NzbDrone.Core/History/](../../../src/NzbDrone.Core/History/) — Backend History
 - [../../../src/NzbDrone.Core/Blocklisting/](../../../src/NzbDrone.Core/Blocklisting/) — Backend Blocklist
-- [../../../src/Mangarr.Api.V5/Queue/](../../../src/Mangarr.Api.V5/Queue/) — REST endpoints
+- [../../../src/Mangarr.Api.V5/Manga/Queue/](../../../src/Mangarr.Api.V5/Manga/Queue/) — REST endpoints

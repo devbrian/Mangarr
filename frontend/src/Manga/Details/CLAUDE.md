@@ -107,7 +107,7 @@ analog:
 
 ## Cross-References
 
-- [../../Series/Details/CLAUDE.md](../../Series/Details/CLAUDE.md) — Sibling Series detail page (Phase 8 cleanup target).
+- Sonarr `Series/Details/` (the sibling this detail page was forked from) was deleted in Phase 17.3 Plan 17.3-13 atomic stub-dir delete — see `DIVERGENCE.md`. This `Manga/Details/` subtree is now canonical.
 - [../../Chapter/CLAUDE.md](../../Chapter/CLAUDE.md) — Chapter utility components consumed by ChapterRow + MangaDetailsChapters.
 - [../../InteractiveSearch/CLAUDE.md](../../InteractiveSearch/CLAUDE.md) — Search tab + ChapterDetailsModal consumer.
 - [../CLAUDE.md](../CLAUDE.md) — Parent Manga directory.

@@ -94,20 +94,20 @@ App.tsx (provider chain, top → bottom)
 
 | Path | Component | Page |
 |------|-----------|------|
-| `/` | `SeriesIndex` | Series list (home) |
-| `/add/new` | `AddNewSeries` | Add new |
-| `/add/import` | `ImportSeriesPage` | Import existing folder |
-| `/series/:titleSlug` | `SeriesDetailsPage` | Series detail |
+| `/` | `MangaIndex` | Manga list (home) |
+| `/add/manga` | `AddNewManga` | Add new |
+| `/add/import` | `ImportMangaPage` | Import existing folder |
+| `/manga/:titleSlug` | (manga details) | Manga detail |
 | `/calendar` | `CalendarPage` | Calendar |
-| `/activity/queue` | `Queue` | Active downloads |
-| `/activity/history` | `History` | Grab/import history |
-| `/activity/blocklist` | `Blocklist` | Blocked releases |
-| `/wanted/missing` | `Missing` | Missing episodes |
-| `/wanted/cutoffunmet` | `CutoffUnmet` | Below cutoff |
+| `/manga/activity/queue` | `MangaQueue` | Active downloads |
+| `/manga/activity/history` | `MangaHistory` | Grab/import history |
+| `/manga/activity/blocklist` | `MangaBlocklist` | Blocked releases |
+| `/manga/wanted/missing` | `MangaMissing` | Missing chapters |
+| `/manga/wanted/cutoffunmet` | `MangaCutoffUnmet` | Below cutoff |
 | `/settings` | `Settings` | Settings home |
 | `/settings/mediamanagement` | `MediaManagement` | File handling |
-| `/settings/profiles` | `Profiles` | Quality / language / delay / release |
-| `/settings/quality` | `Quality` | Quality definitions |
+| `/settings/profiles` | `Profiles` | Translation profiles |
+| `/settings/customformatprofiles` | (custom format profiles) | Custom format profiles |
 | `/settings/customformats` | `CustomFormatSettingsPage` | Custom format rules |
 | `/settings/indexers` | `IndexerSettings` | Indexers + options |
 | `/settings/downloadclients` | `DownloadClientSettings` | Clients + remote path mappings |
@@ -132,8 +132,8 @@ App.tsx (provider chain, top → bottom)
 ```typescript
 import { useApiQuery } from 'Helpers/Hooks/useApiQuery';
 
-const { data, isLoading, isFetched, error } = useApiQuery<Series[]>({
-  queryKey: ['/series'],
+const { data, isLoading, isFetched, error } = useApiQuery<Manga[]>({
+  queryKey: ['/manga'],
   staleTime: 5 * 60 * 1000,
 });
 ```
@@ -141,19 +141,19 @@ const { data, isLoading, isFetched, error } = useApiQuery<Series[]>({
 ```typescript
 import { useApiMutation } from 'Helpers/Hooks/useApiMutation';
 
-const { mutate, isPending } = useApiMutation<Series>({
+const { mutate, isPending } = useApiMutation<Manga>({
   method: 'PUT',
-  queryKey: ['/series', id],
+  queryKey: ['/manga', id],
 });
-mutate({ ...series, monitored: true });
+mutate({ ...manga, monitored: true });
 ```
 
 ### 2. Zustand (UI Preferences — Persisted)
 ```typescript
-const useSeriesOptions = create(persist((set) => ({
+const useMangaOptions = create(persist((set) => ({
   view: 'posters',
   setView: (view) => set({ view }),
-}), { name: 'series_options' }));
+}), { name: 'manga_options' }));
 ```
 
 ### 3. Redux (Settings, Filters, Commands — Legacy + global)
@@ -170,9 +170,9 @@ A `<SignalRListener />` component (or Redux middleware) opens `/signalr/messages
 
 | Backend Message | Frontend Reaction |
 |-----------------|-------------------|
-| `series` | Invalidate `[/series]` queries; update single series cache |
-| `episode` | Update episode cache for that series |
-| `episodefile` | Update file list |
+| `manga` | Invalidate `['/manga']` queries; update single manga cache |
+| `chapter` | Update chapter cache for that manga |
+| `chapterfile` | Update file list |
 | `command` | Update command queue / progress UI |
 | `queue` | Update active queue list |
 | `history` | Append to history list |

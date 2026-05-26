@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 **Mangarr** is a manga/manhwa/manhua library manager and downloader. It monitors manga reader and aggregator websites for new chapters of your favorite titles, automatically downloads, sorts, and organizes them. It can also be configured to automatically upgrade quality when better scans become available.
 
-This project is a **fork/migration of [Sonarr](https://github.com/Sonarr/Sonarr)**, adapting its mature TV-show management infrastructure to manga management. Phase 15 (closed 2026-05-08) crossed the hard-fork threshold — canonical assembly names `Mangarr.*.dll`, default data dir `~/.config/Mangarr` / `C:\ProgramData\Mangarr`, canonical DB `mangarr.db`, canonical solution `src/Mangarr.sln`. The `NzbDrone.*` source-tree prefix is preserved per Phase 15 D-06 as a fork-heritage breadcrumb. Phase 16.1 — Revert ChapterRelease + Adopt Sonarr-Canonical Translation Pattern — closed 2026-05-10 (see `.planning/phases/16.1-revert-chapterrelease-adopt-sonarr-canonical-translation-pat/16.1-SUMMARY.md`). **Phase 17.3 — Domain Rename Residue Sweep** closed 2026-05-12; the 5 frontend stub directories (`Series/`, `Episode/`, `EpisodeFile/`, `Season/`, `Utilities/Series/`) were atomically deleted in Plan 17.3-13, TV-shape carry-over fields on `Manga.ts` were stripped in Plan 17.3-12 (D-13), the `SeasonPackUpgrade` vertical was deleted in Plan 17.3-05 (D-06), `SeriesNotFoundException.cs` was deleted in Plan 17.3-03 (D-05), 8 frontend Components/Form/* TV-named files were renamed in Plan 17.3-04 (D-07), and ~150 i18n keys were swept (Bucket A renames + Bucket B value rewrites + Bucket C PRESERVE catalog). Current active phase: **Phase 17 — Comix Runtime Signer Port (PuppeteerSharp)** (renumbered from prior slot-17 on 2026-05-10 per `.planning/debug/comix-invalid-token-403.md`; prior Phase 17 — Distribution + v1 Release — parked as Phase 99).
+This project is a **fork/migration of [Sonarr](https://github.com/Sonarr/Sonarr)**, adapting its mature TV-show management infrastructure to manga management. Phase 15 (closed 2026-05-08) crossed the hard-fork threshold — canonical assembly names `Mangarr.*.dll`, default data dir `~/.config/Mangarr` / `C:\ProgramData\Mangarr`, canonical DB `mangarr.db`, canonical solution `src/Mangarr.sln`. The `NzbDrone.*` source-tree prefix is preserved per Phase 15 D-06 as a fork-heritage breadcrumb. Phase 16.1 — Revert ChapterRelease + Adopt Sonarr-Canonical Translation Pattern — closed 2026-05-10 (see `.planning/phases/16.1-revert-chapterrelease-adopt-sonarr-canonical-translation-pat/16.1-SUMMARY.md`). **Phase 17.3 — Domain Rename Residue Sweep** closed 2026-05-12; the 5 frontend stub directories (`Series/`, `Episode/`, `EpisodeFile/`, `Season/`, `Utilities/Series/`) were atomically deleted in Plan 17.3-13, TV-shape carry-over fields on `Manga.ts` were stripped in Plan 17.3-12 (D-13), the `SeasonPackUpgrade` vertical was deleted in Plan 17.3-05 (D-06), `SeriesNotFoundException.cs` was deleted in Plan 17.3-03 (D-05), 8 frontend Components/Form/* TV-named files were renamed in Plan 17.3-04 (D-07), and ~150 i18n keys were swept (Bucket A renames + Bucket B value rewrites + Bucket C PRESERVE catalog). Milestone status: **v1.0 shipped (Phase 21), v1.1 shipped (through Phase 28), and v1.2 is closing out at Phase 35 — Documentation Hygiene Sweep (the FINAL phase of v1.2)**. See `.planning/STATE.md` and `.planning/ROADMAP.md` for the live phase/plan position.
 
 **Branch model**: `Mangarr-v0` is the long-lived integration branch — **PRs should target `Mangarr-v0`**. The `v5-develop` branch tracks upstream Sonarr v5 and is only used when pulling in upstream changes.
 
@@ -50,7 +50,7 @@ This project is a **fork/migration of [Sonarr](https://github.com/Sonarr/Sonarr)
 | **Quality definitions** | CRITICAL | Phase 5 D-04 dropped TV-quality model; `TranslationProfile` + Custom Formats are the manga peer |
 | **Indexers** (manga aggregator sites) | HIGH | `MangaDexIndexer` + `ComixIndexer` shipped (Phase 3); seeded on fresh DB |
 | **MediaFiles** (CBZ/CBR vs video) | HIGH | Phase 6 renamed `EpisodeFile.cs` → `ChapterFile.cs`; manga import pipeline at `MediaFiles/MangaImport/` |
-| **DecisionEngine specifications** | HIGH | Phase 4/5 fork: TV-aware specs preserved at `DecisionEngine/Specifications/`; manga peers at `DecisionEngine/Manga/` |
+| **DecisionEngine specifications** | HIGH | Phase 4/5 fork: TV-aware top-level `DecisionEngine/Specifications/` removed; manga decision specs at `DecisionEngine/Manga/Specifications/` (engine at `DecisionEngine/Manga/`) |
 | **Frontend Manga/Chapter pages** | HIGH | Phase 7 shipped `Manga/` + `Chapter/`; Phase 15 Plan 15-12 + Phase 17.3 Plan 17.3-13 deleted Series/Episode/EpisodeFile/Season stub-dirs |
 | **API V5 controllers** | HIGH | Phase 2/6/12 fork: `MangaController`, `ChapterController`, `ChapterFileController`, `MangaQueueController`, `MangaHistoryController`, `MangaBlocklistController`, `MangaMissingController`, `MangaCutoffController` shipped |
 | **CustomFormats / Profiles** | MEDIUM | Phase 5 shipped `CustomFormatProfile` + `TranslationProfile` |
@@ -109,16 +109,15 @@ Mangarr/
 │   ├── NzbDrone.Update/              # Self-update mechanism
 │   ├── NzbDrone.Mono/                # Linux/Mac platform code
 │   ├── NzbDrone.Windows/             # Windows platform code
-│   ├── Mangarr.Http/                  # REST base / middleware / auth (70 files)
-│   ├── Mangarr.Api.V5/                # REST API v5 (149 files, 44 controllers)
-│   ├── Mangarr.Api.V3/                # REST API v3 (legacy, 156 files)
+│   ├── Mangarr.Http/                  # REST base / middleware / auth
+│   ├── Mangarr.Api.V5/                # REST API v5 (sole REST surface; ~59 controllers)
 │   ├── Mangarr.RuntimePatches/        # Runtime monkey-patches
 │   ├── ServiceHelpers/               # Service install helpers
 │   ├── Libraries/                    # Vendored binaries
 │   ├── *.Test/ projects              # NUnit test projects
 │   └── Mangarr.sln                    # Solution file
 ├── frontend/                         # React + TypeScript UI
-│   ├── src/                          # 39 top-level dirs (see frontend/CLAUDE.md)
+│   ├── src/                          # 34 top-level dirs (see frontend/CLAUDE.md)
 │   └── build/webpack.config.js       # Webpack config
 ├── _output/                          # Build output (UI assets bundled in)
 ├── _tests/                           # Test output
@@ -137,7 +136,7 @@ Mangarr/
 | Chapter / ChapterFile logic | [src/NzbDrone.Core/Manga/](./src/NzbDrone.Core/Manga/) (Chapter.cs) / [src/NzbDrone.Core/MediaFiles/](./src/NzbDrone.Core/MediaFiles/) (ChapterFile.cs) |
 | File handling (CBZ/CBR) | [src/NzbDrone.Core/MediaFiles/](./src/NzbDrone.Core/MediaFiles/) |
 | Title/release parsing regex | [src/NzbDrone.Core/Parser/](./src/NzbDrone.Core/Parser/) (manga peers under [Parser/Manga/](./src/NzbDrone.Core/Parser/Manga/)) |
-| Search filters / specs | [src/NzbDrone.Core/DecisionEngine/Specifications/](./src/NzbDrone.Core/DecisionEngine/Specifications/) (manga peers under [DecisionEngine/Manga/](./src/NzbDrone.Core/DecisionEngine/Manga/)) |
+| Search filters / specs | [src/NzbDrone.Core/DecisionEngine/Manga/Specifications/](./src/NzbDrone.Core/DecisionEngine/Manga/Specifications/) (manga decision specs; engine under [DecisionEngine/Manga/](./src/NzbDrone.Core/DecisionEngine/Manga/)) |
 | Indexer integrations | [src/NzbDrone.Core/Indexers/](./src/NzbDrone.Core/Indexers/) (MangaDex, Comix) |
 | Download client integrations | [src/NzbDrone.Core/Download/](./src/NzbDrone.Core/Download/) (InProcessImageDownloadClient under [Download/Clients/InProcess/](./src/NzbDrone.Core/Download/Clients/InProcess/)) |
 | Notification providers | [src/NzbDrone.Core/Notifications/](./src/NzbDrone.Core/Notifications/) (Komga + Kavita live; rest reference-preserved) |
@@ -188,7 +187,7 @@ yarn watch                                                  # Webpack watch mode
 ## Development Notes
 
 - **Solution file**: `src/Mangarr.sln`
-- **Database migrations**: Auto-applied on startup. Add new migration in `src/NzbDrone.Core/Datastore/Migration/`. Migrations are sequential (`000_…` → `223_…` currently).
+- **Database migrations**: Auto-applied on startup. Add new migration in `src/NzbDrone.Core/Datastore/Migration/`. Migrations are sequential and post-baseline (`001_mangarr_baseline.cs` → `007_…` currently); per the pre-v1 dev-migration policy, schema changes edit `001_mangarr_baseline.cs` in place pre-v1.0.0 and append a new sequential migration thereafter.
 - **Default data dir**: `C:\ProgramData\Mangarr` (Win) / `~/.config/Mangarr` (Linux/Mac). Logs in `<data>/logs/`.
 - **Default port**: 8989 (override with `--port=NNNN`).
 - **API key**: Auto-generated on first run; check `<data>/config.xml` or General settings.
@@ -265,8 +264,7 @@ yarn watch                                                  # Webpack watch mode
 | `Messaging/` | [src/NzbDrone.Core/Messaging/CLAUDE.md](./src/NzbDrone.Core/Messaging/CLAUDE.md) | Events / Commands |
 | `ImportLists/` | [src/NzbDrone.Core/ImportLists/CLAUDE.md](./src/NzbDrone.Core/ImportLists/CLAUDE.md) | External list ingestion |
 | NzbDrone.Common | [src/NzbDrone.Common/CLAUDE.md](./src/NzbDrone.Common/CLAUDE.md) | Shared utilities |
-| Mangarr.Api.V5 | [src/Mangarr.Api.V5/CLAUDE.md](./src/Mangarr.Api.V5/CLAUDE.md) | REST API (current) |
-| Mangarr.Api.V3 | [src/Mangarr.Api.V3/CLAUDE.md](./src/Mangarr.Api.V3/CLAUDE.md) | REST API (legacy) |
+| Mangarr.Api.V5 | [src/Mangarr.Api.V5/CLAUDE.md](./src/Mangarr.Api.V5/CLAUDE.md) | REST API (sole REST surface; V3 wholesale-deleted Phase 15 Plan 15-06) |
 | Mangarr.Http | [src/Mangarr.Http/CLAUDE.md](./src/Mangarr.Http/CLAUDE.md) | HTTP infrastructure |
 | NzbDrone.Host | [src/NzbDrone.Host/CLAUDE.md](./src/NzbDrone.Host/CLAUDE.md) | App host / DI / startup |
 | NzbDrone.Console | [src/NzbDrone.Console/CLAUDE.md](./src/NzbDrone.Console/CLAUDE.md) | Console entry point |

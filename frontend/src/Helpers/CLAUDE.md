@@ -134,5 +134,5 @@ import { icons } from 'Helpers/Props';
 ## Cross-References
 
 - [frontend/CLAUDE.md](../../CLAUDE.md) - Frontend overview
-- [Series/CLAUDE.md](../Series/CLAUDE.md) - Uses these hooks
+- [Manga/CLAUDE.md](../Manga/CLAUDE.md) - Uses these hooks (Sonarr `Series/` deleted Phase 17.3 Plan 17.3-13)
 - [Store/CLAUDE.md](../Store/CLAUDE.md) - Redux integration

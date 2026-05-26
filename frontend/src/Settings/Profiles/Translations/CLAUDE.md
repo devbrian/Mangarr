@@ -104,7 +104,7 @@ This sub-tree is manga-canonical and stays. The legacy `Settings/Profiles/Qualit
 - [../Quality/](../Quality/) — Mangarr role-match analog (kept on disk; Phase 8 deletes)
 - [../../Settings.tsx](../../Settings.tsx) — left-nav Profiles row renamed to "Translation Profiles" in Phase 7 D-05
 - [../../CLAUDE.md](../../CLAUDE.md) — Settings sub-tree overview + D-05 topology rework
-- [../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-07-PLAN.md](../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-07-PLAN.md) — plan body
-- [../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md) — TranslationProfile entity decisions
-- [../../../../.planning/debug/gh127-tprofile-langs-mismatch.md](../../../../.planning/debug/gh127-tprofile-langs-mismatch.md) — GH #127 contract-mismatch debug session
-- [../../../../.planning/debug/gh138-tprofile-upgradeallowed.md](../../../../.planning/debug/gh138-tprofile-upgradeallowed.md) — GH #138 UpgradeAllowed plumbing debug session
+- [07-07-PLAN.md](../../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-07-PLAN.md) — plan body
+- [05-CONTEXT.md](../../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md) — TranslationProfile entity decisions
+- [gh127-tprofile-langs-mismatch.md](../../../../../.planning/debug/gh127-tprofile-langs-mismatch.md) — GH #127 contract-mismatch debug session
+- [gh138-tprofile-upgradeallowed.md](../../../../../.planning/debug/gh138-tprofile-upgradeallowed.md) — GH #138 UpgradeAllowed plumbing debug session

@@ -14,7 +14,7 @@
 
 ## Overview
 
-**Mangarr** is a manga/manhwa/manhua library manager forked from **Mangarr** (a TV-show automation tool). This document is the architectural deep-dive used to orient any future contributor or AI agent working on the codebase. It complements the high-level [CLAUDE.md](./CLAUDE.md), focusing on data flow, patterns, and design rationale.
+**Mangarr** is a manga/manhwa/manhua library manager forked from **Sonarr** (a TV-show automation tool). This document is the architectural deep-dive used to orient any future contributor or AI agent working on the codebase. It complements the high-level [CLAUDE.md](./CLAUDE.md), focusing on data flow, patterns, and design rationale.
 
 The application is a self-hosted background service exposing a web UI at port 8989, with a comprehensive REST API + SignalR push for real-time UI updates.
 
@@ -26,10 +26,10 @@ The application is a self-hosted background service exposing a web UI at port 89
 | Frontend | React 18.3 + TypeScript 5.7 | SPA, served by backend |
 | Database | SQLite (default) / PostgreSQL | One DB for main + one for logs |
 | ORM | Dapper | Hand-rolled mapping; raw SQL for queries |
-| Schema migrations | FluentMigrator | 224 migrations as of writing |
+| Schema migrations | FluentMigrator | Sequential `001_mangarr_baseline.cs` → `007_…` (pre-v1 dev-migration policy: edit baseline in place pre-v1.0.0) |
 | State Management | Redux 4 + Zustand 5 + TanStack React Query 5.61 | Tri-store architecture |
 | Real-time | SignalR 10 | `/signalr/messages` hub |
-| Build | MSBuild + Webpack 5 | Yarn 4 (corepack) |
+| Build | MSBuild + Webpack 5 | Yarn 1.22 (classic, pinned via `package.json` `packageManager`) |
 | Testing | NUnit | Unit / Integration / Automation |
 | DI Container | DryIoc | Convention-based registration |
 | Logging | NLog | File + DB targets, sensitive-data scrubbing |
@@ -41,7 +41,7 @@ The application is a self-hosted background service exposing a web UI at port 89
 ```
 Mangarr/
 ├── src/                              # Backend C# (Mangarr.sln)
-│   ├── NzbDrone.Common/              # 179 files. Foundational utilities, NO references to other NzbDrone projects
+│   ├── NzbDrone.Common/              # Foundational utilities, NO references to other NzbDrone projects
 │   │   ├── Disk/                     # IDiskProvider, OsPath, file ops abstraction
 │   │   ├── Http/                     # HTTP client wrapper, request builder, dispatchers
 │   │   ├── Cache/                    # In-memory caching (CacheManager)
@@ -54,14 +54,14 @@ Mangarr/
 │   │   ├── EnsureThat/               # Fluent validation
 │   │   └── Extensions/               # LINQ / String / Path / Exception helpers
 │   ├── NzbDrone.Core/                # Business logic — see src/NzbDrone.Core/CLAUDE.md
-│   │   ├── Tv/                       # CRITICAL: Series / Episode / Season domain
-│   │   ├── Parser/                   # CRITICAL: Title regex, ParsingService
-│   │   ├── DecisionEngine/           # Specifications determine grab/reject
-│   │   ├── Indexers/                 # Newznab / Torznab / Nyaa / TorrentRss / Custom
-│   │   ├── IndexerSearch/            # SearchCriteria classes (Single/Season/Daily/Anime)
+│   │   ├── Manga/                    # CRITICAL: Manga / Chapter domain (Sonarr Tv/ deleted Phase 15 Plan 15-03; no Season peer)
+│   │   ├── Parser/                   # CRITICAL: Title regex; manga peers under Parser/Manga/
+│   │   ├── DecisionEngine/           # Manga decision specs under DecisionEngine/Manga/
+│   │   ├── Indexers/                 # MangaDex / Comix aggregator sources
+│   │   ├── IndexerSearch/            # SearchCriteria classes
 │   │   ├── Download/                 # Download client integrations + lifecycle
-│   │   ├── MediaFiles/               # Disk scan, file import, organize, delete
-│   │   ├── MetadataSource/           # SkyHook (TVDB) → ISearchForNewSeries
+│   │   ├── MediaFiles/               # Disk scan, file import, organize, delete; ChapterFile.cs
+│   │   ├── MetadataSource/           # MangaDex metadata source (SkyHook/TVDB deleted Phase 15)
 │   │   ├── Datastore/                # DB connection, BasicRepository<T>, Migration/
 │   │   ├── Notifications/            # 25+ notification providers
 │   │   ├── CustomFormats/            # User-defined release scoring rules
@@ -73,7 +73,7 @@ Mangarr/
 │   │   ├── Jobs/                     # Scheduler / TaskManager
 │   │   ├── HealthCheck/              # System health checks
 │   │   ├── Housekeeping/             # Periodic cleanup
-│   │   ├── History/                  # EpisodeHistory record (grabs, imports)
+│   │   ├── History/                  # ChapterHistory record (grabs, imports)
 │   │   ├── Blocklisting/             # Blocked releases
 │   │   ├── Queue/                    # Active download tracking
 │   │   ├── AutoTagging/              # Rule-based tag application
@@ -87,7 +87,7 @@ Mangarr/
 │   │   ├── ThingiProvider/           # Generic plugin/provider base
 │   │   ├── Lifecycle/                # App start/stop events
 │   │   ├── MediaCover/               # Poster/banner/fanart fetching
-│   │   ├── SeriesStats/              # Materialized statistics view
+│   │   ├── MangaStats/               # Materialized statistics view (Sonarr SeriesStats renamed Phase 15)
 │   │   ├── Localization/             # Locale strings
 │   │   ├── Validation/               # Validation rules
 │   │   └── …                         # More: Analytics, RemotePathMappings, Security, etc.
@@ -101,17 +101,16 @@ Mangarr/
 │   │   ├── MessageHub.cs             # The SignalR Hub class
 │   │   ├── IBroadcastSignalRMessage.cs
 │   │   └── SignalRMessage.cs
-│   ├── Mangarr.Http/                  # 70 files — REST infrastructure
+│   ├── Mangarr.Http/                  # REST infrastructure
 │   │   ├── REST/                     # RestController<T>, RestResource, RestControllerWithSignalR
 │   │   ├── Authentication/           # Cookie + ApiKey + Basic
 │   │   ├── Middleware/               # UrlBase / Logging / Cache / Version / Buffering
-│   │   ├── ErrorManagement/          # SonarrErrorPipeline (global exception → JSON)
+│   │   ├── ErrorManagement/          # MangarrErrorPipeline (global exception → JSON)
 │   │   ├── Frontend/Mappers/         # Serve index.html, login, static assets, covers
 │   │   ├── ClientSchema/             # Dynamic form schema generation (for plugins)
 │   │   ├── Validation/               # Custom validators
 │   │   └── Ping/                     # /ping health endpoint
-│   ├── Mangarr.Api.V5/                # 149 files — current API; see file CLAUDE.md
-│   ├── Mangarr.Api.V3/                # 156 files — legacy API
+│   ├── Mangarr.Api.V5/                # current (and sole) REST API; see file CLAUDE.md (Mangarr.Api.V3 wholesale-deleted Phase 15 Plan 15-06)
 │   ├── NzbDrone.Update/              # Self-update binary
 │   ├── NzbDrone.Mono/                # Linux/Mac specific (DiskProvider)
 │   ├── NzbDrone.Windows/             # Windows specific
@@ -120,7 +119,7 @@ Mangarr/
 │   ├── Libraries/                    # Vendored DLLs
 │   └── *.Test/                       # NUnit projects
 ├── frontend/                         # See frontend/CLAUDE.md
-│   ├── src/                          # 39 top-level dirs
+│   ├── src/                          # 34 top-level dirs
 │   └── build/webpack.config.js
 ├── _output/                          # Build artifacts (UI bundled here)
 ├── _tests/                           # Test artifacts
@@ -139,9 +138,9 @@ Mangarr/
 └──────────────────┬───────────────────────┬────────────────┘
                    │ HTTP REST              │ WebSocket (SignalR)
 ┌──────────────────┴───────────────────────┴────────────────┐
-│              Mangarr.Api.V5 / Mangarr.Api.V3                 │
+│                    Mangarr.Api.V5                           │
 │         REST controllers, Resource (DTO) classes           │
-│  SeriesController → Series → Map → SeriesResource          │
+│  MangaController → Manga → Map → MangaResource             │
 └──────────────────────┬─────────────────────────────────────┘
                        │
 ┌──────────────────────┴─────────────────────────────────────┐
@@ -159,8 +158,8 @@ Mangarr/
 ┌──────────────────────┴─────────────────────────────────────┐
 │                   NzbDrone.Core                             │
 │   ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌────────────────┐  │
-│   │ Tv (Domain)│Parser   │ Indexers  │ DecisionEngine │  │
-│   │ Series/Ep  │Regex   │ Search    │ Specifications  │  │
+│   │Manga(Domain)│Parser │ Indexers  │ DecisionEngine │  │
+│   │Manga/Chapter│Regex  │ Search    │ Manga/Specs     │  │
 │   └─────────┘ └─────────┘ └──────────┘ └────────────────┘  │
 │   ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌────────────────┐  │
 │   │ Download│MediaFiles│ Datastore│ Messaging      │  │
@@ -191,57 +190,53 @@ This is the central pipeline that transforms an indexer feed into an organized l
 ```
 1. Trigger
    ├─ RssSyncService scheduled (recurring)        Indexers/RssSyncService.cs
-   └─ User-initiated search command                Commands/EpisodeSearchCommand.cs
+   └─ User-initiated chapter search command        IndexerSearch/Manga/ChapterSearchCommand.cs
 
 2. Indexer.Fetch() / Search()                     Indexers/IndexerBase.cs
    → List<ReleaseInfo>                             Parser/Model/ReleaseInfo.cs
 
-3. Parser.ParseTitle(release.Title)                Parser/Parser.cs
-   → ParsedEpisodeInfo                             Parser/Model/ParsedEpisodeInfo.cs
+3. MangaParser parses the release title            Parser/Manga/MangaParser.cs
+   → ParsedChapterInfo                             Parser/Manga/Model/ParsedChapterInfo.cs
 
-4. ParsingService.Map(parsedInfo, …)              Parser/ParsingService.cs
-   → RemoteEpisode                                Parser/Model/RemoteEpisode.cs
-     • Series (matched in DB by title/scene mapping)
-     • Episodes (resolved from season/episode numbers)
-     • ParsedEpisodeInfo
+4. MangaParsingService.Map(parsedInfo, …)         Parser/Manga/MangaParsingService.cs
+   → RemoteChapter                                Parser/Manga/Model/RemoteChapter.cs
+     • Manga (matched in DB by title)
+     • Chapters (resolved from chapter numbers)
+     • ParsedChapterInfo
      • Release info passed through
 
-5. DecisionEngine.GetDecision(remoteEpisodes)      DecisionEngine/DownloadDecisionMaker.cs
-   For each release, run ALL Specifications in order:
-   ├─ MonitoredEpisodeSpecification
-   ├─ QualityAllowedByProfileSpecification
-   ├─ CutoffSpecification (already-met-quality check)
-   ├─ UpgradableSpecification (compare with current file)
-   ├─ HistorySpecification (recently failed?)
+5. MangaDownloadDecisionMaker.GetDecisions(...)    DecisionEngine/Manga/MangaDownloadDecisionMaker.cs
+   For each release, run ALL manga Specifications in order
+   (under DecisionEngine/Manga/Specifications/):
+   ├─ MangaSpecification
+   ├─ ChapterRequestedSpecification
+   ├─ AlreadyImportedChapterSpecification
    ├─ BlocklistSpecification
-   ├─ AcceptableSizeSpecification
-   ├─ SeasonPackOnlySpecification
-   ├─ TorrentSeedingSpecification
-   ├─ CustomFormatAllowedByProfileSpecification
-   ├─ … (~30 specs total under DecisionEngine/Specifications/)
-   →  DownloadDecision (Approved | Rejected with reason)
+   ├─ AcceptableSizeSpecification / MaximumSizeSpecification
+   ├─ MinimumAgeSpecification
+   ├─ LanguageInTranslationProfileSpecification
+   ├─ CustomFormatMinimumScoreSpecification
+   ├─ DeletedChapterFileSpecification
+   └─ … (manga decision specs)
+   →  MangaDownloadDecision (Approved | Rejected with reason)
 
-6. Sort approved decisions                         DecisionEngine/DownloadDecisionComparer.cs
-   (by quality, custom format score, age, size, peers)
+6. Sort approved decisions                         DecisionEngine/Manga/MangaDownloadDecisionComparer.cs
+   (by translation profile, custom format score, age, size)
 
 7. DownloadService.DownloadReport(decision)         Download/DownloadService.cs
-   → IDownloadClient.Download(remoteEpisode)
+   → IDownloadClient.Download(remoteChapter)
 
 8. Track download                                  Download/TrackedDownloads/TrackedDownloadService.cs
 
 9. CompletedDownloadService monitors completion    Download/CompletedDownloadService.cs
 
-10. ImportApprovedEpisodes — runs ImportSpecs       MediaFiles/EpisodeImport/ImportApprovedEpisodes.cs
-    ├─ NotSampleSpecification
-    ├─ MatchesFolderSpecification
-    └─ … (more import specs)
+10. ImportApprovedChapters — runs import specs      MediaFiles/MangaImport/ImportApprovedChapters.cs
 
-11. EpisodeFile created, file moved/renamed         MediaFiles/EpisodeFile.cs
-    Organizer.FileNameBuilder builds path           Organizer/FileNameBuilder.cs
+11. ChapterFile created, file moved/renamed         MediaFiles/ChapterFile.cs
+    MangaFileNameBuilder builds path                Organizer/Manga/MangaFileNameBuilder.cs
 
 12. Events published                                Messaging/Events/
-    ├─ EpisodeImportedEvent
-    ├─ EpisodeFileAddedEvent
+    ├─ ChapterImportedEvent                         MediaFiles/MangaImport/ChapterImportedEvent.cs
     └─ DownloadCompletedEvent
     → Notifications subscribe → user alerts
     → SignalR broadcasts → UI updates
@@ -285,8 +280,8 @@ public class MySpecification : IDownloadDecisionEngineSpecification
 ```
 
 All specs auto-discovered. Composable, independently testable. Same pattern used in:
-- Decision specs (`DecisionEngine/Specifications/`)
-- Import specs (`MediaFiles/EpisodeImport/Specifications/`)
+- Manga decision specs (`DecisionEngine/Manga/Specifications/`)
+- Manga import specs (`MediaFiles/MangaImport/Specifications/`)
 - CustomFormat specs (`CustomFormats/Specifications/`)
 - AutoTag specs (`AutoTagging/Specifications/`)
 
@@ -341,30 +336,32 @@ public class RefreshSeriesCommandExecutor : IExecute<RefreshSeriesCommand>
 
 Frontend issues commands via `POST /api/v5/command`, polls progress, receives completion via SignalR.
 
-## Domain Model Mapping (Mangarr → Mangarr)
+## Domain Model Mapping (Sonarr → Mangarr)
 
-| Mangarr Model | File | Mangarr Concept | Status |
-|-------------|------|-----------------|--------|
-| `Series` | [src/NzbDrone.Core/Tv/Series.cs](./src/NzbDrone.Core/Tv/Series.cs) | Manga | TVDb/IMDb/TmDB IDs + **MalIds, AniListIds added** |
-| `Season` (embedded) | [src/NzbDrone.Core/Tv/Season.cs](./src/NzbDrone.Core/Tv/Season.cs) | Volume (optional) | Tiny: `{SeasonNumber, Monitored, Images}` |
-| `Episode` | [src/NzbDrone.Core/Tv/Episode.cs](./src/NzbDrone.Core/Tv/Episode.cs) | Chapter | Has scene numbering, AirDate, Runtime, FinaleType |
-| `EpisodeFile` | [src/NzbDrone.Core/MediaFiles/EpisodeFile.cs](./src/NzbDrone.Core/MediaFiles/EpisodeFile.cs) | ChapterFile | Quality, Languages, IndexerFlags, ReleaseType |
+Sonarr's `Tv/` domain (`Series`/`Season`/`Episode`/`EpisodeFile`) was deleted in Phase 15 Plan 15-03 and replaced by the manga peers below. There is **no Season peer** — manga use a flat chapter list (PROJECT.md Out-of-Scope; `volumeNumber` is display-only on `Chapter`).
+
+| Mangarr Model | File | Sonarr Origin | Notes |
+|-------------|------|---------------|-------|
+| `Manga` | [src/NzbDrone.Core/Manga/Manga.cs](./src/NzbDrone.Core/Manga/Manga.cs) | `Series` | MangaDex/MAL/AniList IDs; TranslationProfileId + CustomFormatProfileId |
+| `Chapter` | [src/NzbDrone.Core/Manga/Chapter.cs](./src/NzbDrone.Core/Manga/Chapter.cs) | `Episode` | Chapter number, release date; no Season peer |
+| `ChapterFile` | [src/NzbDrone.Core/MediaFiles/ChapterFile.cs](./src/NzbDrone.Core/MediaFiles/ChapterFile.cs) | `EpisodeFile` | CBZ/CBR/folder artifact; Languages, CustomFormats |
 | `ReleaseInfo` | [src/NzbDrone.Core/Parser/Model/ReleaseInfo.cs](./src/NzbDrone.Core/Parser/Model/ReleaseInfo.cs) | (reusable) | Indexer-agnostic |
-| `RemoteEpisode` | [src/NzbDrone.Core/Parser/Model/RemoteEpisode.cs](./src/NzbDrone.Core/Parser/Model/RemoteEpisode.cs) | RemoteChapter | Wraps ReleaseInfo + matched Series/Episodes |
-| `ParsedEpisodeInfo` | [src/NzbDrone.Core/Parser/Model/ParsedEpisodeInfo.cs](./src/NzbDrone.Core/Parser/Model/ParsedEpisodeInfo.cs) | ParsedChapterInfo | Output of regex parsing |
+| `RemoteChapter` | [src/NzbDrone.Core/Parser/Manga/Model/RemoteChapter.cs](./src/NzbDrone.Core/Parser/Manga/Model/RemoteChapter.cs) | `RemoteEpisode` | Wraps ReleaseInfo + matched Manga/Chapters |
+| `ParsedChapterInfo` | [src/NzbDrone.Core/Parser/Manga/Model/ParsedChapterInfo.cs](./src/NzbDrone.Core/Parser/Manga/Model/ParsedChapterInfo.cs) | `ParsedEpisodeInfo` | Output of regex parsing |
 
-### Series.cs Properties (Current State)
+### Manga.cs Properties (Current State)
 
-The `Series` class extends `ModelBase` and has **40 properties** including (already manga-aware in places):
+The `Manga` class extends `ModelBase` and includes:
 
-- IDs: `TvdbId`, `TvRageId`, `TvMazeId`, `ImdbId`, `TmdbId`, **`MalIds`**, **`AniListIds`**
-- Metadata: `Title`, `CleanTitle`, `SortTitle`, `Overview`, `AirTime`, `TitleSlug`, `Network`, `OriginalLanguage`, `OriginalCountry`
-- Status: `Status` (SeriesStatusType), `Monitored`, `MonitorNewItems`
-- Quality/Content: `QualityProfileId`, `SeriesType`, `Certification`, `Genres`, `Actors`, `Year`, `Runtime`
+- IDs: **`MangaDexId`**, **`MalId`**, **`AniListId`**
+- Profiles: `TranslationProfileId`, `CustomFormatProfileId`, `UpgradeAllowedOverride`
+- Metadata: `Title`, `CleanTitle`, `SortTitle`, `AlternativeTitles`, `TitleSlug`, `Overview`, `Genres`, `Artist`, `PrimaryAuthor`, `PublicationYear`, `Demographic`, `ContentRating`
+- Status: `Status` (ongoing/completed/hiatus/cancelled/deleted), `Monitored`, `MonitorNewItems`
 - Paths: `Path`, `RootFolderPath`
-- Dates: `Added`, `FirstAired`, `LastAired`, `LastInfoSync`
-- Collections: `Images`, `Seasons` (embedded), `Tags`, `Ratings`
-- Other: `UseSceneNumbering`, `SeasonFolder`
+- Dates: `Added`, `LastInfoSync`
+- Collections: `Images`, `Tags`
+- Counts: `TotalChapterCount`
+- Other: `AddOptions`
 
 ## Key Files Reference
 
@@ -375,21 +372,20 @@ The `Series` class extends `ModelBase` and has **40 properties** including (alre
 - **ASP.NET Startup (DI + middleware)**: [src/NzbDrone.Host/Startup.cs](./src/NzbDrone.Host/Startup.cs)
 
 ### Core Domain
-- **Series model**: [src/NzbDrone.Core/Tv/Series.cs](./src/NzbDrone.Core/Tv/Series.cs)
-- **Episode model**: [src/NzbDrone.Core/Tv/Episode.cs](./src/NzbDrone.Core/Tv/Episode.cs)
-- **Season embedded doc**: [src/NzbDrone.Core/Tv/Season.cs](./src/NzbDrone.Core/Tv/Season.cs)
-- **EpisodeFile**: [src/NzbDrone.Core/MediaFiles/EpisodeFile.cs](./src/NzbDrone.Core/MediaFiles/EpisodeFile.cs)
-- **Parser**: [src/NzbDrone.Core/Parser/Parser.cs](./src/NzbDrone.Core/Parser/Parser.cs) — **regex-heavy file** (~71 KB)
-- **Decision Engine**: [src/NzbDrone.Core/DecisionEngine/DownloadDecisionMaker.cs](./src/NzbDrone.Core/DecisionEngine/DownloadDecisionMaker.cs)
+- **Manga model**: [src/NzbDrone.Core/Manga/Manga.cs](./src/NzbDrone.Core/Manga/Manga.cs)
+- **Chapter model**: [src/NzbDrone.Core/Manga/Chapter.cs](./src/NzbDrone.Core/Manga/Chapter.cs)
+- **ChapterFile**: [src/NzbDrone.Core/MediaFiles/ChapterFile.cs](./src/NzbDrone.Core/MediaFiles/ChapterFile.cs)
+- **Manga parser**: [src/NzbDrone.Core/Parser/Manga/MangaParser.cs](./src/NzbDrone.Core/Parser/Manga/MangaParser.cs) — **regex-heavy**
+- **Decision Engine**: [src/NzbDrone.Core/DecisionEngine/Manga/MangaDownloadDecisionMaker.cs](./src/NzbDrone.Core/DecisionEngine/Manga/MangaDownloadDecisionMaker.cs)
 - **Repository base**: [src/NzbDrone.Core/Datastore/BasicRepository.cs](./src/NzbDrone.Core/Datastore/BasicRepository.cs)
 - **ModelBase**: [src/NzbDrone.Core/Datastore/ModelBase.cs](./src/NzbDrone.Core/Datastore/ModelBase.cs) — single `Id` property
 - **EventAggregator**: [src/NzbDrone.Core/Messaging/Events/IEventAggregator.cs](./src/NzbDrone.Core/Messaging/Events/IEventAggregator.cs)
 
 ### API Layer
-- **V5 Controllers**: `src/Mangarr.Api.V5/` — 44 controllers
+- **V5 Controllers**: `src/Mangarr.Api.V5/` — sole REST surface (V3 wholesale-deleted Phase 15 Plan 15-06)
 - **REST base**: [src/Mangarr.Http/REST/RestController.cs](./src/Mangarr.Http/REST/RestController.cs)
 - **Auth**: [src/Mangarr.Http/Authentication/AuthenticationService.cs](./src/Mangarr.Http/Authentication/AuthenticationService.cs)
-- **Error pipeline**: [src/Mangarr.Http/ErrorManagement/SonarrErrorPipeline.cs](./src/Mangarr.Http/ErrorManagement/SonarrErrorPipeline.cs)
+- **Error pipeline**: [src/Mangarr.Http/ErrorManagement/MangarrErrorPipeline.cs](./src/Mangarr.Http/ErrorManagement/MangarrErrorPipeline.cs)
 
 ### SignalR
 - **Hub**: [src/NzbDrone.SignalR/MessageHub.cs](./src/NzbDrone.SignalR/MessageHub.cs) (class is `MessageHub`, not `SonarrHub`)
@@ -414,8 +410,8 @@ The `Series` class extends `ModelBase` and has **40 properties** including (alre
 | Store | Purpose | Persistence | Example |
 |-------|---------|-------------|---------|
 | **Redux** | App-wide settings, custom filters, commands, captcha | Some via custom middleware | `state.settings.ui` |
-| **Zustand** | Per-feature view options (poster size, sort, filter) | localStorage via `persist` | `seriesOptionsStore` |
-| **React Query** | Server state cache (API responses) | Memory only, configurable staleTime | `useApiQuery({ queryKey: ['/series'] })` |
+| **Zustand** | Per-feature view options (poster size, sort, filter) | localStorage via `persist` | `mangaOptionsStore` |
+| **React Query** | Server state cache (API responses) | Memory only, configurable staleTime | `useApiQuery({ queryKey: ['/manga'] })` |
 
 Most new feature work prefers **Zustand + React Query** over Redux. Redux remains because legacy settings/profiles flows are deeply integrated with it.
 
@@ -423,20 +419,20 @@ Most new feature work prefers **Zustand + React Query** over Redux. Redux remain
 
 | Path | Component | Section |
 |------|-----------|---------|
-| `/` | SeriesIndex | Series (Home) |
-| `/add/new` | AddNewSeries | Add |
-| `/add/import` | ImportSeriesPage | Add |
-| `/series/:titleSlug` | SeriesDetailsPage | Series detail |
+| `/` | MangaIndex | Manga (Home) |
+| `/add/manga` | AddNewManga | Add |
+| `/add/import` | ImportMangaPage | Add |
+| `/manga/:titleSlug` | (manga details) | Manga detail |
 | `/calendar` | CalendarPage | Calendar |
-| `/activity/history` | History | Activity |
-| `/activity/queue` | Queue | Activity |
-| `/activity/blocklist` | Blocklist | Activity |
-| `/wanted/missing` | Missing | Wanted |
-| `/wanted/cutoffunmet` | CutoffUnmet | Wanted |
+| `/manga/activity/history` | MangaHistory | Activity |
+| `/manga/activity/queue` | MangaQueue | Activity |
+| `/manga/activity/blocklist` | MangaBlocklist | Activity |
+| `/manga/wanted/missing` | MangaMissing | Wanted |
+| `/manga/wanted/cutoffunmet` | MangaCutoffUnmet | Wanted |
 | `/settings` | Settings | Settings home |
 | `/settings/mediamanagement` | MediaManagement | Settings |
 | `/settings/profiles` | Profiles | Settings |
-| `/settings/quality` | Quality | Settings |
+| `/settings/customformatprofiles` | (custom format profiles) | Settings |
 | `/settings/customformats` | CustomFormatSettingsPage | Settings |
 | `/settings/indexers` | IndexerSettings | Settings |
 | `/settings/downloadclients` | DownloadClientSettings | Settings |
@@ -474,13 +470,13 @@ Webpack builds to `_output/UI/` (not `frontend/dist/`). The C# `Mangarr.Http.Fro
 ## Database
 
 ### Two databases (separate files):
-1. **Main** (`sonarr.db`): All entity tables (Series, Episodes, EpisodeFiles, History, Indexers, etc.)
+1. **Main** (`mangarr.db`): All entity tables (Manga, Chapters, ChapterFiles, History, Indexers, etc.)
 2. **Logs** (`logs.db`): Application log records
 
 ### Migration system:
 - **Engine**: FluentMigrator
 - **Path**: `src/NzbDrone.Core/Datastore/Migration/`
-- **Naming**: Sequential `NNN_description.cs` (currently `000_…` through `223_…`)
+- **Naming**: Sequential `NNN_description.cs` (currently `001_mangarr_baseline.cs` through `007_…`; pre-v1 dev-migration policy edits the baseline in place pre-v1.0.0)
 - **Style**: Each file is a class extending `NzbDroneMigrationBase`, with `protected override void MainDbUpgrade()`
 - Migrations run automatically on startup before service registration completes.
 
@@ -518,7 +514,7 @@ Application: **http://localhost:8989**
 |-----------|---------------|
 | Root Project | [CLAUDE.md](./CLAUDE.md) |
 | NzbDrone.Core | [src/NzbDrone.Core/CLAUDE.md](./src/NzbDrone.Core/CLAUDE.md) |
-| Tv (domain) | [src/NzbDrone.Core/Tv/CLAUDE.md](./src/NzbDrone.Core/Tv/CLAUDE.md) |
+| Manga (domain) | [src/NzbDrone.Core/Manga/CLAUDE.md](./src/NzbDrone.Core/Manga/CLAUDE.md) |
 | Parser | [src/NzbDrone.Core/Parser/CLAUDE.md](./src/NzbDrone.Core/Parser/CLAUDE.md) |
 | DecisionEngine | [src/NzbDrone.Core/DecisionEngine/CLAUDE.md](./src/NzbDrone.Core/DecisionEngine/CLAUDE.md) |
 | Indexers | [src/NzbDrone.Core/Indexers/CLAUDE.md](./src/NzbDrone.Core/Indexers/CLAUDE.md) |
@@ -532,5 +528,5 @@ Application: **http://localhost:8989**
 | NzbDrone.Host | [src/NzbDrone.Host/CLAUDE.md](./src/NzbDrone.Host/CLAUDE.md) |
 | Frontend | [frontend/CLAUDE.md](./frontend/CLAUDE.md) |
 | Frontend App | [frontend/src/App/CLAUDE.md](./frontend/src/App/CLAUDE.md) |
-| Frontend Series | [frontend/src/Series/CLAUDE.md](./frontend/src/Series/CLAUDE.md) |
+| Frontend Manga | [frontend/src/Manga/CLAUDE.md](./frontend/src/Manga/CLAUDE.md) |
 | Frontend Settings | [frontend/src/Settings/CLAUDE.md](./frontend/src/Settings/CLAUDE.md) |

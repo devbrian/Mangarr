@@ -86,5 +86,5 @@ This sub-tree is manga-canonical and stays. The legacy `Settings/Profiles/Qualit
 - [../../Settings.tsx](../../Settings.tsx) — left-nav CustomFormatProfiles row added in Phase 7 D-05
 - [../../../App/AppRoutes.tsx](../../../App/AppRoutes.tsx) — `/settings/customformatprofiles` route registered here
 - [../../CLAUDE.md](../../CLAUDE.md) — Settings sub-tree overview + D-05 topology rework
-- [../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-07-PLAN.md](../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-07-PLAN.md) — plan body
-- [../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md](../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md) — D-07 CustomFormatProfile entity decisions; D-10 mediaType=manga filter
+- [07-07-PLAN.md](../../../../../.planning/phases/07-api-v5-frontend-manga-shell/07-07-PLAN.md) — plan body
+- [05-CONTEXT.md](../../../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md) — D-07 CustomFormatProfile entity decisions; D-10 mediaType=manga filter

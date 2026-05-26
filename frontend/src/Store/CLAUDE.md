@@ -118,4 +118,4 @@ This project uses a **hybrid approach**:
 ## Cross-References
 
 - [frontend/CLAUDE.md](../../CLAUDE.md) - Frontend overview
-- [Series/CLAUDE.md](../Series/CLAUDE.md) - Feature using both Redux and Zustand
+- [Manga/CLAUDE.md](../Manga/CLAUDE.md) - Feature using both Redux and Zustand (Sonarr `Series/` deleted Phase 17.3 Plan 17.3-13)
