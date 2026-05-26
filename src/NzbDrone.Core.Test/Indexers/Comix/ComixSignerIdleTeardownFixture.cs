@@ -21,7 +21,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
     /// must cold-spawn (Browser launch + page load + probe) again.
     ///
     /// <para>
-    /// Test override pattern: subclasses <c>ComixPuppeteerSigner</c> with a
+    /// Test override pattern: subclasses <c>ComixPlaywrightSigner</c> with a
     /// <c>protected override TimeSpan IdleTimeout =&gt; TimeSpan.FromMilliseconds(50);</c>
     /// override to keep tests fast. D-12 keeps the production const at 10 min; the
     /// fixture override is the test-only knob.
@@ -34,7 +34,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         // seams so the test can drive the lifecycle without a real Chromium child.
         // Uses Moq's IBrowser mock to satisfy the production code's _browser field shape;
         // CloseAsync flips a flag the test asserts on.
-        private class FastIdleSigner : ComixPuppeteerSigner
+        private class FastIdleSigner : ComixPlaywrightSigner
         {
             public int LaunchCount;
             public int CloseCount;
@@ -103,28 +103,28 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // ── Private base-field accessors for test wiring ─────────────────────────
             private SemaphoreSlim GetGateField()
             {
-                var f = typeof(ComixPuppeteerSigner).GetField("_gate",
+                var f = typeof(ComixPlaywrightSigner).GetField("_gate",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 return (SemaphoreSlim)f.GetValue(this);
             }
 
             private void SetBrowserField(IBrowser browser)
             {
-                var f = typeof(ComixPuppeteerSigner).GetField("_browser",
+                var f = typeof(ComixPlaywrightSigner).GetField("_browser",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 f.SetValue(this, browser);
             }
 
             private IBrowser GetBrowserField()
             {
-                var f = typeof(ComixPuppeteerSigner).GetField("_browser",
+                var f = typeof(ComixPlaywrightSigner).GetField("_browser",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 return (IBrowser)f.GetValue(this);
             }
 
             private void InvokeReArmIdleTimer()
             {
-                var m = typeof(ComixPuppeteerSigner).GetMethod("ReArmIdleTimer",
+                var m = typeof(ComixPlaywrightSigner).GetMethod("ReArmIdleTimer",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 m.Invoke(this, null);
             }
@@ -158,7 +158,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // observable; the 300 ms + 100 ms waits below are comfortably past it.
             var subject = new FastIdleSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"),
+                LogManager.GetLogger("ComixPlaywrightSigner"),
                 TimeSpan.FromMilliseconds(50));
 
             await subject.ProxyFetchAsync("/manga/test/chapters").ConfigureAwait(false);
@@ -194,7 +194,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // where a 20 ms delay could balloon past a 50 ms timeout under scheduler pressure.
             var subject = new FastIdleSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"),
+                LogManager.GetLogger("ComixPlaywrightSigner"),
                 TimeSpan.FromSeconds(5));
 
             for (var i = 0; i < 5; i++)

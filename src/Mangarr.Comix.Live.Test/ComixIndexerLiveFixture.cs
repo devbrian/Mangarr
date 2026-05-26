@@ -11,7 +11,7 @@ namespace Mangarr.Comix.Live.Test
 {
     /// <summary>
     /// End-to-end live acceptance test for <see cref="ComixIndexer.Fetch(MangaSearchCriteria)"/>
-    /// against real comix.to. Composes the real <see cref="ComixPuppeteerSigner"/> +
+    /// against real comix.to. Composes the real <see cref="ComixPlaywrightSigner"/> +
     /// real <see cref="ComixIndexer"/> (with AutoMoq-resolved dependencies for the non-
     /// signer leg — <c>IIndexerStatusService</c>, <c>IIndexerSourceStatusService</c>,
     /// <c>IConfigService</c>, <c>IMangaParsingService</c>, <c>IHttpClient</c>; the indexer
@@ -54,7 +54,7 @@ namespace Mangarr.Comix.Live.Test
     [LiveComix]
     public class ComixIndexerLiveFixture : TestBase<ComixIndexer>
     {
-        private ComixPuppeteerSigner _signer;
+        private ComixPlaywrightSigner _signer;
 
         [SetUp]
         public void SetUpRealSigner()
@@ -67,7 +67,7 @@ namespace Mangarr.Comix.Live.Test
             // touches the signer leg + the parser (zero IHttpClient hits because the
             // hid-resolver and chapter-list dispatch BOTH go through the signer now per
             // the 2026-05-23 env-module-oracle cascade fix).
-            _signer = Mocker.Resolve<ComixPuppeteerSigner>();
+            _signer = Mocker.Resolve<ComixPlaywrightSigner>();
             Mocker.SetConstant<IComixSigner>(_signer);
 
             Subject.Definition = new IndexerDefinition
@@ -87,7 +87,7 @@ namespace Mangarr.Comix.Live.Test
         {
             // PR #246 review (Codex P1 r3293171698): per-test dispose, NOT per-fixture.
             // [SetUp] (SetUpRealSigner) overwrites _signer with a fresh
-            // Mocker.Resolve<ComixPuppeteerSigner>() on every test (TestBase's [TearDown]
+            // Mocker.Resolve<ComixPlaywrightSigner>() on every test (TestBase's [TearDown]
             // nulls _mocker, so each test gets a brand-new Mocker → brand-new signer).
             // Disposing only in [OneTimeTearDown] orphans the prior (N-1) signers'
             // Chromium children.

@@ -7,7 +7,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
 {
     /// <summary>
     /// Regression lock for the oracle-bundle URL filter in
-    /// <c>ComixPuppeteerSigner.EnsureEnvModuleAsync</c>.
+    /// <c>ComixPlaywrightSigner.EnsureEnvModuleAsync</c>.
     ///
     /// <para>
     /// <b>Phase 33.3 (2026-05-25) — STRUCTURAL pivot.</b> comix.to rotates a per-build token across
@@ -30,7 +30,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             _signerSource = ReadCoreSource(
                 TestContext.CurrentContext.TestDirectory,
-                "src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs");
+                "src/NzbDrone.Core/Indexers/Comix/ComixPlaywrightSigner.cs");
         }
 
         private static string ReadCoreSource(string startDir, string relative)

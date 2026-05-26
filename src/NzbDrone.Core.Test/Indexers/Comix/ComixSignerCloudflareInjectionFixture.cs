@@ -53,7 +53,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         // Test subclass exposing the production protected-virtual clearance-resolution seam so the
         // REAL ResolveClearanceAsync body (config-gate + GetClearanceAsync + graceful-degrade) is
         // exercised without a real Chromium child.
-        private class InjectableSigner : ComixPuppeteerSigner
+        private class InjectableSigner : ComixPlaywrightSigner
         {
             public InjectableSigner(
                 IIndexerSourceStatusService s,
@@ -78,7 +78,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
                 Mocker.GetMock<ICloudflareClearanceService>().Object,
                 Mocker.GetMock<IConfigService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"));
+                LogManager.GetLogger("ComixPlaywrightSigner"));
 
         private void GivenSolverConfigured()
             => Mocker.GetMock<IConfigService>()
@@ -132,7 +132,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 httpOnly: true,
                 expiresAt: DateTimeOffset.UtcNow.AddMinutes(20));
 
-            var cookie = ComixPuppeteerSigner.BuildClearanceCookie(clearance);
+            var cookie = ComixPlaywrightSigner.BuildClearanceCookie(clearance);
 
             cookie.Name.Should().Be("cf_clearance");
             cookie.Value.Should().Be(ClearanceCookie);

@@ -18,7 +18,7 @@ namespace NzbDrone.Automation.Test.Tests.LiveService;
 /// dropping either silently removes the fixture from nightly coverage.
 ///
 /// Closes GH #101. Per the issue's 2026-05-23 update, **Option A** chosen:
-/// inherit <c>TestBase&lt;ComixPuppeteerSigner&gt;</c> from
+/// inherit <c>TestBase&lt;ComixPlaywrightSigner&gt;</c> from
 /// <c>NzbDrone.Test.Common</c> (AutoMoq-resolved signer subject) instead of
 /// <c>AutomationTest</c> (which boots the Mangarr backend via NzbDroneRunner).
 /// LiveService probes for the signer don't need the backend — they exercise the
@@ -36,7 +36,7 @@ namespace NzbDrone.Automation.Test.Tests.LiveService;
 [TestFixture]
 [Category("AutomationTest")]
 [Category("LiveService")]
-public class ComixSignerLiveFixture : TestBase<ComixPuppeteerSigner>
+public class ComixSignerLiveFixture : TestBase<ComixPlaywrightSigner>
 {
     [Test]
     public async Task ProxyFetchManga_returns_decoded_JSON_with_chapters_array()
@@ -86,7 +86,7 @@ public class ComixSignerLiveFixture : TestBase<ComixPuppeteerSigner>
     {
         // PR #246 review (Codex P1 r3293171698): per-test dispose, NOT per-fixture.
         // TestBase<T>'s [SetUp] (CoreTestSetup) nulls _subject and the Subject getter
-        // lazily resolves a fresh Mocker.Resolve<ComixPuppeteerSigner>() on next access.
+        // lazily resolves a fresh Mocker.Resolve<ComixPlaywrightSigner>() on next access.
         // Each test gets its own signer + its own Chromium child. Disposing only in
         // [OneTimeTearDown] orphans the prior (N-1) signers' Chromium children — observed
         // empirically as 16 leaked chrome.exe processes after a hung 3-test run in

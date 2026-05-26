@@ -194,7 +194,7 @@ namespace NzbDrone.Core.Indexers.Comix
     //   /api/v1/chapters/{id} -> { e: <encrypted> } -> decrypts in-page to chapter detail
     //   The .NET caller receives the production decrypt-wrap envelope:
     //     { result: { id, mangaId, number, volume, name, language, ..., pages: { baseUrl, items: [{width, height, url:relative}] } } }
-    //   See ComixPuppeteerSigner.EvaluateProxyFetchAsync line ~417 — the in-page IIFE
+    //   See ComixPlaywrightSigner.EvaluateProxyFetchAsync line ~417 — the in-page IIFE
     //   returns JSON.stringify({result: decoded.data}) on the encrypted-body path.
     //
     // Per-image absolute URLs are composed: `Pages.BaseUrl + Items[i].Url` (e.g.,
@@ -210,7 +210,7 @@ namespace NzbDrone.Core.Indexers.Comix
     {
         /// <summary>
         /// Phase 17 envelope: production wraps the decrypted chapter-detail under
-        /// <c>{result: &lt;decoded.data&gt;}</c> (per ComixPuppeteerSigner.EvaluateProxyFetchAsync
+        /// <c>{result: &lt;decoded.data&gt;}</c> (per ComixPlaywrightSigner.EvaluateProxyFetchAsync
         /// line ~417). On the unencrypted-body path, the raw chapter detail is the root —
         /// callers should fall back to <see cref="RootDetailId"/> + <see cref="RootPages"/>
         /// in that case.

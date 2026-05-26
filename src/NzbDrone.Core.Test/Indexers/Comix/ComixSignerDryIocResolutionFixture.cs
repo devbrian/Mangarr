@@ -13,14 +13,14 @@ namespace NzbDrone.Core.Test.Indexers.Comix
     /// Phase 17 Wave 1 fixture — DryIoc auto-discovery contract (revision iteration 1, W-3).
     /// Asserts the existing <c>RegisterMany</c> convention in
     /// <c>NzbDrone.Common/Composition/Extensions.cs:25-35</c> picks up
-    /// <c>ComixPuppeteerSigner</c> as the singleton implementation of
+    /// <c>ComixPlaywrightSigner</c> as the singleton implementation of
     /// <see cref="IComixSigner"/> WITHOUT requiring any explicit registration in
     /// <c>NzbDrone.Host/Bootstrap.cs</c>.
     ///
     /// <para>
     /// W-3 escape valve: if the registration assertion fails after Wave 1 ships
-    /// <c>ComixPuppeteerSigner</c>, the failure is the W-3 signal — file an explicit
-    /// <c>container.Register&lt;ComixPuppeteerSigner&gt;(Reuse.Singleton)</c> in a
+    /// <c>ComixPlaywrightSigner</c>, the failure is the W-3 signal — file an explicit
+    /// <c>container.Register&lt;ComixPlaywrightSigner&gt;(Reuse.Singleton)</c> in a
     /// Bootstrap module (NOT on the impl class) and re-run. Document in
     /// <c>17-02-SUMMARY.md</c>.
     /// </para>
@@ -69,18 +69,18 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 reuse: Reuse.Transient);
 
             // Replace the convention-resolved IIndexerSourceStatusService with a mock so
-            // ComixPuppeteerSigner can be Resolve'd at fixture-level without dragging in
+            // ComixPlaywrightSigner can be Resolve'd at fixture-level without dragging in
             // the IDatabase / SQLite chain (which Mangarr.Host wires explicitly at boot).
             container.RegisterInstance<IIndexerSourceStatusService>(
                 new Mock<IIndexerSourceStatusService>().Object,
                 ifAlreadyRegistered: IfAlreadyRegistered.Replace);
 
-            // NLog Logger is needed by ComixPuppeteerSigner's ctor; provide one.
+            // NLog Logger is needed by ComixPlaywrightSigner's ctor; provide one.
             container.RegisterInstance<Logger>(
-                LogManager.GetLogger("ComixPuppeteerSigner"),
+                LogManager.GetLogger("ComixPlaywrightSigner"),
                 ifAlreadyRegistered: IfAlreadyRegistered.Replace);
 
-            // Phase 33.2 (D-02): ComixPuppeteerSigner now also takes IConfigService (for the
+            // Phase 33.2 (D-02): ComixPlaywrightSigner now also takes IConfigService (for the
             // empty-CloudflareSolverUrl off switch) and ICloudflareClearanceService. The real
             // ConfigService impl drags in the IConfigRepository / IDatabase / SQLite chain that
             // Mangarr.Host wires explicitly at boot (out of scope for this reachability check),
@@ -108,27 +108,27 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         }
 
         [Test]
-        public void Resolved_IComixSigner_should_be_ComixPuppeteerSigner()
+        public void Resolved_IComixSigner_should_be_ComixPlaywrightSigner()
         {
             using var container = BuildRealContainer();
             var signer = container.Resolve<IComixSigner>();
 
             // Concrete impl name pinned by Phase 17 D-05 / Wave 1 Plan 17-02 Task 1a.
-            signer.GetType().FullName.Should().Be("NzbDrone.Core.Indexers.Comix.ComixPuppeteerSigner");
+            signer.GetType().FullName.Should().Be("NzbDrone.Core.Indexers.Comix.ComixPlaywrightSigner");
         }
 
         [Test]
-        public void Container_should_register_ComixPuppeteerSigner_concrete_class()
+        public void Container_should_register_ComixPlaywrightSigner_concrete_class()
         {
             // Phase 17 W-3 contract: existing RegisterMany convention yields
             // singleton-via-interface AND concrete-class registration.
             //
-            // If this assertion fails after Wave 1 ships ComixPuppeteerSigner, an explicit
-            //   container.Register<ComixPuppeteerSigner>(Reuse.Singleton)
+            // If this assertion fails after Wave 1 ships ComixPlaywrightSigner, an explicit
+            //   container.Register<ComixPlaywrightSigner>(Reuse.Singleton)
             // must be added to a Bootstrap module — NOT to the impl class.
             using var container = BuildRealContainer();
             var asm = typeof(IComixSigner).Assembly;
-            var concreteType = asm.GetType("NzbDrone.Core.Indexers.Comix.ComixPuppeteerSigner");
+            var concreteType = asm.GetType("NzbDrone.Core.Indexers.Comix.ComixPlaywrightSigner");
             concreteType.Should().NotBeNull("Plan 17-02 Task 1a must land the concrete class");
 
             container.IsRegistered(concreteType).Should().BeTrue(
@@ -155,7 +155,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
 
             var comixCassetteDir = System.IO.Path.GetTempPath();
             var parsedMode = CassetteMode.Replay;
-            var realSigner = container.Resolve<ComixPuppeteerSigner>();
+            var realSigner = container.Resolve<ComixPlaywrightSigner>();
 
             container.RegisterDelegate<IComixSigner>(
                 _ => new CassettingComixSigner(comixCassetteDir, parsedMode, realSigner),

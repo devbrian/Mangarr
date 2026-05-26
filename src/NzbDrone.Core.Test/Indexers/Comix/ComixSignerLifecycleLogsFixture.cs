@@ -39,7 +39,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         // Probe-success subclass — lets the lifecycle-Info line emit without spinning a
         // real Chromium child. We override LaunchAndProbeAsync to set the browser/page
         // fields directly + emit the success log via the production logger.
-        private class SuccessfulProbeSigner : ComixPuppeteerSigner
+        private class SuccessfulProbeSigner : ComixPlaywrightSigner
         {
             public SuccessfulProbeSigner(IIndexerSourceStatusService s, Logger l)
                 : base(s, new Moq.Mock<NzbDrone.Core.Indexers.Cloudflare.ICloudflareClearanceService>().Object, new Moq.Mock<NzbDrone.Core.Configuration.IConfigService>().Object, l)
@@ -68,14 +68,14 @@ namespace NzbDrone.Core.Test.Indexers.Comix
 
             private void SetBrowserField(IBrowser browser)
             {
-                var f = typeof(ComixPuppeteerSigner).GetField("_browser",
+                var f = typeof(ComixPlaywrightSigner).GetField("_browser",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 f.SetValue(this, browser);
             }
 
             private Logger GetLoggerField()
             {
-                var f = typeof(ComixPuppeteerSigner).GetField("_logger",
+                var f = typeof(ComixPlaywrightSigner).GetField("_logger",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 return (Logger)f.GetValue(this);
             }
@@ -83,7 +83,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
 
         // Probe-failure subclass — every probe attempt throws. Used to exercise the
         // probe-failure Warn line.
-        private class ProbeFailingSigner : ComixPuppeteerSigner
+        private class ProbeFailingSigner : ComixPlaywrightSigner
         {
             public ProbeFailingSigner(IIndexerSourceStatusService s, Logger l)
                 : base(s, new Moq.Mock<NzbDrone.Core.Indexers.Cloudflare.ICloudflareClearanceService>().Object, new Moq.Mock<NzbDrone.Core.Configuration.IConfigService>().Object, l)
@@ -120,7 +120,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             var subject = new SuccessfulProbeSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"));
+                LogManager.GetLogger("ComixPlaywrightSigner"));
 
             await subject.ProxyFetchAsync("/manga/test/chapters").ConfigureAwait(false);
 
@@ -142,7 +142,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             var subject = new ProbeFailingSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"));
+                LogManager.GetLogger("ComixPlaywrightSigner"));
 
             Func<Task> act = () => subject.ProxyFetchAsync("/manga/test/chapters");
             await act.Should().ThrowAsync<HttpRequestException>();

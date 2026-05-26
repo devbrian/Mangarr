@@ -26,7 +26,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
     {
         // ThrowingSigner: every LaunchBrowserAsync attempt throws. Used to exercise
         // the fail-soft + RecordFailure path without a real Chromium child.
-        private class ThrowingSigner : ComixPuppeteerSigner
+        private class ThrowingSigner : ComixPlaywrightSigner
         {
             public int LaunchAttempts;
 
@@ -45,7 +45,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         // RecoveringSigner: throws on the first launch attempt, succeeds on the second
         // (after RecordFailure is called and the next request retries from cold).
         // Uses a Mock<IBrowser> with no real Chromium.
-        private class RecoveringSigner : ComixPuppeteerSigner
+        private class RecoveringSigner : ComixPlaywrightSigner
         {
             public int LaunchAttempts;
 
@@ -77,7 +77,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
 
             private void SetBrowserField(IBrowser browser)
             {
-                var f = typeof(ComixPuppeteerSigner).GetField("_browser",
+                var f = typeof(ComixPlaywrightSigner).GetField("_browser",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 f.SetValue(this, browser);
             }
@@ -88,7 +88,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             var subject = new ThrowingSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"));
+                LogManager.GetLogger("ComixPlaywrightSigner"));
 
             Func<Task> act = () => subject.ProxyFetchAsync("/manga/test/chapters");
             await act.Should().ThrowAsync<HttpRequestException>();
@@ -103,7 +103,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             var subject = new RecoveringSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"));
+                LogManager.GetLogger("ComixPlaywrightSigner"));
 
             // First call throws (LaunchAttempts == 1, throws inside LaunchAndProbeAsync).
             Func<Task> act1 = () => subject.ProxyFetchAsync("/manga/test/chapters");
@@ -132,7 +132,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // unhandled exception, no FailFast — exception flows to caller via Task throw.
             var subject = new ThrowingSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"));
+                LogManager.GetLogger("ComixPlaywrightSigner"));
 
             Func<Task> act = () => subject.ProxyFetchAsync("/manga/test/chapters");
             await act.Should().ThrowAsync<HttpRequestException>(

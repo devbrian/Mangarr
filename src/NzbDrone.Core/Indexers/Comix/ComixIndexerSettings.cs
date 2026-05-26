@@ -76,7 +76,7 @@ namespace NzbDrone.Core.Indexers.Comix
         // D-04 (Phase 33.2): per-indexer "Use Cloudflare Solver" toggle, default ON. comix.to is
         // Cloudflare-protected and routinely throws managed challenges (6th anti-bot event in ~2 weeks
         // per GH #266). When a global solver URL (IConfigService.CloudflareSolverUrl) is configured,
-        // ComixPuppeteerSigner injects the cleared (cf_clearance cookie, matched UA) before navigating so
+        // ComixPlaywrightSigner injects the cleared (cf_clearance cookie, matched UA) before navigating so
         // the env-module capture loads past "Just a moment". Auto-rendered as a checkbox by SchemaBuilder
         // from the attribute alone — no frontend change. The `= true` initializer matches the existing
         // field-defaulting style. NOTE: the process-singleton signer gates on the GLOBAL empty-URL switch

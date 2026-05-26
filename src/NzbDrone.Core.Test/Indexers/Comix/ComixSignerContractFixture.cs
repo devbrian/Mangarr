@@ -14,7 +14,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
     /// <summary>
     /// Phase 17 Wave 1 fixture — interface/shape contract for the runtime signer.
     /// Reflection-based: keeps Wave 0's compile-without-concrete-type contract intact,
-    /// and at runtime asserts the concrete <c>ComixPuppeteerSigner</c> exists and
+    /// and at runtime asserts the concrete <c>ComixPlaywrightSigner</c> exists and
     /// matches the expected shape (Plan 17-02 Task 1a output).
     /// </summary>
     [TestFixture]
@@ -25,7 +25,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // Look up by full type name from the loaded NzbDrone.Core assembly so we don't
             // take a compile-time dependency on the not-yet-existent class.
             var asm = typeof(IComixSigner).Assembly;
-            return asm.GetType("NzbDrone.Core.Indexers.Comix.ComixPuppeteerSigner", throwOnError: false);
+            return asm.GetType("NzbDrone.Core.Indexers.Comix.ComixPlaywrightSigner", throwOnError: false);
         }
 
         [Test]
@@ -33,7 +33,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             var t = ResolveConcreteType();
             t.Should().NotBeNull(
-                "Plan 17-02 Task 1a lands NzbDrone.Core.Indexers.Comix.ComixPuppeteerSigner; " +
+                "Plan 17-02 Task 1a lands NzbDrone.Core.Indexers.Comix.ComixPlaywrightSigner; " +
                 "absence here means Wave 1 did not ship the concrete impl.");
         }
 
@@ -43,7 +43,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             var t = ResolveConcreteType();
             t.Should().NotBeNull();
             typeof(IComixSigner).IsAssignableFrom(t).Should().BeTrue(
-                "ComixPuppeteerSigner must implement IComixSigner per Phase 17 D-05.");
+                "ComixPlaywrightSigner must implement IComixSigner per Phase 17 D-05.");
         }
 
         [Test]
@@ -52,7 +52,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             var t = ResolveConcreteType();
             t.Should().NotBeNull();
             typeof(IDisposable).IsAssignableFrom(t).Should().BeTrue(
-                "ComixPuppeteerSigner must implement IDisposable for clean Browser teardown per D-05.");
+                "ComixPlaywrightSigner must implement IDisposable for clean Browser teardown per D-05.");
         }
 
         [Test]
@@ -61,7 +61,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             var t = ResolveConcreteType();
             t.Should().NotBeNull();
             typeof(IHandle<ApplicationShutdownRequested>).IsAssignableFrom(t).Should().BeTrue(
-                "ComixPuppeteerSigner must implement IHandle<ApplicationShutdownRequested> per D-05.");
+                "ComixPlaywrightSigner must implement IHandle<ApplicationShutdownRequested> per D-05.");
         }
 
         [Test]

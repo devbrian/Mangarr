@@ -37,7 +37,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         // whether each EvaluateProxyFetchAsync attempt throws. Lets us drive the lazy
         // reprobe's path-(a) "first throw → retry succeeds" + path-(b) "both throw →
         // RecordFailure + rethrow" without a real Chromium child.
-        private class ReprobableSigner : ComixPuppeteerSigner
+        private class ReprobableSigner : ComixPlaywrightSigner
         {
             public int LaunchCount;
             public int EvalCount;
@@ -75,7 +75,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
 
             private void SetBrowserField(IBrowser browser)
             {
-                var f = typeof(ComixPuppeteerSigner).GetField("_browser",
+                var f = typeof(ComixPlaywrightSigner).GetField("_browser",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 f.SetValue(this, browser);
             }
@@ -107,7 +107,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             var subject = new ReprobableSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"))
+                LogManager.GetLogger("ComixPlaywrightSigner"))
             {
                 ShouldThrow = n => n == 1,
             };
@@ -128,7 +128,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             var subject = new ReprobableSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"))
+                LogManager.GetLogger("ComixPlaywrightSigner"))
             {
                 ShouldThrow = _ => true,   // every call throws
             };
@@ -154,7 +154,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             const string ApiPath = "/manga/sensitive_token_value/chapters";
             var subject = new ReprobableSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"))
+                LogManager.GetLogger("ComixPlaywrightSigner"))
             {
                 ShouldThrow = n => n == 1,
             };

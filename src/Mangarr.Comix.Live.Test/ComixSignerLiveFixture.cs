@@ -19,16 +19,16 @@ namespace Mangarr.Comix.Live.Test
     // See .planning/phases/17-comix-runtime-signer-port-puppeteersharp/17-CONTEXT.md D-17/D-18.
     //
     // Implementation note (Plan 17-04 Task 1, deviation Rule 3): plan body literal said
-    // `CoreTest<ComixPuppeteerSigner>` but `CoreTest<T>` lives in `Mangarr.Core.Test.csproj`
+    // `CoreTest<ComixPlaywrightSigner>` but `CoreTest<T>` lives in `Mangarr.Core.Test.csproj`
     // (NOT `Mangarr.Test.Common.csproj`); referencing the Core test project from a
     // sibling test project introduces brittle test-resource bleed. Switched to
     // `TestBase<TSubject>` (`NzbDrone.Test.Common`) which provides `Subject` + `Mocker`
     // identically to CoreTest<T> for the live-fixture purpose (auto-resolve the
-    // ComixPuppeteerSigner subject via AutoMoq, then exercise its real Chromium child
+    // ComixPlaywrightSigner subject via AutoMoq, then exercise its real Chromium child
     // against live comix.to).
     [TestFixture]
     [LiveComix]
-    public class ComixSignerLiveFixture : TestBase<ComixPuppeteerSigner>
+    public class ComixSignerLiveFixture : TestBase<ComixPlaywrightSigner>
     {
         [Test]
         public async Task ProxyFetchManga_returns_decoded_JSON_with_chapters_array()
@@ -78,7 +78,7 @@ namespace Mangarr.Comix.Live.Test
         {
             // PR #246 review (Codex P1 r3293171698): per-test dispose, NOT per-fixture.
             // TestBase<T>'s [SetUp] (CoreTestSetup) nulls _subject and the Subject getter
-            // lazily resolves a fresh Mocker.Resolve<ComixPuppeteerSigner>() on next access.
+            // lazily resolves a fresh Mocker.Resolve<ComixPlaywrightSigner>() on next access.
             // Each test gets its own signer + its own Chromium child. Disposing only in
             // [OneTimeTearDown] orphans the prior (N-1) signers' Chromium children.
             Subject?.Dispose();

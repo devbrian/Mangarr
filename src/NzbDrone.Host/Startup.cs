@@ -330,7 +330,7 @@ namespace NzbDrone.Host
             //   Production-safety guard: env vars unset / empty / unparseable → the
             //   entire registration block short-circuits and the prior RegisterMany
             //   scan in NzbDrone.Common/Composition/Extensions.cs:29-31 keeps
-            //   ComixPuppeteerSigner as the IComixSigner singleton. Production
+            //   ComixPlaywrightSigner as the IComixSigner singleton. Production
             //   deployment manifests (Docker image / systemd unit / etc.) do NOT set
             //   MANGARR_TEST_CASSETTE_*; only the test harness does.
             // Mirrors the env-var detection pattern at
@@ -353,9 +353,9 @@ namespace NzbDrone.Host
                     // bypasses the expression-tree analyzer and accepts a plain
                     // Func<IResolverContext, IComixSigner>.
                     //
-                    // Resolve the inner ComixPuppeteerSigner LAZILY from the resolver context
+                    // Resolve the inner ComixPlaywrightSigner LAZILY from the resolver context
                     // (`r.Resolve<...>()`) inside the delegate body — NOT eagerly via a
-                    // pre-captured `container.Resolve<ComixPuppeteerSigner>()`. The eager-capture
+                    // pre-captured `container.Resolve<ComixPlaywrightSigner>()`. The eager-capture
                     // shape disposed the inner signer before first use: resolving a disposable
                     // singleton during ConfigureServices (before the DryIoc/MS.DI container is
                     // fully built) materializes it in a transient composition scope that gets
@@ -366,14 +366,14 @@ namespace NzbDrone.Host
                     // The delegate is Reuse.Singleton, so the inner is resolved exactly once,
                     // after the permanent root singleton scope exists — no premature disposal.
                     container.RegisterDelegate<IComixSigner>(
-                        r => new CassettingComixSigner(comixCassetteDir, parsedMode, r.Resolve<ComixPuppeteerSigner>()),
+                        r => new CassettingComixSigner(comixCassetteDir, parsedMode, r.Resolve<ComixPlaywrightSigner>()),
                         reuse: Reuse.Singleton,
                         ifAlreadyRegistered: IfAlreadyRegistered.Replace);
                 }
                 else
                 {
                     System.Diagnostics.Trace.WriteLine(
-                        $"MANGARR_TEST_CASSETTE_MODE='{comixCassetteMode}' is not a valid CassetteMode; ignoring (IComixSigner stays as ComixPuppeteerSigner).");
+                        $"MANGARR_TEST_CASSETTE_MODE='{comixCassetteMode}' is not a valid CassetteMode; ignoring (IComixSigner stays as ComixPlaywrightSigner).");
                 }
             }
 

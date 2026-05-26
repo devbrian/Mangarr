@@ -113,7 +113,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 return Array.Empty<ReleaseInfo>();
             }
 
-            // Sonarr divergence: Phase 17 D-05 — dispatch via ComixPuppeteerSigner, NOT
+            // Sonarr divergence: Phase 17 D-05 — dispatch via ComixPlaywrightSigner, NOT
             // the legacy FetchReleases pipeline (Path A per RESEARCH N-2). Path A per RESEARCH N-2: the signer
             // returns the decoded JSON body so URL-with-token composition is dead.
             var crg = (ComixRequestGenerator)GetRequestGenerator();
@@ -139,7 +139,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 return Array.Empty<ReleaseInfo>();
             }
 
-            // Sonarr divergence: Phase 17 D-05 — dispatch via ComixPuppeteerSigner, NOT
+            // Sonarr divergence: Phase 17 D-05 — dispatch via ComixPlaywrightSigner, NOT
             // the legacy FetchReleases pipeline (Path A per RESEARCH N-2).
             var crg = (ComixRequestGenerator)GetRequestGenerator();
             crg.ResolvedMangaHash = hid;
@@ -190,7 +190,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 }
 
                 // Phase 17.2 D-3 / WR-GC-01 closure: the in-IIFE BRANCH-C catch in
-                // ComixPuppeteerSigner.EvaluateProxyFetchAsync returns a
+                // ComixPlaywrightSigner.EvaluateProxyFetchAsync returns a
                 // {result:null, e:..., decryptError:...} envelope on decrypt-throw.
                 // JsonConvert.DeserializeObject<typed-shape>(envelope) parses to a
                 // null-Result POCO — the existing parse path silently swallows the
@@ -496,7 +496,7 @@ namespace NzbDrone.Core.Indexers.Comix
 
             // Phase 17.2 D-3 / WR-GC-01 closure: same envelope-detect routing as
             // DispatchSignerPathsAsync — the in-IIFE BRANCH-C catch in
-            // ComixPuppeteerSigner.EvaluateProxyFetchAsync emits the
+            // ComixPlaywrightSigner.EvaluateProxyFetchAsync emits the
             // {result:null, e:..., decryptError:...} envelope on decrypt-throw.
             // Without this guard, JsonConvert.DeserializeObject<ComixChapterPagesResponse>(envelope)
             // returns a Result with null pages — we silently produce a zero-page

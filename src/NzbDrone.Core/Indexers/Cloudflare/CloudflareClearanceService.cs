@@ -14,7 +14,7 @@ namespace NzbDrone.Core.Indexers.Cloudflare
     // Sonarr divergence: no Sonarr peer. Phase 33.2 — generic CF clearance service
     // (D-03 / D-09). NON-disposable singleton: holds ONLY a process-lifetime static
     // readonly HttpClient (Pitfall 2 / T-33.2-03 — avoids socket exhaustion; copies the
-    // ComixPuppeteerSigner._relayHttpClient shape) + a per-host TTL cache. Auto-registered
+    // ComixPlaywrightSigner._relayHttpClient shape) + a per-host TTL cache. Auto-registered
     // Reuse.Singleton via the RegisterMany interface convention — NO explicit registration,
     // NO eager-resolve in Startup.ConfigureServices.
 
@@ -38,7 +38,7 @@ namespace NzbDrone.Core.Indexers.Cloudflare
         // critical section, and the Health Check probes it on startup.
         private const int SolverHttpTimeoutMs = FlareSolverrRequest.DefaultMaxTimeoutMs + 15000;
 
-        // PR-#244-style shared HttpClient (copies ComixPuppeteerSigner._relayHttpClient):
+        // PR-#244-style shared HttpClient (copies ComixPlaywrightSigner._relayHttpClient):
         // process-lifetime, never `using`, intentionally never disposed. Lifetime ≡ process
         // because the service is a DryIoc Reuse.Singleton.
         private static readonly HttpClient _solverHttpClient = new HttpClient

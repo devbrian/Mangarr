@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace NzbDrone.Core.Indexers.Comix
 {
     // Sonarr divergence: no Sonarr peer. Phase 33 (COMIX2-01) introduces an offline-tier cassette
-    // signer for comix.to (test-mode swap for ComixPuppeteerSigner — Comix anti-bot signing
+    // signer for comix.to (test-mode swap for ComixPlaywrightSigner — Comix anti-bot signing
     // cannot be HTTP-cassette'd at the IHttpClient layer per Phase 17 D-05 / Phase 18 D-11).
     // Mangarr-only seam; Pattern S2 / sonarr-consistency-audit Pattern ι allowlist coverage.
     //
@@ -35,7 +35,7 @@ namespace NzbDrone.Core.Indexers.Comix
     //     <c>CassetteHandler</c>'s miss message (D-04 — forces explicit recording, prevents
     //     silent gaps in CI).
     //   * <see cref="CassetteMode.Record"/>: always delegate to <c>_inner</c>
-    //     (real <c>ComixPuppeteerSigner</c>); persist the returned body verbatim.
+    //     (real <c>ComixPlaywrightSigner</c>); persist the returned body verbatim.
     //   * <see cref="CassetteMode.ReplayOrRecord"/>: read from disk if exists, otherwise
     //     delegate + persist (orchestrator-driven LIVE recording flow per D-07).
     // </para>
@@ -43,9 +43,9 @@ namespace NzbDrone.Core.Indexers.Comix
     /// <summary>
     /// Offline-tier <see cref="IComixSigner"/> impl that serves comix.to API responses
     /// from per-request JSON cassettes on disk. Test-mode swap for
-    /// <see cref="ComixPuppeteerSigner"/> wired via env-var gate at
+    /// <see cref="ComixPlaywrightSigner"/> wired via env-var gate at
     /// <c>NzbDrone.Host/Startup.cs</c> per Phase 33 D-03 (env vars unset → production
-    /// path resolves <c>ComixPuppeteerSigner</c> unconditionally).
+    /// path resolves <c>ComixPlaywrightSigner</c> unconditionally).
     /// </summary>
     public class CassettingComixSigner : IComixSigner
     {
@@ -159,7 +159,7 @@ namespace NzbDrone.Core.Indexers.Comix
                 throw new InvalidOperationException(
                     $"CassettingComixSigner in mode '{_mode}' requires a non-null inner " +
                     "signer to delegate Record / ReplayOrRecord-miss paths to. Pass the real " +
-                    "ComixPuppeteerSigner instance via the constructor's 'inner' parameter " +
+                    "ComixPlaywrightSigner instance via the constructor's 'inner' parameter " +
                     "(see NzbDrone.Host/Startup.cs registration site per Phase 33 D-03).");
             }
 

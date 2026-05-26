@@ -19,13 +19,13 @@ namespace NzbDrone.Core.Indexers.Comix
     // .planning/debug/comix-invalid-token-403.md).
     // Mangarr-only seam; Pattern S2 / sonarr-consistency-audit Pattern ι allowlist coverage.
 
-    // NOTE (Phase 33.3): the type name retains the historical "Puppeteer" token but the
-    // browser layer is now Microsoft.Playwright .NET (the PuppeteerSharp CDP `Runtime.enable`
-    // leak is a Cloudflare challenge-platform bot-detection vector Playwright avoids via
-    // isolated worlds — see the csproj comment + .planning/phases/33.3-…/.continue-here.md
-    // "DE-RISK PASSED"). A rename to `ComixPlaywrightSigner` is a mechanical follow-up
-    // (touches DryIoc delegate in Startup.cs + the Comix signer fixtures + docs); deferred
-    // to keep this port's blast radius on the browser layer.
+    // NOTE (Phase 33.3): renamed ComixPuppeteerSigner -> ComixPlaywrightSigner when the browser
+    // layer was ported PuppeteerSharp -> Microsoft.Playwright .NET. The PuppeteerSharp CDP
+    // `Runtime.enable` leak is a Cloudflare challenge-platform bot-detection vector Playwright
+    // avoids via isolated worlds; the swap cold-solves comix.to's managed challenge in-image
+    // (see the csproj comment + .planning/phases/33.3-…/IN-IMAGE-VALIDATION.md "PASS"). Historical
+    // .planning/ phase docs (Phase 17/17.2/33/33.1/33.2) still say "ComixPuppeteerSigner" — those
+    // are frozen records of what shipped then and are intentionally NOT rewritten.
 
     /// <summary>
     /// Process-singleton runtime signer for comix.to. Mirrors keiyoushi <c>Comix.kt</c>
@@ -66,7 +66,7 @@ namespace NzbDrone.Core.Indexers.Comix
     // contradicts it. Per the plan's W-1 split + B-2 path (a) lazy-reprobe test design,
     // the test seams win — and production safety rests on DryIoc registering THIS class
     // as the singleton (verified by ComixSignerDryIocResolutionFixture).
-    public class ComixPuppeteerSigner :
+    public class ComixPlaywrightSigner :
         IComixSigner,
         IDisposable,
         IHandle<ApplicationShutdownRequested>
@@ -363,13 +363,13 @@ namespace NzbDrone.Core.Indexers.Comix
             // nulls _page cannot NRE us mid-evaluate.
             if (_disposed)
             {
-                throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+                throw new ObjectDisposedException(nameof(ComixPlaywrightSigner));
             }
 
             var page = _page;
             if (page == null)
             {
-                throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+                throw new ObjectDisposedException(nameof(ComixPlaywrightSigner));
             }
 
             // Derive bootstrap pageUrl from apiPath. Three call-site shapes:
@@ -915,7 +915,7 @@ namespace NzbDrone.Core.Indexers.Comix
         // wraparound interval at 1 increment per minute is ~4000 years.
         private int _idleTimerGeneration;
 
-        public ComixPuppeteerSigner(
+        public ComixPlaywrightSigner(
             IIndexerSourceStatusService sourceStatusService,
             ICloudflareClearanceService clearanceService,
             IConfigService configService,
@@ -947,7 +947,7 @@ namespace NzbDrone.Core.Indexers.Comix
 
             if (_disposed)
             {
-                throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+                throw new ObjectDisposedException(nameof(ComixPlaywrightSigner));
             }
 
             return ProxyFetchAsyncImpl(apiPath, ct);
@@ -974,7 +974,7 @@ namespace NzbDrone.Core.Indexers.Comix
             {
                 if (_disposed)
                 {
-                    throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+                    throw new ObjectDisposedException(nameof(ComixPlaywrightSigner));
                 }
 
                 if (_browser == null)
@@ -1000,7 +1000,7 @@ namespace NzbDrone.Core.Indexers.Comix
                     // _disposed = true here.
                     if (_disposed)
                     {
-                        throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+                        throw new ObjectDisposedException(nameof(ComixPlaywrightSigner));
                     }
 
                     _logger.Warn(
@@ -1015,7 +1015,7 @@ namespace NzbDrone.Core.Indexers.Comix
                         {
                             // CR-04 mitigation: re-check between teardown and relaunch —
                             // Dispose can have run during the await on TeardownBrowserAsync.
-                            throw new ObjectDisposedException(nameof(ComixPuppeteerSigner));
+                            throw new ObjectDisposedException(nameof(ComixPlaywrightSigner));
                         }
 
                         await LaunchAndProbeAsync(ct).ConfigureAwait(false);

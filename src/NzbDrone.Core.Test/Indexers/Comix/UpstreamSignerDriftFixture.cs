@@ -7,7 +7,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
 {
     /// <summary>
     /// Chromium-free upstream-drift falsifier. Locks the structural shape of
-    /// <c>ComixPuppeteerSigner.cs</c> against keiyoushi <c>Comix.kt</c>'s
+    /// <c>ComixPlaywrightSigner.cs</c> against keiyoushi <c>Comix.kt</c>'s
     /// <c>captureToken()</c> pattern (upstream commit <c>965dc242</c>, 2026-05-12 —
     /// "Comix: only get token via webview").
     ///
@@ -37,7 +37,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         {
             _signerSource = ReadCoreSource(
                 TestContext.CurrentContext.TestDirectory,
-                "src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs");
+                "src/NzbDrone.Core/Indexers/Comix/ComixPlaywrightSigner.cs");
 
             // Phase 17.2 Plan 02: also load ComixParser.cs so the GAP-17-E
             // pages-endpoint regression guard can grep against the DownloadUrl
@@ -250,7 +250,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // rejects).
             //
             // The guard reads ComixParser.cs source via the `_parserSource`
-            // field (parameterized walk-up pattern), NOT ComixPuppeteerSigner.cs
+            // field (parameterized walk-up pattern), NOT ComixPlaywrightSigner.cs
             // — the apiPath construction lives upstream of the signer call.
             _parserSource.Should().Contain("Phase 17.2 GAP-17-E",
                 "Phase 17.2 GAP-17-E annotation block must remain alongside the chapter " +

@@ -19,7 +19,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
 {
     /// <summary>
     /// Phase 17.2 D-3 / WR-GC-01 closure: the in-IIFE BRANCH-C catch in
-    /// <see cref="ComixPuppeteerSigner"/>.<c>EvaluateProxyFetchAsync</c> returns a
+    /// <see cref="ComixPlaywrightSigner"/>.<c>EvaluateProxyFetchAsync</c> returns a
     /// <c>{result:null, e:..., decryptError:...}</c> envelope on decrypt-throw. The C# caller
     /// (<see cref="ComixIndexer"/>.<c>DispatchSignerPathsAsync</c> /
     /// <see cref="ComixIndexer"/>.<c>GetChapterPages</c>) MUST detect the envelope and route
@@ -43,7 +43,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
     public class ComixDecryptErrorEnvelopeRoutingFixture : CoreTest<ComixIndexer>
     {
         // Phase 17.2 D-3 / WR-GC-01 — sample envelope shape produced by the in-IIFE BRANCH-C
-        // catch (ComixPuppeteerSigner.cs lines ~418-419):
+        // catch (ComixPlaywrightSigner.cs lines ~418-419):
         //   `}} catch (decryptErr) {{ return JSON.stringify({{ result: null, e: raw.e, decryptError: String(decryptErr) }}); }}`
         // The `e` value below is a 49-char base64url-shaped substring used as the encrypted-blob
         // sentinel; the blob-absence assertion greps for the leading 12-char prefix.

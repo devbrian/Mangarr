@@ -35,7 +35,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         // GatedSigner: first ProxyFetchAsync acquires _gate (production base) and then
         // blocks on a TaskCompletionSource (overridden seam) so the test can reproduce the
         // "in-flight when Handle fires" race.
-        private class GatedSigner : ComixPuppeteerSigner
+        private class GatedSigner : ComixPlaywrightSigner
         {
             public TaskCompletionSource<string> Gate { get; } = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -53,7 +53,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
                 // Use reflection to invoke the private _gate field on the base class —
                 // the test must hold the gate the same way production does so Dispose's
                 // drain semantics actually wait.
-                var gateField = typeof(ComixPuppeteerSigner).GetField("_gate",
+                var gateField = typeof(ComixPlaywrightSigner).GetField("_gate",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 var gate = (SemaphoreSlim)gateField.GetValue(this);
 
@@ -106,11 +106,11 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // an unawaited Task is silently dropped by NUnit, so the assertion never
             // executed. The test passed regardless of what the SUT did. Make the method
             // async + await the assertion so the contract is actually enforced.
-            var subject = new ComixPuppeteerSigner(
+            var subject = new ComixPlaywrightSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
                 Mocker.GetMock<NzbDrone.Core.Indexers.Cloudflare.ICloudflareClearanceService>().Object,
                 Mocker.GetMock<NzbDrone.Core.Configuration.IConfigService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"));
+                LogManager.GetLogger("ComixPlaywrightSigner"));
 
             subject.Handle(new ApplicationShutdownRequested(restarting: false));
 
@@ -121,11 +121,11 @@ namespace NzbDrone.Core.Test.Indexers.Comix
         [Test]
         public void Handle_should_log_Info_with_ApplicationShutdownRequested_received()
         {
-            var subject = new ComixPuppeteerSigner(
+            var subject = new ComixPlaywrightSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
                 Mocker.GetMock<NzbDrone.Core.Indexers.Cloudflare.ICloudflareClearanceService>().Object,
                 Mocker.GetMock<NzbDrone.Core.Configuration.IConfigService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"));
+                LogManager.GetLogger("ComixPlaywrightSigner"));
 
             subject.Handle(new ApplicationShutdownRequested());
 
@@ -143,7 +143,7 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             //    verbatim drain-timeout warning.
             var subject = new GatedSigner(
                 Mocker.GetMock<IIndexerSourceStatusService>().Object,
-                LogManager.GetLogger("ComixPuppeteerSigner"));
+                LogManager.GetLogger("ComixPlaywrightSigner"));
 
             // Background task acquires the gate inside ProxyFetchAsyncImpl, then blocks.
             var bgTask = Task.Run(() => subject.ProxyFetchAsync("/manga/test/chapters"));

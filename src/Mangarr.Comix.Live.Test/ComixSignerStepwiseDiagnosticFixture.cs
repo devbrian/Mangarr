@@ -9,7 +9,7 @@ namespace Mangarr.Comix.Live.Test
 {
     /// <summary>
     /// captureToken stepwise diagnostic — 2026-05-22 rewrite. Drives the production
-    /// <see cref="ComixPuppeteerSigner.ProxyFetchAsync"/> against live comix.to and
+    /// <see cref="ComixPlaywrightSigner.ProxyFetchAsync"/> against live comix.to and
     /// asserts the captureToken sequence completed at each step.
     ///
     /// <para>
@@ -44,7 +44,7 @@ namespace Mangarr.Comix.Live.Test
     [TestFixture]
     [LiveComix]
     [Explicit("captureToken diagnostic harness — runs only when explicitly invoked or via daily-soak.")]
-    public class ComixSignerStepwiseDiagnosticFixture : TestBase<ComixPuppeteerSigner>
+    public class ComixSignerStepwiseDiagnosticFixture : TestBase<ComixPlaywrightSigner>
     {
         // Known-good targets per 17-08-LIVE-VERIFICATION-EVIDENCE.md.
         private const string KnownGoodMangaHid = "mr3m0";
@@ -98,7 +98,7 @@ namespace Mangarr.Comix.Live.Test
         {
             // PR #246 review (Codex P1 r3293171698): per-test dispose, NOT per-fixture.
             // TestBase<T>'s [SetUp] (CoreTestSetup) nulls _subject and the Subject getter
-            // lazily resolves a fresh Mocker.Resolve<ComixPuppeteerSigner>() on next access.
+            // lazily resolves a fresh Mocker.Resolve<ComixPlaywrightSigner>() on next access.
             // Each test gets its own signer + its own Chromium child. Disposing only in
             // [OneTimeTearDown] orphans the prior (N-1) signers' Chromium children.
             Subject?.Dispose();
