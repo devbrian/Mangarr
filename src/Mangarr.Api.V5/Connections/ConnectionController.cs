@@ -21,12 +21,18 @@ public class ConnectionController : ProviderControllerBase<ConnectionResource, C
     [NonAction]
     public override Results<Ok<IEnumerable<ConnectionResource>>, BadRequest> UpdateProvider([FromBody] ConnectionBulkResource providerResource)
     {
+        // Intentional: the [NonAction] attribute hides this inherited bulk REST verb, which does not apply to the
+        // single-instance Connection provider surface. ASP.NET never routes a [NonAction] method, so this throw is
+        // unreachable — it satisfies the abstract base override only. NOT a bug (CQ-05 / DOCS-07).
         throw new NotImplementedException();
     }
 
     [NonAction]
     public override NoContent DeleteProviders([FromBody] ConnectionBulkResource resource)
     {
+        // Intentional: the [NonAction] attribute hides this inherited bulk REST verb, which does not apply to the
+        // single-instance Connection provider surface. ASP.NET never routes a [NonAction] method, so this throw is
+        // unreachable — it satisfies the abstract base override only. NOT a bug (CQ-05 / DOCS-07).
         throw new NotImplementedException();
     }
 }
