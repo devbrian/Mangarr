@@ -40,6 +40,19 @@ public abstract class AutomationTest
     protected virtual string ConfiguredUrlBase => string.Empty;
 
     /// <summary>
+    /// GH #268: the automation tier seeds the Comix indexer DISABLED by default
+    /// (the final step of <see cref="TestKit.TestKit.SeedBaselineAsync(bool)"/>) —
+    /// comix.to cannot be HTTP-cassette'd (Phase 18 D-11), so an un-cassetted
+    /// indexer fan-out (InteractiveSearch / add-manga conditional backfill search /
+    /// ImportListSync) would escape to the live network. This safe-by-default
+    /// baseline replaces the ~92 per-fixture <c>DisableComixIndexerAsync</c> calls.
+    /// Fixtures that DO exercise Comix offline via <c>CassettingComixSigner</c>
+    /// (recorded cassettes under <c>Fixtures/Cassettes/Comix/</c>) override this to
+    /// <c>false</c> so the seeded Comix indexer stays enabled for their fan-out.
+    /// </summary>
+    protected virtual bool DisableComixIndexerInBaseline => true;
+
+    /// <summary>
     /// Convenience accessor — combines RootUri with the runner's UrlBase so
     /// fixtures and seed code can write <c>$"{HostBaseUrl}/..."</c> instead of
     /// reassembling the prefix. Equal to RootUri when ConfiguredUrlBase is empty.
@@ -109,7 +122,8 @@ public abstract class AutomationTest
         // hit `{rootUri}/{urlBase}/api/v5/...` instead of getting 307-redirected
         // by UrlBaseMiddleware (RestSharp does not auto-follow 307 with method
         // preservation on POST/PUT).
-        await new NzbDrone.Automation.Test.TestKit.TestKit(HostBaseUrl, _runner.ApiKey, seedRoot).SeedBaselineAsync();
+        await new NzbDrone.Automation.Test.TestKit.TestKit(HostBaseUrl, _runner.ApiKey, seedRoot)
+            .SeedBaselineAsync(disableComixIndexer: DisableComixIndexerInBaseline);
 
         Context = await PlaywrightSetUpFixture.Browser.NewContextAsync(new BrowserNewContextOptions
         {

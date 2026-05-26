@@ -103,14 +103,19 @@ fixtures (`InteractiveSearchModalFixture`, `InteractiveSearchGrabFixture`,
 `InteractiveSearchOpenFixture`) are the canonical examples post-Phase-33 — each asserts
 ≥1 `data-source='Comix'` row renders.
 
-**B. Explicit disable (only when the fixture has no reason to exercise Comix).**
-`TestKit.DisableComixIndexerAsync()` clears the seeded Comix indexer's Enable* flags
-in `[OneTimeSetUp]` so an un-cassetted Comix fan-out can't escape to the live network.
-As of Phase 33 D-10 the method is `[Obsolete]` (warning, not error) — a forcing
-function for the v1.3 audit. New fixtures should explicitly justify the choice in a
-comment. The ~92 existing legacy callers are pragma-suppressed
-(`#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]`)
-pending the v1.3 audit-and-delete cleanup.
+**B. Disabled-by-default baseline (the offline-safe default — GH #268).**
+The automation tier seeds the Comix indexer **disabled by default**: the final step of
+`TestKit.SeedBaselineAsync(bool disableComixIndexer = true)` clears the seeded Comix
+indexer's Enable* flags, so an un-cassetted Comix fan-out (InteractiveSearch / add-manga
+conditional backfill search / ImportListSync) can't escape to the live network. This is
+wired through `AutomationTest.DisableComixIndexerInBaseline` (virtual, default `true`),
+so **every fixture is offline-safe by construction with no per-fixture setup**. GH #268
+removed the ~92 legacy per-fixture `DisableComixIndexerAsync()` callsites (and deleted
+the obsolete public method) in favor of this single baseline default.
+
+Fixtures that DO exercise Comix offline (the seam-A cassetting fixtures above) opt out by
+overriding `protected override bool DisableComixIndexerInBaseline => false;`, which keeps
+the seeded Comix indexer enabled for their cassette-replayed fan-out.
 
 Full mechanism: `.planning/phases/33-comix-coverage-restore-v1-2-inserted-2026-05-23/33-CONTEXT.md`
 (D-02..D-11) + `src/NzbDrone.Core/Indexers/Comix/CLAUDE.md` "Phase 17 Invariants".

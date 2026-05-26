@@ -31,17 +31,6 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 [Category("PRSmoke")]
 public class OAuthPasteBackModalFixture : AutomationTest
 {
-    [OneTimeSetUp]
-    public async Task DisableComixAsync()
-    {
-        // Pitfall 10 / cross-fixture contract: Comix indexer is un-cassetted and would
-        // escape to the live network on PuppeteerSharp warm-up if its schema endpoint
-        // were enumerated. Mirror the sibling AniList/MAL/MangaDex fixtures.
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
-        await new TestKit.TestKit(RootUri, ApiKey, string.Empty).DisableComixIndexerAsync();
-#pragma warning restore CS0618
-    }
-
     [Test]
     public async Task anilist_connect_button_opens_pin_modal_with_reserved_testids()
     {

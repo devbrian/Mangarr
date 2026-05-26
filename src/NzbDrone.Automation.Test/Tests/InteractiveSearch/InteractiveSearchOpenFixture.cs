@@ -20,6 +20,11 @@ public class InteractiveSearchOpenFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
 
+    // GH #268: inverted the automation baseline to disable Comix by default; this
+    // fixture opts out to keep the seeded Comix indexer ENABLED for its offline
+    // cassette-replayed fan-out (CassettingComixSigner + Fixtures/Cassettes/Comix/).
+    protected override bool DisableComixIndexerInBaseline => false;
+
     // Phase 33 (COMIX2-01): the #250 Explicit attribute is REMOVED — this fixture now
     // runs in the default-offline Replay suite. Per CONTEXT.md D-01 the #250 30s-timeout root
     // cause was Comix-not-disabled in the fan-out hanging the live signer (NOT a

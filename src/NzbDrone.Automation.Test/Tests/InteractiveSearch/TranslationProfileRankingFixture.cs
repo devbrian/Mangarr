@@ -50,12 +50,9 @@ public class TranslationProfileRankingFixture : AutomationTest
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
 
     [OneTimeSetUp]
-    public async Task DisableComixAndSeedProfileAsync()
+    public async Task SeedProfileAsync()
     {
         var testKit = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
-        await testKit.DisableComixIndexerAsync();
-#pragma warning restore CS0618
 
         // Seed a TranslationProfile so the decision engine has a known shape
         // to gate against. The Phase 18 baseline already seeds a default

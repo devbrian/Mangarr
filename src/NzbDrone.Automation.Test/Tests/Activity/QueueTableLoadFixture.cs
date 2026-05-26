@@ -34,18 +34,6 @@ public class QueueTableLoadFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
 
-    [OneTimeSetUp]
-    public async Task DisableComixAsync()
-    {
-        // Phase 19 D-05 / Pitfall 10: Comix cannot be HTTP-cassette'd (Phase 18
-        // D-11 — the runtime signer hits comix.to live). Disable BEFORE any
-        // indexer fan-out so AddMangaFlow's lookup path stays MangaDex-only.
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
-        await new TestKit.TestKit(RootUri, ApiKey, string.Empty)
-            .DisableComixIndexerAsync();
-#pragma warning restore CS0618
-    }
-
     [Test]
     public async Task queue_loads()
     {

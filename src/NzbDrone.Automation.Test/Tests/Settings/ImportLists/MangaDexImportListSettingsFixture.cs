@@ -35,17 +35,6 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 [Category("PRSmoke")]
 public class MangaDexImportListSettingsFixture : AutomationTest
 {
-    [OneTimeSetUp]
-    public async Task DisableComixAsync()
-    {
-        // Pitfall 10 / cross-fixture contract: Comix indexer is un-cassetted and would
-        // escape to the live network on PuppeteerSharp warm-up if its schema endpoint
-        // were enumerated. Mirror ImportListsPageRenderFixture.OneTimeSetUp.
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
-        await new TestKit.TestKit(RootUri, ApiKey, string.Empty).DisableComixIndexerAsync();
-#pragma warning restore CS0618
-    }
-
     [Test]
     public async Task picker_includes_mangadex_tile_with_signin_field()
     {

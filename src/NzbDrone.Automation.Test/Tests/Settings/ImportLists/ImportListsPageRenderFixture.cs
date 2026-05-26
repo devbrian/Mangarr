@@ -30,14 +30,6 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 [Category("PRSmoke")]
 public class ImportListsPageRenderFixture : AutomationTest
 {
-    [OneTimeSetUp]
-    public async Task DisableComixAsync()
-    {
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
-        await new TestKit.TestKit(RootUri, ApiKey, string.Empty).DisableComixIndexerAsync();
-#pragma warning restore CS0618
-    }
-
     [Test]
     public async Task page_renders_with_empty_list_and_empty_add_picker()
     {

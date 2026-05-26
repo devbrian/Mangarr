@@ -31,19 +31,6 @@ public class ImportListCrudFixture : AutomationTest
 {
     private const string TestName = "MangaDex (CRUD test)";
 
-    [OneTimeSetUp]
-    public async Task DisableComixAsync()
-    {
-        // Provider registration is in [Test] — registering here too creates a
-        // side-effecting setup that conflicts with the test's own DELETE step
-        // (the row added in OneTimeSetUp survives across tests if any, and
-        // would make this fixture order/data-state sensitive).
-        var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
-        await tk.DisableComixIndexerAsync();
-#pragma warning restore CS0618
-    }
-
     [Test]
     public async Task crud_round_trip_with_TestImportList()
     {

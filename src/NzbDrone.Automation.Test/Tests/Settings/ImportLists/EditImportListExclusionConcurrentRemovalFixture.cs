@@ -44,14 +44,6 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 [Category("AutomationTest")]
 public class EditImportListExclusionConcurrentRemovalFixture : AutomationTest
 {
-    [OneTimeSetUp]
-    public async Task DisableComixAsync()
-    {
-#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #268]
-        await new TestKit.TestKit(RootUri, ApiKey, string.Empty).DisableComixIndexerAsync();
-#pragma warning restore CS0618
-    }
-
     [Test]
     public async Task edit_modal_auto_closes_when_row_concurrently_removed()
     {
