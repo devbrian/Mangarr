@@ -119,24 +119,27 @@ namespace NzbDrone.Core.Test.MangaParserTests
             parsed.ChapterNumbers.Should().Equal(new[] { 1m });
         }
 
-        // PARSE2-02 overflow guard (PR #271 Codex P1 / CodeRabbit Critical): a
-        // huge-but-parseable upper bound must NOT throw OverflowException on the
-        // decimal→int narrowing cast. The grid-step count is compared in decimal
-        // against the cap BEFORE the cast, so an over-cap range falls through to
-        // per-chapter parsing rather than crashing the parser on an untrusted title.
-        [Test]
-        public void Range_with_huge_parseable_bound_falls_through_without_throwing()
+        // PARSE2-02 overflow guard (PR #271 Codex P1 + CodeRabbit Critical/Major): a
+        // huge-but-parseable upper bound must NOT throw OverflowException. The cap is
+        // enforced as `span < 1000*step` WITHOUT dividing the untrusted span, so neither
+        // the `span/step` decimal division (which doubles span for the 0.5-grid case and
+        // can exceed decimal.MaxValue) NOR the narrowing `(int)` cast can blow up. Both
+        // the integer-grid (step=1) and fractional-grid (step=0.5, near-MaxValue) paths
+        // fall through to per-chapter parsing instead of crashing on an untrusted title.
+        [TestCase("Naruto Ch.1-3000000000", 1.0)]                                 // integer grid, > int.MaxValue span
+        [TestCase("Naruto Ch.1.5-79000000000000000000000000000", 1.5)]            // 0.5 grid, span/0.5 > decimal.MaxValue
+        public void Range_with_huge_parseable_bound_falls_through_without_throwing(string title, double expectedStart)
         {
-            Action act = () => MangaParser.ParseChapterTitle("Naruto Ch.1-3000000000");
+            Action act = () => MangaParser.ParseChapterTitle(title);
 
             act.Should().NotThrow();
 
-            var parsed = MangaParser.ParseChapterTitle("Naruto Ch.1-3000000000");
+            var parsed = MangaParser.ParseChapterTitle(title);
             parsed.Should().NotBeNull();
 
             // Over-cap → range branch leaves ChapterNumbers empty → per-chapter
-            // regex picks up the start (1) as a single chapter (not a 3e9-element expansion).
-            parsed.ChapterNumbers.Should().Equal(new[] { 1m });
+            // regex picks up the start as a single chapter (not a pathological expansion).
+            parsed.ChapterNumbers.Should().Equal(new[] { (decimal)expectedStart });
         }
 
         // BL-04 supplementary: decimal normalization for comma + underscore is

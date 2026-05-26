@@ -189,14 +189,17 @@ namespace NzbDrone.Core.Parser.Manga
                     // An integer step-count (count = floor(span/step)+1, then
                     // start0 + i*step) is used rather than a `c += 0.5m` accumulator: the
                     // <= end exit is fragile under off-grid snap, while i*step is exact in
-                    // decimal. The grid-point count is compared in DECIMAL against the cap
-                    // BEFORE the narrowing (int) cast — a `decimal`→`int` cast is always
-                    // checked and a large-but-parseable bound (e.g. Ch.1-3000000000) would
-                    // otherwise throw OverflowException on the cast before the cap could
-                    // reject it, turning an untrusted title into a parser crash. With the
-                    // decimal compare first, any over-cap span falls through (chapterNumbers
-                    // stays EMPTY → outer foreach advances to the per-chapter regexes); the
-                    // (int) cast only runs once gridSteps <= 999 is proven safe.
+                    // decimal. The cap is enforced WITHOUT any division on the untrusted
+                    // span: `count <= 1000` ⟺ `floor(span/step) <= 999` ⟺ `span < 1000*step`
+                    // (step > 0), so we compare `span < 1000m * step` directly. This avoids
+                    // BOTH overflow paths a large-but-parseable bound could trigger:
+                    //   - `span / step` (decimal/0.5m doubles span → OverflowException for a
+                    //     near-decimal.MaxValue bound), and
+                    //   - the subsequent narrowing `(int)` cast (always checked).
+                    // `1000m * step` is at most 1000m (no overflow). Over-cap spans fall
+                    // through (chapterNumbers stays EMPTY → outer foreach advances to the
+                    // per-chapter regexes); the division + (int) cast only run once the span
+                    // is proven within the cap, where gridSteps <= 999 is guaranteed safe.
                     if (start.HasValue && end.HasValue && end.Value >= start.Value)
                     {
                         var lo = start.Value;
@@ -207,21 +210,16 @@ namespace NzbDrone.Core.Parser.Manga
 
                         var start0 = step == 0.5m ? Math.Ceiling(lo * 2m) / 2m : lo;
                         var span = hi - start0;
-                        if (span >= 0m)
+                        if (span >= 0m && span < (1000m * step))
                         {
-                            // count = gridSteps + 1; cap is count <= 1000 i.e. gridSteps <= 999.
-                            var gridSteps = Math.Floor(span / step);
-                            if (gridSteps <= 999m)
+                            var count = (int)Math.Floor(span / step) + 1;
+                            var range = new List<decimal>(count);
+                            for (var i = 0; i < count; i++)
                             {
-                                var count = (int)gridSteps + 1;
-                                var range = new List<decimal>(count);
-                                for (var i = 0; i < count; i++)
-                                {
-                                    range.Add(start0 + (i * step));
-                                }
-
-                                chapterNumbers = range.ToArray();
+                                range.Add(start0 + (i * step));
                             }
+
+                            chapterNumbers = range.ToArray();
                         }
                     }
                 }
