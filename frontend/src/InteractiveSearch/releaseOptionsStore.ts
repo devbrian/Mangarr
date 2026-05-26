@@ -14,8 +14,6 @@ export interface ReleaseOptions
     PageableOptions,
     'pageSize' | 'selectedFilterKey' | 'sortKey' | 'sortDirection'
   > {
-  episodeSelectedFilterKey: SelectedFilterKey;
-  seasonSelectedFilterKey: SelectedFilterKey;
   chapterSelectedFilterKey: SelectedFilterKey;
   mangaSelectedFilterKey: SelectedFilterKey;
   rejectionFilterTags: FilterBuilderTag<string, string>[];
@@ -24,8 +22,6 @@ export interface ReleaseOptions
 const { useOptions, useOption, getOptions, getOption, setOptions, setOption } =
   createOptionsStore<ReleaseOptions>('release_options', () => {
     return {
-      episodeSelectedFilterKey: 'all',
-      seasonSelectedFilterKey: 'season-pack',
       chapterSelectedFilterKey: 'not-rejected',
       mangaSelectedFilterKey: 'all',
       rejectionFilterTags: [],

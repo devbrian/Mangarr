@@ -1,18 +1,17 @@
 // Sonarr divergence: NEW manga sibling per Phase 12 Plan 12-10 sub-wave-B-addition (audit row C closure) — see DIVERGENCE.md.
-// Role-match analog: frontend/src/InteractiveSearch/OverrideMatch/OverrideMatchModalContent.tsx (TV-shape sibling — preserved verbatim per D-12-18).
 // Source: .planning/phases/08-tv-manga-parity-audit/audit/OverrideMatch-vs-MangaPayloadRouting.md ## Backfill outline item 2.
+// The TV-shape OverrideMatchModalContent sibling was retired in issue #263; the
+// shared OverrideMatchData presenter + OverrideMatchModalContent.css survive it.
 //
-// Manga sibling preserves: ModalContent + ModalHeader + ModalBody + ModalFooter scaffold; DescriptionList layout; OverrideMatchData per-row "selected value + change-button" presenter (the TV component is shape-neutral once the row data is manga-shaped); grab + cancel button row; useGrabMangaRelease error rendering at the bottom of the body; close-on-grab-success effect via usePrevious(isGrabbing); TV CSS module reuse (../OverrideMatchModalContent.css).
+// This modal preserves: ModalContent + ModalHeader + ModalBody + ModalFooter scaffold; DescriptionList layout; OverrideMatchData per-row "selected value + change-button" presenter; grab + cancel button row; useGrabMangaRelease error rendering at the bottom of the body; close-on-grab-success effect via usePrevious(isGrabbing); shared CSS module reuse (../OverrideMatchModalContent.css).
 //
-// Manga sibling diverges from OverrideMatchModalContent:
-//   * Props are manga-shaped: { mangaId, scanlationGroup?, translatedLanguage?, downloadClientId?, protocol, onModalClose, indexerId, guid, title } — no seriesId / seasonNumber / episodes / languages / quality. Plan 25-04 Task 6 (v1.1-04 narrow) dropped the historical chapterIds prop entirely; the chapter-flavored search now uses the sibling ChapterOverrideMatchModal authored in Task 5.
-//   * State variables mirror manga shape (no useSingleSeries call; no episode-list state; no quality / languages state).
-//   * Sub-modals: ONLY <SelectDownloadClientModal>. NO SelectSeriesModal / SelectSeasonModal / SelectEpisodeModal / SelectQualityModal / SelectLanguageModal — those are TV-only (audit gap-01.4).
+// Manga shape:
+//   * Props: { mangaId, scanlationGroup?, translatedLanguage?, downloadClientId?, protocol, onModalClose, indexerId, guid, title } — no seriesId / seasonNumber / episodes / languages / quality. Plan 25-04 Task 6 (v1.1-04 narrow) dropped the historical chapterIds prop entirely; the chapter-flavored search now uses the sibling ChapterOverrideMatchModal authored in Task 5.
+//   * State variables mirror manga shape (no episode-list state; no quality / languages state).
+//   * Sub-modals: ONLY <SelectDownloadClientModal>.
 //   * Grab payload: { override: { mangaId, chapterIds, downloadClientId, scanlationGroup?, translatedLanguage? } } — no episodeIds / quality / languages.
-//   * Dispatched via useGrabMangaRelease (POSTs to /manga/release per getGrabPath discriminator) — NOT useGrabRelease (which hard-codes /release).
-//   * No grab-validator gating — chapterIds + mangaId arrive populated from MangaReleaseResource (backend); empty-array guard on chapterIds preserves the UX symmetry with TV's "no episode selected" affordance.
-//
-// Phase 15 cleanup: when TV-side OverrideMatchModalContent is deleted, this manga sibling renames + flattens to OverrideMatch/OverrideMatchModalContent.tsx as the canonical default; useGrabRelease + OverrideRelease deletion happens in the same Phase 15 cascade.
+//   * Dispatched via useGrabMangaRelease (POSTs to /manga/release).
+//   * No grab-validator gating — chapterIds + mangaId arrive populated from MangaReleaseResource (backend); empty-array guard on chapterIds preserves the UX symmetry.
 import React, { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import DescriptionList from 'Components/DescriptionList/DescriptionList';

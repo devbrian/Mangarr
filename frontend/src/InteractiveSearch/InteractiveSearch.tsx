@@ -40,14 +40,10 @@ function InteractiveSearch({ type, searchPayload }: InteractiveSearchProps) {
 
   const handleFilterSelect = useCallback(
     (selectedFilterKey: string | number) => {
-      if (type === 'episode') {
-        setReleaseOption('episodeSelectedFilterKey', selectedFilterKey);
-      } else if (type === 'chapter') {
+      if (type === 'chapter') {
         setReleaseOption('chapterSelectedFilterKey', selectedFilterKey);
-      } else if (type === 'manga') {
-        setReleaseOption('mangaSelectedFilterKey', selectedFilterKey);
       } else {
-        setReleaseOption('seasonSelectedFilterKey', selectedFilterKey);
+        setReleaseOption('mangaSelectedFilterKey', selectedFilterKey);
       }
     },
     [type]

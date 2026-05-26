@@ -21,18 +21,13 @@ import formatAge from 'Utilities/Number/formatAge';
 import formatCustomFormatScore from 'Utilities/Number/formatCustomFormatScore';
 import translate from 'Utilities/String/translate';
 import InteractiveSearchPayload from './InteractiveSearchPayload';
-// Plan 25-04 Task 5 (v1.1-04 OverrideMatch split) — payload-shape
-// discriminator now narrows on `searchPayload.kind === '…'` literal
-// (Pitfall 2 grep gate). 'chapter' / 'manga' kinds route to the two
-// manga-shape siblings; 'episode' / 'season' route to the unified TV
-// fallback (preserved verbatim per D-12-18). Pre-Plan-25-04 the
-// chapter/manga shapes shared a single MangaOverrideMatchModal carrying
-// chapterIds via sentinel; this split decommissions the sentinel.
+// Payload-shape discriminator narrows on `searchPayload.kind === '…'` literal
+// (Pitfall 2 grep gate). The union is manga-only ('chapter' / 'manga'); each
+// routes to its manga-shape OverrideMatch sibling.
 import ChapterOverrideMatchModal from './OverrideMatch/Chapter/ChapterOverrideMatchModal';
 import MangaOverrideMatchModal from './OverrideMatch/Manga/MangaOverrideMatchModal';
-import OverrideMatchModal from './OverrideMatch/OverrideMatchModal';
 import ReleaseSceneIndicator from './ReleaseSceneIndicator';
-import { Release, useGrabMangaRelease, useGrabRelease } from './useReleases';
+import { Release, useGrabMangaRelease } from './useReleases';
 import styles from './InteractiveSearchRow.css';
 
 function getDownloadIcon(
@@ -90,15 +85,12 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
     parsedInfo,
     release,
     publishDate,
-    languages,
     customFormatScore,
     customFormats,
     sceneMapping,
-    mappedSeriesId,
     mappedSeasonNumber,
     mappedEpisodeNumbers,
     mappedAbsoluteEpisodeNumbers,
-    mappedEpisodeInfo,
     indexerFlags = 0,
     episodeRequested,
     downloadAllowed,
@@ -109,13 +101,8 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
 
   const { rejections = [] } = decision;
 
-  const {
-    absoluteEpisodeNumbers,
-    episodeNumbers,
-    isDaily,
-    seasonNumber,
-    quality,
-  } = parsedInfo;
+  const { absoluteEpisodeNumbers, episodeNumbers, isDaily, seasonNumber } =
+    parsedInfo;
 
   const {
     guid,
@@ -134,22 +121,12 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
   const [isConfirmGrabModalOpen, setIsConfirmGrabModalOpen] = useState(false);
   const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
 
-  // Bug fix (interactive-download-btn-red, 2026-05-08) + Plan 25-04 Task 5:
-  // The row-level direct-grab must route to the same endpoint that produced
-  // the release list. Plan 25-04 Task 5 rewrites the discriminator to use
-  // the new `kind` literal-string field on InteractiveSearchPayload (Pitfall
-  // 2 — no more runtime property-presence checks). 'chapter' / 'manga' kinds
-  // route to useGrabMangaRelease (POSTs to /api/v5/manga/release); 'episode'
-  // / 'season' kinds route to useGrabRelease (TV-shape fallback, preserved
-  // per D-12-18). Phase 15 cleanup will collapse the two hooks into one
-  // when the TV path is fully retired.
-  const isMangaPayload =
-    searchPayload.kind === 'chapter' || searchPayload.kind === 'manga';
-  const tvGrab = useGrabRelease();
-  const mangaGrab = useGrabMangaRelease();
-  const { isGrabbing, isGrabbed, grabError, grabRelease } = isMangaPayload
-    ? mangaGrab
-    : tvGrab;
+  // Bug fix (interactive-download-btn-red, 2026-05-08): the row-level
+  // direct-grab routes to the same endpoint that produced the release list.
+  // The InteractiveSearch union is manga-only ('chapter' / 'manga'), so the
+  // grab always POSTs to /api/v5/manga/release via useGrabMangaRelease.
+  const { isGrabbing, isGrabbed, grabError, grabRelease } =
+    useGrabMangaRelease();
 
   const isBlocklisted = useMemo(() => {
     return (
@@ -211,10 +188,10 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
   //   interactive-search-row-{guid}-grab-button
   const rowTestId = `interactive-search-row-${guid}`;
 
-  // Plan 25-04 Task 5 (v1.1-04 OverrideMatch split) — extracted from the
-  // JSX return to satisfy ESLint no-nested-ternary. searchPayload.kind
-  // narrows the three modal flavors; see the comment block at the JSX call
-  // site for the wire-format rationale (mangaId=0 sentinel for chapter flavor).
+  // Extracted from the JSX return to satisfy ESLint no-nested-ternary.
+  // searchPayload.kind narrows the two manga-shape modal flavors; see the
+  // comment block at the JSX call site for the wire-format rationale
+  // (mangaId=0 sentinel for chapter flavor).
   const renderOverrideMatchModal = () => {
     if (searchPayload.kind === 'chapter') {
       return (
@@ -230,34 +207,14 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
         />
       );
     }
-    if (searchPayload.kind === 'manga') {
-      return (
-        <MangaOverrideMatchModal
-          isOpen={isOverrideModalOpen}
-          title={title}
-          indexerId={indexerId}
-          guid={guid}
-          mangaId={searchPayload.mangaId}
-          protocol={protocol}
-          onModalClose={onOverrideModalClose}
-        />
-      );
-    }
     return (
-      <OverrideMatchModal
+      <MangaOverrideMatchModal
         isOpen={isOverrideModalOpen}
         title={title}
         indexerId={indexerId}
         guid={guid}
-        seriesId={mappedSeriesId}
-        seasonNumber={mappedSeasonNumber}
-        episodes={mappedEpisodeInfo}
-        languages={languages}
-        quality={quality}
+        mangaId={searchPayload.mangaId}
         protocol={protocol}
-        isGrabbing={tvGrab.isGrabbing}
-        grabError={tvGrab.grabError}
-        grabRelease={tvGrab.grabRelease}
         onModalClose={onOverrideModalClose}
       />
     );
@@ -443,22 +400,16 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
         onCancel={onGrabCancel}
       />
 
-      {/* Plan 25-04 Task 5 (v1.1-04 OverrideMatch split) — searchPayload
-          narrows on `kind` literal-string discriminator (Pitfall 2 — no
-          runtime property-presence checks). Three branches:
+      {/* searchPayload narrows on the `kind` literal-string discriminator
+          (Pitfall 2 — no runtime property-presence checks). Two branches:
             * kind='chapter' → ChapterOverrideMatchModal (chapterIds REQUIRED
-              non-empty; mangaId=0 WIRE SENTINEL — see 25-hotfix note below)
+              non-empty; mangaId=0 WIRE SENTINEL)
             * kind='manga'   → MangaOverrideMatchModal (mangaId REQUIRED;
-              no chapterIds — Task 6 narrows the manga sibling)
-            * kind='episode' | 'season' → TV-shape OverrideMatchModal
-              (preserved verbatim per D-12-18)
-          The typed split decommissioned the RUNTIME shape-detection
-          ambiguity (no more property-presence checks to disambiguate the
-          two flavors), but the WIRE-format sentinel `mangaId=0` is preserved
-          for the chapter flavor — see ChapterOverrideMatchModal.tsx header
-          + 25-REVIEW.md §WR-04 for the full disposition. The backend
-          MangaReleaseController accepts mangaId=0 as the documented
-          chapter-flavored override shape. */}
+              no chapterIds)
+          The WIRE-format sentinel `mangaId=0` is preserved for the chapter
+          flavor — see ChapterOverrideMatchModal.tsx header + 25-REVIEW.md
+          §WR-04 for the full disposition. The backend MangaReleaseController
+          accepts mangaId=0 as the documented chapter-flavored override shape. */}
       {renderOverrideMatchModal()}
     </TableRow>
   );

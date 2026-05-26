@@ -20,14 +20,14 @@ export default function InteractiveSearchFilterModal({
 
   const handleFilterSelect = useCallback(
     (selectedFilter: SetFilter) => {
-      if (type === 'episode') {
+      if (type === 'chapter') {
         setReleaseOption(
-          'episodeSelectedFilterKey',
+          'chapterSelectedFilterKey',
           selectedFilter.selectedFilterKey
         );
       } else {
         setReleaseOption(
-          'seasonSelectedFilterKey',
+          'mangaSelectedFilterKey',
           selectedFilter.selectedFilterKey
         );
       }

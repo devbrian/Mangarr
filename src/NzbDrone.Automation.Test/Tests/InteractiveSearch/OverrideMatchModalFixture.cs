@@ -15,13 +15,14 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 ///
 /// **Blocker #4 path c (testid-not-wired modal trigger):** The InteractiveSearch
 /// row's Override Match trigger is rendered as a Link element with a title
-/// attribute (line 363 `'OverrideAndAddToDownloadQueue'`) and no per-row
-/// testid (only the row root + grab-button have testids). Per Plan 20-09
-/// path c precedent — invoke the contract via the canonical search flow
-/// + assert the modal-shape contract for episode-mode payloads (the TV
-/// OverrideMatchModal renders for non-manga payload shapes per Phase 12
-/// Plan 12-10 sub-wave-B audit row C closure; the manga sibling is asserted
-/// in MangaOverrideMatchModalFixture).
+/// attribute (`'OverrideAndAddToDownloadQueue'`) and no per-row testid (only
+/// the row root + grab-button have testids). Per Plan 20-09 path c precedent —
+/// invoke the contract via the canonical manga search flow + assert the shared
+/// override-trigger surface is mounted on every release row. The InteractiveSearch
+/// union is manga-only ('chapter' / 'manga'); the per-row trigger opens the
+/// manga-shape ChapterOverrideMatchModal / MangaOverrideMatchModal (the TV-shape
+/// OverrideMatchModal fallback was retired in issue #263). The manga override
+/// modal body contract is asserted in MangaOverrideMatchModalFixture.
 ///
 /// State assertion (per feedback_verify_ui_state_not_just_rendering):
 ///   1. InteractiveSearch opens + renders release rows (deterministic
