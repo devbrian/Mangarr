@@ -13,8 +13,7 @@
 | `InteractiveSearch.tsx` | Main modal with sortable/filterable release list |
 | `InteractiveSearchRow.tsx` | One release row (title, indexer, size, peers, quality, language, custom format score, rejections) |
 | `InteractiveSearchFilterModal.tsx` | Filter popup |
-| `InteractiveSearchPayload.ts` | Manga-only discriminated union: `ChapterSearchPayload` (`{ kind: 'chapter', chapterId }`) + `MangaSearchPayload` (`{ kind: 'manga', mangaId }`). The TV-shape `EpisodeSearchPayload` / `SeasonSearchPayload` variants were retired in issue #263. |
-| `InteractiveSearchType.ts` | type: `'chapter' \| 'manga'` (TV-shape `'episode'` / `'season'` literals retired in issue #263). |
+| `InteractiveSearchPayload.ts` | Manga-only discriminated union: `ChapterSearchPayload` (`{ kind: 'chapter', chapterId }`) + `MangaSearchPayload` (`{ kind: 'manga', mangaId }`). The TV-shape `EpisodeSearchPayload` / `SeasonSearchPayload` variants were retired in issue #263. `searchPayload.kind` is the single routing discriminator (the redundant `InteractiveSearchType` prop + file were deleted in issue #263). |
 | `Peers.tsx` | Seeders/peers display |
 | `ReleaseSceneIndicator.tsx` | Scene release indicator |
 | `releaseOptionsStore.ts` | Zustand: search options |
@@ -71,8 +70,9 @@ Adapted in Plan 07-05:
 - `InteractiveSearchType.ts` — added `'chapter'` + `'manga'` literals.
 - `useReleases.ts` — added `getReleasePath(payload)` discriminator routing
   chapter/manga payloads to `/api/v5/manga/release` (Phase 6 endpoint).
-- `<InteractiveSearch type="chapter" searchPayload={{ chapterId }} />` is the
-  caller pattern from `Manga/Details/MangaDetails.tsx` Search tab.
+- `<InteractiveSearch searchPayload={{ kind: 'chapter', chapterId }} />` is the
+  caller pattern from `Chapter/ChapterDetailsModal.tsx` / `Manga/Details/MangaDetails.tsx`
+  Search tab (the `type` prop was retired in issue #263).
 
 Still pending Phase 8 cleanup:
 - Result row column extension (Page Count, Scanlation Group, etc.) — deferred.

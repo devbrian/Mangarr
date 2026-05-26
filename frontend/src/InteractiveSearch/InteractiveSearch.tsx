@@ -13,17 +13,15 @@ import translate from 'Utilities/String/translate';
 import InteractiveSearchFilterModal from './InteractiveSearchFilterModal';
 import InteractiveSearchPayload from './InteractiveSearchPayload';
 import InteractiveSearchRow from './InteractiveSearchRow';
-import InteractiveSearchType from './InteractiveSearchType';
 import { setReleaseOption, useReleaseOptions } from './releaseOptionsStore';
 import useReleases, { FILTERS, setReleaseSort } from './useReleases';
 import styles from './InteractiveSearch.css';
 
 interface InteractiveSearchProps {
-  type: InteractiveSearchType;
   searchPayload: InteractiveSearchPayload;
 }
 
-function InteractiveSearch({ type, searchPayload }: InteractiveSearchProps) {
+function InteractiveSearch({ searchPayload }: InteractiveSearchProps) {
   const customFilters = useCustomFiltersList('releases');
   const { columns } = useReleaseOptions();
 
@@ -38,15 +36,17 @@ function InteractiveSearch({ type, searchPayload }: InteractiveSearchProps) {
     sortDirection,
   } = useReleases(searchPayload);
 
+  // Write the filter slot from searchPayload.kind — the same source useReleases
+  // reads from — so read/write paths can't diverge.
   const handleFilterSelect = useCallback(
     (selectedFilterKey: string | number) => {
-      if (type === 'chapter') {
+      if (searchPayload.kind === 'chapter') {
         setReleaseOption('chapterSelectedFilterKey', selectedFilterKey);
       } else {
         setReleaseOption('mangaSelectedFilterKey', selectedFilterKey);
       }
     },
-    [type]
+    [searchPayload.kind]
   );
 
   const handleSortPress = useCallback(
@@ -75,7 +75,7 @@ function InteractiveSearch({ type, searchPayload }: InteractiveSearchProps) {
           customFilters={customFilters}
           buttonComponent={PageMenuButton}
           filterModalConnectorComponent={InteractiveSearchFilterModal}
-          filterModalConnectorComponentProps={{ type, searchPayload }}
+          filterModalConnectorComponentProps={{ searchPayload }}
           onFilterSelect={handleFilterSelect}
         />
       </div>
