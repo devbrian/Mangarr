@@ -176,23 +176,45 @@ namespace NzbDrone.Core.Parser.Manga
                     var start = ParseDecimal(match.Groups["start"].Value);
                     var end = ParseDecimal(match.Groups["end"].Value);
 
-                    // BL-03 FIX: only enumerate integer ranges (e.g. Ch.10-12 → 10,11,12).
-                    // The previous `n += 1m` loop silently truncated fractional bounds
-                    // (Ch.10-12.5 → [10,11,12]) and skipped fractional steps. Real-world
-                    // multi-chapter ranges are integer chapter sets; if the bounds carry
-                    // a decimal fraction we fall through to the per-chapter regexes below
-                    // (the bare-number / decimal regexes will pick up at least one).
-                    if (start.HasValue && end.HasValue && end >= start
-                        && start.Value == Math.Floor(start.Value)
-                        && end.Value == Math.Floor(end.Value))
+                    // PARSE2-02: 0.5-grid snap-to-grid range expansion (supersedes the
+                    // BL-03 integer-only gate). Pure integer ranges still step by 1m
+                    // (Ch.10-12 → [10,11,12]); when either bound carries a fraction we
+                    // step by 0.5m on a fixed grid (Ch.1-5.5 → [1,1.5,…,5.5]). The start
+                    // is snapped UP onto the grid so an off-grid lower bound still lands
+                    // on a grid point, and only grid points <= the upper bound are emitted
+                    // (Ch.1-5.3 → [1,1.5,…,5.0]; 5.5 excluded). Guards (descending bounds,
+                    // span < 0 after snap, or a grid-point count over the ~1000 cap) leave
+                    // chapterNumbers EMPTY so the outer foreach falls through to the
+                    // per-chapter regexes — never break early on a guarded-out range.
+                    // An integer step-count (count = floor(span/step)+1, then
+                    // start0 + i*step) is used rather than a `c += 0.5m` accumulator: the
+                    // <= end exit is fragile under off-grid snap, while i*step is exact in
+                    // decimal. The cap is checked BEFORE allocating the List (count-first,
+                    // allocate-second — DoS expansion guard).
+                    if (start.HasValue && end.HasValue && end.Value >= start.Value)
                     {
-                        var range = new List<decimal>();
-                        for (var n = start.Value; n <= end.Value; n += 1m)
-                        {
-                            range.Add(n);
-                        }
+                        var lo = start.Value;
+                        var hi = end.Value;
 
-                        chapterNumbers = range.ToArray();
+                        var bothInteger = lo == Math.Floor(lo) && hi == Math.Floor(hi);
+                        var step = bothInteger ? 1m : 0.5m;
+
+                        var start0 = step == 0.5m ? Math.Ceiling(lo * 2m) / 2m : lo;
+                        var span = hi - start0;
+                        if (span >= 0m)
+                        {
+                            var count = (int)Math.Floor(span / step) + 1;
+                            if (count <= 1000)
+                            {
+                                var range = new List<decimal>(count);
+                                for (var i = 0; i < count; i++)
+                                {
+                                    range.Add(start0 + (i * step));
+                                }
+
+                                chapterNumbers = range.ToArray();
+                            }
+                        }
                     }
                 }
                 else if (match.Groups["chapter"].Success)
