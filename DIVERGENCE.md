@@ -1091,6 +1091,28 @@ Subsequent v1.x phases extend this delta; deviations from the snapshot are docum
 - `.planning/REQUIREMENTS.md` SOLVE-01 — promoted Deferred(v2) → v1.2 / Phase 33.2 (Complete).
 
 
+## Phase 33.3 — Comix Signer Managed-Challenge Bypass (v1.2) — signer browser layer ported PuppeteerSharp → Microsoft.Playwright .NET (2026-05-25)
+
+**Phase 33.3 (v1.2) — the Comix runtime signer's embedded-browser layer is Microsoft.Playwright .NET, not PuppeteerSharp.** comix.to escalated to a Cloudflare **managed** challenge (`challenge-platform`) the signer could not clear. An in-image fingerprint diagnostic matched PuppeteerSharp's browser to a CF-clearing Playwright spike on all 5 fingerprint dims and it STILL could not clear, while Microsoft.Playwright .NET cleared the same host in ~3s — isolating the cause to **PuppeteerSharp's CDP `Runtime.enable`** (a `challenge-platform` bot-detection vector Playwright avoids via isolated worlds). The signer was ported to Microsoft.Playwright .NET 1.59.0 (class renamed `ComixPuppeteerSigner` → `ComixPlaywrightSigner`), runs HEADED under Xvfb in the Docker image, and was LIVE-validated in the production image (cold-solved the managed challenge + returned 100 real Komi chapter releases). The Docker Chromium source switched from PuppeteerSharp's BrowserFetcher (`tools/ChromiumPrefetch` → `/opt/mangarr-chromium`) to the official `mcr.microsoft.com/playwright/dotnet:v1.59.0-noble` image (`/ms-playwright`); PuppeteerSharp + `tools/ChromiumPrefetch` were removed.
+
+| File / Path | Type | Phase | Rationale |
+|-------------|------|-------|-----------|
+| `src/NzbDrone.Core/Indexers/Comix/ComixPlaywrightSigner.cs` | rewrite + rename | Phase 33.3 (COMIX2-01) | Browser layer PuppeteerSharp → Microsoft.Playwright .NET (driver swap defeats the CDP `Runtime.enable` CF-detection vector). `IComixSigner.ProxyFetchAsync` contract + env-module-oracle flow unchanged; CF clearance moved to context-creation (`ResolveClearanceAsync`/`BuildClearanceCookie`); structural manga-* sniff + runtime export discovery (front 2). |
+| `src/NzbDrone.Core/Mangarr.Core.csproj` | dep swap | Phase 33.3 | Drop PuppeteerSharp 24.42.0 (signer was its only consumer); add Microsoft.Playwright 1.59.0. |
+| `distribution/docker/Dockerfile` | rewrite | Phase 33.3 | chromium-builder stage → `playwright/dotnet:v1.59.0-noble`; COPY `/ms-playwright`; `PLAYWRIGHT_BROWSERS_PATH`. xvfb + `DISPLAY=:99` retained (headed signer). |
+| `tools/ChromiumPrefetch/` | delete | Phase 33.3 | PuppeteerSharp BrowserFetcher prefetch helper — superseded by the Playwright image. |
+
+**Why-not-Sonarr:** Comix is a Mangarr-only indexer with no Sonarr peer (Sonarr has no browser-driven anti-bot signing indexer — see the Phase 17 IComixSigner divergence). The Playwright-vs-PuppeteerSharp driver choice + headed-Xvfb Docker posture are Mangarr-only seams; Sonarr ships no headless-browser dependency at all.
+
+**Cross-references:**
+
+- `.planning/phases/33.3-comix-signer-managed-challenge-bypass/IN-IMAGE-VALIDATION.md` — LIVE in-image PASS evidence (CF cold-solve + 100 Comix releases).
+- `.planning/phases/33.3-comix-signer-managed-challenge-bypass/.continue-here.md` — the 5-iteration diagnostic + Runtime.enable root-cause + de-risk.
+- `src/NzbDrone.Core/Indexers/Comix/CLAUDE.md` — Phase 17 Invariants (2026-05-25 Playwright .NET port + structural oracle entry).
+
+
+*Last updated: 2026-05-25 (Phase 33.3 close-out — appended the Phase 33.3 entry above for the Comix signer browser-layer port PuppeteerSharp → Microsoft.Playwright .NET (managed-challenge cold-solve via the Runtime.enable driver swap; LIVE in-image validated). Fork-divergent, no Sonarr peer. All previous trailers preserved verbatim below per historical-accuracy contract.)*
+
 *Last updated: 2026-05-25 (Phase 33.2 Plan 33.2-04 close-out — appended the Phase 33.2 entry above for the net-new generic Cloudflare clearance sidecar seam (SOLVE-01). Fork-divergent with no Sonarr peer (Sonarr has no FlareSolverr/anti-bot-solver concept; its indexers are Usenet/Torrent). CF clearance generalizes per D-09; distinct from the Comix-only env-module signing axis. All previous trailers preserved verbatim below per historical-accuracy contract.)*
 
 *Last updated: 2026-05-25 (Phase 33 Plan 33-03 in-progress — Comix keyword-search chaptered-preference + cassetting-signer lazy-resolve DryIoc fix appended; both surfaced by the LIVE cassette recording session. All previous trailers preserved verbatim below per historical-accuracy contract.)*

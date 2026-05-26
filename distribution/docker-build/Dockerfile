@@ -33,7 +33,7 @@ RUN apt-cache policy cli-common-dev
 # Pitfall 1: build-time `chromium --version` smoke check fails docker build EARLY
 #   if BrowserFetcher hands us a corrupt or sys-dep-incomplete binary.
 # Pitfall 7: --no-sandbox + --disable-dev-shm-usage runtime flags are wired in
-#   ComixPuppeteerSigner.LaunchBrowserAsync.
+#   ComixPlaywrightSigner.LaunchBrowserAsync.
 # N-1: this approach intentionally diverges from the upstream PuppeteerSharp blog
 #   (`hardkoded.com/blog/puppeteer-sharp-docker`); D-02 + the smoke check are the
 #   tradeoff lock.

@@ -3,7 +3,7 @@
 # dependency). Phase 33.3 — comix.to's Cloudflare MANAGED challenge does NOT auto-solve for a
 # HEADLESS browser (headless Chromium reports window.outerWidth=0, which the challenge reads as a
 # bot tell — empirically: 45s "Just a moment" stall headless vs ~3s cold-solve headed). The Comix
-# runtime signer (ComixPuppeteerSigner) therefore launches Chromium HEADED; on a display-less server
+# runtime signer (ComixPlaywrightSigner) therefore launches Chromium HEADED; on a display-less server
 # that requires a virtual X display, provided here as :99. See
 # .planning/phases/33.3-comix-signer-managed-challenge-bypass/ (PROVEN on this Docker target).
 #

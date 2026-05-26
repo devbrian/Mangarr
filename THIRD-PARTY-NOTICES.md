@@ -55,26 +55,26 @@ solver) ships and unblocks WebView-required sources.
 When MangaFire ships in v2, this section will be populated with the upstream source path,
 commit SHA at port time, ported file location, and modifications list per methodology §4.
 
-## PuppeteerSharp
+## Microsoft.Playwright
 
-**Project:** PuppeteerSharp — .NET port of Node Puppeteer
-**Version:** 24.42.0 (resolved 2026-05-10 per Phase 17 plan-time)
-**NuGet:** https://www.nuget.org/packages/PuppeteerSharp
-**Source:** https://github.com/hardkoded/puppeteer-sharp
-**License:** MIT
-**Mangarr usage:** Phase 17 Comix runtime signer (`src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs`) drives an embedded headless Chromium child via DevTools Protocol to mirror keiyoushi `Comix.kt` `captureToken()` (the prior PROBE_JS approach was broken 2026-05-22 by upstream namespace-probe deletion + bundle rotation — see `.planning/debug/comix-signer-rotation.md`).
+**Project:** Microsoft.Playwright — .NET browser automation library
+**Version:** 1.59.0
+**NuGet:** https://www.nuget.org/packages/Microsoft.Playwright
+**Source:** https://github.com/microsoft/playwright-dotnet
+**License:** Apache-2.0
+**Mangarr usage:** Phase 33.3 Comix runtime signer (`src/NzbDrone.Core/Indexers/Comix/ComixPlaywrightSigner.cs`) drives an embedded Chromium child (headed under Xvfb) to run comix.to's env-module decryption oracle. **Replaces PuppeteerSharp 24.42.0** (Phase 17–33.2): PuppeteerSharp issues CDP `Runtime.enable`, a Cloudflare `challenge-platform` bot-detection vector that prevented the signer from clearing comix.to's managed challenge; Playwright defers it via isolated worlds and cold-solves the challenge (see `.planning/phases/33.3-…/`). PuppeteerSharp was removed — the signer was its only consumer.
 **Modifications:** none (NuGet dep; no source-port modifications).
 
-MIT license boilerplate: see https://opensource.org/licenses/MIT.
+Apache-2.0 license boilerplate: see https://www.apache.org/licenses/LICENSE-2.0.
 
 ## Chromium
 
 **Project:** Chromium open-source web browser
-**Version:** PuppeteerSharp-pinned revision (resolved at BrowserFetcher download time — see Phase 17 Dockerfile `tools/ChromiumPrefetch/`)
+**Version:** Playwright-pinned revision (matches Microsoft.Playwright 1.59.0; baked by the official `mcr.microsoft.com/playwright/dotnet:v1.59.0-noble` image)
 **Source:** https://www.chromium.org/chromium-projects/
 **License:** BSD-3-Clause
-**Mangarr usage:** Phase 17 — bundled Chromium binary baked at `/opt/mangarr-chromium` in the v1 Mangarr Docker image (D-01, D-03 — single image, fixed image-layer path). Spawned lazily by `ComixPuppeteerSigner` on first comix.to request; idle-teardown after 10 minutes.
-**Modifications:** none (binary distribution from PuppeteerSharp's BrowserFetcher).
+**Mangarr usage:** Phase 33.3 — Playwright's bundled Chromium baked at `/ms-playwright` in the Mangarr Docker image (`PLAYWRIGHT_BROWSERS_PATH`; D-01, D-03 — single image, fixed image-layer path). Spawned lazily by `ComixPlaywrightSigner` (headed under Xvfb) on first comix.to request; idle-teardown after 10 minutes. (Phase 17–33.2 baked it at `/opt/mangarr-chromium` via PuppeteerSharp's BrowserFetcher — retired in Phase 33.3.)
+**Modifications:** none (binary distribution via the official Playwright .NET image).
 
 BSD-3-Clause license: see https://opensource.org/licenses/BSD-3-Clause.
 
@@ -84,10 +84,10 @@ BSD-3-Clause license: see https://opensource.org/licenses/BSD-3-Clause.
 **Upstream commit SHA at port time (CURRENT):** `965dc242` (2026-05-12 — "Comix: only get token via webview"). Captured 2026-05-22 via `gh api repos/keiyoushi/extensions-source/commits/main --jq '.sha'` during the `.planning/debug/comix-signer-rotation.md` investigation.
 **Historical (Phase 17 port-time) upstream source path:** `keiyoushi/extensions-source/src/en/comix/src/eu/kanade/tachiyomi/extension/en/comix/Signer.kt` (DELETED upstream in commit `965dc242`).
 **Historical (Phase 17 port-time) upstream commit SHA:** `9ceeab04a7950173bb73a4e5b6f29cef5ded1457` (captured 2026-05-10; preserved as the historical port baseline). `src/NzbDrone.Core.Test/Indexers/Comix/Resources/upstream-signer.txt` carries the SHA-pinned snapshot of the now-deleted `Signer.kt` for drift-history reference.
-**Mangarr ported file:** `src/NzbDrone.Core/Indexers/Comix/ComixPuppeteerSigner.cs`
+**Mangarr ported file:** `src/NzbDrone.Core/Indexers/Comix/ComixPlaywrightSigner.cs` (renamed from `ComixPuppeteerSigner.cs` in Phase 33.3)
 **License:** Apache 2.0
 **Modifications:**
-- Translated from Kotlin (Android `WebView` + `WebViewClient.shouldInterceptRequest`) to C# (PuppeteerSharp `IPage.SetRequestInterceptionAsync(true)` + `IPage.Request` event handler).
+- Translated from Kotlin (Android `WebView` + `WebViewClient.shouldInterceptRequest`) to C#. The browser driver is Microsoft.Playwright .NET (Phase 33.3; was PuppeteerSharp Phase 17–33.2). The current architecture (2026-05-23 env-module-oracle pivot) supersedes the request-interception captureToken approach — it dynamic-imports comix.to's `manga-*` bundle from page context and invokes the bundle's own decrypting axios client (`page.EvaluateAsync`).
 - Single-process `IComixSigner` singleton replacing the upstream's per-source `Signer` companion-object pattern; lifecycle wired to `IHandle<ApplicationShutdownRequested>` for clean teardown.
 - Idle-teardown timer added (D-12 — TimeSpan.FromMinutes(10) hardcoded const for v1.0); upstream Android WebView lacks a comparable shape (lifecycle managed by Android's Activity).
 - .NET-side serialization via `SemaphoreSlim(1,1)` mirrors upstream's single-thread WebView posture.

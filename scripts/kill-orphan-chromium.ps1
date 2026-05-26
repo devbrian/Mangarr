@@ -4,7 +4,7 @@
     leaving user Chrome browser sessions untouched.
 
 .DESCRIPTION
-    Test runs that exercise ComixPuppeteerSigner spawn headless Chromium via
+    Test runs that exercise ComixPlaywrightSigner spawn headless Chromium via
     PuppeteerSharp. When VSTest is canceled / crashes / hits the per-fixture
     timeout, the Chromium child can be orphaned (parent dies; Chromium keeps
     running). Over time these accumulate, eat RAM, hold file locks on
