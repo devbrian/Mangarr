@@ -36,7 +36,9 @@ public class AutoExclusionOnDeleteFixture : AutomationTest
     public async Task DisableComixAndRegisterProviderAsync()
     {
         var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
+#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #XXX]
         await tk.DisableComixIndexerAsync();
+#pragma warning restore CS0618
 
         // Register MangaDexImportList — the actual exclusion-on-delete path
         // does NOT need the sync to fire (we seed the Manga via AddMangaFlow

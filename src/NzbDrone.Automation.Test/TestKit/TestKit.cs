@@ -169,6 +169,19 @@ public class TestKit
     /// 19-02 adds it here (Rule 3 — missing dependency) matching 19-01's documented
     /// contract verbatim so the orchestrator's wave merge is a no-op identity.
     /// </summary>
+    /// <remarks>
+    /// Phase 33 D-10: marked <see cref="ObsoleteAttribute"/> (warning, not error) to
+    /// steer new fixtures toward the preferred offline-tier seam —
+    /// <c>CassettingComixSigner</c> + recorded cassettes under
+    /// <c>Fixtures/Cassettes/Comix/</c> (Phase 33 D-09). Disable only when the fixture
+    /// has no reason to exercise Comix's search/grab fan-out. The ~93 legacy callers are
+    /// pragma-suppressed pending the v1.3 audit-and-delete cleanup (GH #XXX).
+    /// </remarks>
+    [Obsolete(
+        "Prefer recording Comix coverage via MANGARR_TEST_CASSETTE_MODE=ReplayOrRecord + " +
+        "CassettingComixSigner (Phase 33 D-09). Disable only when the fixture has no reason " +
+        "to exercise Comix's search/grab path. v1.3 GH #XXX audits remaining callers.",
+        error: false)]
     public async Task DisableComixIndexerAsync()
     {
         // 1. List indexers. Shares SeedBaselineAsync's startup-race retry — this

@@ -83,6 +83,38 @@ Post-codegen edit checklist:
 4. Add at least one state assertion.
 5. Confirm `bash scripts/audit-test-assertions.sh` passes locally before pushing.
 
+### Comix offline-tier seam choices (Phase 33)
+
+Phase 33 (COMIX2-01) delivers the offline-tier Comix seam that Phase 18 D-11 spoke
+about aspirationally. Authors of NEW fixtures have two seam choices depending on
+whether the fixture exercises the indexer search/grab fan-out.
+
+**A. Cassetting signer (preferred — fixtures that exercise indexer fan-out).**
+comix.to encrypts response bodies + rotates anti-bot signing per deploy, so it
+CANNOT be HTTP-cassette'd at the `IHttpClient` layer (Phase 17 D-05 / Phase 18 D-11).
+Instead `CassettingComixSigner : IComixSigner` (Phase 33 D-02) records/replays the
+DECODED Comix payloads at the signer boundary. Record once via
+`MANGARR_TEST_CASSETTE_MODE=ReplayOrRecord` +
+`MANGARR_TEST_CASSETTE_DIR=src/NzbDrone.Automation.Test/Fixtures/Cassettes`
+(the PARENT dir — the HTTP `CassetteHandler` reads MangaDex cassettes flat at the
+root; the Comix signer appends `Comix/`), commit the cassettes under
+`Fixtures/Cassettes/Comix/`, and CI runs `Replay` by default. The 3 InteractiveSearch
+fixtures (`InteractiveSearchModalFixture`, `InteractiveSearchGrabFixture`,
+`InteractiveSearchOpenFixture`) are the canonical examples post-Phase-33 — each asserts
+≥1 `data-source='Comix'` row renders.
+
+**B. Explicit disable (only when the fixture has no reason to exercise Comix).**
+`TestKit.DisableComixIndexerAsync()` clears the seeded Comix indexer's Enable* flags
+in `[OneTimeSetUp]` so an un-cassetted Comix fan-out can't escape to the live network.
+As of Phase 33 D-10 the method is `[Obsolete]` (warning, not error) — a forcing
+function for the v1.3 audit. New fixtures should explicitly justify the choice in a
+comment. The ~92 existing legacy callers are pragma-suppressed
+(`#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #XXX]`)
+pending the v1.3 audit-and-delete cleanup.
+
+Full mechanism: `.planning/phases/33-comix-coverage-restore-v1-2-inserted-2026-05-23/33-CONTEXT.md`
+(D-02..D-11) + `src/NzbDrone.Core/Indexers/Comix/CLAUDE.md` "Phase 17 Invariants".
+
 ### Failure artifacts (D-15)
 
 `PageBase.cs` starts a Playwright trace on `[SetUp]` and stops it on `[TearDown]`. On failure, GHA uploads:
@@ -102,7 +134,7 @@ Trace viewer makes failures self-explanatory — never debug a CI failure withou
 | D-07 — Pre-seeded baseline | same | `TestKit/TestKit.cs` |
 | D-08 — Shared Flow helpers as first-class deliverables | same | `Flows/*.cs` directory |
 | D-09 / D-10 — Cassette replay + LiveService tier | same | `TestKit/CassetteHandler.cs` + `Tests/LiveService/` |
-| D-11 — Comix mocked at `IComixIndexer` boundary | same | Indexer test fixtures stub `IComixIndexer`; cassette doesn't reach Comix |
+| D-11 — Comix offline-tier seam | Phase 33 delivers the boundary mock at the `IComixSigner` layer (D-02) — there is no `IComixIndexer` interface to mock. See `### Comix offline-tier seam choices (Phase 33)`. |
 | D-12 — Sentinel PNG + ≤3 real-byte image fixtures | same | `TestKit/Fixtures/` (sentinel) + `TestKit/Fixtures/RealBytes/` (bucketed) |
 | D-13 / D-16 — Tiered CI: per-PR smoke + nightly full SQLite+Postgres matrix | same | `.github/workflows/build_v5.yml` jobs `automation_test_pr_smoke` / `_nightly` / `_liveservice` |
 | D-14 — PRSmoke subset via `[Category("PRSmoke")]` | same | Tag a test as `PRSmoke` only when its route or flow is core to a top-nav user path |
@@ -122,3 +154,4 @@ Trace viewer makes failures self-explanatory — never debug a CI failure withou
 - [`scripts/audit-ui-inventory.sh`](../../scripts/audit-ui-inventory.sh) — PR-time coverage gate (Plan-10 product)
 - [`scripts/audit-test-assertions.sh`](../../scripts/audit-test-assertions.sh) — PR-time state-not-rendering anti-pattern gate (Plan-10 product)
 - [`src/NzbDrone.Test.Common/NzbDroneRunner.cs`](../NzbDrone.Test.Common/NzbDroneRunner.cs) — reused unchanged; supplies the `KillAll/Start(true)` lifecycle pattern
+- [`.planning/phases/33-comix-coverage-restore-v1-2-inserted-2026-05-23/33-CONTEXT.md`](../../.planning/phases/33-comix-coverage-restore-v1-2-inserted-2026-05-23/33-CONTEXT.md) — Phase 33 D-02..D-11 (CassettingComixSigner offline-tier seam + `DisableComixIndexerAsync` deprecation)

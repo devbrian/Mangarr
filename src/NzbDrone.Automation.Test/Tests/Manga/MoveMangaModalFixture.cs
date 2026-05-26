@@ -43,7 +43,9 @@ public class MoveMangaModalFixture : AutomationTest
     public async Task SeedAsync()
     {
         var tk = new TestKit.TestKit(RootUri, ApiKey, Runner.AppData, Runner.PostgresOptions);
+#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #XXX]
         await tk.DisableComixIndexerAsync();
+#pragma warning restore CS0618
         _secondRootFolder = Path.Combine(Runner.AppData, "MangaLibrary2");
         Directory.CreateDirectory(_secondRootFolder);
         await tk.SeedRootFolderAsync(_secondRootFolder);

@@ -39,7 +39,9 @@ public class ImportListCrudFixture : AutomationTest
         // (the row added in OneTimeSetUp survives across tests if any, and
         // would make this fixture order/data-state sensitive).
         var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
+#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #XXX]
         await tk.DisableComixIndexerAsync();
+#pragma warning restore CS0618
     }
 
     [Test]

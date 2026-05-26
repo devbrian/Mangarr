@@ -53,7 +53,9 @@ public class TranslationProfileRankingFixture : AutomationTest
     public async Task DisableComixAndSeedProfileAsync()
     {
         var testKit = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
+#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #XXX]
         await testKit.DisableComixIndexerAsync();
+#pragma warning restore CS0618
 
         // Seed a TranslationProfile so the decision engine has a known shape
         // to gate against. The Phase 18 baseline already seeds a default

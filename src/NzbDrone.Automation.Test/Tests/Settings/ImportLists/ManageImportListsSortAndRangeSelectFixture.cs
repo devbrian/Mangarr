@@ -60,7 +60,9 @@ public class ManageImportListsSortAndRangeSelectFixture : AutomationTest
     {
         var kit = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
 
+#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #XXX]
         await kit.DisableComixIndexerAsync();
+#pragma warning restore CS0618
 
         // Seed 3 MangaDex import-list rows in NON-alphabetical insertion order
         // (C, A, B). See class-level doc-comment for why this matters.

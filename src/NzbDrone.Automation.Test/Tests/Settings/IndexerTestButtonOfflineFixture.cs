@@ -40,7 +40,9 @@ public class IndexerTestButtonOfflineFixture : AutomationTest
     public async Task SeedAsync()
     {
         var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
+#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #XXX]
         await tk.DisableComixIndexerAsync();
+#pragma warning restore CS0618
         await tk.SeedIndexerAsync();
     }
 

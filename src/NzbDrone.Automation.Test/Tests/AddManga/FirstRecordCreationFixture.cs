@@ -81,8 +81,10 @@ public class FirstRecordCreationFixture : AutomationTest
     {
         // Disable Comix indexer (PATTERNS analog C — avoid Comix interference
         // during per-row lookup chain).
+#pragma warning disable CS0618 // [reason: legacy pre-Phase-33; v1.3 audit per GH #XXX]
         await new TestKit.TestKit(RootUri, ApiKey, string.Empty)
             .DisableComixIndexerAsync();
+#pragma warning restore CS0618
 
         // AutomationTest.OneTimeSetUp seeds the baseline root folder at
         // Runner.AppData/MangaLibrary (AutomationTest.cs:104). Drop TWO manga
