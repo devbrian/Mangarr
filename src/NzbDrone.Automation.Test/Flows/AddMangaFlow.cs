@@ -15,7 +15,7 @@ namespace NzbDrone.Automation.Test.Flows;
 /// by driving the actual UI, not by direct API/DB writes. AddMangaFlow is the canonical
 /// D-06 implementation — every cluster fixture that needs manga state seeds via this
 /// flow rather than POSTing /api/v5/manga directly. The cassette-replayed MangaDex
-/// backend (TestKit/CassetteHandler + Fixtures/Cassettes/MangaDex/*.json) makes this
+/// backend (TestKit/CassetteHandler + Fixtures/Cassettes/*.json) makes this
 /// deterministic + network-OFF.
 ///
 /// Sonarr divergence: no upstream peer. Sonarr's Selenium tests called PageObject

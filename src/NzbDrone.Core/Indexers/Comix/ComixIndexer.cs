@@ -219,6 +219,21 @@ namespace NzbDrone.Core.Indexers.Comix
                 }
             }
 
+            // Sonarr divergence: Phase 17 Path A signer dispatch bypasses the
+            // HttpIndexerBase.FetchReleases → IndexerBase.CleanupReleases pipeline
+            // (IndexerBase.cs:105-108) that normally stamps the originating indexer
+            // identity onto each ReleaseInfo. Stamp it here so Comix releases carry
+            // Indexer / IndexerId / Protocol / Priority like every other indexer —
+            // otherwise the InteractiveSearch "Indexer" column + data-source attribute
+            // render blank for Comix rows (Phase 33 D-11; surfaced by Plan 33-04).
+            foreach (var release in allReleases)
+            {
+                release.IndexerId = Definition.Id;
+                release.Indexer = Definition.Name;
+                release.DownloadProtocol = Protocol;
+                release.IndexerPriority = ((IndexerDefinition)Definition).Priority;
+            }
+
             return allReleases;
         }
 

@@ -4,6 +4,7 @@ using FluentAssertions;
 using Microsoft.Playwright;
 using NUnit.Framework;
 using NzbDrone.Automation.Test.Flows;
+using NzbDrone.Automation.Test.PageModel.Modals;
 
 namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 
@@ -19,17 +20,12 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 // no-results placeholder absent — a count-based assertion misses both. The
 // chained-system history-row assertion proves the pipeline end-to-end.
 //
-// Phase 19 Cat B (DEF-18-19-01): Plan 19-02 wired the Comix-disable
-// OneTimeSetUp (Phase 19 D-05) and recorded the InteractiveSearch indexer
-// feed cassette. The recording session uncovered DEF-19-02-01 (the
-// InteractiveSearch 0-render defect), which the Phase 19 in-phase debug
-// session then RESOLVED — see .planning/debug/resolved/
-// interactive-search-0-rows-def-19-02-01.md. With the DecisionEngine
-// manga-resolution / CustomFormatProfile-degradation fixes, the empty
-// customFormats list, the OpenForMangaAsync settle-wait, and the GrabAsync
-// POST-response wait, the full open → search → grab → history pipeline runs
-// offline — so [Explicit] is removed and this fixture rejoins the suite.
-// [Category("PRSmoke")] is PRESERVED — this is a core top-nav user path.
+// Phase 33 (COMIX2-01): the Phase 19 D-05 Comix-disable OneTimeSetUp is LIFTED.
+// Comix is exercised offline via CassettingComixSigner (Plan 33-02) reading
+// recorded cassettes under Fixtures/Cassettes/Comix/ (Plan 33-03). The modal is
+// opened inline so the mixed-source assertion (≥1 data-source='Comix' row) runs
+// before the grab. Closes GH #116 (atomic in Plan 33-06).
+// The PRSmoke category is PRESERVED — this is a core top-nav user path.
 //
 // ── Cassette recording loop (precedent: AddMangaSearchFixture.cs:14-16) ──
 // Indexer-feed cassette recorded 2026-05-14 (Plan 19-02); the grab-path
@@ -37,7 +33,7 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 // 2026-05-14 (DEF-19-02-01 debug session, ReplayOrRecord mode) once the
 // 0-render defect fix made the grab reachable. Both recorded via:
 //   MANGARR_TEST_CASSETTE_MODE=Record|ReplayOrRecord
-//   MANGARR_TEST_CASSETTE_DIR=src/NzbDrone.Automation.Test/Fixtures/Cassettes/MangaDex
+//   MANGARR_TEST_CASSETTE_DIR=src/NzbDrone.Automation.Test/Fixtures/Cassettes
 //   MANGARR_TEST_ASSEMBLY_PATH=_tests/net10.0/Mangarr.Automation.Test.dll
 // driving the real open → search → grab flow against api.mangadex.org.
 // Per-page image GETs to uploads.mangadex.org are sentinel-PNG'd by
@@ -49,23 +45,9 @@ public class InteractiveSearchGrabFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
 
-    [OneTimeSetUp]
-    public async Task DisableComixAsync()
-    {
-        // Phase 19 D-05: Comix cannot be HTTP-cassette'd (Phase 18 D-11 — the
-        // runtime signer hits comix.to live). Disable it BEFORE the first
-        // InteractiveSearch so the fan-out is MangaDex-only. NUnit runs the
-        // base AutomationTest [OneTimeSetUp] (which boots the backend + seeds
-        // the baseline) before this derived [OneTimeSetUp], so RootUri/ApiKey
-        // are wired by the time this runs.
-        //
-        // FOLLOW-UP: https://github.com/devbrian/Mangarr/issues/116 — restore
-        // Comix search/grab coverage here once a Comix offline-tier cassette
-        // mechanism exists OR the IComixIndexer boundary-mock pattern
-        // (Phase 18 D-11) is applied to this fixture.
-        await new TestKit.TestKit(RootUri, ApiKey, string.Empty)
-            .DisableComixIndexerAsync();
-    }
+    // Phase 33 COMIX2-01: Comix exercised offline via CassettingComixSigner +
+    // recorded cassettes under Fixtures/Cassettes/Comix/. No [OneTimeSetUp]
+    // Comix-disable needed.
 
     [Test]
     public async Task grab_writes_to_history()
@@ -76,7 +58,18 @@ public class InteractiveSearchGrabFixture : AutomationTest
         var slug = Page.Url.Split('/')[^1];
         slug.Should().NotBeNullOrEmpty();
 
-        await SearchAndGrabFlow.OpenForMangaAndGrabFirstReleaseAsync(Page, RootUri, slug);
+        // Open the modal inline (instead of SearchAndGrabFlow) so the mixed-source
+        // assertion can run against ModalRoot before the grab. data-source='Comix'
+        // is Plan 33-01's attribute, proving the cassetting signer drives a real
+        // Comix fan-out offline.
+        var modal = await new InteractiveSearchModal(Page).OpenForMangaAsync(RootUri, slug);
+
+        var comixCount = await modal.ModalRoot.Locator("[data-source='Comix']").CountAsync();
+        comixCount.Should().BeGreaterThan(
+            0,
+            "Phase 33 D-11: Comix indexer must render at least one row via cassetting signer + recorded cassette");
+
+        await modal.GrabAsync(0);
 
         // STATE assertion (chained-system): a history row materializes after
         // the grab. The `manga-history-row-{id}` testid is Plan-05's

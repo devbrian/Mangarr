@@ -222,6 +222,17 @@ namespace NzbDrone.Core.Test.Indexers.Comix
             // suffix per Phase 17.2 GAP-17-E winner verdict).
             releases.Should().OnlyContain(r => r.DownloadUrl != null && r.DownloadUrl.Contains("comix.to/api/v1/chapters/"));
             releases.Should().OnlyContain(r => r.DownloadProtocol == DownloadProtocol.Http);
+
+            // Phase 33 D-11 (Plan 33-04): the Phase 17 Path A signer dispatch bypasses
+            // HttpIndexerBase.FetchReleases → IndexerBase.CleanupReleases (IndexerBase.cs:105-108),
+            // which normally stamps the originating indexer identity. ComixIndexer.DispatchSignerPathsAsync
+            // must stamp it explicitly — otherwise Comix releases carry an empty Indexer name and the
+            // InteractiveSearch "Indexer" column + data-source attribute render blank for users (surfaced
+            // by the InteractiveSearch fixtures' data-source='Comix' assertion).
+            releases.Should().OnlyContain(r => r.Indexer == "Comix",
+                "signer-dispatched releases must carry IndexerDefinition.Name like FetchReleases-pipeline releases");
+            releases.Should().OnlyContain(r => r.IndexerId == 2,
+                "signer-dispatched releases must carry IndexerDefinition.Id (=2 in this fixture's Definition)");
         }
 
         [Test]

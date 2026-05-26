@@ -279,7 +279,7 @@ jobs:
           # so the per-PR gate stays cassette-free + deterministic. LiveService
           # category is excluded defensively via filter above.
           MANGARR_TEST_CASSETTE_MODE: Replay
-          MANGARR_TEST_CASSETTE_DIR: ${{ github.workspace }}/src/NzbDrone.Automation.Test/Fixtures/Cassettes/MangaDex
+          MANGARR_TEST_CASSETTE_DIR: ${{ github.workspace }}/src/NzbDrone.Automation.Test/Fixtures/Cassettes
           # Phase 18 Plan 18-14 D-B: ManagedHttpDispatcher loads the test assembly
           # via Assembly.LoadFrom fallback when AppDomain probe returns null
           # (backend runs in a separate process from the test runner).
@@ -394,7 +394,7 @@ jobs:
           # against cassettes. LiveService tier is segregated to the dedicated
           # automation_test_liveservice job (real APIs).
           MANGARR_TEST_CASSETTE_MODE: Replay
-          MANGARR_TEST_CASSETTE_DIR: ${{ github.workspace }}/src/NzbDrone.Automation.Test/Fixtures/Cassettes/MangaDex
+          MANGARR_TEST_CASSETTE_DIR: ${{ github.workspace }}/src/NzbDrone.Automation.Test/Fixtures/Cassettes
           # Phase 18 Plan 18-14 D-B: cross-process assembly load for the
           # backend's HTTP dispatcher (see PR smoke job above for context).
           # CI-infra fix (issue #131): _tests/ root, no net10.0/ segment.

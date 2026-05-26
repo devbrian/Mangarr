@@ -13,7 +13,7 @@ namespace NzbDrone.Automation.Test.Tests.Wanted;
 public class MangaMissingFixture : AutomationTest
 {
     // Stable MangaDex UUID used by Plan-04 cassettes. AddMangaFlow records the
-    // initial-add network exchange to a cassette under Fixtures/Cassettes/MangaDex/
+    // initial-add network exchange to a cassette under Fixtures/Cassettes/
     // so cluster fixtures can seed deterministically.
     private const string KnownMangaDexId = "a96676e5-8ae2-425e-b549-7f15dd34a6d8";
 

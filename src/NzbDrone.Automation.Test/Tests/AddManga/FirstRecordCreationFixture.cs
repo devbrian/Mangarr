@@ -186,7 +186,7 @@ public class FirstRecordCreationFixture : AutomationTest
                 + "hits MangaLookupController's UUID-detection branch (line 48); "
                 + "title folder hits the SearchForNewManga(term) fallback "
                 + "branch (line 66). Both cassettes must be present under "
-                + "Fixtures/Cassettes/MangaDex/ (issue #207).");
+                + "Fixtures/Cassettes/ (issue #207).");
 
         // Uncheck the UUID-folder row so only the title-folder row POSTs on
         // Import. Both rows auto-select on lookup resolution (ImportMangaRow.tsx

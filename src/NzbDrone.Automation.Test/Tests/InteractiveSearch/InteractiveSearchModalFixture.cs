@@ -21,25 +21,12 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 // post-grab, the manga-history-row-{id} testid materializes within 30s
 // (SignalR push + history rendering proven together).
 //
-// Phase 19 Cat B (DEF-18-19-01): Plan 19-02 wired the Comix-disable
-// OneTimeSetUp (Phase 19 D-05) and recorded the InteractiveSearch indexer
-// feed cassette. The recording session uncovered DEF-19-02-01 (the
-// InteractiveSearch 0-render defect), which the Phase 19 in-phase debug
-// session then RESOLVED — see .planning/debug/resolved/
-// interactive-search-0-rows-def-19-02-01.md. That fix:
-//   * MangaDownloadDecisionMaker now resolves the searched manga from
-//     MangaSearchCriteria.Manga instead of fuzzy-title-matching the
-//     romanized release title (which never matched the English-altTitle
-//     Manga.Title), and degrades gracefully on a zero / orphaned
-//     CustomFormatProfile id instead of throwing every release into a
-//     DecisionError rejection;
-//   * MangaReleaseResource emits an empty customFormats list, never null;
-//   * InteractiveSearchModal.OpenForMangaAsync now waits for the SETTLED
-//     steady state (table OR no-results) and GrabAsync awaits the grab POST
-//     response before returning.
-// With those fixes the modal renders the 3 indexer-feed rows, the grab
-// completes, and a history row materializes — so [Explicit] is removed and
-// this fixture runs in the offline Replay suite.
+// Phase 33 (COMIX2-01): the Phase 19 D-05 Comix-disable OneTimeSetUp is LIFTED.
+// Comix is now exercised offline via CassettingComixSigner (Plan 33-02) reading
+// recorded cassettes under Fixtures/Cassettes/Comix/ (Plan 33-03 LIVE recording).
+// The fan-out hits MangaDex AND Comix; the mixed-source assertion below proves at
+// least one data-source='Comix' row renders end-to-end (signer → indexer →
+// DecisionEngine → API → React). Closes GH #116 (atomic in Plan 33-06).
 //
 // ── Cassette recording loop (precedent: AddMangaSearchFixture.cs:14-16) ──
 // Indexer-feed cassette recorded 2026-05-14 (Plan 19-02); the grab-path
@@ -47,7 +34,7 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 // 2026-05-14 (DEF-19-02-01 debug session, ReplayOrRecord mode) once the
 // 0-render defect fix made the grab reachable. Both recorded via:
 //   MANGARR_TEST_CASSETTE_MODE=Record|ReplayOrRecord
-//   MANGARR_TEST_CASSETTE_DIR=src/NzbDrone.Automation.Test/Fixtures/Cassettes/MangaDex
+//   MANGARR_TEST_CASSETTE_DIR=src/NzbDrone.Automation.Test/Fixtures/Cassettes
 //   MANGARR_TEST_ASSEMBLY_PATH=_tests/net10.0/Mangarr.Automation.Test.dll
 // driving the real open → search → grab flow against api.mangadex.org.
 // Per-page image GETs to uploads.mangadex.org are sentinel-PNG'd by
@@ -58,23 +45,9 @@ public class InteractiveSearchModalFixture : AutomationTest
 {
     private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
 
-    [OneTimeSetUp]
-    public async Task DisableComixAsync()
-    {
-        // Phase 19 D-05: Comix cannot be HTTP-cassette'd (Phase 18 D-11 — the
-        // runtime signer hits comix.to live). Disable it BEFORE the first
-        // InteractiveSearch so the fan-out is MangaDex-only. NUnit runs the
-        // base AutomationTest [OneTimeSetUp] (which boots the backend + seeds
-        // the baseline) before this derived [OneTimeSetUp], so RootUri/ApiKey
-        // are wired by the time this runs.
-        //
-        // FOLLOW-UP: https://github.com/devbrian/Mangarr/issues/116 — restore
-        // Comix search/grab coverage here once a Comix offline-tier cassette
-        // mechanism exists OR the IComixIndexer boundary-mock pattern
-        // (Phase 18 D-11) is applied to this fixture.
-        await new TestKit.TestKit(RootUri, ApiKey, string.Empty)
-            .DisableComixIndexerAsync();
-    }
+    // Phase 33 COMIX2-01: Comix exercised offline via CassettingComixSigner +
+    // recorded cassettes under Fixtures/Cassettes/Comix/. No [OneTimeSetUp]
+    // Comix-disable needed.
 
     [Test]
     public async Task open_search_grab()
@@ -96,6 +69,16 @@ public class InteractiveSearchModalFixture : AutomationTest
         count.Should().BeGreaterThan(
             0,
             "the BL-03 UUID-aware row regex must catch at least one release row");
+
+        // STATE assertion (mixed-source): at least one row is sourced from Comix,
+        // proving the cassetting signer + recorded cassette drive a real Comix
+        // fan-out through the DecisionEngine → API → React render. data-source is
+        // Plan 33-01's InteractiveSearchRow.tsx attribute (= IndexerDefinition.Name).
+        var comixRows = modal.ModalRoot.Locator("[data-source='Comix']");
+        var comixCount = await comixRows.CountAsync();
+        comixCount.Should().BeGreaterThan(
+            0,
+            "Phase 33 D-11: Comix indexer must render at least one row via cassetting signer + recorded cassette");
 
         // Grab the first release. Triggers POST /api/v5/manga/queue/grab/{id}
         // via InteractiveSearchRow.tsx's grab-button handler.
