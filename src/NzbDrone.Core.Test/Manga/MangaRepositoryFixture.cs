@@ -40,6 +40,24 @@ namespace NzbDrone.Core.Test.MangaTests
             manga.Id.Should().BeGreaterThan(0);
         }
 
+        // Issue #270 (Migration 008): Manga.Added (NOT NULL) + Manga.LastInfoSync
+        // (nullable) are UTC-instant columns swept to timestamptz on Postgres. Round-trip
+        // must be bit-for-bit on both backends.
+        [Test]
+        public void Insert_persists_Added_and_LastInfoSync_utc_round_trip()
+        {
+            var added = new DateTime(2026, 2, 1, 6, 15, 0, DateTimeKind.Utc);
+            var synced = new DateTime(2026, 2, 2, 18, 45, 0, DateTimeKind.Utc);
+            var manga = BuildManga();
+            manga.Added = added;
+            manga.LastInfoSync = synced;
+            Subject.Insert(manga);
+
+            var fetched = Subject.Get(manga.Id);
+            fetched.Added.Should().Be(added);
+            fetched.LastInfoSync.Should().Be(synced);
+        }
+
         [Test]
         public void Get_by_id_returns_inserted()
         {
