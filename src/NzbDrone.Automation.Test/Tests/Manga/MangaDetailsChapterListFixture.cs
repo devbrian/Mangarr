@@ -43,6 +43,12 @@ public class MangaDetailsChapterListFixture : AutomationTest
 
         var mangaId = await ResolveMangaIdAsync();
 
+        // GH #277: chapter rows are populated by the async RefreshMangaCommand chain
+        // after AddMangaFlow returns. Poll until ≥ 1 row is present before the
+        // wire-shape assertion below, so the BeGreaterThan(0) check isn't racing the
+        // background refresh on a loaded CI runner.
+        await SeedFkResolver.ResolveChapterIdsAsync(RootUri, ApiKey, mangaId, 1);
+
         // Hit GET /api/v5/chapter?mangaId={id} directly. AddMangaFlow already
         // landed on /manga/{slug} which fires the same endpoint via
         // `useChapters` — this assertion proves the wire-shape contract.
