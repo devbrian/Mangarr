@@ -8,6 +8,9 @@ public class LocalizationResourceSerializer : JsonConverter<Dictionary<string, s
 {
     public override Dictionary<string, string> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
+        // Intentional: this is a write-only JsonConverter (Write serializes localization strings to the client).
+        // Localization resources are never deserialized from the wire, so Read is an intentional unreachable
+        // override required by the JsonConverter<T> base. NOT a bug (CQ-05 / DOCS-07).
         throw new NotImplementedException();
     }
 

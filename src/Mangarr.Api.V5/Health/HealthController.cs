@@ -30,6 +30,9 @@ public class HealthController : RestControllerWithSignalR<HealthResource, Health
 
     protected override HealthResource GetResourceById(int id)
     {
+        // Intentional: Health is a collection-only resource (served via GetHealth below); there is no get-by-id
+        // semantics for a health check. The abstract base requires this override, so it throws as an intentional
+        // stub — the [NonAction] GetResourceByIdWithErrorHandler above means it is never routed. NOT a bug (CQ-05 / DOCS-07).
         throw new NotImplementedException();
     }
 
