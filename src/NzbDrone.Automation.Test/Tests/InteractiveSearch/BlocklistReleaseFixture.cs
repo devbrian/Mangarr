@@ -123,9 +123,7 @@ public class BlocklistReleaseFixture : AutomationTest
         using var mangaDoc = JsonDocument.Parse(mangaJson);
         var mangaId = mangaDoc.RootElement[0].GetProperty("id").GetInt32();
 
-        var chapterJson = await http.GetStringAsync($"{RootUri}/api/v5/chapter?mangaId={mangaId}");
-        using var chapterDoc = JsonDocument.Parse(chapterJson);
-        var chapterId = chapterDoc.RootElement[0].GetProperty("id").GetInt32();
+        var chapterId = await SeedFkResolver.ResolveFirstChapterIdAsync(RootUri, ApiKey, mangaId);
 
         return (mangaId, chapterId);
     }

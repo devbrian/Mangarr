@@ -116,11 +116,8 @@ public class ChapterFileBulkDeleteFixture : AutomationTest
         using var mangaDoc = JsonDocument.Parse(mangaJson);
         var mangaId = mangaDoc.RootElement[0].GetProperty("id").GetInt32();
 
-        var chapterJson = await http.GetStringAsync($"{RootUri}/api/v5/chapter?mangaId={mangaId}");
-        using var chapterDoc = JsonDocument.Parse(chapterJson);
-        var chapter1Id = chapterDoc.RootElement[0].GetProperty("id").GetInt32();
-        var chapter2Id = chapterDoc.RootElement[1].GetProperty("id").GetInt32();
+        var chapterIds = await SeedFkResolver.ResolveChapterIdsAsync(RootUri, ApiKey, mangaId, 2);
 
-        return (mangaId, chapter1Id, chapter2Id);
+        return (mangaId, chapterIds[0], chapterIds[1]);
     }
 }
