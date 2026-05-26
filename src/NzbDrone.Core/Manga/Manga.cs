@@ -133,8 +133,8 @@ namespace NzbDrone.Core.Manga
         // (PUT /api/v5/series). Audit chose option (b) — single-method merge — so
         // user-mutable persistence fields (Tags, Monitored, RootFolderPath) are copied
         // here in addition to the metadata fields. Centralizes the contract so the
-        // upcoming MangaEditedService bulk-edit fan-out (Phase 8 cluster 04) and the
-        // V5 MangaController PUT handler stay in sync as new fields land.
+        // bulk-edit path (MangaService.UpdateManga(List<Manga>)) and the V5 MangaController
+        // PUT handler stay in sync as new fields land.
         public void ApplyChanges(Manga other)
         {
             Title = other.Title;
