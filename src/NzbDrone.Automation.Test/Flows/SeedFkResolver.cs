@@ -29,11 +29,15 @@ namespace NzbDrone.Automation.Test.Flows;
 /// </summary>
 public static class SeedFkResolver
 {
-    // ~30s budget: 60 attempts × 500ms. Matches the GH #277 "10–30s budget"
-    // guidance and the 30s WaitForResponse timeouts used elsewhere in the suite.
-    // Bounded (not an unbounded poll) so exhaustion fails the test deterministically.
-    private const int MaxAttempts = 60;
+    // ~30s overall poll budget. Matches the GH #277 "10–30s budget" guidance and
+    // the 30s WaitForResponse timeouts used elsewhere in the suite. The loop is
+    // bounded by BOTH a wall-clock deadline (PollBudget) AND a per-request timeout
+    // (RequestTimeout, applied via HttpClient.Timeout in CreateClient) so a single
+    // hung request can't blow past the budget — without the per-request bound the
+    // default HttpClient.Timeout (100s) would let one stalled call exceed it.
     private const int DelayMs = 500;
+    private static readonly TimeSpan PollBudget = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
 
     /// <summary>
     /// Resolve the first seeded manga id and its first chapter id, polling the
@@ -53,7 +57,8 @@ public static class SeedFkResolver
     {
         using var http = CreateClient(apiKey);
 
-        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
+        var deadline = DateTime.UtcNow + PollBudget;
+        while (true)
         {
             var json = await http.GetStringAsync($"{rootUri}/api/v5/manga");
             using var doc = JsonDocument.Parse(json);
@@ -62,7 +67,7 @@ public static class SeedFkResolver
                 return doc.RootElement[0].GetProperty("id").GetInt32();
             }
 
-            if (attempt == MaxAttempts)
+            if (DateTime.UtcNow >= deadline)
             {
                 break;
             }
@@ -72,7 +77,7 @@ public static class SeedFkResolver
 
         throw new InvalidOperationException(
             $"SeedFkResolver: GET /api/v5/manga returned an empty array after " +
-            $"{MaxAttempts * DelayMs / 1000}s — AddMangaFlow seed did not persist a manga row.");
+            $"{PollBudget.TotalSeconds:0}s — AddMangaFlow seed did not persist a manga row.");
     }
 
     /// <summary>
@@ -86,7 +91,8 @@ public static class SeedFkResolver
     {
         using var http = CreateClient(apiKey);
 
-        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
+        var deadline = DateTime.UtcNow + PollBudget;
+        while (true)
         {
             var json = await http.GetStringAsync($"{rootUri}/api/v5/chapter?mangaId={mangaId}");
             using var doc = JsonDocument.Parse(json);
@@ -101,7 +107,7 @@ public static class SeedFkResolver
                 return ids;
             }
 
-            if (attempt == MaxAttempts)
+            if (DateTime.UtcNow >= deadline)
             {
                 break;
             }
@@ -111,7 +117,7 @@ public static class SeedFkResolver
 
         throw new InvalidOperationException(
             $"SeedFkResolver: chapter refresh did not populate ≥ {minCount} row(s) within " +
-            $"{MaxAttempts * DelayMs / 1000}s for mangaId {mangaId} — the async RefreshMangaCommand " +
+            $"{PollBudget.TotalSeconds:0}s for mangaId {mangaId} — the async RefreshMangaCommand " +
             "chain (MangaAddedEvent → RefreshMangaCommand → chapter-info sync) had not finished. See GH #277.");
     }
 
@@ -127,7 +133,11 @@ public static class SeedFkResolver
 
     private static HttpClient CreateClient(string apiKey)
     {
-        var http = new HttpClient();
+        // Bound each request so a hung call can't exceed the overall poll budget —
+        // the default HttpClient.Timeout (100s) would let one stalled request blow
+        // far past the ~30s budget. GetStringAsync throws TaskCanceledException on
+        // timeout, surfacing a genuinely unresponsive host as a loud test failure.
+        var http = new HttpClient { Timeout = RequestTimeout };
         http.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
         return http;
     }
