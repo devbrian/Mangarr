@@ -1,3 +1,4 @@
+using System;
 using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Core.Parser.Manga;
@@ -99,8 +100,9 @@ namespace NzbDrone.Core.Test.MangaParserTests
             var parsed = MangaParser.ParseChapterTitle("Naruto Ch.12-10");
 
             parsed.Should().NotBeNull();
-            parsed.ChapterNumbers.Should().NotBeEmpty();
-            parsed.ChapterNumbers.Should().NotEqual(new[] { 12m, 11m, 10m });
+
+            // Descending range never expands; per-chapter regex picks up the start (12).
+            parsed.ChapterNumbers.Should().Equal(new[] { 12m });
         }
 
         // PARSE2-02 Case 4 (oversized — fall-through, DoS expansion guard): a
@@ -112,7 +114,29 @@ namespace NzbDrone.Core.Test.MangaParserTests
             var parsed = MangaParser.ParseChapterTitle("Naruto Ch.1-2000");
 
             parsed.Should().NotBeNull();
-            parsed.ChapterNumbers.Length.Should().NotBe(2000);
+
+            // Over-cap range never expands; per-chapter regex picks up the start (1).
+            parsed.ChapterNumbers.Should().Equal(new[] { 1m });
+        }
+
+        // PARSE2-02 overflow guard (PR #271 Codex P1 / CodeRabbit Critical): a
+        // huge-but-parseable upper bound must NOT throw OverflowException on the
+        // decimal→int narrowing cast. The grid-step count is compared in decimal
+        // against the cap BEFORE the cast, so an over-cap range falls through to
+        // per-chapter parsing rather than crashing the parser on an untrusted title.
+        [Test]
+        public void Range_with_huge_parseable_bound_falls_through_without_throwing()
+        {
+            Action act = () => MangaParser.ParseChapterTitle("Naruto Ch.1-3000000000");
+
+            act.Should().NotThrow();
+
+            var parsed = MangaParser.ParseChapterTitle("Naruto Ch.1-3000000000");
+            parsed.Should().NotBeNull();
+
+            // Over-cap → range branch leaves ChapterNumbers empty → per-chapter
+            // regex picks up the start (1) as a single chapter (not a 3e9-element expansion).
+            parsed.ChapterNumbers.Should().Equal(new[] { 1m });
         }
 
         // BL-04 supplementary: decimal normalization for comma + underscore is
