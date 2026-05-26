@@ -7,9 +7,12 @@
 # so the canonical home for these exclusions is repo root.
 #
 # Build-context discipline rationale:
-#   - The runtime Dockerfile only needs `tools/ChromiumPrefetch/` (for the
-#     chromium-builder stage), `_output/linux-${TARGETARCH}/` (for the runtime
-#     stage COPY), and `distribution/docker/root/` (for the s6-overlay scripts).
+#   - The runtime Dockerfile only needs `_output/linux-${TARGETARCH}/` (for the
+#     runtime stage COPY) and `distribution/docker/root/` (for the s6-overlay
+#     scripts). The Chromium source is now the official playwright/dotnet builder
+#     image (Phase 33.3 — Playwright .NET port), so NO build-context input is
+#     needed for Chromium provisioning (the old tools/ChromiumPrefetch PuppeteerSharp
+#     BrowserFetcher helper was retired).
 #   - Everything else is noise that bloats the buildx context upload.
 #   - `_output/` is excluded as a whole, then the per-arch subtree is
 #     re-included via explicit COPY in the Dockerfile (Docker treats COPY paths

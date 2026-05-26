@@ -73,20 +73,24 @@ jobs:
       # Gated on schedule + workflow_dispatch (manual rerun) — PR runs still skip these
       # to keep PR runs fast, but a manual `gh workflow run source-soak.yml` can now
       # exercise the live signer fixture without waiting 24h for the next cron.
-      - name: Pre-fetch Chromium (Phase 17 live signer test)
+      # Phase 33.3: provision Chromium via Microsoft.Playwright .NET (the signer's
+      # browser layer was ported off PuppeteerSharp). `playwright.ps1` ships in the
+      # build output; `install --with-deps` apt-installs the browser sys-deps too.
+      # xvfb is added separately because the signer runs HEADED (comix.to's Cloudflare
+      # managed challenge does NOT clear headless — the smoke runs under xvfb-run).
+      - name: Provision Playwright Chromium + Xvfb (Phase 33.3 live signer test)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
-          dotnet run --project tools/ChromiumPrefetch/ChromiumPrefetch.csproj \
-            --configuration Release \
-            -- --output-dir $RUNNER_TEMP/mangarr-chromium
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb
+          dotnet build src/Mangarr.Comix.Live.Test/Mangarr.Comix.Live.Test.csproj --configuration Release
+          pwsh src/Mangarr.Comix.Live.Test/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
 
       - name: Run live Comix signer smoke
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        env:
-          PUPPETEER_CACHE_DIR: ${{ runner.temp }}/mangarr-chromium
         run: |
-          dotnet test src/Mangarr.Comix.Live.Test/Mangarr.Comix.Live.Test.csproj \
+          xvfb-run -a dotnet test src/Mangarr.Comix.Live.Test/Mangarr.Comix.Live.Test.csproj \
             --configuration Release \
+            --no-build \
             --filter "Category=LiveComix" \
             --logger "trx;LogFileName=live-comix.trx" \
             || (echo "::warning::Phase 17 live-Comix smoke FAILED — comix.to may have rotated; investigate keiyoushi commit log for fresh Signer.kt updates" && exit 1)

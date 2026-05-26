@@ -3,24 +3,27 @@
 # distribution/docker/Dockerfile — Mangarr v1.0.0 runtime image (Phase 21).
 #
 # Multi-stage build:
-#   Stage 1 (chromium-builder) — .NET SDK 10 pre-downloads PuppeteerSharp-pinned
-#     Chromium into /opt/mangarr-chromium via tools/ChromiumPrefetch/.
-#   Stage 2 (runtime)          — debian:bookworm-slim + 39-pkg Chromium sys-deps
-#     + s6-overlay v3 + COPY of /opt/mangarr-chromium + published Mangarr binary.
+#   Stage 1 (chromium-builder) — mcr.microsoft.com/playwright/dotnet:v1.59.0-noble,
+#     which pre-bakes the version-matched Chromium at /ms-playwright. We COPY that
+#     tree forward (no download/run needed).
+#   Stage 2 (runtime)          — debian:bookworm-slim + Chromium sys-deps
+#     + s6-overlay v3 + COPY of /ms-playwright + published Mangarr binary.
 #
-# ── Phase 17 D-01/D-02/D-03/D-04 lock — BrowserFetcher Chromium bake ──
-# Per .planning/phases/17-comix-runtime-signer-port-puppeteersharp/17-CONTEXT.md.
+# ── Phase 17 D-01/D-02/D-03/D-04 lock — baked Chromium (Phase 33.3 driver swap) ──
+# Per .planning/phases/17-comix-runtime-signer-port-puppeteersharp/17-CONTEXT.md,
+# with Phase 33.3 porting the signer browser layer PuppeteerSharp -> Microsoft.Playwright
+# .NET (PuppeteerSharp's CDP Runtime.enable leak is a Cloudflare challenge-platform
+# bot-detection vector Playwright avoids — see .planning/phases/33.3-…/.continue-here.md).
 #   D-01: single image, Chromium baked in by default (NO two-tag scheme).
-#   D-02: BrowserFetcher pre-download (NOT distro-packaged Chromium installed
-#         via apt — version drift per Phase 17 N-1).
-#   D-03: fixed image-layer path /opt/mangarr-chromium (NOT under /config user
-#         volume; survives pod-deletion / config-volume wipes).
-#   D-04: smoke gate at build time fails the image EARLY if BrowserFetcher
-#         hands us a corrupt or sys-dep-incomplete binary.
-# Phase 21 lifts the BrowserFetcher invocation + 36-pkg apt list + smoke gate
-# verbatim from distribution/docker-build/Dockerfile (Phase 17 layout reference)
-# into a real RUNTIME image. The package-builder Dockerfile stays untouched as
-# a sibling.
+#   D-02: Playwright's version-pinned Chromium (NOT distro-packaged via apt —
+#         version drift per Phase 17 N-1). Sourced from the official Playwright
+#         .NET image so the browser revision matches the Microsoft.Playwright
+#         1.59.0 NuGet pin in Mangarr.Core.csproj exactly.
+#   D-03: fixed image-layer path /ms-playwright (NOT under /config user volume;
+#         survives pod-deletion / config-volume wipes). PLAYWRIGHT_BROWSERS_PATH
+#         points the signer at it.
+#   D-04: smoke gate at build time fails the image EARLY if the baked Chromium is
+#         corrupt or sys-dep-incomplete.
 #
 # ── Phase 21 D-01..D-04 lock — runtime image surface ──
 # Per .planning/phases/21-distribution-v1-release/21-CONTEXT.md +
@@ -37,58 +40,26 @@
 
 # ─── Stage 1: chromium-builder ───
 #
-# Rule 1 fix during Plan 21-03 Task 1 execution (2026-05-16): the planner spec
-# named `mcr.microsoft.com/dotnet/sdk:10.0-bookworm-slim`, but Microsoft does
-# NOT publish a Debian/bookworm-flavor tag for the .NET 10 SDK image — only
-# `noble` (Ubuntu 24.04 LTS), `alpine`, `azurelinux`, and the Windows nano
-# server flavors exist on MCR (verified 2026-05-16 via
-# https://mcr.microsoft.com/v2/dotnet/sdk/tags/list). `10.0.203-noble` is
-# selected because:
-#   1. it matches the SDK version pinned in CLAUDE.md Prerequisites (10.0.203);
-#   2. Ubuntu noble is glibc-linked (same C-runtime family as our
-#      debian:bookworm-slim runtime stage), so the BrowserFetcher-produced
-#      Chromium binary that gets COPYed forward will run cleanly;
-#   3. the SDK image is a builder-stage-only concern — no surface from this
-#      stage other than /opt/mangarr-chromium leaks into the runtime image.
-# See SUMMARY.md "Deviations from Plan" for the full rationale.
-# Pin chromium-builder to the BUILD platform so the .NET SDK runs natively
-# (NOT under QEMU emulation for arm64 — the SDK image is ~250MB and would be
-# extremely slow under emulation). Each target arch then gets its own Chromium
-# download via the --platform arg below, controlled by TARGETARCH (which BuildKit
-# sets per-target on the runtime stage; we mirror the value back into the
-# build-platform-pinned chromium-builder via the global ARG).
+# Phase 33.3 (Playwright .NET port): the Chromium source is the official Playwright
+# .NET image, which pre-bakes the version-matched Chromium at /ms-playwright. We pin
+# the builder to the TARGET platform so /ms-playwright carries the correct-arch
+# browser; COPY (below) needs no execution, so no QEMU emulation cost. Pinning to
+# v1.59.0 keeps the baked browser revision in lockstep with the Microsoft.Playwright
+# 1.59.0 NuGet pin in Mangarr.Core.csproj (Playwright pins browser revs per version).
+# noble (Ubuntu 24.04) is glibc-linked — same C-runtime family as the
+# debian:bookworm-slim runtime stage — so the COPYed Chromium runs cleanly.
 #
-# Sonarr divergence: arch-aware multi-arch Chromium provisioning is Mangarr-only;
-# Sonarr ships no headless-browser dependency that needs per-arch builds.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.203-noble AS chromium-builder
+# Sonarr divergence: arch-aware Chromium provisioning is Mangarr-only; Sonarr ships
+# no headless-browser dependency.
+FROM --platform=linux/$TARGETARCH mcr.microsoft.com/playwright/dotnet:v1.59.0-noble AS chromium-builder
 
-# Stage-local `ARG TARGETARCH` (no default value) triggers BuildKit's automatic
-# population of the platform ARG per target. TARGETARCH is one of:
-# amd64 | arm64 | arm | s390x | ppc64le | 386 | riscv64. We map the subset we
-# ship (amd64, arm64) to PuppeteerSharp's Platform enum values below.
 ARG TARGETARCH
 
-WORKDIR /src
-
-# Only copy the prefetch helper — no other source needed. Keeps cache small.
-COPY tools/ChromiumPrefetch/ ./tools/ChromiumPrefetch/
-
-# Run the Phase 17 .NET helper; PuppeteerSharp-pinned revision goes to a fixed
-# layer path. Idempotent (no re-download if already present).
-#
-# Phase 21 v1.0.0 regression fix (2026-05-17): without --platform the
-# BrowserFetcher autodetected the build-host arch (amd64) and produced an
-# x86_64 Chrome binary that the arm64 runtime stage's dynamic linker rejected
-# with "not found" — shell-side translation of "ELF arch mismatch, no ld for
-# this format". Mapping TARGETARCH → PuppeteerSharp Platform fixes this.
-RUN case "${TARGETARCH}" in \
-      amd64) PS_PLATFORM=linux ;; \
-      arm64) PS_PLATFORM=linux-arm64 ;; \
-      *) echo "FATAL: unsupported TARGETARCH=${TARGETARCH} (expected amd64 or arm64)" >&2; exit 1 ;; \
-    esac \
- && dotnet run --project tools/ChromiumPrefetch/ChromiumPrefetch.csproj \
-      --configuration Release \
-      -- --output-dir /opt/mangarr-chromium --platform "${PS_PLATFORM}"
+# Guard: fail early if the base image didn't bake a Chromium under /ms-playwright
+# (e.g. a future Playwright image layout change). The runtime smoke gate re-checks
+# under the debian libs, but this catches an empty COPY source at the source stage.
+RUN test -n "$(find /ms-playwright -type f -name 'chrome' -perm -u+x | head -n1)" \
+ || (echo "FATAL: playwright/dotnet:v1.59.0 image has no baked Chromium under /ms-playwright" >&2 && exit 1)
 
 # ─── Stage 2: runtime ───
 #
@@ -97,11 +68,11 @@ RUN case "${TARGETARCH}" in \
 # acceptance grep (`grep -B1 '^FROM debian' | grep '# Sonarr divergence:'`)
 # AND by sonarr-consistency-audit Pattern ι allowlist coverage at phase close.
 # Mangarr base is debian:bookworm-slim (glibc), NOT hotio/alpine or
-# linuxserver/alpine. PuppeteerSharp BrowserFetcher emits glibc-linked
-# Chromium binaries (Phase 17 N-1 explicit forbid on musl); hotio-style refers
-# to USER-FACING convention (PUID/PGID/UMASK/TZ + /config + /data + s6-overlay),
-# not their base image. See Phase 21 RESEARCH Pitfall 4.
-# Sonarr divergence: Debian base, NOT Alpine — PuppeteerSharp glibc-pinned Chromium (Phase 17 N-1, Phase 21 RESEARCH Pitfall 4).
+# linuxserver/alpine. Playwright's baked Chromium is glibc-linked (Phase 17 N-1
+# explicit forbid on musl); hotio-style refers to USER-FACING convention
+# (PUID/PGID/UMASK/TZ + /config + /data + s6-overlay), not their base image.
+# See Phase 21 RESEARCH Pitfall 4.
+# Sonarr divergence: Debian base, NOT Alpine — Playwright glibc-pinned Chromium (Phase 17 N-1, Phase 21 RESEARCH Pitfall 4).
 FROM debian:bookworm-slim
 
 ARG TARGETARCH
@@ -122,7 +93,7 @@ LABEL org.opencontainers.image.source="https://github.com/devbrian/Mangarr" \
 # on this Docker target). The svc-mangarr process + its Chromium child inherit DISPLAY; the
 # svc-xvfb s6 longrun serves :99. See distribution/docker/root/.../svc-xvfb/run + 33.3 phase docs.
 ENV DEBIAN_FRONTEND=noninteractive \
-    PUPPETEER_CACHE_DIR=/opt/mangarr-chromium \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     WEBUI_PORTS=8989/tcp \
     PUID=1000 \
     PGID=1000 \
@@ -174,8 +145,10 @@ RUN set -eux; \
     tar -C / -Jxpf "s6-overlay-${S6_ARCH}.tar.xz"; \
     rm -f s6-overlay-noarch.tar.xz "s6-overlay-${S6_ARCH}.tar.xz"
 
-# Copy pre-baked Chromium from builder stage (Lock #1).
-COPY --from=chromium-builder /opt/mangarr-chromium /opt/mangarr-chromium
+# Copy pre-baked Playwright Chromium from the builder stage (Lock #1). The browser
+# revision matches the Microsoft.Playwright 1.59.0 NuGet pin; PLAYWRIGHT_BROWSERS_PATH
+# (set above) points the signer at it.
+COPY --from=chromium-builder /ms-playwright /ms-playwright
 
 # Copy Mangarr published binaries. Plan 21-04 docker_publish job populates
 # _output/linux-${TARGETARCH}/ via actions/download-artifact@v8 BEFORE running
@@ -197,12 +170,13 @@ COPY _output/UI/ /app/UI/
 # Copy the s6-overlay v3 service-script tree (Task 2 + Task 3 of this plan).
 COPY distribution/docker/root/ /
 
-# Build-time smoke gate (RESEARCH Lock #6 — RUNTIME STAGE, not builder stage).
-# BrowserFetcher emits to a versioned subdirectory like
-# /opt/mangarr-chromium/chrome/linux-<rev>/chrome-linux64/chrome ; find-based
-# discovery avoids hardcoding the revision number.
-RUN CHROME_BIN="$(find /opt/mangarr-chromium -type f -name 'chrome' -perm -u+x | head -n1)" \
- && [ -n "$CHROME_BIN" ] || (echo "FATAL: BrowserFetcher produced no chrome exe under /opt/mangarr-chromium" >&2 && exit 1) \
+# Build-time smoke gate (RESEARCH Lock #6 — RUNTIME STAGE, not builder stage —
+# catches sys-dep gaps the builder stage would miss because the browser launches
+# under the runtime stage's libs). Playwright bakes Chromium to a versioned subdir
+# like /ms-playwright/chromium-<rev>/chrome-linux/chrome ; find-based discovery
+# avoids hardcoding the revision.
+RUN CHROME_BIN="$(find /ms-playwright -type f -name 'chrome' -perm -u+x | head -n1)" \
+ && [ -n "$CHROME_BIN" ] || (echo "FATAL: no Playwright chrome exe under /ms-playwright" >&2 && exit 1) \
  && "$CHROME_BIN" --version \
  || (echo "FATAL: Chromium binary corrupted or missing sys-deps" >&2 && exit 1)
 

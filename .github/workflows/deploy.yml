@@ -214,15 +214,13 @@ jobs:
       # arm64 hosts can pull the amd64 image via Docker's user-mode emulation:
       #   docker pull --platform linux/amd64 ghcr.io/devbrian/mangarr:1.0.0
       #
-      # v1.1-17 evaluates real arm64 paths: (a) switch to Playwright .NET whose
-      # CLI ships arm64 chromium, (b) hybrid with apt-chromium on arm64
-      # (relaxes Phase 17 D-02), or (c) build chromium-headless-shell from
-      # source for arm64. None of those fit the v1.0.0 ship window.
-      #
-      # The arch-aware chromium-builder scaffolding (--platform=$BUILDPLATFORM,
-      # TARGETARCH → PS_PLATFORM dispatch in distribution/docker/Dockerfile +
-      # tools/ChromiumPrefetch/Program.cs --platform arg) is retained as
-      # foundation for whichever v1.1-17 path lands.
+      # Phase 33.3 (2026-05-25) took v1.1-17 path (a): the signer browser layer was
+      # ported PuppeteerSharp -> Microsoft.Playwright .NET, and the Dockerfile sources
+      # Chromium from the official playwright/dotnet image (multi-arch — it ships an
+      # arm64 chromium, unlike Chrome-for-Testing). That removes the arm64 PROVISIONING
+      # blocker. The `platforms:` line below stays linux/amd64 until a multi-arch image
+      # build + arm64 in-image Comix smoke is validated on real hardware; flipping it to
+      # `linux/amd64,linux/arm64` is the remaining (separately-validated) step.
       # Phase 29 D-09 — install cosign for keyless OIDC sign + self-verify.
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
