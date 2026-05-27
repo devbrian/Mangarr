@@ -13,6 +13,12 @@
 # verified. See CLAUDE.md "Mandatory smoke gate before phase verification"
 # and the user memory feedback_never_defer_smoke_fixture_gate.
 #
+# GH #252: a pre-run cleanup gate now sweeps orphan testhost / Mangarr.Console /
+# Puppeteer-Playwright Chromium left by a prior crashed/cancelled run BEFORE the
+# port-8989-free check (Step 2). Without it, a leftover Mangarr.Console holding
+# 8989 from a previous run made Step 2 FATAL with a misleading "port occupied"
+# instead of self-healing. See scripts/kill-orphan-test-processes.sh.
+#
 # Usage:
 #   bash scripts/phase-smoke-gate.sh <phase-number>
 #
@@ -130,6 +136,15 @@ trap 'rc=$?
 
 echo "=== phase-smoke-gate $PHASE — start $TS ==="
 
+# Step 0: pre-run cleanup gate (GH #252). Sweep orphan testhost / Mangarr.Console /
+# Puppeteer-Playwright Chromium left by a prior crashed/cancelled run. MUST run
+# BEFORE Step 2's port-free check so a leftover Mangarr.Console on 8989 self-heals
+# instead of FATAL-ing the gate. Best-effort: never fails the gate on its own.
+# shellcheck source=scripts/kill-orphan-test-processes.sh
+. "$(dirname "$0")/kill-orphan-test-processes.sh"
+echo "--- Step 0: pre-run orphan-process cleanup"
+kill_orphan_test_processes 2 || true
+
 # Step 1: Playwright provisioned (FATAL if missing per Phase 22 mandatory contract)
 echo "--- Step 1: Playwright provisioned"
 if ! ls _tests/net10.0/playwright.ps1 >/dev/null 2>&1; then
@@ -182,7 +197,8 @@ PORT_CHECK_EXIT=$?
 case "$PORT_CHECK_EXIT" in
   0)
     echo "FATAL: port 8989 is occupied; smoke gate cannot bind." >&2
-    echo "  Kill the existing listener (e.g. taskkill /F /PID <pid> on Windows, kill <pid> on Unix) and re-run." >&2
+    echo "  Step 0 pre-flight cleanup ran but the listener survived — kill it manually" >&2
+    echo "  (e.g. taskkill /F /PID <pid> on Windows, kill <pid> on Unix) and re-run." >&2
     PORT_OK="false"
     FAILURE_REASONS+=("port_8989_occupied")
     exit 1
