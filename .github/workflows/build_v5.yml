@@ -581,6 +581,13 @@ jobs:
           action: actions/checkout@v6
           attempt_limit: 3
           attempt_delay: 60000
+          # GH #289: fetch full history + origin/* refs so audit-new-fixtures.sh
+          # (via phase-smoke-gate → validate-no-orphan-leaks) can resolve the
+          # merge-base against origin/Mangarr-v0 on the workflow_dispatch leg from
+          # a non-Mangarr-v0 branch. Without this, the shallow single-branch clone
+          # has no Mangarr-v0 ref and the gate FATAL-exits 2.
+          with: |
+            fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
