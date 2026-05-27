@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Playwright;
 using NLog;
@@ -249,7 +250,7 @@ public abstract class AutomationTest
             // discriminates leaked Chromium from the user's real Chrome by three orthogonal
             // signals — we never broaden that filter and never `taskkill /F /IM chrome.exe`.
             // Best-effort + fully wrapped so a sweep failure can NEVER mask the test outcome.
-            SweepOrphanChromium();
+            await SweepOrphanChromiumAsync();
             CleanupPostgresDatabases();
         }
     }
@@ -261,7 +262,7 @@ public abstract class AutomationTest
     /// Get-CimInstance / Stop-Process); a no-op elsewhere. NEVER throws — a sweep failure
     /// must not influence the test verdict.
     /// </summary>
-    private static void SweepOrphanChromium()
+    private static async Task SweepOrphanChromiumAsync()
     {
         try
         {
@@ -305,8 +306,23 @@ public abstract class AutomationTest
                 return;
             }
 
+            // Drain stdout/stderr concurrently. kill-orphan-chromium.ps1 emits a
+            // per-process survey; with many leaked Chromium candidates + long
+            // executable paths this can exceed the OS pipe buffer. If we don't read
+            // the streams, pwsh blocks on write, WaitForExit times out, and we'd kill
+            // the sweep mid-Stop-Process — leaving the very leaks it should remove
+            // (Codex PR #284 P2). Reading them keeps the child unblocked.
+            var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+            var stderrTask = proc.StandardError.ReadToEndAsync();
+
             // Bound the wait — the sweep is a survey + Stop-Process, sub-second normally.
-            if (!proc.WaitForExit(15_000))
+            // WaitForExitAsync (not the blocking overload) — this runs inside async teardown.
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            try
+            {
+                await proc.WaitForExitAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
             {
                 try
                 {
@@ -320,6 +336,9 @@ public abstract class AutomationTest
                 TestContext.Progress.WriteLine("[GH#252] OneTimeTearDown: Chromium sweep timed out (>15s); abandoned.");
                 return;
             }
+
+            // Process has exited — the drain tasks complete promptly now.
+            await Task.WhenAll(stdoutTask, stderrTask);
 
             TestContext.Progress.WriteLine(
                 $"[GH#252] OneTimeTearDown: Chromium sweep exit={proc.ExitCode}.");

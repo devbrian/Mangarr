@@ -71,6 +71,10 @@ kill_orphan_test_processes() {
     if command -v pkill >/dev/null 2>&1; then
       pkill -f 'testhost' 2>/dev/null && echo "  killed leftover testhost (pkill)" || true
       pkill -f 'Mangarr.Console' 2>/dev/null && echo "  killed leftover Mangarr.Console (pkill)" || true
+      # Plain 'Mangarr' (anchored to a path segment / start) — the Linux backend
+      # binary that NzbDroneRunner launches; would otherwise keep its port bound.
+      # Mirrors the Windows branch which already kills the "Mangarr" process name.
+      pkill -f '(^|/)Mangarr$' 2>/dev/null && echo "  killed leftover Mangarr (pkill)" || true
     fi
   fi
 

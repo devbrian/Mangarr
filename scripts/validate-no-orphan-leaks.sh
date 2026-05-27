@@ -60,7 +60,7 @@ if ! [[ "$SETTLE_SECONDS" =~ ^[0-9]+$ ]]; then
 fi
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || { echo "FATAL: could not cd to repo root '$REPO_ROOT'" >&2; exit 2; }
 
 # snapshot_counts: print three integers "testhost console chromium" for the
 # current process population of the three leak classes. Chromium is counted via
@@ -133,10 +133,20 @@ for i in $(seq 1 "$ITERATIONS"); do
   bash "$REPO_ROOT/scripts/phase-smoke-gate.sh" "$PHASE" || GATE_RC=$?
   echo "--- Iteration $i: phase-smoke-gate exit=$GATE_RC"
 
-  # A non-zero gate exit is NOT itself a leak — the gate may legitimately FAIL
-  # (e.g. a real unit-test failure). What this harness validates is that AFTER
-  # the gate finishes (pass OR fail), the process population returns to baseline.
-  # We record the gate RC but only FAIL the validation on a LEAK.
+  # The harness validates TWO independent properties, both of which must hold:
+  #   (a) the gate itself succeeded, and
+  #   (b) the process population returned to baseline after the gate finished.
+  # A non-zero gate exit fails the validation: if the gate could not complete a
+  # real run (e.g. missing Playwright, a broken build, or a fixture failure), the
+  # leak result is INCONCLUSIVE — processes can trivially return to baseline when
+  # nothing meaningful ran, which would otherwise let the nightly report green
+  # without proving the back-to-back leak property (Codex PR #284 P2).
+  if [ "$GATE_RC" -ne 0 ]; then
+    echo "" >&2
+    echo "GATE FAILURE on iteration $i (phase-smoke-gate exit=$GATE_RC): leak validation is" >&2
+    echo "  inconclusive — a gate that did not complete cannot prove the no-leak property." >&2
+    OVERALL_RC=1
+  fi
 
   echo "--- Iteration $i: waiting up to ${SETTLE_SECONDS}s for return-to-baseline"
   LEAK_FOUND=1
@@ -170,9 +180,9 @@ done
 
 echo "=================================================================="
 if [ "$OVERALL_RC" -eq 0 ]; then
-  echo "PASS: $ITERATIONS iteration(s) completed; every leak class returned to baseline each time."
+  echo "PASS: $ITERATIONS iteration(s) completed; gate succeeded and every leak class returned to baseline each time."
 else
-  echo "FAIL: at least one iteration leaked a process class beyond baseline (see detail above)."
+  echo "FAIL: at least one iteration had a gate failure or leaked a process class beyond baseline (see detail above)."
 fi
 echo "=================================================================="
 exit "$OVERALL_RC"
