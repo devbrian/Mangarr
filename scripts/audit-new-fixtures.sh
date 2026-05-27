@@ -78,10 +78,19 @@ EOF
 done
 
 if [ -z "$PHASE_BASE" ]; then
-  PHASE_BASE=$(git merge-base "$PHASE_TIP" Mangarr-v0 2>/dev/null || git merge-base "$PHASE_TIP" main 2>/dev/null || true)
+  # GH #289: a bare branch name does NOT DWIM to a remote-tracking ref, so on a
+  # shallow single-branch CI checkout (e.g. the validate_orphan_leaks job's
+  # workflow_dispatch leg from a non-Mangarr-v0 branch) `Mangarr-v0` resolves to
+  # nothing and merge-base fails — previously FATAL exit 2. Fall back to the
+  # origin/* remote-tracking refs (present once the checkout fetches them) before
+  # giving up.
+  for base_ref in Mangarr-v0 origin/Mangarr-v0 main origin/main; do
+    PHASE_BASE=$(git merge-base "$PHASE_TIP" "$base_ref" 2>/dev/null || true)
+    [ -n "$PHASE_BASE" ] && break
+  done
 fi
 if [ -z "$PHASE_BASE" ]; then
-  echo "FATAL: could not derive phase base (no Mangarr-v0 or main branch)" >&2
+  echo "FATAL: could not derive phase base (no Mangarr-v0/main local or origin ref reachable from $PHASE_TIP)" >&2
   exit 2
 fi
 

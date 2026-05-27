@@ -54,13 +54,18 @@ public class ChapterMonitorToggleFixture : AutomationTest
         beforeLabel.Should().NotBeNull();
 
         await toggle.ClickAsync();
-        await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+        // STATE assertion: aria-label flips after the PUT /api/v5/chapter/monitor
+        // round-trip resolves AND React re-renders. WaitForLoadStateAsync(NetworkIdle)
+        // proves the network is quiet, not that the toggled label has re-rendered, so a
+        // direct GetAttributeAsync read races the re-render (GH #288: caught the stale
+        // "Monitored, click to unmonitor" on the slow postgres-17 leg). The web-first
+        // Expect polls until the label flips — a silent rejection would leave it unchanged
+        // until the assertion times out.
+        await Assertions.Expect(toggle).Not.ToHaveAttributeAsync("aria-label", beforeLabel!);
 
         var afterLabel = await toggle.GetAttributeAsync("aria-label");
         afterLabel.Should().NotBeNull();
-
-        // STATE assertion: aria-label flips after the PUT /api/v5/chapter/monitor
-        // round-trip resolves. A silent rejection would leave the label unchanged.
         afterLabel.Should().NotBe(beforeLabel);
     }
 }
