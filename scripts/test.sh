@@ -54,6 +54,30 @@ elif [ "$TYPE" = "Integration" ] || [ "$TYPE" = "int" ] ; then
   WHERE="$WHERE&Category=IntegrationTest"
 elif [ "$TYPE" = "Automation" ] ; then
   WHERE="$WHERE&Category=AutomationTest"
+
+  # Offline-by-default for the automation tier. The Comix-enabled fixtures
+  # (InteractiveSearch{Modal,Grab,Open}Fixture, which set
+  # DisableComixIndexerInBaseline => false) fan out through IComixSigner. Without
+  # MANGARR_TEST_CASSETTE_MODE set, NzbDrone.Host/Startup.cs resolves the LIVE
+  # ComixPlaywrightSigner, which launches Chromium against comix.to (and likewise
+  # the MangaDex HTTP cassette layer would hit api.mangadex.org). Default to Replay
+  # against the committed cassettes so a local `test.sh ... Automation ...` run is
+  # hermetic, matching the CI automation jobs in .github/workflows/build_v5.yml.
+  # Export an explicit MANGARR_TEST_CASSETTE_MODE=Record|ReplayOrRecord before
+  # invoking to (re)record. Live-network coverage lives in the [Category=LiveService]
+  # tier, which is excluded from this offline run.
+  CASSETTE_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
+  CASSETTE_DEFAULT_DIR="$CASSETTE_REPO_ROOT/src/NzbDrone.Automation.Test/Fixtures/Cassettes"
+  # The child Mangarr is a native .NET process. Under Git Bash on Windows `pwd`
+  # yields an MSYS path (/c/Users/...) that .NET can't resolve, so translate to a
+  # Windows path (C:\Users\...) via cygpath. No-op on Linux/Mac (pwd is native).
+  if command -v cygpath >/dev/null 2>&1; then
+    CASSETTE_DEFAULT_DIR="$(cygpath -w "$CASSETTE_DEFAULT_DIR")"
+  fi
+  : "${MANGARR_TEST_CASSETTE_MODE:=Replay}"
+  : "${MANGARR_TEST_CASSETTE_DIR:=$CASSETTE_DEFAULT_DIR}"
+  export MANGARR_TEST_CASSETTE_MODE MANGARR_TEST_CASSETTE_DIR
+  echo "Automation cassette mode: $MANGARR_TEST_CASSETTE_MODE (dir: $MANGARR_TEST_CASSETTE_DIR)"
 else
   echo "Type must be provided as second argument: Unit, Integration or Automation"
   exit 2
