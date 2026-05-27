@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Playwright;
 using NLog;
 using NUnit.Framework;
+using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Datastore.Migration.Framework;
@@ -218,34 +220,148 @@ public abstract class AutomationTest
                 await Context.DisposeAsync();
             }
 
-            _runner?.KillAll();
+            // GH #252: kill the child Mangarr.Console UNCONDITIONALLY (even when the
+            // try block above threw on Tracing.StopAsync, or when OneTimeSetUp failed
+            // mid-way). KillAll() reaps _nzbDroneProcess + any stray Mangarr.Console /
+            // Mangarr by name, releasing the bound port so the NEXT fixture's
+            // NzbDroneRunner can bind. This is the primary lever for leak class 3
+            // (Mangarr.Console port-bind). Log what we did so a CI trace shows the
+            // teardown ran (the leak symptom is teardown SILENTLY not running).
+            if (_runner != null)
+            {
+                TestContext.Progress.WriteLine(
+                    $"[GH#252] OneTimeTearDown: killing NzbDroneRunner (port {_runner.Port}) + stray Mangarr.Console/Mangarr.");
+                _runner.KillAll();
+            }
+            else
+            {
+                TestContext.Progress.WriteLine(
+                    "[GH#252] OneTimeTearDown: runner was null (OneTimeSetUp failed before construction); nothing to kill.");
+            }
 
-            // /gsd-debug nightly-automation-fail Pattern B3 fix: drop the per-run postgres
-            // databases that OneTimeSetUp created so the postgres server doesn't accumulate
-            // <run-uid>_main / <run-uid>_log DBs across nightly runs. Mirrors DbTest's
-            // OneTimeTearDown DropPostgresDb call. Guard on Host so the sqlite path is a
-            // no-op. Wrap in try so a Drop failure (e.g. open connection still draining)
-            // does not mask the underlying test outcome.
-            if (_postgresOptions != null && _postgresOptions.Host.IsNotNullOrWhiteSpace())
+            // GH #252: sweep orphan Puppeteer/Playwright Chromium. The child Mangarr's
+            // ComixPlaywrightSigner owns an embedded Chromium that self-disposes via its
+            // IHandle<ApplicationShutdownRequested> handler — but a HARD kill of the child
+            // (above, or on a crash) skips that graceful path, orphaning the Chromium to
+            // PID 1. The Playwright browser worker for THIS fixture is owned by
+            // PlaywrightSetUpFixture and disposed there; this sweep is the catch-all for
+            // signer-Chromium leaks. We delegate to scripts/kill-orphan-chromium.ps1, which
+            // discriminates leaked Chromium from the user's real Chrome by three orthogonal
+            // signals — we never broaden that filter and never `taskkill /F /IM chrome.exe`.
+            // Best-effort + fully wrapped so a sweep failure can NEVER mask the test outcome.
+            SweepOrphanChromium();
+            CleanupPostgresDatabases();
+        }
+    }
+
+    /// <summary>
+    /// GH #252: best-effort sweep of leaked PuppeteerSharp/Playwright Chromium left by a
+    /// hard-killed child Mangarr (its ComixPlaywrightSigner Chromium never got the graceful
+    /// ApplicationShutdownRequested teardown). Windows-only (the script uses
+    /// Get-CimInstance / Stop-Process); a no-op elsewhere. NEVER throws — a sweep failure
+    /// must not influence the test verdict.
+    /// </summary>
+    private static void SweepOrphanChromium()
+    {
+        try
+        {
+            if (!OsInfo.IsWindows)
+            {
+                return;
+            }
+
+            // Resolve the repo-root kill-orphan-chromium.ps1 relative to the test output
+            // dir: _tests/net10.0/ → repo root is ../../ then scripts/.
+            var scriptPath = Path.GetFullPath(Path.Combine(
+                TestContext.CurrentContext.TestDirectory, "..", "..", "scripts", "kill-orphan-chromium.ps1"));
+
+            if (!File.Exists(scriptPath))
+            {
+                // Not fatal — the script-level gate (phase-smoke-gate / audit-new-fixtures
+                // pre-flight) is the primary sweep; this in-teardown sweep is defense-in-depth.
+                TestContext.Progress.WriteLine(
+                    $"[GH#252] OneTimeTearDown: kill-orphan-chromium.ps1 not found at {scriptPath}; skipping in-test Chromium sweep.");
+                return;
+            }
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = "pwsh",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            psi.ArgumentList.Add("-NoProfile");
+            psi.ArgumentList.Add("-NonInteractive");
+            psi.ArgumentList.Add("-File");
+            psi.ArgumentList.Add(scriptPath);
+            psi.ArgumentList.Add("-Kill");
+
+            using var proc = Process.Start(psi);
+            if (proc == null)
+            {
+                TestContext.Progress.WriteLine("[GH#252] OneTimeTearDown: failed to start pwsh for Chromium sweep.");
+                return;
+            }
+
+            // Bound the wait — the sweep is a survey + Stop-Process, sub-second normally.
+            if (!proc.WaitForExit(15_000))
             {
                 try
                 {
-                    PostgresDatabase.Drop(_postgresOptions, MigrationType.Main);
+                    proc.Kill(entireProcessTree: true);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    TestContext.Progress.WriteLine($"Drop Main DB failed (non-fatal): {ex.Message}");
+                    // ignore — best-effort
                 }
 
-                try
-                {
-                    PostgresDatabase.Drop(_postgresOptions, MigrationType.Log);
-                }
-                catch (Exception ex)
-                {
-                    TestContext.Progress.WriteLine($"Drop Log DB failed (non-fatal): {ex.Message}");
-                }
+                TestContext.Progress.WriteLine("[GH#252] OneTimeTearDown: Chromium sweep timed out (>15s); abandoned.");
+                return;
             }
+
+            TestContext.Progress.WriteLine(
+                $"[GH#252] OneTimeTearDown: Chromium sweep exit={proc.ExitCode}.");
+        }
+        catch (Exception ex)
+        {
+            // Swallow ALL exceptions: the sweep is cleanup, not a test assertion.
+            TestContext.Progress.WriteLine($"[GH#252] OneTimeTearDown: Chromium sweep error (non-fatal): {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// /gsd-debug nightly-automation-fail Pattern B3 fix: drop the per-run postgres
+    /// databases that OneTimeSetUp created so the postgres server doesn't accumulate
+    /// <c>&lt;run-uid&gt;_main</c> / <c>&lt;run-uid&gt;_log</c> DBs across nightly runs. Mirrors
+    /// DbTest's OneTimeTearDown DropPostgresDb call. Guard on Host so the sqlite path is a
+    /// no-op. Wrap in try so a Drop failure (e.g. open connection still draining) does not
+    /// mask the underlying test outcome.
+    /// </summary>
+    private void CleanupPostgresDatabases()
+    {
+        if (_postgresOptions == null || !_postgresOptions.Host.IsNotNullOrWhiteSpace())
+        {
+            return;
+        }
+
+        try
+        {
+            PostgresDatabase.Drop(_postgresOptions, MigrationType.Main);
+        }
+        catch (Exception ex)
+        {
+            TestContext.Progress.WriteLine($"Drop Main DB failed (non-fatal): {ex.Message}");
+        }
+
+        try
+        {
+            PostgresDatabase.Drop(_postgresOptions, MigrationType.Log);
+        }
+        catch (Exception ex)
+        {
+            TestContext.Progress.WriteLine($"Drop Log DB failed (non-fatal): {ex.Message}");
         }
     }
 }

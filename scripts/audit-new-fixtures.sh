@@ -12,6 +12,14 @@
 # defects (wrong expected status code, missing selector tolerance, stale
 # DOM locator) propagate silently to phase-close status.
 #
+# GH #252 (orphan-process leaks): a pre-flight cleanup now runs BETWEEN the
+# UNIT and AUTOMATION dotnet-test steps. The UNIT step's testhost.exe, when it
+# lingers, keeps Mangarr.Windows.dll (and friends) file-locked; the AUTOMATION
+# step then rebuilds and hits MSB3027 "Exceeded retry count of 10" → a non-zero
+# exit that this gate previously conflated with a real fixture failure. Sweeping
+# leftover testhost / Mangarr.Console / Puppeteer-Playwright Chromium between the
+# two steps eliminates that false-failure. See scripts/kill-orphan-test-processes.sh.
+#
 # Scope (per user directive 2026-05-17):
 #   1. NEW fixtures — *Fixture.cs files added in the phase diff
 #   2. EXISTING fixtures touching changed code — fixtures whose name pattern
@@ -31,6 +39,12 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
+
+# GH #252: shared orphan-process cleanup helper. Sourced (not exec'd) so the
+# kill_orphan_test_processes function is available between the UNIT and
+# AUTOMATION dotnet-test steps below.
+# shellcheck source=scripts/kill-orphan-test-processes.sh
+. "$REPO_ROOT/scripts/kill-orphan-test-processes.sh"
 
 # ---- Argument parsing -------------------------------------------------------
 
@@ -339,6 +353,13 @@ classify_run_log() {
   # green projects while a third project's test host crashed (Codex P1 on
   # PR #274). VSTest emits "Test Run Aborted." / "Aborted!" summaries and the
   # runner emits "Test host process crashed" / "active test run was aborted".
+  #
+  # GH #252: MSB3027 ("Could not copy ... Exceeded retry count of 10") is the
+  # DLL-lock signature of a leftover testhost from a prior step. It surfaces as
+  # a "Build FAILED" so it is already caught by the build-failure branch below —
+  # the fix is to PREVENT it (the kill_orphan_test_processes call between the
+  # UNIT and AUTOMATION steps), not to suppress the signal here. We do NOT add
+  # MSB3027 to a benign-allowlist: a build failure is a real failure.
   if grep -qE 'error CS[0-9]+|Build FAILED|Test Run Failed\.|Test Run Aborted\.|^Aborted!|Test host process crashed|active test run was aborted' "$log"; then
     return 1
   fi
@@ -440,6 +461,20 @@ if [ -n "$UNIT_FILTERS" ]; then
   cat "$RUN_LOG"
   cat "$RUN_LOG" >> "$RESULTS_FILE"
   rm -f "$RUN_LOG"
+  echo ""
+fi
+
+# GH #252: between the UNIT and AUTOMATION dotnet-test steps, sweep any leftover
+# testhost.exe from the UNIT run. A lingering testhost keeps Mangarr.Windows.dll
+# (and other output DLLs) file-locked; the AUTOMATION step then rebuilds and hits
+# MSB3027 "Exceeded retry count of 10" → a Build FAILED that classify_run_log
+# correctly flags as a real failure — but it's a FALSE failure caused by the leak,
+# not by the fixtures under test. Sweeping here releases the lock so the rebuild
+# succeeds. Also sweeps orphan Mangarr.Console / Chromium for good measure. Only
+# meaningful when BOTH tiers run; harmless (best-effort, returns 0) otherwise.
+if [ -n "$UNIT_FILTERS" ] && [ -n "$AUTOMATION_FILTERS" ]; then
+  echo "==== GH #252 inter-step cleanup (UNIT → AUTOMATION) ===="
+  kill_orphan_test_processes 2 || true
   echo ""
 fi
 
