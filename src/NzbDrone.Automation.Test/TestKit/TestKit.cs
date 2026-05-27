@@ -135,20 +135,49 @@ public class TestKit
     private Task ExecuteWithStartupRetryAsync(string label, Func<RestRequest> requestFactory)
         => ExecuteWithStartupRetryAsync("SeedBaselineAsync", label, requestFactory);
 
+    // GH #291: an optional isContentReady predicate extends the startup-race retry
+    // to the "200 but the body hasn't caught up with the fresh-DB migration seed"
+    // case. ExecuteWithStartupRetryAsync previously retried only TRANSPORT failures
+    // (StatusCode == 0 / ResponseStatus != Completed) and 401s; a successful 200
+    // whose payload did not yet contain the seeded resource (e.g. the auto-seeded
+    // ComixIndexer not yet visible to GET /api/v5/indexer) returned immediately and
+    // the caller threw with no retry. When supplied, the predicate gates a 2xx as
+    // "ready": a not-ready 2xx is treated as transient and retried within the same
+    // budget. null preserves the original transport-only behavior for every other
+    // caller exactly.
     private async Task<IRestResponse> ExecuteWithStartupRetryAsync(
-        string callerLabel, string label, Func<RestRequest> requestFactory)
+        string callerLabel,
+        string label,
+        Func<RestRequest> requestFactory,
+        Func<IRestResponse, bool> isContentReady = null)
     {
         const int maxAttempts = 12;
         IRestResponse response = null;
+        var contentPending = false;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
             response = await _client.ExecuteAsync(requestFactory());
             if (response.IsSuccessful)
             {
-                return response;
+                if (isContentReady == null || isContentReady(response))
+                {
+                    return response;
+                }
+
+                // 2xx, but the expected seed content is not visible yet — same
+                // transient settling window as a transport flap; retry.
+                contentPending = true;
+                if (attempt == maxAttempts)
+                {
+                    break;
+                }
+
+                await Task.Delay(300);
+                continue;
             }
 
+            contentPending = false;
             var retryable =
                 response.ResponseStatus != ResponseStatus.Completed ||
                 response.StatusCode == System.Net.HttpStatusCode.Unauthorized;
@@ -159,6 +188,17 @@ public class TestKit
             }
 
             await Task.Delay(300);
+        }
+
+        // Budget exhausted on a 200-but-not-ready: the seed genuinely never
+        // materialized (a real seed regression, not a flake) — surface that
+        // distinctly from a transport/status failure.
+        if (contentPending)
+        {
+            throw new InvalidOperationException(
+                $"TestKit.{callerLabel}: {label} returned 200 but the expected seed content " +
+                $"never materialized within {maxAttempts} attempts — fresh-DB seed regressed? " +
+                $"body={response.Content}");
         }
 
         // BL-02 (20-REVIEW): include ErrorMessage / ErrorException / ResponseStatus so
@@ -191,13 +231,20 @@ public class TestKit
     {
         // 1. List indexers. Shares SeedBaselineAsync's startup-race retry — this
         // runs at the tail of the base seed, still inside the host's settling
-        // window, so the same transport-flap / auth-wiring race applies.
+        // window, so the same transport-flap / auth-wiring race applies. GH #291:
+        // the auto-seeded ComixIndexer can also lag a successful 200 (the migration
+        // seed not yet queryable), so gate readiness on the ComixIndexer actually
+        // being present — a not-yet-seeded 200 is retried within the budget instead
+        // of failing OneTimeSetUp on the first poll.
         var listResponse = await ExecuteWithStartupRetryAsync(
             nameof(DisableComixIndexerInternalAsync),
             "indexer GET",
-            () => BuildRequest("indexer", Method.GET));
+            () => BuildRequest("indexer", Method.GET),
+            isContentReady: resp => ComixIndexerPresent(resp.Content));
 
-        // 2. Find the ComixIndexer entry by its Implementation field.
+        // 2. Find the ComixIndexer entry by its Implementation field. The
+        // content-aware retry above guarantees it is present by now; this guard
+        // remains as a defensive backstop.
         using var doc = JsonDocument.Parse(listResponse.Content ?? "[]");
         var comix = doc.RootElement.EnumerateArray().FirstOrDefault(e =>
             e.TryGetProperty("implementation", out var impl) &&
@@ -232,6 +279,27 @@ public class TestKit
                 putReq.AddParameter("application/json", rewritten, ParameterType.RequestBody);
                 return putReq;
             });
+    }
+
+    // GH #291: true iff the GET /api/v5/indexer body is a JSON array containing a
+    // ComixIndexer entry. Used as the isContentReady gate so a 200 returned before
+    // the fresh-DB migration seed is queryable is retried rather than thrown on.
+    // A malformed/partial body parses to "not ready" (retry) — never throws here,
+    // so a transient partial response can't escape the retry loop.
+    private static bool ComixIndexerPresent(string content)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(content ?? "[]");
+            return doc.RootElement.ValueKind == JsonValueKind.Array &&
+                doc.RootElement.EnumerateArray().Any(e =>
+                    e.TryGetProperty("implementation", out var impl) &&
+                    string.Equals(impl.GetString(), "ComixIndexer", StringComparison.OrdinalIgnoreCase));
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     // Serialize a JsonElement back to a raw JSON string with the three indexer
