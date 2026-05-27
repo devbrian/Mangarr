@@ -4,6 +4,19 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <!-- A DIRECT Microsoft.Playwright PackageReference is required so the package's
+         build targets emit the generated `playwright.ps1` driver script into THIS
+         project's bin output (bin/Release/net10.0/playwright.ps1). The script is what
+         source-soak.yml's "Provision Playwright Chromium + Xvfb" step invokes to
+         install the Chromium browser before the live signer smoke runs.
+
+         A transitive reference (via Mangarr.Core, which references Playwright) does
+         NOT emit playwright.ps1 to the dependent project's output — only a direct
+         PackageReference does. Without this, the soak step fails with exit 64
+         ("playwright.ps1 ... is not recognized as the name of a script file") and the
+         live-Comix smoke is silently skipped. Version pinned to match the canonical
+         backend pin in NzbDrone.Core/Mangarr.Core.csproj + NzbDrone.Automation.Test. -->
+    <PackageReference Include="Microsoft.Playwright" Version="1.59.0" />
     <ProjectReference Include="..\NzbDrone.Test.Common\Mangarr.Test.Common.csproj" />
     <ProjectReference Include="..\NzbDrone.Core\Mangarr.Core.csproj" />
   </ItemGroup>

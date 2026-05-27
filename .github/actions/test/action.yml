@@ -35,6 +35,20 @@ inputs:
   results_suffix:
     description: 'Optional suffix appended to RESULTS_NAME for cross-job disambiguation (e.g. pr-smoke / nightly / liveservice)'
     default: ''
+  # /gsd-debug nightly-ci-failures Failure C fix: set 'true' for jobs that launch a
+  # HEADED browser on a Linux runner. ComixPlaywrightSigner launches Chromium headed
+  # by default because comix.to's Cloudflare managed challenge does NOT clear headless
+  # (headless Chromium reports window.outerWidth=0, a bot tell). So the
+  # automation_test_liveservice job (ComixSignerLiveFixture) needs a virtual display;
+  # without one Chromium dies with "ERROR: Missing X server or $DISPLAY" →
+  # TargetClosedException on LaunchBrowserAsync. When 'true' the test run is wrapped in
+  # `xvfb-run -a` (and xvfb is apt-installed), mirroring source-soak.yml's live-signer
+  # smoke step. Headless jobs (automation_test_nightly / pr-smoke — Playwright launches
+  # the UI browser headless) leave this at the '' default and run dotnet test directly
+  # with no xvfb dependency.
+  needs_xvfb:
+    description: 'When "true", provisions Xvfb and runs the test command under xvfb-run (Linux headed-browser jobs).'
+    default: ''
 
 # Phase 20 D-03 soft-warn: expose the wall-clock duration of the `Run tests` step so
 # caller workflows (notably automation_test_pr_smoke) can emit a $GITHUB_STEP_SUMMARY
@@ -198,17 +212,37 @@ runs:
       working-directory: _tests
       run: ./playwright.ps1 install --with-deps chromium
 
+    # /gsd-debug nightly-ci-failures Failure C fix: provision Xvfb for HEADED-browser jobs
+    # on Linux. The Comix signer (ComixPlaywrightSigner.LaunchBrowserAsync) launches Chromium
+    # headed by default; on a Linux runner with no X server the browser process dies with
+    # "Missing X server or $DISPLAY" and ComixSignerLiveFixture fails with
+    # TargetClosedException. Mirrors source-soak.yml's live-signer smoke step. No-op on
+    # Windows runners and on jobs that leave needs_xvfb at its '' default.
+    - name: Provision Xvfb (headed-browser jobs)
+      if: ${{ inputs.needs_xvfb == 'true' && !startsWith(inputs.os, 'windows') }}
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb
+
     # Phase 20 D-03: capture wall-clock duration for the soft-warn step in caller
     # workflows. `id: run-tests` is REQUIRED so the composite-action output above
     # (outputs.duration_seconds) resolves via steps.run-tests.outputs.duration_seconds.
     # Preserves dotnet test exit code so a failed test still fails the job.
+    #
+    # /gsd-debug nightly-ci-failures Failure C: when needs_xvfb == 'true' the dotnet test
+    # invocation is wrapped in `xvfb-run -a` so headed Chromium gets a virtual $DISPLAY.
+    # `-a` auto-picks a free server number (avoids collisions across parallel jobs on the
+    # same runner). The wrapper prefix is empty for headless jobs.
     - name: Run tests
       id: run-tests
       shell: bash
       run: |
         START=$(date +%s)
+        XVFB_PREFIX=""
+        if [ "${{ inputs.needs_xvfb }}" = "true" ] && [[ "${{ inputs.os }}" != windows* ]]; then
+          XVFB_PREFIX="xvfb-run -a"
+        fi
         set +e
-        dotnet test ./_tests/${{ inputs.pattern }} --filter "${{ inputs.filter }}" --logger "trx;LogFileName=${{ env.RESULTS_NAME }}.trx" --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"
+        $XVFB_PREFIX dotnet test ./_tests/${{ inputs.pattern }} --filter "${{ inputs.filter }}" --logger "trx;LogFileName=${{ env.RESULTS_NAME }}.trx" --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"
         EXITCODE=$?
         set -e
         END=$(date +%s)

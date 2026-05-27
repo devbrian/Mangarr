@@ -83,7 +83,16 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb
           dotnet build src/Mangarr.Comix.Live.Test/Mangarr.Comix.Live.Test.csproj --configuration Release
-          pwsh src/Mangarr.Comix.Live.Test/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+          # /gsd-debug nightly-ci-failures Failure A fix (two parts):
+          #  (1) Mangarr.Comix.Live.Test.csproj now has a DIRECT Microsoft.Playwright
+          #      PackageReference so the package's build targets emit playwright.ps1.
+          #  (2) src/Directory.Build.props redirects every '*.Test' project's output to
+          #      the shared $(MangarrRootDir)_tests/<tfm>/ dir (MangarrOutputType=Test) —
+          #      NOT the per-project bin/Release/<tfm>/. So playwright.ps1 lands at
+          #      _tests/net10.0/playwright.ps1, matching the path build_v5.yml's automation
+          #      jobs already use. The old src/.../bin/Release/net10.0/playwright.ps1 path
+          #      never existed, so the soak failed with exit 64 every night.
+          pwsh _tests/net10.0/playwright.ps1 install --with-deps chromium
 
       - name: Run live Comix signer smoke
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

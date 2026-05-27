@@ -457,6 +457,11 @@ jobs:
           ui_artifact: build_ui
           # Codex P1 fix on PR #150 — see automation_test_pr_smoke job above.
           results_suffix: liveservice
+          # /gsd-debug nightly-ci-failures Failure C: ComixSignerLiveFixture launches
+          # Chromium HEADED (Cloudflare managed challenge won't clear headless), so this
+          # Linux job needs a virtual display. The composite test action provisions Xvfb
+          # and wraps dotnet test in `xvfb-run -a` when needs_xvfb is true.
+          needs_xvfb: true
 
       - name: Upload Playwright trace + screenshots + log on failure
         if: failure()
