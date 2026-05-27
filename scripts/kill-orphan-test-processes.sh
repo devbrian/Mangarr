@@ -71,10 +71,13 @@ kill_orphan_test_processes() {
     if command -v pkill >/dev/null 2>&1; then
       pkill -f 'testhost' 2>/dev/null && echo "  killed leftover testhost (pkill)" || true
       pkill -f 'Mangarr.Console' 2>/dev/null && echo "  killed leftover Mangarr.Console (pkill)" || true
-      # Plain 'Mangarr' (anchored to a path segment / start) — the Linux backend
-      # binary that NzbDroneRunner launches; would otherwise keep its port bound.
-      # Mirrors the Windows branch which already kills the "Mangarr" process name.
-      pkill -f '(^|/)Mangarr$' 2>/dev/null && echo "  killed leftover Mangarr (pkill)" || true
+      # Plain 'Mangarr' (path segment + word boundary) — the Linux backend binary
+      # that NzbDroneRunner launches WITH ARGS (-nobrowser -nosingleinstancecheck
+      # -data=...). pkill -f matches the FULL command line, so anchor on a trailing
+      # space OR end-of-string (NOT bare $, which never matches an args-bearing
+      # command line). The '.' after Mangarr in 'Mangarr.Console' is neither, so
+      # this still won't double-match the console process. Mirrors the Windows branch.
+      pkill -f '(^|/)Mangarr([[:space:]]|$)' 2>/dev/null && echo "  killed leftover Mangarr (pkill)" || true
     fi
   fi
 
