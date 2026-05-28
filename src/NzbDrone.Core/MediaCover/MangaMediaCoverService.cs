@@ -140,8 +140,25 @@ namespace NzbDrone.Core.MediaCover
 
                     if (_diskProvider.FileExists(filePath))
                     {
-                        var lastWrite = _diskProvider.FileGetLastWrite(filePath);
-                        c.Url += "?lastWrite=" + lastWrite.Ticks;
+                        // TOCTOU guard: the ?lastWrite= suffix is a best-effort cache-bust
+                        // optimization, not load-bearing. A concurrent cover download/resize
+                        // (HandleAsync(MangaUpdatedEvent) → _httpClient.DownloadFile + _resizer.Resize)
+                        // can delete-and-rewrite this file in the window between the FileExists
+                        // check above and the read below, in which case FileGetLastWrite →
+                        // CheckFileExists throws FileNotFoundException and 500s the whole manga
+                        // GET (MangaController.GetResourceById → MapResource → ConvertToLocalUrls).
+                        // Surfaced by /gsd-debug nightly-flake-soak-loop (cutoff_unmet seed GET 500,
+                        // pg-18 leg). Swallow the IO race and just omit the suffix — never fail the
+                        // resource map over a cache-bust nicety.
+                        try
+                        {
+                            var lastWrite = _diskProvider.FileGetLastWrite(filePath);
+                            c.Url += "?lastWrite=" + lastWrite.Ticks;
+                        }
+                        catch (IOException ex)
+                        {
+                            _logger.Debug(ex, "Cover file for manga {0} ({1}) vanished between existence check and last-write read; omitting cache-bust suffix", mangaId, c.CoverType);
+                        }
                     }
                 }
             }
