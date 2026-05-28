@@ -42,8 +42,19 @@ public class TranslationProfileAddFixture : AutomationTest
         await Page.ReloadAsync();
         var resp = await listTask;
 
+        // Status is buffered on the IResponse and survives the reload, so it's safe
+        // to assert; the GET firing + 200 proves the list endpoint was hit.
         resp.Status.Should().Be(200);
-        var body = await resp.TextAsync();
-        body.Should().Contain(name);
+
+        // Flake fix (run 26579906231, sqlite nightly leg — getResponseBody race; same
+        // class PR #287 fixed in TranslationProfileListFixture): do NOT read
+        // resp.TextAsync() — Page.ReloadAsync() above evicts the captured response's
+        // body from the browser network cache, so the CDP Network.getResponseBody read
+        // intermittently throws "No resource with given identifier found". Assert the
+        // new profile via the auto-retrying DOM check instead: it's immune to body
+        // eviction AND verifies actual user-visible state (the row rendered after the
+        // reload), which is the stronger contract.
+        await Assertions.Expect(page.PageContainer)
+            .ToContainTextAsync(name, new() { Timeout = 15_000 });
     }
 }
