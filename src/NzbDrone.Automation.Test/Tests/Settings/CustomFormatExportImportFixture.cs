@@ -46,6 +46,20 @@ public class CustomFormatExportImportFixture : AutomationTest
         await Assertions.Expect(page.PageContainer).ToBeVisibleAsync();
         Page.Url.Should().MatchRegex(@"/settings/customformats$");
 
+        // Auto-wait for the Custom Formats FieldSet to mount before any one-shot
+        // CountAsync() read. CountAsync() does NOT auto-retry (unlike Expect(...)),
+        // so reading the export-button / Add-Card counts before the section finishes
+        // rendering returns a stale 0 — the read-too-early flake that fails the slow
+        // postgres nightly legs (~half of runs) while sqlite + the faster legs pass.
+        // Surfaced by /gsd-debug nightly-flake-soak-loop set #1: soak-1 failed on
+        // pg16, soak-2 on pg18 (same Add-Card count), while soak-3 was fully green —
+        // non-deterministic across identical code = timing, not a product regression.
+        var fieldsetLegend = Page.Locator("legend").GetByText("Custom Formats");
+        await Assertions.Expect(fieldsetLegend.First).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions
+        {
+            Timeout = 15_000
+        });
+
         // Look for the Export icon button on any existing CF card. CustomFormat.tsx
         // renders an IconButton with aria-label='Export Custom Format' (line 91-97).
         // Use the accessible name to locate it.
@@ -97,13 +111,23 @@ public class CustomFormatExportImportFixture : AutomationTest
             // `to` prop) renders through Link as `<button>`, so the actionable
             // empty-state affordance is `button:has(svg[data-icon='plus'])`.
             // If the Add Card disappears or the icon changes, the test fails.
-            var fieldsetLegend = Page.Locator("legend").GetByText("Custom Formats");
+            // fieldsetLegend visibility was already auto-awaited after page load;
+            // the count here remains the explicit state assertion the
+            // audit-test-assertions.sh gate requires (not a bare ToBeVisible test).
             var fieldsetLegendCount = await fieldsetLegend.CountAsync();
             fieldsetLegendCount.Should().BeGreaterThan(
                 0,
                 "Settings/CustomFormats must expose the Custom Formats FieldSet section");
 
+            // Auto-wait for the Add Card to mount (it renders a tick after the
+            // FieldSet chrome, once GET /customformat settles) BEFORE the one-shot
+            // count — this is the read-too-early fix. The count below stays as the
+            // state assertion and can no longer race the render.
             var addCard = Page.Locator("button:has(svg[data-icon='plus'])");
+            await Assertions.Expect(addCard.First).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions
+            {
+                Timeout = 15_000
+            });
             var addCardCount = await addCard.CountAsync();
             addCardCount.Should().BeGreaterThan(
                 0,
