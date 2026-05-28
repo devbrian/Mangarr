@@ -39,8 +39,16 @@ public class CustomFormatProfileListFixture : AutomationTest
         await Page.ReloadAsync();
         var resp = await listTask;
 
+        // Status is buffered on the IResponse and survives the reload.
         resp.Status.Should().Be(200);
-        var body = await resp.TextAsync();
-        body.Should().Contain(SeedName);
+
+        // Flake-proofing (getResponseBody race, same class as PR #287 / run 26579906231,
+        // sqlite nightly leg): do NOT read resp.TextAsync() — Page.ReloadAsync() above evicts
+        // the captured response's body from the browser network cache, so the CDP
+        // Network.getResponseBody read intermittently throws "No resource with given identifier
+        // found". Assert the seeded profile via the auto-retrying DOM check instead: immune to
+        // body eviction AND verifies actual user-visible state (the row rendered after reload).
+        await Assertions.Expect(page.PageContainer)
+            .ToContainTextAsync(SeedName, new() { Timeout = 15_000 });
     }
 }

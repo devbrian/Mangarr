@@ -478,23 +478,38 @@ namespace NzbDrone.Core.Indexers.Comix
 
             var envUrlTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            // Phase 33.3 (front 2, STRUCTURAL sniff — defeats the per-deploy token rotation, GH #266):
-            // the oracle bundle is the `manga-*` chunk. comix.to rotates a per-build token across all
-            // bundles every deploy (`env-tfgaak-` → `env-tfkr3g-` → and the env-* bundle is GONE; the
-            // oracle now lives in `manga-<token>-<hash>.js`). Match the STABLE structural prefix
-            // `…/dist/manga-` (on comix.to, `.js` suffix) instead of any token literal, so the next
-            // token rotation no longer breaks the signer. Still narrow (NOT all .js — Phase 17 RESEARCH
-            // N-3 / Phase 17.2 D-1: broadening picks up chunked bundles/polyfills that don't expose the
-            // path client). ComixEnvModuleFilterFixture locks the structural `/dist/manga-` match (NOT a
-            // token) so a future *structural* change (e.g. bundle renamed off `manga-`) surfaces in tests.
+            // Phase 33.3 (front 2, STRUCTURAL sniff — defeats the per-deploy token rotation, GH #266);
+            // AMENDED 2026-05-28 (7th rotation event — see
+            // .planning/debug/resolved/comix-signer-rotation-2026-05-28.md): the oracle bundle is the
+            // dynamically-imported chunk that exposes the decrypting axios `.get` path client. comix.to
+            // rotates a per-build token across all bundles every deploy
+            // (`env-tfgaak-` → `env-tfkr3g-` → `manga-tfl4t2-` → `env-tfqu32-`), AND it OSCILLATES the
+            // oracle bundle's BASE NAME between `env-` and `manga-` across rebuilds (env- 2026-05-23/25
+            // → manga- Phase 33.3 → env-tfqu32- 2026-05-28). Phase 33.3 pinned only `/dist/manga-` on
+            // the (now-falsified) belief that the env-* bundle was permanently gone; the 2026-05-28 LIVE
+            // re-probe of https://comix.to/title/mr3m0 found the page renders + CF clears but the served
+            // build (35595e3de3c99889c1aa70) has NO `/dist/manga-*.js` at all — the oracle is back in
+            // `/dist/env-tfqu32-*.js` (its `.get`-bearing exports `_`/`g` return the unwrapped
+            // {items, meta}). Match EITHER stable structural prefix `…/dist/env-` OR `…/dist/manga-`
+            // (on comix.to, `.js` suffix), NEVER a per-build token literal — so BOTH the token rotation
+            // AND the env<->manga oscillation are no-ops. Still narrow (NOT all .js — Phase 17 RESEARCH
+            // N-3 / Phase 17.2 D-1: broadening picks up chunked bundles/polyfills, several of which ALSO
+            // expose unrelated `.get`-bearing exports — main-/vendor-/secure- — that the runtime
+            // export-discovery would then have to reject). The downstream EvaluateProxyFetchAsync
+            // discovery is already bundle-/letter-agnostic (probes `.get` exports for the one returning a
+            // top-level `items` array), so only THIS sniff needed the oscillation fix.
+            // ComixEnvModuleFilterFixture locks the dual structural match (NOT a token) so a future
+            // *structural* rename off both env-/manga- surfaces in tests.
             EventHandler<IRequest> finishedHandler = null;
             finishedHandler = (sender, request) =>
             {
                 try
                 {
                     var url = request?.Url;
-                    if (url != null
-                        && url.IndexOf("/dist/manga-", StringComparison.OrdinalIgnoreCase) >= 0
+                    var isOracleBundle = url != null
+                        && (url.IndexOf("/dist/env-", StringComparison.OrdinalIgnoreCase) >= 0
+                            || url.IndexOf("/dist/manga-", StringComparison.OrdinalIgnoreCase) >= 0);
+                    if (isOracleBundle
                         && url.IndexOf("comix.to", StringComparison.OrdinalIgnoreCase) >= 0
                         && url.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
                     {

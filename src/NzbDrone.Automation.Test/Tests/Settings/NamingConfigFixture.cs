@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -26,11 +27,22 @@ public class NamingConfigFixture : AutomationTest
         var page = await new SettingsMediaManagementPage(Page).OpenAsync(RootUri);
         await Assertions.Expect(page.PageContainer).ToBeVisibleAsync();
 
-        var configTask = Page.WaitForResponseAsync(
-            r => r.Url.Contains("/api/v5/config/manganaming") && !r.Url.Contains("presets") && r.Request.Method == "GET",
-            new() { Timeout = 30_000 });
-        await Page.ReloadAsync();
-        var resp = await configTask;
+        // Flake-proofing (getResponseBody race, same class as PR #287 / run 26579906231):
+        // read the config via the buffered Page.APIRequest.GetAsync (body decoupled from page
+        // navigation) instead of WaitForResponseAsync + ReloadAsync, whose captured response
+        // body the reload can evict ("No resource with given identifier found"). Mirrors
+        // MediaManagementConfigFixture (Phase 20 LEARNINGS SL-2). "standardChapterFormat" is a
+        // JSON field name (not visible DOM text), so the API body — not a DOM check — is the
+        // contract; the page-open + PageContainer assertion above already covers form render.
+        var resp = await Page.APIRequest.GetAsync(
+            $"{RootUri}/api/v5/config/manganaming",
+            new APIRequestContextOptions
+            {
+                Headers = new Dictionary<string, string>
+                {
+                    ["X-Api-Key"] = ApiKey
+                }
+            });
 
         resp.Status.Should().Be(200);
         var body = await resp.TextAsync();
