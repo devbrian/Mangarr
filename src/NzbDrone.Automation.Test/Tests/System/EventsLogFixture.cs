@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -33,9 +34,14 @@ public class EventsLogFixture : AutomationTest
         // present (the dominant case after backend boot) or the empty-state
         // alert "No events found" renders. Anything else (stuck spinner,
         // failed fetch) would fail this regex match.
-        var pageText = await Page.GetByTestId("system-events-page").TextContentAsync();
-        pageText.Should().NotBeNullOrEmpty();
-        pageText.Should().MatchRegex(@"(No events found|Refresh|Clear|Level|Logger|Time)");
+        // Flake-proofing (read-too-early class, run 26581903346): use the auto-retrying
+        // ToContainTextAsync(Regex) instead of a one-shot TextContentAsync()+MatchRegex so
+        // the assertion waits for the /api/v5/log content rather than reading once before
+        // the table hydrates. Matches the DiskSpaceFixture guard pattern.
+        await Assertions.Expect(Page.GetByTestId("system-events-page"))
+            .ToContainTextAsync(
+                new Regex(@"(No events found|Refresh|Clear|Level|Logger|Time)"),
+                new LocatorAssertionsToContainTextOptions { Timeout = 15_000 });
 
         Page.Url.Should().EndWith("/system/events");
     }

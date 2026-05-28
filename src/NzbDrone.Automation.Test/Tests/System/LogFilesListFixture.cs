@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -32,15 +33,24 @@ public class LogFilesListFixture : AutomationTest
         // alert "No log files" renders. The regex covers both, plus the
         // filename text "mangarr" as a state-level anchor that distinguishes
         // a populated table from a stuck spinner.
-        var pageText = await Page.GetByTestId("system-logs-page").TextContentAsync();
-        pageText.Should().NotBeNullOrEmpty();
-
         // WR-09 (18-REVIEW): "Refresh" / "Clear" are always-present toolbar
         // buttons; "Filename" is the column header (also always present
         // unless the empty-state alert is showing). Anchor only on the
         // data-bearing alternatives: the actual log file name "mangarr"
         // (case-insensitive guard for path variants) or the empty-state alert.
-        pageText.Should().MatchRegex(@"(?i)(mangarr|No log files)");
+        //
+        // Flake-proofing (read-too-early class, run 26581903346): "mangarr" is the
+        // data-bearing log filename loaded via /api/v5/log/file AFTER the page shell
+        // renders, so a one-shot TextContentAsync()+MatchRegex can race the data. Use
+        // the auto-retrying ToContainTextAsync(Regex) instead, matching DiskSpaceFixture.
+        // NB: case-insensitivity MUST be RegexOptions.IgnoreCase, NOT an inline (?i) —
+        // Playwright serializes the .NET Regex to a JS RegExp, and JS rejects the inline
+        // (?i) group ("Invalid regular expression … Invalid group"). RegexOptions.IgnoreCase
+        // maps to the JS `i` flag correctly.
+        await Assertions.Expect(Page.GetByTestId("system-logs-page"))
+            .ToContainTextAsync(
+                new Regex(@"(mangarr|No log files)", RegexOptions.IgnoreCase),
+                new LocatorAssertionsToContainTextOptions { Timeout = 15_000 });
 
         Page.Url.Should().EndWith("/system/logs/files");
     }

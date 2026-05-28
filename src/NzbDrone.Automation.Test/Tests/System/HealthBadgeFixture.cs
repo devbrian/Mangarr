@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -53,9 +54,17 @@ public class HealthBadgeFixture : AutomationTest
         var healthSection = Page.Locator("fieldset:has(legend:has-text('Health'))");
         await healthSection.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
 
-        var healthText = await healthSection.TextContentAsync();
-        healthText.Should().NotBeNullOrEmpty();
-        healthText.Should().MatchRegex(@"(No issues with your configuration|wiki link)");
+        // Flake fix (run 26581903346, postgres-18 nightly leg): the Health FieldSet
+        // legend renders BEFORE the /api/v5/health round-trip resolves the panel body,
+        // so a one-shot TextContentAsync()+MatchRegex raced the data and captured only
+        // the legend ("Health"). Both regex alternatives are data-dependent (the
+        // empty-state message OR the populated-state footer), neither is shell chrome —
+        // so this assertion MUST wait for the data. Use the auto-retrying
+        // ToContainTextAsync(Regex), matching the DiskSpaceFixture guard in this file.
+        await Assertions.Expect(healthSection)
+            .ToContainTextAsync(
+                new Regex(@"(No issues with your configuration|wiki link)"),
+                new LocatorAssertionsToContainTextOptions { Timeout = 15_000 });
 
         // URL stability — confirms no spurious nav and serves as the
         // shell-level state anchor.
