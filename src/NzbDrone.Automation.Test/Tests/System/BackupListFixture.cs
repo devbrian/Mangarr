@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -26,20 +27,25 @@ public class BackupListFixture : AutomationTest
         // STATE assertion 1: backup page shell.
         await Assertions.Expect(Page.GetByTestId("system-backups-page")).ToBeVisibleAsync();
 
-        // STATE assertion 2 (terminal-state contract): fresh DB produces
-        // either "No backups are available" alert OR a backup table — both
-        // are valid terminal states (the test runner could in principle have
-        // had a stale backup if not isolated, but D-05 fresh-DB-per-fixture
-        // makes empty the dominant case). Match either pattern.
-        var pageText = await Page.GetByTestId("system-backups-page").TextContentAsync();
-        pageText.Should().NotBeNullOrEmpty();
-
+        // STATE assertion 2 (terminal-state contract, AUTO-WAITING): fresh DB
+        // produces either the "No backups are available" alert OR a backup table
+        // (.zip rows) — both are valid terminal states (D-05 fresh-DB-per-fixture
+        // makes empty the dominant case).
+        //
         // WR-09 (18-REVIEW): "Backup Now" / "Restore Backup" are always-present
-        // toolbar buttons that defeat the state-assertion purpose. Anchor
-        // only on the data-bearing alternative (empty-state message); a
-        // populated list will also expose the timestamp/filename text that
-        // distinguishes it from the empty state.
-        pageText.Should().MatchRegex(@"(No backups are available|\.zip)");
+        // toolbar buttons that defeat the state-assertion purpose. Anchor only on
+        // the data-bearing alternative (empty-state message) or a .zip filename.
+        //
+        // Flake fix (run 26567511609, postgres-16 nightly leg — the other 3 legs
+        // passed): the page shell renders BEFORE the /api/v5/system/backup
+        // round-trip populates the list, so a one-shot TextContentAsync()+MatchRegex
+        // raced the data and captured only the toolbar buttons ("Backup NowRestore
+        // Backup"). Use the auto-retrying ToContainTextAsync(Regex) so the assertion
+        // waits for the data-bearing content instead of reading once too early.
+        await Assertions.Expect(Page.GetByTestId("system-backups-page"))
+            .ToContainTextAsync(
+                new Regex(@"(No backups are available|\.zip)"),
+                new() { Timeout = 15000 });
 
         Page.Url.Should().EndWith("/system/backup");
     }

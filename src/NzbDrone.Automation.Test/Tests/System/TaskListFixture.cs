@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -27,23 +28,30 @@ public class TaskListFixture : AutomationTest
         // STATE assertion 1: page shell present.
         await Assertions.Expect(Page.GetByTestId("system-tasks-page")).ToBeVisibleAsync();
 
-        // STATE assertion 2 (state, not visibility): the page body text MUST
-        // contain at least one of the baseline task labels. RefreshManga (the
-        // Phase-2 manga-renamed RefreshSeries) is the most stable anchor —
-        // it ships in every Mangarr boot regardless of indexer/import-list
-        // config. The "Backup" task is the second anchor.
+        // STATE assertion 2 (state, not visibility, AUTO-WAITING): the
+        // scheduled-task table MUST contain at least one baseline task label.
+        // Refresh Manga (the Phase-2 manga-renamed RefreshSeries) is the most
+        // stable anchor — it ships in every Mangarr boot regardless of
+        // indexer/import-list config; Housekeeping / Rss Sync are alternates.
         //
-        // This is the silent-empty regression guard: if the API returned an
-        // empty array, the visibility-only test would still pass on the
-        // "Scheduled" FieldSet legend rendering. Asserting on the text of
-        // an actual row prevents that.
-        var pageText = await Page.GetByTestId("system-tasks-page").TextContentAsync();
-        pageText.Should().NotBeNullOrEmpty();
-
-        // WR-09 (18-REVIEW): "Backup" appears in the side-nav nav entry
-        // (always present). Anchor only on data-bearing alternatives that
-        // require the scheduled-task table to actually have rows.
-        pageText.Should().MatchRegex(@"(Refresh Manga|Housekeeping|Rss Sync)");
+        // This remains the silent-empty regression guard: an empty API array
+        // still fails here (the column header alone won't match these labels).
+        //
+        // WR-09 (18-REVIEW): "Backup" appears in the side-nav entry (always
+        // present), so anchor only on data-bearing labels that require the
+        // scheduled-task table to actually have rows.
+        //
+        // Flake fix (run 26567511609, postgres-16 nightly leg — the other 3 legs
+        // passed): the "Scheduled" table header renders BEFORE the
+        // /api/v5/system/task round-trip populates the rows, so a one-shot
+        // TextContentAsync()+MatchRegex raced the data and captured only the
+        // column header ("ScheduledQueueNameQueuedStartedEndedDuration") with no
+        // rows. Use the auto-retrying ToContainTextAsync(Regex) so the assertion
+        // waits for the rows instead of reading once too early.
+        await Assertions.Expect(Page.GetByTestId("system-tasks-page"))
+            .ToContainTextAsync(
+                new Regex(@"(Refresh Manga|Housekeeping|Rss Sync)"),
+                new() { Timeout = 15000 });
 
         Page.Url.Should().EndWith("/system/tasks");
     }
