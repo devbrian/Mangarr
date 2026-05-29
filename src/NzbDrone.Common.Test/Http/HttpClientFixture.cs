@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -460,6 +460,15 @@ namespace NzbDrone.Common.Test.Http
             fileInfo.Length.Should().Be(0);
         }
 
+        // [Retry(3)] absorbs transient mid-run network-timeout flakes hitting the live
+        // httpbin.servarr.com / httpbin1.servarr.com hosts (Cloudflare-fronted). Surfaced by
+        // nightly Build run 26634743683 job integration_test (macos-latest): the runner lost
+        // IPv6 routing to Cloudflare mid-run (Happy Eyeballs "No route to host" to
+        // 2606:4700:3036::ac43:8291), so should_not_send_cookie_to_other_host burned the full
+        // ~100s request timeout -> WebException. The cookie-handling assertions are correct;
+        // only the live round-trip is fragile. Same established external-network retry pattern
+        // as the bad_ssl_* tests above (PR #161 precedent).
+        [Retry(3)]
         [Test]
         public async Task should_send_cookie()
         {
@@ -494,6 +503,7 @@ namespace NzbDrone.Common.Test.Http
             oldResponse.Resource.Headers.Should().ContainKey("Cookie");
         }
 
+        [Retry(3)]
         [Test]
         public async Task should_preserve_cookie_during_session()
         {
@@ -510,6 +520,7 @@ namespace NzbDrone.Common.Test.Http
             cookie.Should().Contain("my=cookie");
         }
 
+        [Retry(3)]
         [Test]
         public async Task should_not_send_cookie_to_other_host()
         {
@@ -522,6 +533,7 @@ namespace NzbDrone.Common.Test.Http
             response.Resource.Headers.Should().NotContainKey("Cookie");
         }
 
+        [Retry(3)]
         [Test]
         public async Task should_not_store_request_cookie()
         {
@@ -541,6 +553,7 @@ namespace NzbDrone.Common.Test.Http
             ExceptionVerification.IgnoreErrors();
         }
 
+        [Retry(3)]
         [Test]
         public async Task should_store_request_cookie()
         {
