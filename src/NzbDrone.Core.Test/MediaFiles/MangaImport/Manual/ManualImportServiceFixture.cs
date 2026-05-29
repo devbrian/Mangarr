@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using FizzWare.NBuilder;
+using FluentAssertions;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Common.Disk;
@@ -40,6 +43,16 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport.Manual
     // ListMangaArchives -> ProcessFolder cleanly; the new test
     // `should_filter_to_manga_archive_extensions_via_disk_scan_service` verifies the
     // GetMangaFiles + FilterPaths(filterExtras: false) pair-call (D-15 explicit param).
+    //
+    // TOCTOU hardening (debug session manualimport-500-flake, 2026-05-28) — the
+    // `should_not_throw_when_*_file_vanishes_mid_scan` tests are the regression guard for the
+    // nightly CI flake where GET /api/v5/manualimport?folder=<system temp> returned HTTP 500.
+    // A transient .zip in the shared system temp dir was enumerated by ListMangaArchives then
+    // deleted before the per-file IDiskProvider.GetFileSize stat; the unguarded GetFileSize in
+    // ProcessFile's fallback return (outside the try/catch) threw an uncaught
+    // FileNotFoundException that bubbled to the controller as a 500. The read-only preview scan
+    // must degrade gracefully (Size = 0) rather than 500-ing the whole endpoint. Repo precedent:
+    // commit 57dc54002 (mediacover lastWrite TOCTOU guard against the same manga GET 500 class).
     [TestFixture]
     public class ManualImportServiceFixture : CoreTest<ManualImportService>
     {
@@ -225,6 +238,90 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport.Manual
             // documents manga's no-Extras-subtree divergence at the call site).
             Mocker.GetMock<IMangaDiskScanService>()
                 .Verify(s => s.FilterPaths(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), false), Times.AtLeastOnce);
+        }
+
+        // ===================== TOCTOU race — file vanishes mid-scan =====================
+        // Regression guard for the manualimport-500-flake nightly CI flake. A candidate
+        // archive enumerated by ListMangaArchives is deleted before its per-file GetFileSize
+        // stat; GetFileSize throws FileNotFoundException. The scan MUST degrade gracefully
+        // (no throw, Size = 0) rather than 500-ing the GET /api/v5/manualimport endpoint.
+
+        private string ArrangeFolderScanWithSingleArchive(string vanishedFile)
+        {
+            // Drive the manga==null branch of ProcessFolder so the per-file ProcessFile path
+            // (including its TOCTOU-prone fallback return) is exercised. No mangaId, no
+            // downloadId; the parser can't resolve a manga from the folder/file name, so the
+            // file falls through ProcessFile to the fallback return that stats the file.
+            Mocker.GetMock<IMangaDiskScanService>()
+                .Setup(s => s.GetMangaFiles(It.IsAny<string>(), It.IsAny<bool>()))
+                .Returns(new[] { vanishedFile });
+
+            Mocker.GetMock<IMangaDiskScanService>()
+                .Setup(s => s.FilterPaths(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<bool>()))
+                .Returns(new List<string> { vanishedFile });
+
+            // No manga resolves for this folder/file — keep ProcessFile in the unknown-manga
+            // branch so the GetFileSize call sites are reached.
+            Mocker.GetMock<IMangaService>()
+                .Setup(s => s.GetManga(It.IsAny<int>()))
+                .Returns((NzbDrone.Core.Manga.Manga)null);
+
+            // The file vanished between enumeration and stat → GetFileSize throws.
+            Mocker.GetMock<IDiskProvider>()
+                .Setup(d => d.GetFileSize(vanishedFile))
+                .Throws(new FileNotFoundException("File doesn't exist: " + vanishedFile));
+
+            return vanishedFile;
+        }
+
+        [Test]
+        public void should_not_throw_when_archive_file_vanishes_mid_scan()
+        {
+            var vanishedFile = Path.Combine(_callerFolder, "transient.zip");
+            ArrangeFolderScanWithSingleArchive(vanishedFile);
+
+            Action act = () => Subject.GetMediaFiles(folder: _callerFolder, downloadId: null, mangaId: null, filterExistingFiles: false);
+
+            act.Should().NotThrow("a file that vanishes mid-scan must not 500 the manualimport endpoint");
+        }
+
+        [Test]
+        public void should_report_size_zero_when_archive_file_vanishes_mid_scan()
+        {
+            var vanishedFile = Path.Combine(_callerFolder, "transient.zip");
+            ArrangeFolderScanWithSingleArchive(vanishedFile);
+
+            var result = Subject.GetMediaFiles(folder: _callerFolder, downloadId: null, mangaId: null, filterExistingFiles: false);
+
+            result.Should().HaveCount(1);
+            result.Single().Size.Should().Be(0, "a vanished file degrades to size 0 instead of throwing");
+        }
+
+        [Test]
+        public void should_not_throw_when_single_file_path_vanishes_between_existence_check_and_stat()
+        {
+            // The single-file shape of GetMediaFiles: FolderExists false + FileExists true →
+            // ProcessFile is invoked directly. The file then vanishes before the per-file stat.
+            var vanishedFile = Path.Combine(_callerFolder, "single.zip");
+
+            Mocker.GetMock<IDiskProvider>()
+                .Setup(d => d.FolderExists(vanishedFile))
+                .Returns(false);
+            Mocker.GetMock<IDiskProvider>()
+                .Setup(d => d.FileExists(vanishedFile))
+                .Returns(true);
+
+            Mocker.GetMock<IMangaService>()
+                .Setup(s => s.GetManga(It.IsAny<int>()))
+                .Returns((NzbDrone.Core.Manga.Manga)null);
+
+            Mocker.GetMock<IDiskProvider>()
+                .Setup(d => d.GetFileSize(vanishedFile))
+                .Throws(new FileNotFoundException("File doesn't exist: " + vanishedFile));
+
+            Action act = () => Subject.GetMediaFiles(folder: vanishedFile, downloadId: null, mangaId: null, filterExistingFiles: false);
+
+            act.Should().NotThrow("a single-file probe whose file vanishes must not 500 the endpoint");
         }
     }
 }

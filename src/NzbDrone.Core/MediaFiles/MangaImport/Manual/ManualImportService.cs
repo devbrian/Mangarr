@@ -294,7 +294,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
                     Name = file.Path != null ? Path.GetFileNameWithoutExtension(file.Path) : null,
                     FolderName = file.FolderName,
                     Size = file.Path != null && _diskProvider.FileExists(file.Path)
-                        ? _diskProvider.GetFileSize(file.Path)
+                        ? GetFileSizeSafe(file.Path)
                         : 0,
                     DownloadId = file.DownloadId,
                     ChapterFileId = file.ChapterFileId,
@@ -322,7 +322,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
                     Name = file.Path != null ? Path.GetFileNameWithoutExtension(file.Path) : null,
                     FolderName = file.FolderName,
                     Size = file.Path != null && _diskProvider.FileExists(file.Path)
-                        ? _diskProvider.GetFileSize(file.Path)
+                        ? GetFileSizeSafe(file.Path)
                         : 0,
                     DownloadId = file.DownloadId,
                     Manga = manga,
@@ -364,7 +364,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
                 FolderName = file.FolderName,
                 Name = lc.Path != null ? Path.GetFileName(lc.Path) : null,
                 Size = lc.Size > 0 ? lc.Size : (lc.Path != null && _diskProvider.FileExists(lc.Path)
-                    ? _diskProvider.GetFileSize(lc.Path)
+                    ? GetFileSizeSafe(lc.Path)
                     : 0),
                 DownloadId = file.DownloadId,
                 Manga = lc.Manga,
@@ -446,6 +446,33 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
             return decisions.Select(d => MapItem(d, rootFolder, downloadId, directoryInfo.Name)).ToList();
         }
 
+        // TOCTOU guard for the manualimport folder scan. ListMangaArchives enumerates
+        // candidate archives first (GetFiles uses IgnoreInaccessible=true, so enumeration
+        // is resilient), but the per-file IDiskProvider.GetFileSize that runs LATER THROWS
+        // FileNotFoundException when the file vanished in the window between enumeration and
+        // stat (DiskProviderBase.GetFileSize lines 183-190 throw on !FileExists). When the
+        // scan probes a shared/system temp directory (the InteractiveImport endpoint
+        // reachability probe folder), transient .zip files matching the manga-archive
+        // allowlist (cbz/cbr/cb7/zip) are created and deleted constantly, so an unguarded
+        // GetFileSize bubbles an uncaught exception out through
+        // ManualImportController.GetMediaFiles (which has no try/catch) and surfaces as an
+        // HTTP 500. The read-only preview scan must degrade gracefully: a file that vanished
+        // mid-scan reports Size = 0 rather than 500-ing the entire endpoint. Repo precedent
+        // for this exact fix class: commit 57dc54002 (guard cover lastWrite read against a
+        // TOCTOU race — manga GET 500).
+        private long GetFileSizeSafe(string file)
+        {
+            try
+            {
+                return _diskProvider.GetFileSize(file);
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                _logger.Trace(ex, "File vanished mid-scan (TOCTOU); reporting size 0: {0}", file);
+                return 0;
+            }
+        }
+
         private ManualImportItem ProcessFile(string rootFolder, string baseFolder, string file, string downloadId, int? mangaId)
         {
             try
@@ -476,7 +503,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
                         Path = file,
                         RelativePath = rootFolder.GetRelativePath(file),
                         Name = Path.GetFileNameWithoutExtension(file),
-                        Size = _diskProvider.GetFileSize(file),
+                        Size = GetFileSizeSafe(file),
                         Rejections = new List<MangaImportRejection>
                         {
                             new MangaImportRejection(ImportRejectionReason.Unknown, "Unknown Manga")
@@ -495,7 +522,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
                         Path = file,
                         RelativePath = rootFolder.GetRelativePath(file),
                         Name = Path.GetFileNameWithoutExtension(file),
-                        Size = _diskProvider.GetFileSize(file),
+                        Size = GetFileSizeSafe(file),
                         Rejections = new List<MangaImportRejection>()
                     };
                 }
@@ -508,13 +535,18 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
                 _logger.Warn(ex, "Failed to process file: {0}", file);
             }
 
+            // TOCTOU-hardened fallback: this return runs OUTSIDE the try/catch above, so an
+            // unguarded GetFileSize here was the primary HTTP 500 throw site (a transient
+            // file that vanished between ListMangaArchives enumeration and this stat). Route
+            // through GetFileSizeSafe so a vanished file degrades to Size = 0 instead of
+            // throwing an uncaught FileNotFoundException out to the controller.
             return new ManualImportItem
             {
                 DownloadId = downloadId,
                 Path = file,
                 RelativePath = rootFolder.GetRelativePath(file),
                 Name = Path.GetFileNameWithoutExtension(file),
-                Size = _diskProvider.GetFileSize(file),
+                Size = GetFileSizeSafe(file),
                 Rejections = new List<MangaImportRejection>()
             };
         }
@@ -530,7 +562,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
                     Path = file,
                     RelativePath = rootFolder.GetRelativePath(file),
                     Name = Path.GetFileNameWithoutExtension(file),
-                    Size = _diskProvider.GetFileSize(file),
+                    Size = GetFileSizeSafe(file),
                     Rejections = new List<MangaImportRejection>()
                 });
             }
@@ -559,7 +591,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
             return new LocalChapter
             {
                 Path = file,
-                Size = _diskProvider.GetFileSize(file),
+                Size = GetFileSizeSafe(file),
                 Manga = manga,
                 Chapter = chapter,
                 Chapters = remoteChapter?.Chapters ?? new List<Chapter>(),
@@ -595,7 +627,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Manual
                 ChapterFileId = lc.Chapter?.ChapterFileId,
                 TranslatedLanguage = lc.TranslatedLanguage ?? lc.Release?.TranslatedLanguage,
                 ScanlationGroup = lc.ScanlationGroup ?? lc.Release?.ScanlationGroup,
-                Size = lc.Size > 0 ? lc.Size : _diskProvider.GetFileSize(lc.Path),
+                Size = lc.Size > 0 ? lc.Size : GetFileSizeSafe(lc.Path),
                 CustomFormats = lc.CustomFormats ?? new(),
                 CustomFormatScore = lc.CustomFormatScore,
                 Rejections = decision.Rejections
