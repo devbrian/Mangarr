@@ -169,6 +169,79 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
                 .Verify(f => f.Check(_trackedDownload), Times.Once);
         }
 
+        // ── #301: registry merge — a failed download is tracked/checked/processed exactly once ──
+
+        [Test]
+        public void Refresh_reuses_a_failed_download_across_polls_without_re_tracking_or_re_checking()
+        {
+            // Simulate the Failed Check flipping the in-flight item to FailedPending on the first poll
+            // (the in-process client keeps returning the same Failed row on every subsequent poll).
+            Mocker.GetMock<IMangaFailedDownloadService>()
+                .Setup(f => f.Check(It.IsAny<TrackedDownload>()))
+                .Callback<TrackedDownload>(td => td.Fail());
+
+            // Poll 1 builds the tracked download and the Failed Check flips it to FailedPending;
+            // poll 2 sees the same still-present item.
+            Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
+            Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
+
+            // The merge reuses the FailedPending instance keyed by DownloadId rather than rebuilding it
+            // as Downloading and re-Checking it — so TrackDownload and the Failed Check each run ONCE.
+            Mocker.GetMock<IMangaTrackedDownloadService>()
+                .Verify(
+                    t => t.TrackDownload(It.IsAny<DownloadClientDefinition>(), It.IsAny<DownloadClientItem>()),
+                    Times.Once,
+                    "#301: a download past Downloading must be reused across polls, not rebuilt");
+            Mocker.GetMock<IMangaFailedDownloadService>()
+                .Verify(
+                    f => f.Check(It.IsAny<TrackedDownload>()),
+                    Times.Once,
+                    "#301: an already-Failed row must not be re-Checked on later polls");
+
+            Subject.GetTrackedDownloads().Should().ContainSingle()
+                .Which.State.Should().Be(TrackedDownloadState.FailedPending);
+        }
+
+        [Test]
+        public void Refresh_rebuilds_an_ImportBlocked_shell_each_poll_so_resolution_can_recover()
+        {
+            // Mangarr marks an unresolvable download ImportBlocked (RemoteChapter == null). Unlike a
+            // terminal row, it must NOT be reused — it has to be rebuilt every poll so a later poll whose
+            // metadata has since resolved can recover it (Codex review on PR #304).
+            var blockedShell = new TrackedDownloadBuilder()
+                .WithDownloadId("dl-1")
+                .Build();
+            blockedShell.State = TrackedDownloadState.ImportBlocked;
+            blockedShell.RemoteChapter = null;
+
+            Mocker.GetMock<IMangaTrackedDownloadService>()
+                .Setup(t => t.TrackDownload(It.IsAny<DownloadClientDefinition>(), It.IsAny<DownloadClientItem>()))
+                .Returns(blockedShell);
+
+            Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
+            Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
+
+            Mocker.GetMock<IMangaTrackedDownloadService>()
+                .Verify(
+                    t => t.TrackDownload(It.IsAny<DownloadClientDefinition>(), It.IsAny<DownloadClientItem>()),
+                    Times.Exactly(2),
+                    "an ImportBlocked shell must be rebuilt each poll so manga/chapter resolution can recover");
+        }
+
+        [Test]
+        public void Refresh_rebuilds_a_still_downloading_item_each_poll()
+        {
+            // A download that is still Downloading is NOT reused — it is rebuilt + re-Checked each poll
+            // so genuine progress / a fresh failure is observed (reuse only kicks in past Downloading).
+            Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
+            Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
+
+            Mocker.GetMock<IMangaTrackedDownloadService>()
+                .Verify(t => t.TrackDownload(It.IsAny<DownloadClientDefinition>(), It.IsAny<DownloadClientItem>()), Times.Exactly(2));
+            Mocker.GetMock<IMangaFailedDownloadService>()
+                .Verify(f => f.Check(It.IsAny<TrackedDownload>()), Times.Exactly(2));
+        }
+
         // ── 4. Grab / import events trigger the 5s debounced Refresh (NOT an immediate one) ──
 
         [Test]

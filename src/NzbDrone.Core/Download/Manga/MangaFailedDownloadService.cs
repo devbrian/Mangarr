@@ -53,6 +53,17 @@ namespace NzbDrone.Core.Download.Manga
         // pass picks it up. Uses the kept TrackedDownload.Fail() (Error + FailedPending + CanBeRemoved).
         public void Check(TrackedDownload trackedDownload)
         {
+            // Only a still-in-flight download transitions to FailedPending. A row already past
+            // Downloading/ImportBlocked (e.g. a Failed instance reused across polls by the monitor's
+            // registry merge, #301) must NOT be re-Failed. The monitor already gates the call site on
+            // Downloading/ImportBlocked; this is the defensive in-method guard Sonarr
+            // FailedDownloadService.Check also carries.
+            if (trackedDownload.State != TrackedDownloadState.Downloading &&
+                trackedDownload.State != TrackedDownloadState.ImportBlocked)
+            {
+                return;
+            }
+
             var status = trackedDownload.DownloadItem?.Status;
             if (status == DownloadItemStatus.Failed || status == DownloadItemStatus.Warning)
             {
@@ -62,6 +73,23 @@ namespace NzbDrone.Core.Download.Manga
 
         public void ProcessFailed(TrackedDownload trackedDownload)
         {
+            // Guard + terminal transition (#301). Only a FailedPending row is processed, and processing
+            // moves it to the terminal Failed state so the next poll — which reuses this same instance
+            // via the monitor's registry merge — does NOT re-publish (no duplicate ChapterDownloadFailed
+            // events → no duplicate blocklist/history rows or repeated auto-retry searches). Mirrors
+            // Sonarr FailedDownloadService.ProcessFailed (FailedPending guard + State = Failed).
+            //
+            // Set Failed up front (vs. Sonarr's just-before-publish placement): Mangarr's Check does not
+            // pre-filter on grabbed history, so an unresolvable row CAN reach FailedPending and fall into
+            // the early-return below — transitioning unconditionally keeps that case one-shot too (no
+            // per-poll Warn spam) rather than leaving it FailedPending forever.
+            if (trackedDownload.State != TrackedDownloadState.FailedPending)
+            {
+                return;
+            }
+
+            trackedDownload.State = TrackedDownloadState.Failed;
+
             var remoteChapter = trackedDownload.RemoteChapter;
             if (remoteChapter?.Manga == null || remoteChapter.Chapters == null || !remoteChapter.Chapters.Any())
             {

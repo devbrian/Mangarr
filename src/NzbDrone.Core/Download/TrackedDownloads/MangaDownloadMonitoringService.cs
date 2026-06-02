@@ -37,10 +37,14 @@ namespace NzbDrone.Core.Download.TrackedDownloads
     //                                                      waiting up to a minute (coalesces bursts).
     //
     //   Refresh() control flow (write/track FIRST, publish LAST — anti-pattern F):
-    //     (0) pause the debounce (a Refresh is already running)
+    //     (0) pause the debounce + snapshot the prior registry keyed by DownloadId (the #301 merge)
     //     (1) for each DownloadHandlingEnabled() client → GetItems()
-    //     (2)   for each item → TrackDownload(definition, item) (Plan 03 matcher)
-    //     (3)     run _failedDownloadService.Check + _completedDownloadService.Check (Plan 04)
+    //     (2)   for each item → reuse the prior instance if it has settled past Downloading AND
+    //           ImportBlocked (preserve its State; #301), else TrackDownload(definition, item) (Plan 03
+    //           matcher). ImportBlocked is Mangarr's unresolved shell — it is rebuilt so a later poll
+    //           with available metadata can re-resolve it (Codex PR #304).
+    //     (3)     run _failedDownloadService.Check + _completedDownloadService.Check (Plan 04) — only
+    //             for a rebuilt Downloading/ImportBlocked row; a reused settled row is NOT re-Checked
     //     (4)   accumulate trackable downloads into a List<TrackedDownload>
     //     (5) cache the list as the registry MangaDownloadProcessingService reads
     //     (6) PUBLISH TrackedDownloadRefreshedEvent  ← THE LAST PUBLISH (the dead-queue fix; wakes
@@ -82,8 +86,13 @@ namespace NzbDrone.Core.Download.TrackedDownloads
         private readonly Logger _logger;
         private readonly Debouncer _refreshDebounce;
 
-        private static readonly object RegistryLock = new object();
-        private static List<TrackedDownload> _trackedDownloads = new List<TrackedDownload>();
+        // Instance state (not static): convention-registered services use DryIoc's default
+        // Reuse.Singleton (NzbDrone.Common/Composition/Extensions.cs), so the single monitor instance
+        // is the one IMangaDownloadProcessingService injects — instance fields share correctly without
+        // the cross-instance coupling (and test-isolation hazard) a static would carry. The registry
+        // now MERGES across polls keyed by DownloadId (#301), so it must not bleed between instances.
+        private readonly object _registryLock = new object();
+        private List<TrackedDownload> _trackedDownloads = new List<TrackedDownload>();
 
         public MangaDownloadMonitoringService(
             IDownloadClientFactory downloadClientFactory,
@@ -108,7 +117,7 @@ namespace NzbDrone.Core.Download.TrackedDownloads
 
         public List<TrackedDownload> GetTrackedDownloads()
         {
-            lock (RegistryLock)
+            lock (_registryLock)
             {
                 // Defensive copy so a concurrent Refresh() assignment cannot tear an in-flight read.
                 return _trackedDownloads.ToList();
@@ -144,16 +153,28 @@ namespace NzbDrone.Core.Download.TrackedDownloads
             _refreshDebounce.Pause();
             try
             {
+                // (0) Snapshot the prior registry keyed by DownloadId. A download already past the
+                // Downloading state (Failed/Imported/…) keeps its existing instance + terminal State
+                // across polls instead of being rebuilt as Downloading and re-Checked/re-processed
+                // every cycle (#301; mirrors Sonarr TrackedDownloadService's DownloadId-keyed cache
+                // reuse). Without this the in-process client's still-present Failed row re-Fails every
+                // minute → duplicate ChapterDownloadFailedEvent → duplicate blocklist/history/auto-retry.
+                Dictionary<string, TrackedDownload> previous;
+                lock (_registryLock)
+                {
+                    previous = IndexByDownloadId(_trackedDownloads);
+                }
+
                 var trackedDownloads = new List<TrackedDownload>();
 
                 foreach (var downloadClient in _downloadClientFactory.DownloadHandlingEnabled())
                 {
-                    trackedDownloads.AddRange(ProcessClientDownloads(downloadClient));
+                    trackedDownloads.AddRange(ProcessClientDownloads(downloadClient, previous));
                 }
 
                 // (5) Cache the registry BEFORE publishing — the ProcessMonitored command (pushed at
                 // the tail) reads this list, and it must reflect THIS refresh.
-                lock (RegistryLock)
+                lock (_registryLock)
                 {
                     _trackedDownloads = trackedDownloads;
                 }
@@ -171,7 +192,7 @@ namespace NzbDrone.Core.Download.TrackedDownloads
             }
         }
 
-        private List<TrackedDownload> ProcessClientDownloads(IDownloadClient downloadClient)
+        private List<TrackedDownload> ProcessClientDownloads(IDownloadClient downloadClient, IReadOnlyDictionary<string, TrackedDownload> previous)
         {
             var trackedDownloads = new List<TrackedDownload>();
 
@@ -188,26 +209,53 @@ namespace NzbDrone.Core.Download.TrackedDownloads
 
             foreach (var item in items)
             {
-                var trackedDownload = ProcessClientItem(downloadClient, item);
+                var trackedDownload = ProcessClientItem(downloadClient, item, previous);
                 trackedDownloads.AddIfNotNull(trackedDownload);
             }
 
             return trackedDownloads;
         }
 
-        private TrackedDownload ProcessClientItem(IDownloadClient downloadClient, DownloadClientItem item)
+        private TrackedDownload ProcessClientItem(IDownloadClient downloadClient, DownloadClientItem item, IReadOnlyDictionary<string, TrackedDownload> previous)
         {
             TrackedDownload trackedDownload = null;
             try
             {
-                trackedDownload = _trackedDownloadService.TrackDownload(
-                    (DownloadClientDefinition)downloadClient.Definition,
-                    item);
+                // Registry merge (#301): reuse the prior-poll instance — preserving its State — once a
+                // download has settled past the in-flight/unresolved phase, like Sonarr
+                // TrackedDownloadService.TrackDownload's reuse branch (existing.State != Downloading).
+                //
+                // Mangarr ALSO excludes ImportBlocked from reuse. Unlike Sonarr (where an unresolved
+                // download stays Downloading and is re-resolved every poll), Mangarr marks an
+                // *unresolvable shell* ImportBlocked with RemoteChapter == null (MangaTrackedDownloadService
+                // .BuildTrackedDownload). Such a shell MUST be rebuilt each poll so a later poll whose
+                // download-history/title metadata has since resolved can recover it — otherwise it would
+                // stay RemoteChapter == null forever and a subsequent completion would loop on a
+                // null-remote import (Codex review on PR #304). Only the client-item snapshot is refreshed
+                // on reuse; the instance is NOT rebuilt (which would reset State to Downloading).
+                if (!string.IsNullOrWhiteSpace(item.DownloadId)
+                    && previous.TryGetValue(item.DownloadId, out var existing)
+                    && existing.State != TrackedDownloadState.Downloading
+                    && existing.State != TrackedDownloadState.ImportBlocked)
+                {
+                    existing.DownloadItem = item;
+                    existing.IsTrackable = true;
+                    trackedDownload = existing;
+                }
+                else
+                {
+                    trackedDownload = _trackedDownloadService.TrackDownload(
+                        (DownloadClientDefinition)downloadClient.Definition,
+                        item);
+                }
 
                 if (trackedDownload is { State: TrackedDownloadState.Downloading or TrackedDownloadState.ImportBlocked })
                 {
                     // Run the Failed Check first then the Completed Check — a failed-then-completed
-                    // status flip is rare, but ordering matches v5 ProcessClientItem.
+                    // status flip is rare, but ordering matches v5 ProcessClientItem. A terminal row
+                    // (Failed/Imported/Ignored) is NOT re-Checked (that was #301's duplicate-event bug);
+                    // an ImportBlocked row IS still re-Checked so a now-failed/now-completed transition
+                    // is detected (mirrors Sonarr ProcessClientItem's Downloading-or-ImportBlocked gate).
                     _failedDownloadService.Check(trackedDownload);
                     _completedDownloadService.Check(trackedDownload);
                 }
@@ -218,6 +266,25 @@ namespace NzbDrone.Core.Download.TrackedDownloads
             }
 
             return trackedDownload;
+        }
+
+        // Index the registry by DownloadId for the cross-poll merge (#301). Last-wins on a duplicate id
+        // (a download is owned by exactly one client, so collisions are not expected); rows without a
+        // usable id are skipped — they cannot be merged and are simply rebuilt next poll.
+        private static Dictionary<string, TrackedDownload> IndexByDownloadId(IEnumerable<TrackedDownload> trackedDownloads)
+        {
+            var index = new Dictionary<string, TrackedDownload>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var trackedDownload in trackedDownloads)
+            {
+                var downloadId = trackedDownload.DownloadItem?.DownloadId;
+                if (!string.IsNullOrWhiteSpace(downloadId))
+                {
+                    index[downloadId] = trackedDownload;
+                }
+            }
+
+            return index;
         }
     }
 }
