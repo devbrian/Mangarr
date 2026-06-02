@@ -62,6 +62,11 @@ namespace NzbDrone.Core.Test.Download.Manga
                 .SetupGet(c => c.MaxAutoRetriesPerChapter)
                 .Returns(3);
 
+            // D-03 (Phase 36 Plan 04): AutoRedownloadFailed default true — re-search enabled.
+            Mocker.GetMock<IConfigService>()
+                .SetupGet(c => c.AutoRedownloadFailed)
+                .Returns(true);
+
             Mocker.GetMock<IChapterHistoryService>()
                 .Setup(h => h.FindByChapterId(It.IsAny<int>()))
                 .Returns(new List<ChapterHistory>());
@@ -240,6 +245,48 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             rowVisibleAtPushTime.Should().BeTrue(
                 "Plan 06-04 ↔ 06-08 ordering invariant: blocklist row must be observable when ChapterSearchCommand is queued");
+        }
+
+        // ── D-03 CONFIG GATE (Phase 36 Plan 04 — AutoRedownloadFailed) ──────────────────
+
+        [Test]
+        public void Pushes_ChapterSearchCommand_when_AutoRedownloadFailed_is_on()
+        {
+            SeedHistoryWithFailures(0);
+            Mocker.GetMock<IConfigService>()
+                .SetupGet(c => c.AutoRedownloadFailed)
+                .Returns(true);
+
+            Subject.Handle(new MangaBlocklistAddedEvent(_blocklist, BuildSourceEvent()));
+
+            Mocker.GetMock<IManageCommandQueue>()
+                .Verify(
+                    q => q.Push(
+                        It.IsAny<ChapterSearchCommand>(),
+                        It.IsAny<CommandPriority>(),
+                        It.IsAny<CommandTrigger>()),
+                    Times.Once);
+        }
+
+        [Test]
+        public void Does_not_push_ChapterSearchCommand_when_AutoRedownloadFailed_is_off()
+        {
+            // D-03 gate: the blocklist row was already inserted upstream (always fires); the
+            // orchestrator suppresses ONLY the re-search when the config is off.
+            SeedHistoryWithFailures(0);
+            Mocker.GetMock<IConfigService>()
+                .SetupGet(c => c.AutoRedownloadFailed)
+                .Returns(false);
+
+            Subject.Handle(new MangaBlocklistAddedEvent(_blocklist, BuildSourceEvent()));
+
+            Mocker.GetMock<IManageCommandQueue>()
+                .Verify(
+                    q => q.Push(
+                        It.IsAny<ChapterSearchCommand>(),
+                        It.IsAny<CommandPriority>(),
+                        It.IsAny<CommandTrigger>()),
+                    Times.Never);
         }
 
         // ── INTERFACE CHECKS (HARD GATES) ───────────────────────────────────────────────

@@ -38,6 +38,13 @@ namespace NzbDrone.Core.Download.Manga
     //   that the IHandle interface for the upstream event is NOT implemented here.
     // ============================================================================
     //
+    // D-03 GATE (Phase 36 Plan 04 — Q-D03 build obligation): Handle early-returns when
+    // IConfigService.AutoRedownloadFailed is off, suppressing ONLY the re-search. The blocklist
+    // row is inserted UPSTREAM by MangaBlocklistService (Insert FIRST), so blocklisting always
+    // fires regardless of this setting. Canonical placement mirrors v5-develop:Download/
+    // RedownloadFailedDownloadService.Handle. Respects the EXISTING AutoRedownloadFailed setting
+    // (default true); no new setting is added.
+    //
     // BOUNDED BUDGET (Pitfall 5 GUARD): D-13 IConfigService.MaxAutoRetriesPerChapter
     // (default 3) caps auto-retries per chapter. After N exhausted, chapter sits in
     // History as DownloadFailed; user manually retries from History row (HISTORY-03).
@@ -77,6 +84,20 @@ namespace NzbDrone.Core.Download.Manga
             if (chapterId == 0)
             {
                 _logger.Warn("MangaBlocklistAddedEvent fired without a resolvable chapter id; auto-retry skipped");
+                return;
+            }
+
+            // ── 1a. D-03 config gate — AutoRedownloadFailed (NEW; build obligation Q-D03) ─
+            // The blocklist row was ALREADY inserted upstream (MangaBlocklistService.Handle, Insert
+            // FIRST). This gate suppresses ONLY the re-search — blocklisting still always fires.
+            // Canonical placement mirrors v5-develop:Download/RedownloadFailedDownloadService.Handle
+            // (early-return on !AutoRedownloadFailed before any search command push). Respects the
+            // EXISTING IConfigService.AutoRedownloadFailed setting (default true); adds NO new setting.
+            if (!_configService.AutoRedownloadFailed)
+            {
+                _logger.Info(
+                    "AutoRedownloadFailed is off; skipping auto-retry re-search for chapter {0} (blocklist still applied)",
+                    chapterId);
                 return;
             }
 
