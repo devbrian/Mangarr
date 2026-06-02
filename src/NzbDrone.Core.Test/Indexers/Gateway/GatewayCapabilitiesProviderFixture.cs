@@ -94,5 +94,43 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             // The provider logs the rejecting host (never the api key) at Warn level.
             ExceptionVerification.ExpectedWarns(1);
         }
+
+        [Test]
+        public void error_envelope_with_http_200_throws_ApiKeyException_and_is_not_cached()
+        {
+            // CR-02: an error envelope can arrive with an HTTP 2xx status (API gateways that
+            // 200-wrap application errors). HasHttpError only catches >=400, so the body-level
+            // error-code ladder must run regardless of status — an `auth` envelope must throw
+            // ApiKeyException, NOT deserialize to an all-default caps object that gets cached.
+            GivenHttpResponse("{\"error\":{\"code\":\"auth\",\"message\":\"invalid key\"}}", HttpStatusCode.OK);
+
+            var act = () => Subject.GetCapabilities(_settings);
+
+            act.Should().Throw<ApiKeyException>();
+            ExceptionVerification.ExpectedWarns(1);
+
+            // A failed validation must NOT be cached: a second call re-issues the HTTP request
+            // (and throws again) rather than returning a poisoned empty document.
+            act.Should().Throw<ApiKeyException>();
+            ExceptionVerification.ExpectedWarns(1);
+            Mocker.GetMock<IHttpClient>().Verify(c => c.Get(It.IsAny<HttpRequest>()), Times.Exactly(2));
+        }
+
+        [Test]
+        public void null_sources_caps_200_throws_IndexerException_and_is_not_cached()
+        {
+            // CR-02 / WR-01: a deserialized-but-empty caps doc (`"sources": null`) must be rejected
+            // with an IndexerException and NEVER cached for 12h (which would poison every background
+            // search + the dropdown). A second call must re-issue the HTTP request.
+            GivenHttpResponse("{\"gatewayVersion\":\"1.0.0\",\"sources\":null}", HttpStatusCode.OK);
+
+            var act = () => Subject.GetCapabilities(_settings);
+
+            act.Should().Throw<IndexerException>();
+
+            // Not cached → the second call hits the gateway again (2 HTTP calls total).
+            act.Should().Throw<IndexerException>();
+            Mocker.GetMock<IHttpClient>().Verify(c => c.Get(It.IsAny<HttpRequest>()), Times.Exactly(2));
+        }
     }
 }

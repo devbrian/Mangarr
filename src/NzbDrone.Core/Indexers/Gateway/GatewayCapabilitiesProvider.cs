@@ -76,12 +76,28 @@ namespace NzbDrone.Core.Indexers.Gateway
                 ThrowForError(response);
             }
 
+            // CR-02 / WR-01 defense-in-depth: a gateway error envelope can arrive with an HTTP 2xx
+            // status (a common API-gateway pattern is to 200-wrap application errors). HasHttpError
+            // only catches >=400, so run the kept error-code ladder on the BODY regardless of status
+            // BEFORE trusting the deserialized doc — otherwise an `auth` failure would deserialize to
+            // an all-default caps object (the `sources` key is absent → the field initializer
+            // survives → the null guard never fires) and get cached for 12h as empty caps.
+            var embeddedCode = TryReadErrorCode(response.Content);
+            if (embeddedCode != null)
+            {
+                ThrowForError(response); // routes auth/rate_limited/else into the kept ladder
+            }
+
             var capabilities = JsonConvert.DeserializeObject<GatewayCapabilities>(response.Content);
 
-            if (capabilities == null)
+            // WR-01: reject (and do NOT cache) a deserialized-but-empty caps doc. A thin/garbage 200
+            // body whose `sources` is null/absent would otherwise poison every background search and
+            // the source dropdown for the full 12h TTL. Throwing here propagates out of the cache
+            // factory delegate so the bad doc is never stored.
+            if (capabilities == null || capabilities.Sources == null)
             {
                 throw new IndexerException(new IndexerResponse(new IndexerRequest(request), response),
-                    "Gateway returned an empty /caps document");
+                    "Gateway returned an empty or malformed /caps document");
             }
 
             return capabilities;
