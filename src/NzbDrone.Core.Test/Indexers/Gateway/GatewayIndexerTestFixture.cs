@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,9 +5,10 @@ using FluentAssertions;
 using Moq;
 using Newtonsoft.Json;
 using NUnit.Framework;
+using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Exceptions;
 using NzbDrone.Core.Indexers.Gateway;
-using NzbDrone.Core.Indexers.Gateway.Responses;
+using NzbDrone.Core.Localization;
 using NzbDrone.Core.Test.Framework;
 
 namespace NzbDrone.Core.Test.Indexers.Gateway
@@ -45,6 +45,20 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             Mocker.GetMock<IGatewayCapabilitiesProvider>()
                   .Setup(p => p.GetCapabilities(It.IsAny<GatewaySettings>(), It.IsAny<bool>()))
                   .Returns(_capabilities);
+
+            // The D-04 message embeds the {sources} token — echo the resolved token back so the
+            // "message names the unsearchable sources" assertion exercises real behavior (the
+            // production GatewayValidationNoSearchableSources value is "...: {sources}").
+            Mocker.GetMock<ILocalizationService>()
+                  .Setup(s => s.GetLocalizedString(It.IsAny<string>(), It.IsAny<Dictionary<string, object>>()))
+                  .Returns<string, Dictionary<string, object>>((key, tokens) =>
+                      tokens != null && tokens.TryGetValue("sources", out var sources)
+                          ? $"{key}: {sources}"
+                          : key);
+
+            Mocker.GetMock<ILocalizationService>()
+                  .Setup(s => s.GetLocalizedString(It.IsAny<string>()))
+                  .Returns<string>(key => key);
         }
 
         [Test]
