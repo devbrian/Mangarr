@@ -208,7 +208,7 @@ function QueueRow(props: QueueRowProps) {
     [toggleSelected]
   );
 
-  const progress = 100 - (sizeLeft / size) * 100;
+  const progress = size > 0 ? 100 - (sizeLeft / size) * 100 : 0;
   const showInteractiveImport =
     status === 'completed' && trackedDownloadStatus === 'warning';
   const isPending =

@@ -9,23 +9,29 @@ using NzbDrone.Core.Messaging.Events;
 
 namespace NzbDrone.Core.Queue.Manga
 {
-    // Sonarr divergence: NEW manga sibling per Phase 6 D-20 — see DIVERGENCE.md.
-    // Role-match analog: src/NzbDrone.Core/Queue/QueueService.cs lines 21–106.
+    // Sonarr divergence: manga sibling per Phase 6 D-20 — see DIVERGENCE.md.
+    // Role-match analog: Sonarr's QueueService (the TV Queue.cs / QueueService.cs /
+    // ObsoleteQueueService.cs family was DELETED in the Phase 15 fork; reference the
+    // upstream v5-develop QueueService when porting). MangaQueueService is now the SOLE
+    // production IHandle<TrackedDownloadRefreshedEvent> subscriber (HEAD-verified Phase 36
+    // Plan 02 — see 36-RESEARCH § "Landmine #2 — ALREADY NEUTRALIZED": no TV QueueService.cs
+    // on disk; this is the only subscriber; no TV QueueController in Mangarr.Api.V5).
     //
-    // Q-3 RESEARCH lock: static-list pattern; populated on TrackedDownloadRefreshedEvent
-    // (verbatim TV shape); filter to Protocol == DownloadProtocol.Http (manga-side gate
-    // — TV QueueService runs on the same event but only the non-Http entries land in its
-    // _queue, manga-only entries land here, so the two queues co-exist without double-
-    // counting per Plan 09 V5 verification).
+    // Q-3 RESEARCH lock: static-list pattern; populated on TrackedDownloadRefreshedEvent.
+    // The Protocol == DownloadProtocol.Http filter is a HARMLESS heritage guard — it was
+    // originally the manga-side gate that let a now-deleted TV QueueService co-exist on the
+    // same event without double-counting. With the TV queue gone there is no second
+    // subscriber, so the filter no longer prevents co-existence; it is retained as a
+    // defensive guard against any future non-Http row reaching this manga-only projection.
+    // There is NO double-projection risk when Plan 04 wires the TrackedDownloadRefreshedEvent
+    // publisher: this service is the only consumer.
     //
     // Manga sibling diverges (D-20):
-    //   * Filter Protocol == DownloadProtocol.Http (manga-only)
+    //   * Filter Protocol == DownloadProtocol.Http (manga-only / heritage guard)
     //   * MapQueueItem reads RemoteChapter (Phase 5 type), not RemoteEpisode
     //   * Emits MangaQueueUpdatedEvent (Plan 06-09 SignalR), not QueueUpdatedEvent
     //   * No QualityModel / Languages — TranslationProfile + ScanlationGroup are
     //     first-class fields on MangaQueueItem
-    //
-    // Phase 8 cleanup: collapse with QueueService when Tv/ deletes.
     public class MangaQueueService : IMangaQueueService, IHandle<TrackedDownloadRefreshedEvent>
     {
         private readonly IEventAggregator _eventAggregator;
@@ -37,7 +43,7 @@ namespace NzbDrone.Core.Queue.Manga
         // service still serialize through one monitor.
         private static readonly object _queueLock = new object();
 
-        // Static-list pattern verbatim from TV QueueService.cs:24 — the queue is a
+        // Static-list pattern ported from Sonarr's QueueService (v5-develop) — the queue is a
         // process-wide projection, refreshed atomically per TrackedDownloadRefreshedEvent.
         // T-06-10 + Phase 6 Plan 14 BL-02 mitigation: all _queue access serialized
         // through _queueLock so concurrent Handle (single-writer reassignment) and

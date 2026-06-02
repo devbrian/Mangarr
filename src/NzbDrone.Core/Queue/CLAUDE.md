@@ -4,7 +4,7 @@
 
 Live in-flight queue projection — the read-model that the UI Activity panel and the Decision Engine's `QueueSpecification` consume. Built on top of `Download/TrackedDownloads/` (the source of truth for in-flight downloads) by the **static-list projection pattern**: a single `IHandle<TrackedDownloadRefreshedEvent>` rebuilds the projection atomically; readers defensive-copy via `ToList()`.
 
-The TV `QueueService` projects all `TrackedDownload` rows; Mangarr Phase 6 splits the projection along `DownloadProtocol` so manga and TV co-exist on the same upstream event without double-counting.
+The TV `QueueService.cs` / `Queue.cs` / `ObsoleteQueueService.cs` family was **DELETED in the Phase 15 fork** (V3 API + TV `Tv/` cutover). `MangaQueueService` (under `Queue/Manga/`) is now the **sole** `IHandle<TrackedDownloadRefreshedEvent>` projection — HEAD-verified Phase 36 Plan 02 (no TV `QueueService.cs`/`Queue.cs` on disk; only `MangaQueueService` subscribes; no TV `QueueController` in `Mangarr.Api.V5`). There is no second queue and no double-counting risk; the original Phase 6 `Protocol == DownloadProtocol.Http` split (described below) is now a harmless heritage guard rather than a live co-existence requirement.
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Queue\`
 
@@ -12,20 +12,24 @@ The TV `QueueService` projects all `TrackedDownload` rows; Mangarr Phase 6 split
 
 | File | Purpose |
 |------|---------|
-| `Queue.cs` | TV-shaped queue row — wire-shape POCO inheriting `ModelBase`. Carries `Series + Episodes + Quality + Languages + Status + RemainingTime + …`. |
-| `QueueService.cs` | TV-shaped `IHandle<TrackedDownloadRefreshedEvent>` static-list projection (lines 14-106). Verbatim shape template referenced by Phase 6 Plan 06-05. |
-| `QueueStatus.cs` | Derived status enum (`Downloading / Completed / Failed / Warning / Paused / Queued / DelayedSearchPending / …`) |
-| `QueueUpdatedEvent.cs` | TV-side marker `IEvent` published by `QueueService.Handle` on every refresh; SignalR fan-out trigger. |
-| `ObsoleteQueueService.cs` / `ObsoleteQueueUpdatedEvent.cs` | Deprecated TV pre-projection shape; kept for API V3 compatibility. |
+| `QueueStatus.cs` | Derived status enum (`Downloading / Completed / Failed / Warning / Paused / Queued / DelayedSearchPending / …`) — shared, manga-consumed. |
+| `QueueUpdatedEvent.cs` | Marker `IEvent` (heritage TV-side type; the manga projection emits `MangaQueueUpdatedEvent` from `Queue/Manga/`). |
 | `DatetimeComparer.cs` / `TimeleftComparer.cs` | Sort helpers for the projection. |
+
+> **DELETED in Phase 15 (do NOT expect these on disk):** `Queue.cs` (TV-shaped row POCO),
+> `QueueService.cs` (TV `IHandle<TrackedDownloadRefreshedEvent>` projection), and
+> `ObsoleteQueueService.cs` / `ObsoleteQueueUpdatedEvent.cs` (deprecated V3-compat pre-projection
+> shape). They were removed with the `Tv/` cutover and V3 API deletion. Reference the upstream
+> `v5-develop` `QueueService` when porting shape. HEAD-verified Phase 36 Plan 02
+> (see `36-RESEARCH.md` § "Landmine #2 — ALREADY NEUTRALIZED").
 
 ## Phase 6 Manga Sibling
 
-Phase 6 Plan 06-05 ships `Queue/Manga/` as a parallel sibling. **Phase 8 cleanup** will collapse with `Queue/` when `Tv/` deletes (and the `Protocol == Http` filter drops along with the TV-side projection).
+Phase 6 Plan 06-05 shipped `Queue/Manga/` as a sibling of the (now-deleted) TV `Queue` family. Because the TV projection no longer exists, `Queue/Manga/MangaQueueService` is the **only** live projection; the planned "Phase 8 collapse" (drop the `Protocol == Http` filter and rename out the `Manga` prefix) is the remaining cosmetic cleanup, not a behavioral fix — there is no longer a second projection to merge.
 
 | Sibling | Phase 6 Plan | Notes |
 |---------|--------------|-------|
-| [`Queue/Manga/`](./Manga/CLAUDE.md) | Plan 06-05 | Manga queue projection from `TrackedDownloadRefreshedEvent`. `MangaQueueItem` POCO (inherits `ModelBase` per Plan 06-09 Rule 2 — `RestControllerWithSignalR` requires the constraint); `IMangaQueueService` + `MangaQueueService` static-list projection filtered to `Protocol == DownloadProtocol.Http` (so TV and manga queues co-exist on the same upstream event without double-counting); `MangaQueueUpdatedEvent` IEvent marker (SignalR fan-out trigger consumed by Plan 06-09 `MangaQueueController`); `TrackedDownload.RemoteChapter` additive optional slot (parallel to `RemoteEpisode`, populated by Phase 4 `InProcessImageDownloadClient` on the manga-protocol path). Drops TV-only `Languages` / `QualityModel`; adds `TranslatedLanguage : string` (BCP-47) + `ScanlationGroup : string` as first-class fields. Deterministic `HashConverter.GetHashInt31` Id (SignalR diff key). Phase 8 cleanup: collapse with `QueueService`. |
+| [`Queue/Manga/`](./Manga/CLAUDE.md) | Plan 06-05 | Manga queue projection from `TrackedDownloadRefreshedEvent`. `MangaQueueItem` POCO (inherits `ModelBase` per Plan 06-09 Rule 2 — `RestControllerWithSignalR` requires the constraint); `IMangaQueueService` + `MangaQueueService` static-list projection filtered to `Protocol == DownloadProtocol.Http` (originally to let the now-deleted TV queue co-exist on the same event without double-counting — now a harmless heritage guard since `MangaQueueService` is the sole subscriber); `MangaQueueUpdatedEvent` IEvent marker (SignalR fan-out trigger consumed by Plan 06-09 `MangaQueueController`); `TrackedDownload.RemoteChapter` additive optional slot (parallel to `RemoteEpisode`, populated by Phase 4 `InProcessImageDownloadClient` on the manga-protocol path). Drops TV-only `Languages` / `QualityModel`; adds `TranslatedLanguage : string` (BCP-47) + `ScanlationGroup : string` as first-class fields. Deterministic `HashConverter.GetHashInt31` Id (SignalR diff key). Phase 8 cleanup: collapse with `QueueService`. |
 | `Queue/Manga/MangaPendingReleasesUpdatedEvent.cs` (defined alongside `MangaQueueUpdatedEvent.cs`) | Plan 06-05 | Reserved for the Plan 06-08 auto-retry orchestrator hand-off path. Phase 8 cleanup: collapse with `PendingReleasesUpdatedEvent`. |
 
 **Phase 6 D-20 GUARD:** the manga `QueueDuplicateSpecification` (in `DecisionEngine/Manga/Specifications/`) intersects `subjectChapterIds ∪ queuedChapterIds` via `HashSet<int>.Overlaps` against `IMangaQueueService.GetMangaQueue()` — NEVER `IQueueService.GetQueue()`. The two services serve different rows.
@@ -33,10 +37,10 @@ Phase 6 Plan 06-05 ships `Queue/Manga/` as a parallel sibling. **Phase 8 cleanup
 ## Manga Adaptation Notes
 
 The static-list projection pattern is the canonical Mangarr shape and is preserved verbatim by Mangarr (Phase 6 Q-3 RESEARCH lock). The two divergences are:
-1. **Filter on Protocol** so TV and manga don't double-count rows from the shared `TrackedDownloadRefreshedEvent`.
+1. **Filter on Protocol** (`Protocol == DownloadProtocol.Http`) — originally so the TV and manga projections did not double-count rows from the shared `TrackedDownloadRefreshedEvent`. The TV projection was deleted in Phase 15, so this is now a harmless heritage guard (defensive against any future non-Http row), NOT a live co-existence requirement.
 2. **Drop Quality / Languages**, add **TranslatedLanguage / ScanlationGroup** as first-class fields.
 
-Phase 8 collapses the two services into one when `Tv/` deletes (and the Http filter drops with it).
+The only remaining "Phase 8 collapse" work is cosmetic — drop the `Protocol == Http` filter and rename out the `Manga` prefix — since the TV `QueueService` it would have merged with no longer exists.
 
 ## Cross-References
 
