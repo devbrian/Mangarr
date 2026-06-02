@@ -51,8 +51,11 @@ namespace NzbDrone.Core.Download.TrackedDownloads
     //     (8) resume the debounce (finally)
     //
     //   DO NOT touch MangaQueueService (the KEPT IHandle<TrackedDownloadRefreshedEvent> consumer —
-    //   it filters Protocol == Http, rebuilds its static projection, and re-publishes
-    //   MangaQueueUpdatedEvent → SignalR; MangaQueueService.cs:99-115).
+    //   it rebuilds its static projection and re-publishes MangaQueueUpdatedEvent → SignalR). Its
+    //   Protocol == Http filter is now a harmless HERITAGE GUARD, not a live co-existence
+    //   requirement: the TV QueueService it once disambiguated from was deleted in the Phase 15
+    //   Tv/ cutover, so MangaQueueService is the sole TrackedDownloadRefreshedEvent subscriber
+    //   (HEAD-verified Phase 36 Plan 02). See Queue/Manga/CLAUDE.md.
     //
     // Phase 38 cleanup: collapse with the gateway-path monitor; the publish-LAST tail is canonical.
     // ============================================================================

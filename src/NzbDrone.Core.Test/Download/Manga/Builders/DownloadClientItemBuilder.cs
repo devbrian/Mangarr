@@ -76,11 +76,12 @@ namespace NzbDrone.Core.Test.Download.Manga.Builders
             _item.RemainingSize = 0;
             _item.CanBeRemoved = true;
 
-            // GetItems() sets OutputPath = StagingPath on completion. Provide a deterministic default
-            // unless the caller already set one via WithOutputPath().
+            // GetItems() sets OutputPath = StagingPath on completion. Derive the default from the
+            // builder's Title (so Title/OutputPath stay consistent — e.g. WithTitle("Pack") →
+            // C:\staging\Pack) unless the caller already set one via WithOutputPath().
             if (!_outputPathExplicitlySet)
             {
-                _item.OutputPath = new OsPath(@"C:\staging\Test Manga - Chapter 001");
+                _item.OutputPath = new OsPath($@"C:\staging\{_item.Title}");
             }
 
             return this;

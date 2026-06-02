@@ -154,14 +154,25 @@ namespace NzbDrone.Core.Test.Queue.Manga
                 .Returns(new MangaDownloadPageProgress(20, 7));
 
             var tracked = TrackableDownload("dl-eta", 42);
+
+            var before = System.DateTime.UtcNow;
             var queue = Project(Subject(), tracked);
+            var after = System.DateTime.UtcNow;
 
             queue.Should().ContainSingle();
             queue[0].TimeLeft.Should().Be(tracked.DownloadItem.RemainingTime);
 
             if (tracked.DownloadItem.RemainingTime.HasValue)
             {
+                // ECT = UtcNow.Add(TimeLeft) at projection time, so it must fall within
+                // [before+RemainingTime, after+RemainingTime] and carry DateTimeKind.Utc — a tighter
+                // bound than "not null" that pins both the derivation and the UTC kind.
+                var remaining = tracked.DownloadItem.RemainingTime.Value;
                 queue[0].EstimatedCompletionTime.Should().NotBeNull();
+                queue[0].EstimatedCompletionTime.Value.Kind.Should().Be(System.DateTimeKind.Utc);
+                queue[0].EstimatedCompletionTime.Value
+                    .Should().BeOnOrAfter(before.Add(remaining))
+                    .And.BeOnOrBefore(after.Add(remaining));
             }
             else
             {

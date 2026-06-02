@@ -37,7 +37,7 @@ public class MangaQueueService : IMangaQueueService, IHandle<TrackedDownloadRefr
 }
 ```
 
-The static field is the same anti-pattern Sonarr's `QueueService` used (ported verbatim) and has been stable through five major versions. T-06-10 (concurrent-write race) is mitigated by the **single-writer** model: only the `IHandle` path mutates `_queue`. Reads (`GetMangaQueue`, `Find`) defensive-copy via `ToList()` so iteration during a refresh doesn't tear.
+The static field is the same anti-pattern Sonarr's `QueueService` used (ported verbatim) and has been stable through five major versions. T-06-10 (concurrent-write race) is mitigated by a **static `_queueLock` monitor** (Phase 6 Plan 14 BL-02): all `_queue` access serializes through it. The original single-writer assumption no longer holds — `Remove(int id)` (the `DELETE /api/v5/manga/queue/{id}` path) mutates `_queue` in place via `List.Remove`, so it is a second writer alongside the `IHandle` reassignment. The lock is `static` so it matches the lifetime of the `static _queue` field — DI-transient service instances still serialize through one monitor. `Handle` builds the new projection OUTSIDE the lock (mutation-free LINQ) and only the reassignment is inside the critical section; reads (`GetMangaQueue`, `Find`) and `Remove` take the same lock and `GetMangaQueue` defensive-copies via `ToList()` so iteration during a refresh cannot tear. `Remove` republishes `MangaQueueUpdatedEvent` so connected SignalR clients see the deletion without waiting for the next `TrackedDownloadRefreshedEvent`.
 
 ### Protocol filter — now a heritage guard (TV queue deleted)
 

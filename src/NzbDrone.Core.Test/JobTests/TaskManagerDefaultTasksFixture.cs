@@ -24,6 +24,13 @@ namespace NzbDrone.Core.Test.JobTests
         private string _taskManagerSource;
         private string _migration001Source;
 
+        // The defaultTasks initializer block only — sliced between
+        // `var defaultTasks = new List<ScheduledTask>` and `var currentTasks =`. Scoping the
+        // RefreshMonitored/ProcessMonitored assertions to this block (instead of a file-wide
+        // string match) catches a cadence regression and avoids a false-green on a stray comment
+        // elsewhere in TaskManager.cs that merely names the command.
+        private string _defaultTasksBlock;
+
         [SetUp]
         public void Setup()
         {
@@ -47,6 +54,15 @@ namespace NzbDrone.Core.Test.JobTests
 
             _taskManagerSource = File.ReadAllText(Path.Combine(srcRoot, "Jobs", "TaskManager.cs"));
             _migration001Source = File.ReadAllText(Path.Combine(srcRoot, "Datastore", "Migration", "001_mangarr_baseline.cs"));
+
+            // Slice the defaultTasks initializer: from `var defaultTasks = new List<ScheduledTask>`
+            // up to (not including) the next `var currentTasks =`. This is the registration list
+            // proper — comments and other code outside it must not satisfy the scoped assertions.
+            var blockStart = _taskManagerSource.IndexOf("var defaultTasks = new List<ScheduledTask>");
+            blockStart.Should().BeGreaterThan(0, "TaskManager.cs must declare a defaultTasks List<ScheduledTask> initializer");
+            var blockEnd = _taskManagerSource.IndexOf("var currentTasks =", blockStart);
+            blockEnd.Should().BeGreaterThan(blockStart, "the defaultTasks initializer must be followed by `var currentTasks =`");
+            _defaultTasksBlock = _taskManagerSource.Substring(blockStart, blockEnd - blockStart);
         }
 
         // Walk up the directory chain from startDir, returning the first ancestor's
@@ -91,14 +107,24 @@ namespace NzbDrone.Core.Test.JobTests
         }
 
         [Test]
-        public void TaskManager_defaultTasks_registers_RefreshMonitoredMangaDownloadsCommand()
+        public void TaskManager_defaultTasks_registers_RefreshMonitoredMangaDownloadsCommand_with_one_minute_cadence()
         {
             // Phase 36 Plan 05 Task 1 (LOOP-01 / LOOP-05) — 1-min monitoring-loop poll heart.
             // MangaDownloadMonitoringService.Execute polls every DownloadHandlingEnabled() client,
             // tracks each item, runs the Completed/Failed Checks, and publishes
-            // TrackedDownloadRefreshedEvent as the LAST step (the dead-queue fix).
-            _taskManagerSource.Should().Contain("typeof(RefreshMonitoredMangaDownloadsCommand).FullName",
-                "Plan 36-05 Task 1 must register RefreshMonitoredMangaDownloadsCommand in TaskManager.defaultTasks (Anti-pattern C: NOT via migration seed)");
+            // TrackedDownloadRefreshedEvent as the LAST step (the dead-queue fix). Scoped to the
+            // defaultTasks block AND asserts the Interval = 1 cadence (a cadence regression — e.g.
+            // someone bumping it to 60 — would slip past a file-wide typeof() match).
+            _defaultTasksBlock.Should().Contain("typeof(RefreshMonitoredMangaDownloadsCommand).FullName",
+                "Plan 36-05 Task 1 must register RefreshMonitoredMangaDownloadsCommand in the TaskManager.defaultTasks block (Anti-pattern C: NOT via migration seed)");
+
+            // The registration's ScheduledTask carries Interval = 1. Assert the cadence literal
+            // appears immediately above the TypeName within a single ScheduledTask initializer by
+            // matching the `Interval = 1, ... TypeName = typeof(RefreshMonitoredMangaDownloadsCommand)`
+            // shape within the block (regex spans the intervening newline/whitespace).
+            _defaultTasksBlock.Should().MatchRegex(
+                @"Interval\s*=\s*1\s*,\s*TypeName\s*=\s*typeof\(RefreshMonitoredMangaDownloadsCommand\)\.FullName",
+                "Plan 36-05 Task 1 — RefreshMonitoredMangaDownloadsCommand must be registered at the 1-minute monitoring cadence (Interval = 1)");
         }
 
         [Test]
@@ -106,11 +132,12 @@ namespace NzbDrone.Core.Test.JobTests
         {
             // Phase 36 Plan 05 Task 1 (Q-poll resolution) — ProcessMonitoredMangaDownloadsCommand is
             // QUEUED-ONLY: the MangaDownloadMonitoringService pushes it onto the command queue at the
-            // tail of every Refresh(). It must NEVER appear in TaskManager.defaultTasks (no scheduled
-            // cadence — the monitor owns its dispatch). This is the inverse-direction sister assertion
-            // to the Refresh-registered check above.
-            _taskManagerSource.Should().NotContain("typeof(ProcessMonitoredMangaDownloadsCommand).FullName",
-                "Plan 36-05 Task 1 — ProcessMonitoredMangaDownloadsCommand is queued-only; it must NOT be registered in TaskManager.defaultTasks (it is pushed at the tail of Refresh()).");
+            // tail of every Refresh(). It must NEVER appear in the defaultTasks block (no scheduled
+            // cadence — the monitor owns its dispatch). Scoped to the block so the explanatory comment
+            // in TaskManager.cs that NAMES the command (documenting the queued-only contract) does not
+            // produce a false failure — a file-wide NotContain would trip on that comment.
+            _defaultTasksBlock.Should().NotContain("typeof(ProcessMonitoredMangaDownloadsCommand).FullName",
+                "Plan 36-05 Task 1 — ProcessMonitoredMangaDownloadsCommand is queued-only; it must NOT be registered in the TaskManager.defaultTasks block (it is pushed at the tail of Refresh()).");
         }
 
         [Test]
