@@ -5,6 +5,7 @@ using FluentValidation.Results;
 using NLog;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Indexers.Comix;
+using NzbDrone.Core.Indexers.Gateway;
 using NzbDrone.Core.Indexers.MangaDex;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.ThingiProvider;
@@ -30,10 +31,18 @@ namespace NzbDrone.Core.Indexers
         // signal which Implementation to pick. Seed mirrors MetadataSourceFactory's
         // S4-pattern InitializeProviders override (idempotent on restart;
         // sibling-divergence rationale documented in DIVERGENCE.md Phase 15 entries).
+        //
+        // Phase 37 A3: GatewayIndexer joins the seed allow-list under the SAME divergence
+        // rationale. Its empty default settings (BaseUrl/ApiKey blank) fail
+        // config.Validate().IsValid, so IndexerBase.DefaultDefinitions seeds it with
+        // EnableRss/EnableAutomaticSearch/EnableInteractiveSearch = false (DISABLED-by-default).
+        // This is the runtime seed allow-list, NOT an Insert.IntoTable migration seed; it fires
+        // ONLY on an empty Indexers table, so existing users get no surprise row.
         private static readonly string[] SeededIndexerImplementations =
         {
             nameof(MangaDexIndexer),
-            nameof(ComixIndexer)
+            nameof(ComixIndexer),
+            nameof(GatewayIndexer)
         };
 
         private readonly IIndexerRepository _indexerRepository;
