@@ -1112,6 +1112,36 @@ Subsequent v1.x phases extend this delta; deviations from the snapshot are docum
 - `src/NzbDrone.Core/Indexers/Comix/CLAUDE.md` — Phase 17 Invariants (2026-05-25 Playwright .NET port + structural oracle entry).
 
 
+## Phase 37 — GatewayIndexer: D-02 Title Reconstruction (2026-06-02)
+
+**Status:** Active (Phase 37 Plan 37-03 close-out; landed 2026-06-02).
+
+**Scope:** Phase 37 ships `GatewayParser : IParseIndexerResponse` — the response half of the external manga-gateway search fan-out (`POST /search` + `GET /recent`, both returning the FROZEN OpenAPI `ReleaseListResponse` shape). It maps `GatewayRelease[]` → `ReleaseInfo[]`. **One intentional divergence lives here (D-02); everything else preserves the `MangaDexParser` shape.**
+
+| File / Symbol | Kind | Phase | Divergence |
+|---|---|---|---|
+| `src/NzbDrone.Core/Indexers/Gateway/GatewayParser.cs` — `BuildTitle(GatewayRelease)` | new (behavior) | Phase 37 | **The ONE intentional Phase-37 divergence (D-02).** The frozen gateway contract (spike §6) says "trust the title" — emit `release.title` verbatim. Mangarr instead RECONSTRUCTS a parser-canonical `Title` from the structured hints (`mangaTitle` + `chapterNumber` [+ `language` + `scanlationGroup`]) **only when both `mangaTitle` AND `chapterNumber` are present**, so the downstream `MangaParser.ParseChapterTitle` grammar resolves the right manga + chapter (A1). Format: `[{scanlationGroup}] {mangaTitle} - Chapter {chapterNumber:0.###} [{language}]` (LEADING group bracket per `MangaScanlationGroupParser`'s `^[Group]` rule; `"0.###"` invariant so `179.0`→`179`, `12.5`→`12.5`, `1.123`→`1.123` with no precision loss or trailing `.0`). **Guardrail D-02b (mandatory):** when EITHER hint is null the verbatim gateway `title` is returned UNCHANGED and the release is NEVER dropped — this protects the InteractiveSearch UI-visible win (a title-only release still surfaces). The method carries the `// Sonarr divergence:` (Pattern-S2) marker. |
+
+**Provenance:** CONTEXT.md D-02 / D-02a / D-02b. The reconstruction overrides spike §6's "trust the title" rule because the gateway's structured hints are richer + more reliable than the free-form `title` for grammar round-tripping; D-02b keeps it safe (no information loss — a hint-less release falls back to verbatim).
+
+**What is NOT divergent (preserves `MangaDexParser` shape):**
+- Field mapping mirrors `MangaDexParser`: `Guid`→`Guid`, `downloadHandle`→`DownloadUrl`, `language`→`TranslatedLanguage`, `scanlationGroup`→`ScanlationGroup`, `publishDate`→`PublishDate`, `DownloadProtocol.Http`.
+- `downloadHandle` is an OPAQUE R6 token mapped to `DownloadUrl` and NEVER `GET`'d by Mangarr (SSRF guard T-37-03-SSRF — submitted BACK to the gateway in Phase 38; no `_httpClient.Get(release.DownloadUrl)` on the gateway path).
+- Guid de-dup is NOT hand-rolled — the kept `IndexerBase.CleanupReleases` engine does `DistinctBy(Guid)` when the indexer drives Fetch (Plan 04).
+- D-03a `warnings[]`→`IIndexerSourceStatusService.RecordFailure(sourceKey)` reuses the fully-kept per-`SourceKey` escalation service; the loop NEVER throws (GWIX-04 isolation — one degraded source cannot fail the whole search).
+- 0 migration seeds, 0 new commands (the Phase-2 `RefreshMangaCommand` `TaskManager.defaultTasks` anti-pattern gate is N/A this plan — asserted explicitly), 0 TV (Series/Episode/Season) residue.
+
+**sonarr-consistency-audit (Plan 37-03 production surface: `GatewayParser.cs`):** 0 unexplained divergences — the ONE D-02 divergence is marked (Pattern-S2) + logged here. Everything else preserves `MangaDexParser` shape.
+
+**Cross-references:**
+- `.planning/phases/37-gatewayindexer/37-03-PLAN.md` + `37-03-SUMMARY.md` — the plan + close-out.
+- `.planning/phases/37-gatewayindexer/37-CONTEXT.md` — D-02 / D-02a / D-02b decisions.
+- `src/NzbDrone.Core/Indexers/MangaDex/MangaDexParser.cs` — the canonical parser analog (field-map shape).
+- `src/NzbDrone.Core/Parser/Manga/MangaParser.cs` — `ParseChapterTitle` grammar the reconstructed title round-trips (A1).
+
+
+*Last updated: 2026-06-02 (Phase 37 Plan 37-03 close-out — appended the Phase 37 entry above for the GatewayParser D-02 title-reconstruction divergence (the single intentional Phase-37 divergence; marked Pattern-S2). Reconstructs a parser-canonical title from structured gateway hints when both mangaTitle + chapterNumber are present, overriding spike §6's trust-the-title rule; guardrail D-02b keeps a hint-less release surfacing verbatim. Everything else preserves MangaDexParser shape; 0 migration seeds, 0 new commands, SSRF guard intact. All previous trailers preserved verbatim below per historical-accuracy contract.)*
+
 *Last updated: 2026-05-25 (Phase 33.3 close-out — appended the Phase 33.3 entry above for the Comix signer browser-layer port PuppeteerSharp → Microsoft.Playwright .NET (managed-challenge cold-solve via the Runtime.enable driver swap; LIVE in-image validated). Fork-divergent, no Sonarr peer. All previous trailers preserved verbatim below per historical-accuracy contract.)*
 
 *Last updated: 2026-05-25 (Phase 33.2 Plan 33.2-04 close-out — appended the Phase 33.2 entry above for the net-new generic Cloudflare clearance sidecar seam (SOLVE-01). Fork-divergent with no Sonarr peer (Sonarr has no FlareSolverr/anti-bot-solver concept; its indexers are Usenet/Torrent). CF clearance generalizes per D-09; distinct from the Comix-only env-module signing axis. All previous trailers preserved verbatim below per historical-accuracy contract.)*
