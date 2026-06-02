@@ -131,6 +131,23 @@ namespace NzbDrone.Core.Download.TrackedDownloads
                 ? _chapterService.GetChapters(grabbed.ChapterIds)
                 : new List<Chapter>();
 
+            // CR-d: a history HIT whose manga or chapters no longer resolve (manga deleted, or a
+            // chapter deleted so only a subset/none of the grabbed ChapterIds resolve) is an
+            // UNRESOLVABLE download. Return null so BuildTrackedDownload yields an ImportBlocked
+            // shell — NEVER a Downloading row leaking partial metadata into queue/import consumers,
+            // and NEVER a silent title-parse fallback (that would mask the data problem). A history
+            // MISS still uses title-parse; only a HIT-but-unresolved is blocked here.
+            if (manga == null || chapters.Count == 0 || chapters.Count != grabbed.ChapterIds.Count)
+            {
+                _logger.Warn(
+                    "Download-history HIT for {0} could not be fully resolved (manga {1}, {2}/{3} chapters); marking ImportBlocked",
+                    item.DownloadId,
+                    manga?.Id.ToString() ?? "<deleted>",
+                    chapters.Count,
+                    grabbed.ChapterIds?.Count ?? 0);
+                return null;
+            }
+
             // Re-source ALL grabbed provenance off the join row's Data dictionary. The keys are
             // camelCase because MangaDownloadHistoryService writes them camelCase to match the form the
             // EmbeddedDocumentConverter persists (CR-01). Indexer was being dropped before because the

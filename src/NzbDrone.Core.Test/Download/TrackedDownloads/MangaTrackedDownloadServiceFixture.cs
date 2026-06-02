@@ -153,6 +153,47 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
             ExceptionVerification.ExpectedWarns(1);
         }
 
+        // (CR-d) HISTORY HIT but MANGA DELETED — MapFromHistory returns null → ImportBlocked shell,
+        // NEVER a Downloading row leaking partial metadata, and NEVER a title-parse fallback.
+        [Test]
+        public void TrackDownload_history_hit_with_deleted_manga_produces_ImportBlocked_without_title_parse()
+        {
+            _historyService.Setup(s => s.GetLatestGrab("dl-gone")).Returns(GrabRow("dl-gone", 42));
+            _mangaService.Setup(s => s.GetManga(7)).Returns((NzbDrone.Core.Manga.Manga)null);
+            SetupChapters(new Chapter { Id = 42, MangaId = 7, ChapterNumber = 1m });
+
+            var tracked = Subject().TrackDownload(_definition, Item("dl-gone"));
+
+            tracked.RemoteChapter.Should().BeNull();
+            tracked.State.Should().Be(TrackedDownloadState.ImportBlocked);
+            tracked.IsTrackable.Should().BeTrue();
+
+            // A history HIT must never silently fall back to title parsing.
+            _parsingService.Verify(s => s.GetManga(It.IsAny<string>()), Times.Never);
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
+        // (CR-d) HISTORY HIT but PARTIAL chapter resolution (a chapter was deleted so only 2 of 3
+        // grabbed ids resolve) — MapFromHistory returns null → ImportBlocked, not a partial Downloading row.
+        [Test]
+        public void TrackDownload_history_hit_with_partial_chapter_resolution_produces_ImportBlocked()
+        {
+            _historyService.Setup(s => s.GetLatestGrab("dl-partial")).Returns(GrabRow("dl-partial", 179, 180, 181));
+
+            // Only 179 + 180 resolve; 181 was deleted.
+            SetupChapters(
+                new Chapter { Id = 179, MangaId = 7, ChapterNumber = 179m },
+                new Chapter { Id = 180, MangaId = 7, ChapterNumber = 180m });
+
+            var tracked = Subject().TrackDownload(_definition, Item("dl-partial"));
+
+            tracked.RemoteChapter.Should().BeNull();
+            tracked.State.Should().Be(TrackedDownloadState.ImportBlocked);
+
+            _parsingService.Verify(s => s.GetManga(It.IsAny<string>()), Times.Never);
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
         // (4) MULTI-CHAPTER — a pack resolves ALL chapter ids, never collapsed to one (Pitfall 2).
         [Test]
         public void TrackDownload_multi_chapter_pack_resolves_all_three_chapters()
