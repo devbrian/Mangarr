@@ -110,12 +110,16 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
 
             // downloadHandle → DownloadUrl (opaque R6 token, faithfully mapped).
             release.DownloadUrl.Should().Be("R6.eyJzb3VyY2UiOiJjb21peC50byIsImNoIjoiMTc5In0");
+
             // language → TranslatedLanguage.
             release.TranslatedLanguage.Should().Be("en");
+
             // scanlationGroup preserved.
             release.ScanlationGroup.Should().Be("Team Lumikha");
+
             // publishDate set.
             release.PublishDate.Should().Be(new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc).ToUniversalTime());
+
             // DownloadProtocol.Http for the gateway path.
             release.DownloadProtocol.Should().Be(DownloadProtocol.Http);
 
