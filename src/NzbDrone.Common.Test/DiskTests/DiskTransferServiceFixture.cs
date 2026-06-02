@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -914,7 +916,7 @@ namespace NzbDrone.Common.Test.DiskTests
 
             Mocker.GetMock<IDiskProvider>()
                 .Setup(v => v.MoveFolder(It.IsAny<string>(), It.IsAny<string>()))
-                .Callback<string, string>((v, r) => Directory.Move(v, r));
+                .Callback<string, string>((v, r) => MoveFolderWithRetry(v, r));
 
             Mocker.GetMock<IDiskProvider>()
                 .Setup(v => v.DeleteFolder(It.IsAny<string>(), It.IsAny<bool>()))
@@ -962,6 +964,30 @@ namespace NzbDrone.Common.Test.DiskTests
 
             Mocker.GetMock<IDiskProvider>()
                 .Setup(v => v.CopyPermissions(It.IsAny<string>(), It.IsAny<string>()));
+        }
+
+        // On Windows a transient handle (Defender / search indexer / a lingering
+        // handle from a just-deleted child) can briefly hold the directory being
+        // moved, surfacing as IOException / UnauthorizedAccessException ("Access to
+        // the path ... is denied") on Directory.Move. Production DiskTransferService
+        // already tolerates the same transient FS contention; mirror that here so the
+        // real-disk fixture doesn't flake on it. See issue #298.
+        private static void MoveFolderWithRetry(string source, string destination)
+        {
+            var attempt = 0;
+
+            while (true)
+            {
+                try
+                {
+                    Directory.Move(source, destination);
+                    return;
+                }
+                catch (Exception ex) when ((ex is IOException || ex is UnauthorizedAccessException) && ++attempt < 5)
+                {
+                    Thread.Sleep(50 * attempt);
+                }
+            }
         }
 
         private void WithMockMount(string root)
