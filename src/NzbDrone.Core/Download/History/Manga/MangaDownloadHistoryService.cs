@@ -63,6 +63,18 @@ namespace NzbDrone.Core.Download.History.Manga
                 .Select(c => c.Id)
                 .ToList();
 
+            // CR-a: a grab carrying no chapter ids would write a join row with ChapterIds=[]. That
+            // poisons the PRIMARY GetLatestGrab(downloadId) matcher path — the matcher gets a history
+            // HIT with nothing to bind and never falls back to title parsing. Skip the insert (Warn)
+            // so no chapterless join row is ever written.
+            if (chapterIds.Count == 0)
+            {
+                _logger.Warn(
+                    "Grab for download {0} carries no chapter ids; not writing a chapterless join row",
+                    message.DownloadId);
+                return;
+            }
+
             var history = new MangaDownloadHistory
             {
                 EventType = MangaDownloadHistoryEventType.DownloadGrabbed,
@@ -106,6 +118,16 @@ namespace NzbDrone.Core.Download.History.Manga
             var chapterIds = (remote.Chapters ?? new List<NzbDrone.Core.Manga.Chapter>())
                 .Select(c => c.Id)
                 .ToList();
+
+            // CR-a: same chapterless-row guard on the imported handler — never write a join row with
+            // ChapterIds=[] (it would poison the GetLatestGrab matcher path for that download id).
+            if (chapterIds.Count == 0)
+            {
+                _logger.Warn(
+                    "Imported event for download {0} carries no chapter ids; not writing a chapterless join row",
+                    message.DownloadId);
+                return;
+            }
 
             var history = new MangaDownloadHistory
             {

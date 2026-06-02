@@ -12,6 +12,7 @@ using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Test.Download.Manga.Builders;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.Download.History.Manga
 {
@@ -75,6 +76,35 @@ namespace NzbDrone.Core.Test.Download.History.Manga
             Mocker.GetMock<IMangaDownloadHistoryRepository>().Verify(r => r.Insert(It.Is<MangaDownloadHistory>(h =>
                 h.ChapterIds.SequenceEqual(new[] { 179, 180, 181 }))),
                 Times.Once);
+        }
+
+        // CR-a — a grab carrying no chapter ids must NOT insert a chapterless join row (it would
+        // poison the GetLatestGrab matcher path: a history HIT with nothing to bind).
+        [Test]
+        public void Handle_ChapterGrabbedEvent_with_no_chapter_ids_does_not_insert()
+        {
+            var remote = BuildRemote(_manga); // no chapter ids
+
+            Subject.Handle(new ChapterGrabbedEvent(remote, "dl-empty", "InProcess"));
+
+            Mocker.GetMock<IMangaDownloadHistoryRepository>()
+                .Verify(r => r.Insert(It.IsAny<MangaDownloadHistory>()), Times.Never);
+
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
+        // CR-a — same guard on the imported handler.
+        [Test]
+        public void Handle_ChapterDownloadCompletedEvent_with_no_chapter_ids_does_not_insert()
+        {
+            var tracked = new TrackedDownloadBuilder().WithDownloadId("dl-imp-empty").WithChapters().Completed().Build();
+
+            Subject.Handle(new ChapterDownloadCompletedEvent(tracked, "dl-imp-empty"));
+
+            Mocker.GetMock<IMangaDownloadHistoryRepository>()
+                .Verify(r => r.Insert(It.IsAny<MangaDownloadHistory>()), Times.Never);
+
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
