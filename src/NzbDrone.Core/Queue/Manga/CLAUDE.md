@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Phase 6 D-20 manga sibling of `src/NzbDrone.Core/Queue/` (TV `Queue` family). Ships the `MangaQueueService` static-list projection that fans the `IHandle<TrackedDownloadRefreshedEvent>` lifecycle into a manga-shaped `List<MangaQueueItem>` filtered to `DownloadProtocol.Http` entries, and emits `MangaQueueUpdatedEvent` on every refresh. Wires the Phase 5 `QueueDuplicateSpecification` STUB (D-20) so the decision engine can ask "is this chapter already in flight?" instead of accepting every release.
+Phase 6 D-20 manga sibling of `src/NzbDrone.Core/Queue/` (the TV `Queue` family that was **deleted in the Phase 15 fork**). Ships the `MangaQueueService` static-list projection that fans the `IHandle<TrackedDownloadRefreshedEvent>` lifecycle into a manga-shaped `List<MangaQueueItem>` filtered to `DownloadProtocol.Http` entries, and emits `MangaQueueUpdatedEvent` on every refresh. Wires the Phase 5 `QueueDuplicateSpecification` STUB (D-20) so the decision engine can ask "is this chapter already in flight?" instead of accepting every release. As of the Phase 15 fork this is the **sole** `IHandle<TrackedDownloadRefreshedEvent>` projection (HEAD-verified Phase 36 Plan 02 — no TV `QueueService.cs`/`Queue.cs` on disk, no TV `QueueController` in V5).
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Queue\Manga`
 
@@ -10,10 +10,10 @@ Phase 6 D-20 manga sibling of `src/NzbDrone.Core/Queue/` (TV `Queue` family). Sh
 
 | File | Purpose |
 |------|---------|
-| `MangaQueueItem.cs` | POCO row. Wire-shape sibling of `Queue/Queue.cs`. Drops TV-only `Languages` / `QualityModel`; adds `TranslatedLanguage` + `ScanlationGroup` as first-class fields (Phase 3 D-Q4 wire shape). Carries `RemoteChapter` so `QueueDuplicateSpecification` can intersect on `Chapter.Id` lists. `Id` is computed via `HashConverter.GetHashInt31` over `"trackedDownload-{client}-{downloadId}-{chapterId}"` so the same projection re-issues the same `Id` across refreshes (SignalR diff key). |
+| `MangaQueueItem.cs` | POCO row. Wire-shape sibling of the deleted TV `Queue/Queue.cs` (reference `v5-develop` for the original shape). Drops TV-only `Languages` / `QualityModel`; adds `TranslatedLanguage` + `ScanlationGroup` as first-class fields (Phase 3 D-Q4 wire shape). Carries `RemoteChapter` so `QueueDuplicateSpecification` can intersect on `Chapter.Id` lists. `Id` is computed via `HashConverter.GetHashInt31` over `"trackedDownload-{client}-{downloadId}-{chapterId}"` so the same projection re-issues the same `Id` across refreshes (SignalR diff key). |
 | `MangaQueueUpdatedEvent.cs` | Marker `IEvent`. Emitted by `MangaQueueService.Handle` on every successful projection refresh. Plan 06-09 V5 controller subscribes via SignalR to fan diffs out to the React Activity panel. Also defines `MangaPendingReleasesUpdatedEvent` (sibling of `PendingReleasesUpdatedEvent`) reserved for Plan 06-08 auto-retry orchestration. |
 | `IMangaQueueService.cs` | Contract: `GetMangaQueue() : List<MangaQueueItem>`, `Find(int) : MangaQueueItem`, `Remove(int) : void`. Mirrors `IQueueService` verbatim — only the row type is manga-specific. |
-| `MangaQueueService.cs` | Service. `IHandle<TrackedDownloadRefreshedEvent>` static-list projection (Q-3 RESEARCH lock — single-writer / process-wide pattern verbatim from TV `QueueService.cs:24`). Filters to `t.IsTrackable && t.Protocol == DownloadProtocol.Http` so the TV and manga queues co-exist on the same upstream event without double-counting. Maps one row per `RemoteChapter.Chapters` entry; emits a single shell row when `RemoteChapter` is null (orphan recovery path). |
+| `MangaQueueService.cs` | Service. The **sole** `IHandle<TrackedDownloadRefreshedEvent>` static-list projection (Q-3 RESEARCH lock — single-writer / process-wide pattern ported from Sonarr's `QueueService`, which was deleted in Phase 15). Filters to `t.IsTrackable && t.Protocol == DownloadProtocol.Http` — originally the gate that let the now-deleted TV queue co-exist on the same event without double-counting, now a harmless heritage guard. Maps one row per `RemoteChapter.Chapters` entry; emits a single shell row when `RemoteChapter` is null (orphan recovery path). |
 
 ## Patterns / Conventions
 
@@ -37,18 +37,18 @@ public class MangaQueueService : IMangaQueueService, IHandle<TrackedDownloadRefr
 }
 ```
 
-The static field is the same anti-pattern Mangarr's TV `QueueService` uses verbatim and has been stable through five major versions. T-06-10 (concurrent-write race) is mitigated by the **single-writer** model: only the `IHandle` path mutates `_queue`. Reads (`GetMangaQueue`, `Find`) defensive-copy via `ToList()` so iteration during a refresh doesn't tear.
+The static field is the same anti-pattern Sonarr's `QueueService` used (ported verbatim) and has been stable through five major versions. T-06-10 (concurrent-write race) is mitigated by the **single-writer** model: only the `IHandle` path mutates `_queue`. Reads (`GetMangaQueue`, `Find`) defensive-copy via `ToList()` so iteration during a refresh doesn't tear.
 
-### Protocol filter — TV / manga co-existence on the same event
+### Protocol filter — now a heritage guard (TV queue deleted)
 
-`TrackedDownloadRefreshedEvent` carries TV (`Usenet` / `Torrent`) AND manga (`Http`) entries together. Both `QueueService` (TV) and `MangaQueueService` (manga) subscribe — each filters to its own protocol set:
+`TrackedDownloadRefreshedEvent` is the shared upstream lifecycle event. In the original Phase 6 design it carried TV (`Usenet` / `Torrent`) AND manga (`Http`) entries, and TWO services subscribed — the TV `QueueService` (all rows) and `MangaQueueService` (Http-filtered) — so the protocol filter kept them from double-counting. **The TV `QueueService` was deleted in the Phase 15 fork**, so `MangaQueueService` is now the only subscriber (HEAD-verified Phase 36 Plan 02):
 
 | Service | Filter | Notes |
 |---------|--------|-------|
-| `QueueService` (TV) | (no protocol filter; populates all rows) | Pre-existing — sees Http rows too. Plan 09 V5 controller verifies the V5 endpoints separate the two so the UI does not double-count. |
-| `MangaQueueService` (manga) | `t.Protocol == DownloadProtocol.Http` | New (this plan). Manga-only. |
+| ~~`QueueService` (TV)~~ | — | **DELETED in Phase 15** (no `QueueService.cs`/`Queue.cs` on disk). |
+| `MangaQueueService` (manga) | `t.Protocol == DownloadProtocol.Http` | The sole subscriber. The filter is now a harmless heritage guard (defensive against any future non-Http row), NOT a co-existence requirement. **No double-projection risk** when the `TrackedDownloadRefreshedEvent` publisher is (re)wired. |
 
-Phase 8 collapse plan: when `Tv/` deletes, drop `Protocol == Http` filter; only one queue remains.
+Remaining "Phase 8 collapse" work is cosmetic — drop the `Protocol == Http` filter and rename out the `Manga` prefix; there is no second queue left to merge.
 
 ### Deterministic Id (SignalR diff key)
 
@@ -99,17 +99,17 @@ private IEnumerable<MangaQueueItem> MapQueueItems(TrackedDownload trackedDownloa
 | `QueueUpdatedEvent` | `MangaQueueUpdatedEvent` | Sibling event |
 | `IQueueService.GetQueue()` | `IMangaQueueService.GetMangaQueue()` | Method rename |
 
-### Phase 8 collapse
+### Phase 8 collapse (TV queue already gone — only cosmetic steps remain)
 
-When `Tv/` deletes, the parallel queue siblings collapse to a single canonical `Queue` family:
+The TV `Queue` family (`Queue.cs` / `QueueService.cs` / `IQueueService` / `QueueUpdatedEvent` / the Obsolete pair) was **already deleted in the Phase 15 fork**, so the original "collapse the two parallel queues" plan reduces to cosmetic renames:
 
-1. Drop `Protocol == DownloadProtocol.Http` filter from `MangaQueueService.Handle` — the upstream event will only carry manga-protocol entries by then.
-2. Rename `MangaQueueService` / `MangaQueueItem` / `MangaQueueUpdatedEvent` / `IMangaQueueService` to canonical positions (drop the `Manga` prefix). The TV `Queue` / `QueueService` / `IQueueService` / `QueueUpdatedEvent` go away in the same commit.
-3. Drop the `RemoteEpisode` slot on `TrackedDownload`; rename `RemoteChapter` to the canonical position.
+1. Drop the now-redundant `Protocol == DownloadProtocol.Http` heritage guard from `MangaQueueService.Handle` (the upstream event only carries manga-protocol entries — there is no longer a TV projection to disambiguate from).
+2. Rename `MangaQueueService` / `MangaQueueItem` / `MangaQueueUpdatedEvent` / `IMangaQueueService` to canonical positions (drop the `Manga` prefix) — no TV types to delete alongside (already gone).
+3. Drop the (now unused) `RemoteEpisode` slot on `TrackedDownload`; rename `RemoteChapter` to the canonical position.
 
 ## Cross-References
 
-- [Queue/](../CLAUDE.md) — TV Queue family
+- [Queue/](../CLAUDE.md) — parent Queue dir (TV Queue family deleted in Phase 15; shared helpers + enums remain)
 - [DecisionEngine/Manga/Specifications/QueueDuplicateSpecification.cs](../../DecisionEngine/Manga/Specifications/QueueDuplicateSpecification.cs) — D-20 STUB consumer
 - [Download/TrackedDownloads/TrackedDownload.cs](../../Download/TrackedDownloads/TrackedDownload.cs) — RemoteChapter slot
 - [Download/Clients/InProcess/](../../Download/Clients/InProcess/CLAUDE.md) — Phase 4 in-process client populates `TrackedDownload.RemoteChapter`
