@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -13,6 +15,9 @@ namespace NzbDrone.Common.Test.DiskTests
     [TestFixture]
     public class DiskTransferServiceFixture : TestBase<DiskTransferService>
     {
+        private const int MaxMoveAttempts = 5;
+        private const int MoveBackoffMs = 50;
+
         private readonly string _sourcePath = @"C:\source\my.video.mkv".AsOsAgnostic();
         private readonly string _targetPath = @"C:\target\my.video.mkv".AsOsAgnostic();
         private readonly string _nfsFile = ".nfs01231232";
@@ -914,7 +919,7 @@ namespace NzbDrone.Common.Test.DiskTests
 
             Mocker.GetMock<IDiskProvider>()
                 .Setup(v => v.MoveFolder(It.IsAny<string>(), It.IsAny<string>()))
-                .Callback<string, string>((v, r) => Directory.Move(v, r));
+                .Callback<string, string>((v, r) => MoveFolderWithRetry(v, r));
 
             Mocker.GetMock<IDiskProvider>()
                 .Setup(v => v.DeleteFolder(It.IsAny<string>(), It.IsAny<bool>()))
@@ -962,6 +967,36 @@ namespace NzbDrone.Common.Test.DiskTests
 
             Mocker.GetMock<IDiskProvider>()
                 .Setup(v => v.CopyPermissions(It.IsAny<string>(), It.IsAny<string>()));
+        }
+
+        // Stabilises the real-disk case-insensitive rename test against a transient
+        // Windows handle race. The test suite's rapid temp-dir churn (parallel
+        // create/move/delete) plus AV scanning of the build temp tree can briefly
+        // hold a handle on the directory being moved, surfacing as a transient
+        // IOException / UnauthorizedAccessException ("Access to the path ... is
+        // denied") on Directory.Move.
+        //
+        // NOTE: this resilience is deliberately scoped to the fixture. Production
+        // runs the same path (DiskTransferService.TransferFolder -> DiskProviderBase
+        // .MoveFolder -> Directory.Move) WITHOUT retry, but real folder renames are
+        // infrequent and not subject to this churn, so we don't diverge the inherited
+        // disk primitive for a test-environment artifact. See issue #298.
+        private static void MoveFolderWithRetry(string source, string destination)
+        {
+            var attempt = 0;
+
+            while (true)
+            {
+                try
+                {
+                    Directory.Move(source, destination);
+                    return;
+                }
+                catch (Exception ex) when ((ex is IOException || ex is UnauthorizedAccessException) && ++attempt < MaxMoveAttempts)
+                {
+                    Thread.Sleep(MoveBackoffMs * attempt);
+                }
+            }
         }
 
         private void WithMockMount(string root)

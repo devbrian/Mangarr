@@ -19,6 +19,22 @@ namespace NzbDrone.Test.Common
         {
             new StartupContext();
 
+            // NLog lazily auto-loads its configuration from standard locations on
+            // the first logging call of a process. Assigning LogManager.Configuration
+            // programmatically does NOT suppress that lazy load — so the first real
+            // log call in a fresh process triggers the auto-load, which (finding no
+            // NLog.config) installs an empty configuration and silently discards the
+            // ExceptionVerification warn-capture rule we register below.
+            //
+            // In the full suite this self-heals (the auto-load fires once on an early
+            // test, after which every later rebuild sticks), but a fixture run in
+            // isolation gets its warn-capture wiped before the test body executes —
+            // ExpectedWarns(n) then sees 0 warns. See issue #299.
+            //
+            // Force the auto-load to settle BEFORE we build our configuration so our
+            // rules are the final word and won't be replaced on first use.
+            ForceConfigurationAutoLoad();
+
             if (LogManager.Configuration == null || LogManager.Configuration.AllTargets.None(c => c is ExceptionVerification))
             {
                 LogManager.Configuration = new LoggingConfiguration();
@@ -41,6 +57,18 @@ namespace NzbDrone.Test.Common
 
                 LogManager.ReconfigExistingLoggers();
             }
+        }
+
+        // Forces NLog's first-logger (lazy) configuration initialization now, before
+        // we build the test configuration. NLog reads/auto-scans configuration on
+        // first logger use; if that initialization runs AFTER InitLogging installs the
+        // ExceptionVerification warn-capture rule it discards the rule (no NLog.config
+        // on disk -> empty config). Triggering it up front via a logger access means
+        // our rules are installed last and win — without this, a fixture run in
+        // isolation loses warn capture and ExpectedWarns(n) sees 0 (issue #299).
+        private static void ForceConfigurationAutoLoad()
+        {
+            _ = TestLogger.IsWarnEnabled;
         }
 
         private static void RegisterConsoleLogger()
