@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Common.Http;
+using NzbDrone.Common.Serializer;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Gateway;
+using NzbDrone.Core.Indexers.Gateway.Responses;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Test.Framework;
 
@@ -158,6 +161,180 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             releases.Count.Should().Be(2);
             Mocker.GetMock<IIndexerSourceStatusService>()
                 .Verify(s => s.RecordFailure(It.IsAny<string>(), It.IsAny<TimeSpan>()), Times.Never());
+        }
+
+        // ---- Code-review regression fixtures (Phase 37 REVIEW.md) -------------------------------
+
+        [Test]
+        public void missing_publish_date_yields_sane_non_minvalue_date()
+        {
+            // WR-03: a release whose wire `publishDate` is null/missing must NOT map to
+            // DateTime.MinValue (which would make a brand-new release look ancient to age-based
+            // decision specs / RSS watermark dedup). The parser substitutes "now".
+            var before = DateTime.UtcNow.AddSeconds(-5);
+
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease
+                    {
+                        Guid = "comix.to:no-date:1",
+                        Title = "Solo Leveling Chapter 1",
+                        SourceKey = "comix.to",
+                        DownloadHandle = "R6.token",
+                        PublishDate = null, // missing on the wire
+                        MangaTitle = "Solo Leveling",
+                        ChapterNumber = 1m,
+                        Language = "en"
+                    }
+                }
+            };
+
+            var release = Subject.ParseResponse(MakeResponse(response.ToJson())).Single();
+
+            release.PublishDate.Should().NotBe(DateTime.MinValue);
+            release.PublishDate.Should().BeOnOrAfter(before);
+            release.PublishDate.Should().BeOnOrBefore(DateTime.UtcNow.AddSeconds(5));
+        }
+
+        [TestCase("[Pirate] Solo Leveling")]
+        [TestCase("Solo Leveling - Chapter 9000")]
+        [TestCase("Solo Leveling [en]")]
+        public void adversarial_manga_title_never_silently_misparses(string adversarialMangaTitle)
+        {
+            // WR-04: an adversarial mangaTitle (leading [bracket], embedded " - Chapter ", trailing
+            // [en] language tag) must NEVER produce a title that SILENTLY misparses to a different
+            // manga / chapter. The emitted Title must satisfy exactly one of:
+            //   (a) it round-trips via MangaParser.ParseChapterTitle to (adversarialMangaTitle, 7), OR
+            //   (b) it is the verbatim gateway title (the D-02b fallback — never dropped).
+            // What must NOT happen: a reconstructed title that parses to the WRONG manga/chapter.
+            const string verbatim = "Definitely The Original Wire Title Ch 42";
+
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease
+                    {
+                        Guid = "comix.to:adversarial:1",
+                        Title = verbatim,
+                        SourceKey = "comix.to",
+                        DownloadHandle = "R6.token",
+                        PublishDate = DateTime.UtcNow,
+                        MangaTitle = adversarialMangaTitle,
+                        ChapterNumber = 7m,
+                        Language = "en"
+                    }
+                }
+            };
+
+            var release = Subject.ParseResponse(MakeResponse(response.ToJson())).Single();
+
+            if (release.Title == verbatim)
+            {
+                // (b) verbatim fallback — release survives, no misparse risk.
+                return;
+            }
+
+            // (a) reconstruction was kept ONLY because it round-trips to the correct identity.
+            var parsed = MangaParser.ParseChapterTitle(release.Title);
+            parsed.Should().NotBeNull("a reconstructed (non-verbatim) title must be parseable");
+            parsed.MangaTitle.Should().Be(adversarialMangaTitle,
+                "a kept reconstruction must round-trip to the EXACT mangaTitle (never a different manga)");
+            parsed.ChapterNumbers.Should().Contain(7m,
+                "a kept reconstruction must round-trip to the EXACT chapter (never a different chapter)");
+        }
+
+        [Test]
+        public void embedded_chapter_marker_in_manga_title_falls_back_to_verbatim()
+        {
+            // WR-04 sharpest case: a mangaTitle with an embedded " - Chapter " makes the reconstructed
+            // "X - Chapter Y - Chapter 7" misparse to the WRONG chapter. This MUST fall back to verbatim.
+            const string verbatim = "The Real Wire Title Ch 7";
+
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease
+                    {
+                        Guid = "comix.to:embedded-chapter:1",
+                        Title = verbatim,
+                        SourceKey = "comix.to",
+                        DownloadHandle = "R6.token",
+                        PublishDate = DateTime.UtcNow,
+                        MangaTitle = "Solo Leveling - Chapter 9000",
+                        ChapterNumber = 7m,
+                        Language = "en"
+                    }
+                }
+            };
+
+            var release = Subject.ParseResponse(MakeResponse(response.ToJson())).Single();
+
+            // The reconstruction "Solo Leveling - Chapter 9000 - Chapter 7 [en]" cannot round-trip to
+            // (mangaTitle == "Solo Leveling - Chapter 9000", chapter == 7) → verbatim wins.
+            release.Title.Should().Be(verbatim);
+        }
+
+        [Test]
+        public void clean_manga_title_still_reconstructs_and_round_trips()
+        {
+            // WR-04 guard: a CLEAN mangaTitle must still reconstruct (not regress to verbatim).
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease
+                    {
+                        Guid = "comix.to:clean:1",
+                        Title = "raw wire title that should NOT be used",
+                        SourceKey = "comix.to",
+                        DownloadHandle = "R6.token",
+                        PublishDate = DateTime.UtcNow,
+                        MangaTitle = "Solo Leveling",
+                        ChapterNumber = 200m,
+                        Language = "en"
+                    }
+                }
+            };
+
+            var release = Subject.ParseResponse(MakeResponse(response.ToJson())).Single();
+
+            var parsed = MangaParser.ParseChapterTitle(release.Title);
+            parsed.Should().NotBeNull();
+            parsed.MangaTitle.Should().Be("Solo Leveling");
+            parsed.ChapterNumbers.Should().Contain(200m);
+        }
+
+        [Test]
+        public void null_wire_title_with_incomplete_hints_never_nres()
+        {
+            // IN-03: a null wire `title` with incomplete hints must surface as string.Empty (not null,
+            // and never NRE downstream).
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease
+                    {
+                        Guid = "comix.to:null-title:1",
+                        Title = null, // null on the wire
+                        SourceKey = "comix.to",
+                        DownloadHandle = "R6.token",
+                        PublishDate = DateTime.UtcNow,
+                        MangaTitle = null, // incomplete hints → verbatim path
+                        ChapterNumber = null
+                    }
+                }
+            };
+
+            IList<NzbDrone.Core.Parser.Model.ReleaseInfo> releases = null;
+            var act = () => releases = Subject.ParseResponse(MakeResponse(response.ToJson()));
+
+            act.Should().NotThrow();
+            releases.Single().Title.Should().Be(string.Empty);
         }
 
         private IndexerResponse MakeResponse(string content)

@@ -22,7 +22,12 @@ namespace NzbDrone.Core.Indexers.Gateway.Responses
 
         // Opaque R6 token submitted back to POST /downloads — NOT a URL Mangarr fetches (Pitfall 5).
         public string DownloadHandle { get; set; }
-        public DateTime PublishDate { get; set; }
+
+        // WR-03: nullable on the wire. `publishDate` is "required" in the OpenAPI schema but it is
+        // remote-controlled — a missing/null value must NOT silently become DateTime.MinValue
+        // (0001-01-01), which would corrupt age-based decision specs / RSS watermark dedup. The
+        // parser substitutes DateTime.UtcNow when this is null.
+        public DateTime? PublishDate { get; set; }
 
         // Advisory / nullable hints.
         public string InfoUrl { get; set; }

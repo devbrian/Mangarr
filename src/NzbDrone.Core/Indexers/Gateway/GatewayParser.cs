@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
 using NzbDrone.Core.Indexers.Gateway.Responses;
+using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Indexers.Gateway
@@ -66,7 +68,11 @@ namespace NzbDrone.Core.Indexers.Gateway
                     // BACK to the gateway's POST /downloads in Phase 38; never dereferenced here.
                     DownloadUrl = r.DownloadHandle,
                     InfoUrl = r.InfoUrl,
-                    PublishDate = r.PublishDate,
+
+                    // WR-03: substitute "now" for a missing/null wire publishDate rather than
+                    // emitting DateTime.MinValue (which would make a brand-new release look ancient
+                    // to age-based decision specs / RSS watermark dedup).
+                    PublishDate = r.PublishDate ?? DateTime.UtcNow,
                     Size = r.SizeBytes ?? 0,
                     DownloadProtocol = DownloadProtocol.Http,
                     ScanlationGroup = r.ScanlationGroup,
@@ -101,15 +107,18 @@ namespace NzbDrone.Core.Indexers.Gateway
         private static string BuildTitle(GatewayRelease r)
         {
             // D-02b mandatory verbatim fallback — never drop a release that lacks complete hints.
+            // IN-03: coalesce a null wire title to string.Empty so a null `title` never NREs
+            // downstream parsing/decisioning.
             if (r.MangaTitle == null || r.ChapterNumber == null)
             {
-                return r.Title;
+                return r.Title ?? string.Empty;
             }
 
             // The "0.###" invariant format is load-bearing (Pitfall 3): 179.0 → "179" (no trailing
             // .0), 12.5 → "12.5", 1.123 → "1.123" (no precision loss). Pinned against the
             // MangaParser.ParseChapterTitle grammar by the Task-1 round-trip fixtures (A1).
-            var t = $"{r.MangaTitle} - Chapter {r.ChapterNumber.Value.ToString("0.###", CultureInfo.InvariantCulture)}";
+            var chapterToken = r.ChapterNumber.Value.ToString("0.###", CultureInfo.InvariantCulture);
+            var t = $"{r.MangaTitle} - Chapter {chapterToken}";
 
             // MangaLanguageParser reads a trailing [xx] tag.
             if (!string.IsNullOrWhiteSpace(r.Language))
@@ -122,6 +131,21 @@ namespace NzbDrone.Core.Indexers.Gateway
             if (!string.IsNullOrWhiteSpace(r.ScanlationGroup))
             {
                 t = $"[{r.ScanlationGroup}] {t}";
+            }
+
+            // WR-04: D-02 reconstruction is only safe if it ROUND-TRIPS. An adversarial mangaTitle
+            // (one already containing a "[bracket]", an embedded " - Chapter ", or a trailing
+            // language-looking "[en]" tag) would make MangaParser.ParseChapterTitle extract the WRONG
+            // manga title / chapter number — silently routing the release to the wrong manga. Assert
+            // the reconstruction parses back to the expected mangaTitle AND chapter; if it does not,
+            // fall back to the verbatim gateway title (D-02b semantics) rather than dropping it.
+            var parsed = MangaParser.ParseChapterTitle(t);
+            if (parsed == null ||
+                !string.Equals(parsed.MangaTitle, r.MangaTitle, StringComparison.Ordinal) ||
+                parsed.ChapterNumbers == null ||
+                !parsed.ChapterNumbers.Contains(r.ChapterNumber.Value))
+            {
+                return r.Title ?? string.Empty;
             }
 
             return t;
