@@ -72,29 +72,38 @@ namespace NzbDrone.Core.Download.Manga
             }
 
             var release = remoteChapter.Release;
-            var chapter = remoteChapter.Chapters.First();
 
-            // Landmine #1: re-source ids from the in-memory RemoteChapter; RowId = 0 (the in-process
-            // ChapterDownloadState.Id does not exist on the generalized path).
-            var failedEvent = new ChapterDownloadFailedEvent(
-                rowId: 0,
-                mangaId: remoteChapter.Manga.Id,
-                chapterId: chapter.Id,
-                failureReason: trackedDownload.DownloadItem?.Message ?? "Download failed")
+            // Pitfall 2: a multi-chapter pack (c179/c180/c181) must blocklist + auto-retry EVERY
+            // chapter, never collapse to the first. ChapterDownloadFailedEvent / MangaBlocklistService
+            // are single-chapter-keyed (one blocklist row per ChapterId), so we emit one event per
+            // chapter — each drives its own blocklist insert + MangaBlocklistAddedEvent → auto-retry.
+            // The grab/import history paths already resolve ALL chapter ids; the failure path now
+            // matches (WR-07 — previously only Chapters.First() was failed, silently dropping the
+            // rest of the pack).
+            foreach (var chapter in remoteChapter.Chapters)
             {
-                // Provenance Data keys from the in-memory RemoteChapter — the kept
-                // MangaBlocklistService.Handle reads Release / Source / SourceTitle off these to
-                // build the D-11 release-identity triple.
-                Release = release,
-                Source = trackedDownload.DownloadItem?.DownloadClientInfo?.Name,
-                DownloadClient = trackedDownload.DownloadItem?.DownloadClientInfo?.Type,
-                SourceTitle = release?.Title ?? trackedDownload.DownloadItem?.Title
-            };
+                // Landmine #1: re-source ids from the in-memory RemoteChapter; RowId = 0 (the in-process
+                // ChapterDownloadState.Id does not exist on the generalized path).
+                var failedEvent = new ChapterDownloadFailedEvent(
+                    rowId: 0,
+                    mangaId: remoteChapter.Manga.Id,
+                    chapterId: chapter.Id,
+                    failureReason: trackedDownload.DownloadItem?.Message ?? "Download failed")
+                {
+                    // Provenance Data keys from the in-memory RemoteChapter — the kept
+                    // MangaBlocklistService.Handle reads Release / Source / SourceTitle off these to
+                    // build the D-11 release-identity triple.
+                    Release = release,
+                    Source = trackedDownload.DownloadItem?.DownloadClientInfo?.Name,
+                    DownloadClient = trackedDownload.DownloadItem?.DownloadClientInfo?.Type,
+                    SourceTitle = release?.Title ?? trackedDownload.DownloadItem?.Title
+                };
 
-            // BLOCKLIST ALWAYS — publishing the event drives MangaBlocklistService.Handle (Insert
-            // FIRST, then MangaBlocklistAddedEvent → AutoRetryOrchestrator). The D-03 re-search gate
-            // is downstream in AutoRetryOrchestrator; the blocklist insert is unconditional.
-            _eventAggregator.PublishEvent(failedEvent);
+                // BLOCKLIST ALWAYS — publishing the event drives MangaBlocklistService.Handle (Insert
+                // FIRST, then MangaBlocklistAddedEvent → AutoRetryOrchestrator). The D-03 re-search gate
+                // is downstream in AutoRetryOrchestrator; the blocklist insert is unconditional.
+                _eventAggregator.PublishEvent(failedEvent);
+            }
         }
     }
 }

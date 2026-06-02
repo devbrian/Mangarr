@@ -70,6 +70,33 @@ namespace NzbDrone.Core.Test.Download.Manga
             captured.ChapterId.Should().Be(_trackedDownload.RemoteChapter.Chapters[0].Id);
         }
 
+        // ── WR-07 — multi-chapter pack failure blocklists/re-searches EVERY chapter ──────
+
+        [Test]
+        public void ProcessFailed_multi_chapter_pack_publishes_an_event_for_every_chapter()
+        {
+            var pack = new TrackedDownloadBuilder()
+                .WithDownloadId("dl-pack-fail")
+                .WithChapters(179, 180, 181)
+                .Failed()
+                .Build();
+            pack.RemoteChapter.Release.Indexer = "MangaDex";
+            pack.RemoteChapter.Release.Title = "Test Manga - c179-181";
+
+            var failedChapterIds = new System.Collections.Generic.List<int>();
+            Mocker.GetMock<NzbDrone.Core.Messaging.Events.IEventAggregator>()
+                .Setup(e => e.PublishEvent(It.IsAny<ChapterDownloadFailedEvent>()))
+                .Callback<ChapterDownloadFailedEvent>(ev => failedChapterIds.Add(ev.ChapterId));
+
+            Subject.ProcessFailed(pack);
+
+            failedChapterIds.Should().BeEquivalentTo(new[] { 179, 180, 181 },
+                "WR-07: a multi-chapter pack failure must blocklist + auto-retry EVERY chapter, never just the first");
+
+            Mocker.GetMock<NzbDrone.Core.Messaging.Events.IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterDownloadFailedEvent>()), Times.Exactly(3));
+        }
+
         // ── 3. Provenance carried from in-memory RemoteChapter ──────────────────────────
 
         [Test]
