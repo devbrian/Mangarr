@@ -30,6 +30,12 @@ namespace Mangarr.Api.V5.Manga.Queue
         public string? Title { get; set; }
         public decimal SizeLeft { get; set; }
         public TimeSpan? TimeLeft { get; set; }
+
+        // Phase 36 Plan 06 (D-01 / LOOP-05): ADDITIVE manga-native page-progress wire fields. Null
+        // on the gateway path (Phase 38 — no IMangaDownloadPageProgressSource reports the id), so
+        // QueueRow.tsx falls back to bytes/% gracefully (D-01a/D-01b). NOT a DownloadClientItem field.
+        public int? TotalPages { get; set; }
+        public int? CompletedPages { get; set; }
         public DateTime? EstimatedCompletionTime { get; set; }
         public DateTime? Added { get; set; }
         public string? Status { get; set; }
@@ -68,6 +74,8 @@ namespace Mangarr.Api.V5.Manga.Queue
                 Title = model.Title,
                 SizeLeft = model.SizeLeft,
                 TimeLeft = model.TimeLeft,
+                TotalPages = model.TotalPages,
+                CompletedPages = model.CompletedPages,
                 EstimatedCompletionTime = model.EstimatedCompletionTime,
                 Added = model.Added,
                 Status = model.Status,

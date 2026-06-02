@@ -35,6 +35,13 @@ namespace NzbDrone.Core.Queue.Manga
     public class MangaQueueService : IMangaQueueService, IHandle<TrackedDownloadRefreshedEvent>
     {
         private readonly IEventAggregator _eventAggregator;
+
+        // Phase 36 Plan 06 (D-01 / LOOP-05): the manga-side page-progress carrier. MapQueueItem
+        // reads page counts from this matcher channel keyed by DownloadId (Plan 03's
+        // GetPageProgress over the OPTIONAL IMangaDownloadPageProgressSource set) — NOT from
+        // ChapterDownloadState (which Phase 39 deletes) and NOT from the shared DownloadClientItem
+        // POCO (D-01a hard constraint). Returns null on the gateway path → bytes/% fallback (D-01b).
+        private readonly IMangaTrackedDownloadService _trackedDownloadService;
         private readonly Logger _logger;
 
         // Phase 6 Plan 14 — BL-02 mitigation. Both Handle (single-writer reassignment) and
@@ -51,9 +58,13 @@ namespace NzbDrone.Core.Queue.Manga
         // tear iteration or lose mutations.
         private static List<MangaQueueItem> _queue = new();
 
-        public MangaQueueService(IEventAggregator eventAggregator, Logger logger)
+        public MangaQueueService(
+            IEventAggregator eventAggregator,
+            IMangaTrackedDownloadService trackedDownloadService,
+            Logger logger)
         {
             _eventAggregator = eventAggregator;
+            _trackedDownloadService = trackedDownloadService;
             _logger = logger;
         }
 
@@ -168,6 +179,21 @@ namespace NzbDrone.Core.Queue.Manga
             // Deterministic Id per Q-3 RESEARCH lock — same TrackedDownload + chapter combo
             // yields same Id across refreshes (SignalR diff key).
             item.Id = HashConverter.GetHashInt31($"trackedDownload-{item.DownloadClient}-{item.DownloadId}-{chapter?.Id ?? 0}");
+
+            // Phase 36 Plan 06 (D-01 / LOOP-05): ADDITIVE manga page caption. Source the page
+            // counts from the Plan 03 matcher channel keyed by the stable DownloadId — NEVER from
+            // ChapterDownloadState (Phase 39 deletes it) and NEVER from the shared DownloadClientItem
+            // contract (D-01a). On the gateway path (Phase 38) GetPageProgress returns null, so
+            // TotalPages/CompletedPages stay null and the Queue caption falls back to bytes/% (D-01b).
+            // The Size/SizeLeft bar-fill mapping (above) and the TimeLeft/EstimatedCompletionTime ETA
+            // mapping (below) are deliberately UNTOUCHED — D-01b keeps byte/% driving the bar; D-02
+            // keeps Sonarr's always-on ETA exactly as the loop computes it (no manga suppression rule).
+            var pageProgress = _trackedDownloadService.GetPageProgress(item.DownloadId);
+            if (pageProgress != null)
+            {
+                item.TotalPages = pageProgress.TotalPages;
+                item.CompletedPages = pageProgress.CompletedPages;
+            }
 
             if (item.TimeLeft.HasValue)
             {

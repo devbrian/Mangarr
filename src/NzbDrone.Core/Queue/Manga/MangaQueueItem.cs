@@ -40,6 +40,16 @@ namespace NzbDrone.Core.Queue.Manga
         public string Title { get; set; }
         public decimal SizeLeft { get; set; }
         public TimeSpan? TimeLeft { get; set; }
+
+        // Phase 36 Plan 06 (D-01 / LOOP-05): ADDITIVE manga-native page-progress channel.
+        // Optional/nullable on this manga-side POCO ONLY — NEVER added to the shared
+        // DownloadClientItem contract (D-01a hard constraint; Phase 38's GatewayDownloadClient
+        // implements that contract bytes-only). Sourced in MangaQueueService.MapQueueItem from
+        // the Plan 03 matcher's IMangaDownloadPageProgressSource carrier keyed by DownloadId
+        // (NOT ChapterDownloadState). Null on the gateway path → the Queue caption falls back to
+        // bytes/% (D-01b — the byte/% bar still drives the fill; this is presentational only).
+        public int? TotalPages { get; set; }
+        public int? CompletedPages { get; set; }
         public DateTime? EstimatedCompletionTime { get; set; }
         public DateTime? Added { get; set; }
         public string Status { get; set; }
