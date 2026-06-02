@@ -59,12 +59,13 @@ namespace NzbDrone.Test.Common
             }
         }
 
-        // Forces NLog to materialize its effective configuration now. The deferred
-        // auto-load fires on a logger's first level evaluation (not on the LogFactory
-        // Configuration getter), so we trigger it with a logger level check. Doing
-        // this up front (before we install our rules) means the load has already
-        // settled and won't re-fire on the first real log call to discard the
-        // ExceptionVerification warn-capture rule (issue #299).
+        // Forces NLog's first-logger (lazy) configuration initialization now, before
+        // we build the test configuration. NLog reads/auto-scans configuration on
+        // first logger use; if that initialization runs AFTER InitLogging installs the
+        // ExceptionVerification warn-capture rule it discards the rule (no NLog.config
+        // on disk -> empty config). Triggering it up front via a logger access means
+        // our rules are installed last and win — without this, a fixture run in
+        // isolation loses warn capture and ExpectedWarns(n) sees 0 (issue #299).
         private static void ForceConfigurationAutoLoad()
         {
             _ = TestLogger.IsWarnEnabled;
