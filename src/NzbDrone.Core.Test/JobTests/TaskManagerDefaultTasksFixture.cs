@@ -91,6 +91,29 @@ namespace NzbDrone.Core.Test.JobTests
         }
 
         [Test]
+        public void TaskManager_defaultTasks_registers_RefreshMonitoredMangaDownloadsCommand()
+        {
+            // Phase 36 Plan 05 Task 1 (LOOP-01 / LOOP-05) — 1-min monitoring-loop poll heart.
+            // MangaDownloadMonitoringService.Execute polls every DownloadHandlingEnabled() client,
+            // tracks each item, runs the Completed/Failed Checks, and publishes
+            // TrackedDownloadRefreshedEvent as the LAST step (the dead-queue fix).
+            _taskManagerSource.Should().Contain("typeof(RefreshMonitoredMangaDownloadsCommand).FullName",
+                "Plan 36-05 Task 1 must register RefreshMonitoredMangaDownloadsCommand in TaskManager.defaultTasks (Anti-pattern C: NOT via migration seed)");
+        }
+
+        [Test]
+        public void TaskManager_defaultTasks_does_NOT_register_ProcessMonitoredMangaDownloadsCommand()
+        {
+            // Phase 36 Plan 05 Task 1 (Q-poll resolution) — ProcessMonitoredMangaDownloadsCommand is
+            // QUEUED-ONLY: the MangaDownloadMonitoringService pushes it onto the command queue at the
+            // tail of every Refresh(). It must NEVER appear in TaskManager.defaultTasks (no scheduled
+            // cadence — the monitor owns its dispatch). This is the inverse-direction sister assertion
+            // to the Refresh-registered check above.
+            _taskManagerSource.Should().NotContain("typeof(ProcessMonitoredMangaDownloadsCommand).FullName",
+                "Plan 36-05 Task 1 — ProcessMonitoredMangaDownloadsCommand is queued-only; it must NOT be registered in TaskManager.defaultTasks (it is pushed at the tail of Refresh()).");
+        }
+
+        [Test]
         public void TaskManager_HandleAsync_ConfigSavedEvent_rebroadcasts_MangaRssSyncCommand()
         {
             // Phase 6 Plan 14 — WR-02. The handler at TaskManager.cs HandleAsync(ConfigSavedEvent)

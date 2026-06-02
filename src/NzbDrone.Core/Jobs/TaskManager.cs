@@ -198,6 +198,21 @@ namespace NzbDrone.Core.Jobs
                     {
                         Interval = 1,
                         TypeName = typeof(ProcessMangaCompletedCommand).FullName
+                    },
+
+                    // Phase 36 LOOP-01 / LOOP-05 — 1-minute monitoring-loop poll heart. The
+                    // MangaDownloadMonitoringService IExecute<RefreshMonitoredMangaDownloadsCommand>
+                    // handler polls every DownloadHandlingEnabled() client, tracks each in-flight
+                    // item, runs the Completed/Failed Checks, and publishes TrackedDownloadRefreshedEvent
+                    // as the LAST step (the dead-queue fix — wakes the starved MangaQueueService → SignalR
+                    // cascade), then pushes the queued-only ProcessMonitoredMangaDownloadsCommand at the
+                    // tail. Registered at runtime via TaskManager.defaultTasks per sonarr-consistency-audit
+                    // anti-pattern C (NOT seeded via 001 Insert.IntoTable). ProcessMonitoredMangaDownloads
+                    // Command is deliberately NOT registered here — it is queued-only (Q-poll resolution).
+                    new ScheduledTask
+                    {
+                        Interval = 1,
+                        TypeName = typeof(RefreshMonitoredMangaDownloadsCommand).FullName
                     }
                 };
 
