@@ -32,13 +32,15 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             settings.Validate().IsValid.Should().BeFalse();
         }
 
-        [Test]
-        public void validate_requires_valid_root_url()
+        [TestCase("not-a-url")]
+        [TestCase("ftp://localhost:9191")]
+        [TestCase("localhost:9191")]
+        public void validate_requires_valid_root_url(string badUrl)
         {
             var settings = ValidSettings();
 
-            // A non-root URL (path segment present) fails ValidRootUrl().
-            settings.BaseUrl = "http://localhost:9191/some/path";
+            // ValidRootUrl() requires a parseable URL that starts with http(s)://.
+            settings.BaseUrl = badUrl;
 
             settings.Validate().IsValid.Should().BeFalse();
         }

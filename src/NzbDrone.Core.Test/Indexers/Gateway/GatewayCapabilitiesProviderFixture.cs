@@ -8,6 +8,7 @@ using NzbDrone.Common.Http;
 using NzbDrone.Core.Indexers.Exceptions;
 using NzbDrone.Core.Indexers.Gateway;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.Indexers.Gateway
 {
@@ -89,6 +90,9 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             var act = () => Subject.GetCapabilities(_settings);
 
             act.Should().Throw<ApiKeyException>();
+
+            // The provider logs the rejecting host (never the api key) at Warn level.
+            ExceptionVerification.ExpectedWarns(1);
         }
     }
 }
