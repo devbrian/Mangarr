@@ -73,8 +73,17 @@ namespace NzbDrone.Core.Download.History.Manga
                 SourceTitle = remote.Release?.Title
             };
 
-            history.Data.Add("DownloadClient", message.DownloadClient ?? string.Empty);
-            history.Data.Add("Indexer", remote.Release?.Indexer ?? string.Empty);
+            // Provenance keys are written in camelCase to MATCH the form the globally registered
+            // EmbeddedDocumentConverter persists them as (DictionaryKeyPolicy = CamelCase). Writing
+            // camelCase here means the in-memory dictionary and the post-DB-round-trip dictionary are
+            // byte-identical, so MapFromHistory reads the SAME keys whether or not a DB round-trip has
+            // happened (CR-01 fix: the old "Indexer"/"indexer" writer/reader mismatch dropped Indexer
+            // on the in-memory primary path; ScanlationGroup/TranslatedLanguage were never persisted at
+            // all, so every loop-imported chapter landed with blank language/group provenance).
+            history.Data.Add("downloadClient", message.DownloadClient ?? string.Empty);
+            history.Data.Add("indexer", remote.Release?.Indexer ?? string.Empty);
+            history.Data.Add("scanlationGroup", remote.Release?.ScanlationGroup ?? string.Empty);
+            history.Data.Add("translatedLanguage", remote.Release?.TranslatedLanguage ?? string.Empty);
 
             // Insert-FIRST — synchronous before Handle returns (Pitfall: a poll right after grab
             // must find this row via GetLatestGrab).

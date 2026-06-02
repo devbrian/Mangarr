@@ -202,6 +202,61 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
                 .Should().NotBe(esLa.RemoteChapter.Chapters.Single().Id);
         }
 
+        // (CR-01) PROVENANCE ROUND-TRIP — drives the REAL grab-row writer
+        // (MangaDownloadHistoryService.Handle(ChapterGrabbedEvent)) to build the Data dictionary, then
+        // feeds that row into the REAL MapFromHistory projection and asserts ScanlationGroup /
+        // TranslatedLanguage / Indexer are ALL non-blank on the resulting RemoteChapter.Release. This
+        // exercises the real chain (writer → reader), unlike the MangaCompletedDownloadServiceFixture
+        // [SetUp] which hand-set the release fields and masked the dropped provenance.
+        [Test]
+        public void TrackDownload_primary_path_carries_scanlation_group_language_and_indexer_provenance()
+        {
+            // Build the grab row exactly as the production writer does — run the REAL
+            // MangaDownloadHistoryService.Handle(ChapterGrabbedEvent) and capture the inserted row so
+            // its Data dictionary reflects the production key casing.
+            var historyRepo = new Mock<IMangaDownloadHistoryRepository>();
+            MangaDownloadHistory inserted = null;
+            historyRepo.Setup(r => r.Insert(It.IsAny<MangaDownloadHistory>()))
+                .Callback<MangaDownloadHistory>(h => inserted = h)
+                .Returns<MangaDownloadHistory>(h => h);
+
+            var historyService = new MangaDownloadHistoryService(historyRepo.Object, TestLogger);
+
+            var grabbedRemote = new RemoteChapter
+            {
+                Manga = _manga,
+                Chapters = new List<Chapter> { new() { Id = 42, MangaId = 7, ChapterNumber = 1m } },
+                Release = new NzbDrone.Core.Parser.Model.ReleaseInfo
+                {
+                    Title = "Test Manga - Chapter 001",
+                    Indexer = "MangaDex",
+                    ScanlationGroup = "Acme Scans",
+                    TranslatedLanguage = "en"
+                }
+            };
+
+            historyService.Handle(new NzbDrone.Core.MediaFiles.ChapterArchiving.ChapterGrabbedEvent(
+                grabbedRemote, "dl-prov", "InProcess"));
+
+            inserted.Should().NotBeNull("the grab handler must insert the join row");
+
+            // Feed the REAL inserted row back through the matcher's primary path.
+            _historyService.Setup(s => s.GetLatestGrab("dl-prov")).Returns(inserted);
+            SetupChapters(new Chapter { Id = 42, MangaId = 7, ChapterNumber = 1m });
+
+            var tracked = Subject().TrackDownload(_definition, Item("dl-prov"));
+
+            tracked.RemoteChapter.Should().NotBeNull();
+            tracked.RemoteChapter.Release.Should().NotBeNull();
+            tracked.RemoteChapter.Release.ScanlationGroup.Should().Be("Acme Scans",
+                "CR-01: ScanlationGroup must round-trip through the grab row's Data dictionary");
+            tracked.RemoteChapter.Release.TranslatedLanguage.Should().Be("en",
+                "CR-01: TranslatedLanguage must round-trip through the grab row's Data dictionary");
+            tracked.RemoteChapter.Release.Indexer.Should().Be("MangaDex",
+                "CR-01: Indexer must round-trip (the old writer/reader key-casing mismatch dropped it)");
+            tracked.Indexer.Should().Be("MangaDex");
+        }
+
         // (7a) PAGE CHANNEL — gateway path (no source) returns null. The shared DownloadClientItem
         // is never touched and ChapterDownloadState is never read.
         [Test]

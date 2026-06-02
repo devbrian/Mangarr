@@ -131,6 +131,13 @@ namespace NzbDrone.Core.Download.TrackedDownloads
                 ? _chapterService.GetChapters(grabbed.ChapterIds)
                 : new List<Chapter>();
 
+            // Re-source ALL grabbed provenance off the join row's Data dictionary. The keys are
+            // camelCase because MangaDownloadHistoryService writes them camelCase to match the form the
+            // EmbeddedDocumentConverter persists (CR-01). Indexer was being dropped before because the
+            // writer wrote "Indexer" but this read "indexer"; ScanlationGroup/TranslatedLanguage were
+            // never carried at all, so the import core (MangaCompletedDownloadService) built a
+            // LocalChapter with BLANK language/group on the load-bearing primary path. Carrying them
+            // here restores the file-header "NON-BLANK provenance" contract.
             return new RemoteChapter
             {
                 Manga = manga,
@@ -138,11 +145,24 @@ namespace NzbDrone.Core.Download.TrackedDownloads
                 Release = new NzbDrone.Core.Parser.Model.ReleaseInfo
                 {
                     Title = grabbed.SourceTitle ?? item.Title,
-                    Indexer = grabbed.Data != null && grabbed.Data.TryGetValue("indexer", out var indexer)
-                        ? indexer
-                        : null
+                    Indexer = ReadData(grabbed, "indexer"),
+                    ScanlationGroup = ReadData(grabbed, "scanlationGroup"),
+                    TranslatedLanguage = ReadData(grabbed, "translatedLanguage")
                 }
             };
+        }
+
+        // Reads a provenance value off the grab row's Data dictionary, normalizing the empty-string
+        // sentinel (the writer stores string.Empty rather than null) back to null so blank provenance
+        // does not masquerade as a populated value downstream.
+        private static string ReadData(MangaDownloadHistory grabbed, string key)
+        {
+            if (grabbed.Data != null && grabbed.Data.TryGetValue(key, out var value) && !string.IsNullOrEmpty(value))
+            {
+                return value;
+            }
+
+            return null;
         }
 
         // FALLBACK-path resolution. GetManga returns null when no manga matches the title; in that
