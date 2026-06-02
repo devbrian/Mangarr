@@ -1,10 +1,10 @@
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using FluentAssertions;
 using Newtonsoft.Json;
 using NUnit.Framework;
-using NzbDrone.Common.Http;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Gateway;
 using NzbDrone.Core.Indexers.Gateway.Responses;
