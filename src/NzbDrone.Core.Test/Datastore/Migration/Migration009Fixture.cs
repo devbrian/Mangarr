@@ -106,18 +106,46 @@ namespace NzbDrone.Core.Test.Datastore.Migration
 
         private static string ReadMigrationSource()
         {
-            // Resolve the migration .cs from the test working directory back to the source tree.
-            // TestContext.TestDirectory is _tests/net10.0; the repo root is 2 levels up.
-            var testDir = TestContext.CurrentContext.TestDirectory;
-            var repoRoot = new DirectoryInfo(testDir).Parent?.Parent?.FullName;
-            repoRoot.Should().NotBeNull("the repo root must be resolvable from the test directory");
+            // Resolve the migration .cs from the source tree. A hardcoded Parent-hop from
+            // TestContext.TestDirectory is brittle: it is only correct for the local
+            // <repo>/_tests/net10.0 layout and resolves wrong on the CI unit_test job, which runs
+            // from a stripped, relocated test artifact (GH Actions: /home/runner/work/<repo>/<repo>/…).
+            // Walk upward from TestDirectory looking for the src/NzbDrone.Core marker; if the source
+            // tree is not reachable, this textual guard cannot run here — mark inconclusive rather
+            // than failing the build (mirrors TaskManagerDefaultTasksFixture). The guard still
+            // hard-runs locally and in checkout-based CI jobs.
+            var srcRoot = FindCoreSourceRoot(TestContext.CurrentContext.TestDirectory);
+            if (srcRoot == null)
+            {
+                Assert.Inconclusive(
+                    "src/NzbDrone.Core is not reachable from the test directory — the Migration 009 "
+                    + "Insert.IntoTable textual guard runs in dev builds and checkout-based CI jobs, "
+                    + "not from a standalone test artifact.");
+            }
 
-            var migrationPath = Path.Combine(repoRoot!, "src", "NzbDrone.Core", "Datastore", "Migration", "009_v1_3_manga_download_history.cs");
+            var migrationPath = Path.Combine(srcRoot!, "Datastore", "Migration", "009_v1_3_manga_download_history.cs");
 
             File.Exists(migrationPath).Should().BeTrue(
                 $"the Migration 009 source file must exist at {migrationPath}");
 
             return File.ReadAllText(migrationPath);
+        }
+
+        // Walk up the directory chain from startDir, returning the first ancestor's
+        // src/NzbDrone.Core that actually contains the Migration 009 file — or null if the source
+        // tree is not present in this layout (e.g. the stripped unit_test CI artifact).
+        private static string FindCoreSourceRoot(string startDir)
+        {
+            for (var dir = new DirectoryInfo(startDir); dir != null; dir = dir.Parent)
+            {
+                var candidate = Path.Combine(dir.FullName, "src", "NzbDrone.Core");
+                if (File.Exists(Path.Combine(candidate, "Datastore", "Migration", "009_v1_3_manga_download_history.cs")))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
         }
     }
 }
