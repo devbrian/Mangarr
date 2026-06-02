@@ -140,19 +140,22 @@ namespace NzbDrone.Core.Download.Manga
                 return false;
             }
 
-            // ── Idempotency short-circuit (KEPT VERBATIM from ProcessOne step 1) ─────────
-            // If a ChapterFile already exists for this chapter, a prior import already won —
-            // do NOT re-dispatch. The only idempotency mechanism on the completed path
-            // (no second tracked-download-history guard — warning-sign check honored).
-            var existingFile = _chapterFileService.GetFilesByChapter(chapter.Id).FirstOrDefault();
-            if (existingFile != null)
+            // ── Idempotency short-circuit (CR-b — ALL chapters, not just the first) ─────
+            // Only short-circuit the WHOLE tracked download when EVERY chapter in the pack
+            // already has a ChapterFile. For a multi-chapter pack where only a subset have
+            // files, short-circuiting on chapters.First() would falsely mark the row fully
+            // imported and evict the scratch data for the not-yet-imported chapters. When only
+            // a subset have files we proceed to import — the import pipeline's
+            // ChapterFileExistsSpecification (Chapter.ChapterFileId > 0) + the in-batch dedupe
+            // in ImportApprovedChapters skip the already-imported chapters without double-import.
+            if (chapters.All(c => _chapterFileService.GetFilesByChapter(c.Id).Any()))
             {
                 _logger.Debug(
-                    "Chapter {0} already has ChapterFile at {1}; skipping import",
-                    chapter.Id,
-                    existingFile.Path);
+                    "All {0} chapter(s) for download {1} already have a ChapterFile; skipping import",
+                    chapters.Count,
+                    trackedDownload.DownloadItem?.DownloadId);
 
-                // Already imported by a prior pass — the row IS legitimately importable/removable.
+                // Already fully imported by a prior pass — the row IS legitimately importable/removable.
                 // Returning true lets the caller flip it to Imported so the now-redundant scratch
                 // data is evicted (the idempotency win is the import-already-happened case).
                 return true;
@@ -191,10 +194,28 @@ namespace NzbDrone.Core.Download.Manga
             }
 
             // ── Dispatch into the KEPT IImportApprovedChapters pipeline ─────────────────
-            _importer.Import(
+            // P1: capture the importer results — IImportApprovedChapters.Import RETURNS (never
+            // throws) Skipped/Rejected results for destination-exists, missing-root-folder, or
+            // move/recycle failures. Honoring them before reporting success mirrors the canonical
+            // ProcessMangaCompletedDownloads (if results.All(Imported)) and Sonarr's
+            // CompletedDownloadService.VerifyImport.
+            var results = _importer.Import(
                 new List<MangaImportDecision> { decision },
                 newDownload: true,
                 downloadClientItem: null);
+
+            if (!results.Any() || !results.All(r => r.Result == MangaImportResultType.Imported))
+            {
+                _logger.Warn(
+                    "Import for download {0} did not import all chapters ({1} result(s)); leaving row for retry",
+                    trackedDownload.DownloadItem?.DownloadId,
+                    results.Count);
+
+                // P1: the importer Skipped/Rejected (or returned nothing) — NOT a genuine import.
+                // Returning false leaves the row ImportPending (Q-8 retention posture) instead of
+                // being evicted with deleteData:true and losing the scratch data needed for retry.
+                return false;
+            }
 
             // ── PITFALL-4 — publish the completion event LAST, after Import returns ─────
             // ChapterImportedEvent (the rescan-trigger handlers subscribe to) was already

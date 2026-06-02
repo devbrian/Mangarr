@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -154,6 +155,89 @@ namespace NzbDrone.Core.Test.Download.Manga
             Mocker.GetMock<IImportApprovedChapters>()
                 .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<DownloadClientItem>(), It.IsAny<bool>()),
                     Times.Never);
+        }
+
+        // P1 — the importer can RETURN Skipped/Rejected (destination exists, missing root folder,
+        // move/recycle failure) WITHOUT throwing. Import must honor that and report false so the
+        // caller leaves the row ImportPending (not evicted with deleteData:true).
+        [Test]
+        public void Import_reports_false_when_importer_returns_skipped_P1()
+        {
+            Mocker.GetMock<IImportApprovedChapters>()
+                .Setup(i => i.Import(It.IsAny<List<MangaImportDecision>>(),
+                                     It.IsAny<bool>(),
+                                     It.IsAny<DownloadClientItem>(),
+                                     It.IsAny<bool>()))
+                .Returns<List<MangaImportDecision>, bool, DownloadClientItem, bool>((decisions, _, _, _) =>
+                {
+                    // Errors + an approved decision → MangaImportResultType.Skipped.
+                    return decisions
+                        .Select(d => new MangaImportResult(d, "destination already exists"))
+                        .ToList();
+                });
+
+            var imported = Subject.Import(_trackedDownload);
+
+            imported.Should().BeFalse(
+                "P1: a Skipped importer result is not a genuine import — the row must be retained for retry, not evicted");
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterDownloadCompletedEvent>()), Times.Never);
+
+            NzbDrone.Test.Common.ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
+        public void Import_reports_false_when_importer_returns_empty_P1()
+        {
+            Mocker.GetMock<IImportApprovedChapters>()
+                .Setup(i => i.Import(It.IsAny<List<MangaImportDecision>>(),
+                                     It.IsAny<bool>(),
+                                     It.IsAny<DownloadClientItem>(),
+                                     It.IsAny<bool>()))
+                .Returns(new List<MangaImportResult>());
+
+            var imported = Subject.Import(_trackedDownload);
+
+            imported.Should().BeFalse("P1: an empty importer result imports nothing — report false");
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterDownloadCompletedEvent>()), Times.Never);
+
+            NzbDrone.Test.Common.ExceptionVerification.ExpectedWarns(1);
+        }
+
+        // CR-b — a multi-chapter pack where only the FIRST chapter already has a ChapterFile must
+        // NOT short-circuit as fully imported. The all-chapters guard proceeds to import so the
+        // not-yet-imported chapters are not silently skipped + evicted.
+        [Test]
+        public void Import_does_not_short_circuit_multi_chapter_pack_when_only_first_chapter_has_file_CRb()
+        {
+            var td = new TrackedDownloadBuilder()
+                .WithDownloadId("dl-pack")
+                .WithChapters(179, 180, 181)
+                .WithLanguage("en")
+                .Completed()
+                .WithOutputPath(@"C:\staging\Pack\pack.cbz")
+                .Build();
+            td.RemoteChapter.Release.ScanlationGroup = "Acme Scans";
+            td.RemoteChapter.Release.TranslatedLanguage = "en";
+
+            // Only chapter 179 already has a file; 180/181 do not.
+            Mocker.GetMock<IChapterFileService>()
+                .Setup(c => c.GetFilesByChapter(It.IsAny<int>()))
+                .Returns(new List<ChapterFile>());
+            Mocker.GetMock<IChapterFileService>()
+                .Setup(c => c.GetFilesByChapter(179))
+                .Returns(new List<ChapterFile> { new ChapterFile { Id = 1, Path = "existing.cbz" } });
+
+            var imported = Subject.Import(td);
+
+            imported.Should().BeTrue("CR-b: with a partial pack the import proceeds and reports its genuine result");
+
+            // The import path WAS taken (not short-circuited) — the importer was invoked.
+            Mocker.GetMock<IImportApprovedChapters>()
+                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), true, null, It.IsAny<bool>()), Times.Once);
         }
 
         [Test]
