@@ -46,16 +46,25 @@ namespace NzbDrone.Core.Indexers.Gateway
 
             // An all-disabled selection yields an empty chain (don't throw — mirror the MangaDex
             // MangaDexId==null empty-chain idiom; the hard-fail is Plan 04's Test() at config time).
-            if (sources == null)
+            // WR-06: also short-circuit on an EMPTY (non-null) effective set. EffectiveSources returns
+            // an empty list (not null) when the selection is empty AND no caps source is
+            // recent-capable; building an unscoped /recent here would make the gateway interpret the
+            // missing `sources` param as "all sources" and keep polling a gateway that advertises zero
+            // recent-capable sources on every RSS tick (contradicts the D-04 don't-query-when-nothing-
+            // -searchable intent for the recent/RSS path).
+            if (sources == null || !sources.Any())
             {
                 return chain;
             }
+
+            // Materialize once so the !Any() check above and the foreach below share one enumeration.
+            var sourceList = sources.ToList();
 
             var builder = new HttpRequestBuilder(Settings.BaseUrl)
                 .Resource("recent")
                 .AddQueryParam("limit", DefaultPageSize());
 
-            foreach (var source in sources)
+            foreach (var source in sourceList)
             {
                 builder.AddQueryParam("sources", source);
             }
@@ -65,6 +74,8 @@ namespace NzbDrone.Core.Indexers.Gateway
                 builder.AddQueryParam("languages", language);
             }
 
+            // IN-02 (deferred): `since` is intentionally NOT sent — the kept engine watermark dedup is
+            // authoritative (Open Question 1). Not implemented here by design.
             var httpRequest = builder.Build();
             httpRequest.Method = HttpMethod.Get;
             httpRequest.Headers["X-Api-Key"] = Settings.ApiKey; // never logged
@@ -109,6 +120,10 @@ namespace NzbDrone.Core.Indexers.Gateway
             {
                 body.Chapter = chapter;
             }
+
+            // IN-01 (deferred): manga-ID-targeted search (GatewaySearchRequest.Ids) and Volume are
+            // intentionally NOT populated yet — searches are query-string-only for Phase 37. The DTO
+            // fields exist for the deferred ID-search idea; do not remove them.
 
             // Empty sources[] means "all enabled+searchable" per the contract — omit it.
             if (body.Sources.Count == 0)

@@ -154,5 +154,35 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             request.Url.FullUri.Should().Contain("limit=");
             request.HttpRequest.Headers["X-Api-Key"].Should().Be("test-api-key");
         }
+
+        [Test]
+        public void empty_effective_recent_sources_yields_no_request()
+        {
+            // WR-06: with an EMPTY selection AND no recent-capable caps source, EffectiveSources
+            // returns an EMPTY (non-null) list. Building an unscoped /recent here would make the
+            // gateway interpret the missing `sources` param as "all sources" and keep polling on
+            // every RSS tick. The generator must instead return an EMPTY request chain.
+            Subject.Capabilities = new GatewayCapabilities
+            {
+                Sources = new System.Collections.Generic.List<GatewaySourceCap>
+                {
+                    // enabled + searchable but NOT recent-capable → empty recent effective set.
+                    new GatewaySourceCap
+                    {
+                        Key = "search.only",
+                        Name = "Search Only",
+                        Enabled = true,
+                        SupportsSearch = true,
+                        SupportsRecent = false
+                    }
+                }
+            };
+            Subject.Settings.EnabledSources = System.Array.Empty<string>(); // empty = "all"
+
+            var chain = Subject.GetRecentRequests();
+
+            chain.GetAllTiers().SelectMany(t => t).Should().BeEmpty(
+                "no recent-capable source means the recent chain must be empty (not an unscoped /recent poll)");
+        }
     }
 }
