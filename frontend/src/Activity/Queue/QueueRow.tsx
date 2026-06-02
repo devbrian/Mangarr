@@ -99,6 +99,10 @@ interface QueueRowProps {
   timeLeft?: string;
   size: number;
   sizeLeft: number;
+  // Phase 36 Plan 06 (D-01 / LOOP-05): ADDITIVE manga-native page-progress caption. Present only
+  // for the in-process client; absent (undefined) on the gateway path (Phase 38) → bytes/% fallback.
+  totalPages?: number;
+  completedPages?: number;
   manga?: MangaQueueSubresource;
   chapter?: ChapterQueueSubresource;
   columns: Column[];
@@ -129,6 +133,8 @@ function QueueRow(props: QueueRowProps) {
     timeLeft,
     size,
     sizeLeft,
+    totalPages,
+    completedPages,
     manga: hydratedManga,
     chapter: hydratedChapter,
     columns,
@@ -373,6 +379,12 @@ function QueueRow(props: QueueRowProps) {
         }
 
         if (name === 'progress') {
+          // Phase 36 Plan 06 (D-01 / LOOP-05): render a manga-native "page X/Y" caption when the
+          // in-process client reports page counts (`totalPages != null`). The byte/%-driven
+          // `progress` value (size>0-guarded from Plan 02) STILL drives the ProgressBar fill
+          // (D-01b — presentational caption only). When `totalPages` is absent (the gateway path,
+          // Phase 38), the row renders the EXISTING bytes/% behavior unchanged (graceful fallback,
+          // D-01a). The ETA/timeleft cell is untouched (D-02).
           return (
             <TableRowCell
               key={name}
@@ -385,6 +397,15 @@ function QueueRow(props: QueueRowProps) {
                   title={`${progress.toFixed(1)}%`}
                 />
               )}
+
+              {totalPages != null ? (
+                <div data-testid={`manga-queue-row-${id}-page-caption`}>
+                  {translate('PageProgress', {
+                    completedPages: completedPages ?? 0,
+                    totalPages,
+                  })}
+                </div>
+              ) : null}
             </TableRowCell>
           );
         }

@@ -34,6 +34,10 @@ interface Queue extends ModelBase {
   size: number;
   title: string;
   sizeLeft: number;
+  // Phase 36 Plan 06 (D-01 / LOOP-05): ADDITIVE manga-native page-progress caption fields
+  // mirroring MangaQueueResource. Absent on the gateway path (Phase 38) → bytes/% fallback.
+  totalPages?: number;
+  completedPages?: number;
   timeLeft: string;
   estimatedCompletionTime: string;
   added?: string;

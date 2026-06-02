@@ -1730,6 +1730,7 @@
   "OverviewOptions": "Overview Options",
   "PackageVersion": "Package Version",
   "PackageVersionInfo": "{packageVersion} by {packageAuthor}",
+  "PageProgress": "page {completedPages}/{totalPages}",
   "PagerGoToFirstPage": "Go to first page",
   "PagerGoToLastPage": "Go to last page",
   "PagerGoToNextPage": "Go to next page",

@@ -45,6 +45,11 @@ export interface MangaQueueItem extends ModelBase {
   size: number;
   title?: string;
   sizeLeft: number;
+  // Phase 36 Plan 06 (D-01 / LOOP-05): ADDITIVE manga-native page-progress caption fields,
+  // mirroring MangaQueueResource.TotalPages/CompletedPages. Absent (undefined) on the gateway
+  // path (Phase 38) → QueueRow falls back to bytes/% gracefully (D-01a/D-01b).
+  totalPages?: number;
+  completedPages?: number;
   timeLeft?: string;
   estimatedCompletionTime?: string;
   added?: string;
