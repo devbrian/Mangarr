@@ -101,9 +101,16 @@ namespace NzbDrone.Core.Test.JobTests
         {
             // Plan 06-08 Task 1 — RESEARCH Pattern 1 hybrid event-handler + 1-min poller.
             // The poller path runs ProcessMangaCompletedDownloads.Execute periodically as a
-            // resilience cover for missed ChapterArchivedEvent dispatches.
-            _taskManagerSource.Should().Contain("typeof(ProcessMangaCompletedCommand).FullName",
-                "Plan 06-08 Task 1 must register ProcessMangaCompletedCommand in TaskManager.defaultTasks (Anti-pattern C: NOT via migration seed)");
+            // resilience cover for missed ChapterArchivedEvent dispatches. Scoped to the
+            // defaultTasks block AND asserts the Interval = 1 cadence (same hardening as the
+            // RefreshMonitored test) so a stray comment or a cadence regression cannot keep this
+            // guard green.
+            _defaultTasksBlock.Should().Contain("typeof(ProcessMangaCompletedCommand).FullName",
+                "Plan 06-08 Task 1 must register ProcessMangaCompletedCommand in the TaskManager.defaultTasks block (Anti-pattern C: NOT via migration seed)");
+
+            _defaultTasksBlock.Should().MatchRegex(
+                @"Interval\s*=\s*1\s*,\s*TypeName\s*=\s*typeof\(ProcessMangaCompletedCommand\)\.FullName",
+                "Plan 06-08 Task 1 — ProcessMangaCompletedCommand must be registered at the 1-minute poll cadence (Interval = 1)");
         }
 
         [Test]
