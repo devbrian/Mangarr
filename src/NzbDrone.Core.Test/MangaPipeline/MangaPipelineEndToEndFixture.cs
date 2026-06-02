@@ -191,6 +191,16 @@ namespace NzbDrone.Core.Test.MangaPipeline
                   .SetupGet(c => c.MaxAutoRetriesPerChapter)
                   .Returns(3);
 
+            // Phase 36 Plan 04 D-03 gate: AutoRetryOrchestrator.Handle now early-returns when
+            // IConfigService.AutoRedownloadFailed is off (canonical mirror of
+            // v5-develop:RedownloadFailedDownloadService — re-search suppressed, blocklist still
+            // applied). The production default is true, but the auto-mock returns false; this
+            // test exercises the auto-redownload redirect path, so enable the setting explicitly
+            // (same pattern as MaxAutoRetriesPerChapter above).
+            Mocker.GetMock<IConfigService>()
+                  .SetupGet(c => c.AutoRedownloadFailed)
+                  .Returns(true);
+
             // Mock IChapterHistoryService — return zero prior DownloadFailed history rows
             // for the chapter so the bounded-budget gate (D-13) admits the retry.
             Mocker.GetMock<IChapterHistoryService>()
