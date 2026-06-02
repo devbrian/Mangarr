@@ -112,7 +112,9 @@ namespace NzbDrone.Core.Test.Download.Manga
         [Test]
         public void Import_dispatches_approved_decision_into_ImportApprovedChapters_once()
         {
-            Subject.Import(_trackedDownload);
+            var imported = Subject.Import(_trackedDownload);
+
+            imported.Should().BeTrue("WR-05: a genuine import reports true");
 
             Mocker.GetMock<IImportApprovedChapters>()
                 .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), true, null, It.IsAny<bool>()), Times.Once);
@@ -126,7 +128,9 @@ namespace NzbDrone.Core.Test.Download.Manga
                 .Returns<LocalChapter, DownloadClientItem>((lc, _) =>
                     new MangaImportDecision(lc, new MangaImportRejection(ImportRejectionReason.NotUpgradeAllowed, "rejected")));
 
-            Subject.Import(_trackedDownload);
+            var imported = Subject.Import(_trackedDownload);
+
+            imported.Should().BeFalse("WR-05: a rejected decision reports false so the caller retains the row for retry");
 
             Mocker.GetMock<IImportApprovedChapters>()
                 .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<DownloadClientItem>(), It.IsAny<bool>()),
@@ -142,11 +146,29 @@ namespace NzbDrone.Core.Test.Download.Manga
                 .Setup(c => c.GetFilesByChapter(42))
                 .Returns(new List<ChapterFile> { new ChapterFile { Id = 1, Path = "existing.cbz" } });
 
-            Subject.Import(_trackedDownload);
+            var imported = Subject.Import(_trackedDownload);
+
+            imported.Should().BeTrue(
+                "WR-05: an already-imported chapter is legitimately importable/removable — the idempotency short-circuit reports true so the redundant scratch data is evicted");
 
             Mocker.GetMock<IImportApprovedChapters>()
                 .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), It.IsAny<bool>(), It.IsAny<DownloadClientItem>(), It.IsAny<bool>()),
                     Times.Never);
+        }
+
+        [Test]
+        public void Import_reports_false_when_staging_path_missing_WR05()
+        {
+            Mocker.GetMock<IDiskProvider>()
+                .Setup(d => d.FileExists(It.IsAny<string>()))
+                .Returns(false);
+
+            var imported = Subject.Import(_trackedDownload);
+
+            imported.Should().BeFalse(
+                "WR-05: a missing staging path is a short-circuit, not a genuine import — the row must be retained for retry");
+
+            NzbDrone.Test.Common.ExceptionVerification.ExpectedWarns(1);
         }
 
         // ── 4. ChapterDownloadCompletedEvent published AFTER import (Pitfall-4 / anti-pattern F) ──

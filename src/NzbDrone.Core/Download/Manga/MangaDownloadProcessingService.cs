@@ -93,10 +93,18 @@ namespace NzbDrone.Core.Download.Manga
                     // state and be processed immediately rather than on the next cycle (mirrors v5).
                     if (trackedDownload.State == TrackedDownloadState.ImportPending)
                     {
-                        // Import transitions the row through Importing (D-04) inside the import core.
+                        // Import transitions the row through Importing (D-04) inside the import core,
+                        // then reports whether it ACTUALLY imported. Only flip to Imported on a genuine
+                        // success — a rejected/short-circuited import (null RemoteChapter, missing
+                        // staging path, unresolved manga/chapter, rejected decision) leaves the row in
+                        // ImportPending so RemoveCompletedDownloads does NOT evict it with
+                        // deleteData:true (WR-05 — preserves scratch data for retry per the Q-8
+                        // rejection-leaves-the-row-in-place posture).
                         trackedDownload.State = TrackedDownloadState.Importing;
-                        _completedDownloadService.Import(trackedDownload);
-                        trackedDownload.State = TrackedDownloadState.Imported;
+                        var imported = _completedDownloadService.Import(trackedDownload);
+                        trackedDownload.State = imported
+                            ? TrackedDownloadState.Imported
+                            : TrackedDownloadState.ImportPending;
                     }
 
                     if (trackedDownload.State == TrackedDownloadState.FailedPending)

@@ -49,7 +49,15 @@ namespace NzbDrone.Core.Download.Manga
     public interface IMangaCompletedDownloadService
     {
         void Check(TrackedDownload trackedDownload);
-        void Import(TrackedDownload trackedDownload);
+
+        // Returns true ONLY when the chapter was actually imported (decision approved + dispatched).
+        // Returns false on every short-circuit/rejection: null RemoteChapter, missing staging path,
+        // unresolved manga/chapter, an already-existing ChapterFile (idempotency), or a rejected
+        // decision. The caller (MangaDownloadProcessingService) uses this to decide whether to flip
+        // the row to Imported (eligible for deleteData:true eviction) or leave it in place for retry
+        // (WR-05 — mirrors Sonarr CompletedDownloadService.Import/VerifyImport state ownership: only
+        // mark Imported when ALL items actually imported, else leave ImportPending for retry).
+        bool Import(TrackedDownload trackedDownload);
     }
 
     public class MangaCompletedDownloadService : IMangaCompletedDownloadService
@@ -99,7 +107,7 @@ namespace NzbDrone.Core.Download.Manga
             trackedDownload.State = TrackedDownloadState.ImportPending;
         }
 
-        public void Import(TrackedDownload trackedDownload)
+        public bool Import(TrackedDownload trackedDownload)
         {
             var remoteChapter = trackedDownload.RemoteChapter;
             if (remoteChapter == null)
@@ -107,7 +115,7 @@ namespace NzbDrone.Core.Download.Manga
                 _logger.Warn(
                     "Completed download {0} has no resolved RemoteChapter; cannot import",
                     trackedDownload.DownloadItem?.DownloadId);
-                return;
+                return false;
             }
 
             // Re-source the staging path from the matched TrackedDownload (was state.StagingPath).
@@ -118,7 +126,7 @@ namespace NzbDrone.Core.Download.Manga
                     "Staging path missing for download {0}: {1}",
                     trackedDownload.DownloadItem?.DownloadId,
                     stagingPath ?? "<null>");
-                return;
+                return false;
             }
 
             // Re-source chapter ids from the in-memory RemoteChapter projection (was state.ChapterId).
@@ -129,7 +137,7 @@ namespace NzbDrone.Core.Download.Manga
                 _logger.Warn(
                     "Download {0} resolved no manga/chapter; cannot import",
                     trackedDownload.DownloadItem?.DownloadId);
-                return;
+                return false;
             }
 
             // ── Idempotency short-circuit (KEPT VERBATIM from ProcessOne step 1) ─────────
@@ -143,7 +151,11 @@ namespace NzbDrone.Core.Download.Manga
                     "Chapter {0} already has ChapterFile at {1}; skipping import",
                     chapter.Id,
                     existingFile.Path);
-                return;
+
+                // Already imported by a prior pass — the row IS legitimately importable/removable.
+                // Returning true lets the caller flip it to Imported so the now-redundant scratch
+                // data is evicted (the idempotency win is the import-already-happened case).
+                return true;
             }
 
             // ── Build the LocalChapter aggregate with NON-BLANK provenance ──────────────
@@ -171,7 +183,11 @@ namespace NzbDrone.Core.Download.Manga
                     "Chapter {0} import rejected: {1}",
                     chapter.Id,
                     string.Join("; ", decision.Rejections.Select(r => r.Message)));
-                return;
+
+                // WR-05: a rejected decision (e.g. NotUpgradeAllowed) was NOT imported. Returning
+                // false leaves the row in place (Q-8 retention posture) instead of being evicted with
+                // deleteData:true and losing the scratch data needed for retry.
+                return false;
             }
 
             // ── Dispatch into the KEPT IImportApprovedChapters pipeline ─────────────────
@@ -187,6 +203,9 @@ namespace NzbDrone.Core.Download.Manga
             // is published only now so the history row never predates the import.
             _eventAggregator.PublishEvent(
                 new ChapterDownloadCompletedEvent(trackedDownload, trackedDownload.DownloadItem?.DownloadId));
+
+            // Genuine import — the caller may now flip the row to Imported and evict it.
+            return true;
         }
 
         private long SafeGetFileSize(string path)

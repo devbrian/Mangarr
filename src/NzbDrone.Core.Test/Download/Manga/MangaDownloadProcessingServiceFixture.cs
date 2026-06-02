@@ -70,6 +70,16 @@ namespace NzbDrone.Core.Test.Download.Manga
                 .Returns(new List<TrackedDownload>(downloads));
         }
 
+        // WR-05: Import now reports whether it actually imported. Default the mock to a genuine import
+        // (true) so the existing happy-path tests keep flipping the row to Imported; individual tests
+        // override with .Returns(false) to exercise the rejection/short-circuit retention path.
+        private void ImportReturns(bool imported)
+        {
+            Mocker.GetMock<IMangaCompletedDownloadService>()
+                .Setup(c => c.Import(It.IsAny<TrackedDownload>()))
+                .Returns(imported);
+        }
+
         // ── 1. ImportPending → Import ───────────────────────────────────────────────────
 
         [Test]
@@ -77,6 +87,7 @@ namespace NzbDrone.Core.Test.Download.Manga
         {
             var td = BuildPending(TrackedDownloadState.ImportPending);
             RegistryReturns(td);
+            ImportReturns(true);
 
             Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
 
@@ -118,9 +129,10 @@ namespace NzbDrone.Core.Test.Download.Manga
             var td = BuildPending(TrackedDownloadState.ImportPending);
 
             // The monitor returns the SAME instance across both GetTrackedDownloads() reads (the
-            // process loop + RemoveCompletedDownloads). After Import the loop flips it to Imported;
-            // CanBeRemoved is already true from the Completed() builder.
+            // process loop + RemoveCompletedDownloads). After a GENUINE import the loop flips it to
+            // Imported; CanBeRemoved is already true from the Completed() builder.
             RegistryReturns(td);
+            ImportReturns(true);
 
             Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
 
@@ -144,7 +156,8 @@ namespace NzbDrone.Core.Test.Download.Manga
             var stateDuringImport = TrackedDownloadState.ImportPending;
             Mocker.GetMock<IMangaCompletedDownloadService>()
                 .Setup(c => c.Import(It.IsAny<TrackedDownload>()))
-                .Callback<TrackedDownload>(t => stateDuringImport = t.State);
+                .Callback<TrackedDownload>(t => stateDuringImport = t.State)
+                .Returns(true);
 
             Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
 
@@ -169,6 +182,50 @@ namespace NzbDrone.Core.Test.Download.Manga
                 .Verify(e => e.PublishEvent(It.IsAny<DownloadCanBeRemovedEvent>()), Times.Never);
             Mocker.GetMock<IMangaCompletedDownloadService>()
                 .Verify(c => c.Import(It.IsAny<TrackedDownload>()), Times.Never);
+        }
+
+        // ── WR-05 — rejected/short-circuited import is NOT marked Imported nor evicted ──────────
+
+        [Test]
+        public void Execute_does_not_mark_Imported_or_evict_when_import_is_rejected_WR05()
+        {
+            var td = BuildPending(TrackedDownloadState.ImportPending);
+            RegistryReturns(td);
+
+            // Import reports it did NOT import (rejected decision / short-circuit). The row must NOT
+            // reach Imported, so RemoveCompletedDownloads must NOT publish a DownloadCanBeRemovedEvent
+            // (which would evict the scratch data with deleteData:true and break retry).
+            ImportReturns(false);
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            td.State.Should().Be(TrackedDownloadState.ImportPending,
+                "WR-05: a rejected/short-circuited import must leave the row in ImportPending for retry, never flip it to Imported");
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(
+                    e => e.PublishEvent(It.IsAny<DownloadCanBeRemovedEvent>()),
+                    Times.Never,
+                    "WR-05: a non-imported row must not be evicted with deleteData:true");
+        }
+
+        [Test]
+        public void Execute_marks_Imported_and_evicts_only_on_genuine_import_WR05()
+        {
+            var td = BuildPending(TrackedDownloadState.ImportPending);
+            RegistryReturns(td);
+            ImportReturns(true);
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            td.State.Should().Be(TrackedDownloadState.Imported,
+                "WR-05: a genuine import flips the row to Imported");
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(
+                    e => e.PublishEvent(It.Is<DownloadCanBeRemovedEvent>(m => m.TrackedDownload == td)),
+                    Times.Once,
+                    "WR-05: a genuinely-imported removable row IS evicted");
         }
     }
 }
