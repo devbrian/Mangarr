@@ -85,9 +85,14 @@ namespace NzbDrone.Core.Indexers.Gateway
                 // so the user sees the gateway's current source list, not a 12h-stale snapshot.
                 var caps = _capsProvider.GetCapabilities(Settings, forceRefresh: true);
 
+                // CR-01: caps.Sources can be null when the remote wire JSON is `"sources": null`
+                // (Newtonsoft overwrites the field initializer for an explicit-null key). Guard with
+                // `?? new List<>()` exactly as Test() does (line ~121) — RequestAction was the outlier.
+                var sources = caps.Sources ?? new List<GatewaySourceCap>();
+
                 return new
                 {
-                    options = caps.Sources.Select(s => new { value = s.Key, name = s.Name }).ToList()
+                    options = sources.Select(s => new { value = s.Key, name = s.Name }).ToList()
                 };
             }
 

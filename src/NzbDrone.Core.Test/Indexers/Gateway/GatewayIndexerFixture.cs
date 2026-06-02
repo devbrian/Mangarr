@@ -85,6 +85,33 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         }
 
         [Test]
+        public void gatewaySources_action_returns_empty_options_when_caps_sources_null()
+        {
+            // CR-01: a remote gateway returning `"sources": null` makes Newtonsoft overwrite the
+            // field initializer with null. The RequestAction must NOT NRE — it returns an empty
+            // option list (mirroring the Test() `?? new List<>()` guard).
+            var nullSourcesCaps = JsonConvert.DeserializeObject<GatewayCapabilities>(
+                "{\"gatewayVersion\":\"1.0.0\",\"sources\":null}");
+
+            nullSourcesCaps.Sources.Should().BeNull("Newtonsoft overwrites the initializer on explicit null");
+
+            Mocker.GetMock<IGatewayCapabilitiesProvider>()
+                  .Setup(p => p.GetCapabilities(It.IsAny<GatewaySettings>(), It.IsAny<bool>()))
+                  .Returns(nullSourcesCaps);
+
+            object result = null;
+            var act = () => result = Subject.RequestAction("gatewaySources", new Dictionary<string, string>());
+
+            act.Should().NotThrow();
+
+            var optionsProp = result.GetType().GetProperty("options");
+            optionsProp.Should().NotBeNull();
+
+            var options = ((System.Collections.IEnumerable)optionsProp.GetValue(result)).Cast<object>().ToList();
+            options.Should().BeEmpty("a null caps.Sources yields an empty (not crashing) dropdown");
+        }
+
+        [Test]
         public async Task Fetch_MangaSearchCriteria_calls_FetchReleases()
         {
             StubHttpClient(File.ReadAllText("Files/Indexers/Gateway/search.json"));
