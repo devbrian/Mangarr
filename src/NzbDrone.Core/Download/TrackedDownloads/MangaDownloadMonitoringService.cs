@@ -39,10 +39,12 @@ namespace NzbDrone.Core.Download.TrackedDownloads
     //   Refresh() control flow (write/track FIRST, publish LAST — anti-pattern F):
     //     (0) pause the debounce + snapshot the prior registry keyed by DownloadId (the #301 merge)
     //     (1) for each DownloadHandlingEnabled() client → GetItems()
-    //     (2)   for each item → reuse the prior instance if it is past Downloading (preserve its
-    //           terminal State; #301), else TrackDownload(definition, item) (Plan 03 matcher)
+    //     (2)   for each item → reuse the prior instance if it has settled past Downloading AND
+    //           ImportBlocked (preserve its State; #301), else TrackDownload(definition, item) (Plan 03
+    //           matcher). ImportBlocked is Mangarr's unresolved shell — it is rebuilt so a later poll
+    //           with available metadata can re-resolve it (Codex PR #304).
     //     (3)     run _failedDownloadService.Check + _completedDownloadService.Check (Plan 04) — only
-    //             for a rebuilt/ImportBlocked row; a reused terminal row is NOT re-Checked
+    //             for a rebuilt Downloading/ImportBlocked row; a reused settled row is NOT re-Checked
     //     (4)   accumulate trackable downloads into a List<TrackedDownload>
     //     (5) cache the list as the registry MangaDownloadProcessingService reads
     //     (6) PUBLISH TrackedDownloadRefreshedEvent  ← THE LAST PUBLISH (the dead-queue fix; wakes
@@ -220,13 +222,21 @@ namespace NzbDrone.Core.Download.TrackedDownloads
             try
             {
                 // Registry merge (#301): reuse the prior-poll instance — preserving its State — once a
-                // download has moved past Downloading, exactly like Sonarr TrackedDownloadService
-                // .TrackDownload's reuse branch (existing.State != Downloading). Only the client-item
-                // snapshot is refreshed; the instance is NOT rebuilt (which would reset State to
-                // Downloading). Otherwise rebuild it fresh via the tracker.
+                // download has settled past the in-flight/unresolved phase, like Sonarr
+                // TrackedDownloadService.TrackDownload's reuse branch (existing.State != Downloading).
+                //
+                // Mangarr ALSO excludes ImportBlocked from reuse. Unlike Sonarr (where an unresolved
+                // download stays Downloading and is re-resolved every poll), Mangarr marks an
+                // *unresolvable shell* ImportBlocked with RemoteChapter == null (MangaTrackedDownloadService
+                // .BuildTrackedDownload). Such a shell MUST be rebuilt each poll so a later poll whose
+                // download-history/title metadata has since resolved can recover it — otherwise it would
+                // stay RemoteChapter == null forever and a subsequent completion would loop on a
+                // null-remote import (Codex review on PR #304). Only the client-item snapshot is refreshed
+                // on reuse; the instance is NOT rebuilt (which would reset State to Downloading).
                 if (!string.IsNullOrWhiteSpace(item.DownloadId)
                     && previous.TryGetValue(item.DownloadId, out var existing)
-                    && existing.State != TrackedDownloadState.Downloading)
+                    && existing.State != TrackedDownloadState.Downloading
+                    && existing.State != TrackedDownloadState.ImportBlocked)
                 {
                     existing.DownloadItem = item;
                     existing.IsTrackable = true;

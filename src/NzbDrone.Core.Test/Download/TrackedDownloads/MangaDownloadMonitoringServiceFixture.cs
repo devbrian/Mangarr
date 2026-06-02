@@ -203,6 +203,32 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
         }
 
         [Test]
+        public void Refresh_rebuilds_an_ImportBlocked_shell_each_poll_so_resolution_can_recover()
+        {
+            // Mangarr marks an unresolvable download ImportBlocked (RemoteChapter == null). Unlike a
+            // terminal row, it must NOT be reused — it has to be rebuilt every poll so a later poll whose
+            // metadata has since resolved can recover it (Codex review on PR #304).
+            var blockedShell = new TrackedDownloadBuilder()
+                .WithDownloadId("dl-1")
+                .Build();
+            blockedShell.State = TrackedDownloadState.ImportBlocked;
+            blockedShell.RemoteChapter = null;
+
+            Mocker.GetMock<IMangaTrackedDownloadService>()
+                .Setup(t => t.TrackDownload(It.IsAny<DownloadClientDefinition>(), It.IsAny<DownloadClientItem>()))
+                .Returns(blockedShell);
+
+            Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
+            Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
+
+            Mocker.GetMock<IMangaTrackedDownloadService>()
+                .Verify(
+                    t => t.TrackDownload(It.IsAny<DownloadClientDefinition>(), It.IsAny<DownloadClientItem>()),
+                    Times.Exactly(2),
+                    "an ImportBlocked shell must be rebuilt each poll so manga/chapter resolution can recover");
+        }
+
+        [Test]
         public void Refresh_rebuilds_a_still_downloading_item_each_poll()
         {
             // A download that is still Downloading is NOT reused — it is rebuilt + re-Checked each poll
