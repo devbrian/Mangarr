@@ -18,6 +18,7 @@ using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.Datastore.Converters;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
+using NzbDrone.Core.Download.History.Manga;
 using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.History.Manga;
 using NzbDrone.Core.ImportLists;
@@ -258,6 +259,14 @@ namespace NzbDrone.Core.Datastore
             // guarantee — Dapper Query<MangaBlocklist> cannot leak rows from the TV Blocklist
             // table even when MangaId / SeriesId int values collide.
             Mapper.Entity<MangaBlocklist>("MangaBlocklist").RegisterModel();
+
+            // Phase 36 (LOOP-02) — MangaDownloadHistory registration: the LEAN DownloadId-keyed
+            // matching join, DISTINCT from the user-facing ChapterHistory registered above. Sonarr's
+            // deliberate two-surface separation (BL-01-style separate-table precedent) — Dapper
+            // Query<MangaDownloadHistory> cannot leak rows from ChapterHistory. ChapterIds (List<int>)
+            // and Data (Dictionary<string,string>) ride the globally registered EmbeddedDocumentConverter
+            // type handlers below (RegisterMappers). Do NOT reuse ChapterHistory.FindByDownloadId.
+            Mapper.Entity<MangaDownloadHistory>("MangaDownloadHistory").RegisterModel();
 
             Mapper.Entity<DownloadClientStatus>("DownloadClientStatus").RegisterModel();
 
