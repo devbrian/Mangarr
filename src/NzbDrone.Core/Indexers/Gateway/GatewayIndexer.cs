@@ -153,12 +153,18 @@ namespace NzbDrone.Core.Indexers.Gateway
                 || definition.EnableInteractiveSearch;
             var rssEnabled = definition != null && definition.EnableRss;
 
+            // The capability failures name the EFFECTIVE (resolved, enabled) sources — which are
+            // non-empty here — NOT the raw selection. With an empty selection (= "all enabled"),
+            // ResolveNames would say "(none enabled)", which is misleading when sources ARE enabled
+            // and merely lack the capability (CodeRabbit minor follow-up).
+            var effectiveNames = string.Join(", ", effective.Select(s => s.Name ?? s.Key));
+
             if (searchEnabled && !effective.Any(s => s.SupportsSearch))
             {
                 failures.Add(new ValidationFailure(string.Empty,
                     _localizationService.GetLocalizedString(
                         "GatewayValidationNoSearchableSources",
-                        new Dictionary<string, object> { { "sources", ResolveNames(selected, capsSources) } })));
+                        new Dictionary<string, object> { { "sources", effectiveNames } })));
             }
 
             if (rssEnabled && !effective.Any(s => s.SupportsRecent))
@@ -166,7 +172,7 @@ namespace NzbDrone.Core.Indexers.Gateway
                 failures.Add(new ValidationFailure(string.Empty,
                     _localizationService.GetLocalizedString(
                         "GatewayValidationNoRecentSources",
-                        new Dictionary<string, object> { { "sources", ResolveNames(selected, capsSources) } })));
+                        new Dictionary<string, object> { { "sources", effectiveNames } })));
             }
 
             return Task.CompletedTask;

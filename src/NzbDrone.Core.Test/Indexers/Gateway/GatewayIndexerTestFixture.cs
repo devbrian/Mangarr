@@ -133,6 +133,39 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         }
 
         [Test]
+        public void Test_capability_failure_with_empty_selection_names_effective_sources()
+        {
+            // CodeRabbit minor follow-up: with an EMPTY selection (= all enabled) and a gateway
+            // whose only enabled source is recent-only, a search feature must fail NAMING that
+            // source — not the misleading "(none enabled on the gateway)" placeholder.
+            Mocker.GetMock<IGatewayCapabilitiesProvider>()
+                  .Setup(p => p.GetCapabilities(It.IsAny<GatewaySettings>(), It.IsAny<bool>()))
+                  .Returns(new GatewayCapabilities
+                  {
+                      Sources = new List<GatewaySourceCap>
+                      {
+                          new GatewaySourceCap
+                          {
+                              Key = "rss-only",
+                              Name = "RSS Only Source",
+                              Enabled = true,
+                              SupportsSearch = false,
+                              SupportsRecent = true
+                          }
+                      }
+                  });
+            ((IndexerDefinition)Subject.Definition).EnableAutomaticSearch = true;
+
+            var result = Subject.Test();
+
+            result.IsValid.Should().BeFalse();
+
+            var message = string.Join(" ", result.Errors.Select(e => e.ErrorMessage));
+            message.Should().Contain("RSS Only Source");
+            message.Should().NotContain("none enabled");
+        }
+
+        [Test]
         public void Test_forces_caps_refetch()
         {
             // D-01: Test() always bypasses the cache.
