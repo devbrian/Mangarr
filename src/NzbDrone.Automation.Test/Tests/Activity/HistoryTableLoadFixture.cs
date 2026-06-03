@@ -1,3 +1,5 @@
+using System.Net.Http;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -15,25 +17,24 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 /// Different from Plan-05's MangaHistoryFixture (which asserts on row decision
 /// cells when rows are present, accepting an empty state). This fixture
 /// specifically asserts that GET /api/v5/manga/history fires + returns table
-/// content after a real chained grab seeds a history row — the table-content
-/// load contract on a populated page.
+/// content on a POPULATED page.
 ///
-/// Phase 19 Plan 19-06 (Cat A success-path): the fixture now seeds its history
-/// state via a real chained InteractiveSearch→Grab (D-01) — AddMangaFlow then
-/// SearchAndGrabFlow.OpenForMangaAndGrabFirstReleaseAsync — with every external
-/// MangaDex byte replayed from the cassettes committed by Plan 19-02 (the
-/// /manga/{id}/feed indexer-feed cassette + the /at-home/server/{chapterId}
-/// grab cassette). The grab drives the real backend pipeline
-/// (ChapterGrabbedEvent → ChapterHistoryService) so a deterministic
-/// ChapterHistory row materializes. The old conditional empty-state no-op
-/// (valid only when no chained grab seeded history) is therefore deleted —
-/// the populated row-loop is the only path (RESEARCH Pitfall 4).
+/// Phase 39 Plan 39-07 (gap-closure): the prior seed-via-real-grab path
+/// (AddMangaFlow → SearchAndGrabFlow.OpenForMangaAndGrabFirstReleaseAsync) is
+/// structurally dead — the in-process MangaDex/Comix indexers that produced
+/// InteractiveSearch release rows were retired in Plan 39-03, so the grab has no
+/// release to act on (the sole GatewayIndexer is seeded disabled-by-default). The
+/// fixture now seeds its history row directly via TestKit.SeedHistoryFailedAsync
+/// (the raw-SQLite seeder — Plan 19-01 verdict; the same mechanism HistoryRetryFixture
+/// uses), which writes a DownloadFailed (eventType=2) ChapterHistory row. The
+/// populated row-loop remains the only path (RESEARCH Pitfall 4) — the seed makes the
+/// page populated WITHOUT depending on the retired in-process search→grab pipeline.
 ///
-/// State assertion: page + table testids visible, URL matches, the chained
-/// grab seeded at least one row (count.Should().BeGreaterThan(0) — a silent
-/// grab failure fails loudly), AND every history row exposes its decision cell
-/// with a non-empty data-event-type (the silent-rejection-icon-hiding-cell
-/// guard from feedback_verify_ui_state_not_just_rendering.md).
+/// State assertion: page + table testids visible, URL matches, the seed produced
+/// at least one row (count.Should().BeGreaterThan(0) — a silent seed failure fails
+/// loudly), AND every history row exposes its decision cell with a non-empty
+/// data-event-type (the silent-rejection-icon-hiding-cell guard from
+/// feedback_verify_ui_state_not_just_rendering.md).
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
@@ -44,16 +45,18 @@ public class HistoryTableLoadFixture : AutomationTest
     [Test]
     public async Task history_table_loads_with_state_assertions_after_chained_grab()
     {
-        // Seed: add the manga, then run a real chained InteractiveSearch→Grab.
-        // The grab replays the MangaDex feed + /at-home/server cassettes
-        // (Plan 19-02) and writes a real ChapterHistory row via the backend
-        // pipeline (ChapterGrabbedEvent → ChapterHistoryService).
+        // Seed: add the manga, then seed a real DownloadFailed (eventType=2)
+        // ChapterHistory row directly via the raw-SQLite TestKit helper so the
+        // History page is populated — independent of the retired in-process
+        // InteractiveSearch→grab pipeline (Phase 39 Plan 39-07).
         await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
 
         var slug = Page.Url.Split('/')[^1];
         slug.Should().NotBeNullOrEmpty("AddMangaFlow must land on the manga details URL");
 
-        await SearchAndGrabFlow.OpenForMangaAndGrabFirstReleaseAsync(Page, RootUri, slug);
+        var (mangaId, chapterId) = await ResolveSeedFksAsync();
+        var testKit = new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, ApiKey, Runner.AppData, Runner.PostgresOptions);
+        await testKit.SeedHistoryFailedAsync(Runner.AppData, mangaId, chapterId);
 
         await new MangaHistoryPage(Page).OpenAsync(RootUri);
 
@@ -66,14 +69,14 @@ public class HistoryTableLoadFixture : AutomationTest
         // a spurious redirect to /manga/wanted/missing or similar.
         Page.Url.Should().EndWith("/manga/activity/history");
 
-        // STATE assertion 3 (loud seed-failure guard): the chained grab MUST
-        // have seeded at least one history row. SignalR push may take a few
-        // seconds; wait for the first row before counting so a slow pipeline
-        // write does not race the assertion.
+        // STATE assertion 3 (loud seed-failure guard): the TestKit seed MUST
+        // have produced at least one history row. A silent seed failure (e.g. a
+        // schema drift in ChapterHistory) fails the test loudly here rather than
+        // skipping past an empty page.
         var rowsLocator = Page.GetByTestId(new Regex(@"^manga-history-row-\d+$"));
         await Assertions.Expect(rowsLocator.First).ToBeVisibleAsync(new() { Timeout = 30_000 });
         var count = await rowsLocator.CountAsync();
-        count.Should().BeGreaterThan(0, "chained grab must have seeded a history row");
+        count.Should().BeGreaterThan(0, "the TestKit seed must have produced a history row");
 
         // STATE assertion 4 (silent-rejection-icon guard): every history row
         // exposes its decision cell with a non-empty data-event-type. Without
@@ -92,5 +95,24 @@ public class HistoryTableLoadFixture : AutomationTest
             var eventType = await decisionCell.GetAttributeAsync("data-event-type");
             eventType.Should().NotBeNullOrEmpty("decision cell must expose data-event-type per silent-rejection-icon guard");
         }
+    }
+
+    // Resolve the AddMangaFlow-seeded manga id + one of its chapter ids via
+    // the V5 API — the FKs the raw-SQLite seed helper needs. The chapter set is
+    // populated from the MangaDex /feed cassette during the AddManga flow, so at
+    // least one chapter exists by the time this runs (polled via SeedFkResolver
+    // to absorb the async RefreshMangaCommand chain — GH #277).
+    private async Task<(int MangaId, int ChapterId)> ResolveSeedFksAsync()
+    {
+        using var http = new HttpClient();
+        http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
+
+        var mangaJson = await http.GetStringAsync($"{RootUri}/api/v5/manga");
+        using var mangaDoc = JsonDocument.Parse(mangaJson);
+        var mangaId = mangaDoc.RootElement[0].GetProperty("id").GetInt32();
+
+        var chapterId = await SeedFkResolver.ResolveFirstChapterIdAsync(RootUri, ApiKey, mangaId);
+
+        return (mangaId, chapterId);
     }
 }
