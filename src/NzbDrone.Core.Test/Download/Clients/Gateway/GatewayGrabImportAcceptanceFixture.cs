@@ -153,12 +153,17 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
             // BEHAVIOR: the stubbed jobId is the DownloadId.
             downloadId.Should().Be("job-1");
 
-            // BEHAVIOR (T-38-03-01 honest-e2e guardrail): the handle the proxy actually submitted to
-            // POST /downloads EQUALS the handle the search produced. No synthetic handle.
+            // BEHAVIOR (T-38-03-01 honest-e2e guardrail, GH #310): the gateway resolves the release by
+            // ReleaseHandle, so THAT is the field that must equal the R6 handle minted by search
+            // (Release.DownloadUrl) — asserting DownloadUrl alone gave false confidence (the real
+            // gateway 400s "release no longer resolvable" when ReleaseHandle carries the composite
+            // Guid). SourceKey must be the originating gateway source (the guid prefix == the
+            // GatewayRelease.SourceKey "comix.to"), NOT the Mangarr indexer display name.
             _submitted.Should().NotBeNull("the proxy must have serialised a submit body to POST /downloads");
-            _submitted.DownloadUrl.Should().Be(searchedHandle,
-                "the grab must consume the EXACT R6 handle minted by search — no fabrication");
-            _submitted.ReleaseHandle.Should().Be(grabbedRelease.Guid);
+            _submitted.ReleaseHandle.Should().Be(searchedHandle,
+                "the grab must submit the EXACT R6 handle minted by search as ReleaseHandle — no fabrication");
+            _submitted.SourceKey.Should().Be("comix.to",
+                "the submit must carry the originating gateway source, not the Mangarr indexer name");
 
             // ── 3. POLL/COMPLETE ── the client maps the GET /downloads job to Completed and resolves
             // the OutputPath (identity remap).

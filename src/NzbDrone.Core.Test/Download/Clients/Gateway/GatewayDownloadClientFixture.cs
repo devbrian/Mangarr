@@ -69,7 +69,10 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
             {
                 Release = new ReleaseInfo
                 {
-                    Guid = "release-guid",
+                    // The gateway mints guids as "{sourceKey}:{mangaId}:ch-{n}:{lang}:{chapterId}";
+                    // DownloadUrl carries the opaque R6 handle (GatewayParser.cs:80). Indexer is the
+                    // Mangarr display name — deliberately NOT the gateway sourceKey (GH #310).
+                    Guid = "mangadex:m-1:ch-2:en:c-2",
                     DownloadUrl = "opaque-handle",
                     Indexer = "Manga Gateway"
                 }
@@ -110,9 +113,11 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
             Subject.Download(BuildRemoteChapter(), Mocker.GetMock<IIndexer>().Object).GetAwaiter().GetResult();
 
             captured.Should().NotBeNull();
-            captured.ReleaseHandle.Should().Be("release-guid");
-            captured.DownloadUrl.Should().Be("opaque-handle");
-            captured.SourceKey.Should().Be("Manga Gateway");
+
+            // GH #310: ReleaseHandle is the opaque R6 handle (Release.DownloadUrl), NOT Release.Guid;
+            // SourceKey is the originating gateway source (guid prefix), NOT the Mangarr indexer name.
+            captured.ReleaseHandle.Should().Be("opaque-handle");
+            captured.SourceKey.Should().Be("mangadex");
             captured.OutputFormat.Should().Be("cbz");
         }
 

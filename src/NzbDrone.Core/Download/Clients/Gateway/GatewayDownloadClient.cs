@@ -63,9 +63,20 @@ namespace NzbDrone.Core.Download.Clients.Gateway
         {
             var request = new GatewaySubmitRequest
             {
-                ReleaseHandle = remoteChapter.Release.Guid,        // R6 handle
-                DownloadUrl = remoteChapter.Release.DownloadUrl,   // = downloadHandle (GatewayParser.cs:80)
-                SourceKey = remoteChapter.Release.Indexer,         // Open-Q #1: the Mangarr indexer name
+                // The gateway resolves the release by ReleaseHandle = the opaque R6 DownloadHandle
+                // the Phase-37 GatewayIndexer minted (GatewayParser.cs:80 maps it onto
+                // Release.DownloadUrl). It is NOT Release.Guid — that is the composite
+                // "{sourceKey}:{mangaId}:ch-{n}:{lang}:{chapterId}" id, which the gateway cannot
+                // resolve (returns 400 "release no longer resolvable"). (GH #310)
+                ReleaseHandle = remoteChapter.Release.DownloadUrl,
+
+                // SourceKey is the ORIGINATING gateway source (mangadex / comix), NOT the Mangarr
+                // indexer display name. The gateway mints release guids as "{sourceKey}:..." (the
+                // prefix == GatewayRelease.SourceKey); deriving from Guid keeps this correct across
+                // the interactive-search cache AND pending-release serialization (Guid is the one
+                // field guaranteed to survive both). (GH #310)
+                SourceKey = ExtractSourceKey(remoteChapter.Release.Guid),
+
                 OutputFormat = OutputFormat                        // D-D hard-default "cbz"
             };
 
@@ -82,6 +93,20 @@ namespace NzbDrone.Core.Download.Clients.Gateway
             }
 
             return Task.FromResult(response.JobId);
+        }
+
+        // The gateway mints release guids as "{sourceKey}:{mangaId}:ch-{chapter}:{lang}:{chapterId}"
+        // (GatewayRelease.Guid → ReleaseInfo.Guid). POST /downloads.sourceKey expects the
+        // originating source (mangadex / comix) — the first ':'-delimited segment. (GH #310)
+        private static string ExtractSourceKey(string guid)
+        {
+            if (guid.IsNullOrWhiteSpace())
+            {
+                return guid;
+            }
+
+            var separatorIndex = guid.IndexOf(':');
+            return separatorIndex > 0 ? guid.Substring(0, separatorIndex) : guid;
         }
 
         // GWDL-03: map gateway job status → DownloadItemStatus; remap completed OutputPath through
