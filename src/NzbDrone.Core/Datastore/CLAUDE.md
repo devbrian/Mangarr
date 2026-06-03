@@ -37,12 +37,13 @@ Naming convention: `NNN_short_description_in_snake_case.cs` where `NNN` is seque
 **Migration 010 (Phase 39 RETIRE-03)** is the head — the one-shot on-upgrade orphan-state cleanup for the retired in-process codepath: it `DELETE`s the orphan `DownloadClients` row (`Implementation = 'InProcessImageDownloadClient'`), `DELETE`s the orphan `Indexers` rows (`Implementation IN ('MangaDexIndexer','ComixIndexer')`), resets the two stale `IndexerSourceStatus` rows scoped to the retired source keys (`'mangadex'`,`'comix.to'`) so live gateway status survives, and `DROP`s the now-empty `ChapterDownloadState` staging table. Pure DELETE+DROP (seeds zero rows — Anti-Pattern C floor); pinned by `Migration010Fixture` (5/5 on SQLite).
 
 ```csharp
-[Migration(214)]
+// Next sequential number after the current head (010) — illustrative.
+[Migration(11)]
 public class my_change : NzbDroneMigrationBase
 {
     protected override void MainDbUpgrade()
     {
-        Alter.Table("Series").AddColumn("MyField").AsString().Nullable();
+        Alter.Table("Manga").AddColumn("MyField").AsString().Nullable();
     }
 
     protected override void LogDbUpgrade() { /* if affecting logs.db */ }
@@ -55,12 +56,17 @@ Migrations run **automatically on startup**, before service registration complet
 - `Framework/` — Custom FluentMigrator extensions (`NzbDroneMigrationBase`, table builders, etc.)
 - `Resources/` — Embedded SQL or data files used by migrations
 
-#### Notable Migrations (samples)
-- `001_initial_setup.cs` — Initial schema
-- `010_add_monitored.cs` — Series.Monitored column
-- `013_add_air_date_utc.cs`, `015_add_air_date_as_string.cs` — AirDate evolution
-- `124_add_skyhook_episodes_metadata.cs` — Adds tvdbId / tmdbId style metadata
-- `223_…` — Latest at time of writing
+#### The Migration Chain (sequential — manga baseline + post-v1.0 appends)
+The inherited Mangarr 224 TV migrations were replaced by a single fresh manga baseline
+(Phase 0 D-14 fresh-schema reset). The full chain on disk:
+- `001_mangarr_baseline.cs` — the fresh manga baseline (Manga / Chapter / ChapterFile schema + all
+  Phase 1 tables). Replaces the entire inherited Sonarr `001_initial_setup.cs … 223_…` chain.
+- `002_…` through `009_v1_3_manga_download_history.cs` — sequential post-baseline appends (Phase
+  4/5/6/30 schema additions + the v1.2/v1.3 metadata/datetime/history evolutions).
+- `010_v1_3_retire_in_process_cleanup.cs` — **the current head** (Phase 39 RETIRE-03 one-shot;
+  see the "Migration 010" subsection above).
+
+No `Series`/`Episode`/`Season` tables exist in the chain — `Tv/` was deleted in Phase 15.
 
 ### `Converters/` — Dapper / JSON Converters
 
@@ -184,10 +190,16 @@ Most code is dialect-agnostic via FluentMigrator. Differences:
 
 ## Manga Adaptation Notes
 
-This directory is **infrastructure** and reusable. Migration plan:
-- Phase 1: Add manga columns to existing tables (`MangaDexId`, `Author`, `Artist`, etc.) via `224_…` migration
-- Phase 2: Add new tables if needed (`ScanlationGroups`, …)
-- Phase 3 (renaming): Rename tables (`Series` → `Manga`, `Episodes` → `Chapters`) via a migration. C# class renames must be coordinated with this.
+This directory is **infrastructure** and reusable. The manga-schema migration work is **done**:
+- The fresh manga baseline `001_mangarr_baseline.cs` (Phase 1) already defines the canonical
+  `Manga` / `Chapter` / `ChapterFile` tables with manga columns (`MangaDexId`, `Author`, `Artist`,
+  `ScanlationGroup`, etc.) — there is no separate "add manga columns to TV tables" step; the TV
+  tables never shipped in the manga baseline.
+- Subsequent manga-schema additions append a NEW sequential migration on top of the head
+  (`010_…` currently) per the post-v1.0.0 append-only policy — never edit a released migration.
+- The `Series → Manga` / `Episodes → Chapters` rename is N/A: `Tv/` was deleted wholesale in
+  Phase 15 Plan 15-03, so the baseline was authored manga-shape from the start (no table rename
+  migration was ever needed).
 
 ## Cross-References
 
