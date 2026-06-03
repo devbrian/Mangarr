@@ -9,7 +9,6 @@ using NzbDrone.Core.Configuration.Events;
 
 // using NzbDrone.Core.DataAugmentation.Scene; // Sonarr divergence: Phase 15 D-19 — DataAugmentation/ deleted by Plan 15-04 (UpdateSceneMappingCommand registration stripped)
 // using NzbDrone.Core.Download; // Sonarr divergence: Phase 15 fix-forward (debug-session refresh-monitored-downloads-di) — RefreshMonitoredDownloadsCommand defaultTasks row stripped (handler was on DownloadMonitoringService.cs deleted by Plan 15-10 per 15-10-SUMMARY:229); class file deleted in same fix; no remaining unqualified Download.* symbols in this file (Clients.InProcess + Manga sub-namespaces still imported below).
-using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Download.Manga;
 using NzbDrone.Core.HealthCheck;
 using NzbDrone.Core.Housekeeping;
@@ -86,8 +85,10 @@ namespace NzbDrone.Core.Jobs
             //     (NzbDrone.Core.Download/RefreshMonitoredDownloadsCommand.cs) were both stripped here;
             //     sibling orphans CheckForFinishedDownloadCommand + ProcessMonitoredDownloadsCommand
             //     deleted in the same fix (handlers on the same deleted DownloadMonitoringService /
-            //     DownloadProcessingService; not in defaultTasks but dead code). Manga peer
-            //     ProcessMangaCompletedCommand (1-min poll) below covers the equivalent reactive path.
+            //     DownloadProcessingService; not in defaultTasks but dead code). The manga in-process
+            //     completion poller (ProcessMangaCompletedCommand) that formerly covered this path was
+            //     retired in Phase 39 RETIRE-01 — the Phase 36 monitoring loop
+            //     (RefreshMonitoredMangaDownloadsCommand, below) now drives completed-download import.
             var defaultTasks = new List<ScheduledTask>
                 {
                     new ScheduledTask
@@ -134,14 +135,11 @@ namespace NzbDrone.Core.Jobs
                         TypeName = typeof(CleanUpRecycleBinCommand).FullName
                     },
 
-                    // Phase 4 — daily in-process downloader housekeeping (D-08 retention sweep
-                    // + orphan scratch cleanup). Registered via TaskManager.defaultTasks per
-                    // sonarr-consistency-audit anti-pattern C (NOT seeded via migration 001).
-                    new ScheduledTask
-                    {
-                        Interval = 24 * 60,
-                        TypeName = typeof(HousekeepInProcessDownloadsCommand).FullName
-                    },
+                    // Phase 39 RETIRE-01: the Phase-4 HousekeepInProcessDownloadsCommand daily
+                    // housekeeping row was REMOVED with the in-process download vertical (the
+                    // housekeeper + its command are deleted in this plan). TaskManager.Handle(
+                    // ApplicationStartedEvent) self-reconciles the orphan ScheduledTasks DB row on
+                    // next start (deletes rows whose TypeName no longer appears in defaultTasks).
 
                     // Phase 26 Plan 26-04 RESTORED per D-15 — ImportListSyncCommand row
                     // returns at the Sonarr-canonical 24h cadence. Substrate ships zero
@@ -187,18 +185,12 @@ namespace NzbDrone.Core.Jobs
                         TypeName = typeof(MissingChapterSearchCommand).FullName
                     },
 
-                    // Phase 6 RESEARCH Pattern 1 — 1-minute resilience poll path for
-                    // ProcessMangaCompletedDownloads. The reactive IHandle<ChapterArchivedEvent>
-                    // path covers the happy case; this scheduled poll covers (a) process
-                    // restart between archive completion and import (event lost), (b) handler
-                    // exception missed by event bus, (c) Phase 6 import-spec rejection where
-                    // the row is held for retry. Registered at runtime via TaskManager.defaultTasks
-                    // per sonarr-consistency-audit anti-pattern C (NOT seeded via 001 Insert.IntoTable).
-                    new ScheduledTask
-                    {
-                        Interval = 1,
-                        TypeName = typeof(ProcessMangaCompletedCommand).FullName
-                    },
+                    // Phase 39 RETIRE-01: the Phase-6 in-process completion poller
+                    // (ProcessMangaCompletedCommand, 1-min) was REMOVED with the in-process download
+                    // vertical (the poller + command + ChapterArchivedEvent are deleted in this plan).
+                    // The Phase 36 monitoring loop (RefreshMonitoredMangaDownloadsCommand, below) is
+                    // the surviving completed-download driver. TaskManager.Handle(ApplicationStartedEvent)
+                    // self-reconciles the orphan ScheduledTasks DB row on next start.
 
                     // Phase 36 LOOP-01 / LOOP-05 — 1-minute monitoring-loop poll heart. The
                     // MangaDownloadMonitoringService IExecute<RefreshMonitoredMangaDownloadsCommand>

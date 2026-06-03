@@ -17,7 +17,6 @@ using NzbDrone.Core.CustomFilters;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.Datastore.Converters;
 using NzbDrone.Core.Download;
-using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Download.History.Manga;
 using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.History.Manga;
@@ -238,9 +237,6 @@ namespace NzbDrone.Core.Datastore
 
             // Phase 3 D-17 — per-SourceKey indexer status (sibling to IndexerStatus above).
             Mapper.Entity<IndexerSourceStatus>("IndexerSourceStatus").RegisterModel();
-
-            // Phase 4 D-05 — in-flight chapter download state (own ModelBase; per dev-migration-policy.md).
-            Mapper.Entity<ChapterDownloadState>("ChapterDownloadState").RegisterModel();
 
             // Phase 6 PIPELINE-04 — ChapterFile registration (parallel sibling to EpisodeFile).
             // ChapterHistory + MangaBlocklist registrations live in Plans 06-03 + 06-04 respectively

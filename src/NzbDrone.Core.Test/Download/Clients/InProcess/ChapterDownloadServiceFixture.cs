@@ -26,7 +26,7 @@ namespace NzbDrone.Core.Test.Download.Clients.InProcess
     /// <summary>
     /// Phase 4 plan 04-03 Task 2 — exercises the bounded Channel&lt;T&gt; orchestrator
     /// (DOWNLOAD-02): per-source channel capacity, cross-source independence,
-    /// ChapterArchivedEvent emission, manifest re-fetch flow on 403/410, and the
+    /// completion-status transitions, manifest re-fetch flow on 403/410, and the
     /// BLOCKER #4 regression guards that per-instance Settings flow through.
     /// </summary>
     [TestFixture]
@@ -167,18 +167,9 @@ namespace NzbDrone.Core.Test.Download.Clients.InProcess
             _persisted.Single(r => r.Id == rowId).Status.Should().Be(ChapterDownloadStatus.Completed);
         }
 
-        [Test]
-        public async Task On_complete_emits_ChapterArchivedEvent()
-        {
-            var aggregator = BuildAggregator("mangadex");
-            var rowId = await Subject.EnqueueAsync(BuildRemote(1, 100), aggregator.Object, BuildManifest(3), new InProcessImageDownloadClientSettings { DownloadsPerSource = 1, PagesPerChapter = 1 });
-
-            await WaitUntil(() => _persisted.Single(r => r.Id == rowId).Status == ChapterDownloadStatus.Completed, TimeSpan.FromSeconds(10));
-
-            _eventAggregator.Verify(
-                e => e.PublishEvent(It.Is<ChapterArchivedEvent>(ev => ev.MangaId == 1 && ev.ChapterId == 100)),
-                Times.Once);
-        }
+        // Phase 39 RETIRE-01: the On_complete_emits_ChapterArchivedEvent test was removed with the
+        // ChapterArchivedEvent type. Completion is now asserted via Status=Completed (above); the
+        // event's sole consumer (the in-process completion poller) was deleted in this plan.
 
         [Test]
         public async Task ManifestExpired_re_fetches_manifest_and_retries_once()

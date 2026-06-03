@@ -264,7 +264,10 @@ namespace NzbDrone.Core.Download.Clients.InProcess
             job.Row.UpdatedAt = DateTime.UtcNow;
             _stateRepo.SetFields(job.Row, r => r.StagingPath, r => r.Status, r => r.UpdatedAt);
 
-            _eventAggregator.PublishEvent(new ChapterArchivedEvent(job.Row.MangaId, job.Row.ChapterId, stagingPath, _configService.OutputFormat));
+            // Phase 39 RETIRE-01: ChapterArchivedEvent publish REMOVED — its sole consumer was
+            // the now-deleted in-process completion poller (ProcessMangaCompletedDownloads). The
+            // event type is deleted in this plan; the remainder of this in-process client is
+            // deleted in Plan 02.
             _logger.Info("Chapter {0} archived → {1}", job.Row.Title, stagingPath);
         }
 

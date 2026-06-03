@@ -8,7 +8,6 @@ using Moq;
 using NUnit.Framework;
 using NzbDrone.Common.Disk;
 using NzbDrone.Core.Download;
-using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.MangaImport;
@@ -18,23 +17,16 @@ using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.MediaFiles.MangaImport.Manual
 {
-    // Phase 9 Plan 09-14 (sub-wave A 09-05 audit gap-06 close-out) — fixture asserts the
-    // downloadId fast-path semantics added to MangaImport.Manual.ManualImportService:
-    //   1. Non-null downloadId + existing state row → folder overridden with stateRow.StagingPath
-    //      AND mangaId seeded from stateRow.MangaId when caller's mangaId is null.
-    //   2. Non-null downloadId + existing state row + caller-supplied mangaId → caller's
-    //      mangaId WINS (intentional manual-override semantics).
-    //   3. Non-null downloadId + NULL state row → silent fast-path skip; folder + mangaId
-    //      remain as caller passed (NOT an error path).
-    //   4. NULL downloadId → fast-path entirely skipped (zero FindByDownloadId calls).
-    //   5. Non-null state row with NULL StagingPath → only mangaId seeded; folder NOT overwritten
-    //      (verifies the StagingPath.IsNotNullOrWhiteSpace() guard).
+    // Phase 39 RETIRE-01 — the downloadId fast-path (formerly Plan 09-14: an
+    // IChapterDownloadStateRepository lookup that overrode folder/mangaId from the in-process
+    // ChapterDownloadState row) was REMOVED with the in-process download vertical. The fixture
+    // now asserts the post-retirement contract: a non-null downloadId is inert in GetMediaFiles
+    // and the caller-supplied folder + mangaId drive the scan unchanged (the gateway client
+    // stages into the supplied folder, so the folder argument is authoritative).
     //
     // The fixture uses CallerFolder existence as the proxy for "downstream consumed the caller's
-    // folder param" and TrackedFolder existence as the proxy for "downstream consumed the
-    // overridden folder from the state row". IMangaService.GetManga(int) is the proxy for
-    // "downstream consumed mangaId" — mirrors the production GetMediaFiles → ProcessFolder
-    // call chain at MangaImport/Manual/ManualImportService.cs:189-191.
+    // folder param". IMangaService.GetManga(int) is the proxy for "downstream consumed mangaId" —
+    // mirrors the production GetMediaFiles → ProcessFolder call chain.
     //
     // Phase 32 CORR-05 — ctor pair-injection of IMangaDiskScanService landed in commit
     // 4ce9475df (Plan 32-05 Task 1). IMangaDiskScanService now owns the .cbz/.cbr/.zip/.cb7
@@ -112,109 +104,26 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport.Manual
                 .Returns(new List<MangaImportDecision>());
         }
 
-        // ===================== gap-06 — downloadId fast-path =====================
+        // ===================== Phase 39 RETIRE-01 — downloadId is inert =====================
 
         [Test]
-        public void GetMediaFiles_with_non_null_downloadId_AND_existing_state_row_overrides_folder_with_StagingPath()
+        public void GetMediaFiles_with_non_null_downloadId_uses_caller_folder_and_mangaId_unchanged()
         {
-            var stateRow = Builder<ChapterDownloadState>.CreateNew()
-                .With(s => s.MangaId = 42)
-                .With(s => s.StagingPath = _trackedFolder)
-                .Build();
-
-            Mocker.GetMock<IChapterDownloadStateRepository>()
-                .Setup(r => r.FindByDownloadId("abc123"))
-                .Returns(stateRow);
-
-            Subject.GetMediaFiles(folder: _callerFolder, downloadId: "abc123", mangaId: null, filterExistingFiles: false);
-
-            // Downstream consumed mangaId == 42 (sourced from stateRow): GetManga(42) called.
-            Mocker.GetMock<IMangaService>()
-                .Verify(s => s.GetManga(42), Times.AtLeastOnce);
-
-            // Downstream consumed folder == _trackedFolder (sourced from stateRow.StagingPath):
-            // FolderExists(_trackedFolder) called.
-            Mocker.GetMock<IDiskProvider>()
-                .Verify(d => d.FolderExists(_trackedFolder), Times.AtLeastOnce);
-        }
-
-        [Test]
-        public void GetMediaFiles_with_non_null_downloadId_AND_existing_state_row_does_NOT_override_caller_supplied_mangaId()
-        {
-            var stateRow = Builder<ChapterDownloadState>.CreateNew()
-                .With(s => s.MangaId = 42)
-                .With(s => s.StagingPath = _trackedFolder)
-                .Build();
-
-            Mocker.GetMock<IChapterDownloadStateRepository>()
-                .Setup(r => r.FindByDownloadId("abc123"))
-                .Returns(stateRow);
-
+            // Post-retirement contract: a non-null downloadId no longer triggers any in-process
+            // state-row lookup or folder/mangaId override. The caller-supplied folder + mangaId
+            // drive the scan straight through to ProcessFolder (the gateway client stages into the
+            // supplied folder, so the folder argument is authoritative for post-grab import).
             Subject.GetMediaFiles(folder: _callerFolder, downloadId: "abc123", mangaId: 99, filterExistingFiles: false);
 
-            // Caller's mangaId == 99 wins over stateRow.MangaId == 42 (intentional manual-override).
+            // Caller's mangaId == 99 consumed downstream (no override from a state row).
             Mocker.GetMock<IMangaService>()
                 .Verify(s => s.GetManga(99), Times.AtLeastOnce);
-            Mocker.GetMock<IMangaService>()
-                .Verify(s => s.GetManga(42), Times.Never);
-        }
 
-        [Test]
-        public void GetMediaFiles_with_non_null_downloadId_AND_null_state_row_falls_back_to_folder_fallback()
-        {
-            Mocker.GetMock<IChapterDownloadStateRepository>()
-                .Setup(r => r.FindByDownloadId("stale123"))
-                .Returns((ChapterDownloadState)null);
-
-            Subject.GetMediaFiles(folder: _callerFolder, downloadId: "stale123", mangaId: null, filterExistingFiles: false);
-
-            // Lookup attempted (the fast-path tried), but stateRow was null → folder unchanged.
-            Mocker.GetMock<IChapterDownloadStateRepository>()
-                .Verify(r => r.FindByDownloadId("stale123"), Times.Once);
-
+            // Caller's folder consumed downstream; the (deleted) tracked StagingPath is never used.
             Mocker.GetMock<IDiskProvider>()
                 .Verify(d => d.FolderExists(_callerFolder), Times.AtLeastOnce);
             Mocker.GetMock<IDiskProvider>()
                 .Verify(d => d.FolderExists(_trackedFolder), Times.Never);
-        }
-
-        [Test]
-        public void GetMediaFiles_with_null_downloadId_skips_the_fast_path_entirely()
-        {
-            Subject.GetMediaFiles(folder: _callerFolder, downloadId: null, mangaId: null, filterExistingFiles: false);
-
-            // Fast-path was never attempted — zero repository calls.
-            Mocker.GetMock<IChapterDownloadStateRepository>()
-                .Verify(r => r.FindByDownloadId(It.IsAny<string>()), Times.Never);
-
-            // Caller's folder consumed downstream.
-            Mocker.GetMock<IDiskProvider>()
-                .Verify(d => d.FolderExists(_callerFolder), Times.AtLeastOnce);
-        }
-
-        [Test]
-        public void GetMediaFiles_with_non_null_downloadId_AND_state_row_with_null_StagingPath_does_NOT_overwrite_folder()
-        {
-            var stateRow = Builder<ChapterDownloadState>.CreateNew()
-                .With(s => s.MangaId = 42)
-                .With(s => s.StagingPath = null)
-                .Build();
-
-            Mocker.GetMock<IChapterDownloadStateRepository>()
-                .Setup(r => r.FindByDownloadId("abc123"))
-                .Returns(stateRow);
-
-            Subject.GetMediaFiles(folder: _callerFolder, downloadId: "abc123", mangaId: null, filterExistingFiles: false);
-
-            // StagingPath was null → fast-path seeded mangaId only; folder unchanged.
-            Mocker.GetMock<IDiskProvider>()
-                .Verify(d => d.FolderExists(_callerFolder), Times.AtLeastOnce);
-            Mocker.GetMock<IDiskProvider>()
-                .Verify(d => d.FolderExists(_trackedFolder), Times.Never);
-
-            // mangaId WAS seeded from stateRow.
-            Mocker.GetMock<IMangaService>()
-                .Verify(s => s.GetManga(42), Times.AtLeastOnce);
         }
 
         // ===================== CORR-05 — IMangaDiskScanService pair-call =====================
