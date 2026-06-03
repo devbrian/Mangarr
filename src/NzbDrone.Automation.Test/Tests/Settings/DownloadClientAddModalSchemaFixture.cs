@@ -13,7 +13,8 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 ///
 /// Opens /settings/downloadclients, clicks the empty add card, asserts the
 /// picker modal renders, GET /api/v5/downloadclient/schema completed 200, and
-/// the InProcess schema card is visible (D-06 canonical DownloadClient pick).
+/// the Gateway schema card is visible (Phase 39 Plan 39-07 — GatewayDownloadClient
+/// is the sole download client after the in-process image downloader was retired).
 ///
 /// Tier (D-04): GET-axis = PR-smoke.
 /// </summary>
@@ -38,6 +39,6 @@ public class DownloadClientAddModalSchemaFixture : AutomationTest
 
         var picker = new AddDownloadClientModal(Page);
         await Assertions.Expect(picker.ModalRoot).ToBeVisibleAsync(new() { Timeout = 15_000 });
-        await Assertions.Expect(picker.InProcessCard).ToBeVisibleAsync(new() { Timeout = 15_000 });
+        await Assertions.Expect(picker.GatewayCard).ToBeVisibleAsync(new() { Timeout = 15_000 });
     }
 }

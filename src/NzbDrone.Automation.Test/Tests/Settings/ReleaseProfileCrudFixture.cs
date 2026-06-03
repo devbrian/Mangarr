@@ -19,7 +19,7 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// ReleaseProfileResource.cs). No TestKit seeder ships for it in Plan 20-01;
 /// the fixture exercises the API contract directly via Playwright's
 /// IAPIRequestContext (which inherits the X-Api-Key header from the browser
-/// context — same pattern as DownloadClientsInProcessFixture).
+/// context — same pattern as DownloadClientsGatewayFixture).
 ///
 /// CRUD round-trip: POST creates -> GET lists (contains new name) ->
 /// DELETE removes -> GET no longer contains name. State-assertion at every

@@ -14,10 +14,11 @@ namespace NzbDrone.Automation.Test.Tests.System;
 // running NzbDroneRunner. On the fresh-DB-per-fixture boot (D-05) the table
 // reliably carries the lifecycle + default-seed messages — verified live
 // (2026-05-28): "Application started", "Now listening on", "Seeding default
-// indexer: Comix/MangaDex", "Setting up default translation/delay/custom-format
-// profile". The fixture asserts the table surfaces one of those real log
-// MESSAGES (data) OR the "No events found" empty-state alert as the terminal
-// state — never chrome.
+// indexer" (the GatewayIndexer post-Phase-39; the in-process Comix/MangaDex
+// scrapers were retired in Plan 39-03), "Setting up default translation/delay/
+// custom-format profile". The fixture asserts the table surfaces one of those
+// real log MESSAGES (data) OR the "No events found" empty-state alert as the
+// terminal state — never chrome.
 [TestFixture]
 [Category("AutomationTest")]
 public class EventsLogFixture : AutomationTest

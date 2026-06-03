@@ -8,11 +8,14 @@ using NzbDrone.Automation.Test.PageModel.Settings;
 namespace NzbDrone.Automation.Test.Tests.Settings;
 
 /// <summary>
-/// Phase 20 Plan 20-05 — INVENTORY modal-action row EditDownloadClientModal.
-/// Opens the baseline InProcess DownloadClient ("InProcess (test seed)" seeded
-/// by SeedBaselineAsync at TestKit L93-99) via its card, changes priority, and
-/// asserts the PUT returns 2xx. Blocker #4 path (b) — render is deterministic
-/// off the AutomationTest base seed; NO Inconclusive branch.
+/// Phase 20 Plan 20-05 / Phase 39 Plan 39-07 — INVENTORY modal-action row
+/// EditDownloadClientModal. Opens the baseline gateway DownloadClient
+/// ("Gateway (test seed)" seeded by SeedBaselineAsync) via its card, changes
+/// priority, and asserts the PUT returns 2xx. Blocker #4 path (b) — render is
+/// deterministic off the AutomationTest base seed; NO Inconclusive branch.
+/// Repointed from the retired in-process client (Plan 39-02) — this fixture
+/// CRUD-exercises a download client without asserting its implementation, so the
+/// gateway client satisfies it.
 ///
 /// Tier (D-04): modal-action axis = Nightly.
 /// </summary>
@@ -24,7 +27,7 @@ public class EditDownloadClientModalFixture : AutomationTest
     public async Task edit_persists()
     {
         var page = await new SettingsDownloadClientsPage(Page).OpenAsync(RootUri);
-        var card = page.CardByName("InProcess (test seed)");
+        var card = page.CardByName("Gateway (test seed)");
         await Assertions.Expect(card).ToBeVisibleAsync(new() { Timeout = 15_000 });
         await card.ClickAsync();
 
