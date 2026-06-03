@@ -276,13 +276,23 @@ public class TestKit
     // ────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Phase 20 Plan 20-01 (D-06) — Seeds a MangaDex Indexer via
+    /// Phase 20 Plan 20-01 (D-06) / Phase 39 Plan 39-07 — Seeds a Gateway Indexer via
     /// <c>POST /api/v5/indexer?skipTesting=true</c>. Canonical implementation
-    /// <c>"MangaDexIndexer"</c> + configContract <c>"MangaDexIndexerSettings"</c>
-    /// (verified at src/NzbDrone.Core/Indexers/MangaDex/MangaDexIndexer.cs +
-    /// MangaDexIndexerSettings.cs). Default rate 1.5s per MangaDex ToS.
+    /// <c>"GatewayIndexer"</c> + configContract <c>"GatewaySettings"</c>
+    /// (verified at src/NzbDrone.Core/Indexers/Gateway/GatewayIndexer.cs +
+    /// GatewaySettings.cs). Repointed from the retired in-process site-scraper indexer
+    /// (deleted in Plan 39-03) — the gateway is now the sole <c>IIndexer</c>.
+    ///
+    /// The <c>GatewaySettingsValidator</c> requires a valid root URL (<c>BaseUrl</c>) and a
+    /// non-empty <c>ApiKey</c>; both are sent explicitly. The app auto-seeds a default
+    /// DISABLED "Manga Gateway" gateway indexer at startup, so this test-seed instance uses a
+    /// DISTINCT name ("Gateway (test seed)" by default) to avoid collision. Seeded ENABLED so
+    /// the Edit modal's Test button fires the local browser→Mangarr POST the offline fixtures
+    /// observe; <c>?skipTesting=true</c> bypasses the enabled-provider <c>Test()</c> call in
+    /// <c>ProviderControllerBase.CreateProvider</c> so the seed POST never hits the unreachable
+    /// gateway host.
     /// </summary>
-    public async Task<int> SeedIndexerAsync(string name = "MangaDex (test seed)")
+    public async Task<int> SeedIndexerAsync(string name = "Gateway (test seed)")
     {
         var response = await ExecuteWithStartupRetryAsync(
             nameof(SeedIndexerAsync),
@@ -297,14 +307,13 @@ public class TestKit
                     enableAutomaticSearch = true,
                     enableInteractiveSearch = true,
                     name,
-                    implementation = "MangaDexIndexer",
-                    configContract = "MangaDexIndexerSettings",
+                    implementation = "GatewayIndexer",
+                    configContract = "GatewaySettings",
                     priority = 25,
                     fields = new object[]
                     {
-                        new { name = "baseUrl", value = "https://api.mangadex.org" },
-                        new { name = "sourceKey", value = "mangadex" },
-                        new { name = "rateSeconds", value = 1.5 }
+                        new { name = "baseUrl", value = "http://localhost:8080" },
+                        new { name = "apiKey", value = "test-seed-key" }
                     }
                 });
                 return req;

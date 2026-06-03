@@ -26,6 +26,13 @@ public class EditIndexerModal : PageBase
     public ILocator ModalRoot     => Page.GetByTestId("edit-indexer-modal");
     public ILocator NameInput     => ModalRoot.GetByTestId("settings-indexer-field-name");
 
+    // GatewaySettings provider fields (Phase 39 Plan 39-07 — the GatewayIndexer is the
+    // sole IIndexer). ProviderFieldFormGroup derives the testid as
+    // `settings-{provider}-field-{field.name}`; GatewaySettings exposes `baseUrl` + `apiKey`
+    // (both validator-required: BaseUrl ValidRootUrl + ApiKey NotEmpty).
+    public ILocator BaseUrlInput  => ModalRoot.GetByTestId("settings-indexer-field-baseUrl");
+    public ILocator ApiKeyInput   => ModalRoot.GetByTestId("settings-indexer-field-apiKey");
+
     // Priority lives inside a FormGroup gated `isAdvanced={true}` so it does not
     // render until `<AdvancedSettingsButton>` is toggled on. Use AdvancedToggle
     // first before locating PriorityInput.
