@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
@@ -58,10 +58,28 @@ function RemoveQueueItemModal(props: RemoveQueueItemModalProps) {
   // show the box checked-and-disabled but still submit `remove=false`, so the gateway job would
   // survive and the row reappear. Force the persisted value true while a locked modal is open so
   // the submitted query matches the locked UI.
+  //
+  // GH #309 (CodeRabbit review): only force it TEMPORARILY — restore the user's prior preference
+  // once the locked modal closes. Otherwise opening one locked modal would permanently flip the
+  // shared default to true, silently making the NEXT removable item submit remove=true. The ref
+  // records that we did the force so the restore runs exactly once on close/unlock.
+  const forcedRemoveFromClientRef = useRef(false);
+
   useEffect(() => {
     if (isOpen && isRemoveLocked && !removeFromClient) {
+      forcedRemoveFromClientRef.current = true;
       setQueueOption('removalOptions', {
         removeFromClient: true,
+        blocklist,
+        skipRedownload,
+      });
+      return;
+    }
+
+    if ((!isOpen || !isRemoveLocked) && forcedRemoveFromClientRef.current) {
+      forcedRemoveFromClientRef.current = false;
+      setQueueOption('removalOptions', {
+        removeFromClient: false,
         blocklist,
         skipRedownload,
       });
