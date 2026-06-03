@@ -9,7 +9,6 @@ using NUnit.Framework;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
-using NzbDrone.Core.MediaFiles.ChapterArchiving.Cbz;
 using NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo;
 using NzbDrone.Core.Parser.Model;
 
@@ -23,11 +22,14 @@ namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving.Metadata
     /// <see cref="ComicInfoMetadataWriter"/>. Verifies AppliesTo respects
     /// <c>Config.MetadataFormats</c> (D-14 disable / case-insensitive) and that
     /// WriteAsync streams ComicInfo.xml correctly via the
-    /// <see cref="ArchiveOutputContext.OpenSidecar"/> seam against a real
-    /// <see cref="CbzArchiveOutputContext"/>.
+    /// <see cref="ArchiveOutputContext.OpenSidecar"/> seam.
     ///
-    /// FolderArchiveOutputContext composition test is deferred — plan 04-05
-    /// has not landed in this worktree's base yet (Wave 2 race).
+    /// Phase 39 Plan 02 (RETIRE-01): the concrete <c>CbzArchiveOutputContext</c> /
+    /// <c>FolderArchiveOutputContext</c> were deleted along with the orphaned in-process
+    /// archiver set. This fixture now exercises the abstract <see cref="ArchiveOutputContext"/>
+    /// seam against a minimal in-fixture ZIP-backed double, which is all the surviving
+    /// <see cref="ComicInfoMetadataWriter"/> contract requires (it only calls
+    /// <see cref="ArchiveOutputContext.OpenSidecar"/>).
     /// </summary>
     [TestFixture]
     public class ComicInfoMetadataWriterFixture : CoreTest<ComicInfoMetadataWriter>
@@ -107,14 +109,14 @@ namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving.Metadata
         }
 
         [Test]
-        public async Task WriteAsync_streams_via_CbzArchiveOutputContext()
+        public async Task WriteAsync_streams_via_OpenSidecar_seam()
         {
-            // Compose against a real ZipArchive in-memory just to verify the
-            // OpenSidecar abstraction round-trips.
+            // Compose against a real ZipArchive in-memory through the abstract
+            // ArchiveOutputContext.OpenSidecar seam just to verify the writer round-trips.
             using var ms = new MemoryStream();
             using (var archive = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
             {
-                var ctx = new CbzArchiveOutputContext(archive);
+                var ctx = new ZipBackedOutputContext(archive);
                 await Subject.WriteAsync(_req, ctx, CancellationToken.None);
             }
 
@@ -132,12 +134,22 @@ namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving.Metadata
             xml.Should().Contain("<ScanInformation>G</ScanInformation>");
         }
 
-        [Test]
-        [Ignore("FolderArchiveOutputContext lands in plan 04-05 (Wave 2); enable once base catches up.")]
-        public Task WriteAsync_streams_via_FolderArchiveOutputContext()
+        // Minimal ArchiveOutputContext double — Phase 39 Plan 02 replaced the deleted
+        // CbzArchiveOutputContext (it opened a ZIP entry exactly like this). The surviving
+        // ComicInfoMetadataWriter only depends on the abstract OpenSidecar contract.
+        private sealed class ZipBackedOutputContext : ArchiveOutputContext
         {
-            // Placeholder — extend with the symmetric folder-side test when 04-05 lands.
-            return Task.CompletedTask;
+            private readonly ZipArchive _archive;
+
+            public ZipBackedOutputContext(ZipArchive archive)
+            {
+                _archive = archive;
+            }
+
+            public override Stream OpenSidecar(string filename)
+            {
+                return _archive.CreateEntry(filename).Open();
+            }
         }
     }
 }

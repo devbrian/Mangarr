@@ -3,9 +3,11 @@ using NzbDrone.Core.Parser.Model;
 namespace NzbDrone.Core.MediaFiles.ChapterArchiving
 {
     /// <summary>
-    /// Phase 4 — DTO carrying everything an archiver + metadata writer needs for ONE chapter.
-    /// Constructed by <c>ChapterDownloadService</c> (plan 04-03) just before invoking
-    /// <see cref="IChapterArchiver.ArchiveAsync"/>.
+    /// Phase 4 — DTO carrying everything a metadata writer needs for ONE chapter. Originally
+    /// constructed by the in-process <c>ChapterDownloadService</c> just before invoking the
+    /// chapter archiver (both retired in Phase 39 Plan 02, RETIRE-01). The surviving consumer
+    /// is the Phase-38 <c>ComicInfoCbzInjector</c>, which reconstructs a minimal request to feed
+    /// <c>ComicInfoXmlBuilder</c> when upserting ComicInfo.xml into a finished gateway CBZ.
     ///
     /// Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — Manga / Chapter properties
     /// retyped from TV (Series / Episode) to manga domain types per Plan 15-03 Tv/ DELETE.

@@ -17,10 +17,10 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo
     /// can be <c>[]</c> to disable; can stack <c>["comicinfo","mihon"]</c> in v2 once
     /// additional writers ship — D-14 plugin contract).
     ///
-    /// Composes with both <see cref="Cbz.CbzArchiveOutputContext"/> (writes ComicInfo.xml
-    /// entry into the open ZipArchive) and the v2 folder context (plan 04-05 — writes
-    /// ComicInfo.xml beside images) via the format-agnostic
-    /// <see cref="ArchiveOutputContext.OpenSidecar"/> seam.
+    /// Composes with any <see cref="ArchiveOutputContext"/> implementation via the
+    /// format-agnostic <see cref="ArchiveOutputContext.OpenSidecar"/> seam. The concrete
+    /// CBZ / folder output contexts were retired with the in-process archiver set in
+    /// Phase 39 Plan 02 (RETIRE-01).
     /// </summary>
     public class ComicInfoMetadataWriter : IMetadataWriter
     {
