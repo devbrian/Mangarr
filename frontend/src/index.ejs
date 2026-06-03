@@ -18,6 +18,20 @@
     <meta name="description" content="Mangarr" />
     <meta name="application-name" content="Mangarr" />
 
+    <!--
+      Sonarr divergence: Mangarr-retinted SVG favicon is the preferred browser-tab
+      icon. It is the in-app logo (Content/Images/logo.svg, manga-pink #f06292
+      accent) reused verbatim as the tab icon — the same retint-in-place approach
+      used for the top-left site logo. Modern browsers honor rel="icon"
+      type="image/svg+xml" and prefer it over the .ico, so the inherited
+      Sonarr-blue raster .ico/.png set no longer renders in the tab. The raster
+      assets remain as legacy/PWA/apple-touch fallbacks pending a future bake.
+    -->
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="/Content/Images/Icons/favicon.svg"
+    />
     <link
       rel="apple-touch-icon"
       sizes="180x180"
@@ -39,9 +53,9 @@
     <!--
       Sonarr divergence (minimal): mask-icon SVG kept verbatim (Safari pinned-tab
       convention is a black silhouette mask); only the link's `color` attribute
-      is retinted from Sonarr cyan (#00ccff) to manga pink (#f06292). PNG /
-      apple-touch / .ico assets carry forward unchanged from Sonarr; Phase 8 may
-      re-bake the multi-resolution PNG set if needed.
+      is retinted from Sonarr cyan (#00ccff) to manga pink (#f06292). The raster
+      apple-touch / .ico fallbacks carry forward from Sonarr; a future bake may
+      re-render the multi-resolution PNG set to match the SVG.
     -->
     <link
       rel="mask-icon"
