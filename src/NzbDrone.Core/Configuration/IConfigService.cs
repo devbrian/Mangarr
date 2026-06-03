@@ -41,7 +41,6 @@ namespace NzbDrone.Core.Configuration
         bool EnableMediaInfo { get; set; }
         bool UseScriptImport { get; set; }
         string ScriptImportPath { get; set; }
-        string CloudflareSolverUrl { get; set; }
         bool ImportExtraFiles { get; set; }
         string ExtraFileExtensions { get; set; }
         RescanAfterRefreshType RescanAfterRefresh { get; set; }
