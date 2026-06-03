@@ -279,7 +279,27 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                     // to the enclosing per-decision catch (Exception ex) below, which publishes
                     // ChapterImportFailedEvent ONCE (no duplicate publish). The chapter then does NOT land
                     // and the Phase-36 auto-retry orchestrator handles it.
-                    _comicInfoCbzInjector.Inject(chapterFile, lc.Manga, lc.Chapter);
+                    //
+                    // GH #311 review (P2): GATED to ZIP-based containers. The shared import path also
+                    // accepts .cbr (RAR) / .cb7 (7z) via MangaFileExtensions (disk-scan + manual import),
+                    // and ComicInfoCbzInjector opens the archive with ZipArchiveMode.Update — which throws
+                    // on a non-ZIP file. Because this runs AFTER _chapterFileService.Add, an unconditional
+                    // call would fail the import of a perfectly valid RAR/7z manga archive *after* the row
+                    // was committed. Non-ZIP formats import WITHOUT ComicInfo injection; the gateway always
+                    // delivers .cbz (D-D), so the gateway path is unaffected.
+                    var chapterFileExtension = Path.GetExtension(chapterFile.Path);
+                    if (chapterFileExtension.Equals(".cbz", StringComparison.OrdinalIgnoreCase) ||
+                        chapterFileExtension.Equals(".zip", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _comicInfoCbzInjector.Inject(chapterFile, lc.Manga, lc.Chapter);
+                    }
+                    else
+                    {
+                        _logger.Debug(
+                            "Skipping ComicInfo injection for non-ZIP archive {0} ({1}); injector requires .cbz/.zip",
+                            chapterFile.Path,
+                            chapterFileExtension);
+                    }
 
                     // ---- 4. Wire Chapter.ChapterFileId FK (Plan 06-01 PIPELINE-04 column) ----
                     lc.Chapter.ChapterFileId = chapterFile.Id;

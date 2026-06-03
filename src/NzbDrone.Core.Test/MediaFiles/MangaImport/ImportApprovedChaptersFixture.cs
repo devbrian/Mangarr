@@ -369,6 +369,27 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
         }
 
         [Test]
+        public void should_skip_comicinfo_injection_for_non_zip_archive_but_still_import()
+        {
+            // GH #311 review (P2): .cbr (RAR) / .cb7 (7z) are valid manga archives in the shared
+            // import path (MangaFileExtensions — disk-scan + manual import). ComicInfoCbzInjector
+            // opens ZipArchiveMode.Update and would throw on a non-ZIP file AFTER the ChapterFile
+            // row is committed, failing the import of a valid archive. Injection is gated to
+            // .cbz/.zip; non-ZIP formats import WITHOUT injection.
+            var cbrDest = @"C:\Library\TestManga\ch12.cbr".AsOsAgnostic();
+            Mocker.GetMock<IBuildMangaPaths>()
+                .Setup(p => p.BuildChapterPath(It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>(), It.IsAny<string>()))
+                .Returns(cbrDest);
+
+            Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
+
+            Mocker.GetMock<IComicInfoCbzInjector>()
+                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>()), Times.Never);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()), Times.Once);
+        }
+
+        [Test]
         public void should_invoke_comicinfo_injector_BEFORE_chapter_imported_event()
         {
             // Pitfall 4 / D-A2 ordering: the ComicInfo injection MUST complete before
