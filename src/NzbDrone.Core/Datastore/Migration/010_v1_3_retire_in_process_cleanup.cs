@@ -69,7 +69,44 @@ namespace NzbDrone.Core.Datastore.Migration
             //     gateway's live IndexerSourceStatus rows (written by GatewayParser) are preserved.
             Execute.Sql("DELETE FROM \"IndexerSourceStatus\" WHERE \"SourceKey\" IN ('mangadex', 'comix.to')");
 
-            // (4) Drop the now-empty in-process staging table (every reader deleted in Plan 39-02).
+            // (4) Drop the in-process staging table (every reader deleted in Plan 39-02).
+            //
+            // Defensive surface (PR #312 review P2): the DROP is the intended, irreversible
+            // retirement (D-02) — the in-process download client is deleted, so NOTHING can
+            // resume an in-flight in-process download's staged CBZ/scratch rows. But before the
+            // drop, count any rows that WOULD be orphaned and emit a Warn naming the count, so a
+            // user upgrading mid-download sees that their staged scratch files are abandoned by
+            // the retirement and must re-grab via the gateway. The count is best-effort + safe if
+            // the table is already gone (idempotent re-run / fresh-DB-where-001-already-skipped it):
+            // the try/catch swallows the "no such table" error so the DROP path still proceeds.
+            var orphanRows = 0;
+            Execute.WithConnection((connection, transaction) =>
+            {
+                try
+                {
+                    using var countCmd = connection.CreateCommand();
+                    countCmd.Transaction = transaction;
+                    countCmd.CommandText = "SELECT COUNT(*) FROM \"ChapterDownloadState\"";
+                    orphanRows = System.Convert.ToInt32(countCmd.ExecuteScalar());
+                }
+                catch (System.Exception ex)
+                {
+                    // Table already absent (idempotent re-run) — nothing to warn about; the
+                    // Delete.Table below is itself guarded by FluentMigrator's IfExists semantics.
+                    _logger.Trace(ex, "ChapterDownloadState row-count skipped — table not present.");
+                    orphanRows = 0;
+                }
+            });
+
+            if (orphanRows > 0)
+            {
+                _logger.Warn(
+                    "Dropping in-process ChapterDownloadState staging table with {0} in-flight row(s): " +
+                    "the in-process download client was retired (Phase 39), so these staged/scratch CBZ files " +
+                    "are abandoned and cannot be resumed. Re-grab the affected chapters via the external gateway.",
+                    orphanRows);
+            }
+
             Delete.Table("ChapterDownloadState");
         }
     }

@@ -122,7 +122,35 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         }
 
         // ============================================================
-        // Test 5 — Anti-Pattern C: the migration source contains ZERO Insert.IntoTable
+        // Test 5 — the ChapterDownloadState drop SUCCEEDS even when the table is seeded
+        //          NON-EMPTY (an in-flight in-process download mid-upgrade). The drop is the
+        //          intended irreversible retirement (D-02); the migration emits a defensive
+        //          Warn naming the orphaned-row count BEFORE the drop (PR #312 review P2). This
+        //          exercises the warn path (orphanRows > 0 branch) and proves the drop still
+        //          succeeds with rows present — the table is gone afterward regardless.
+        // ============================================================
+        [Test]
+        public void should_drop_chapter_download_state_table_even_when_seeded_non_empty()
+        {
+            var db = WithDapperMigrationTestDb(beforeMigration: m =>
+            {
+                // One in-flight in-process download row — the orphan the Warn path names.
+                m.Execute.Sql(
+                    "INSERT INTO \"ChapterDownloadState\" " +
+                    "(\"MangaId\", \"ChapterId\", \"Title\", \"RemoteChapterJson\", \"TotalPages\", \"CompletedPages\", " +
+                    " \"EstimatedSizeBytes\", \"ScratchDir\", \"Status\", \"CreatedAt\", \"UpdatedAt\") " +
+                    "VALUES " +
+                    "(1, 1, 'TestKit in-flight chapter', '{}', 10, 3, 0, '/scratch/1', 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')");
+            });
+
+            // The migration ran with a non-empty table (the Warn path fired); the table is dropped.
+            var count = db.Query<int>(
+                "SELECT COUNT(*) FROM \"sqlite_master\" WHERE \"type\" = 'table' AND \"name\" = 'ChapterDownloadState'").Single();
+            count.Should().Be(0, "Migration 010 must drop ChapterDownloadState even when it holds in-flight rows (D-02 irreversible retirement; the orphan-row Warn is informational, not a halt)");
+        }
+
+        // ============================================================
+        // Test 6 — Anti-Pattern C: the migration source contains ZERO Insert.IntoTable
         //          calls. This is a pure DELETE + DROP cleanup; it seeds no rows.
         // ============================================================
         [Test]
@@ -130,8 +158,52 @@ namespace NzbDrone.Core.Test.Datastore.Migration
         {
             var migrationSource = ReadMigrationSource();
 
-            migrationSource.Should().NotContain("Insert.IntoTable",
-                "Migration 010 must NOT seed any rows (Anti-Pattern C — it is a pure orphan-state cleanup)");
+            // Strip comments before counting — a `// ... Insert.IntoTable ...` documentation
+            // note (Migration 010's own anti-pattern-C explainer mentions the token by name)
+            // must not trip the gate. Count only non-commented occurrences, mirroring the
+            // textual guard in TaskManagerDefaultTasksFixture.Migration_001_contains_zero_Insert_IntoTable_calls.
+            var hits = 0;
+            var inBlockComment = false;
+            foreach (var raw in migrationSource.Split('\n'))
+            {
+                var trimmed = raw.TrimStart();
+
+                // Crude /* ... */ block-comment tracking: skip lines fully inside a block comment.
+                if (inBlockComment)
+                {
+                    if (trimmed.Contains("*/"))
+                    {
+                        inBlockComment = false;
+                    }
+
+                    continue;
+                }
+
+                if (trimmed.StartsWith("/*") && !trimmed.Contains("*/"))
+                {
+                    inBlockComment = true;
+                    continue;
+                }
+
+                // Skip whole-line `//` comments.
+                if (trimmed.StartsWith("//"))
+                {
+                    continue;
+                }
+
+                // Strip a trailing `// ...` line-comment so an inline note after real code
+                // can't smuggle the token past the gate either.
+                var commentIdx = trimmed.IndexOf("//", System.StringComparison.Ordinal);
+                var codePart = commentIdx >= 0 ? trimmed.Substring(0, commentIdx) : trimmed;
+
+                if (codePart.Contains("Insert.IntoTable"))
+                {
+                    hits++;
+                }
+            }
+
+            hits.Should().Be(0,
+                "Migration 010 must NOT seed any rows (Anti-Pattern C — it is a pure orphan-state cleanup; comment mentions of the token are stripped before counting)");
         }
 
         private static string ReadMigrationSource()
