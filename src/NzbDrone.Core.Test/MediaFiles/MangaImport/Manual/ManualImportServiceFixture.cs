@@ -119,11 +119,23 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport.Manual
             Mocker.GetMock<IMangaService>()
                 .Verify(s => s.GetManga(99), Times.AtLeastOnce);
 
-            // Caller's folder consumed downstream; the (deleted) tracked StagingPath is never used.
+            // Caller's folder consumed by the FolderExists preflight; the (deleted) tracked
+            // StagingPath is never used.
             Mocker.GetMock<IDiskProvider>()
                 .Verify(d => d.FolderExists(_callerFolder), Times.AtLeastOnce);
             Mocker.GetMock<IDiskProvider>()
                 .Verify(d => d.FolderExists(_trackedFolder), Times.Never);
+
+            // Stronger downstream-scan proof (PR #312 review): the FolderExists preflight only
+            // proves the entry-point saw the caller folder. Verify the SCAN itself kept using the
+            // unchanged caller folder — ProcessFolder(folder, folder, ...) → ListMangaArchives →
+            // IMangaDiskScanService.GetMangaFiles(_callerFolder, false). A non-null downloadId no
+            // longer rewrites the scan folder to a (deleted) state-row StagingPath, so the caller
+            // folder must reach GetMangaFiles verbatim. The tracked folder must NEVER be scanned.
+            Mocker.GetMock<IMangaDiskScanService>()
+                .Verify(s => s.GetMangaFiles(_callerFolder, false), Times.AtLeastOnce);
+            Mocker.GetMock<IMangaDiskScanService>()
+                .Verify(s => s.GetMangaFiles(_trackedFolder, It.IsAny<bool>()), Times.Never);
         }
 
         // ===================== CORR-05 — IMangaDiskScanService pair-call =====================

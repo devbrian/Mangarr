@@ -58,6 +58,17 @@ namespace NzbDrone.Core.Test.Indexer
                   })
                   .Returns<IndexerDefinition>(d => d);
 
+            // Wire Delete to actually mutate _stored so RemoveMissingImplementations'
+            // orphan purge is modeled faithfully: the base ProviderFactory.Handle calls
+            // RemoveMissingImplementations() (which Deletes every stored def whose
+            // Implementation does not resolve to a registered IIndexer) BEFORE
+            // InitializeProviders(). Without this callback the orphan row would survive in
+            // _stored, so the seed-skip path was only "green" because the mock Delete was a
+            // no-op — masking the real post-purge behavior (PR #312 review Major).
+            Mocker.GetMock<IIndexerRepository>()
+                  .Setup(r => r.Delete(It.IsAny<IndexerDefinition>()))
+                  .Callback<IndexerDefinition>(d => _stored.RemoveAll(x => x.Id == d.Id));
+
             // Replace the auto-resolved IEnumerable<IIndexer> with our stub list so the
             // factory under test sees exactly our seed target.
             Mocker.SetConstant<IEnumerable<IIndexer>>(_providers);
@@ -105,12 +116,19 @@ namespace NzbDrone.Core.Test.Indexer
         }
 
         [Test]
-        public void Handle_ApplicationStarted_skips_seed_when_user_deleted_seeded_row()
+        public void Handle_ApplicationStarted_purges_orphan_impl_then_reseeds_gateway_on_now_empty_db()
         {
-            // User explicitly deleted the seeded row but added a different indexer. Subsequent
-            // restart must NOT recreate the Gateway — All().Any() returns true so we leave the
-            // table alone. This is the user-override-respect contract; without it, "delete this
-            // row" would have no permanent effect.
+            // A stored definition whose Implementation does NOT resolve to any registered IIndexer
+            // (e.g. a deleted MangaDex/Comix row carried over an upgrade, or a binary built without
+            // a plugin). This models the REAL ProviderFactory.Handle flow faithfully:
+            //   1. RemoveMissingImplementations() Deletes the orphan (GetImplementation == null) —
+            //      GatewayIndexer is the SOLE resolvable IIndexer at HEAD (Phase 39 RETIRE-02), so
+            //      "SomeOtherIndexer" is unresolvable and purged (a Warn is logged per the base).
+            //   2. With the orphan gone, the table is now empty, so InitializeProviders() seeds the
+            //      Gateway default (the empty-table → seed contract).
+            // The prior test asserted the OPPOSITE (the orphan survives, no reseed) and only stayed
+            // green because the mocked Delete was a no-op — masking the purge entirely (PR #312
+            // review Major). The Delete mock now mutates _stored so the purge is observable.
             _stored.Add(new IndexerDefinition
             {
                 Id = 1,
@@ -121,15 +139,20 @@ namespace NzbDrone.Core.Test.Indexer
 
             Subject.Handle(new ApplicationStartedEvent());
 
+            // The orphan was purged and the now-empty table reseeded with the Gateway default —
+            // exactly one row, and it is the Gateway (NOT the orphan).
             _stored.Should().HaveCount(1);
-            _stored[0].Implementation.Should().Be("SomeOtherIndexer");
+            _stored[0].Implementation.Should().Be(nameof(GatewayIndexer));
+            _stored[0].Name.Should().Be("Manga Gateway");
 
-            // GatewayIndexer is the SOLE resolvable IIndexer at HEAD (Phase 39 RETIRE-02), so the
-            // base ProviderFactory.RemoveMissingImplementations correctly logs a Warn while purging
-            // the orphan "SomeOtherIndexer" definition (the same orphan-purge that cleans deleted
-            // MangaDex/Comix rows on upgrade). The mocked repository Delete is a no-op, so the row
-            // survives in _stored and the seed-skip assertions above still hold; we only need to
-            // acknowledge the expected Warn so LoggingTest's teardown does not fail.
+            // The reseeded gateway is DISABLED-by-default (Phase 37 A3 — empty default settings
+            // fail validation), proving the reseed went through the real DefaultDefinitions path.
+            _stored[0].EnableRss.Should().BeFalse();
+            _stored[0].EnableAutomaticSearch.Should().BeFalse();
+            _stored[0].EnableInteractiveSearch.Should().BeFalse();
+
+            // RemoveMissingImplementations logs a Warn ("Removing {Name}") while purging the
+            // orphan — acknowledge it so LoggingTest's teardown does not fail.
             ExceptionVerification.ExpectedWarns(1);
         }
 
