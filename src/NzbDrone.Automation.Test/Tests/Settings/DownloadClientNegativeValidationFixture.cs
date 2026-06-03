@@ -39,6 +39,14 @@ public class DownloadClientNegativeValidationFixture : AutomationTest
 
         var modal = new EditDownloadClientModal(Page);
 
+        // ISOLATE the Name-validation probe (PR #312 review): the gateway client has a
+        // REQUIRED ApiKey (GatewayDownloadClientSettingsValidator.RuleFor(ApiKey).NotEmpty),
+        // so an empty ApiKey would ALSO produce a 400 — masking whether the empty Name was
+        // actually rejected. Fill ApiKey with a non-empty value FIRST so the ONLY remaining
+        // validation failure is the empty Name, making the 400 unambiguously attributable to
+        // the Name.NotEmpty rule this fixture is guarding.
+        await modal.ApiKeyInput.FillAsync("test-negative-validation-key");
+
         // gh178 sub-C: clear Name (the schema preset is the gateway client name). Name is
         // server-validated via SharedValidator.RuleFor(c => c.Name).NotEmpty()
         // (ProviderControllerBase.cs:44) and has no client-side guard. Phase 39 Plan

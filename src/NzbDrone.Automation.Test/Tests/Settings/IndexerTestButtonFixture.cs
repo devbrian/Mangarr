@@ -54,19 +54,32 @@ public class IndexerTestButtonFixture : AutomationTest
         // interactive surface. The gateway is the sole IIndexer (Phase 39 Plan
         // 39-07); the self-seeded "Gateway (test seed)" card is the click target.
         var gatewayCard = page.CardByName("Gateway (test seed)");
-        var cardCount = await gatewayCard.CountAsync();
 
-        if (cardCount == 0)
+        // PR #312 review (Major): WAIT for the card rather than snapshotting
+        // CountAsync. The indexer list hydrates asynchronously (GET /api/v5/indexer
+        // → React render), so a point-in-time CountAsync == 0 immediately after the
+        // page loads can false-Inconclusive on a perfectly healthy run where the card
+        // simply hasn't rendered yet. Mirror the project's robust card-wait pattern
+        // (Expect(card).ToBeVisibleAsync with a real timeout); only treat a card that
+        // GENUINELY never appears within the budget as the missing-precondition case.
+        try
         {
-            // WR-03 (18-REVIEW): NUnit reports a silent `return` as PASSED,
-            // so the prior empty-card path masked a seed regression as a green
-            // test. Assert.Inconclusive flags the missing precondition
-            // explicitly — fixture flips to "Inconclusive" (not "Passed") so
-            // dashboards distinguish "ran the test-button path" from "couldn't
-            // run it".
+            await Assertions.Expect(gatewayCard).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions
+            {
+                Timeout = 15_000
+            });
+        }
+        catch (PlaywrightException)
+        {
+            // WR-03 (18-REVIEW): NUnit reports a silent `return` as PASSED, so the
+            // prior empty-card path masked a seed regression as a green test.
+            // Assert.Inconclusive flags the missing precondition explicitly — fixture
+            // flips to "Inconclusive" (not "Passed") so dashboards distinguish "ran
+            // the test-button path" from "couldn't run it". This now fires ONLY after
+            // a real wait, so a still-hydrating list no longer false-Inconclusives.
             Assert.Inconclusive(
-                "Seeded gateway indexer card not present — SeedIndexerAsync regression? " +
-                "Skipping POST /api/v5/indexer/test coverage path.");
+                "Seeded gateway indexer card never rendered within 15s — SeedIndexerAsync " +
+                "regression? Skipping POST /api/v5/indexer/test coverage path.");
         }
 
         // Click the gateway card → EditIndexerModal opens.
