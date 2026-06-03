@@ -10,6 +10,7 @@ using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles;
+using NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Organizer.Manga;
@@ -351,6 +352,83 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
             captured.Should().NotBeNull("ChapterFileService.Add must have been called");
             captured.Size.Should().Be(authoritativeSize,
                 "BL-04: ChapterFile.Size must come from lc.Size when > 0, not from post-move SafeGetFileSize.");
+        }
+
+        // ---------------------------------------------------------------------
+        // Phase 38 Plan 38-02 (CINFO-01) — ComicInfoCbzInjector step-3.5 wire-site coverage.
+        // ---------------------------------------------------------------------
+
+        [Test]
+        public void should_invoke_comicinfo_injector_once_per_approved_decision()
+        {
+            Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
+
+            // D-A — invoked once per approved decision with the persisted ChapterFile + lc aggregates.
+            Mocker.GetMock<IComicInfoCbzInjector>()
+                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), _manga, _chapter), Times.Once);
+        }
+
+        [Test]
+        public void should_invoke_comicinfo_injector_BEFORE_chapter_imported_event()
+        {
+            // Pitfall 4 / D-A2 ordering: the ComicInfo injection MUST complete before
+            // ChapterImportedEvent is published (Komga/Kavita rescan handlers fire on that event).
+            var sequence = new MockSequence();
+
+            Mocker.GetMock<IChapterFileService>().InSequence(sequence)
+                .Setup(c => c.Add(It.IsAny<ChapterFile>()))
+                .Returns<ChapterFile>(cf =>
+                {
+                    cf.Id = 99;
+                    return cf;
+                });
+
+            Mocker.GetMock<IComicInfoCbzInjector>().InSequence(sequence)
+                .Setup(i => i.Inject(It.IsAny<ChapterFile>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>()));
+
+            Mocker.GetMock<IEventAggregator>().InSequence(sequence)
+                .Setup(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()));
+
+            Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
+
+            Mocker.GetMock<IComicInfoCbzInjector>()
+                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>()), Times.Once);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()), Times.Once);
+        }
+
+        [Test]
+        public void should_publish_failed_event_and_not_imported_event_when_injector_throws()
+        {
+            // D-B1 — a persisted injector failure re-throws and propagates to the existing
+            // per-decision catch, which publishes ChapterImportFailedEvent ONCE. The chapter does
+            // NOT land (ChapterImportedEvent NEVER fires). No duplicate failed-event publish.
+            Mocker.GetMock<IComicInfoCbzInjector>()
+                .Setup(i => i.Inject(It.IsAny<ChapterFile>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>()))
+                .Throws(new IOException("simulated persisted injection failure"));
+
+            var result = Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
+
+            result.Should().HaveCount(1);
+            result[0].Errors.Should().NotBeEmpty();
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()), Times.Never);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterImportFailedEvent>()), Times.Once);
+
+            ExceptionVerification.ExpectedErrors(1);
+        }
+
+        [Test]
+        public void should_invoke_comicinfo_injector_unconditionally_with_no_download_client()
+        {
+            // D-A — the injector runs even for a manual-import-shaped decision (no download client
+            // item passed). No gateway-only gate, no download-client-type discriminator.
+            Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, downloadClientItem: null);
+
+            Mocker.GetMock<IComicInfoCbzInjector>()
+                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), _manga, _chapter), Times.Once);
         }
     }
 }
