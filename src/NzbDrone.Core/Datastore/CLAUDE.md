@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Database layer — connection management, generic repository, ORM mapping, and **schema migrations** (**1 of them — fresh manga baseline** (Phase 1 reset; the inherited Mangarr 224 were replaced by `001_mangarr_baseline.cs` per Phase 0 D-14 fresh-schema decision)).
+Database layer — connection management, generic repository, ORM mapping, and **schema migrations** (fresh manga baseline `001_mangarr_baseline.cs` from the Phase 1 reset — the inherited Mangarr 224 TV migrations were replaced per Phase 0 D-14 fresh-schema decision — plus sequential migrations through **`010_v1_3_retire_in_process_cleanup.cs`, the current head** (Phase 39 RETIRE-03 one-shot)).
 
 This directory is **media-agnostic** infrastructure and reusable as-is. Migrations specific to manga schema additions/renames will be added on top.
 
@@ -30,9 +30,11 @@ This directory is **media-agnostic** infrastructure and reusable as-is. Migratio
 
 ### `Migration/` — Schema Migrations
 
-**1 baseline migration** (`001_mangarr_baseline.cs`); future Phase migrations stack sequentially on top (`002_*.cs`, `003_*.cs`, …), implemented with **FluentMigrator**.
+Manga baseline `001_mangarr_baseline.cs`; subsequent Phase migrations stack sequentially on top (`002_*.cs` … through `010_v1_3_retire_in_process_cleanup.cs`, the current head), implemented with **FluentMigrator**.
 
 Naming convention: `NNN_short_description_in_snake_case.cs` where `NNN` is sequential.
+
+**Migration 010 (Phase 39 RETIRE-03)** is the head — the one-shot on-upgrade orphan-state cleanup for the retired in-process codepath: it `DELETE`s the orphan `DownloadClients` row (`Implementation = 'InProcessImageDownloadClient'`), `DELETE`s the orphan `Indexers` rows (`Implementation IN ('MangaDexIndexer','ComixIndexer')`), resets the two stale `IndexerSourceStatus` rows scoped to the retired source keys (`'mangadex'`,`'comix.to'`) so live gateway status survives, and `DROP`s the now-empty `ChapterDownloadState` staging table. Pure DELETE+DROP (seeds zero rows — Anti-Pattern C floor); pinned by `Migration010Fixture` (5/5 on SQLite).
 
 ```csharp
 [Migration(214)]

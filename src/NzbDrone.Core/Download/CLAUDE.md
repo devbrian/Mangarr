@@ -6,6 +6,18 @@ Download client integration + the **download lifecycle** — from release submis
 
 The architecture is largely **media-agnostic**: a torrent client doesn't care if the payload is a `.mkv` or a `.cbz` archive. Most of this directory transfers to Mangarr unchanged.
 
+> **Phase 39 (Plans 39-01/02) — in-process download vertical RETIRED.** The whole
+> `Clients/InProcess/` directory (`InProcessImageDownloadClient` + `ChapterDownloadService`
+> + `ChapterPageFetcher` + `ChapterDownloadState` + `ChapterDownloadHousekeeper`/
+> `HousekeepInProcessDownloadsCommand` + the `Download/Manga/ProcessMangaCompleted*`
+> completion-poller cluster) was deleted. **`Clients/Gateway/GatewayDownloadClient.cs`
+> (Phase 38) is now the sole download client** — it submits an opaque handle back to the
+> external manga gateway and imports the finished CBZ the gateway delivers; Mangarr ships
+> zero embedded browser. `DownloadClientFactory`'s fresh-DB auto-seed override was deleted
+> too (Sonarr-canonical empty download-client list). The two retired `TaskManager.defaultTasks`
+> rows (`ProcessMangaCompletedCommand` 1-min poll + `HousekeepInProcessDownloadsCommand`
+> 24-h sweep) were stripped. See `DIVERGENCE.md` Phase 39 section.
+
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Download\`
 
 ## Top-Level Files
@@ -77,16 +89,23 @@ Releases awaiting delay-profile timeout / preferred-protocol cooldown:
 ### `Extensions/`
 Shared utilities (`MagnetLink.cs`, `TorrentBitfield.cs`, etc.).
 
-### `Manga/` (Phase 6 sibling)
-Manga-side staging-handoff orchestration + auto-retry orchestrator. See [Manga/CLAUDE.md](./Manga/CLAUDE.md).
+### `Manga/` (Phase 6 sibling — gateway-monitoring survivors)
+Manga-side download-monitoring orchestration + auto-retry orchestrator. See [Manga/CLAUDE.md](./Manga/CLAUDE.md).
 
-| File | Purpose | Phase 6 Plan |
-|------|---------|--------------|
-| `ProcessMangaCompletedCommand.cs` | Payload-less `Command` POCO; 1-min poll trigger registered in `TaskManager.defaultTasks` per Anti-pattern C compliance. | Plan 06-08 |
-| `ProcessMangaCompletedDownloads.cs` | Hybrid `IHandle<ChapterArchivedEvent>` + `IExecute<ProcessMangaCompletedCommand>` orchestrator (RESEARCH Pattern 1). Bridges Phase 4 archived-CBZ output to Phase 6 `ImportApprovedChapters` (Plan 06-07). Idempotent — both paths converge on a single `ProcessOne` method that short-circuits when `ChapterFile` is already present. | Plan 06-08 |
-| `AutoRetryOrchestrator.cs` | Bounded auto-retry orchestrator (D-12 + D-13 + Pitfall 5). Subscribes to `MangaBlocklistAddedEvent` (NOT `ChapterDownloadFailedEvent` — anti-race contract with Plan 06-04 `MangaBlocklistService`); pushes `ChapterSearchCommand` while `ChapterHistory{DownloadFailed}` count < `IConfigService.MaxAutoRetriesPerChapter`. | Plan 06-08 |
+> **Phase 39 (Plan 39-01) — completion-poller cluster retired.** The `ProcessMangaCompletedCommand.cs`
+> + `ProcessMangaCompletedDownloads.cs` hybrid (the Phase-4 archived-CBZ → Phase-6 import bridge for the
+> in-process downloader) was deleted with the in-process vertical, along with `MediaFiles/ChapterArchiving/ChapterArchivedEvent.cs`.
+> The surviving manga-download orchestration now keys off the Phase-36 monitoring loop + the external
+> `GatewayDownloadClient` (Phase 38), not an in-process completion poll.
 
-**Phase 8 cleanup:** the staging-handoff path collapses with `CompletedDownloadService` when `ImportApprovedEpisodes` deletes; the TV-side `Protocol == DownloadProtocol.Http` early-return guard at lines 74-77 disappears with it. The `AutoRetryOrchestrator` stays as-is — no TV peer to collapse with; the auto-retry-redirect-to-next-best pattern is the *arr promise applied to the manga pipeline.
+| File | Purpose | Survivor since |
+|------|---------|----------------|
+| `MangaCompletedDownloadService.cs` | `OutputPath`-driven import of finished CBZs the gateway staged (Phase 36 monitoring loop). | Phase 36 |
+| `MangaDownloadProcessingService.cs` / `RefreshMonitoredMangaDownloadsCommand.cs` / `ProcessMonitoredMangaDownloadsCommand.cs` | The gateway-download monitoring loop (replaces the retired in-process completion poller). | Phase 36 |
+| `MangaFailedDownloadService.cs` | Publishes `ChapterDownloadFailedEvent` on terminal failure (blocklist/history consumers). | Phase 6 |
+| `AutoRetryOrchestrator.cs` | Bounded auto-retry orchestrator (D-12 + D-13 + Pitfall 5). Subscribes to `MangaBlocklistAddedEvent` (NOT `ChapterDownloadFailedEvent` — anti-race contract with Plan 06-04 `MangaBlocklistService`); pushes `ChapterSearchCommand` while `ChapterHistory{DownloadFailed}` count < `IConfigService.MaxAutoRetriesPerChapter`. | Phase 6 |
+
+The `AutoRetryOrchestrator` stays as-is — no TV peer to collapse with; the auto-retry-redirect-to-next-best pattern is the *arr promise applied to the manga pipeline.
 
 ## Lifecycle
 
