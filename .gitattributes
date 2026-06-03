@@ -6,6 +6,11 @@
 *.sh text eol=lf
 distribution/debian/* text eol=lf
 distribution/osx/Sonarr text eol=lf
+# s6-overlay service tree — extensionless files (type/up/run) + scripts are read
+# by s6-rc-compile, which rejects CRLF ("invalid .../type: must be oneshot,
+# longrun, or bundle"). Without forcing LF a Windows checkout corrupts them and
+# the runtime image fails to boot. Keep this BELOW `* text=auto` so it wins.
+distribution/docker/root/** text eol=lf
 
 # Custom for Visual Studio
 *.cs     diff=csharp

@@ -157,6 +157,16 @@ COPY --from=chromium-builder /ms-playwright /ms-playwright
 # scripts/docker-smoke.sh which exercises the published image.
 COPY _output/linux-${TARGETARCH}/ /app/
 
+# Ensure the entrypoint binaries carry the POSIX exec bit even when the build
+# context originated on a filesystem that cannot set it (e.g. a Windows dev host
+# building against a remote Linux daemon via `docker context`). Idempotent with
+# the CI deploy.yml "Flatten linux-x64 artifact" chmod — a no-op on the CI path
+# (already +x); on a Windows-origin local build it is what stops
+# `s6-applyuidgid: fatal: unable to exec /app/Mangarr: No such file or directory`
+# (POSIX returns ENOENT when exec'ing a file that exists but lacks +x).
+RUN chmod +x /app/Mangarr /app/createdump 2>/dev/null || true; \
+    [ -f /app/Mangarr.Update/Mangarr.Update ] && chmod +x /app/Mangarr.Update/Mangarr.Update || true
+
 # Copy the frontend SPA bundle. The CI `frontend` job builds via `yarn build`
 # into `_output/UI/` and uploads as the `build_ui` artifact (separate from the
 # per-arch backend artifacts). deploy.yml's docker_publish job downloads it
