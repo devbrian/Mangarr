@@ -1,7 +1,6 @@
 using FluentValidation;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Annotations;
-using NzbDrone.Core.Download.Clients;
 using NzbDrone.Core.Validation;
 
 namespace NzbDrone.Core.Download.Clients.Gateway
@@ -34,7 +33,7 @@ namespace NzbDrone.Core.Download.Clients.Gateway
     /// The connectivity fields (Host/Port/UseSsl/UrlBase/ApiKey) are DUPLICATED verbatim from the
     /// Phase-37 <c>Indexers/Gateway/GatewaySettings.cs</c> shape — a shared
     /// <c>GatewaySettingsBase</c> is deliberately NOT extracted (Sonarr duplicates connectivity
-    /// fields across every provider; RESEARCH Anti-Patterns). <c>outputFormat</c> is NOT a field
+    /// fields across every provider; RESEARCH Anti-Patterns). The output format is NOT a field
     /// here — it is the D-D hard-default <c>"cbz"</c> the client sets unconditionally.
     /// </para>
     /// </summary>

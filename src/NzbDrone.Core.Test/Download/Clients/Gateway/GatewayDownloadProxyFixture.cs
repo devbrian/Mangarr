@@ -110,6 +110,9 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
             Action act = () => Subject.Submit(BuildSubmitRequest(), _settings);
 
             act.Should().Throw<DownloadClientAuthenticationException>();
+
+            // The proxy logs a (host-only, never the api key) warning on an auth rejection.
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
@@ -163,16 +166,17 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
             Action act = () => Subject.RemoveJob("job-1", false, _settings);
 
             act.Should().Throw<DownloadClientAuthenticationException>();
+
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
         public void getJobs_200_deserializes_list()
         {
+            var content = "{\"jobs\":[{\"jobId\":\"j1\",\"title\":\"Ch 1\",\"status\":\"completed\",\"outputPath\":\"/data/ch1.cbz\"}]}";
             Mocker.GetMock<IHttpClient>()
                 .Setup(c => c.Get(It.IsAny<HttpRequest>()))
-                .Returns<HttpRequest>(r => new HttpResponse(r, new HttpHeader(),
-                    "{\"jobs\":[{\"jobId\":\"j1\",\"title\":\"Ch 1\",\"status\":\"completed\",\"outputPath\":\"/data/ch1.cbz\"}]}",
-                    HttpStatusCode.OK));
+                .Returns<HttpRequest>(r => new HttpResponse(r, new HttpHeader(), content, HttpStatusCode.OK));
 
             var list = Subject.GetJobs(_settings);
 
@@ -185,11 +189,10 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
         [Test]
         public void getStatus_200_deserializes()
         {
+            var content = "{\"isLocalhost\":true,\"outputRootFolders\":[\"/data/downloads\"]}";
             Mocker.GetMock<IHttpClient>()
                 .Setup(c => c.Get(It.IsAny<HttpRequest>()))
-                .Returns<HttpRequest>(r => new HttpResponse(r, new HttpHeader(),
-                    "{\"isLocalhost\":true,\"outputRootFolders\":[\"/data/downloads\"]}",
-                    HttpStatusCode.OK));
+                .Returns<HttpRequest>(r => new HttpResponse(r, new HttpHeader(), content, HttpStatusCode.OK));
 
             var status = Subject.GetStatus(_settings);
 
@@ -200,10 +203,10 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
         [Test]
         public void getVersion_200_returns_version_string()
         {
+            var content = "{\"version\":\"1.0.0\",\"status\":\"ok\"}";
             Mocker.GetMock<IHttpClient>()
                 .Setup(c => c.Get(It.IsAny<HttpRequest>()))
-                .Returns<HttpRequest>(r => new HttpResponse(r, new HttpHeader(),
-                    "{\"version\":\"1.0.0\",\"status\":\"ok\"}", HttpStatusCode.OK));
+                .Returns<HttpRequest>(r => new HttpResponse(r, new HttpHeader(), content, HttpStatusCode.OK));
 
             var version = Subject.GetVersion(_settings);
 
