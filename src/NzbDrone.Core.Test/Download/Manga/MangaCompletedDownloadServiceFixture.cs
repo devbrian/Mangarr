@@ -17,16 +17,16 @@ namespace NzbDrone.Core.Test.Download.Manga
 {
     // Phase 36 Plan 04 Task 1 — MangaCompletedDownloadService contract tests.
     //
-    //   The import core was EXTRACTED from ProcessMangaCompletedDownloads.ProcessOne and
-    //   GENERALIZED to the matched TrackedDownload (Plan 03): staging path ← DownloadItem.OutputPath,
-    //   chapterIds ← RemoteChapter.Chapters[*].Id, provenance ← in-memory RemoteChapter.Release
-    //   (NO ChapterDownloadState JSON round-trip). Six behaviors per the plan:
+    //   The import core was EXTRACTED from the in-process ProcessMangaCompletedDownloads.ProcessOne
+    //   (retired in Phase 39 RETIRE-01) and GENERALIZED to the matched TrackedDownload (Plan 03):
+    //   staging path ← DownloadItem.OutputPath, chapterIds ← RemoteChapter.Chapters[*].Id,
+    //   provenance ← in-memory RemoteChapter.Release (NO ChapterDownloadState JSON round-trip).
+    //   Five behaviors per the plan:
     //     1. Non-blank provenance (ScanlationGroup / TranslatedLanguage from RemoteChapter.Release)
     //     2. Single approved import dispatch (IMakeMangaImportDecision → IImportApprovedChapters)
     //     3. Idempotent short-circuit on GetFilesByChapter
     //     4. ChapterDownloadCompletedEvent published AFTER import (Pitfall-4 / anti-pattern F)
     //     5. Check transitions Completed+OutputPath → ImportPending
-    //     6. (paired ProcessMangaCompletedDownloadsFixture stays green — verified separately)
     [TestFixture]
     public class MangaCompletedDownloadServiceFixture : CoreTest<MangaCompletedDownloadService>
     {

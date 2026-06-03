@@ -21,15 +21,16 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 /// per-row testid wired in v1 (only the title-attribute Link triggers).
 /// Per Plan 20-04 / 20-07b / 20-08 / 20-09 path c precedent — assert the
 /// download client API contract that the modal will read from is reachable:
-/// GET /api/v5/downloadclient returns the seeded InProcess client.
+/// GET /api/v5/downloadclient returns the seeded gateway client.
 ///
 /// State assertion (per feedback_verify_ui_state_not_just_rendering):
-///   1. GET /api/v5/downloadclient returns 200 with the seeded InProcess
+///   1. GET /api/v5/downloadclient returns 200 with the seeded gateway
 ///      client present (the data source the modal consumes).
 ///   2. Response carries a `name` field per the DownloadClient resource
 ///      shape — proves the modal will have a non-empty picker list.
 ///
-/// Pitfall 10: Comix disabled in OneTimeSetUp.
+/// Phase 39 Plan 39-07: repointed from the retired in-process client to the
+/// GatewayDownloadClient (the sole download client post-retirement).
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
@@ -40,7 +41,7 @@ public class SelectDownloadClientModalFixture : AutomationTest
     {
         // SelectDownloadClientModal consumes the GET /api/v5/downloadclient
         // listing to render the picker. The baseline pre-seed (Phase 18 D-07)
-        // ensures an InProcess client is present; assert the picker's data
+        // ensures a gateway client is present; assert the picker's data
         // source is reachable + populated end-to-end.
         var resp = await Page.APIRequest.GetAsync(
             $"{RootUri}/api/v5/downloadclient",
@@ -57,13 +58,13 @@ public class SelectDownloadClientModalFixture : AutomationTest
             200,
             "GET /api/v5/downloadclient must return 200 (the SelectDownloadClientModal data source)");
 
-        // STATE assertion 2: response body carries the seeded InProcess client.
+        // STATE assertion 2: response body carries the seeded gateway client.
         var body = await resp.TextAsync();
         body.Should().NotBeNullOrWhiteSpace(
-            "downloadclient listing must include the seeded InProcess client");
+            "downloadclient listing must include the seeded gateway client");
         body.Should().Contain(
-            "InProcessImageDownloadClient",
-            "SelectDownloadClientModal picker must have the baseline InProcess client to render");
+            "GatewayDownloadClient",
+            "SelectDownloadClientModal picker must have the baseline gateway client to render");
 
         // STATE assertion 3: response body carries the `name` field — the
         // canonical picker label per DownloadClientResource shape.

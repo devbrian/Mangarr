@@ -12,10 +12,11 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// row: GET /api/v5/indexer/schema).
 ///
 /// Opens /settings/indexers, clicks the empty add card, asserts the picker
-/// modal renders, GET /api/v5/indexer/schema completed 200, and the MangaDex
-/// schema card is visible (D-06 canonical Indexer pick). Comix is disabled in
-/// OneTimeSetUp (Pitfall 10) so the picker enumeration of the schema endpoint
-/// does NOT warm PuppeteerSharp.
+/// modal renders, GET /api/v5/indexer/schema completed 200, and the gateway
+/// schema card is visible (the sole IIndexer pick). Phase 39 Plan 39-07:
+/// repointed from the retired in-process MangaDex schema card to the gateway
+/// (testid add-indexer-gateway) — the in-process site-scraper indexers were
+/// retired in Plan 39-03.
 ///
 /// Tier (D-04): GET-axis = PR-smoke.
 /// </summary>
@@ -40,6 +41,6 @@ public class IndexerAddModalSchemaFixture : AutomationTest
 
         var picker = new AddIndexerModal(Page);
         await Assertions.Expect(picker.ModalRoot).ToBeVisibleAsync(new() { Timeout = 15_000 });
-        await Assertions.Expect(picker.MangaDexCard).ToBeVisibleAsync(new() { Timeout = 15_000 });
+        await Assertions.Expect(picker.GatewayCard).ToBeVisibleAsync(new() { Timeout = 15_000 });
     }
 }

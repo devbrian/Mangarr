@@ -6,8 +6,8 @@ namespace NzbDrone.Core.Download.Manga
     // Provenance: v5-develop:src/NzbDrone.Core/Download/ProcessMonitoredDownloadsCommand.cs
     //   (the command DownloadProcessingService implements IExecute<> against; pushed at the tail of
     //   DownloadMonitoringService.Refresh()).
-    // Role-match analog (exact shape): src/NzbDrone.Core/Download/Manga/ProcessMangaCompletedCommand.cs
-    //   (payload-less Command, SendUpdatesToClient => false).
+    // Role-match analog (exact shape): the retired in-process ProcessMangaCompletedCommand
+    //   (payload-less Command, SendUpdatesToClient => false) — deleted in Phase 39 RETIRE-01.
     //
     // QUEUED-ONLY — NO TaskManager.defaultTasks row. The MangaDownloadMonitoringService pushes this
     // command onto the command queue at the tail of every Refresh() (Q-poll resolution); it is never

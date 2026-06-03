@@ -4,7 +4,6 @@ using System.Linq;
 using FluentValidation.Results;
 using NLog;
 using NzbDrone.Common.Extensions;
-using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.ThingiProvider;
 
@@ -18,17 +17,13 @@ namespace NzbDrone.Core.Download
 
     public class DownloadClientFactory : ProviderFactory<IDownloadClient, DownloadClientDefinition>, IDownloadClientFactory
     {
-        // Sonarr divergence: zero-config first-run UX (PROJECT.md v1 lock).
-        // Sonarr does NOT auto-seed download clients — users opt in by adding one. Mangarr
-        // DOES, because v1 ships with a bundled in-process downloader (Phase 4 D-04 +
-        // DOWNLOAD-01) that has no external dependencies. Without this pre-seeded,
-        // /settings/downloadclients is empty on a fresh DB and the user has no signal that
-        // a working download client is already bundled. Seed mirrors the
-        // MetadataSourceFactory S4-pattern InitializeProviders override (idempotent on
-        // restart; sibling-divergence rationale documented in DIVERGENCE.md Phase 15
-        // entries).
-        private const string SeededDownloadClientImplementation = nameof(InProcessImageDownloadClient);
-
+        // Sonarr divergence REMOVED (Phase 39 RETIRE-01): the prior zero-config first-run UX
+        // auto-seeded the bundled in-process image download client definition on a fresh DB via
+        // an override of the base provider-initialization hook. With the in-process download
+        // vertical retired in favor of the external gateway client, that auto-seed is gone — the
+        // factory now reverts to the Sonarr-canonical base behavior (no override):
+        // /settings/downloadclients is empty on a fresh DB until the user adds the gateway client.
+        // (DIVERGENCE.md entry lands in Plan 06.)
         private readonly IDownloadClientStatusService _downloadClientStatusService;
         private readonly Logger _logger;
 
@@ -139,50 +134,6 @@ namespace NzbDrone.Core.Download
             }
 
             return result;
-        }
-
-        // Sonarr divergence: zero-config first-run UX (see SeededDownloadClientImplementation
-        // comment above). Mirrors MetadataSourceFactory.InitializeProviders idempotent
-        // S4-pattern. We seed ONLY when the table is empty — a user who deletes the seeded
-        // row will not see it re-created on next start.
-        //
-        // DownloadClientBase.DefaultDefinitions returns an empty list (NOT virtual on the
-        // base; intentional — Sonarr's other clients ship preset configs but the in-process
-        // client has only one shape). So we hand-roll the DownloadClientDefinition with the
-        // settings POCO's compile-time defaults (DownloadsPerSource=2, PagesPerChapter=4,
-        // RetentionDays=7 per InProcessImageDownloadClientSettings).
-        protected override void InitializeProviders()
-        {
-            if (All().Any())
-            {
-                return;
-            }
-
-            var provider = _providers.FirstOrDefault(p => p.GetType().Name == SeededDownloadClientImplementation);
-
-            if (provider == null)
-            {
-                _logger.Warn("Skipping seed of {0} — provider implementation not registered (was the binary built without it?).", SeededDownloadClientImplementation);
-                return;
-            }
-
-            var settings = (IProviderConfig)Activator.CreateInstance(provider.ConfigContract);
-
-            var definition = new DownloadClientDefinition
-            {
-                // User-facing friendly name (matches IDownloadClient.Name = "Mangarr In-Process Downloader").
-                Name = provider.Name,
-                Implementation = provider.GetType().Name,
-                ConfigContract = provider.ConfigContract.Name,
-                Settings = settings,
-                Enable = true,
-                Priority = 1,
-                RemoveCompletedDownloads = true,
-                RemoveFailedDownloads = true,
-            };
-
-            _logger.Info("Seeding default download client: {0} ({1})", definition.Name, definition.Implementation);
-            Create(definition);
         }
     }
 }

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.SQLite;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -45,16 +44,17 @@ public class TestKit
         _postgresOptions = postgresOptions;
     }
 
-    /// <param name="disableComixIndexer">
-    /// GH #268: when true (the automation-tier default), the auto-seeded Comix
-    /// indexer is disabled as the final baseline step so an un-cassetted indexer
-    /// fan-out (InteractiveSearch / add-manga backfill / ImportListSync) cannot
-    /// escape to the live network — comix.to cannot be HTTP-cassette'd (Phase 18
-    /// D-11). Fixtures that DO exercise Comix offline via CassettingComixSigner
-    /// (recorded cassettes under Fixtures/Cassettes/Comix/) opt out by overriding
-    /// AutomationTest.DisableComixIndexerInBaseline => false, which passes false here.
-    /// </param>
-    public async Task SeedBaselineAsync(bool disableComixIndexer = true)
+    /// <summary>
+    /// Seeds the known-good baseline (root folder + GatewayDownloadClient) before the
+    /// browser opens. Phase 39 (Plan 39-07) retired the in-process download/index vertical:
+    /// the baseline download client is now the external <c>GatewayDownloadClient</c> (the sole
+    /// download client since Plan 39-02), and the GH#268 indexer-disable safety step is gone —
+    /// the in-process site-scraper indexer it suppressed was deleted in Plan 39-03 and the
+    /// surviving <c>GatewayIndexer</c> is seeded DISABLED-by-default, so no enabled indexer
+    /// exists to fan out to the live network (offline-safe by construction, not by a runtime
+    /// disable step).
+    /// </summary>
+    public async Task SeedBaselineAsync()
     {
         // BL-03 (18-REVIEW): every ExecuteAsync call must check IsSuccessful and throw
         // on 4xx/5xx. Silent seed failure -> downstream AddMangaFlow.AddByMangaDexIdAsync
@@ -87,42 +87,44 @@ public class TestKit
                 return rfRequest;
             });
 
-        // 2. InProcess download client enabled. Priority defaults to 0; the
-        // download-client validator requires 1-50 (FluentValidation
-        // InclusiveBetweenValidator), so set it explicitly to 1. Surfaced
-        // when the Plan 18-review BL-03 hardening flipped silent-swallow
-        // failures into thrown exceptions.
+        // 2. Gateway download client enabled (Phase 39 Plan 39-07 — the sole download
+        // client since the in-process vertical was retired in Plan 39-02). Priority
+        // defaults to 0; the download-client validator requires 1-50 (FluentValidation
+        // InclusiveBetweenValidator), so set it explicitly to 1. `?skipTesting=true` is
+        // MANDATORY here: ProviderControllerBase.CreateProvider runs Test() on an enabled
+        // provider unless skipTesting is set, and the gateway Test() makes a real HTTP call
+        // to the (non-existent) gateway host — without skipTesting the seed POST would fail.
+        // The validator (GatewayDownloadClientSettingsValidator) requires a non-empty ApiKey;
+        // Host/Port default to localhost:8080 but are sent explicitly to be safe.
         await ExecuteWithStartupRetryAsync(
             "downloadclient POST",
             () =>
             {
-                var dlRequest = BuildRequest("downloadclient", Method.POST);
+                var dlRequest = BuildRequest("downloadclient?skipTesting=true", Method.POST);
                 dlRequest.AddJsonBody(new
                 {
                     enable = true,
-                    implementation = "InProcessImageDownloadClient",
-                    configContract = "InProcessImageDownloadClientSettings",
-                    name = "InProcess (test seed)",
+                    implementation = "GatewayDownloadClient",
+                    configContract = "GatewayDownloadClientSettings",
+                    name = "Gateway (test seed)",
                     priority = 1,
-                    fields = new object[] { }
+                    fields = new object[]
+                    {
+                        new { name = "host", value = "localhost" },
+                        new { name = "port", value = 8080 },
+                        new { name = "apiKey", value = "test-seed-key" }
+                    }
                 });
                 return dlRequest;
             });
 
         // 3. Default TranslationProfile is already seeded by Phase 5 baseline migration; no-op.
 
-        // 4. GH #268: disable the auto-seeded Comix indexer by default. comix.to
-        // cannot be HTTP-cassette'd (Phase 18 D-11), so leaving it enabled lets an
-        // un-cassetted fan-out (InteractiveSearch / add-manga conditional backfill
-        // search / ImportListSync) escape to the live network. Inverting the default
-        // to "disabled in the baseline" makes every fixture offline-safe by
-        // construction (GH #268 — replaces the ~92 per-fixture DisableComixIndexerAsync
-        // callsites). The 3 CassettingComixSigner fixtures opt out via
-        // AutomationTest.DisableComixIndexerInBaseline => false.
-        if (disableComixIndexer)
-        {
-            await DisableComixIndexerInternalAsync();
-        }
+        // 4. (Phase 39 Plan 39-07) The GH#268 indexer-disable baseline step was removed:
+        // the in-process site-scraper indexer it targeted was deleted in Plan 39-03 and the
+        // surviving GatewayIndexer is seeded DISABLED-by-default, so there is no enabled
+        // indexer to suppress — the harness is offline-safe by construction, not by a runtime
+        // disable step.
     }
 
     // Plan 19-02 (Rule 3): execute a seed request, retrying on the transient
@@ -139,8 +141,8 @@ public class TestKit
     // to the "200 but the body hasn't caught up with the fresh-DB migration seed"
     // case. ExecuteWithStartupRetryAsync previously retried only TRANSPORT failures
     // (StatusCode == 0 / ResponseStatus != Completed) and 401s; a successful 200
-    // whose payload did not yet contain the seeded resource (e.g. the auto-seeded
-    // ComixIndexer not yet visible to GET /api/v5/indexer) returned immediately and
+    // whose payload did not yet contain the seeded resource (e.g. an auto-seeded
+    // indexer not yet visible to GET /api/v5/indexer) returned immediately and
     // the caller threw with no retry. When supplied, the predicate gates a 2xx as
     // "ready": a not-ready 2xx is treated as transient and retried within the same
     // budget. null preserves the original transport-only behavior for every other
@@ -211,143 +213,30 @@ public class TestKit
             $"error={response.ErrorMessage} exception={response.ErrorException?.Message}");
     }
 
-    /// <summary>
-    /// GH #268: disable the auto-seeded Comix indexer via the indexer PUT endpoint.
-    /// Comix cannot be HTTP-cassette'd (Phase 18 D-11 — the runtime signer hits
-    /// comix.to live), so leaving it enabled lets an un-cassetted fan-out
-    /// (InteractiveSearch / add-manga conditional backfill search / ImportListSync)
-    /// escape to the live network (and throw on cassette-miss in Replay mode).
-    /// Called as the final step of <see cref="SeedBaselineAsync(bool)"/> so every
-    /// automation fixture is offline-safe by construction — this replaces the ~92
-    /// per-fixture <c>DisableComixIndexerAsync</c> callsites that GH #268 retired.
-    ///
-    /// API-driven: GET /api/v5/indexer → find Implementation == "ComixIndexer" → PUT
-    /// it back with all three Enable* flags cleared (IndexerDefinition.Enable is
-    /// EnableRss || EnableAutomaticSearch || EnableInteractiveSearch — clearing all
-    /// three disables the indexer entirely). Mirrors SeedBaselineAsync's BuildRequest
-    /// + IsSuccessful-throw pattern on BOTH the GET and the PUT.
-    /// </summary>
-    private async Task DisableComixIndexerInternalAsync()
-    {
-        // 1. List indexers. Shares SeedBaselineAsync's startup-race retry — this
-        // runs at the tail of the base seed, still inside the host's settling
-        // window, so the same transport-flap / auth-wiring race applies. GH #291:
-        // the auto-seeded ComixIndexer can also lag a successful 200 (the migration
-        // seed not yet queryable), so gate readiness on the ComixIndexer actually
-        // being present — a not-yet-seeded 200 is retried within the budget instead
-        // of failing OneTimeSetUp on the first poll.
-        var listResponse = await ExecuteWithStartupRetryAsync(
-            nameof(DisableComixIndexerInternalAsync),
-            "indexer GET",
-            () => BuildRequest("indexer", Method.GET),
-            isContentReady: resp => ComixIndexerPresent(resp.Content));
-
-        // 2. Find the ComixIndexer entry by its Implementation field. The
-        // content-aware retry above guarantees it is present by now; this guard
-        // remains as a defensive backstop.
-        using var doc = JsonDocument.Parse(listResponse.Content ?? "[]");
-        var comix = doc.RootElement.EnumerateArray().FirstOrDefault(e =>
-            e.TryGetProperty("implementation", out var impl) &&
-            string.Equals(impl.GetString(), "ComixIndexer", StringComparison.OrdinalIgnoreCase));
-
-        if (comix.ValueKind == JsonValueKind.Undefined)
-        {
-            throw new InvalidOperationException(
-                "TestKit.DisableComixIndexerInternalAsync: no ComixIndexer found in /api/v5/indexer — fresh-DB seed regressed?");
-        }
-
-        var comixId = comix.GetProperty("id").GetInt32();
-
-        // 3. PUT the resource back with all three Enable* flags cleared. The full
-        // resource JSON is round-tripped verbatim (including Fields) with only the
-        // three Enable* booleans rewritten — the PUT endpoint requires the complete
-        // resource shape, so we serialize the original element and override.
-        var resourceText = comix.GetRawText();
-        using var resourceDoc = JsonDocument.Parse(resourceText);
-        var rewritten = RewriteEnableFlags(resourceDoc.RootElement);
-
-        // RestSharp 106: AddJsonBody(string) double-encodes the string through the
-        // serializer. Send the already-serialized JSON verbatim as a RequestBody
-        // parameter with an application/json content type instead. Shares the
-        // startup-race retry for the same reason as the GET above.
-        await ExecuteWithStartupRetryAsync(
-            nameof(DisableComixIndexerInternalAsync),
-            "indexer PUT",
-            () =>
-            {
-                var putReq = BuildRequest($"indexer/{comixId}?skipTesting=true", Method.PUT);
-                putReq.AddParameter("application/json", rewritten, ParameterType.RequestBody);
-                return putReq;
-            });
-    }
-
-    // GH #291: true iff the GET /api/v5/indexer body is a JSON array containing a
-    // ComixIndexer entry. Used as the isContentReady gate so a 200 returned before
-    // the fresh-DB migration seed is queryable is retried rather than thrown on.
-    // A malformed/partial body parses to "not ready" (retry) — never throws here,
-    // so a transient partial response can't escape the retry loop.
-    private static bool ComixIndexerPresent(string content)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(content ?? "[]");
-            return doc.RootElement.ValueKind == JsonValueKind.Array &&
-                doc.RootElement.EnumerateArray().Any(e =>
-                    e.TryGetProperty("implementation", out var impl) &&
-                    string.Equals(impl.GetString(), "ComixIndexer", StringComparison.OrdinalIgnoreCase));
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
-
-    // Serialize a JsonElement back to a raw JSON string with the three indexer
-    // Enable* flags forced to false. The result is sent verbatim as a RequestBody
-    // parameter (see DisableComixIndexerInternalAsync) — no re-serialization.
-    private static string RewriteEnableFlags(JsonElement original)
-    {
-        using var stream = new System.IO.MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream))
-        {
-            writer.WriteStartObject();
-            foreach (var prop in original.EnumerateObject())
-            {
-                if (prop.NameEquals("enableRss") ||
-                    prop.NameEquals("enableAutomaticSearch") ||
-                    prop.NameEquals("enableInteractiveSearch"))
-                {
-                    writer.WriteBoolean(prop.Name, false);
-                }
-                else
-                {
-                    prop.WriteTo(writer);
-                }
-            }
-
-            writer.WriteEndObject();
-        }
-
-        return System.Text.Encoding.UTF8.GetString(stream.ToArray());
-    }
+    // (Phase 39 Plan 39-07) The GH#268 indexer-disable machinery (the private GET/PUT
+    // helpers that cleared the auto-seeded in-process site-scraper indexer's Enable* flags)
+    // was deleted: its target in-process indexer was retired in Plan 39-03 and the surviving
+    // GatewayIndexer is seeded DISABLED-by-default, so there is no enabled indexer to
+    // suppress. DeleteAllIndexersAsync (below) is a separate public helper and stays.
 
     /// <summary>
     /// Debug session manage-indexers-sort-timeout (2026-05-22) — delete every
     /// pre-existing indexer row via <c>DELETE /api/v5/indexer/{id}</c>. The
-    /// fresh-DB <c>IndexerFactory.InitializeProviders</c> auto-seed creates a
-    /// MangaDex + Comix pair before any fixture runs (NzbDrone.Core/Indexers/
-    /// IndexerFactory.cs:33 SeededIndexerImplementations). Fixtures that
-    /// validate the Manage modal's VISIBLE row order — where alphabetical
-    /// MangaDex / Comix names re-anchor the descending-sort first row away
-    /// from the fixture-seeded AAA/BBB/CCC trio — call this BEFORE seeding
-    /// to start the indexer table empty. Shares SeedBaselineAsync's startup-
-    /// race retry envelope on both the GET and per-id DELETE.
+    /// fresh-DB <c>IndexerFactory.InitializeProviders</c> auto-seed creates the
+    /// GatewayIndexer row before any fixture runs (NzbDrone.Core/Indexers/
+    /// IndexerFactory.cs SeededIndexerImplementations — the in-process MangaDex +
+    /// Comix scrapers were retired in Phase 39 Plan 39-03). Fixtures that validate
+    /// the Manage modal's VISIBLE row order — where the auto-seeded indexer name
+    /// re-anchors the descending-sort first row away from the fixture-seeded
+    /// AAA/BBB/CCC trio — call this BEFORE seeding to start the indexer table empty.
+    /// Shares SeedBaselineAsync's startup-race retry envelope on both the GET and
+    /// per-id DELETE.
     /// </summary>
     public async Task DeleteAllIndexersAsync()
     {
         // 1. List indexers. Shares the same startup-race retry shape as
-        // DisableComixIndexerInternalAsync (this runs in [OneTimeSetUp] right
-        // after the base seed, still inside the host's settling window).
+        // SeedBaselineAsync (this runs in [OneTimeSetUp] right after the base seed,
+        // still inside the host's settling window).
         var listResponse = await ExecuteWithStartupRetryAsync(
             nameof(DeleteAllIndexersAsync),
             "indexer GET",
@@ -387,13 +276,23 @@ public class TestKit
     // ────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Phase 20 Plan 20-01 (D-06) — Seeds a MangaDex Indexer via
+    /// Phase 20 Plan 20-01 (D-06) / Phase 39 Plan 39-07 — Seeds a Gateway Indexer via
     /// <c>POST /api/v5/indexer?skipTesting=true</c>. Canonical implementation
-    /// <c>"MangaDexIndexer"</c> + configContract <c>"MangaDexIndexerSettings"</c>
-    /// (verified at src/NzbDrone.Core/Indexers/MangaDex/MangaDexIndexer.cs +
-    /// MangaDexIndexerSettings.cs). Default rate 1.5s per MangaDex ToS.
+    /// <c>"GatewayIndexer"</c> + configContract <c>"GatewaySettings"</c>
+    /// (verified at src/NzbDrone.Core/Indexers/Gateway/GatewayIndexer.cs +
+    /// GatewaySettings.cs). Repointed from the retired in-process site-scraper indexer
+    /// (deleted in Plan 39-03) — the gateway is now the sole <c>IIndexer</c>.
+    ///
+    /// The <c>GatewaySettingsValidator</c> requires a valid root URL (<c>BaseUrl</c>) and a
+    /// non-empty <c>ApiKey</c>; both are sent explicitly. The app auto-seeds a default
+    /// DISABLED "Manga Gateway" gateway indexer at startup, so this test-seed instance uses a
+    /// DISTINCT name ("Gateway (test seed)" by default) to avoid collision. Seeded ENABLED so
+    /// the Edit modal's Test button fires the local browser→Mangarr POST the offline fixtures
+    /// observe; <c>?skipTesting=true</c> bypasses the enabled-provider <c>Test()</c> call in
+    /// <c>ProviderControllerBase.CreateProvider</c> so the seed POST never hits the unreachable
+    /// gateway host.
     /// </summary>
-    public async Task<int> SeedIndexerAsync(string name = "MangaDex (test seed)")
+    public async Task<int> SeedIndexerAsync(string name = "Gateway (test seed)")
     {
         var response = await ExecuteWithStartupRetryAsync(
             nameof(SeedIndexerAsync),
@@ -408,14 +307,13 @@ public class TestKit
                     enableAutomaticSearch = true,
                     enableInteractiveSearch = true,
                     name,
-                    implementation = "MangaDexIndexer",
-                    configContract = "MangaDexIndexerSettings",
+                    implementation = "GatewayIndexer",
+                    configContract = "GatewaySettings",
                     priority = 25,
                     fields = new object[]
                     {
-                        new { name = "baseUrl", value = "https://api.mangadex.org" },
-                        new { name = "sourceKey", value = "mangadex" },
-                        new { name = "rateSeconds", value = 1.5 }
+                        new { name = "baseUrl", value = "http://localhost:8080" },
+                        new { name = "apiKey", value = "test-seed-key" }
                     }
                 });
                 return req;
@@ -426,14 +324,16 @@ public class TestKit
     }
 
     /// <summary>
-    /// Phase 20 Plan 20-01 (D-06) — Seeds an additional InProcess DownloadClient row
+    /// Phase 20 Plan 20-01 (D-06) — Seeds an additional GatewayDownloadClient row
     /// via <c>POST /api/v5/downloadclient?skipTesting=true</c>. SeedBaselineAsync
-    /// already seeds the baseline InProcess client; this helper is for fixtures that
+    /// already seeds the baseline gateway client; this helper is for fixtures that
     /// need a second client (e.g., CRUD-test the EditDownloadClientModal). Canonical
-    /// implementation <c>"InProcessImageDownloadClient"</c> + configContract
-    /// <c>"InProcessImageDownloadClientSettings"</c> (matches SeedBaselineAsync L93-94).
+    /// implementation <c>"GatewayDownloadClient"</c> + configContract
+    /// <c>"GatewayDownloadClientSettings"</c> (Phase 39 Plan 39-07 — repointed from the
+    /// retired in-process client; the consumers CRUD-exercise a second client without
+    /// asserting its implementation, so a gateway client satisfies them).
     /// </summary>
-    public async Task<int> SeedDownloadClientAsync(string name = "InProcess (Plan 20-01 seed)")
+    public async Task<int> SeedDownloadClientAsync(string name = "Gateway (Plan 20-01 seed)")
     {
         var response = await ExecuteWithStartupRetryAsync(
             nameof(SeedDownloadClientAsync),
@@ -444,11 +344,16 @@ public class TestKit
                 req.AddJsonBody(new
                 {
                     enable = true,
-                    implementation = "InProcessImageDownloadClient",
-                    configContract = "InProcessImageDownloadClientSettings",
+                    implementation = "GatewayDownloadClient",
+                    configContract = "GatewayDownloadClientSettings",
                     name,
                     priority = 1,
-                    fields = new object[] { }
+                    fields = new object[]
+                    {
+                        new { name = "host", value = "localhost" },
+                        new { name = "port", value = 8080 },
+                        new { name = "apiKey", value = "test-seed-key" }
+                    }
                 });
                 return req;
             });
@@ -1036,7 +941,7 @@ public class TestKit
         // Data dictionary carries exactly these four keys.
         var data = new Dictionary<string, string>
         {
-            { "DownloadClient", "InProcessImageDownloadClient" },
+            { "DownloadClient", "GatewayDownloadClient" },
             { "Message", "TestKit-seeded failed download" },
             { "Source", string.Empty },
             { "Indexer", "MangaDex" }

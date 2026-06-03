@@ -25,7 +25,7 @@ Listed by **migration status** post-Phase-17.3 (Sonarr → Mangarr conversion).
 
 | Directory | Purpose | Migration Status |
 |-----------|---------|------------------|
-| `Indexers/` | Indexer plugins | **Done** — MangaDex + Comix indexers shipped Phase 3; default-seeded on fresh DB per Phase 15 close. See [Indexers/CLAUDE.md](./Indexers/CLAUDE.md), [Indexers/MangaDex/CLAUDE.md](./Indexers/MangaDex/CLAUDE.md), [Indexers/Comix/CLAUDE.md](./Indexers/Comix/CLAUDE.md). |
+| `Indexers/` | Indexer plugins | **Done** — in-process MangaDex + Comix indexers (Phase 3) RETIRED in Phase 39 (Plan 39-03); `GatewayIndexer` (Phase 37, under `Indexers/Gateway/`) is now the sole `IIndexer`, driving the external manga gateway with zero embedded browser. See [Indexers/CLAUDE.md](./Indexers/CLAUDE.md). |
 | `IndexerSearch/` | SearchCriteria classes | Manga peers under [IndexerSearch/Manga/CLAUDE.md](./IndexerSearch/Manga/CLAUDE.md). |
 | `MediaFiles/` | Disk scan, file import, organize, rename (CBZ/CBR + image folders) | Phase 15 renamed `EpisodeFile.cs` → `ChapterFile.cs`; Phase 17.3 Plan 17.3-05 D-06 deleted `SeasonPackUpgradeType.cs` vertical. See [MediaFiles/CLAUDE.md](./MediaFiles/CLAUDE.md), [MediaFiles/MangaImport/CLAUDE.md](./MediaFiles/MangaImport/CLAUDE.md), [MediaFiles/ChapterArchiving/CLAUDE.md](./MediaFiles/ChapterArchiving/CLAUDE.md). |
 | `DecisionEngine/` | ~32 specifications | Manga peers under [DecisionEngine/Manga/CLAUDE.md](./DecisionEngine/Manga/CLAUDE.md); [DecisionEngine/CLAUDE.md](./DecisionEngine/CLAUDE.md) covers shared infra. |
@@ -37,7 +37,7 @@ Listed by **migration status** post-Phase-17.3 (Sonarr → Mangarr conversion).
 
 | Directory | Purpose | Notes |
 |-----------|---------|-------|
-| `Download/` | Download client integrations + lifecycle | See [Download/CLAUDE.md](./Download/CLAUDE.md). Mostly reusable. |
+| `Download/` | Download client integrations + lifecycle | The in-process `InProcessImageDownloadClient` vertical (Phase 4/6) was RETIRED in Phase 39 (Plans 39-01/02); `GatewayDownloadClient` (Phase 38, under `Download/Clients/Gateway/`) is now the sole download client. The Sonarr Usenet/Torrent client infrastructure is reference-preserved. See [Download/CLAUDE.md](./Download/CLAUDE.md). |
 | `History/` | Grab/import history | Entity references change. |
 | `AutoTagging/` | Rule-based auto-tagging | **Phase 24 RESTORE-REBUILD** — Phase 15 Plan 15-10 DELETED the subtree; Phase 24 restored from `git show 6f857ba0e^` with mechanical Series→Manga + 11-spec manga-shape catalog (8 Sonarr ports - 1 OriginalLanguage drop + 1 QualityProfile split + 3 manga-NEW: AuthorArtist/Demographic/ContentRating). See [AutoTagging/CLAUDE.md](./AutoTagging/CLAUDE.md). |
 | `Languages/` | Language enum + parsing | Add scanlation-aware terms. |
@@ -50,7 +50,7 @@ Listed by **migration status** post-Phase-17.3 (Sonarr → Mangarr conversion).
 
 | Directory | Purpose |
 |-----------|---------|
-| `Datastore/` | DB connection, BasicRepository, **224 migrations**. See [Datastore/CLAUDE.md](./Datastore/CLAUDE.md) |
+| `Datastore/` | DB connection, BasicRepository, **manga baseline `001` + sequential migrations through `010` (Phase 39 retire-in-process cleanup is the head)**. See [Datastore/CLAUDE.md](./Datastore/CLAUDE.md) |
 | `Messaging/` | EventAggregator, Commands, Events. See [Messaging/CLAUDE.md](./Messaging/CLAUDE.md) |
 | `Notifications/` | 25+ providers (Discord/Slack/Email/Telegram/etc.). See [Notifications/CLAUDE.md](./Notifications/CLAUDE.md) |
 | `Authentication/` | User accounts |
@@ -144,25 +144,28 @@ See [DecisionEngine/CLAUDE.md](./DecisionEngine/CLAUDE.md) for complete spec lis
 
 ## Indexers (`Indexers/`)
 
+**Phase 39 (Plan 39-03) retired the in-process site-scraper indexers.** `Indexers/Gateway/GatewayIndexer.cs` (Phase 37) is now the sole `IIndexer` — Mangarr fans search/recent requests out to the external manga gateway and never runs an embedded browser. The in-process `MangaDexIndexer` + `ComixIndexer` dirs (and the `ComixPlaywrightSigner`/`IComixSigner` anti-bot signer stack) were deleted; `IndexerFactory.SeededIndexerImplementations` seeds only `GatewayIndexer`. The Sonarr Usenet/Torrent indexer infrastructure (`Newznab/`, `Torznab/`, `Nyaa/`, etc.) is reference-preserved fork heritage, not a manga source.
+
 | Subdirectory | Purpose |
 |-------------|---------|
 | `IIndexer.cs` / `IndexerBase.cs` / `HttpIndexerBase.cs` | Provider base classes |
-| `Newznab/` | Usenet indexer (RSS + search XML) |
-| `Torznab/` | Newznab-compatible torrent indexer |
-| `TorrentRss/` | Generic torrent RSS |
-| `Nyaa/` | Anime torrent tracker |
-| `BroadcastheNet/`, `HDBits/`, `IPTorrents/`, `FileList/`, `Torrentleech/`, `Fanzub/` | Specific trackers |
+| `Gateway/` | `GatewayIndexer` — the sole `IIndexer` (external manga gateway client; Phase 37) |
+| `IndexerSourceStatus*` | Per-`SourceKey` escalation ladder (gateway-written; survived Phase 39) |
 | `FetchAndParseRssService.cs` | Periodic RSS sync |
-| `IndexerFactory.cs` | ThingiProvider factory |
+| `IndexerFactory.cs` | ThingiProvider factory (seeds `GatewayIndexer` only) |
 
 See [Indexers/CLAUDE.md](./Indexers/CLAUDE.md).
 
 ## Download (`Download/`)
 
+**Phase 39 (Plans 39-01/02) retired the in-process image-download vertical** (`Clients/InProcess/`: `InProcessImageDownloadClient` + `ChapterDownloadService` + `ChapterPageFetcher` + `ChapterDownloadState` + housekeeper/poller + the orphaned ChapterArchiving archiver set). `Download/Clients/Gateway/GatewayDownloadClient.cs` (Phase 38) is now the sole download client — it submits an opaque handle back to the external gateway and imports the finished CBZ the gateway delivers. `DownloadClientFactory`'s fresh-DB auto-seed override was deleted (Sonarr-canonical empty download-client list).
+
 | Subdirectory | Purpose |
 |-------------|---------|
 | `IDownloadClient.cs` / `DownloadClientBase.cs` | Provider base |
-| `Clients/` | qBittorrent, Transmission, Deluge, SABnzbd, NzbGet, Aria2, etc. |
+| `Clients/Gateway/` | `GatewayDownloadClient` — the sole download client (external gateway; Phase 38) |
+| `Clients/` (Usenet/Torrent) | qBittorrent, Transmission, SABnzbd, etc. — reference-preserved fork heritage |
+| `Manga/` | Manga monitoring/import handoff survivors (`MangaCompletedDownloadService`, `AutoRetryOrchestrator`, etc.). See [Download/Manga/CLAUDE.md](./Download/Manga/CLAUDE.md). |
 | `CompletedDownloadService.cs` | Detect & process completion |
 | `DownloadService.cs` | Submit a release to a client |
 | `DownloadClientProvider.cs` | Pick which client to use |
@@ -202,7 +205,7 @@ See [MediaFiles/CLAUDE.md](./MediaFiles/CLAUDE.md).
 | `BasicRepository.cs` | Generic Dapper repo. Methods: `All`, `Get`, `Find`, `Insert`, `InsertMany`, `Update`, `UpdateMany`, `Upsert`, `Delete`, `DeleteMany`, `SetFields`, `Purge`, `GetPaged`, `Single`, `SingleOrDefault`, `HasItems`, `Count` |
 | `IBasicRepository.cs` | Repo interface |
 | `Database.cs`, `DbFactory.cs`, `ConnectionStringFactory.cs` | DB setup |
-| `Migration/` | **224 FluentMigrator migrations** (`000_…` → `223_…`) |
+| `Migration/` | Manga baseline `001_mangarr_baseline.cs` + sequential migrations through `010_v1_3_retire_in_process_cleanup.cs` (the Phase 39 head — deletes the orphan in-process provider rows + drops `ChapterDownloadState`) |
 | `Converters/` | Dapper / JSON converters (Quality, Languages, OsPath, etc.) |
 | `Extensions/` | Mapping extensions |
 | `Events/` | DB events |
@@ -381,13 +384,13 @@ Migrations run automatically on startup.
 1. **Manga/** — **Done** (Phase 15 Plan 15-03 deleted `Tv/`; manga aggregate root + Chapter + ChapterFile in canonical positions; Phase 17.3 Plan 17.3-12 D-13 trimmed frontend Manga.ts TV-shape carry-overs).
 2. **Parser/** — **Done** (Phase 4 + Phase 6 manga regex shipped; `Parser/Manga/` peers).
 3. **MetadataSource/** — **Done** (`IProvideMangaInfo` implemented by `MangaDexMetadataSource` + AniList + MyAnimeList; SkyHook deleted Phase 15).
-4. **Indexers/** — **Done** (`MangaDexIndexer` + `ComixIndexer` shipped Phase 3; default-seeded fresh-DB UX per Phase 15 close).
+4. **Indexers/** — **Done** (in-process `MangaDexIndexer` + `ComixIndexer` (Phase 3) RETIRED Phase 39 Plan 39-03; `GatewayIndexer` at `Indexers/Gateway/` (Phase 37) is the sole `IIndexer` — external gateway, zero embedded browser).
 5. **MediaFiles/** — **Done** (`ChapterFile.cs` + `MangaImport/` pipeline shipped Phase 6/15; `SeasonPackUpgradeType.cs` vertical deleted Phase 17.3 Plan 17.3-05 D-06).
 6. **Qualities/** — **Done — dropped** (Phase 5 D-04 retired TV quality model; TranslationProfile + Custom Formats are the manga peer).
 
 ### Reusable As-Is
 - Decision engine architecture (specifications)
-- Download client integration (in-process image downloader shipped Phase 6; external clients still work for arbitrary payloads)
+- Download client integration (the in-process image downloader was RETIRED Phase 39 Plans 39-01/02; `GatewayDownloadClient` at `Download/Clients/Gateway/` is the sole download client — external gateway delivers finished CBZs)
 - Event messaging system
 - Database abstraction & migration pipeline (pre-v1 dev-migration policy: edit `001_mangarr_baseline.cs` in place)
 - Custom format system (architecture, not values)

@@ -21,8 +21,9 @@ namespace NzbDrone.Core.Download.TrackedDownloads
     //    5s Debouncer on grab/import events). The publisher it feeds (MangaQueueService) has NO live
     //    reference publisher to diff against (Pitfall 1) — the v5-develop Refresh() tail is the cited
     //    publish site.
-    // Surface conventions (hybrid IExecute + IHandle + IManageCommandQueue): role-match analog
-    //   src/NzbDrone.Core/Download/Manga/ProcessMangaCompletedDownloads.cs.
+    // Surface conventions (hybrid IExecute + IHandle + IManageCommandQueue): the original role-match
+    //   analog (the in-process ProcessMangaCompletedDownloads poller) was retired in Phase 39 RETIRE-01;
+    //   this monitoring service is now the canonical hybrid surface.
     //
     // ============================================================================
     // THE POLL HEART (LOOP-01) + THE DEAD-QUEUE FIX (LOOP-05):

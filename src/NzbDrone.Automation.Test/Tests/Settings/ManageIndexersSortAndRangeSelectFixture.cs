@@ -65,24 +65,23 @@ public class ManageIndexersSortAndRangeSelectFixture : AutomationTest
         var kit = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
 
         // Debug session manage-indexers-sort-timeout (2026-05-22) — delete the
-        // auto-seeded MangaDex + Comix indexer rows BEFORE seeding the fixture's
-        // AAA/BBB/CCC trio. Pre-fix the fresh-DB
-        // IndexerFactory.InitializeProviders seed left the table containing
-        // [MangaDex, Comix] before fixture seed ran. After name-descending sort,
-        // the first visible row was "MangaDex" (not "CCC Indexer"), so the
-        // WaitForFunctionAsync at line 131 timed out. With the table empty
+        // auto-seeded gateway indexer row BEFORE seeding the fixture's
+        // AAA/BBB/CCC trio. The fresh-DB IndexerFactory.InitializeProviders seed
+        // leaves the table containing the default disabled "Manga Gateway" row
+        // before fixture seed runs. After name-descending sort, the first visible
+        // row could be that default row (not "CCC Indexer"), so the
+        // WaitForFunctionAsync below would time out. With the table empty
         // pre-seed, the fixture-seeded trio is the only data the Manage modal
         // renders and the descending-sort first row is deterministically
         // "CCC Indexer".
         //
-        // GH #268: the baseline now disables the Comix indexer by default
-        // (TestKit.SeedBaselineAsync), but this fixture deletes ALL indexer rows
-        // anyway, so Comix's enabled/disabled state is moot here — the pre-fix
-        // Pitfall 10 concern (the EditIndexerModal picker warming Comix's schema)
-        // cannot arise once the row is gone.
+        // Phase 39 Plan 39-07: the in-process site-scraper indexers were retired
+        // (Plan 39-03); the surviving GatewayIndexer is the sole IIndexer and is
+        // seeded disabled-by-default. This fixture deletes ALL indexer rows anyway,
+        // so the default row's enabled/disabled state is moot here.
         await kit.DeleteAllIndexersAsync();
 
-        // Seed 3 MangaDex-implementation indexer rows in NON-alphabetical
+        // Seed 3 GatewayIndexer-implementation indexer rows in NON-alphabetical
         // insertion order (C, A, B) so the unsorted raw cache shape disagrees
         // with the visible (name-sorted) order. See class-level doc-comment for
         // why this matters.

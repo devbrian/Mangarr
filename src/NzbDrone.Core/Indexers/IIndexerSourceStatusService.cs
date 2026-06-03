@@ -10,9 +10,9 @@ using NzbDrone.Core.ThingiProvider.Status;
 namespace NzbDrone.Core.Indexers
 {
     /// <summary>
-    /// Per-<see cref="Http.HttpAggregatorBase{TSettings}.SourceKey"/> escalation API (D-17).
-    /// String-keyed sibling to <see cref="IIndexerStatusService"/>. Manga aggregators (Phase 3
-    /// HttpAggregatorBase descendants) use this path; TV indexers (Newznab/Nyaa/Torznab) keep the
+    /// Per-<c>SourceKey</c> escalation API (D-17).
+    /// String-keyed sibling to <see cref="IIndexerStatusService"/>. The gateway writes per-source
+    /// status via this path; TV indexers (Newznab/Nyaa/Torznab) keep the
     /// per-<c>ProviderId</c> <see cref="IIndexerStatusService"/> path. Phase 8 retires the legacy
     /// path with <c>Tv/</c>.
     ///

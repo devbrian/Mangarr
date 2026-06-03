@@ -241,13 +241,6 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("ScriptImportPath", value); }
         }
 
-        public string CloudflareSolverUrl
-        {
-            get { return GetValue("CloudflareSolverUrl", string.Empty); }
-
-            set { SetValue("CloudflareSolverUrl", value); }
-        }
-
         public bool ImportExtraFiles
         {
             get { return GetValueBoolean("ImportExtraFiles", false); }

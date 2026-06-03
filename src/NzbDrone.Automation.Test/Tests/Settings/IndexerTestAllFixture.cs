@@ -14,13 +14,14 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 ///
 /// Uses TestKit.SeedIndexerAsync to guarantee at least one indexer is present
 /// (replaces the prior Inconclusive("Test All button not present") branch
-/// per Blocker #4). Comix is disabled in OneTimeSetUp so it does not
-/// participate in the testall iteration.
+/// per Blocker #4).
 ///
 /// LiveService: the testall command iterates every enabled indexer's
-/// IndexerService.Test() which hits api.mangadex.org. D-09a cassette ATTEMPT
-/// would invert the test (aggregation order depends on live upstream); offline
-/// shape coverage lives in IndexerTestAllOfflineFixture.
+/// IndexerService.Test() which hits the external gateway. Offline shape
+/// coverage lives in IndexerTestAllOfflineFixture.
+///
+/// Phase 39 Plan 39-07: the seeded indexer is now the GatewayIndexer (the sole
+/// IIndexer after the in-process site-scraper indexers were retired in Plan 39-03).
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
@@ -40,8 +41,8 @@ public class IndexerTestAllFixture : AutomationTest
         var settings = await new SettingsIndexersPage(Page).OpenAsync(RootUri);
         await Assertions.Expect(settings.PageContainer).ToBeVisibleAsync();
 
-        // Strict state assertion (no Inconclusive fallback): seeded MangaDex
-        // guarantees the toolbar button is rendered.
+        // Strict state assertion (no Inconclusive fallback): the seeded gateway
+        // indexer guarantees the toolbar button is rendered.
         await Assertions.Expect(settings.TestAllButton).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
         var postTask = Page.WaitForResponseAsync(

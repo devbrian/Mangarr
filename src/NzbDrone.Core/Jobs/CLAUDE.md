@@ -26,7 +26,7 @@ Scheduled commands MUST be registered in `TaskManager.defaultTasks` at runtime (
 - **(a)** per-command "registers X" assertions — textual `_taskManagerSource.Should().Contain("typeof(NewMangaCommand).FullName", ...)` checks against the `TaskManager.cs` source file
 - **(b)** `Migration_001_contains_zero_Insert_IntoTable_calls` floor — asserts the absence of the wrong pattern in [`Datastore/Migration/001_mangarr_baseline.cs`](../Datastore/Migration/001_mangarr_baseline.cs)
 
-The bug class was first surfaced in Phase 6 — Plan 06-06 wired `MangaRssSyncCommand` + `MissingChapterSearchCommand` runtime registrations after they had been silently shipped without cadence; Plan 06-08 wired `ProcessMangaCompletedCommand`. The [`sonarr-consistency-audit` skill](../../../.claude/skills/sonarr-consistency-audit/SKILL.md) was authored to catch this exact pattern in future phases. Phase 11 swept the full inventory (16 registrations as of 2026-05-06) and verified zero gaps.
+The bug class was first surfaced in Phase 6 — Plan 06-06 wired `MangaRssSyncCommand` + `MissingChapterSearchCommand` runtime registrations after they had been silently shipped without cadence; Plan 06-08 wired `ProcessMangaCompletedCommand` (since RETIRED in Phase 39 Plan 39-01 with the in-process download vertical — see Manga Adaptation Notes below). The [`sonarr-consistency-audit` skill](../../../.claude/skills/sonarr-consistency-audit/SKILL.md) was authored to catch this exact pattern in future phases. Phase 11 swept the full inventory (16 registrations as of 2026-05-06) and verified zero gaps.
 
 ### Standard registration pattern
 
@@ -60,7 +60,9 @@ Test-class base is `TestBase` (NOT `CoreTest<T>` — this is a textual assertion
 
 ## Manga Adaptation Notes
 
-Phase 6 Plan 06-06 + 06-08 added the manga registrations: `MangaRssSyncCommand` (interval-configurable via `Config.MangaRssSyncInterval`, default 15 min), `MissingChapterSearchCommand` (24 h), `ProcessMangaCompletedCommand` (1 min — resilience poll for the reactive `IHandle<ChapterArchivedEvent>` path per Phase 6 RESEARCH Pattern 1). Phase 2 D-18 added `RefreshMangaCommand` (12 h, mirrors `RefreshSeriesCommand`). Phase 4 D-08 added `HousekeepInProcessDownloadsCommand` (24 h — in-process downloader retention sweep + orphan scratch cleanup).
+Phase 6 Plan 06-06 added the manga registrations: `MangaRssSyncCommand` (interval-configurable via `Config.MangaRssSyncInterval`, default 15 min), `MissingChapterSearchCommand` (24 h). Phase 2 D-18 added `RefreshMangaCommand` (12 h, mirrors `RefreshSeriesCommand`).
+
+**Phase 39 (Plan 39-01) — two in-process `defaultTasks` rows STRIPPED.** `ProcessMangaCompletedCommand` (the 1-min completion-poll resilience trigger for the reactive `IHandle<ChapterArchivedEvent>` in-process path) and `HousekeepInProcessDownloadsCommand` (the 24-h in-process downloader retention/scratch sweep) were both removed from `TaskManager.defaultTasks` along with their commands when the in-process download vertical was retired. `TaskManager.Handle(ApplicationStartedEvent)` self-reconciles the two orphaned `ScheduledTasks` DB rows on next start (deletes rows whose `TypeName` no longer appears in code) — no migration needed for the scheduled-task rows. The gateway-download monitoring loop (Phase 36; `RefreshMonitoredMangaDownloadsCommand` / `ProcessMonitoredMangaDownloadsCommand` under `Download/Manga/`) replaces the retired in-process completion poll.
 
 Phase 11 swept the full inventory (16 registrations as of 2026-05-06 — see [11-COMMANDS-AND-EXECUTE-FINDINGS.md](../../../.planning/phases/11-commands-and-execute-sweep/11-COMMANDS-AND-EXECUTE-FINDINGS.md) Axis 2) and confirmed zero Axis-2 (cadence) gaps and zero Anti-pattern C regressions.
 

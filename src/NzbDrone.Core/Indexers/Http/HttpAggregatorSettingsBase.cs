@@ -1,29 +1,29 @@
 using System;
-using System.Collections.Generic;
-using Equ;
-using FluentValidation;
-using NzbDrone.Core.Annotations;
-using NzbDrone.Core.Validation;
 
 namespace NzbDrone.Core.Indexers.Http
 {
     /// <summary>
-    /// Settings contract every concrete <see cref="HttpAggregatorBase{TSettings}"/> subclass must
-    /// satisfy. Extends <see cref="IIndexerSettings"/> with the three Mangarr-aggregator-specific
-    /// fields (D-11/D-12/D-14).
+    /// SourceKey settings contract for Mangarr metadata-source plugins (Phase 1 D-11/D-12/D-14).
+    /// Extends <see cref="IIndexerSettings"/> with the three Mangarr-aggregator-specific fields.
+    ///
+    /// Phase 39 (RETIRE-02): the in-process aggregator indexers + their <c>HttpAggregatorBase</c>
+    /// were deleted (the gateway is the sole <c>IIndexer</c>). This interface SURVIVES as the
+    /// SourceKey contract read by <c>MangaDownloadDecisionMaker</c> (CF custom-format scoring) and
+    /// implemented by the three metadata-source settings classes (MangaDex / AniList / MyAnimeList)
+    /// via <c>HttpMetadataSourceBase&lt;TSettings&gt;</c>. The dead concrete
+    /// <c>HttpAggregatorSettings</c> POCO + <c>HttpAggregatorSettingsValidator</c> were removed with
+    /// the indexers (no surviving consumer) — the metadata sources implement this interface directly.
     /// </summary>
     public interface IHttpAggregatorSettings : IIndexerSettings
     {
         /// <summary>
-        /// D-12: User-overridable. Falls back to
-        /// <see cref="HttpAggregatorBase{TSettings}.DefaultSourceKey"/> when blank.
+        /// D-12: User-overridable per-source rate-limit bucket key.
         /// </summary>
         string SourceKey { get; set; }
 
         /// <summary>
-        /// D-12: User-overridable rate limit (TimeSpan). Falls back to base 2-second default when
-        /// null. The concrete <see cref="HttpAggregatorSettings"/> POCO computes this from
-        /// <see cref="HttpAggregatorSettings.RateSeconds"/>.
+        /// D-12: User-overridable rate limit (TimeSpan). Falls back to the source default when null.
+        /// Implementers persist this as a numeric seconds value on disk.
         /// </summary>
         TimeSpan? Rate { get; set; }
 
@@ -31,66 +31,5 @@ namespace NzbDrone.Core.Indexers.Http
         /// D-14: User-overridable opt-out. Honest <c>Mangarr/{version}</c> applied when blank.
         /// </summary>
         string UserAgentOverride { get; set; }
-    }
-
-    /// <summary>
-    /// FluentValidation rules for <see cref="HttpAggregatorSettings"/>. Source plugins typically
-    /// subclass <see cref="HttpAggregatorSettings"/> and may extend or replace this validator with
-    /// source-specific rules; the two rules enforced here (BaseUrl, SourceKey) are the
-    /// Mangarr-aggregator floor.
-    /// </summary>
-    public class HttpAggregatorSettingsValidator : AbstractValidator<HttpAggregatorSettings>
-    {
-        public HttpAggregatorSettingsValidator()
-        {
-            RuleFor(c => c.BaseUrl).ValidRootUrl();
-
-            // D-12: SourceKey is required (default supplied by subclass).
-            // Rate and UserAgentOverride are optional.
-            RuleFor(c => c.SourceKey).NotEmpty();
-        }
-    }
-
-    /// <summary>
-    /// Reusable Settings POCO. Concrete source plugins MAY extend or reuse directly; Phase 3
-    /// plugins typically subclass this for source-specific fields.
-    /// </summary>
-    public class HttpAggregatorSettings : PropertywiseEquatable<HttpAggregatorSettings>, IHttpAggregatorSettings
-    {
-        private static readonly HttpAggregatorSettingsValidator Validator = new HttpAggregatorSettingsValidator();
-
-        public HttpAggregatorSettings()
-        {
-            MultiLanguages = Array.Empty<int>();
-            FailDownloads = Array.Empty<int>();
-        }
-
-        [FieldDefinition(0, Label = "HttpAggregatorUrl")]
-        public string BaseUrl { get; set; }
-
-        [FieldDefinition(1, Label = "HttpAggregatorSourceKey", HelpText = "HttpAggregatorSourceKeyHelpText")]
-        public string SourceKey { get; set; }
-
-        [FieldDefinition(2, Label = "HttpAggregatorRateSeconds", Type = FieldType.Number, Advanced = true, HelpText = "HttpAggregatorRateSecondsHelpText")]
-        public double? RateSeconds { get; set; }
-
-        [FieldDefinition(3, Label = "HttpAggregatorUserAgentOverride", Advanced = true, HelpText = "HttpAggregatorUserAgentOverrideHelpText")]
-        public string UserAgentOverride { get; set; }
-
-        // D-12: Rate is exposed via the interface as TimeSpan? but persisted on disk as a numeric
-        // RateSeconds value (so the FieldDefinition produces a Number control rather than a
-        // TimeSpan-shaped one). Explicit interface impl bridges the two: the getter computes from
-        // RateSeconds, the setter writes back as seconds.
-        TimeSpan? IHttpAggregatorSettings.Rate
-        {
-            get => RateSeconds.HasValue ? TimeSpan.FromSeconds(RateSeconds.Value) : (TimeSpan?)null;
-            set => RateSeconds = value?.TotalSeconds;
-        }
-
-        public IEnumerable<int> MultiLanguages { get; set; }
-        public IEnumerable<int> FailDownloads { get; set; }
-
-        public NzbDroneValidationResult Validate()
-            => new NzbDroneValidationResult(Validator.Validate(this));
     }
 }

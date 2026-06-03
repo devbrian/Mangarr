@@ -15,9 +15,9 @@ namespace NzbDrone.Core.Download.Manga
     //   (the TV Check(TrackedDownload) → Import dispatch shape; manga substitutes the in-process
     //   image-archive output for the torrent/usenet payload). NO live TV peer at HEAD — the Tv/
     //   CompletedDownloadService was removed in the Phase 15 cutover.
-    // EXTRACT-analog: src/NzbDrone.Core/Download/Manga/ProcessMangaCompletedDownloads.ProcessOne
-    //   (the idempotent import core lifted here and GENERALIZED off the matched TrackedDownload
-    //   instead of the in-process ChapterDownloadState row).
+    // EXTRACT-analog: the idempotent import core was lifted from the in-process
+    //   ProcessMangaCompletedDownloads.ProcessOne (retired in Phase 39 RETIRE-01) and GENERALIZED
+    //   off the matched TrackedDownload instead of the in-process ChapterDownloadState row.
     //
     // ============================================================================
     // GENERALIZED IMPORT CORE (the 3 inputs that vanish with ChapterDownloadState are re-sourced
@@ -37,14 +37,11 @@ namespace NzbDrone.Core.Download.Manga
     // rescan handlers (which fire on the import pipeline's own ChapterImportedEvent) would race a
     // half-written library.
     //
-    // NOTE: ProcessMangaCompletedDownloads is intentionally NOT edited in place to read the
-    // TrackedDownload — its hybrid IHandle<ChapterArchivedEvent> + IExecute<ProcessMangaCompletedCommand>
-    // in-process path keeps driving off ChapterDownloadState/StagingPath (and keeps its scratch-dir
-    // cleanup) through Phase 38. This service is the OutputPath-driven generalization that the
-    // monitoring loop (Plan 03 matcher) feeds.
-    //
-    // Phase 38 cleanup: when the gateway path lands, this becomes the canonical completed-download
-    // import entry; the in-process ProcessMangaCompletedDownloads collapses into it.
+    // NOTE: Phase 39 RETIRE-01 deleted the former in-process hybrid completion poller
+    // (ProcessMangaCompletedDownloads — IHandle<ChapterArchivedEvent> + IExecute<ProcessMangaCompletedCommand>,
+    // driven off the now-retired ChapterDownloadState/StagingPath). This OutputPath-driven service,
+    // fed by the Phase 36 monitoring loop (Plan 03 matcher), is now the SOLE completed-download
+    // import entry — there is no longer a second in-process path to collapse with.
     // ============================================================================
     public interface IMangaCompletedDownloadService
     {
@@ -196,9 +193,9 @@ namespace NzbDrone.Core.Download.Manga
             // ── Dispatch into the KEPT IImportApprovedChapters pipeline ─────────────────
             // P1: capture the importer results — IImportApprovedChapters.Import RETURNS (never
             // throws) Skipped/Rejected results for destination-exists, missing-root-folder, or
-            // move/recycle failures. Honoring them before reporting success mirrors the canonical
-            // ProcessMangaCompletedDownloads (if results.All(Imported)) and Sonarr's
-            // CompletedDownloadService.VerifyImport.
+            // move/recycle failures. Honoring them before reporting success mirrors the retired
+            // in-process ProcessMangaCompletedDownloads (if results.All(Imported); deleted Phase 39
+            // RETIRE-01) and Sonarr's CompletedDownloadService.VerifyImport.
             var results = _importer.Import(
                 new List<MangaImportDecision> { decision },
                 newDownload: true,

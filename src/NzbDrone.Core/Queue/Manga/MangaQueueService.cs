@@ -38,9 +38,10 @@ namespace NzbDrone.Core.Queue.Manga
 
         // Phase 36 Plan 06 (D-01 / LOOP-05): the manga-side page-progress carrier. MapQueueItem
         // reads page counts from this matcher channel keyed by DownloadId (Plan 03's
-        // GetPageProgress over the OPTIONAL IMangaDownloadPageProgressSource set) — NOT from
-        // ChapterDownloadState (which Phase 39 deletes) and NOT from the shared DownloadClientItem
-        // POCO (D-01a hard constraint). Returns null on the gateway path → bytes/% fallback (D-01b).
+        // GetPageProgress over the OPTIONAL IMangaDownloadPageProgressSource set) — NOT from the
+        // (now-retired, Phase 39 RETIRE-01) in-process ChapterDownloadState row and NOT from the
+        // shared DownloadClientItem POCO (D-01a hard constraint). Returns null on the gateway path
+        // → bytes/% fallback (D-01b).
         private readonly IMangaTrackedDownloadService _trackedDownloadService;
         private readonly Logger _logger;
 
@@ -182,8 +183,9 @@ namespace NzbDrone.Core.Queue.Manga
 
             // Phase 36 Plan 06 (D-01 / LOOP-05): ADDITIVE manga page caption. Source the page
             // counts from the Plan 03 matcher channel keyed by the stable DownloadId — NEVER from
-            // ChapterDownloadState (Phase 39 deletes it) and NEVER from the shared DownloadClientItem
-            // contract (D-01a). On the gateway path (Phase 38) GetPageProgress returns null, so
+            // the (now-retired, Phase 39 RETIRE-01) in-process ChapterDownloadState row and NEVER
+            // from the shared DownloadClientItem contract (D-01a). On the gateway path (Phase 38)
+            // GetPageProgress returns null, so
             // TotalPages/CompletedPages stay null and the Queue caption falls back to bytes/% (D-01b).
             // The Size/SizeLeft bar-fill mapping (above) and the TimeLeft/EstimatedCompletionTime ETA
             // mapping (below) are deliberately UNTOUCHED — D-01b keeps byte/% driving the bar; D-02

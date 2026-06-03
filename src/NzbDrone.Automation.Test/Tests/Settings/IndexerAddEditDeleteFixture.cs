@@ -9,30 +9,43 @@ using NzbDrone.Automation.Test.PageModel.Settings;
 namespace NzbDrone.Automation.Test.Tests.Settings;
 
 /// <summary>
-/// Phase 20 Plan 20-04 (D-06) — Indexer canonical CRUD round-trip against
-/// MangaDex: picker -> Add -> Edit (priority) -> Delete. Exercises
-/// POST/PUT/DELETE /api/v5/indexer plus the SettingsProviderFlow orchestrator
-/// that Plans 20-05/06 will adopt verbatim.
+/// Phase 20 Plan 20-04 (D-06) / Phase 39 Plan 39-07 — Indexer canonical CRUD round-trip
+/// against the GatewayIndexer (the sole IIndexer): picker -> Add -> Edit (priority) ->
+/// Delete. Exercises POST/PUT/DELETE /api/v5/indexer plus the SettingsProviderFlow
+/// orchestrator that Plans 20-05/06 adopt verbatim.
 ///
 /// Tier (D-04): modal-action axis = Nightly (no [Category("PRSmoke")]).
 ///
-/// Comix is disabled in OneTimeSetUp (Pitfall 10) so the picker schema list
-/// rendered during OpenPickerAndSelectAsync does not warm PuppeteerSharp.
+/// Phase 39 Plan 39-07: repointed from the retired in-process MangaDex indexer (deleted
+/// in Plan 39-03) to the gateway. The gateway's backend Test() makes a real outbound HTTP
+/// call to the (unreachable) gateway host, so BypassConnectionTestAsync injects
+/// ?skipTesting=true on every save POST/PUT (ProviderControllerBase.CreateProvider:85) —
+/// mirrors the Komga/Kavita CRUD fixtures.
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
 public class IndexerAddEditDeleteFixture : AutomationTest
 {
-    private const string TestName = "MangaDex (CRUD test)";
+    private const string TestName = "Gateway (CRUD test)";
 
     [Test]
-    public async Task crud_roundtrip_for_mangadex_indexer()
+    public async Task crud_roundtrip_for_gateway_indexer()
     {
+        // The gateway Test() makes a live outbound call to the unreachable gateway host;
+        // inject ?skipTesting=true on every save POST/PUT so the round-trip is deterministic.
+        await SettingsProviderFlow.BypassConnectionTestAsync(Page, "indexer");
+
         await new SettingsIndexersPage(Page).OpenAsync(RootUri);
-        await SettingsProviderFlow.OpenPickerAndSelectAsync(Page, "indexer", "mangadex");
+        await SettingsProviderFlow.OpenPickerAndSelectAsync(Page, "indexer", "gateway");
 
         var editModal = new EditIndexerModal(Page);
         await editModal.NameInput.FillAsync(TestName);
+
+        // GatewaySettings validator requires BaseUrl (ValidRootUrl) + ApiKey (NotEmpty);
+        // the picker schema preset leaves both empty, so the save POST would 400 on
+        // settings validation (which runs even with skipTesting) without these.
+        await editModal.BaseUrlInput.FillAsync("http://localhost:8080");
+        await editModal.ApiKeyInput.FillAsync("test-crud-key");
 
         await SettingsProviderFlow.SaveAsync(Page, "indexer");
 

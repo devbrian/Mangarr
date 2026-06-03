@@ -43,19 +43,6 @@ public abstract class AutomationTest
     protected virtual string ConfiguredUrlBase => string.Empty;
 
     /// <summary>
-    /// GH #268: the automation tier seeds the Comix indexer DISABLED by default
-    /// (the final step of <see cref="TestKit.TestKit.SeedBaselineAsync(bool)"/>) —
-    /// comix.to cannot be HTTP-cassette'd (Phase 18 D-11), so an un-cassetted
-    /// indexer fan-out (InteractiveSearch / add-manga conditional backfill search /
-    /// ImportListSync) would escape to the live network. This safe-by-default
-    /// baseline replaces the ~92 per-fixture <c>DisableComixIndexerAsync</c> calls.
-    /// Fixtures that DO exercise Comix offline via <c>CassettingComixSigner</c>
-    /// (recorded cassettes under <c>Fixtures/Cassettes/Comix/</c>) override this to
-    /// <c>false</c> so the seeded Comix indexer stays enabled for their fan-out.
-    /// </summary>
-    protected virtual bool DisableComixIndexerInBaseline => true;
-
-    /// <summary>
     /// Convenience accessor — combines RootUri with the runner's UrlBase so
     /// fixtures and seed code can write <c>$"{HostBaseUrl}/..."</c> instead of
     /// reassembling the prefix. Equal to RootUri when ConfiguredUrlBase is empty.
@@ -111,12 +98,15 @@ public abstract class AutomationTest
         _runner.KillAll();
         _runner.Start(enableAuth: true, urlBase: ConfiguredUrlBase);
 
-        // D-07 pre-seed baseline (Plan 18-14 D-C fix): root folder + InProcess
+        // D-07 pre-seed baseline (Plan 18-14 D-C fix): root folder + Gateway
         // download client must exist before the browser opens or the AddManga
         // modal's Add button POST fails its required-field validation
         // (RootFolderPath is mandatory; TranslationProfile/CustomFormatProfile
         // come from Phase 5 baseline migration). Without this seed, every
         // AddMangaFlow.AddByMangaDexIdAsync call times out at ConfirmAddAsync.
+        // Phase 39 Plan 39-07: the baseline download client is now the external
+        // GatewayDownloadClient (the in-process image downloader was retired in
+        // Plan 39-02).
         var seedRoot = Path.Combine(_runner.AppData, "MangaLibrary");
         Directory.CreateDirectory(seedRoot);
 
@@ -126,7 +116,7 @@ public abstract class AutomationTest
         // by UrlBaseMiddleware (RestSharp does not auto-follow 307 with method
         // preservation on POST/PUT).
         await new NzbDrone.Automation.Test.TestKit.TestKit(HostBaseUrl, _runner.ApiKey, seedRoot)
-            .SeedBaselineAsync(disableComixIndexer: DisableComixIndexerInBaseline);
+            .SeedBaselineAsync();
 
         Context = await PlaywrightSetUpFixture.Browser.NewContextAsync(new BrowserNewContextOptions
         {
@@ -240,16 +230,17 @@ public abstract class AutomationTest
                     "[GH#252] OneTimeTearDown: runner was null (OneTimeSetUp failed before construction); nothing to kill.");
             }
 
-            // GH #252: sweep orphan Puppeteer/Playwright Chromium. The child Mangarr's
-            // ComixPlaywrightSigner owns an embedded Chromium that self-disposes via its
-            // IHandle<ApplicationShutdownRequested> handler — but a HARD kill of the child
-            // (above, or on a crash) skips that graceful path, orphaning the Chromium to
-            // PID 1. The Playwright browser worker for THIS fixture is owned by
-            // PlaywrightSetUpFixture and disposed there; this sweep is the catch-all for
-            // signer-Chromium leaks. We delegate to scripts/kill-orphan-chromium.ps1, which
-            // discriminates leaked Chromium from the user's real Chrome by three orthogonal
-            // signals — we never broaden that filter and never `taskkill /F /IM chrome.exe`.
-            // Best-effort + fully wrapped so a sweep failure can NEVER mask the test outcome.
+            // GH #252: sweep orphan Puppeteer/Playwright Chromium. Phase 39 retired the
+            // child Mangarr's embedded anti-bot signer Chromium (the in-process Comix signer
+            // stack was deleted in Plan 39-03 — Mangarr now ships zero embedded browser), so
+            // a production-side signer-Chromium leak is no longer possible. This sweep is kept
+            // as defense-in-depth against any stray PuppeteerSharp/Playwright Chromium a
+            // crashed test harness could leave behind. The Playwright browser worker for THIS
+            // fixture is owned by PlaywrightSetUpFixture and disposed there. We delegate to
+            // scripts/kill-orphan-chromium.ps1, which discriminates leaked Chromium from the
+            // user's real Chrome by three orthogonal signals — we never broaden that filter
+            // and never `taskkill /F /IM chrome.exe`. Best-effort + fully wrapped so a sweep
+            // failure can NEVER mask the test outcome.
             await SweepOrphanChromiumAsync();
             CleanupPostgresDatabases();
         }
@@ -257,10 +248,10 @@ public abstract class AutomationTest
 
     /// <summary>
     /// GH #252: best-effort sweep of leaked PuppeteerSharp/Playwright Chromium left by a
-    /// hard-killed child Mangarr (its ComixPlaywrightSigner Chromium never got the graceful
-    /// ApplicationShutdownRequested teardown). Windows-only (the script uses
-    /// Get-CimInstance / Stop-Process); a no-op elsewhere. NEVER throws — a sweep failure
-    /// must not influence the test verdict.
+    /// hard-killed test harness. Phase 39 retired the child Mangarr's embedded signer
+    /// Chromium (Plan 39-03 — zero embedded browser), so this is now pure defense-in-depth.
+    /// Windows-only (the script uses Get-CimInstance / Stop-Process); a no-op elsewhere.
+    /// NEVER throws — a sweep failure must not influence the test verdict.
     /// </summary>
     private static async Task SweepOrphanChromiumAsync()
     {

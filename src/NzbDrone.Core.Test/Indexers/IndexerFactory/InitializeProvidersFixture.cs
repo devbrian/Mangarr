@@ -4,19 +4,21 @@ using FluentAssertions;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Indexers;
-using NzbDrone.Core.Indexers.Comix;
 using NzbDrone.Core.Indexers.Gateway;
-using NzbDrone.Core.Indexers.MangaDex;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Core.ThingiProvider;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.Indexer
 {
-    // Sonarr divergence: zero-config first-run UX (PROJECT.md v1 lock). Mangarr seeds
-    // MangaDex (BEDROCK) + Comix (reference port #1) + GatewayIndexer (Phase 37 A3,
-    // DISABLED-by-default via empty-settings-fail-validation) on a fresh DB. Mirrors
-    // MetadataSourceFactoryFixture's "All_three_providers_resolved" + idempotency style.
+    // Sonarr divergence: zero-config first-run UX (PROJECT.md v1 lock). Mangarr seeds a
+    // known-good source on a fresh DB so /settings/indexers is not empty. Mirrors
+    // MetadataSourceFactoryFixture's "providers_resolved" + idempotency style.
+    //
+    // Phase 39 (RETIRE-02): the in-process MangaDexIndexer + ComixIndexer were deleted;
+    // GatewayIndexer (Phase 37) is now the SOLE IIndexer and the sole seeded implementation.
+    // It seeds DISABLED-by-default because its empty default settings fail validation.
     //
     // Anti-pattern C compliance: assertions go through real factory code (Insert ->
     // Repository.Insert is mocked; we assert the repository receives Insert calls with
@@ -32,16 +34,14 @@ namespace NzbDrone.Core.Test.Indexer
         {
             _stored = new List<IndexerDefinition>();
 
-            // Build mock providers whose GetType().Name == "MangaDexIndexer" / "ComixIndexer".
-            // Real ComixIndexer / MangaDexIndexer would require a full DI graph (IHttpClient,
+            // Build a mock provider whose GetType().Name == "GatewayIndexer". The real
+            // GatewayIndexer would require a full DI graph (IHttpClient,
             // IIndexerSourceStatusService, etc.); the seed code only consults
             // GetType().Name, .Name, .ConfigContract, and .DefaultDefinitions, so a stub
-            // suffices. We use the real ComixIndexerSettings / MangaDexIndexerSettings POCOs
-            // (compile-time defaults are part of the seed contract).
+            // suffices. We use the real GatewaySettings POCO (compile-time defaults are
+            // part of the seed contract).
             _providers = new List<IIndexer>
             {
-                new MangaDexIndexer(),
-                new ComixIndexer(),
                 new GatewayIndexer(),
             };
 
@@ -58,28 +58,32 @@ namespace NzbDrone.Core.Test.Indexer
                   })
                   .Returns<IndexerDefinition>(d => d);
 
+            // Wire Delete to actually mutate _stored so RemoveMissingImplementations'
+            // orphan purge is modeled faithfully: the base ProviderFactory.Handle calls
+            // RemoveMissingImplementations() (which Deletes every stored def whose
+            // Implementation does not resolve to a registered IIndexer) BEFORE
+            // InitializeProviders(). Without this callback the orphan row would survive in
+            // _stored, so the seed-skip path was only "green" because the mock Delete was a
+            // no-op — masking the real post-purge behavior (PR #312 review Major).
+            Mocker.GetMock<IIndexerRepository>()
+                  .Setup(r => r.Delete(It.IsAny<IndexerDefinition>()))
+                  .Callback<IndexerDefinition>(d => _stored.RemoveAll(x => x.Id == d.Id));
+
             // Replace the auto-resolved IEnumerable<IIndexer> with our stub list so the
-            // factory under test sees exactly our two seed targets.
+            // factory under test sees exactly our seed target.
             Mocker.SetConstant<IEnumerable<IIndexer>>(_providers);
         }
 
         [Test]
-        public void Handle_ApplicationStarted_seeds_mangadex_comix_and_gateway_on_empty_db()
+        public void Handle_ApplicationStarted_seeds_gateway_on_empty_db()
         {
             Subject.Handle(new ApplicationStartedEvent());
 
-            _stored.Should().HaveCount(3);
+            _stored.Should().HaveCount(1);
             _stored.Select(d => d.Implementation)
-                   .Should().BeEquivalentTo(new[] { nameof(MangaDexIndexer), nameof(ComixIndexer), nameof(GatewayIndexer) });
+                   .Should().BeEquivalentTo(new[] { nameof(GatewayIndexer) });
             _stored.Select(d => d.Name)
-                   .Should().BeEquivalentTo(new[] { "MangaDex", "Comix", "Manga Gateway" });
-
-            // MangaDex + Comix pull defaults from DefaultDefinitions with valid compile-time
-            // settings — EnableRss / EnableAutomaticSearch / EnableInteractiveSearch all true.
-            _stored.Single(d => d.Implementation == nameof(MangaDexIndexer))
-                   .EnableRss.Should().BeTrue();
-            _stored.Single(d => d.Implementation == nameof(ComixIndexer))
-                   .EnableAutomaticSearch.Should().BeTrue();
+                   .Should().BeEquivalentTo(new[] { "Manga Gateway" });
 
             // Phase 37 A3: GatewayIndexer seeds DISABLED-by-default — its empty default settings
             // (blank BaseUrl/ApiKey) fail config.Validate().IsValid, so DefaultDefinitions yields
@@ -93,110 +97,63 @@ namespace NzbDrone.Core.Test.Indexer
         [Test]
         public void Handle_ApplicationStarted_is_idempotent_when_rows_already_exist()
         {
-            // Pre-existing user-edited row — seeder must NOT create another MangaDex row
+            // Pre-existing user-edited row — seeder must NOT create another Gateway row
             // and must NOT touch the existing one (S4 pattern: All().Any() short-circuit).
             _stored.Add(new IndexerDefinition
             {
                 Id = 1,
-                Name = "User Custom MangaDex",
-                Implementation = nameof(MangaDexIndexer),
-                ConfigContract = nameof(MangaDexIndexerSettings),
+                Name = "User Custom Gateway",
+                Implementation = nameof(GatewayIndexer),
+                ConfigContract = nameof(GatewaySettings),
                 EnableRss = false,
             });
 
             Subject.Handle(new ApplicationStartedEvent());
 
             _stored.Should().HaveCount(1);
-            _stored[0].Name.Should().Be("User Custom MangaDex");
+            _stored[0].Name.Should().Be("User Custom Gateway");
             _stored[0].EnableRss.Should().BeFalse();
         }
 
         [Test]
-        public void Handle_ApplicationStarted_skips_seed_when_user_deleted_one_seeded_row()
+        public void Handle_ApplicationStarted_purges_orphan_impl_then_reseeds_gateway_on_now_empty_db()
         {
-            // User explicitly deleted MangaDex but kept Comix. Subsequent restart must NOT
-            // recreate MangaDex — All().Any() returns true so we leave the table alone.
-            // This is the user-override-respect contract; without it, "delete this row"
-            // would have no permanent effect.
+            // A stored definition whose Implementation does NOT resolve to any registered IIndexer
+            // (e.g. a deleted MangaDex/Comix row carried over an upgrade, or a binary built without
+            // a plugin). This models the REAL ProviderFactory.Handle flow faithfully:
+            //   1. RemoveMissingImplementations() Deletes the orphan (GetImplementation == null) —
+            //      GatewayIndexer is the SOLE resolvable IIndexer at HEAD (Phase 39 RETIRE-02), so
+            //      "SomeOtherIndexer" is unresolvable and purged (a Warn is logged per the base).
+            //   2. With the orphan gone, the table is now empty, so InitializeProviders() seeds the
+            //      Gateway default (the empty-table → seed contract).
+            // The prior test asserted the OPPOSITE (the orphan survives, no reseed) and only stayed
+            // green because the mocked Delete was a no-op — masking the purge entirely (PR #312
+            // review Major). The Delete mock now mutates _stored so the purge is observable.
             _stored.Add(new IndexerDefinition
             {
                 Id = 1,
-                Name = "Comix",
-                Implementation = nameof(ComixIndexer),
-                ConfigContract = nameof(ComixIndexerSettings),
+                Name = "Some Other Indexer",
+                Implementation = "SomeOtherIndexer",
+                ConfigContract = "SomeOtherIndexerSettings",
             });
 
             Subject.Handle(new ApplicationStartedEvent());
 
+            // The orphan was purged and the now-empty table reseeded with the Gateway default —
+            // exactly one row, and it is the Gateway (NOT the orphan).
             _stored.Should().HaveCount(1);
-            _stored[0].Implementation.Should().Be(nameof(ComixIndexer));
-        }
+            _stored[0].Implementation.Should().Be(nameof(GatewayIndexer));
+            _stored[0].Name.Should().Be("Manga Gateway");
 
-        // Minimal stubs: only the IProvider members consulted by InitializeProviders.
-        private sealed class MangaDexIndexer : IIndexer
-        {
-            public string Name => "MangaDex";
-            public System.Type ConfigContract => typeof(MangaDexIndexerSettings);
-            public ProviderMessage Message => null;
-            public IEnumerable<ProviderDefinition> DefaultDefinitions => new[]
-            {
-                new IndexerDefinition
-                {
-                    Name = nameof(MangaDexIndexer),
-                    Implementation = nameof(MangaDexIndexer),
-                    ConfigContract = nameof(MangaDexIndexerSettings),
-                    Settings = new MangaDexIndexerSettings(),
-                    EnableRss = true,
-                    EnableAutomaticSearch = true,
-                    EnableInteractiveSearch = true,
-                }
-            };
-            public ProviderDefinition Definition { get; set; }
-            public bool SupportsRss => true;
-            public bool SupportsSearch => true;
-            public DownloadProtocol Protocol => DownloadProtocol.Http;
-            public System.Threading.Tasks.Task<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>> FetchRecent()
-                => System.Threading.Tasks.Task.FromResult<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>>(System.Array.Empty<NzbDrone.Core.Parser.Model.ReleaseInfo>());
-            public System.Threading.Tasks.Task<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>> Fetch(NzbDrone.Core.IndexerSearch.Definitions.MangaSearchCriteria sc)
-                => System.Threading.Tasks.Task.FromResult<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>>(System.Array.Empty<NzbDrone.Core.Parser.Model.ReleaseInfo>());
-            public System.Threading.Tasks.Task<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>> Fetch(NzbDrone.Core.IndexerSearch.Definitions.ChapterSearchCriteria sc)
-                => System.Threading.Tasks.Task.FromResult<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>>(System.Array.Empty<NzbDrone.Core.Parser.Model.ReleaseInfo>());
-            public NzbDrone.Common.Http.HttpRequest GetDownloadRequest(string link) => null;
-            public FluentValidation.Results.ValidationResult Test() => new();
-            public object RequestAction(string s, IDictionary<string, string> q) => null;
-        }
+            // The reseeded gateway is DISABLED-by-default (Phase 37 A3 — empty default settings
+            // fail validation), proving the reseed went through the real DefaultDefinitions path.
+            _stored[0].EnableRss.Should().BeFalse();
+            _stored[0].EnableAutomaticSearch.Should().BeFalse();
+            _stored[0].EnableInteractiveSearch.Should().BeFalse();
 
-        private sealed class ComixIndexer : IIndexer
-        {
-            public string Name => "Comix";
-            public System.Type ConfigContract => typeof(ComixIndexerSettings);
-            public ProviderMessage Message => null;
-            public IEnumerable<ProviderDefinition> DefaultDefinitions => new[]
-            {
-                new IndexerDefinition
-                {
-                    Name = nameof(ComixIndexer),
-                    Implementation = nameof(ComixIndexer),
-                    ConfigContract = nameof(ComixIndexerSettings),
-                    Settings = new ComixIndexerSettings(),
-                    EnableRss = true,
-                    EnableAutomaticSearch = true,
-                    EnableInteractiveSearch = true,
-                }
-            };
-            public ProviderDefinition Definition { get; set; }
-            public bool SupportsRss => true;
-            public bool SupportsSearch => true;
-            public DownloadProtocol Protocol => DownloadProtocol.Http;
-            public System.Threading.Tasks.Task<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>> FetchRecent()
-                => System.Threading.Tasks.Task.FromResult<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>>(System.Array.Empty<NzbDrone.Core.Parser.Model.ReleaseInfo>());
-            public System.Threading.Tasks.Task<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>> Fetch(NzbDrone.Core.IndexerSearch.Definitions.MangaSearchCriteria sc)
-                => System.Threading.Tasks.Task.FromResult<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>>(System.Array.Empty<NzbDrone.Core.Parser.Model.ReleaseInfo>());
-            public System.Threading.Tasks.Task<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>> Fetch(NzbDrone.Core.IndexerSearch.Definitions.ChapterSearchCriteria sc)
-                => System.Threading.Tasks.Task.FromResult<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>>(System.Array.Empty<NzbDrone.Core.Parser.Model.ReleaseInfo>());
-            public NzbDrone.Common.Http.HttpRequest GetDownloadRequest(string link) => null;
-            public FluentValidation.Results.ValidationResult Test() => new();
-            public object RequestAction(string s, IDictionary<string, string> q) => null;
+            // RemoveMissingImplementations logs a Warn ("Removing {Name}") while purging the
+            // orphan — acknowledge it so LoggingTest's teardown does not fail.
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         // Phase 37 A3 stub: the GatewayIndexer seeds DISABLED-by-default because its empty default

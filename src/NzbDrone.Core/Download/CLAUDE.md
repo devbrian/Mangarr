@@ -6,6 +6,18 @@ Download client integration + the **download lifecycle** — from release submis
 
 The architecture is largely **media-agnostic**: a torrent client doesn't care if the payload is a `.mkv` or a `.cbz` archive. Most of this directory transfers to Mangarr unchanged.
 
+> **Phase 39 (Plans 39-01/02) — in-process download vertical RETIRED.** The whole
+> `Clients/InProcess/` directory (`InProcessImageDownloadClient` + `ChapterDownloadService`
+> + `ChapterPageFetcher` + `ChapterDownloadState` + `ChapterDownloadHousekeeper`/
+> `HousekeepInProcessDownloadsCommand` + the `Download/Manga/ProcessMangaCompleted*`
+> completion-poller cluster) was deleted. **`Clients/Gateway/GatewayDownloadClient.cs`
+> (Phase 38) is now the sole download client** — it submits an opaque handle back to the
+> external manga gateway and imports the finished CBZ the gateway delivers; Mangarr ships
+> zero embedded browser. `DownloadClientFactory`'s fresh-DB auto-seed override was deleted
+> too (Sonarr-canonical empty download-client list). The two retired `TaskManager.defaultTasks`
+> rows (`ProcessMangaCompletedCommand` 1-min poll + `HousekeepInProcessDownloadsCommand`
+> 24-h sweep) were stripped. See `DIVERGENCE.md` Phase 39 section.
+
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Download\`
 
 ## Top-Level Files
@@ -16,14 +28,14 @@ The architecture is largely **media-agnostic**: a torrent client doesn't care if
 | `DownloadClientItem.cs` | Status of a single in-flight download |
 | `IDownloadClientFactory.cs` / `DownloadClientFactory.cs` | ThingiProvider factory |
 | `DownloadClientProvider.cs` | Picks which configured client to use for a release |
-| `DownloadService.cs` | Main entry — submit a `RemoteEpisode` to a download client |
+| `DownloadService.cs` | Main entry — submit a `RemoteChapter` (manga) / `RemoteEpisode` (reference-preserved TV) to a download client |
 | `CompletedDownloadService.cs` | Detect completed downloads, hand to importer |
 | `FailedDownloadService.cs` | Detect failed downloads, blocklist + notify |
 | `IgnoredDownloadService.cs` | Skip (ignore) downloads matching certain criteria |
 | `DownloadEventHub.cs` | Translates download client events into domain events |
 | `RedownloadFailedDownloadService.cs` | Auto-retry failed grabs |
-| `UsenetClientItem.cs` / `TorrentClientItem.cs` | Specialized item types |
-| `DownloadProtocol.cs` | enum `Usenet` / `Torrent` |
+| `UsenetClientItem.cs` / `TorrentClientItem.cs` | Specialized item types (reference-preserved TV fork heritage) |
+| `DownloadProtocol.cs` (under `Indexers/`) | enum `Unknown = 0` / `Http = 3` — Phase 15 D-18 deleted `Usenet = 1` + `Torrent = 2` (TV download clients removed per D-14; the gap is left rather than renumbered for persisted-int compatibility). The manga `GatewayDownloadClient.Protocol` is `DownloadProtocol.Http` (Phase 1 D-04) |
 | `DownloadFailedReason.cs` | enum |
 
 ## Subdirectories
@@ -77,40 +89,55 @@ Releases awaiting delay-profile timeout / preferred-protocol cooldown:
 ### `Extensions/`
 Shared utilities (`MagnetLink.cs`, `TorrentBitfield.cs`, etc.).
 
-### `Manga/` (Phase 6 sibling)
-Manga-side staging-handoff orchestration + auto-retry orchestrator. See [Manga/CLAUDE.md](./Manga/CLAUDE.md).
+### `Manga/` (Phase 6 sibling — gateway-monitoring survivors)
+Manga-side download-monitoring orchestration + auto-retry orchestrator. See [Manga/CLAUDE.md](./Manga/CLAUDE.md).
 
-| File | Purpose | Phase 6 Plan |
-|------|---------|--------------|
-| `ProcessMangaCompletedCommand.cs` | Payload-less `Command` POCO; 1-min poll trigger registered in `TaskManager.defaultTasks` per Anti-pattern C compliance. | Plan 06-08 |
-| `ProcessMangaCompletedDownloads.cs` | Hybrid `IHandle<ChapterArchivedEvent>` + `IExecute<ProcessMangaCompletedCommand>` orchestrator (RESEARCH Pattern 1). Bridges Phase 4 archived-CBZ output to Phase 6 `ImportApprovedChapters` (Plan 06-07). Idempotent — both paths converge on a single `ProcessOne` method that short-circuits when `ChapterFile` is already present. | Plan 06-08 |
-| `AutoRetryOrchestrator.cs` | Bounded auto-retry orchestrator (D-12 + D-13 + Pitfall 5). Subscribes to `MangaBlocklistAddedEvent` (NOT `ChapterDownloadFailedEvent` — anti-race contract with Plan 06-04 `MangaBlocklistService`); pushes `ChapterSearchCommand` while `ChapterHistory{DownloadFailed}` count < `IConfigService.MaxAutoRetriesPerChapter`. | Plan 06-08 |
+> **Phase 39 (Plan 39-01) — completion-poller cluster retired.** The `ProcessMangaCompletedCommand.cs`
+> + `ProcessMangaCompletedDownloads.cs` hybrid (the Phase-4 archived-CBZ → Phase-6 import bridge for the
+> in-process downloader) was deleted with the in-process vertical, along with `MediaFiles/ChapterArchiving/ChapterArchivedEvent.cs`.
+> The surviving manga-download orchestration now keys off the Phase-36 monitoring loop + the external
+> `GatewayDownloadClient` (Phase 38), not an in-process completion poll.
 
-**Phase 8 cleanup:** the staging-handoff path collapses with `CompletedDownloadService` when `ImportApprovedEpisodes` deletes; the TV-side `Protocol == DownloadProtocol.Http` early-return guard at lines 74-77 disappears with it. The `AutoRetryOrchestrator` stays as-is — no TV peer to collapse with; the auto-retry-redirect-to-next-best pattern is the *arr promise applied to the manga pipeline.
+| File | Purpose | Survivor since |
+|------|---------|----------------|
+| `MangaCompletedDownloadService.cs` | `OutputPath`-driven import of finished CBZs the gateway staged (Phase 36 monitoring loop). | Phase 36 |
+| `MangaDownloadProcessingService.cs` / `RefreshMonitoredMangaDownloadsCommand.cs` / `ProcessMonitoredMangaDownloadsCommand.cs` | The gateway-download monitoring loop (replaces the retired in-process completion poller). | Phase 36 |
+| `MangaFailedDownloadService.cs` | Publishes `ChapterDownloadFailedEvent` on terminal failure (blocklist/history consumers). | Phase 6 |
+| `AutoRetryOrchestrator.cs` | Bounded auto-retry orchestrator (D-12 + D-13 + Pitfall 5). Subscribes to `MangaBlocklistAddedEvent` (NOT `ChapterDownloadFailedEvent` — anti-race contract with Plan 06-04 `MangaBlocklistService`); pushes `ChapterSearchCommand` while `ChapterHistory{DownloadFailed}` count < `IConfigService.MaxAutoRetriesPerChapter`. | Phase 6 |
 
-## Lifecycle
+The `AutoRetryOrchestrator` stays as-is — no TV peer to collapse with; the auto-retry-redirect-to-next-best pattern is the *arr promise applied to the manga pipeline.
+
+## Lifecycle (gateway-era manga flow)
+
+Post-Phase-39, the sole manga download client is the external `GatewayDownloadClient` — it submits
+an opaque handle to the gateway and the gateway delivers a finished CBZ that Mangarr imports. The
+manga flow uses the `RemoteChapter` / `MangaImport` lifecycle (NOT the TV `RemoteEpisode` /
+`EpisodeImport` lifecycle, which is reference-preserved fork heritage):
 
 ```
-DownloadDecisionMaker → Approved DownloadDecision
+MangaDownloadDecisionMaker → Approved DownloadDecision
         ↓
-DownloadService.DownloadReport(decision)
+DownloadService.DownloadReport(decision)   // submits a RemoteChapter
         ↓
-DownloadClientProvider.GetDownloadClient(protocol, indexerId)
+DownloadClientProvider.GetDownloadClient(...)  → GatewayDownloadClient (sole manga client)
         ↓
-IDownloadClient.Download(remoteEpisode, indexer)
-        ↓ (HTTP call to qBittorrent/SAB/etc.)
+IDownloadClient.Download(remoteChapter, indexer)
+        ↓ (submit opaque handle to the external gateway; the gateway owns the browser + fetch)
         ↓
-EpisodeGrabbedEvent published, History entry written, SignalR push
+ChapterGrabbedEvent published, ChapterHistory entry written, SignalR push
         ↓
-TrackedDownloadService polls clients periodically (CheckForFinishedDownloadCommand)
+Phase-36 monitoring loop (RefreshMonitoredMangaDownloadsCommand / ProcessMonitoredMangaDownloadsCommand)
         ↓
-CompletedDownloadService.Process()
-        ├─ status == Completed?
-        ├─ Path/files reachable?
-        └─ ImportApprovedEpisodes (in NzbDrone.Core/MediaFiles/EpisodeImport/)
+MangaCompletedDownloadService.Process()  // OutputPath-driven, NOT an in-process completion poll
+        ├─ gateway reports Completed?
+        ├─ staged CBZ reachable at OutputPath?
+        └─ ImportApprovedChapters (in NzbDrone.Core/MediaFiles/MangaImport/)
         ↓
-EpisodeImportedEvent / DownloadCompletedEvent
+ChapterImportedEvent (Pitfall-4 LAST line) / DownloadCompletedEvent
 ```
+
+The TV `EpisodeGrabbedEvent` → `ImportApprovedEpisodes` → `EpisodeImportedEvent` chain still exists
+for the reference-preserved Usenet/Torrent clients but is not part of the manga gateway flow.
 
 ## Adding a New Download Client
 
@@ -133,32 +160,29 @@ When multiple clients of the same protocol are configured:
 3. Prefer the highest-priority client (lower number = higher priority)
 4. Round-robin within same priority
 
-## Manga Adaptation Notes
+## Manga Adaptation Notes (gateway-era end state)
 
-This entire directory is **largely reusable** as-is. Manga downloads are typically:
+The manga download story is **settled**: `GatewayDownloadClient` (Phase 38, `Clients/Gateway/`) is
+the **sole manga download client**. Mangarr submits an opaque handle to the external manga gateway,
+which owns the embedded browser + anti-bot clearance + per-page image fetch; the gateway delivers a
+finished CBZ that Mangarr imports. **Mangarr ships zero embedded browser.**
 
-- Direct HTTP image scraping (per-page fetches assembled into CBZ) — this is **not** a torrent/usenet flow. A new download client type may be needed: an in-process "image-scraper download client" that pulls pages from the source site and packages them.
-- Torrents (manga packs on Nyaa, etc.) — works as-is with qBittorrent etc.
-- Direct CBZ/CBR download via HTTP — could use a "Folder-watch" style client.
+**Do NOT add an in-process scraper download client.** The Phase-4/6 in-process image-scraper vertical
+(`Clients/InProcess/`: `InProcessImageDownloadClient` + page-fetcher + archiver + `ChapterDownloadState`)
+was **retired in Phase 39 (Plans 39-01/02)** — its premise (Mangarr running the browser/fetch loop
+itself) is exactly what the gateway architecture replaced. Any "image-scraper download client" / `Clients/MangaScraper/`
+proposal is a regression of that retirement.
 
-### Recommended New Clients
-1. `Clients/MangaScraper/` — In-process scraper that fetches images, packages into CBZ, places in a watched completion folder.
-2. `Clients/HttpDirect/` — Generic HTTP download for direct CBZ/CBR links.
+- Direct HTTP image scraping → owned by the **external gateway**, not an in-process client.
+- Direct CBZ/CBR download → the gateway delivers the finished CBZ at its `OutputPath`; the
+  Phase-36 monitoring loop imports it (no "Folder-watch" client needed for the manga flow).
+- Torrents (manga packs on Nyaa, etc.) → the reference-preserved Usenet/Torrent clients still work
+  as fork heritage, but are NOT a first-class manga path.
 
-The existing torrent clients work without changes for users who get manga via torrents.
-
-### `DownloadProtocol` Extension
-Currently `DownloadProtocol { Usenet, Torrent }`. May need a new value `Direct` or `Scraper` for image-scraper flow:
-
-```csharp
-public enum DownloadProtocol { Unknown, Usenet, Torrent, Direct }
-```
-
-Adding a new protocol affects:
-- `IDownloadClient.Protocol`
-- `IIndexer.Protocol`
-- DelayProfile per-protocol settings
-- UI dropdowns for indexer/client config
+### `DownloadProtocol` — no extension needed
+`DownloadProtocol` is `{ Unknown = 0, Http = 3 }` (Phase 15 D-18 deleted `Usenet = 1` + `Torrent = 2`).
+The manga gateway client uses `DownloadProtocol.Http` (Phase 1 D-04) — no new `Direct`/`Scraper`
+value is required, and none should be added for an in-process flow that no longer exists.
 
 ## Cross-References
 

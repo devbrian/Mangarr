@@ -11,8 +11,9 @@ namespace NzbDrone.Core.Download.Manga
     // Provenance (control-flow): v5-develop:src/NzbDrone.Core/Download/DownloadProcessingService.cs
     //   (IExecute<ProcessMonitoredDownloadsCommand>: for each ImportPending → Import; for each
     //   FailedPending → ProcessFailed; then RemoveCompletedDownloads → DownloadCanBeRemovedEvent).
-    // Role-match analog (the IExecute half): src/NzbDrone.Core/Download/Manga/
-    //   ProcessMangaCompletedDownloads.cs:92-111 (Execute → loop → process shape).
+    // Role-match analog (the IExecute half): the in-process ProcessMangaCompletedDownloads poller
+    //   (Execute → loop → process shape) — retired in Phase 39 RETIRE-01; this service is the
+    //   generalized successor.
     //
     // ============================================================================
     // IExecute<ProcessMonitoredMangaDownloadsCommand> — pushed at the tail of every
@@ -36,8 +37,9 @@ namespace NzbDrone.Core.Download.Manga
     //   IHandle<DownloadCanBeRemovedEvent> (the KEPT eviction event). RemoveItem already deletes the
     //   in-process client's state row + scratch dir (InProcessImageDownloadClient.RemoveItem:99-122);
     //   the gateway path (Phase 38) issues DELETE /downloads/{id}. We NEVER hand-roll a manual
-    //   _diskProvider.DeleteFolder — that legacy in-process scratch delete lives only in
-    //   ProcessMangaCompletedDownloads.ProcessOne and is NOT used on the generalized path.
+    //   _diskProvider.DeleteFolder — that legacy in-process scratch delete lived only in the
+    //   retired ProcessMangaCompletedDownloads poller (Phase 39 RETIRE-01) and is NOT used on the
+    //   generalized path.
     //
     // Phase 38 cleanup: becomes the canonical download-processing entry when the gateway path lands.
     // ============================================================================

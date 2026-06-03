@@ -20,6 +20,11 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// the local Mangarr backend; the Mangarr-to-upstream hop is what would
 /// require a cassette in offline mode, but this fixture only observes the
 /// browser-to-Mangarr surface so cassette mode is orthogonal.
+///
+/// Phase 39 Plan 39-07: the seeded indexer is now the GatewayIndexer (the sole IIndexer
+/// after the in-process site-scraper indexers were retired in Plan 39-03); the Test-All
+/// toolbar button + the /api/v5/indexer/testall wire contract are indexer-implementation
+/// agnostic, so this fixture repoints cleanly via SeedIndexerAsync.
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
