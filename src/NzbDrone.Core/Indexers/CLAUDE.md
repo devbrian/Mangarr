@@ -4,9 +4,21 @@
 
 **Indexer plugins** — services that fetch lists of releases from external sites. Used both for periodic RSS sync (recurring search of "what's new") and on-demand search (find episode X). Indexers follow the **ThingiProvider** plugin pattern.
 
-For Mangarr, this is where **manga aggregator scrapers** will live (replacing/augmenting the current Usenet/torrent indexers).
-
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Indexers\`
+
+> **Phase 39 (Plan 39-03/04) — in-process site-scraper indexers RETIRED.** Mangarr no longer
+> runs in-process manga aggregator scrapers. `Indexers/Gateway/GatewayIndexer.cs` (Phase 37) is
+> the **sole `IIndexer`** — it fans search/recent requests out to the external manga gateway,
+> which owns the embedded browser + anti-bot clearance; **Mangarr ships zero embedded browser.**
+> Deleted in Phase 39: the `MangaDex/` + `Comix/` in-process indexer dirs; the Comix anti-bot
+> signer stack (`ComixPlaywrightSigner`/`CassettingComixSigner`/`IComixSigner`/`CassetteMode`);
+> the `Http/` page-fetch coupling (`IHttpAggregator` marker + `HttpAggregatorBase` + `ChapterManifest`/
+> `ChapterPage`/`ManifestExpiredException`); and the `Cloudflare/` clearance cascade. `Microsoft.Playwright`
+> was dropped from `Mangarr.Core`. **`IHttpAggregatorSettings` SURVIVES** in `Http/HttpAggregatorSettingsBase.cs`
+> — it is the per-`SourceKey` settings interface the 3 metadata sources implement for CF scoring,
+> distinct from the deleted `IHttpAggregator` marker (the "named-gate" carve). `IndexerFactory`
+> seeds only `GatewayIndexer`. The Sonarr Usenet/Torrent indexer tables below are reference-preserved
+> fork heritage, NOT manga sources. See `DIVERGENCE.md` Phase 39 section.
 
 ## Files & Subdirectories
 
@@ -41,15 +53,12 @@ For Mangarr, this is where **manga aggregator scrapers** will live (replacing/au
 | `Torrentleech/` | Torrent | Private tracker |
 | `Fanzub/` | Usenet | Anime-specific |
 | `Exceptions/` | — | Indexer-specific exceptions |
-| `Http/` | Manga aggregator | `HttpAggregatorBase<TSettings>` — Phase 1 base class for manga aggregator source plugins (Phase 3 sources extend) |
+| `Gateway/` | Manga gateway | `GatewayIndexer` — the sole `IIndexer` (Phase 37; external manga gateway client) |
+| `Http/` | Settings interface only | Holds the SURVIVING `IHttpAggregatorSettings` per-`SourceKey` settings interface (`HttpAggregatorSettingsBase.cs`); the `IHttpAggregator` page-fetch marker + `HttpAggregatorBase<TSettings>` were deleted in Phase 39 Plan 39-04 |
 
-### `Http/` — Manga Aggregator Base Classes
+### `Http/` — surviving settings interface (post-Phase-39)
 
-`HttpAggregatorBase<TSettings>` extends `HttpIndexerBase<TSettings>` to add manga-aggregator-specific behavior:
-- Per-`SourceKey` shared rate-limit budget across indexer pollers + Phase 4 in-process downloader (D-11/D-12)
-- Honest-by-default `Mangarr/{version}` User-Agent with per-instance opt-out via Settings (D-13/D-14)
-
-See [Indexers/Http/CLAUDE.md](./Http/CLAUDE.md) for details. Phase 3 source plugins (MangaDexIndexer, ComixToIndexer, MangaFireIndexer) extend this base.
+The Phase-1 `HttpAggregatorBase<TSettings>` page-fetch base class and the `IHttpAggregator` page-fetch marker were **deleted in Phase 39 (Plan 39-04)** with the in-process indexers/downloader that consumed them. What survives in `Http/HttpAggregatorSettingsBase.cs` is the near-namesake **`IHttpAggregatorSettings`** — the per-`SourceKey` settings interface implemented by the 3 metadata-source settings (MangaDex/AniList/MyAnimeList) and read by `MangaDownloadDecisionMaker` for Custom-Format scoring. The named-gate dual-grep in Plan 39-04 mechanically proved the marker delete did not break this settings interface. `GatewayIndexer` (in `Gateway/`) does NOT extend `HttpAggregatorBase`; it implements the indexer contract directly.
 
 ## Indexer Anatomy
 
@@ -202,6 +211,6 @@ Update `IIndexerRequestGenerator` to accept them (alongside existing TV criteria
 - [../IndexerSearch/](../IndexerSearch/) — Search criteria definitions
 - [../ThingiProvider/](../ThingiProvider/) — Provider plugin base
 
-### Phase 17 — IComixSigner is manga-only (NOT a generalized pattern)
+### Phase 17 — IComixSigner (RETIRED in Phase 39)
 
-Phase 17 introduced `IComixSigner` (`src/NzbDrone.Core/Indexers/Comix/IComixSigner.cs`) as a runtime browser-driven signing seam for the comix.to indexer. This is a forced single-source divergence — comix.to encrypts response bodies + rotates anti-bot signer-fn names per deploy, so .NET-side signing is structurally unviable. **The pattern does NOT generalize** — MangaDex (the v1 primary chapter source) stays browser-free; future indexer ports should default to plain `IHttpClient` + parsed-content extraction, NOT to `IComixSigner`-style runtime browser hooks. See `Comix/CLAUDE.md` "Phase 17 Invariants" for full architecture; see `DIVERGENCE.md` Phase 17 entry for divergence provenance.
+Phase 17 introduced `IComixSigner` (`Indexers/Comix/IComixSigner.cs`) as a runtime browser-driven signing seam for the in-process comix.to indexer (ported PuppeteerSharp → Microsoft.Playwright .NET in Phase 33.3). **The whole signer stack — `IComixSigner`, `ComixPlaywrightSigner`, `CassettingComixSigner`, `CassetteMode` — was DELETED in Phase 39 (Plan 39-03)** along with the in-process `ComixIndexer`. The external manga gateway now owns all embedded-browser + anti-bot clearance; Mangarr's Core runs no browser and no signer. The Phase 17/33.3 divergence rows in `DIVERGENCE.md` are preserved for provenance; the Phase 39 section records the retirement.
