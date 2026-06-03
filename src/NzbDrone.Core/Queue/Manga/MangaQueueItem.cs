@@ -46,8 +46,9 @@ namespace NzbDrone.Core.Queue.Manga
         // DownloadClientItem contract (D-01a hard constraint; Phase 38's GatewayDownloadClient
         // implements that contract bytes-only). Sourced in MangaQueueService.MapQueueItem from
         // the Plan 03 matcher's IMangaDownloadPageProgressSource carrier keyed by DownloadId
-        // (NOT ChapterDownloadState). Null on the gateway path → the Queue caption falls back to
-        // bytes/% (D-01b — the byte/% bar still drives the fill; this is presentational only).
+        // (NOT the now-retired in-process ChapterDownloadState row — Phase 39 RETIRE-01). Null on
+        // the gateway path → the Queue caption falls back to bytes/% (D-01b — the byte/% bar still
+        // drives the fill; this is presentational only).
         public int? TotalPages { get; set; }
         public int? CompletedPages { get; set; }
         public DateTime? EstimatedCompletionTime { get; set; }

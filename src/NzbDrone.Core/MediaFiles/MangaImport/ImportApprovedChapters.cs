@@ -7,7 +7,6 @@ using NzbDrone.Common.Disk;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Download;
-using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo;
 using NzbDrone.Core.MediaFiles.Commands;
@@ -35,8 +34,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
     //       2. Move staging CBZ → library via IDiskProvider.MoveFile
     //       3. Build ChapterFile entity + _chapterFileService.Add(chapterFile)  ← DB COMMIT
     //       4. Update Chapter.ChapterFileId FK + _chapterService.UpdateChapter
-    //       5. Delete Phase 4 ChapterDownloadState row (lifecycle hook)
-    //       6. _eventAggregator.PublishEvent(new ChapterImportedEvent { ... })  ← LAST LINE
+    //       5. _eventAggregator.PublishEvent(new ChapterImportedEvent { ... })  ← LAST LINE
     //
     //     The PublishEvent call MUST be the LAST line in the success path. Komga/Kavita
     //     rescan handlers (Plans 06-10/11) fire on this event; if it publishes before
@@ -53,8 +51,9 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
     //     deleted (Pitfall 4 ordering: recycle FIRST, delete row SECOND, new ChapterFile
     //     insert + ChapterImportedEvent publish LAST). See PATTERNS §A.
     //   * No IExtraService / IExistingExtraFiles (no manga subtitle/extras concept).
-    //   * Deletes Phase 4 ChapterDownloadState row + scratch dir on success
-    //     (Phase 4 D-08 lifecycle).
+    //   * Phase 39 RETIRE-01: the former step-5 Phase-4 ChapterDownloadState row delete
+    //     (lifecycle hook) was REMOVED with the in-process download vertical — the gateway
+    //     path no longer creates ChapterDownloadState rows, so there is nothing to delete.
     //   * Emits ChapterImportFailedEvent (Phase 6 D-12) on RootFolderNotFoundException /
     //     RecycleBinException / generic exception (Pitfall 4 mitigation: failures still
     //     publish so the auto-retry orchestrator (Plan 06-08) sees them).
@@ -66,7 +65,6 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
         private readonly IChapterService _chapterService;
         private readonly IDiskProvider _diskProvider;
         private readonly IBuildMangaPaths _pathBuilder;
-        private readonly IChapterDownloadStateRepository _stateRepo;
         private readonly IEventAggregator _eventAggregator;
         private readonly IManageCommandQueue _commandQueueManager;
         private readonly ITranslationProfileService _translationProfileService;
@@ -81,7 +79,6 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             IChapterService chapterService,
             IDiskProvider diskProvider,
             IBuildMangaPaths pathBuilder,
-            IChapterDownloadStateRepository stateRepo,
             IEventAggregator eventAggregator,
             IManageCommandQueue commandQueueManager,
             ITranslationProfileService translationProfileService,
@@ -95,7 +92,6 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             _chapterService = chapterService;
             _diskProvider = diskProvider;
             _pathBuilder = pathBuilder;
-            _stateRepo = stateRepo;
             _eventAggregator = eventAggregator;
             _commandQueueManager = commandQueueManager;
             _translationProfileService = translationProfileService;
@@ -168,7 +164,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                     // ---- 0.5 NEW per Phase 9 D-09-05 — Upgrade promotion: recycle previous file BEFORE destination build ----
                     // Mirrors TV ImportApprovedEpisodes upgrade-call site. Pitfall 4 ordering preserved
                     // (recycle + DB-delete old row happen BEFORE new ChapterFile row insert + ChapterImportedEvent
-                    // publish at step 6). The presence of a prior ChapterFileId means the decision passed
+                    // publish at step 5). The presence of a prior ChapterFileId means the decision passed
                     // UpgradeSpecification (Phase 6 D-10 three-state effective-upgrade-allowed gate).
                     //
                     // First arg is null (recycle-only mode): step 2 below already owns the new-file move via
@@ -249,7 +245,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
 
                     // ---- 3.5 Plan 30-05 (II2-03 D-05) — ImageSharp probe inline (probe-on-import only; NO daemon).
                     // PITFALL 4 ORDERING PRESERVED: runs AFTER step 3 DB write + filesystem move (step 2)
-                    // + BEFORE step 6 ChapterImportedEvent publish. Probe populates chapterFile.MediaInfo
+                    // + BEFORE step 5 ChapterImportedEvent publish. Probe populates chapterFile.MediaInfo
                     // (PageCount + Color + DpiHorizontal) via ImageSharp 3.1.12 sampling first + middle + last
                     // page (D-07). D-09 non-fatal: probe failures log Warn + leave MediaInfo null; import
                     // succeeds. Token render (MangaFileNameBuilder) skips null per D-09 (no "0 pages" defaults).
@@ -264,7 +260,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
 
                     // ---- 3.5b Phase 38 Plan 38-02 (CINFO-01) — ComicInfo.xml injection ----
                     // PITFALL 4 ORDERING PRESERVED: runs AFTER step 3 DB write + filesystem move (step 2)
-                    // + BEFORE step 6 ChapterImportedEvent publish (the gateway delivers page-only CBZs,
+                    // + BEFORE step 5 ChapterImportedEvent publish (the gateway delivers page-only CBZs,
                     // so this injector is the SOLE ComicInfo writer; Komga/Kavita rescan handlers fire on
                     // ChapterImportedEvent and MUST see a metadata-complete archive).
                     //
@@ -298,7 +294,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                         catch (Exception injectEx)
                         {
                             // GH #311 review: the ChapterFile row was already committed in step 3, but
-                            // the FK wire (step 4) + ChapterImportedEvent (step 6) have NOT run yet. A
+                            // the FK wire (step 4) + ChapterImportedEvent (step 5) have NOT run yet. A
                             // persisted injection failure re-throws to the per-decision catch below (which
                             // publishes ChapterImportFailedEvent) — so without this rollback the committed
                             // ChapterFile would be ORPHANED (no Chapter points at it) while the import is
@@ -325,10 +321,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                     lc.Chapter.ChapterFileId = chapterFile.Id;
                     _chapterService.UpdateChapter(lc.Chapter);
 
-                    // ---- 5. Delete Phase 4 ChapterDownloadState row (idempotent — Plan 06-01) ----
-                    _stateRepo.DeleteByChapterId(lc.Chapter.Id);
-
-                    // ---- 6. PITFALL 4 GUARD — PublishEvent is the LAST line in the success path ----
+                    // ---- 5. PITFALL 4 GUARD — PublishEvent is the LAST line in the success path ----
                     // Notification fan-out (Komga/Kavita rescan) can race-fire as soon as this lands;
                     // the file move + DB commit above MUST have completed before this point.
                     _eventAggregator.PublishEvent(new ChapterImportedEvent

@@ -7,7 +7,6 @@ using Moq;
 using NUnit.Framework;
 using NzbDrone.Common.Disk;
 using NzbDrone.Core.Download;
-using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo;
@@ -27,7 +26,8 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
     //   3. ChapterImportedEvent NOT published when _chapterFileService.Add throws (DB commit
     //      failed mid-way — notification fan-out must not race).
     //   4. In-batch dedup — same chapter ID twice in one batch produces one import + one skip.
-    //   5. ChapterDownloadState row deleted on success.
+    // (Phase 39 RETIRE-01: the former "ChapterDownloadState row deleted on success" assertion was
+    //  removed with the in-process download vertical — the gateway path creates no such row.)
     [TestFixture]
     public class ImportApprovedChaptersFixture : CoreTest<ImportApprovedChapters>
     {
@@ -173,15 +173,6 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
             Mocker.GetMock<IChapterFileService>().Verify(c => c.Add(It.IsAny<ChapterFile>()), Times.Once);
             Mocker.GetMock<IEventAggregator>()
                 .Verify(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()), Times.Once);
-        }
-
-        [Test]
-        public void should_delete_chapter_download_state_row_on_success()
-        {
-            Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
-
-            Mocker.GetMock<IChapterDownloadStateRepository>()
-                .Verify(r => r.DeleteByChapterId(_chapter.Id), Times.Once);
         }
 
         [Test]

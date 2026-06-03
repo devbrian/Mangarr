@@ -16,7 +16,7 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving
         public NzbDrone.Core.Manga.Chapter Chapter { get; init; }
         public ReleaseInfo Release { get; init; }
 
-        /// <summary><c>Config.DownloadScratchPath</c>/<c>{ChapterDownloadState.Id}</c>/ — pages live here.</summary>
+        /// <summary><c>Config.DownloadScratchPath</c>/<c>{download-id}</c>/ — pages live here. (Phase 39 RETIRE-01: the scratch sub-dir was formerly keyed by the now-retired in-process ChapterDownloadState.Id.)</summary>
         public string ScratchDir { get; init; }
 
         /// <summary><c>{DataDir}/completed/{mangaSlug}</c>/ — final CBZ or folder lands here.</summary>
