@@ -21,6 +21,12 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// without colliding with the baseline row. Repointed from the retired in-process
 /// client (Plan 39-02) — GatewayDownloadClient is the sole download client and the
 /// `inprocessimage` schema slug no longer exists in GET /api/v5/downloadclient/schema.
+///
+/// The gateway's backend Test() makes a real outbound HTTP call to the (unreachable)
+/// gateway host, so BypassConnectionTestAsync injects ?skipTesting=true on every save
+/// POST/PUT (ProviderControllerBase.CreateProvider:85) — mirrors the Komga/Kavita CRUD
+/// fixtures. The GatewayDownloadClientSettings validator requires a non-empty ApiKey
+/// (Host/Port default to localhost:8080), so ApiKey is filled before save.
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
@@ -31,11 +37,19 @@ public class DownloadClientCrudFixture : AutomationTest
     [Test]
     public async Task crud_roundtrip_for_gateway()
     {
+        // The gateway Test() makes a live outbound call to the unreachable gateway host;
+        // inject ?skipTesting=true on every save POST/PUT so the round-trip is deterministic.
+        await SettingsProviderFlow.BypassConnectionTestAsync(Page, "downloadclient");
+
         await new SettingsDownloadClientsPage(Page).OpenAsync(RootUri);
         await SettingsProviderFlow.OpenPickerAndSelectAsync(Page, "downloadclient", "gateway");
 
         var editModal = new EditDownloadClientModal(Page);
         await editModal.NameInput.FillAsync(TestName);
+
+        // GatewayDownloadClientSettings validator requires a non-empty ApiKey (settings
+        // validation runs even with skipTesting); fill it so the save POST clears validation.
+        await editModal.ApiKeyInput.FillAsync("test-crud-key");
 
         await SettingsProviderFlow.SaveAsync(Page, "downloadclient");
 

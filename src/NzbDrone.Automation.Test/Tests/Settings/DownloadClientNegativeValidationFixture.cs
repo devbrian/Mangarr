@@ -35,14 +35,15 @@ public class DownloadClientNegativeValidationFixture : AutomationTest
     public async Task save_with_empty_name_surfaces_validation_error()
     {
         await new SettingsDownloadClientsPage(Page).OpenAsync(RootUri);
-        await SettingsProviderFlow.OpenPickerAndSelectAsync(Page, "downloadclient", "inprocessimage");
+        await SettingsProviderFlow.OpenPickerAndSelectAsync(Page, "downloadclient", "gateway");
 
         var modal = new EditDownloadClientModal(Page);
 
-        // gh178 sub-C: clear Name (the schema preset is "Mangarr In-Process
-        // Downloader"). Name is server-validated via
-        // SharedValidator.RuleFor(c => c.Name).NotEmpty()
-        // (ProviderControllerBase.cs:44) and has no client-side guard.
+        // gh178 sub-C: clear Name (the schema preset is the gateway client name). Name is
+        // server-validated via SharedValidator.RuleFor(c => c.Name).NotEmpty()
+        // (ProviderControllerBase.cs:44) and has no client-side guard. Phase 39 Plan
+        // 39-07: repointed from the retired in-process image downloader to the gateway
+        // (the sole download client; the `inprocessimage` schema slug no longer exists).
         await modal.NameInput.FillAsync(string.Empty);
 
         // STATE assertion: POST /api/v5/downloadclient returns 400 (FluentValidation

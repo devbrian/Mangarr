@@ -106,6 +106,19 @@ indexer producing scraper-sourced result rows) is structurally gone. An
 enabled-`GatewayIndexer` interactive-search fixture is a clean future addition (owned by
 the Phase-37 gateway work), out of scope for the Phase-39 retirement.
 
+**Indexer-fixture cluster repointed to the gateway (Plan 39-07 gap-closure).**
+`TestKit.SeedIndexerAsync` now seeds the `GatewayIndexer` (`implementation="GatewayIndexer"`,
+`configContract="GatewaySettings"`, `baseUrl`+`apiKey`, `?skipTesting=true`) under the
+distinct name `"Gateway (test seed)"` (the auto-seeded default disabled "Manga Gateway" row
+keeps a distinct name). The generic provider-CRUD/test/action indexer fixtures were repointed
+(NOT deleted — repointing RESTORES coverage against the sole indexer): `IndexerAddModalSchemaFixture`
++ `AddIndexerModal.GatewayCard` target `add-indexer-gateway`; `IndexerAddEditDeleteFixture` +
+`DownloadClientCrudFixture` call `SettingsProviderFlow.BypassConnectionTestAsync` before the save
+(the gateway `Test()` makes a live outbound call to the unreachable gateway host, so the bypass
+injects `?skipTesting=true` server-side); the offline test/testall/action fixtures assert on the
+browser→Mangarr POST so they repoint cleanly. `DownloadClientNegativeValidationFixture` targets
+`add-downloadclient-gateway`.
+
 ### Failure artifacts (D-15)
 
 `PageBase.cs` starts a Playwright trace on `[SetUp]` and stops it on `[TearDown]`. On failure, GHA uploads:

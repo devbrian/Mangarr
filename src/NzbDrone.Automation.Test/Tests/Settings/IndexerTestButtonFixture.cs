@@ -10,21 +10,23 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// Phase 18 Plan 18-18 — Indexer Test button coverage (INVENTORY v5-endpoint
 /// row 104: POST /api/v5/indexer/test).
 ///
-/// Navigates to /settings/indexers. When a seeded indexer card exists
-/// (MangaDex + Comix seed via baseline migration per Plan 18-14 TestKit
-/// pre-seed), opens the indexer edit modal and clicks the Test button.
-/// Asserts a test result toast appears (success or failure — both are valid
-/// state, the point is that POST /api/v5/indexer/test fired and returned
-/// a determinate outcome).
+/// Navigates to /settings/indexers. Seeds a gateway indexer in OneTimeSetUp,
+/// opens the indexer edit modal and clicks the Test button. Asserts a test
+/// result toast appears (success or failure — both are valid state, the point
+/// is that POST /api/v5/indexer/test fired and returned a determinate outcome).
 ///
-/// LiveService tag: MangaDex indexer test hits the live MangaDex API by
-/// default. Under cassette mode (per Plan 18-14), the test passes
-/// deterministically. Without cassettes (fresh CI offline), this fixture
-/// would hit the live API — so we tag it [Category("LiveService")] per the
-/// plan's STRIDE T-18-18-03 mitigation (D-10 LiveService tier).
+/// LiveService tag: the gateway indexer test hits the live external gateway by
+/// default. Without a reachable gateway (fresh CI offline), this fixture would
+/// hit the live host — so we tag it [Category("LiveService")] per the plan's
+/// STRIDE T-18-18-03 mitigation (D-10 LiveService tier). Offline wire-shape
+/// coverage lives in IndexerTestButtonOfflineFixture.
 ///
 /// No AddMangaFlow dependency — Settings/Indexers operates on the indexer
 /// registry. No #102 [Explicit] needed.
+///
+/// Phase 39 Plan 39-07: repointed from the baseline-seeded MangaDex card (the
+/// in-process site-scraper indexer was retired in Plan 39-03) to a self-seeded
+/// GatewayIndexer (the sole IIndexer).
 ///
 /// State assertion: post-test toast appears with success OR failure state.
 /// </summary>
@@ -33,6 +35,13 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 [Category("LiveService")]
 public class IndexerTestButtonFixture : AutomationTest
 {
+    [OneTimeSetUp]
+    public async Task SeedAsync()
+    {
+        var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
+        await tk.SeedIndexerAsync();
+    }
+
     [Test]
     public async Task indexer_test_button_produces_toast_state()
     {
@@ -40,31 +49,28 @@ public class IndexerTestButtonFixture : AutomationTest
         await Assertions.Expect(page.PageContainer).ToBeVisibleAsync();
         Page.Url.Should().MatchRegex(@"/settings/indexers$");
 
-        // gh152-uat fix-forward (live-indexer-card-click): the prior locator
-        // `Page.GetByText("MangaDex")` resolved to the inner <div> whose
-        // clicks were intercepted by the Card-underlay <button>. D-18 +
-        // Indexer.tsx now expose a `settings-indexer-card-<slug>` testid on
+        // D-18 + Indexer.tsx expose a `settings-indexer-card-<slug>` testid on
         // the underlay button itself, so ClickAsync lands on the actual
-        // interactive surface. MangaDex is the canonical baseline-seeded
-        // indexer (Phase 3 D-15 — IsPrimary).
-        var mangaDexCard = page.CardByName("MangaDex");
-        var cardCount = await mangaDexCard.CountAsync();
+        // interactive surface. The gateway is the sole IIndexer (Phase 39 Plan
+        // 39-07); the self-seeded "Gateway (test seed)" card is the click target.
+        var gatewayCard = page.CardByName("Gateway (test seed)");
+        var cardCount = await gatewayCard.CountAsync();
 
         if (cardCount == 0)
         {
             // WR-03 (18-REVIEW): NUnit reports a silent `return` as PASSED,
-            // so the prior empty-card path masked a baseline-seed regression
-            // as a green test. Assert.Inconclusive flags the missing
-            // precondition explicitly — fixture flips to "Inconclusive"
-            // (not "Passed") so dashboards distinguish "ran the test-button
-            // path" from "couldn't run it".
+            // so the prior empty-card path masked a seed regression as a green
+            // test. Assert.Inconclusive flags the missing precondition
+            // explicitly — fixture flips to "Inconclusive" (not "Passed") so
+            // dashboards distinguish "ran the test-button path" from "couldn't
+            // run it".
             Assert.Inconclusive(
-                "Baseline MangaDex indexer card not present — Phase 3 D-15 seed regression? " +
+                "Seeded gateway indexer card not present — SeedIndexerAsync regression? " +
                 "Skipping POST /api/v5/indexer/test coverage path.");
         }
 
-        // Click the MangaDex card → EditIndexerModal opens.
-        await mangaDexCard.ClickAsync();
+        // Click the gateway card → EditIndexerModal opens.
+        await gatewayCard.ClickAsync();
 
         // WR-07 (18-REVIEW): wait for the modal-dialog state explicitly
         // (replaces a 500 ms static sleep). The ToBeVisibleAsync below is

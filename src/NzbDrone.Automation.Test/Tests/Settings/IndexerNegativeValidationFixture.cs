@@ -35,14 +35,22 @@ public class IndexerNegativeValidationFixture : AutomationTest
     [Test]
     public async Task save_with_empty_name_surfaces_validation_error()
     {
+        // The gateway is enabled-by-default in the picker; without skipTesting the
+        // empty-Name POST reaches the gateway Test() (a live call to the unreachable
+        // gateway host) which surfaces as a 500 instead of the Name.NotEmpty 400.
+        // Inject ?skipTesting=true so Test() is skipped server-side and the FluentValidation
+        // empty-Name rejection (400) is what the POST returns.
+        await SettingsProviderFlow.BypassConnectionTestAsync(Page, "indexer");
+
         await new SettingsIndexersPage(Page).OpenAsync(RootUri);
-        await SettingsProviderFlow.OpenPickerAndSelectAsync(Page, "indexer", "mangadex");
+        await SettingsProviderFlow.OpenPickerAndSelectAsync(Page, "indexer", "gateway");
 
         var modal = new EditIndexerModal(Page);
 
-        // gh178 sub-C: clear Name (the schema preset is "MangaDex"). Name is
+        // gh178 sub-C: clear Name (the schema preset is "Manga Gateway"). Name is
         // server-validated via SharedValidator.RuleFor(c => c.Name).NotEmpty()
-        // (ProviderControllerBase.cs:44) and has no client-side guard.
+        // (ProviderControllerBase.cs:44) and has no client-side guard. Phase 39 Plan
+        // 39-07: repointed from the retired in-process MangaDex indexer to the gateway.
         await modal.NameInput.FillAsync(string.Empty);
 
         // STATE assertion: POST /api/v5/indexer returns 400 (FluentValidation

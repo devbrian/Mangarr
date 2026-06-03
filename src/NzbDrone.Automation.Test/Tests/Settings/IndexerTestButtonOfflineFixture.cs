@@ -18,7 +18,7 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// discharged.
 ///
 /// Asserts (seeds/liveservice-coverage-policy.md §3 verbatim):
-///   (a) form-render — the Edit modal opens for the seeded MangaDex card
+///   (a) form-render — the Edit modal opens for the seeded Gateway card
 ///       and the Test button is visible
 ///   (b) button-wiring — clicking the Test button reaches the API request
 ///       layer (the browser-to-Mangarr POST is observable)
@@ -26,10 +26,13 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 ///
 /// Symmetry with IndexerTestAllOfflineFixture + IndexerActionButtonOfflineFixture:
 /// observes the browser-to-Mangarr surface (NOT the Mangarr-to-upstream hop).
-/// The Mangarr-to-MangaDex hop is what the LiveService fixture covers; in
+/// The Mangarr-to-gateway hop is what the LiveService fixture covers; in
 /// offline mode the upstream is unreachable but the wire-level contract that
 /// the Test button POSTs to /api/v5/indexer/test is the assertion that
 /// matters here. PRSmoke tier — fast (no live upstream wait).
+///
+/// Phase 39 Plan 39-07: repointed from the retired in-process MangaDex indexer to the
+/// GatewayIndexer (the sole IIndexer); the seeded card is now "Gateway (test seed)".
 /// </summary>
 [TestFixture]
 [Category("AutomationTest")]
@@ -49,7 +52,7 @@ public class IndexerTestButtonOfflineFixture : AutomationTest
         var settings = await new SettingsIndexersPage(Page).OpenAsync(RootUri);
         await Assertions.Expect(settings.PageContainer).ToBeVisibleAsync();
 
-        var card = settings.CardByName("MangaDex (test seed)");
+        var card = settings.CardByName("Gateway (test seed)");
         await Assertions.Expect(card).ToBeVisibleAsync(new() { Timeout = 15_000 });
         await card.ClickAsync();
 

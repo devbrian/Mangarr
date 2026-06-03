@@ -12,20 +12,21 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 /// (seeds/liveservice-coverage-policy.md §3 verbatim).
 ///
 /// Asserts:
-///   (a) form-render — the Edit modal opens for the seeded MangaDex card
+///   (a) form-render — the Edit modal opens for the seeded Gateway card
 ///   (b) button-wiring — clicking the Test button (the available action
-///       surface on the D-06 canonical pick; see IndexerActionButtonFixture
+///       surface on the sole IIndexer; see IndexerActionButtonFixture
 ///       Blocker #4 path (c) rationale) wires to POST /api/v5/indexer/...
 ///   (c) request-shape — URL + method captured via Page.Request
 ///
-/// Because MangaDex (D-06 canonical) exposes no providerAction-bearing field
-/// (see IndexerActionButtonFixture.cs comment block + Plan 20-04 SUMMARY),
+/// Because the GatewayIndexer (sole IIndexer) exposes no providerAction-bearing
+/// footer button (see IndexerActionButtonFixture.cs comment block),
 /// this fixture observes the Test button's POST as the wire-level proxy for
 /// the action surface family. The INVENTORY action row remains demoted in
 /// Task 4.5; this companion still discharges the D-08 paired-offline obligation
 /// for LiveService Enumeration row #3 by proving the Edit-modal action surface
 /// renders + wires + emits a deterministic request shape on the local
-/// browser-to-Mangarr surface.
+/// browser-to-Mangarr surface. Phase 39 Plan 39-07: repointed from the retired
+/// in-process MangaDex indexer to the GatewayIndexer.
 ///
 /// PRSmoke tier — fast (no live upstream wait).
 /// </summary>
@@ -46,7 +47,7 @@ public class IndexerActionButtonOfflineFixture : AutomationTest
     {
         var settings = await new SettingsIndexersPage(Page).OpenAsync(RootUri);
 
-        var card = settings.CardByName("MangaDex (test seed)");
+        var card = settings.CardByName("Gateway (test seed)");
         await Assertions.Expect(card).ToBeVisibleAsync(new() { Timeout = 15_000 });
         await card.ClickAsync();
 
