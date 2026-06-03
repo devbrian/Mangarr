@@ -8,6 +8,7 @@ using NUnit.Framework;
 using NzbDrone.Common.Http;
 using NzbDrone.Common.Serializer;
 using NzbDrone.Core.Indexers;
+using NzbDrone.Core.Indexers.Exceptions;
 using NzbDrone.Core.Indexers.Gateway;
 using NzbDrone.Core.Indexers.Gateway.Responses;
 using NzbDrone.Core.Parser.Manga;
@@ -123,6 +124,10 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             // publishDate set.
             release.PublishDate.Should().Be(new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc).ToUniversalTime());
 
+            // PublishDate is normalized to UTC (DateTime.Should().Be(...) ignores Kind; the engine
+            // treats ReleaseInfo.PublishDate as UTC, so an offset-style wire date must not leak as Local).
+            release.PublishDate.Kind.Should().Be(DateTimeKind.Utc);
+
             // DownloadProtocol.Http for the gateway path.
             release.DownloadProtocol.Should().Be(DownloadProtocol.Http);
 
@@ -194,6 +199,7 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             var release = Subject.ParseResponse(MakeResponse(response.ToJson())).Single();
 
             release.PublishDate.Should().NotBe(DateTime.MinValue);
+            release.PublishDate.Kind.Should().Be(DateTimeKind.Utc);
             release.PublishDate.Should().BeOnOrAfter(before);
             release.PublishDate.Should().BeOnOrBefore(DateTime.UtcNow.AddSeconds(5));
         }
@@ -335,6 +341,42 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
 
             act.Should().NotThrow();
             releases.Single().Title.Should().Be(string.Empty);
+        }
+
+        [Test]
+        public void search_error_envelope_with_auth_code_throws_apikey_exception()
+        {
+            // Codex P2 (parity with caps CR-02): a 2xx body wrapping a top-level error envelope
+            // {"error":{"code":"auth"}} must route through the ladder, NOT be swallowed as 0 releases.
+            var act = () => Subject.ParseResponse(MakeResponse("{\"error\":{\"code\":\"auth\",\"message\":\"bad key\"}}"));
+
+            act.Should().Throw<ApiKeyException>();
+        }
+
+        [Test]
+        public void search_error_envelope_with_rate_limited_code_throws_toomanyrequests()
+        {
+            var act = () => Subject.ParseResponse(MakeResponse("{\"error\":{\"code\":\"rate_limited\",\"message\":\"slow down\"}}"));
+
+            act.Should().Throw<TooManyRequestsException>();
+        }
+
+        [Test]
+        public void search_error_envelope_with_other_code_throws_indexer_exception()
+        {
+            var act = () => Subject.ParseResponse(MakeResponse("{\"error\":{\"code\":\"internal\",\"message\":\"boom\"}}"));
+
+            act.Should().Throw<IndexerException>();
+        }
+
+        [Test]
+        public void normal_response_with_warnings_is_not_treated_as_an_error_envelope()
+        {
+            // A per-source warnings[] entry is NOT a top-level error — it must NOT throw (D-03a),
+            // it records failure and returns the good releases.
+            var act = () => Subject.ParseResponse(MakeResponse(_searchJson));
+
+            act.Should().NotThrow();
         }
 
         private IndexerResponse MakeResponse(string content)

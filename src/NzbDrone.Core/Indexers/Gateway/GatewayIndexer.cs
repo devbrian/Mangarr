@@ -122,33 +122,69 @@ namespace NzbDrone.Core.Indexers.Gateway
                 return Task.CompletedTask;
             }
 
-            // A source is searchable when it is enabled AND advertises search OR recent capability.
-            var searchable = (caps.Sources ?? new List<GatewaySourceCap>())
-                .Where(s => s.Enabled && (s.SupportsSearch || s.SupportsRecent))
-                .ToList();
-
+            var capsSources = caps.Sources ?? new List<GatewaySourceCap>();
             var selected = (Settings.EnabledSources ?? Enumerable.Empty<string>()).ToList();
 
-            // Empty selection = all enabled+searchable sources (D-04).
+            // Effective = the enabled caps sources, narrowed to the user's selection (empty = all).
+            var enabled = capsSources.Where(s => s.Enabled).ToList();
             var effective = selected.Any()
-                ? searchable.Where(s => selected.Contains(s.Key)).ToList()
-                : searchable;
+                ? enabled.Where(s => selected.Contains(s.Key)).ToList()
+                : enabled;
 
+            // D-04 base HARD-FAIL: the selection resolves to zero enabled sources on the gateway.
             if (!effective.Any())
             {
-                // D-04 HARD-FAIL (blocks save) with an actionable message NAMING the offending
-                // selection so the user can fix the misconfiguration at config time.
-                var names = selected.Any()
-                    ? string.Join(", ", selected)
-                    : "(none enabled on the gateway)";
-
                 failures.Add(new ValidationFailure(string.Empty,
                     _localizationService.GetLocalizedString(
                         "GatewayValidationNoSearchableSources",
-                        new Dictionary<string, object> { { "sources", names } })));
+                        new Dictionary<string, object> { { "sources", ResolveNames(selected, capsSources) } })));
+                return Task.CompletedTask;
+            }
+
+            // Per-feature capability gate (CodeRabbit Major): Test() must validate against the SAME
+            // capability the request generator uses for each enabled feature, otherwise a config can
+            // pass save-time validation yet return an empty chain at runtime. BuildSearchChain filters
+            // on SupportsSearch; GetRecentRequests filters on SupportsRecent. So: a search-enabled
+            // indexer needs ≥1 search-capable effective source; an RSS-enabled indexer needs ≥1
+            // recent-capable effective source.
+            var definition = Definition as IndexerDefinition;
+            var searchEnabled = definition == null
+                || definition.EnableAutomaticSearch
+                || definition.EnableInteractiveSearch;
+            var rssEnabled = definition != null && definition.EnableRss;
+
+            if (searchEnabled && !effective.Any(s => s.SupportsSearch))
+            {
+                failures.Add(new ValidationFailure(string.Empty,
+                    _localizationService.GetLocalizedString(
+                        "GatewayValidationNoSearchableSources",
+                        new Dictionary<string, object> { { "sources", ResolveNames(selected, capsSources) } })));
+            }
+
+            if (rssEnabled && !effective.Any(s => s.SupportsRecent))
+            {
+                failures.Add(new ValidationFailure(string.Empty,
+                    _localizationService.GetLocalizedString(
+                        "GatewayValidationNoRecentSources",
+                        new Dictionary<string, object> { { "sources", ResolveNames(selected, capsSources) } })));
             }
 
             return Task.CompletedTask;
+        }
+
+        // Resolve selected source keys to their /caps display names for the validation message
+        // (CodeRabbit minor): users configure friendly names, not internal keys. Falls back to the
+        // raw key for a stale selection no longer present in caps, and to a clear placeholder when
+        // the selection is empty (= "all enabled", but nothing qualified).
+        private static string ResolveNames(List<string> selected, List<GatewaySourceCap> capsSources)
+        {
+            if (!selected.Any())
+            {
+                return "(none enabled on the gateway)";
+            }
+
+            return string.Join(", ", selected.Select(key =>
+                capsSources.FirstOrDefault(s => s.Key == key)?.Name ?? key));
         }
     }
 }

@@ -819,6 +819,7 @@
   "GatewaySourcesHelpText": "Limit searches to specific gateway sources. Leave empty to use every source the gateway has enabled.",
   "GatewayUrl": "URL",
   "GatewayUrlHelpText": "Base URL of the manga-gateway (e.g. http://localhost:9191). Prepend any UrlBase the gateway is configured with.",
+  "GatewayValidationNoRecentSources": "No RSS-capable sources available for the selected gateway sources: {sources}",
   "GatewayValidationNoSearchableSources": "No searchable sources available for the selected gateway sources: {sources}",
   "GatewayValidationUnableToConnect": "Unable to connect to the manga-gateway. Check the URL and API key.",
   "General": "General",

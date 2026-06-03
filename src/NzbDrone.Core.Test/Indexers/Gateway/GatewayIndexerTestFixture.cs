@@ -92,9 +92,44 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
 
             result.IsValid.Should().BeFalse();
 
-            // The failure message NAMES the unsearchable selected sources (D-04 actionable error).
+            // The failure message NAMES the unsearchable selected sources using their /caps DISPLAY
+            // NAME, not the internal key (CodeRabbit minor): disabled.example → "Disabled Example".
             string.Join(" ", result.Errors.Select(e => e.ErrorMessage))
-                  .Should().Contain("disabled.example");
+                  .Should().Contain("Disabled Example");
+        }
+
+        [Test]
+        public void Test_fails_when_search_enabled_but_only_recent_capable_source_selected()
+        {
+            // CodeRabbit Major: mangadex in caps.json is supportsSearch=false / supportsRecent=true.
+            // With a search feature enabled, selecting ONLY mangadex previously PASSED Test() (the old
+            // OR predicate) yet BuildSearchChain (SupportsSearch) returns an empty chain → every
+            // interactive/automatic search silently returns nothing. Test() must now hard-fail.
+            ((IndexerDefinition)Subject.Definition).EnableAutomaticSearch = true;
+            ((GatewaySettings)Subject.Definition.Settings).EnabledSources = new[] { "mangadex" };
+
+            var result = Subject.Test();
+
+            result.IsValid.Should().BeFalse();
+
+            // Message names the offending source by display name (F5).
+            string.Join(" ", result.Errors.Select(e => e.ErrorMessage))
+                  .Should().Contain("MangaDex");
+        }
+
+        [Test]
+        public void Test_passes_for_rss_only_with_a_recent_capable_source()
+        {
+            // The mirror of the above: with ONLY RSS enabled, a recent-capable source (mangadex)
+            // is valid — GetRecentRequests filters on SupportsRecent, which mangadex satisfies.
+            ((IndexerDefinition)Subject.Definition).EnableRss = true;
+            ((IndexerDefinition)Subject.Definition).EnableAutomaticSearch = false;
+            ((IndexerDefinition)Subject.Definition).EnableInteractiveSearch = false;
+            ((GatewaySettings)Subject.Definition.Settings).EnabledSources = new[] { "mangadex" };
+
+            var result = Subject.Test();
+
+            result.IsValid.Should().BeTrue();
         }
 
         [Test]

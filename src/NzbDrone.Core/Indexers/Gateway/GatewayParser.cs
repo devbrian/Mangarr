@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
+using NzbDrone.Common.Http;
+using NzbDrone.Core.Indexers.Exceptions;
 using NzbDrone.Core.Indexers.Gateway.Responses;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Parser.Model;
@@ -46,6 +48,15 @@ namespace NzbDrone.Core.Indexers.Gateway
                 return releases;
             }
 
+            // Parity with the caps CR-02 fix: a 2xx body can carry a top-level error envelope
+            // ({"error":{"code":"auth"}}) — the gateway 200-wraps application errors. Run the kept
+            // error-code ladder on the body BEFORE treating it as a release list, otherwise an
+            // auth/rate-limit failure deserializes into a non-null response with an empty Releases
+            // list and is silently recorded as "0 releases" success. This is distinct from a
+            // per-source warnings[] entry (D-03a, handled below without throwing) — a top-level
+            // error means the whole request failed.
+            ThrowForErrorEnvelope(content, indexerResponse);
+
             var response = JsonConvert.DeserializeObject<GatewaySearchResponse>(content);
             if (response == null)
             {
@@ -72,7 +83,10 @@ namespace NzbDrone.Core.Indexers.Gateway
                     // WR-03: substitute "now" for a missing/null wire publishDate rather than
                     // emitting DateTime.MinValue (which would make a brand-new release look ancient
                     // to age-based decision specs / RSS watermark dedup).
-                    PublishDate = r.PublishDate ?? DateTime.UtcNow,
+                    // ToUniversalTime() normalizes Kind to Utc: Newtonsoft's default RoundtripKind
+                    // yields Kind=Local for an offset-style wire date (e.g. "...+00:00", which the
+                    // live gateway sends), and the engine treats ReleaseInfo.PublishDate as UTC.
+                    PublishDate = (r.PublishDate ?? DateTime.UtcNow).ToUniversalTime(),
                     Size = r.SizeBytes ?? 0,
                     DownloadProtocol = DownloadProtocol.Http,
                     ScanlationGroup = r.ScanlationGroup,
@@ -94,6 +108,42 @@ namespace NzbDrone.Core.Indexers.Gateway
             }
 
             return releases;
+        }
+
+        // A 200 (or any) /search /recent body can wrap a top-level error envelope. Route auth →
+        // ApiKeyException, rate_limited → TooManyRequestsException, anything else with an error.code
+        // → IndexerException (never a swallowed empty release list). A normal success body has no
+        // top-level `error`, so GatewayError.Error is null and this is a no-op. Mirrors the kept
+        // GatewayCapabilitiesProvider ladder (A2).
+        private static void ThrowForErrorEnvelope(string content, IndexerResponse indexerResponse)
+        {
+            string code;
+            try
+            {
+                code = JsonConvert.DeserializeObject<GatewayError>(content)?.Error?.Code;
+            }
+            catch (JsonException)
+            {
+                // Not a parseable error envelope — let the normal release parse proceed.
+                return;
+            }
+
+            if (string.IsNullOrEmpty(code))
+            {
+                return;
+            }
+
+            if (code == "auth")
+            {
+                throw new ApiKeyException("Gateway authentication failed");
+            }
+
+            if (code == "rate_limited")
+            {
+                throw new TooManyRequestsException(indexerResponse.HttpRequest, indexerResponse.HttpResponse);
+            }
+
+            throw new IndexerException(indexerResponse, "Gateway search request failed: {0}", code);
         }
 
         // Sonarr divergence: (Pattern-S2) — this is the ONE intentional Phase-37 divergence (D-02).
