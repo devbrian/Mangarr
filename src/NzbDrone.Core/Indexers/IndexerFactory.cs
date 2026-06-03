@@ -4,9 +4,7 @@ using System.Linq;
 using FluentValidation.Results;
 using NLog;
 using NzbDrone.Common.Extensions;
-using NzbDrone.Core.Indexers.Comix;
 using NzbDrone.Core.Indexers.Gateway;
-using NzbDrone.Core.Indexers.MangaDex;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.ThingiProvider;
 
@@ -25,12 +23,11 @@ namespace NzbDrone.Core.Indexers
     {
         // Sonarr divergence: zero-config first-run UX (PROJECT.md v1 lock).
         // Sonarr does NOT auto-seed indexers — users opt in by adding one. Mangarr DOES,
-        // because v1 ships with a known-good source slate (MangaDex BEDROCK + Comix
-        // reference port #1 per Phase 3 D-19 — MangaFire descoped to v2). Without these
-        // pre-seeded, /settings/indexers is empty on a fresh DB and the user has no
-        // signal which Implementation to pick. Seed mirrors MetadataSourceFactory's
-        // S4-pattern InitializeProviders override (idempotent on restart;
-        // sibling-divergence rationale documented in DIVERGENCE.md Phase 15 entries).
+        // because v1 ships with a known-good source. Without it pre-seeded,
+        // /settings/indexers is empty on a fresh DB and the user has no signal which
+        // Implementation to pick. Seed mirrors MetadataSourceFactory's S4-pattern
+        // InitializeProviders override (idempotent on restart; sibling-divergence
+        // rationale documented in DIVERGENCE.md Phase 15 entries).
         //
         // Phase 37 A3: GatewayIndexer joins the seed allow-list under the SAME divergence
         // rationale. Its empty default settings (BaseUrl/ApiKey blank) fail
@@ -38,10 +35,11 @@ namespace NzbDrone.Core.Indexers
         // EnableRss/EnableAutomaticSearch/EnableInteractiveSearch = false (DISABLED-by-default).
         // This is the runtime seed allow-list, NOT an Insert.IntoTable migration seed; it fires
         // ONLY on an empty Indexers table, so existing users get no surprise row.
+        //
+        // Phase 39 (RETIRE-02): the in-process MangaDexIndexer + ComixIndexer were deleted;
+        // GatewayIndexer (Phase 37) is now the SOLE IIndexer and the sole seeded implementation.
         private static readonly string[] SeededIndexerImplementations =
         {
-            nameof(MangaDexIndexer),
-            nameof(ComixIndexer),
             nameof(GatewayIndexer)
         };
 

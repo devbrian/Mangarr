@@ -32,7 +32,6 @@ using NzbDrone.Common.Processes;
 using NzbDrone.Common.Serializer;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Datastore;
-using NzbDrone.Core.Indexers.Comix;
 using NzbDrone.Core.Instrumentation;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging.Events;
@@ -318,64 +317,12 @@ namespace NzbDrone.Host
 
             SchemaBuilder.Initialize(container);
 
-            // Phase 33 (COMIX2-01) Plan 33-02 — env-var-gated DryIoc swap of IComixSigner
-            // for the offline-tier CassettingComixSigner. Per CONTEXT.md:
-            //   D-03: single env-var pair (MANGARR_TEST_CASSETTE_MODE +
-            //         MANGARR_TEST_CASSETTE_DIR) drives BOTH the existing HTTP-layer
-            //         CassetteHandler (wired in Common/Http/Dispatchers/ManagedHttpDispatcher.cs:171-245)
-            //         AND the new signer-layer CassettingComixSigner.
-            //   D-04: Replay-mode miss throws InvalidOperationException with miss
-            //         message shaped verbatim to CassetteHandler — forces explicit
-            //         recording, prevents silent CI gaps.
-            //   Production-safety guard: env vars unset / empty / unparseable → the
-            //   entire registration block short-circuits and the prior RegisterMany
-            //   scan in NzbDrone.Common/Composition/Extensions.cs:29-31 keeps
-            //   ComixPlaywrightSigner as the IComixSigner singleton. Production
-            //   deployment manifests (Docker image / systemd unit / etc.) do NOT set
-            //   MANGARR_TEST_CASSETTE_*; only the test harness does.
-            // Mirrors the env-var detection pattern at
-            // ManagedHttpDispatcher.cs:175-185 — same var names, same TryParse-with-
-            // Trace.WriteLine-on-failure semantics. Mangarr.Core IS the assembly that
-            // defines CassettingComixSigner so this uses direct typeof() instead of
-            // the reflection-load shape Mangarr.Common needs for the test-assembly hop.
-            var comixCassetteMode = Environment.GetEnvironmentVariable("MANGARR_TEST_CASSETTE_MODE");
-            var comixCassetteDir = Environment.GetEnvironmentVariable("MANGARR_TEST_CASSETTE_DIR");
-            if (!string.IsNullOrEmpty(comixCassetteMode) && !string.IsNullOrEmpty(comixCassetteDir))
-            {
-                if (Enum.TryParse<CassetteMode>(comixCassetteMode, ignoreCase: true, out var parsedMode))
-                {
-                    // RegisterDelegate (not Made.Of) — DryIoc's Made.Of-with-lambda compiles
-                    // the lambda to an Expression tree, which requires each parameter to be a
-                    // ConstantExpression. The closure-captured locals (`comixCassetteDir`,
-                    // `parsedMode`) appear in the expression tree as MemberAccess on the C#
-                    // compiler-generated `<>c__DisplayClass*` closure type, which trips
-                    // DryIoc.Error.UnexpectedExpressionInsteadOfConstantInMadeOf. RegisterDelegate
-                    // bypasses the expression-tree analyzer and accepts a plain
-                    // Func<IResolverContext, IComixSigner>.
-                    //
-                    // Resolve the inner ComixPlaywrightSigner LAZILY from the resolver context
-                    // (`r.Resolve<...>()`) inside the delegate body — NOT eagerly via a
-                    // pre-captured `container.Resolve<ComixPlaywrightSigner>()`. The eager-capture
-                    // shape disposed the inner signer before first use: resolving a disposable
-                    // singleton during ConfigureServices (before the DryIoc/MS.DI container is
-                    // fully built) materializes it in a transient composition scope that gets
-                    // disposed when host-build completes, so by request time the captured inner
-                    // threw ObjectDisposedException (33-03 LIVE recording surfaced this; the
-                    // ComixSignerDryIocResolutionFixture validated registration SHAPE but never
-                    // called ProxyFetchAsync on the inner, so the disposal slipped through).
-                    // The delegate is Reuse.Singleton, so the inner is resolved exactly once,
-                    // after the permanent root singleton scope exists — no premature disposal.
-                    container.RegisterDelegate<IComixSigner>(
-                        r => new CassettingComixSigner(comixCassetteDir, parsedMode, r.Resolve<ComixPlaywrightSigner>()),
-                        reuse: Reuse.Singleton,
-                        ifAlreadyRegistered: IfAlreadyRegistered.Replace);
-                }
-                else
-                {
-                    System.Diagnostics.Trace.WriteLine(
-                        $"MANGARR_TEST_CASSETTE_MODE='{comixCassetteMode}' is not a valid CassetteMode; ignoring (IComixSigner stays as ComixPlaywrightSigner).");
-                }
-            }
+            // Phase 39 (RETIRE-02): the env-var-gated DryIoc swap of IComixSigner for the
+            // offline-tier CassettingComixSigner was removed here. The in-process Comix
+            // indexer + ComixPlaywrightSigner + CassettingComixSigner were deleted; the
+            // GatewayIndexer (Phase 37) is now the sole IIndexer and has no in-process
+            // anti-bot signer seam. (The HTTP-layer CassetteHandler in
+            // Common/Http/Dispatchers/ManagedHttpDispatcher.cs is unrelated and survives.)
 
             if (OsInfo.IsNotWindows)
             {
