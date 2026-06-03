@@ -438,6 +438,11 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
             Mocker.GetMock<IEventAggregator>()
                 .Verify(e => e.PublishEvent(It.IsAny<ChapterImportFailedEvent>()), Times.Once);
 
+            // GH #311 review: the ChapterFile row committed at step 3 MUST be rolled back so a
+            // failed injection doesn't leave an orphaned row (FK-wire/event steps were skipped).
+            Mocker.GetMock<IChapterFileService>()
+                .Verify(s => s.Delete(It.IsAny<ChapterFile>(), It.IsAny<DeleteMediaFileReason>()), Times.Once);
+
             ExceptionVerification.ExpectedErrors(1);
         }
 

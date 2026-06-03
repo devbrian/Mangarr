@@ -291,7 +291,27 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                     if (chapterFileExtension.Equals(".cbz", StringComparison.OrdinalIgnoreCase) ||
                         chapterFileExtension.Equals(".zip", StringComparison.OrdinalIgnoreCase))
                     {
-                        _comicInfoCbzInjector.Inject(chapterFile, lc.Manga, lc.Chapter);
+                        try
+                        {
+                            _comicInfoCbzInjector.Inject(chapterFile, lc.Manga, lc.Chapter);
+                        }
+                        catch (Exception injectEx)
+                        {
+                            // GH #311 review: the ChapterFile row was already committed in step 3, but
+                            // the FK wire (step 4) + ChapterImportedEvent (step 6) have NOT run yet. A
+                            // persisted injection failure re-throws to the per-decision catch below (which
+                            // publishes ChapterImportFailedEvent) — so without this rollback the committed
+                            // ChapterFile would be ORPHANED (no Chapter points at it) while the import is
+                            // reported failed. Delete the row first, THEN re-throw; a later disk-scan
+                            // re-discovers the moved CBZ and re-imports cleanly.
+                            _logger.Debug(
+                                injectEx,
+                                "ComicInfo injection failed for {0}; rolling back persisted ChapterFile {1}",
+                                chapterFile.Path,
+                                chapterFile.Id);
+                            _chapterFileService.Delete(chapterFile, DeleteMediaFileReason.Manual);
+                            throw;
+                        }
                     }
                     else
                     {
