@@ -24,17 +24,29 @@ import {
 } from 'Helpers/Hooks/useOptionsStore';
 import translate from 'Utilities/String/translate';
 
+// GH #308: Sonarr's reference Remove modal (v4, what the user runs) uses CHECKBOXES, not
+// SELECT dropdowns. The removal options are now plain booleans backing those checkboxes
+// (`removeFromClient` locked-checked when mandatory; `blocklist` unchecked by default;
+// `skipRedownload` only surfaced when `blocklist` is checked) rather than the inherited
+// Sonarr-v5 `removalMethod`/`blocklistMethod` enum strings.
 interface QueueRemovalOptions {
-  removalMethod: 'changeCategory' | 'ignore' | 'removeFromClient';
-  blocklistMethod: 'blocklistAndSearch' | 'blocklistOnly' | 'doNotBlocklist';
+  removeFromClient: boolean;
+  blocklist: boolean;
+  skipRedownload: boolean;
 }
 
 export interface QueueOptions extends PageableOptions {
   removalOptions: QueueRemovalOptions;
 }
 
+// GH #308: store name bumped `manga_queue_options` → `manga_queue_options_v2` because the
+// `removalOptions` shape changed (method-enum strings → checkbox booleans). The store `merge`
+// spreads persisted state wholesale over defaults (useOptionsStore.ts:108-118), so a stale
+// `{removalMethod, blocklistMethod}` blob would otherwise leave the new booleans `undefined`
+// and break the checkbox defaults. Bumping orphans the old key (column visibility / page size /
+// sort only — no data loss), matching the documented store-name-bump precedent above.
 const { useOptions, useOption, setOptions, setOption, setSort } =
-  createOptionsStore<QueueOptions>('manga_queue_options', () => {
+  createOptionsStore<QueueOptions>('manga_queue_options_v2', () => {
     return {
       pageSize: 20,
       selectedFilterKey: 'all',
@@ -142,8 +154,9 @@ const { useOptions, useOption, setOptions, setOption, setSort } =
         },
       ],
       removalOptions: {
-        removalMethod: 'removeFromClient',
-        blocklistMethod: 'doNotBlocklist',
+        removeFromClient: true,
+        blocklist: false,
+        skipRedownload: false,
       },
     };
   });

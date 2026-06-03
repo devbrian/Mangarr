@@ -172,6 +172,27 @@ namespace NzbDrone.Core.Test.Download.Manga
         // ── FALLBACK TESTS ──────────────────────────────────────────────────────────────
 
         [Test]
+        public void Skips_auto_retry_when_blocklist_is_manual()
+        {
+            // GH #309: a user-initiated (manual) blocklist — e.g. Queue Remove "Blocklist Release" —
+            // must NOT trigger the failure-budget auto-retry. The queue-Remove caller owns the
+            // explicit skipRedownload-gated re-search; the orchestrator stays failure-only (Sonarr
+            // parity with RedownloadFailedDownloadService). 0 prior failures + AutoRedownloadFailed
+            // on would otherwise fire a search — the manual flag is what suppresses it.
+            SeedHistoryWithFailures(0);
+
+            Subject.Handle(new MangaBlocklistAddedEvent(_blocklist, sourceEvent: null, manual: true));
+
+            Mocker.GetMock<IManageCommandQueue>()
+                .Verify(
+                    q => q.Push(
+                        It.IsAny<ChapterSearchCommand>(),
+                        It.IsAny<CommandPriority>(),
+                        It.IsAny<CommandTrigger>()),
+                    Times.Never);
+        }
+
+        [Test]
         public void Falls_back_to_Blocklist_ChapterIds_when_SourceEvent_is_null()
         {
             // Some Block(...) UI paths emit MangaBlocklistAddedEvent with null SourceEvent

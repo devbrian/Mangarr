@@ -127,6 +127,15 @@ namespace NzbDrone.Core.Download.Clients.Gateway
                     DownloadId = job.JobId,
                     Title = job.Title,
                     Status = status,
+
+                    // GH #307: map the gateway job's byte counters onto the DownloadClientItem so
+                    // the queue projection (MangaQueueService maps Size=TotalSize / SizeLeft=RemainingSize)
+                    // and the Activity Queue progress bar render. Without this both stay 0 and the
+                    // FE QueueRow `progress = size > 0 ? ... : 0` yields 0 → no bar (Sonarr shows a
+                    // full bar for a completed job: TotalBytes>0, RemainingBytes=0).
+                    TotalSize = job.TotalBytes,
+                    RemainingSize = job.RemainingBytes,
+
                     OutputPath = outputPath,
                     CanMoveFiles = true,
                     CanBeRemoved = status == DownloadItemStatus.Completed || status == DownloadItemStatus.Failed

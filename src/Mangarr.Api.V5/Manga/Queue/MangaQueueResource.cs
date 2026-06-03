@@ -1,5 +1,6 @@
 using Mangarr.Api.V5.Manga.Subresources;
 using Mangarr.Http.REST;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Queue.Manga;
@@ -78,9 +79,20 @@ namespace Mangarr.Api.V5.Manga.Queue
                 CompletedPages = model.CompletedPages,
                 EstimatedCompletionTime = model.EstimatedCompletionTime,
                 Added = model.Added,
-                Status = model.Status,
-                TrackedDownloadStatus = model.TrackedDownloadStatus,
-                TrackedDownloadState = model.TrackedDownloadState,
+
+                // GH #307: the inherited Sonarr frontend (QueueStatus.tsx + typings/Queue.ts) keys
+                // off camelCase string literals ('completed' / 'importPending' / 'warning'), but
+                // MangaQueueItem populates these from enum `.ToString()` (PascalCase). STJ only
+                // camelCases enum-TYPED fields via JsonStringEnumConverter — these are plain strings,
+                // so they serialize verbatim PascalCase and every FE `=== 'lowerCase'` test fails
+                // (wrong icon, no progress bar branch, no status-message tooltip). FirstCharToLower
+                // matches JsonNamingPolicy.CamelCase for single PascalCase enum tokens and is correct
+                // for both in-flight (DownloadItemStatus / TrackedDownloadStatus / TrackedDownloadState)
+                // and pending (PendingReleaseReason) values. Mirrors Sonarr's QueueResource.Status
+                // FirstCharToLower handling.
+                Status = model.Status?.FirstCharToLower(),
+                TrackedDownloadStatus = model.TrackedDownloadStatus?.FirstCharToLower(),
+                TrackedDownloadState = model.TrackedDownloadState?.FirstCharToLower(),
                 StatusMessages = model.StatusMessages,
                 ErrorMessage = model.ErrorMessage,
                 DownloadId = model.DownloadId,
