@@ -122,14 +122,19 @@ export const useFilters = () => {
   return FILTERS;
 };
 
+// GH #308/#309: the removal options are now checkbox booleans (queueOptionsStore). The query
+// string sent on DELETE /api/v5/manga/queue/{id} maps 1:1 onto the controller's accepted params
+// (remove / blocklist / skipRedownload / changeCategory). `changeCategory` is always false in v1
+// (manga has no post-import-category move path; the dropdown's changeCategory/ignore options are
+// dropped per the Sonarr-v4 checkbox design).
 const useRemovalOptions = () => {
   const { removalOptions } = useQueueOptions();
 
   return {
-    remove: removalOptions.removalMethod === 'removeFromClient',
-    changeCategory: removalOptions.removalMethod === 'changeCategory',
-    blocklist: removalOptions.blocklistMethod !== 'doNotBlocklist',
-    skipRedownload: removalOptions.blocklistMethod === 'blocklistOnly',
+    remove: removalOptions.removeFromClient,
+    changeCategory: false,
+    blocklist: removalOptions.blocklist,
+    skipRedownload: removalOptions.blocklist && removalOptions.skipRedownload,
   };
 };
 

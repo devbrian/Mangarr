@@ -11,7 +11,9 @@ using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Datastore.Events;
+using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Pending.Manga;
+using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
@@ -426,6 +428,62 @@ namespace NzbDrone.Api.Test.Manga.Queue
                   .Verify(s => s.RemovePendingQueueItems(PendingId),
                           Times.Once,
                           "pending ids must route to IMangaPendingReleaseService.RemovePendingQueueItems");
+        }
+
+        [Test]
+        public void RemoveQueueItem_with_remove_true_evicts_the_job_from_the_owning_client()
+        {
+            // GH #309 regression guard — clicking Remove with "Remove from Download Client" must
+            // call IDownloadClient.RemoveItem(item, deleteData:true) on the owning client so the
+            // gateway job is actually deleted (pre-fix the controller only dropped the in-memory
+            // projection row and the gateway job survived → the row reappeared on the next ~90s poll).
+            const int InFlightId = 77;
+            const string DownloadId = "j_gateway_1";
+            const int ClientId = 5;
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Setup(s => s.Find(InFlightId))
+                  .Returns(new MangaQueueItem { Id = InFlightId, DownloadId = DownloadId });
+
+            var downloadItem = new DownloadClientItem { DownloadId = DownloadId };
+            var trackedDownload = new TrackedDownload { DownloadClient = ClientId, DownloadItem = downloadItem };
+
+            Mocker.GetMock<IMangaDownloadMonitoringService>()
+                  .Setup(s => s.GetTrackedDownloads())
+                  .Returns(new List<TrackedDownload> { trackedDownload });
+
+            var downloadClient = new Mock<IDownloadClient>();
+            downloadClient.SetupGet(c => c.Definition)
+                          .Returns(new DownloadClientDefinition { Id = ClientId });
+
+            Mocker.GetMock<IDownloadClientFactory>()
+                  .Setup(f => f.GetAvailableProviders())
+                  .Returns(new List<IDownloadClient> { downloadClient.Object });
+
+            Subject.RemoveQueueItem(InFlightId, remove: true);
+
+            downloadClient.Verify(c => c.RemoveItem(downloadItem, true), Times.Once);
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(s => s.Remove(InFlightId), Times.Once);
+        }
+
+        [Test]
+        public void RemoveQueueItem_with_remove_false_does_not_touch_the_download_client()
+        {
+            // GH #309 — unchecking "Remove from Download Client" must leave the client job alone
+            // (only the projection row drops). The client-side path is guarded behind remove||blocklist.
+            const int InFlightId = 78;
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Setup(s => s.Find(InFlightId))
+                  .Returns(new MangaQueueItem { Id = InFlightId, DownloadId = "j_gateway_2" });
+
+            Subject.RemoveQueueItem(InFlightId, remove: false, blocklist: false);
+
+            Mocker.GetMock<IMangaDownloadMonitoringService>()
+                  .Verify(s => s.GetTrackedDownloads(), Times.Never, "with remove=false and blocklist=false there is no client-side work to do");
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(s => s.Remove(InFlightId), Times.Once);
         }
 
         [Test]

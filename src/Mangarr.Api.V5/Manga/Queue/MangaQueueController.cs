@@ -6,10 +6,15 @@ using Mangarr.Http.REST.Attributes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using NLog;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Common.Serializer;
+using NzbDrone.Core.Blocklisting.Manga;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Datastore.Events;
+using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Pending.Manga;
+using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Queue;
@@ -104,14 +109,26 @@ namespace Mangarr.Api.V5.Manga.Queue
     {
         private readonly IMangaQueueService _queueService;
         private readonly IMangaPendingReleaseService _pendingReleaseService;
+        private readonly IMangaDownloadMonitoringService _monitoringService;
+        private readonly IDownloadClientFactory _downloadClientFactory;
+        private readonly IMangaBlocklistService _blocklistService;
+        private readonly Logger _logger;
 
         public MangaQueueController(IBroadcastSignalRMessage broadcastSignalRMessage,
                                     IMangaQueueService queueService,
-                                    IMangaPendingReleaseService pendingReleaseService)
+                                    IMangaPendingReleaseService pendingReleaseService,
+                                    IMangaDownloadMonitoringService monitoringService,
+                                    IDownloadClientFactory downloadClientFactory,
+                                    IMangaBlocklistService blocklistService,
+                                    Logger logger)
             : base(broadcastSignalRMessage)
         {
             _queueService = queueService;
             _pendingReleaseService = pendingReleaseService;
+            _monitoringService = monitoringService;
+            _downloadClientFactory = downloadClientFactory;
+            _blocklistService = blocklistService;
+            _logger = logger;
         }
 
         [NonAction]
@@ -349,10 +366,26 @@ namespace Mangarr.Api.V5.Manga.Queue
         // pending-source ids to IPendingReleaseService.RemovePendingQueueItems on the
         // pending branch. Manga's simplified signature (no blocklist / skipRedownload /
         // changeCategory v1 params) is preserved.
+        //
+        // GH #309 (2026-06-03): the v1 "simplified Remove" signature `(int id)` silently dropped
+        // the frontend's `?remove=&blocklist=&skipRedownload=&changeCategory=` query params, so the
+        // Activity Queue Remove action NEVER called IDownloadClient.RemoveItem. With the in-process
+        // image downloader (the only client pre-Phase-38) there was nothing to remove from an
+        // external client, so the gap was invisible; the Phase-38 Manga Gateway client is the first
+        // EXTERNAL client, and a removed row's gateway job survived → the row reappeared on the next
+        // ~90s poll. The signature now accepts the canonical Sonarr query params and routes an
+        // in-flight tracked download through the owning client's RemoveItem (mirrors
+        // src/Sonarr.Api.V5/Queue/QueueController.Remove + the manga import-path eviction at
+        // MangaDownloadProcessingService.cs:165). `changeCategory` is accepted for wire-compat but
+        // is a no-op in v1 (manga has no post-import-category move path).
         [RestDeleteById]
-        public NoContent RemoveQueueItem(int id)
+        public NoContent RemoveQueueItem(int id,
+                                         bool remove = true,
+                                         bool blocklist = false,
+                                         bool skipRedownload = false,
+                                         bool changeCategory = false)
         {
-            RemoveOne(id);
+            RemoveOne(id, remove, blocklist, skipRedownload);
             return TypedResults.NoContent();
         }
 
@@ -380,9 +413,16 @@ namespace Mangarr.Api.V5.Manga.Queue
         // 2026-05-13 (queue-remove-pending-no-op): per-id dispatch routes pending-source ids to
         // IMangaPendingReleaseService.RemovePendingQueueItems via the shared RemoveOne helper
         // (see RemoveQueueItem above for the full rationale + canonical Sonarr peer).
+        //
+        // GH #309: same query-param surface as the single-item Remove above (the bulk Remove modal
+        // sends the same removalOptions query string), routed through the shared RemoveOne helper.
         [HttpDelete("bulk")]
         [Consumes("application/json")]
-        public NoContent RemoveMany([FromBody] QueueBulkResource resource)
+        public NoContent RemoveMany([FromBody] QueueBulkResource resource,
+                                    bool remove = true,
+                                    bool blocklist = false,
+                                    bool skipRedownload = false,
+                                    bool changeCategory = false)
         {
             if (resource?.Ids == null)
             {
@@ -391,7 +431,7 @@ namespace Mangarr.Api.V5.Manga.Queue
 
             foreach (var id in resource.Ids.Distinct())
             {
-                RemoveOne(id);
+                RemoveOne(id, remove, blocklist, skipRedownload);
             }
 
             return TypedResults.NoContent();
@@ -400,18 +440,106 @@ namespace Mangarr.Api.V5.Manga.Queue
         // Shared source-dispatch helper for single + bulk DELETE paths. See RemoveQueueItem
         // header comment for the canonical-Sonarr rationale + the queue-remove-pending-no-op
         // debug session.
-        private void RemoveOne(int id)
+        private void RemoveOne(int id, bool removeFromClient, bool blocklist, bool skipRedownload)
         {
-            if (_queueService.Find(id) != null)
+            var queueItem = _queueService.Find(id);
+            if (queueItem != null)
             {
+                // GH #309: an in-flight row owns a real download-client job. Before dropping the
+                // in-memory projection row, perform the client-side actions the user requested.
+                if (removeFromClient || blocklist)
+                {
+                    ApplyClientSideRemoval(queueItem, removeFromClient, blocklist, skipRedownload);
+                }
+
                 _queueService.Remove(id);
                 return;
             }
 
             // Pending-source id (or stale id absent from both projections). The pending service
             // is internally idempotent — RemovePendingQueueItems no-ops cleanly when the id
-            // does not resolve to a tracked pending release.
+            // does not resolve to a tracked pending release. Pending releases have no download-client
+            // job to delete, so removeFromClient is N/A here.
             _pendingReleaseService.RemovePendingQueueItems(id);
+        }
+
+        // GH #309: locate the owning TrackedDownload by DownloadId (the gateway jobId) and dispatch
+        // the requested client-side actions. The TrackedDownload registry is owned by the Phase-36
+        // MangaDownloadMonitoringService (manga has no in-memory ITrackedDownloadService cache — the
+        // TV one was deleted in the Phase 15 cutover).
+        private void ApplyClientSideRemoval(MangaQueueItem queueItem, bool removeFromClient, bool blocklist, bool skipRedownload)
+        {
+            var downloadId = queueItem.DownloadId;
+            if (downloadId.IsNullOrWhiteSpace())
+            {
+                return;
+            }
+
+            var trackedDownload = _monitoringService.GetTrackedDownloads()
+                .FirstOrDefault(t => t.DownloadItem?.DownloadId == downloadId);
+
+            if (trackedDownload?.DownloadItem == null)
+            {
+                _logger.Debug("Queue Remove: no tracked download found for download id {0}; nothing to evict from client", downloadId);
+                return;
+            }
+
+            if (blocklist)
+            {
+                Blocklist(trackedDownload);
+            }
+
+            if (removeFromClient)
+            {
+                // Mirror MangaDownloadProcessingService.Handle(DownloadCanBeRemovedEvent):165 — resolve
+                // the owning client off the factory and call RemoveItem(deleteData:true). For the
+                // gateway client this issues DELETE /downloads/{jobId} (404-idempotent in the proxy).
+                var downloadClient = _downloadClientFactory.GetAvailableProviders()
+                    .FirstOrDefault(c => c.Definition.Id == trackedDownload.DownloadClient);
+
+                if (downloadClient == null)
+                {
+                    _logger.Warn("Queue Remove: owning download client {0} is not available; cannot evict {1}", trackedDownload.DownloadClient, downloadId);
+                    return;
+                }
+
+                downloadClient.RemoveItem(trackedDownload.DownloadItem, deleteData: true);
+            }
+        }
+
+        // GH #309: record the release on the manga blocklist so BlocklistSpecification rejects it on
+        // future searches. Mirrors MangaBlocklistService.Handle(ChapterDownloadFailedEvent)'s row
+        // shape (D-11 release-identity triple). Only meaningful when the tracked download resolved a
+        // RemoteChapter (matched manga); an unmatched gateway job carries none, so we skip silently.
+        //
+        // skipRedownload note: Block() publishes MangaBlocklistAddedEvent, which AutoRetryOrchestrator
+        // consumes to (optionally, per the AutoRedownloadFailed config + retry budget) re-search.
+        // The per-action skipRedownload override is not separately threaded through that event in v1;
+        // re-search remains governed by the existing config-driven orchestrator path.
+        private void Blocklist(TrackedDownload trackedDownload)
+        {
+            var remoteChapter = trackedDownload.RemoteChapter;
+            var release = remoteChapter?.Release;
+            if (remoteChapter?.Manga == null || release == null)
+            {
+                _logger.Debug("Queue Remove: blocklist requested but the tracked download has no resolved manga/release; skipping blocklist insert");
+                return;
+            }
+
+            var blocklist = new MangaBlocklist
+            {
+                MangaId = remoteChapter.Manga.Id,
+                ChapterIds = remoteChapter.Chapters?.Select(c => c.Id).ToList() ?? new List<int>(),
+                SourceTitle = release.Title ?? trackedDownload.DownloadItem?.Title,
+                SourceKey = release.Indexer,
+                ReleaseGuid = release.Guid,
+                ReleaseInfoJson = release.ToJson(),
+                Date = DateTime.UtcNow,
+                Reason = "Removed from queue",
+                Source = "Manual"
+            };
+
+            _blocklistService.Block(blocklist);
         }
 
         [NonAction]

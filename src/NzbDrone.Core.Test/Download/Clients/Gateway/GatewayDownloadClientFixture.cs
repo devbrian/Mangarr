@@ -174,6 +174,34 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
         }
 
         [Test]
+        public void GetItems_maps_byte_counters_onto_size_fields()
+        {
+            // GH #307: the gateway job's totalBytes/remainingBytes MUST flow onto the
+            // DownloadClientItem so the queue projection (Size=TotalSize / SizeLeft=RemainingSize)
+            // and the Activity Queue progress bar render. Pre-fix GetItems left both 0 → no bar.
+            _proxy.Setup(p => p.GetJobs(_settings))
+                  .Returns(new GatewayJobList
+                  {
+                      Jobs = new List<GatewayJob>
+                      {
+                          new GatewayJob
+                          {
+                              JobId = "j1",
+                              Title = "Ch 1",
+                              Status = "completed",
+                              TotalBytes = 27439825,
+                              RemainingBytes = 0
+                          }
+                      }
+                  });
+
+            var item = Subject.GetItems().Single();
+
+            item.TotalSize.Should().Be(27439825);
+            item.RemainingSize.Should().Be(0);
+        }
+
+        [Test]
         public void GetStatus_remaps_every_output_root_folder()
         {
             _proxy.Setup(p => p.GetStatus(_settings))

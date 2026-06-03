@@ -2,7 +2,6 @@ import React, { useCallback, useMemo } from 'react';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
-import { EnhancedSelectInputValue } from 'Components/Form/Select/EnhancedSelectInput';
 import Button from 'Components/Link/Button';
 import Modal from 'Components/Modal/Modal';
 import ModalBody from 'Components/Modal/ModalBody';
@@ -43,7 +42,16 @@ function RemoveQueueItemModal(props: RemoveQueueItemModalProps) {
   } = props;
 
   const multipleSelected = selectedCount && selectedCount > 1;
-  const { removalMethod, blocklistMethod } = useQueueOption('removalOptions');
+  const { removeFromClient, blocklist, skipRedownload } =
+    useQueueOption('removalOptions');
+
+  // GH #308: when the item cannot be ignored or have its category changed it MUST leave the
+  // download client, so the "Remove From Download Client" checkbox is locked checked (the same
+  // mandatory-removal semantic the inherited SELECT dropdown enforced via isDisabled). The
+  // effective value sent on confirm is forced true in that case so a stale persisted `false`
+  // cannot suppress a required client removal.
+  const isRemoveLocked = !canChangeCategory && !canIgnore;
+  const effectiveRemoveFromClient = isRemoveLocked ? true : removeFromClient;
 
   const { title, message } = useMemo(() => {
     if (!selectedCount) {
@@ -68,74 +76,16 @@ function RemoveQueueItemModal(props: RemoveQueueItemModalProps) {
     };
   }, [sourceTitle, selectedCount]);
 
-  const removalMethodOptions = useMemo(() => {
-    const options: EnhancedSelectInputValue<string>[] = [
-      {
-        key: 'removeFromClient',
-        value: translate('RemoveFromDownloadClient'),
-        hint: multipleSelected
-          ? translate('RemoveMultipleFromDownloadClientHint')
-          : translate('RemoveFromDownloadClientHint'),
-      },
-      {
-        key: 'changeCategory',
-        value: translate('ChangeCategory'),
-        isDisabled: !canChangeCategory,
-        hint: multipleSelected
-          ? translate('ChangeCategoryMultipleHint')
-          : translate('ChangeCategoryHint'),
-      },
-      {
-        key: 'ignore',
-        value: multipleSelected
-          ? translate('IgnoreDownloads')
-          : translate('IgnoreDownload'),
-        isDisabled: !canIgnore,
-        hint: multipleSelected
-          ? translate('IgnoreDownloadsHint')
-          : translate('IgnoreDownloadHint'),
-      },
-    ];
-
-    return options;
-  }, [canChangeCategory, canIgnore, multipleSelected]);
-
-  const blocklistMethodOptions = useMemo(() => {
-    const options: EnhancedSelectInputValue<string>[] = [
-      {
-        key: 'doNotBlocklist',
-        value: translate('DoNotBlocklist'),
-        hint: translate('DoNotBlocklistHint'),
-      },
-      {
-        key: 'blocklistAndSearch',
-        value: translate('BlocklistAndSearch'),
-        isDisabled: isPending,
-        hint: multipleSelected
-          ? translate('BlocklistAndSearchMultipleHint')
-          : translate('BlocklistAndSearchHint'),
-      },
-      {
-        key: 'blocklistOnly',
-        value: translate('BlocklistOnly'),
-        hint: multipleSelected
-          ? translate('BlocklistMultipleOnlyHint')
-          : translate('BlocklistOnlyHint'),
-      },
-    ];
-
-    return options;
-  }, [isPending, multipleSelected]);
-
   const handleRemovalOptionInputChange = useCallback(
     ({ name, value }: OptionChanged<QueueOptions['removalOptions']>) => {
       setQueueOption('removalOptions', {
-        removalMethod,
-        blocklistMethod,
+        removeFromClient,
+        blocklist,
+        skipRedownload,
         [name]: value,
       });
     },
-    [removalMethod, blocklistMethod]
+    [removeFromClient, blocklist, skipRedownload]
   );
 
   const handleConfirmRemove = useCallback(() => {
@@ -156,17 +106,23 @@ function RemoveQueueItemModal(props: RemoveQueueItemModalProps) {
 
           {isPending ? null : (
             <FormGroup>
-              <FormLabel>{translate('RemoveQueueItemRemovalMethod')}</FormLabel>
+              <FormLabel>{translate('RemoveFromDownloadClient')}</FormLabel>
 
               <FormInputGroup
-                type={inputTypes.SELECT}
-                name="removalMethod"
-                value={removalMethod}
-                values={removalMethodOptions}
-                isDisabled={!canChangeCategory && !canIgnore}
-                helpTextWarning={translate(
-                  'RemoveQueueItemRemovalMethodHelpTextWarning'
-                )}
+                type={inputTypes.CHECK}
+                name="removeFromClient"
+                value={effectiveRemoveFromClient}
+                isDisabled={isRemoveLocked}
+                helpText={
+                  multipleSelected
+                    ? translate('RemoveMultipleFromDownloadClientHint')
+                    : translate('RemoveFromDownloadClientHint')
+                }
+                helpTextWarning={
+                  isRemoveLocked
+                    ? translate('RemoveQueueItemRemovalMethodHelpTextWarning')
+                    : undefined
+                }
                 // @ts-expect-error - The typing for inputs needs more work
                 onChange={handleRemovalOptionInputChange}
               />
@@ -181,15 +137,30 @@ function RemoveQueueItemModal(props: RemoveQueueItemModalProps) {
             </FormLabel>
 
             <FormInputGroup
-              type={inputTypes.SELECT}
-              name="blocklistMethod"
-              value={blocklistMethod}
-              values={blocklistMethodOptions}
+              type={inputTypes.CHECK}
+              name="blocklist"
+              value={blocklist}
               helpText={translate('BlocklistReleaseHelpText')}
               // @ts-expect-error - The typing for inputs needs more work
               onChange={handleRemovalOptionInputChange}
             />
           </FormGroup>
+
+          {blocklist ? (
+            <FormGroup>
+              <FormLabel>{translate('SkipRedownload')}</FormLabel>
+
+              <FormInputGroup
+                type={inputTypes.CHECK}
+                name="skipRedownload"
+                value={skipRedownload}
+                isDisabled={isPending}
+                helpText={translate('SkipRedownloadHelpText')}
+                // @ts-expect-error - The typing for inputs needs more work
+                onChange={handleRemovalOptionInputChange}
+              />
+            </FormGroup>
+          ) : null}
         </ModalBody>
 
         <ModalFooter>
