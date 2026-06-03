@@ -19,7 +19,10 @@ namespace NzbDrone.Core.Blocklisting.Manga
     {
         bool Blocklisted(int mangaId, ReleaseInfo release);
         PagingSpec<MangaBlocklist> Paged(PagingSpec<MangaBlocklist> pagingSpec);
-        void Block(MangaBlocklist blocklist);
+
+        // GH #309: `manual` marks a user-initiated blocklist (e.g. Queue Remove "Blocklist Release")
+        // so AutoRetryOrchestrator skips the failure-budget auto-retry — the caller owns re-search.
+        void Block(MangaBlocklist blocklist, bool manual = false);
         void Delete(int id);
         void Delete(List<int> ids);
     }

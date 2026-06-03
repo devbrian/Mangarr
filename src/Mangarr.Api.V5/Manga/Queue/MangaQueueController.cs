@@ -16,6 +16,8 @@ using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.Indexers;
+using NzbDrone.Core.IndexerSearch.Manga;
+using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Queue;
 using NzbDrone.Core.Queue.Manga;
@@ -112,6 +114,7 @@ namespace Mangarr.Api.V5.Manga.Queue
         private readonly IMangaDownloadMonitoringService _monitoringService;
         private readonly IDownloadClientFactory _downloadClientFactory;
         private readonly IMangaBlocklistService _blocklistService;
+        private readonly IManageCommandQueue _commandQueueManager;
         private readonly Logger _logger;
 
         public MangaQueueController(IBroadcastSignalRMessage broadcastSignalRMessage,
@@ -120,6 +123,7 @@ namespace Mangarr.Api.V5.Manga.Queue
                                     IMangaDownloadMonitoringService monitoringService,
                                     IDownloadClientFactory downloadClientFactory,
                                     IMangaBlocklistService blocklistService,
+                                    IManageCommandQueue commandQueueManager,
                                     Logger logger)
             : base(broadcastSignalRMessage)
         {
@@ -128,6 +132,7 @@ namespace Mangarr.Api.V5.Manga.Queue
             _monitoringService = monitoringService;
             _downloadClientFactory = downloadClientFactory;
             _blocklistService = blocklistService;
+            _commandQueueManager = commandQueueManager;
             _logger = logger;
         }
 
@@ -486,7 +491,7 @@ namespace Mangarr.Api.V5.Manga.Queue
 
             if (blocklist)
             {
-                Blocklist(trackedDownload);
+                Blocklist(trackedDownload, skipRedownload);
             }
 
             if (removeFromClient)
@@ -508,15 +513,17 @@ namespace Mangarr.Api.V5.Manga.Queue
         }
 
         // GH #309: record the release on the manga blocklist so BlocklistSpecification rejects it on
-        // future searches. Mirrors MangaBlocklistService.Handle(ChapterDownloadFailedEvent)'s row
-        // shape (D-11 release-identity triple). Only meaningful when the tracked download resolved a
-        // RemoteChapter (matched manga); an unmatched gateway job carries none, so we skip silently.
+        // future searches, then mirror Sonarr QueueController.Remove's `if (!skipRedownload && blocklist)`
+        // branch — search for a replacement UNLESS the user ticked "Blocklist Only" (skipRedownload).
         //
-        // skipRedownload note: Block() publishes MangaBlocklistAddedEvent, which AutoRetryOrchestrator
-        // consumes to (optionally, per the AutoRedownloadFailed config + retry budget) re-search.
-        // The per-action skipRedownload override is not separately threaded through that event in v1;
-        // re-search remains governed by the existing config-driven orchestrator path.
-        private void Blocklist(TrackedDownload trackedDownload)
+        // Block(manual: true) marks the row user-initiated so AutoRetryOrchestrator (the failure-budget
+        // auto-retry) does NOT also fire — that path is for download FAILURES, not manual queue actions.
+        // This makes skipRedownload the single, deterministic re-search control here, exactly like Sonarr
+        // (whose BlocklistService.Block never auto-searches; the queue controller owns the search).
+        //
+        // Only meaningful when the tracked download resolved a RemoteChapter (matched manga); an
+        // unmatched gateway job carries none, so we skip silently (nothing to blocklist or re-search).
+        private void Blocklist(TrackedDownload trackedDownload, bool skipRedownload)
         {
             var remoteChapter = trackedDownload.RemoteChapter;
             var release = remoteChapter?.Release;
@@ -526,10 +533,12 @@ namespace Mangarr.Api.V5.Manga.Queue
                 return;
             }
 
+            var chapterIds = remoteChapter.Chapters?.Select(c => c.Id).ToList() ?? new List<int>();
+
             var blocklist = new MangaBlocklist
             {
                 MangaId = remoteChapter.Manga.Id,
-                ChapterIds = remoteChapter.Chapters?.Select(c => c.Id).ToList() ?? new List<int>(),
+                ChapterIds = chapterIds,
                 SourceTitle = release.Title ?? trackedDownload.DownloadItem?.Title,
                 SourceKey = release.Indexer,
                 ReleaseGuid = release.Guid,
@@ -539,7 +548,14 @@ namespace Mangarr.Api.V5.Manga.Queue
                 Source = "Manual"
             };
 
-            _blocklistService.Block(blocklist);
+            _blocklistService.Block(blocklist, manual: true);
+
+            // Sonarr-parity re-search: blocklist-and-search vs blocklist-only.
+            if (!skipRedownload && chapterIds.Any())
+            {
+                _logger.Debug("Queue Remove: blocklisted release and re-searching {0} chapter(s)", chapterIds.Count);
+                _commandQueueManager.Push(new ChapterSearchCommand(chapterIds));
+            }
         }
 
         [NonAction]

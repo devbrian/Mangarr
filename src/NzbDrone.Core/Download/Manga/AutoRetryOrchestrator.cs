@@ -74,6 +74,20 @@ namespace NzbDrone.Core.Download.Manga
 
         public void Handle(MangaBlocklistAddedEvent message)
         {
+            // ── 0. Manual blocklist gate (GH #309) ──────────────────────────────────────
+            // A user-initiated blocklist (e.g. the Activity Queue Remove modal's "Blocklist
+            // Release" checkbox) is NOT a download-failure auto-retry trigger. Sonarr decouples
+            // these: RedownloadFailedDownloadService fires only on DownloadFailedEvent, while
+            // QueueController.Remove owns its own re-search via the per-action skipRedownload flag.
+            // Mirror that here — skip the failure-budget auto-retry for manual blocklists so the
+            // queue-Remove caller's skipRedownload choice is the SINGLE, deterministic re-search
+            // control (no config/budget interference). The on-failure path (SourceEvent set,
+            // Manual=false) is unaffected.
+            if (message.Manual)
+            {
+                return;
+            }
+
             // ── 1. Identify the chapter that just failed ────────────────────────────────
             // Prefer the source ChapterDownloadFailedEvent for the richest context;
             // fall back to the blocklist row's ChapterIds (single-chapter releases will

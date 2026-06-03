@@ -21,10 +21,19 @@ namespace NzbDrone.Core.Blocklisting.Manga
         public MangaBlocklist Blocklist { get; }
         public ChapterDownloadFailedEvent SourceEvent { get; }
 
-        public MangaBlocklistAddedEvent(MangaBlocklist blocklist, ChapterDownloadFailedEvent sourceEvent = null)
+        // GH #309: true when the blocklist row originated from an explicit USER action (e.g. the
+        // Activity Queue Remove modal's "Blocklist Release" checkbox) rather than an automatic
+        // on-failure blocklist. AutoRetryOrchestrator skips manual blocklists — a user-initiated
+        // blocklist controls its own re-search via the queue-Remove skipRedownload flag, mirroring
+        // Sonarr's decoupling of RedownloadFailedDownloadService (failure-only auto-retry) from
+        // QueueController.Remove's explicit `!skipRedownload` search branch.
+        public bool Manual { get; }
+
+        public MangaBlocklistAddedEvent(MangaBlocklist blocklist, ChapterDownloadFailedEvent sourceEvent = null, bool manual = false)
         {
             Blocklist = blocklist;
             SourceEvent = sourceEvent;
+            Manual = manual;
         }
     }
 }

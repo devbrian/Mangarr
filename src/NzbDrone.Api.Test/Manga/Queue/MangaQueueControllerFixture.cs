@@ -9,11 +9,16 @@ using Mangarr.Http.REST;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Moq;
 using NUnit.Framework;
+using NzbDrone.Core.Blocklisting.Manga;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.Download.TrackedDownloads;
+using NzbDrone.Core.IndexerSearch.Manga;
+using NzbDrone.Core.Messaging.Commands;
+using NzbDrone.Core.Parser.Manga.Model;
+using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Queue.Manga;
 using NzbDrone.SignalR;
 using NzbDrone.Test.Common;
@@ -484,6 +489,71 @@ namespace NzbDrone.Api.Test.Manga.Queue
                   .Verify(s => s.GetTrackedDownloads(), Times.Never, "with remove=false and blocklist=false there is no client-side work to do");
             Mocker.GetMock<IMangaQueueService>()
                   .Verify(s => s.Remove(InFlightId), Times.Once);
+        }
+
+        private TrackedDownload BuildTrackedDownloadWithRemoteChapter(string downloadId, int clientId, int chapterId)
+        {
+            return new TrackedDownload
+            {
+                DownloadClient = clientId,
+                DownloadItem = new DownloadClientItem { DownloadId = downloadId, Title = "Some Release" },
+                RemoteChapter = new RemoteChapter
+                {
+                    Manga = new NzbDrone.Core.Manga.Manga { Id = 1 },
+                    Chapters = new List<NzbDrone.Core.Manga.Chapter> { new NzbDrone.Core.Manga.Chapter { Id = chapterId } },
+                    Release = new ReleaseInfo { Title = "Some Release", Indexer = "Manga Gateway", Guid = "g1" }
+                }
+            };
+        }
+
+        [Test]
+        public void RemoveQueueItem_blocklist_without_skipRedownload_blocklists_and_searches()
+        {
+            // GH #309 — Sonarr-parity "Blocklist and Search": blocklist the release (manual flag so
+            // the failure-budget AutoRetryOrchestrator stays out of it) AND fire a ChapterSearchCommand
+            // for the chapter(s).
+            const int InFlightId = 81;
+            const string DownloadId = "j_bl_search";
+            const int ChapterId = 5;
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Setup(s => s.Find(InFlightId))
+                  .Returns(new MangaQueueItem { Id = InFlightId, DownloadId = DownloadId });
+
+            Mocker.GetMock<IMangaDownloadMonitoringService>()
+                  .Setup(s => s.GetTrackedDownloads())
+                  .Returns(new List<TrackedDownload> { BuildTrackedDownloadWithRemoteChapter(DownloadId, 5, ChapterId) });
+
+            Subject.RemoveQueueItem(InFlightId, remove: false, blocklist: true, skipRedownload: false);
+
+            Mocker.GetMock<IMangaBlocklistService>()
+                  .Verify(s => s.Block(It.IsAny<MangaBlocklist>(), true), Times.Once);
+            Mocker.GetMock<IManageCommandQueue>()
+                  .Verify(q => q.Push(It.Is<ChapterSearchCommand>(c => c.ChapterIds.Contains(ChapterId)), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()), Times.Once);
+        }
+
+        [Test]
+        public void RemoveQueueItem_blocklist_with_skipRedownload_blocklists_without_searching()
+        {
+            // GH #309 — Sonarr-parity "Blocklist Only": blocklist the release but do NOT re-search.
+            const int InFlightId = 82;
+            const string DownloadId = "j_bl_only";
+            const int ChapterId = 6;
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Setup(s => s.Find(InFlightId))
+                  .Returns(new MangaQueueItem { Id = InFlightId, DownloadId = DownloadId });
+
+            Mocker.GetMock<IMangaDownloadMonitoringService>()
+                  .Setup(s => s.GetTrackedDownloads())
+                  .Returns(new List<TrackedDownload> { BuildTrackedDownloadWithRemoteChapter(DownloadId, 5, ChapterId) });
+
+            Subject.RemoveQueueItem(InFlightId, remove: false, blocklist: true, skipRedownload: true);
+
+            Mocker.GetMock<IMangaBlocklistService>()
+                  .Verify(s => s.Block(It.IsAny<MangaBlocklist>(), true), Times.Once);
+            Mocker.GetMock<IManageCommandQueue>()
+                  .Verify(q => q.Push(It.IsAny<ChapterSearchCommand>(), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()), Times.Never);
         }
 
         [Test]

@@ -102,13 +102,17 @@ namespace NzbDrone.Core.Blocklisting.Manga
             return _repository.GetPaged(pagingSpec);
         }
 
-        public void Block(MangaBlocklist blocklist)
+        public void Block(MangaBlocklist blocklist, bool manual = false)
         {
             // Manual UI insert path. Mirrors the Handle(...) ordering invariant: Insert FIRST,
             // then PublishEvent. Keeps the AutoRetryOrchestrator subscriber contract uniform
             // regardless of whether the row originated from auto-blocklist or manual insert.
+            //
+            // GH #309: `manual` flows onto the event so AutoRetryOrchestrator can skip the
+            // failure-budget auto-retry for user-initiated blocklists (the caller — e.g. the
+            // queue-Remove controller — owns the explicit skipRedownload-gated re-search).
             _repository.Insert(blocklist);
-            _eventAggregator.PublishEvent(new MangaBlocklistAddedEvent(blocklist));
+            _eventAggregator.PublishEvent(new MangaBlocklistAddedEvent(blocklist, manual: manual));
         }
 
         public void Delete(int id)
