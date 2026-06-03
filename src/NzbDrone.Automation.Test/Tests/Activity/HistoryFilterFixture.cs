@@ -1,5 +1,3 @@
-using System.Net.Http;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -58,7 +56,7 @@ public class HistoryFilterFixture : AutomationTest
         var slug = Page.Url.Split('/')[^1];
         slug.Should().NotBeNullOrEmpty("AddMangaFlow must land on the manga details URL");
 
-        var (mangaId, chapterId) = await ResolveSeedFksAsync();
+        var (mangaId, chapterId) = await SeedFkResolver.ResolveSeedFksAsync(RootUri, ApiKey);
         var testKit = new NzbDrone.Automation.Test.TestKit.TestKit(RootUri, ApiKey, Runner.AppData, Runner.PostgresOptions);
         await testKit.SeedHistoryFailedAsync(Runner.AppData, mangaId, chapterId);
 
@@ -125,24 +123,5 @@ public class HistoryFilterFixture : AutomationTest
         // STATE assertion 4: URL preserved across the filter transition (the
         // filter selection transitioned in-place — no spurious navigation).
         Page.Url.Should().EndWith("/manga/activity/history");
-    }
-
-    // Resolve the AddMangaFlow-seeded manga id + one of its chapter ids via
-    // the V5 API — the FKs the raw-SQLite seed helper needs. The chapter set is
-    // populated from the MangaDex /feed cassette during the AddManga flow, so at
-    // least one chapter exists by the time this runs (polled via SeedFkResolver
-    // to absorb the async RefreshMangaCommand chain — GH #277).
-    private async Task<(int MangaId, int ChapterId)> ResolveSeedFksAsync()
-    {
-        using var http = new HttpClient();
-        http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
-
-        var mangaJson = await http.GetStringAsync($"{RootUri}/api/v5/manga");
-        using var mangaDoc = JsonDocument.Parse(mangaJson);
-        var mangaId = mangaDoc.RootElement[0].GetProperty("id").GetInt32();
-
-        var chapterId = await SeedFkResolver.ResolveFirstChapterIdAsync(RootUri, ApiKey, mangaId);
-
-        return (mangaId, chapterId);
     }
 }
