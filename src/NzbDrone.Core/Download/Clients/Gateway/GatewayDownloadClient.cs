@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentValidation.Results;
@@ -177,17 +178,43 @@ namespace NzbDrone.Core.Download.Clients.Gateway
 
             foreach (var folder in status.OutputRootFolders)
             {
-                var local = _remotePathMappingService.RemapRemoteToLocal(Settings.Host, new OsPath(folder));
-                var failure = TestFolder(local.FullPath, "OutputPath");
+                // A remote gateway commonly reports container-internal paths (e.g. "/data/manga")
+                // that are NOT valid on the Mangarr host OS until a Remote Path Mapping rewrites
+                // them. Two distinct sub-cases must surface the SAME actionable hard-fail rather
+                // than an opaque "Test was aborted due to an error":
+                //   (a) un-remapped host-invalid path  → TestFolder throws (e.g. ArgumentException
+                //       "not a valid Windows path") from the OS path layer;
+                //   (b) remapped-but-unreachable folder → TestFolder returns a non-null failure.
+                NzbDrone.Core.Validation.NzbDroneValidationFailure outputFailure = null;
 
-                if (failure != null)
+                try
                 {
-                    failures.Add(new NzbDrone.Core.Validation.NzbDroneValidationFailure(
+                    var local = _remotePathMappingService.RemapRemoteToLocal(Settings.Host, new OsPath(folder));
+                    var failure = TestFolder(local.FullPath, "OutputPath");
+
+                    if (failure != null)
+                    {
+                        outputFailure = new NzbDrone.Core.Validation.NzbDroneValidationFailure(
+                            "OutputPath",
+                            $"Gateway output folder '{folder}' is not reachable. Configure a Remote Path Mapping so Mangarr can import the delivered CBZ.")
+                        {
+                            DetailedDescription = failure.ErrorMessage
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    outputFailure = new NzbDrone.Core.Validation.NzbDroneValidationFailure(
                         "OutputPath",
                         $"Gateway output folder '{folder}' is not reachable. Configure a Remote Path Mapping so Mangarr can import the delivered CBZ.")
                     {
-                        DetailedDescription = failure.ErrorMessage
-                    });
+                        DetailedDescription = ex.Message
+                    };
+                }
+
+                if (outputFailure != null)
+                {
+                    failures.Add(outputFailure);
                 }
             }
         }

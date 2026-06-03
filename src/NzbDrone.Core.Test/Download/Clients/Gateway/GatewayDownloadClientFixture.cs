@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -216,6 +217,37 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
             var result = Subject.Test();
 
             result.IsValid.Should().BeFalse();
+        }
+
+        [Test]
+        public void Test_hard_fails_gracefully_when_gateway_reports_host_invalid_path()
+        {
+            // Regression (live-gateway human-verify, Phase 38): a Dockerized gateway reports a
+            // container-internal path (e.g. "/data/manga") that is NOT a valid path on the Mangarr
+            // host OS. On Windows the path layer throws ArgumentException ("not a valid Windows
+            // path") from inside TestFolder — which previously escaped the foreach (it sat outside
+            // the version/status try/catch) and surfaced as an opaque "Test was aborted due to an
+            // error". The output-folder check must convert that throw into the SAME actionable
+            // "Configure a Remote Path Mapping" hard-fail, never let it abort the whole Test.
+            _proxy.Setup(p => p.GetVersion(_settings)).Returns("1.0.0");
+            _proxy.Setup(p => p.GetStatus(_settings))
+                  .Returns(new GatewayStatusResponse
+                  {
+                      IsLocalhost = false,
+                      OutputRootFolders = new List<string> { "/data/manga" }
+                  });
+
+            // The host OS path layer rejects the container path — TestFolder throws rather than
+            // returning a failure.
+            Mocker.GetMock<IDiskProvider>()
+                  .Setup(d => d.FolderExists(It.IsAny<string>()))
+                  .Throws(new ArgumentException("value [/data/manga] is not a valid Windows path. paths must be a full path eg. C:\\Windows"));
+
+            // Must not throw — the Test wrapper returns a graceful invalid result.
+            var result = Subject.Test();
+
+            result.IsValid.Should().BeFalse();
+            result.Errors.Should().Contain(e => e.ErrorMessage.Contains("Remote Path Mapping"));
         }
 
         [Test]
