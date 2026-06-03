@@ -6,7 +6,9 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
     // Sonarr divergence: NEW manga sibling per Phase 6 PIPELINE-04 — see DIVERGENCE.md.
     // Role-match analog: src/NzbDrone.Core/MediaFiles/EpisodeImport/IImportApprovedEpisodes.cs.
     //
-    // Plan 06-08 ProcessMangaCompletedDownloads consumes this; per RESEARCH §Q-3, the
+    // The completed-download import path consumes this (originally Plan 06-08's in-process
+    // ProcessMangaCompletedDownloads poller — retired in Phase 39 RETIRE-01; the Phase 36
+    // MangaCompletedDownloadService is the surviving consumer); per RESEARCH §Q-3, the
     // service emits ChapterImportedEvent ONLY after both ChapterFile DB commit and
     // filesystem move complete (Pitfall 4 mitigation).
     //

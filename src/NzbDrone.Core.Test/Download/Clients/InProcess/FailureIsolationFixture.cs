@@ -189,10 +189,9 @@ namespace NzbDrone.Core.Test.Download.Clients.InProcess
             _persisted.Single(r => r.Id == idB).Status.Should().Be(ChapterDownloadStatus.Failed);
             _persisted.Single(r => r.Id == idC).Status.Should().Be(ChapterDownloadStatus.Completed);
 
-            _eventAggregator.Verify(
-                e => e.PublishEvent(It.IsAny<ChapterArchivedEvent>()),
-                Times.Exactly(2),
-                "A and C should each emit ChapterArchivedEvent");
+            // Phase 39 RETIRE-01: the per-completion ChapterArchivedEvent assertion was removed
+            // with the event type. A and C reaching Status=Completed (asserted above) is the
+            // surviving completion signal; B's terminal failure still emits ChapterDownloadFailedEvent.
             _eventAggregator.Verify(
                 e => e.PublishEvent(It.Is<ChapterDownloadFailedEvent>(ev => ev.RowId == idB)),
                 Times.Once);

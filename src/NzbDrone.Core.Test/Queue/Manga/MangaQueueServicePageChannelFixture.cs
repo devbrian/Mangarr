@@ -14,8 +14,9 @@ namespace NzbDrone.Core.Test.Queue.Manga
     // Phase 36 Plan 36-06 (D-01 / D-01a / D-01b / D-02 / LOOP-05) — CONTRACT tests for the ADDITIVE
     // manga-native page-progress channel threaded into the Queue projection. These assert observable
     // behavior, NOT internal structure (the page caption is sourced from the Plan 03 matcher's
-    // IMangaTrackedDownloadService.GetPageProgress carrier keyed by DownloadId — NEVER from
-    // ChapterDownloadState and NEVER from the shared DownloadClientItem contract).
+    // IMangaTrackedDownloadService.GetPageProgress carrier keyed by DownloadId — NEVER from the
+    // now-retired in-process ChapterDownloadState row (Phase 39 RETIRE-01) and NEVER from the
+    // shared DownloadClientItem contract).
     //
     // Seven locked behaviors:
     //   1. PAGE-PRESENT — a TrackedDownload whose DownloadId carries 20/7 maps to TotalPages=20,
@@ -23,7 +24,7 @@ namespace NzbDrone.Core.Test.Queue.Manga
     //   2. PAGE-ABSENT (gateway) — a TrackedDownload with no page progress maps to null/null (the
     //      gateway path leaves the caption absent).
     //   3. SOURCE-KEY — the page counts are sourced by the row's DownloadId (the matcher channel),
-    //      not by any DownloadClientItem/ChapterDownloadState field.
+    //      not by any DownloadClientItem field (the in-process ChapterDownloadState row is retired).
     //   4. D-01b — the Size/SizeLeft bar-fill mapping is unchanged (byte/% still drives the bar).
     //   5. D-02 — the TimeLeft/EstimatedCompletionTime ETA mapping is unchanged (always-on ETA
     //      preserved; no manga-specific suppression rule).
@@ -124,7 +125,8 @@ namespace NzbDrone.Core.Test.Queue.Manga
             queue[0].CompletedPages.Should().Be(3);
 
             // The projection asked the matcher channel for this exact DownloadId — confirming the
-            // counts come from the Plan 03 carrier, not ChapterDownloadState / DownloadClientItem.
+            // counts come from the Plan 03 carrier, not the DownloadClientItem (the in-process
+            // ChapterDownloadState row is retired per Phase 39 RETIRE-01).
             _trackedDownloadService.Verify(s => s.GetPageProgress("dl-keyed"), Times.AtLeastOnce);
         }
 

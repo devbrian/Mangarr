@@ -5,8 +5,8 @@ namespace NzbDrone.Core.Download.Manga
     // Sonarr divergence: NEW manga sibling per Phase 36 (LOOP-01 / LOOP-05) — see DIVERGENCE.md.
     // Provenance: v5-develop:src/NzbDrone.Core/Download/TrackedDownloads/RefreshMonitoredDownloadsCommand.cs
     //   (the poll-trigger command DownloadMonitoringService implements IExecute<> against).
-    // Role-match analog (exact shape): src/NzbDrone.Core/Download/Manga/ProcessMangaCompletedCommand.cs
-    //   (payload-less Command, SendUpdatesToClient => false).
+    // Role-match analog (exact shape): the retired in-process ProcessMangaCompletedCommand
+    //   (payload-less Command, SendUpdatesToClient => false) — deleted in Phase 39 RETIRE-01.
     //
     // Registered in TaskManager.defaultTasks at a 1-minute cadence at RUNTIME per
     // sonarr-consistency-audit anti-pattern C (NEVER seeded via a migration Insert.IntoTable).
