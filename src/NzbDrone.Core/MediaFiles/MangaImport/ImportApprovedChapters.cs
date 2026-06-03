@@ -9,6 +9,7 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients.InProcess;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo;
 using NzbDrone.Core.MediaFiles.Commands;
 using NzbDrone.Core.MediaFiles.MangaImport.Manual;
 
@@ -72,6 +73,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
         private readonly IConfigService _configService;
         private readonly IUpgradeChapterFiles _upgradeChapterFileService;   // Phase 9 D-09-05
         private readonly IUpdateChapterInfo _updateChapterInfoService;      // Phase 30 Plan 30-05 (II2-03)
+        private readonly IComicInfoCbzInjector _comicInfoCbzInjector;       // Phase 38 Plan 38-02 (CINFO-01)
         private readonly Logger _logger;
 
         public ImportApprovedChapters(
@@ -86,6 +88,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             IConfigService configService,
             IUpgradeChapterFiles upgradeChapterFileService,                  // Phase 9 D-09-05
             IUpdateChapterInfo updateChapterInfoService,                      // Phase 30 Plan 30-05 (II2-03)
+            IComicInfoCbzInjector comicInfoCbzInjector,                       // Phase 38 Plan 38-02 (CINFO-01)
             Logger logger)
         {
             _chapterFileService = chapterFileService;
@@ -99,6 +102,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
             _configService = configService;
             _upgradeChapterFileService = upgradeChapterFileService;
             _updateChapterInfoService = updateChapterInfoService;
+            _comicInfoCbzInjector = comicInfoCbzInjector;
             _logger = logger;
         }
 
@@ -257,6 +261,25 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                     {
                         _logger.Warn(probeEx, "ImageSharp probe failed for {0}; MediaInfo left null", chapterFile.Path);
                     }
+
+                    // ---- 3.5b Phase 38 Plan 38-02 (CINFO-01) — ComicInfo.xml injection ----
+                    // PITFALL 4 ORDERING PRESERVED: runs AFTER step 3 DB write + filesystem move (step 2)
+                    // + BEFORE step 6 ChapterImportedEvent publish (the gateway delivers page-only CBZs,
+                    // so this injector is the SOLE ComicInfo writer; Komga/Kavita rescan handlers fire on
+                    // ChapterImportedEvent and MUST see a metadata-complete archive).
+                    //
+                    // D-A — invoked UNCONDITIONALLY (no gateway-only gate, no download-client-type
+                    // discriminator, no ComicInfo-presence check). Placed after the ImageSharp probe so a
+                    // probe-populated MediaInfo is committed first (D-B2 — ordering vs probe is not a
+                    // correctness constraint).
+                    //
+                    // D-B1 — DELIBERATELY NOT wrapped in its own swallow-everything try/catch (UNLIKE the
+                    // non-fatal ImageSharp probe above). The injector's OWN Warn->retry-once->fatal ladder
+                    // handles the transient-retry internally; a persisted failure RE-THROWS and propagates
+                    // to the enclosing per-decision catch (Exception ex) below, which publishes
+                    // ChapterImportFailedEvent ONCE (no duplicate publish). The chapter then does NOT land
+                    // and the Phase-36 auto-retry orchestrator handles it.
+                    _comicInfoCbzInjector.Inject(chapterFile, lc.Manga, lc.Chapter);
 
                     // ---- 4. Wire Chapter.ChapterFileId FK (Plan 06-01 PIPELINE-04 column) ----
                     lc.Chapter.ChapterFileId = chapterFile.Id;
