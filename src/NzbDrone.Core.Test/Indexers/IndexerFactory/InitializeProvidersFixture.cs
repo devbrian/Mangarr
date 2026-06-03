@@ -8,6 +8,7 @@ using NzbDrone.Core.Indexers.Gateway;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Core.ThingiProvider;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.Indexer
 {
@@ -122,6 +123,14 @@ namespace NzbDrone.Core.Test.Indexer
 
             _stored.Should().HaveCount(1);
             _stored[0].Implementation.Should().Be("SomeOtherIndexer");
+
+            // GatewayIndexer is the SOLE resolvable IIndexer at HEAD (Phase 39 RETIRE-02), so the
+            // base ProviderFactory.RemoveMissingImplementations correctly logs a Warn while purging
+            // the orphan "SomeOtherIndexer" definition (the same orphan-purge that cleans deleted
+            // MangaDex/Comix rows on upgrade). The mocked repository Delete is a no-op, so the row
+            // survives in _stored and the seed-skip assertions above still hold; we only need to
+            // acknowledge the expected Warn so LoggingTest's teardown does not fail.
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         // Phase 37 A3 stub: the GatewayIndexer seeds DISABLED-by-default because its empty default
