@@ -26,8 +26,7 @@ public class HttpHappyEyeballs
         CancellationToken cancellationToken)
     {
         var endPoint = context.DnsEndPoint;
-        var ipHostEntry = await Dns.GetHostEntryAsync(endPoint.Host, endPoint.AddressFamily, cancellationToken).ConfigureAwait(false);
-        var resolvedAddresses = ipHostEntry.AddressList;
+        var resolvedAddresses = await ResolveAddresses(endPoint, cancellationToken).ConfigureAwait(false);
 
         if (resolvedAddresses.Length == 0)
         {
@@ -41,6 +40,23 @@ public class HttpHappyEyeballs
         _logger.Trace("Successfully connected to {0} for host {1}", socket.RemoteEndPoint, endPoint.HostPort);
 
         return new NetworkStream(socket, ownsSocket: true);
+    }
+
+    // Resolve the connect target's IP address list. A literal IP host
+    // (e.g. http://192.168.0.246:9191 — common for self-hosted gateway / NAS /
+    // Docker-host addresses) MUST NOT be sent through Dns.GetHostEntryAsync: for
+    // an IP literal that performs a REVERSE (PTR) lookup, which throws
+    // "No such host is known" on any address that lacks a PTR record and breaks
+    // every HTTP provider configured by raw IP. Use the literal directly.
+    public static async Task<IPAddress[]> ResolveAddresses(DnsEndPoint endPoint, CancellationToken cancellationToken)
+    {
+        if (IPAddress.TryParse(endPoint.Host, out var literalIp))
+        {
+            return new[] { literalIp };
+        }
+
+        var ipHostEntry = await Dns.GetHostEntryAsync(endPoint.Host, endPoint.AddressFamily, cancellationToken).ConfigureAwait(false);
+        return ipHostEntry.AddressList;
     }
 
     private HappyEyeballs<Socket> CreateHappyEyeballs(DnsEndPoint endPoint)

@@ -5,6 +5,7 @@ using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Comix;
+using NzbDrone.Core.Indexers.Gateway;
 using NzbDrone.Core.Indexers.MangaDex;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Test.Framework;
@@ -13,7 +14,8 @@ using NzbDrone.Core.ThingiProvider;
 namespace NzbDrone.Core.Test.Indexer
 {
     // Sonarr divergence: zero-config first-run UX (PROJECT.md v1 lock). Mangarr seeds
-    // MangaDex (BEDROCK) + Comix (reference port #1) on a fresh DB. Mirrors
+    // MangaDex (BEDROCK) + Comix (reference port #1) + GatewayIndexer (Phase 37 A3,
+    // DISABLED-by-default via empty-settings-fail-validation) on a fresh DB. Mirrors
     // MetadataSourceFactoryFixture's "All_three_providers_resolved" + idempotency style.
     //
     // Anti-pattern C compliance: assertions go through real factory code (Insert ->
@@ -40,6 +42,7 @@ namespace NzbDrone.Core.Test.Indexer
             {
                 new MangaDexIndexer(),
                 new ComixIndexer(),
+                new GatewayIndexer(),
             };
 
             Mocker.GetMock<IIndexerRepository>()
@@ -61,23 +64,30 @@ namespace NzbDrone.Core.Test.Indexer
         }
 
         [Test]
-        public void Handle_ApplicationStarted_seeds_mangadex_and_comix_on_empty_db()
+        public void Handle_ApplicationStarted_seeds_mangadex_comix_and_gateway_on_empty_db()
         {
             Subject.Handle(new ApplicationStartedEvent());
 
-            _stored.Should().HaveCount(2);
+            _stored.Should().HaveCount(3);
             _stored.Select(d => d.Implementation)
-                   .Should().BeEquivalentTo(new[] { nameof(MangaDexIndexer), nameof(ComixIndexer) });
+                   .Should().BeEquivalentTo(new[] { nameof(MangaDexIndexer), nameof(ComixIndexer), nameof(GatewayIndexer) });
             _stored.Select(d => d.Name)
-                   .Should().BeEquivalentTo(new[] { "MangaDex", "Comix" });
+                   .Should().BeEquivalentTo(new[] { "MangaDex", "Comix", "Manga Gateway" });
 
-            // The seeded rows pull defaults straight from each provider's
-            // DefaultDefinitions — EnableRss / EnableAutomaticSearch / EnableInteractiveSearch
-            // are all true (validate() passes; SupportsRss + SupportsSearch both true).
+            // MangaDex + Comix pull defaults from DefaultDefinitions with valid compile-time
+            // settings — EnableRss / EnableAutomaticSearch / EnableInteractiveSearch all true.
             _stored.Single(d => d.Implementation == nameof(MangaDexIndexer))
                    .EnableRss.Should().BeTrue();
             _stored.Single(d => d.Implementation == nameof(ComixIndexer))
                    .EnableAutomaticSearch.Should().BeTrue();
+
+            // Phase 37 A3: GatewayIndexer seeds DISABLED-by-default — its empty default settings
+            // (blank BaseUrl/ApiKey) fail config.Validate().IsValid, so DefaultDefinitions yields
+            // EnableRss / EnableAutomaticSearch / EnableInteractiveSearch = false.
+            var gateway = _stored.Single(d => d.Implementation == nameof(GatewayIndexer));
+            gateway.EnableRss.Should().BeFalse();
+            gateway.EnableAutomaticSearch.Should().BeFalse();
+            gateway.EnableInteractiveSearch.Should().BeFalse();
         }
 
         [Test]
@@ -172,6 +182,43 @@ namespace NzbDrone.Core.Test.Indexer
                     EnableRss = true,
                     EnableAutomaticSearch = true,
                     EnableInteractiveSearch = true,
+                }
+            };
+            public ProviderDefinition Definition { get; set; }
+            public bool SupportsRss => true;
+            public bool SupportsSearch => true;
+            public DownloadProtocol Protocol => DownloadProtocol.Http;
+            public System.Threading.Tasks.Task<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>> FetchRecent()
+                => System.Threading.Tasks.Task.FromResult<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>>(System.Array.Empty<NzbDrone.Core.Parser.Model.ReleaseInfo>());
+            public System.Threading.Tasks.Task<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>> Fetch(NzbDrone.Core.IndexerSearch.Definitions.MangaSearchCriteria sc)
+                => System.Threading.Tasks.Task.FromResult<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>>(System.Array.Empty<NzbDrone.Core.Parser.Model.ReleaseInfo>());
+            public System.Threading.Tasks.Task<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>> Fetch(NzbDrone.Core.IndexerSearch.Definitions.ChapterSearchCriteria sc)
+                => System.Threading.Tasks.Task.FromResult<IList<NzbDrone.Core.Parser.Model.ReleaseInfo>>(System.Array.Empty<NzbDrone.Core.Parser.Model.ReleaseInfo>());
+            public NzbDrone.Common.Http.HttpRequest GetDownloadRequest(string link) => null;
+            public FluentValidation.Results.ValidationResult Test() => new();
+            public object RequestAction(string s, IDictionary<string, string> q) => null;
+        }
+
+        // Phase 37 A3 stub: the GatewayIndexer seeds DISABLED-by-default because its empty default
+        // settings fail validation. The DefaultDefinitions here reproduce that disabled outcome
+        // (EnableRss/EnableAutomaticSearch/EnableInteractiveSearch = false) so the seed-list test
+        // proves the gateway is seeded WITHOUT being auto-enabled.
+        private sealed class GatewayIndexer : IIndexer
+        {
+            public string Name => "Manga Gateway";
+            public System.Type ConfigContract => typeof(GatewaySettings);
+            public ProviderMessage Message => null;
+            public IEnumerable<ProviderDefinition> DefaultDefinitions => new[]
+            {
+                new IndexerDefinition
+                {
+                    Name = nameof(GatewayIndexer),
+                    Implementation = nameof(GatewayIndexer),
+                    ConfigContract = nameof(GatewaySettings),
+                    Settings = new GatewaySettings(),
+                    EnableRss = false,
+                    EnableAutomaticSearch = false,
+                    EnableInteractiveSearch = false,
                 }
             };
             public ProviderDefinition Definition { get; set; }

@@ -1,0 +1,44 @@
+{
+  "gatewayVersion": "1.0.0",
+  "sources": [
+    {
+      "key": "comix.to",
+      "name": "Comix",
+      "enabled": true,
+      "supportsSearch": true,
+      "supportsRecent": true,
+      "idTypes": ["mangadexId"],
+      "languages": ["en", "es-la"],
+      "rateLimitPerMinute": 60,
+      "antibot": "cloudflare"
+    },
+    {
+      "key": "mangadex",
+      "name": "MangaDex",
+      "enabled": true,
+      "supportsSearch": false,
+      "supportsRecent": true,
+      "idTypes": ["mangadexId"],
+      "languages": ["en"],
+      "rateLimitPerMinute": 300,
+      "antibot": "none"
+    },
+    {
+      "key": "disabled.example",
+      "name": "Disabled Example",
+      "enabled": false,
+      "supportsSearch": true,
+      "supportsRecent": true,
+      "idTypes": [],
+      "languages": ["en"],
+      "rateLimitPerMinute": 30,
+      "antibot": "cloudflare+encrypted"
+    }
+  ],
+  "supportedSearchParams": ["q", "mangadexId", "chapter", "language", "sourceKey"],
+  "limits": {
+    "defaultPageSize": 50,
+    "maxPageSize": 100
+  },
+  "downloadFormats": ["cbz", "cbt", "folder"]
+}

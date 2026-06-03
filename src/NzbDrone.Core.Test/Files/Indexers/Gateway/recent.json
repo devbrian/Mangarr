@@ -1,0 +1,37 @@
+{
+  "releases": [
+    {
+      "guid": "mangadex:one-piece:1112",
+      "title": "One Piece Chapter 1112 official",
+      "sourceKey": "mangadex",
+      "downloadHandle": "R6.eyJzb3VyY2UiOiJtYW5nYWRleCIsImNoIjoiMTExMiJ9",
+      "publishDate": "2026-06-02T09:00:00Z",
+      "infoUrl": "https://mangadex.org/chapter/one-piece-1112",
+      "mangaTitle": "One Piece",
+      "chapterNumber": 1112.0,
+      "volume": 109,
+      "language": "en",
+      "scanlationGroup": "Official",
+      "pageCount": 17,
+      "sizeBytes": 9437184,
+      "ids": null
+    },
+    {
+      "guid": "comix.to:solo-leveling:180",
+      "title": "Solo Leveling Chapter 180 newest",
+      "sourceKey": "comix.to",
+      "downloadHandle": "R6.eyJzb3VyY2UiOiJjb21peC50byIsImNoIjoiMTgwIn0",
+      "publishDate": "2026-06-02T07:30:00Z",
+      "infoUrl": "https://comix.to/manga/solo-leveling/180",
+      "mangaTitle": "Solo Leveling",
+      "chapterNumber": 180.0,
+      "volume": 15,
+      "language": "en",
+      "scanlationGroup": "Team Lumikha",
+      "pageCount": 40,
+      "sizeBytes": 17825792,
+      "ids": null
+    }
+  ],
+  "warnings": []
+}

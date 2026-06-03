@@ -207,6 +207,37 @@ namespace NzbDrone.Common.Test.Http
             disposableMock.Verify(x => x.Dispose(), Times.Exactly(2));
         }
 
+        // Regression: a literal IP host must be used directly, never sent through
+        // Dns.GetHostEntryAsync (which does a REVERSE/PTR lookup for an IP literal and
+        // throws "No such host is known" on any address without a PTR record — e.g. a
+        // self-hosted gateway addressed as http://192.168.0.246:9191). See GH issue.
+        [TestCase("192.168.0.246")]
+        [TestCase("127.0.0.1")]
+        [TestCase("10.0.0.5")]
+        [TestCase("2001:db8::1")]
+        public async Task should_resolve_literal_ip_host_directly_without_dns_lookup(string literalIp)
+        {
+            var endPoint = new DnsEndPoint(literalIp, 9191);
+
+            var addresses = await HttpHappyEyeballs.ResolveAddresses(endPoint, CancellationToken.None);
+
+            addresses.Should().ContainSingle()
+                .Which.Should().Be(IPAddress.Parse(literalIp));
+        }
+
+        [Test]
+        public async Task should_resolve_hostname_via_dns()
+        {
+            // localhost is guaranteed resolvable (loopback) so this exercises the
+            // non-literal branch without relying on external DNS.
+            var endPoint = new DnsEndPoint("localhost", 9191);
+
+            var addresses = await HttpHappyEyeballs.ResolveAddresses(endPoint, CancellationToken.None);
+
+            addresses.Should().NotBeEmpty();
+            addresses.Should().OnlyContain(a => IPAddress.IsLoopback(a));
+        }
+
         private static async Task<IDisposable> ReturnAfterCancellation(CancellationToken cancellationToken, IDisposable socket)
         {
             await TaskFromCancellationToken(cancellationToken).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);

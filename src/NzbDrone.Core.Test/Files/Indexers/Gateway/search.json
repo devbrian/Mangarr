@@ -1,0 +1,91 @@
+{
+  "releases": [
+    {
+      "guid": "comix.to:solo-leveling:179",
+      "title": "Solo Leveling Chapter 179 raw release",
+      "sourceKey": "comix.to",
+      "downloadHandle": "R6.eyJzb3VyY2UiOiJjb21peC50byIsImNoIjoiMTc5In0",
+      "publishDate": "2026-06-01T12:00:00Z",
+      "infoUrl": "https://comix.to/manga/solo-leveling/179",
+      "mangaTitle": "Solo Leveling",
+      "chapterNumber": 179.0,
+      "volume": 15,
+      "language": "en",
+      "scanlationGroup": "Team Lumikha",
+      "pageCount": 42,
+      "sizeBytes": 18874368,
+      "ids": { "mangadexId": "32d76d19-8a05-4db0-9fc2-e0b0648fe9d0" }
+    },
+    {
+      "guid": "comix.to:raw:v3-ch5",
+      "title": "Some Raw Release v3 ch 5",
+      "sourceKey": "comix.to",
+      "downloadHandle": "R6.eyJzb3VyY2UiOiJjb21peC50byIsImhhbmRsZSI6InJhdyJ9",
+      "publishDate": "2026-06-01T08:30:00Z",
+      "infoUrl": null,
+      "mangaTitle": null,
+      "chapterNumber": null,
+      "volume": null,
+      "language": null,
+      "scanlationGroup": null,
+      "pageCount": null,
+      "sizeBytes": null,
+      "ids": null
+    },
+    {
+      "guid": "comix.to:solo-leveling:12.5",
+      "title": "Solo Leveling Chapter 12.5 interlude",
+      "sourceKey": "comix.to",
+      "downloadHandle": "R6.eyJzb3VyY2UiOiJjb21peC50byIsImNoIjoiMTIuNSJ9",
+      "publishDate": "2026-05-30T10:00:00Z",
+      "infoUrl": "https://comix.to/manga/solo-leveling/12.5",
+      "mangaTitle": "Solo Leveling",
+      "chapterNumber": 12.5,
+      "volume": 2,
+      "language": "en",
+      "scanlationGroup": "Team Lumikha",
+      "pageCount": 18,
+      "sizeBytes": 8388608,
+      "ids": null
+    },
+    {
+      "guid": "comix.to:solo-leveling:1.123",
+      "title": "Solo Leveling Chapter 1.123 micro",
+      "sourceKey": "comix.to",
+      "downloadHandle": "R6.eyJzb3VyY2UiOiJjb21peC50byIsImNoIjoiMS4xMjMifQ",
+      "publishDate": "2026-05-29T10:00:00Z",
+      "infoUrl": "https://comix.to/manga/solo-leveling/1.123",
+      "mangaTitle": "Solo Leveling",
+      "chapterNumber": 1.123,
+      "volume": 1,
+      "language": "en",
+      "scanlationGroup": "Team Lumikha",
+      "pageCount": 5,
+      "sizeBytes": 1048576,
+      "ids": null
+    },
+    {
+      "guid": "comix.to:solo-leveling:179",
+      "title": "Solo Leveling Chapter 179 duplicate mirror",
+      "sourceKey": "comix.to",
+      "downloadHandle": "R6.eyJzb3VyY2UiOiJjb21peC50byIsImNoIjoiMTc5IiwibWlycm9yIjp0cnVlfQ",
+      "publishDate": "2026-06-01T12:05:00Z",
+      "infoUrl": "https://comix.to/manga/solo-leveling/179?mirror=1",
+      "mangaTitle": "Solo Leveling",
+      "chapterNumber": 179.0,
+      "volume": 15,
+      "language": "en",
+      "scanlationGroup": "Team Lumikha",
+      "pageCount": 42,
+      "sizeBytes": 18874368,
+      "ids": null
+    }
+  ],
+  "warnings": [
+    {
+      "sourceKey": "comix.to",
+      "code": "source_degraded",
+      "message": "comix.to returned partial results: anti-bot challenge encountered on page 2."
+    }
+  ]
+}
