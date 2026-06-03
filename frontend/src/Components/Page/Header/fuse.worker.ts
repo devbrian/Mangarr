@@ -1,7 +1,11 @@
 // eslint-disable filenames/match-exported
 
+// Sonarr divergence: manga search worker. Role-match analog: the TV fuse.worker
+// that backed SeriesSearchInput. Diverges: matches the manga metadata IDs
+// (mangaDexId / aniListId / malId) and operates over SuggestedManga, not
+// SuggestedSeries.
 import Fuse from 'fuse.js';
-import { SuggestedSeries } from './SeriesSearchInput';
+import { SuggestedManga } from './MangaSearchInput';
 
 const fuseOptions = {
   shouldSort: true,
@@ -13,28 +17,27 @@ const fuseOptions = {
   keys: [
     'title',
     'alternateTitles.title',
-    'tvdbId',
-    'tvMazeId',
-    'imdbId',
-    'tmdbId',
+    'mangaDexId',
+    'aniListId',
+    'malId',
     'tags.label',
   ],
 };
 
-function getSuggestions(series: SuggestedSeries[], value: string) {
+function getSuggestions(manga: SuggestedManga[], value: string) {
   const limit = 10;
   let suggestions = [];
 
   if (value.length === 1) {
-    for (let i = 0; i < series.length; i++) {
-      const s = series[i];
-      if (s.firstCharacter === value.toLowerCase()) {
+    for (let i = 0; i < manga.length; i++) {
+      const m = manga[i];
+      if (m.firstCharacter === value.toLowerCase()) {
         suggestions.push({
-          item: series[i],
+          item: manga[i],
           indices: [[0, 0]],
           matches: [
             {
-              value: s.title,
+              value: m.title,
               key: 'title',
             },
           ],
@@ -46,7 +49,7 @@ function getSuggestions(series: SuggestedSeries[], value: string) {
       }
     }
   } else {
-    const fuse = new Fuse(series, fuseOptions);
+    const fuse = new Fuse(manga, fuseOptions);
     suggestions = fuse.search(value, { limit });
   }
 
@@ -58,9 +61,9 @@ onmessage = function (e) {
     return;
   }
 
-  const { series, value } = e.data;
+  const { manga, value } = e.data;
 
-  const suggestions = getSuggestions(series, value);
+  const suggestions = getSuggestions(manga, value);
 
   const results = {
     value,
