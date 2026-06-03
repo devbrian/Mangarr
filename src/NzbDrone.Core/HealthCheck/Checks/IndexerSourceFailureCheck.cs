@@ -8,7 +8,7 @@ using NzbDrone.Core.ThingiProvider.Events;
 namespace NzbDrone.Core.HealthCheck.Checks
 {
     /// <summary>
-    /// Health Check for per-<see cref="Indexers.Http.HttpAggregatorBase{TSettings}.SourceKey"/>
+    /// Health Check for per-<c>SourceKey</c>
     /// disable state (Phase 3 D-17 / SOURCE-05). When a manga aggregator's
     /// <see cref="IndexerSourceStatus.DisabledTill"/> is in the future, surface a Warning in
     /// System → Health so the user knows the source is auto-disabled. Reuses Mangarr's
