@@ -24,7 +24,15 @@
   composes: link;
 
   padding: 10px 24px;
-  padding-left: 35px;
+  /*
+    Mangarr divergence (nav-subheader-indent): Sonarr ships padding-left: 35px,
+    which lands child sub-headers (Queue / History / Blocklist, etc.) 14px LEFT
+    of the parent text label and reads as "barely indented." We align child text
+    directly under the parent label instead: 24px base padding + 18px .iconContainer
+    width + 7px .iconContainer margin-right = 49px. Keep this in sync with
+    .iconContainer if its geometry changes.
+  */
+  padding-left: 49px;
 }
 
 .isActiveLink {
