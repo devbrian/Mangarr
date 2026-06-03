@@ -5,7 +5,9 @@ using NzbDrone.Core.Parser.Model;
 namespace NzbDrone.Core.Indexers
 {
     /// <summary>
-    /// Per-<see cref="Http.HttpAggregatorBase{TSettings}.SourceKey"/> escalation status (Phase 3 D-17).
+    /// Per-<c>SourceKey</c> escalation status (Phase 3 D-17). (Phase 39 RETIRE-02: the
+    /// <c>HttpAggregatorBase</c> that originally defined <c>SourceKey</c> was deleted; the
+    /// gateway-written source-status ladder survives as the canonical per-source escalation path.)
     /// Two indexer instances with the same <c>SourceKey</c> value (e.g. two MangaDex instances)
     /// share one row → failure pressure on one disables both. TV indexers continue to use the
     /// per-<c>ProviderId</c> <see cref="IndexerStatus"/> path UNTOUCHED.

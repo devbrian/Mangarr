@@ -7,10 +7,11 @@ using NzbDrone.Core.ThingiProvider;
 namespace NzbDrone.Core.MetadataSource
 {
     /// <summary>
-    /// Abstract HTTP-backed metadata source. SIBLING (not subclass) of
-    /// <see cref="HttpAggregatorBase{TSettings}"/> per RESEARCH §Open Question 1 — duplicates
+    /// Abstract HTTP-backed metadata source. SIBLING (not subclass) of the former
+    /// <c>HttpAggregatorBase</c> per RESEARCH §Open Question 1 — duplicates
     /// the SourceKey + UA injection logic to keep the IIndexer and IMetadataSource
-    /// auto-discovery families cleanly separate.
+    /// auto-discovery families cleanly separate. (Phase 39 RETIRE-02: <c>HttpAggregatorBase</c>
+    /// itself was deleted; this base survives independently.)
     ///
     /// Honest UA + per-instance override per Phase 1 D-13/D-14. The MangaDex provider
     /// MUST NOT expose <c>UserAgentOverride</c> to UI per CONTEXT MangaDex constraints
