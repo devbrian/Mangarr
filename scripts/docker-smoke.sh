@@ -18,8 +18,9 @@
 #           (c) mangarr-phase-smoke-test SKILL Task 10 (Phase 21 Plan 21-05).
 #
 # Sonarr divergence: no Sonarr peer script — Mangarr is the first arr-family fork to
-# ship a first-party runtime Docker image (Phase 17 N-1 + Phase 21 D-01 lock Debian +
-# baked Chromium; Phase 21 RESEARCH Pitfall 4). Pattern S2 marker per Phase 15 D-09.
+# ship a first-party runtime Docker image (Phase 21 D-01 lock Debian + s6-overlay v3;
+# Phase 21 RESEARCH Pitfall 4). The image is browser-free since Phase 39 / #313.
+# Pattern S2 marker per Phase 15 D-09.
 
 set -euo pipefail
 
