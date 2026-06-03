@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import FormGroup from 'Components/Form/FormGroup';
 import FormInputGroup from 'Components/Form/FormInputGroup';
 import FormLabel from 'Components/Form/FormLabel';
@@ -47,11 +47,26 @@ function RemoveQueueItemModal(props: RemoveQueueItemModalProps) {
 
   // GH #308: when the item cannot be ignored or have its category changed it MUST leave the
   // download client, so the "Remove From Download Client" checkbox is locked checked (the same
-  // mandatory-removal semantic the inherited SELECT dropdown enforced via isDisabled). The
-  // effective value sent on confirm is forced true in that case so a stale persisted `false`
-  // cannot suppress a required client removal.
+  // mandatory-removal semantic the inherited SELECT dropdown enforced via isDisabled).
   const isRemoveLocked = !canChangeCategory && !canIgnore;
   const effectiveRemoveFromClient = isRemoveLocked ? true : removeFromClient;
+
+  // GH #309 (Codex review): the DELETE query string is built from the PERSISTED store value
+  // (useQueue.useRemovalOptions), NOT this component's `effectiveRemoveFromClient` display value.
+  // If a user previously unchecked "Remove from Download Client" on a removable item, the store
+  // holds `removeFromClient: false`; opening a later LOCKED (mandatory-removal) item would then
+  // show the box checked-and-disabled but still submit `remove=false`, so the gateway job would
+  // survive and the row reappear. Force the persisted value true while a locked modal is open so
+  // the submitted query matches the locked UI.
+  useEffect(() => {
+    if (isOpen && isRemoveLocked && !removeFromClient) {
+      setQueueOption('removalOptions', {
+        removeFromClient: true,
+        blocklist,
+        skipRedownload,
+      });
+    }
+  }, [isOpen, isRemoveLocked, removeFromClient, blocklist, skipRedownload]);
 
   const { title, message } = useMemo(() => {
     if (!selectedCount) {

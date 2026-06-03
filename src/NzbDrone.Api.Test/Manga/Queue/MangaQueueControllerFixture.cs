@@ -389,14 +389,15 @@ namespace NzbDrone.Api.Test.Manga.Queue
         {
             // queue-remove-pending-no-op dispatch — in-flight branch. Find returns a non-null
             // MangaQueueItem so the handler routes to _queueService.Remove and DOES NOT call
-            // _pendingReleaseService.RemovePendingQueueItems.
+            // _pendingReleaseService.RemovePendingQueueItems. remove:false isolates the dispatch
+            // routing from the client-side eviction path (covered by the dedicated tests below).
             const int InFlightId = 42;
 
             Mocker.GetMock<IMangaQueueService>()
                   .Setup(s => s.Find(InFlightId))
                   .Returns(new MangaQueueItem { Id = InFlightId, MangaId = 1, Title = "In-flight" });
 
-            Subject.RemoveQueueItem(InFlightId);
+            Subject.RemoveQueueItem(InFlightId, remove: false, blocklist: false);
 
             Mocker.GetMock<IMangaQueueService>()
                   .Verify(s => s.Remove(InFlightId), Times.Once);
@@ -491,6 +492,30 @@ namespace NzbDrone.Api.Test.Manga.Queue
                   .Verify(s => s.Remove(InFlightId), Times.Once);
         }
 
+        [Test]
+        public void RemoveQueueItem_keeps_row_when_client_eviction_cannot_be_performed()
+        {
+            // GH #309 (CodeRabbit review): removeFromClient was requested but no owning tracked
+            // download resolves (here: the monitoring registry has none for this DownloadId). The
+            // controller must NOT drop the in-memory projection row — the queue is rebuilt from the
+            // tracked downloads, so dropping it would be a false success (row vanishes now, reappears
+            // on the next refresh). Leaving the row keeps the UI honest.
+            const int InFlightId = 90;
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Setup(s => s.Find(InFlightId))
+                  .Returns(new MangaQueueItem { Id = InFlightId, DownloadId = "j_orphan" });
+
+            Mocker.GetMock<IMangaDownloadMonitoringService>()
+                  .Setup(s => s.GetTrackedDownloads())
+                  .Returns(new List<TrackedDownload>());
+
+            Subject.RemoveQueueItem(InFlightId, remove: true);
+
+            Mocker.GetMock<IMangaQueueService>()
+                  .Verify(s => s.Remove(It.IsAny<int>()), Times.Never, "a failed client eviction must not drop the projection row");
+        }
+
         private TrackedDownload BuildTrackedDownloadWithRemoteChapter(string downloadId, int clientId, int chapterId)
         {
             return new TrackedDownload
@@ -576,7 +601,8 @@ namespace NzbDrone.Api.Test.Manga.Queue
                   .Setup(s => s.Find(PendingIdB))
                   .Returns((MangaQueueItem)null!);
 
-            Subject.RemoveMany(new QueueBulkResource { Ids = new List<int> { InFlightId, PendingIdA, PendingIdB } });
+            // remove:false isolates the per-id source dispatch from the client-side eviction path.
+            Subject.RemoveMany(new QueueBulkResource { Ids = new List<int> { InFlightId, PendingIdA, PendingIdB } }, remove: false);
 
             Mocker.GetMock<IMangaQueueService>()
                   .Verify(s => s.Remove(InFlightId), Times.Once);

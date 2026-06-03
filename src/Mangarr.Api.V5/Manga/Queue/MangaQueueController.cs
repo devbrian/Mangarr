@@ -452,9 +452,16 @@ namespace Mangarr.Api.V5.Manga.Queue
             {
                 // GH #309: an in-flight row owns a real download-client job. Before dropping the
                 // in-memory projection row, perform the client-side actions the user requested.
-                if (removeFromClient || blocklist)
+                // If "Remove from Download Client" was requested but the eviction could NOT actually
+                // happen (no DownloadId / no owning tracked download / client unavailable), do NOT
+                // drop the projection row — the static queue projection is rebuilt from the tracked
+                // downloads on the next refresh, so dropping it here would be a false-success: the
+                // row vanishes now and reappears ~90s later (the exact #309 symptom). Leaving the row
+                // keeps the UI honest. (CodeRabbit review on PR #315.)
+                if ((removeFromClient || blocklist) &&
+                    !TryApplyClientSideRemoval(queueItem, removeFromClient, blocklist, skipRedownload))
                 {
-                    ApplyClientSideRemoval(queueItem, removeFromClient, blocklist, skipRedownload);
+                    return;
                 }
 
                 _queueService.Remove(id);
@@ -472,12 +479,21 @@ namespace Mangarr.Api.V5.Manga.Queue
         // the requested client-side actions. The TrackedDownload registry is owned by the Phase-36
         // MangaDownloadMonitoringService (manga has no in-memory ITrackedDownloadService cache — the
         // TV one was deleted in the Phase 15 cutover).
-        private void ApplyClientSideRemoval(MangaQueueItem queueItem, bool removeFromClient, bool blocklist, bool skipRedownload)
+        //
+        // Returns FALSE when "Remove from Download Client" was requested but the eviction could not
+        // actually be performed (no DownloadId, no owning tracked download, or the owning client is
+        // unavailable). RemoveOne uses this to avoid dropping the projection row on a failed eviction
+        // (which would reappear on the next refresh). A blocklist-only request, or a successful
+        // eviction, returns TRUE. (CodeRabbit review on PR #315.)
+        private bool TryApplyClientSideRemoval(MangaQueueItem queueItem, bool removeFromClient, bool blocklist, bool skipRedownload)
         {
             var downloadId = queueItem.DownloadId;
             if (downloadId.IsNullOrWhiteSpace())
             {
-                return;
+                // No client job handle to act on. If the user asked to remove from the client, that
+                // cannot be honored — report failure so the row is kept. A blocklist-only / no-op
+                // request is unaffected.
+                return !removeFromClient;
             }
 
             var trackedDownload = _monitoringService.GetTrackedDownloads()
@@ -485,8 +501,8 @@ namespace Mangarr.Api.V5.Manga.Queue
 
             if (trackedDownload?.DownloadItem == null)
             {
-                _logger.Debug("Queue Remove: no tracked download found for download id {0}; nothing to evict from client", downloadId);
-                return;
+                _logger.Debug("Queue Remove: no tracked download found for download id {0}; cannot evict from client", downloadId);
+                return !removeFromClient;
             }
 
             if (blocklist)
@@ -505,11 +521,13 @@ namespace Mangarr.Api.V5.Manga.Queue
                 if (downloadClient == null)
                 {
                     _logger.Warn("Queue Remove: owning download client {0} is not available; cannot evict {1}", trackedDownload.DownloadClient, downloadId);
-                    return;
+                    return false;
                 }
 
                 downloadClient.RemoveItem(trackedDownload.DownloadItem, deleteData: true);
             }
+
+            return true;
         }
 
         // GH #309: record the release on the manga blocklist so BlocklistSpecification rejects it on
