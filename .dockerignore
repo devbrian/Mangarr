@@ -86,6 +86,11 @@ _output/
 !_output/linux-arm64/
 !_output/UI/
 
+# ─── Local compose harness (not part of the image build context) ───
+docker-compose*.yml
+.env
+.env.*
+
 # ─── Misc transient ───
 *.log
 *.tmp
