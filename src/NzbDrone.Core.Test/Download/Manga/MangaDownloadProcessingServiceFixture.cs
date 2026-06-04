@@ -9,6 +9,7 @@ using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Test.Download.Manga.Builders;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.Download.Manga
 {
@@ -226,6 +227,69 @@ namespace NzbDrone.Core.Test.Download.Manga
                     e => e.PublishEvent(It.Is<DownloadCanBeRemovedEvent>(m => m.TrackedDownload == td)),
                     Times.Once,
                     "WR-05: a genuinely-imported removable row IS evicted");
+        }
+
+        // ── #319 — an exception thrown mid-Import must not strand the row in Importing ─────────
+
+        [Test]
+        public void Execute_reverts_row_to_ImportPending_when_Import_throws_319()
+        {
+            var td = BuildPending(TrackedDownloadState.ImportPending);
+            RegistryReturns(td);
+
+            // The exact #318 shape: Import throws (e.g. ModelNotFoundException) AFTER the loop set the
+            // row to Importing. Pre-fix, the state-revert never ran and the row was stranded in Importing
+            // forever (the monitor only re-drives ImportPending), wedging "Downloaded - Importing".
+            Mocker.GetMock<IMangaCompletedDownloadService>()
+                .Setup(c => c.Import(It.IsAny<TrackedDownload>()))
+                .Throws(new System.InvalidOperationException("boom"));
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            td.State.Should().Be(TrackedDownloadState.ImportPending,
+                "#319: a thrown import must revert Importing -> ImportPending so the next poll re-drives it");
+
+            ExceptionVerification.ExpectedErrors(1);
+        }
+
+        [Test]
+        public void Execute_warns_the_tracked_download_when_Import_throws_319()
+        {
+            var td = BuildPending(TrackedDownloadState.ImportPending);
+            RegistryReturns(td);
+
+            Mocker.GetMock<IMangaCompletedDownloadService>()
+                .Setup(c => c.Import(It.IsAny<TrackedDownload>()))
+                .Throws(new System.InvalidOperationException("boom"));
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            td.Status.Should().Be(TrackedDownloadStatus.Warning,
+                "#319: a thrown import must surface on the queue row (Status=Warning) instead of failing silently");
+            td.StatusMessages.Should().NotBeEmpty();
+
+            ExceptionVerification.ExpectedErrors(1);
+        }
+
+        [Test]
+        public void Execute_does_not_evict_when_Import_throws_319()
+        {
+            var td = BuildPending(TrackedDownloadState.ImportPending);
+            RegistryReturns(td);
+
+            Mocker.GetMock<IMangaCompletedDownloadService>()
+                .Setup(c => c.Import(It.IsAny<TrackedDownload>()))
+                .Throws(new System.InvalidOperationException("boom"));
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(
+                    e => e.PublishEvent(It.IsAny<DownloadCanBeRemovedEvent>()),
+                    Times.Never,
+                    "#319: a row whose import threw must not be evicted (scratch data preserved for retry)");
+
+            ExceptionVerification.ExpectedErrors(1);
         }
     }
 }
