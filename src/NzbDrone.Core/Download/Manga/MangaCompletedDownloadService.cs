@@ -112,6 +112,12 @@ namespace NzbDrone.Core.Download.Manga
                 _logger.Warn(
                     "Completed download {0} has no resolved RemoteChapter; cannot import",
                     trackedDownload.DownloadItem?.DownloadId);
+
+                // #319: surface the failure on the queue row (not just the server log) so a wedged
+                // "Downloaded - Importing" item shows WHY. trackedDownload.Warn sets Status=Warning +
+                // StatusMessages; it does NOT cascade to the failed-download path
+                // (MangaFailedDownloadService.Check gates on DownloadItem.Status, not trackedDownload.Status).
+                trackedDownload.Warn("Unable to import: no manga/chapter is linked to this download.");
                 return false;
             }
 
@@ -123,6 +129,7 @@ namespace NzbDrone.Core.Download.Manga
                     "Staging path missing for download {0}: {1}",
                     trackedDownload.DownloadItem?.DownloadId,
                     stagingPath ?? "<null>");
+                trackedDownload.Warn("Unable to import: the downloaded file is missing at {0}.", stagingPath ?? "<unknown path>");
                 return false;
             }
 
@@ -134,6 +141,7 @@ namespace NzbDrone.Core.Download.Manga
                 _logger.Warn(
                     "Download {0} resolved no manga/chapter; cannot import",
                     trackedDownload.DownloadItem?.DownloadId);
+                trackedDownload.Warn("Unable to import: could not resolve the manga or chapter for this download.");
                 return false;
             }
 
@@ -179,10 +187,16 @@ namespace NzbDrone.Core.Download.Manga
             var decision = _decisionMaker.GetDecision(localChapter, downloadClientItem: null);
             if (!decision.Approved)
             {
+                var rejectionSummary = string.Join("; ", decision.Rejections.Select(r => r.Message));
+
                 _logger.Info(
                     "Chapter {0} import rejected: {1}",
                     chapter.Id,
-                    string.Join("; ", decision.Rejections.Select(r => r.Message)));
+                    rejectionSummary);
+
+                // #319: surface the rejection reason on the queue row so the user can see WHY the
+                // item isn't importing (e.g. NotUpgradeAllowed) instead of a silent stuck state.
+                trackedDownload.Warn("Import rejected: {0}", rejectionSummary);
 
                 // WR-05: a rejected decision (e.g. NotUpgradeAllowed) was NOT imported. Returning
                 // false leaves the row in place (Q-8 retention posture) instead of being evicted with
@@ -207,6 +221,7 @@ namespace NzbDrone.Core.Download.Manga
                     "Import for download {0} did not import all chapters ({1} result(s)); leaving row for retry",
                     trackedDownload.DownloadItem?.DownloadId,
                     results.Count);
+                trackedDownload.Warn("Import did not complete for all chapters; will retry.");
 
                 // P1: the importer Skipped/Rejected (or returned nothing) — NOT a genuine import.
                 // Returning false leaves the row ImportPending (Q-8 retention posture) instead of

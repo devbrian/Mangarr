@@ -116,7 +116,27 @@ namespace NzbDrone.Core.Download.Manga
                 }
                 catch (Exception e)
                 {
-                    _logger.Debug(e, "Failed to process download: {0}", trackedDownload.DownloadItem?.Title);
+                    _logger.Error(e, "Failed to process download: {0}", trackedDownload.DownloadItem?.Title);
+
+                    // #319: an exception thrown mid-Import leaves the row stranded in the transient
+                    // Importing state (the state-revert line above never ran). The monitor only ever
+                    // re-drives ImportPending rows, so a stranded Importing row is never retried AND —
+                    // because nothing called trackedDownload.Warn — shows no error on the queue. This
+                    // is exactly the silent "Downloaded - Importing" wedge from #318.
+                    //
+                    // Scope the surfaced message to the failing operation: a throw from the import path
+                    // leaves State == Importing — revert it to ImportPending so the next poll re-drives,
+                    // and label it "Import failed". A throw from ProcessFailed (the FailedPending branch)
+                    // is NOT an import failure, so leave its state alone and use a generic label.
+                    if (trackedDownload.State == TrackedDownloadState.Importing)
+                    {
+                        trackedDownload.State = TrackedDownloadState.ImportPending;
+                        trackedDownload.Warn("Import failed: {0}", e.Message);
+                    }
+                    else
+                    {
+                        trackedDownload.Warn("Processing failed: {0}", e.Message);
+                    }
                 }
             }
 

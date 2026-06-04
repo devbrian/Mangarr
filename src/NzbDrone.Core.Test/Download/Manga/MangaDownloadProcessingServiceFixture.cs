@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -9,6 +10,7 @@ using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Test.Download.Manga.Builders;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.Download.Manga
 {
@@ -226,6 +228,94 @@ namespace NzbDrone.Core.Test.Download.Manga
                     e => e.PublishEvent(It.Is<DownloadCanBeRemovedEvent>(m => m.TrackedDownload == td)),
                     Times.Once,
                     "WR-05: a genuinely-imported removable row IS evicted");
+        }
+
+        // ── #319 — an exception thrown mid-Import must not strand the row in Importing ─────────
+
+        [Test]
+        public void Execute_reverts_row_to_ImportPending_when_Import_throws_319()
+        {
+            var td = BuildPending(TrackedDownloadState.ImportPending);
+            RegistryReturns(td);
+
+            // The exact #318 shape: Import throws (e.g. ModelNotFoundException) AFTER the loop set the
+            // row to Importing. Pre-fix, the state-revert never ran and the row was stranded in Importing
+            // forever (the monitor only re-drives ImportPending), wedging "Downloaded - Importing".
+            Mocker.GetMock<IMangaCompletedDownloadService>()
+                .Setup(c => c.Import(It.IsAny<TrackedDownload>()))
+                .Throws(new System.InvalidOperationException("boom"));
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            td.State.Should().Be(TrackedDownloadState.ImportPending,
+                "#319: a thrown import must revert Importing -> ImportPending so the next poll re-drives it");
+
+            ExceptionVerification.ExpectedErrors(1);
+        }
+
+        [Test]
+        public void Execute_warns_the_tracked_download_when_Import_throws_319()
+        {
+            var td = BuildPending(TrackedDownloadState.ImportPending);
+            RegistryReturns(td);
+
+            Mocker.GetMock<IMangaCompletedDownloadService>()
+                .Setup(c => c.Import(It.IsAny<TrackedDownload>()))
+                .Throws(new System.InvalidOperationException("boom"));
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            td.Status.Should().Be(TrackedDownloadStatus.Warning,
+                "#319: a thrown import must surface on the queue row (Status=Warning) instead of failing silently");
+            td.StatusMessages.Should().NotBeEmpty();
+
+            ExceptionVerification.ExpectedErrors(1);
+        }
+
+        [Test]
+        public void Execute_does_not_evict_when_Import_throws_319()
+        {
+            var td = BuildPending(TrackedDownloadState.ImportPending);
+            RegistryReturns(td);
+
+            Mocker.GetMock<IMangaCompletedDownloadService>()
+                .Setup(c => c.Import(It.IsAny<TrackedDownload>()))
+                .Throws(new System.InvalidOperationException("boom"));
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(
+                    e => e.PublishEvent(It.IsAny<DownloadCanBeRemovedEvent>()),
+                    Times.Never,
+                    "#319: a row whose import threw must not be evicted (scratch data preserved for retry)");
+
+            ExceptionVerification.ExpectedErrors(1);
+        }
+
+        // CodeRabbit #321: a throw from ProcessFailed (FailedPending branch) is NOT an import
+        // failure — the surfaced message must not be mislabeled "Import failed".
+        [Test]
+        public void Execute_labels_ProcessFailed_throw_as_processing_not_import_failed_321()
+        {
+            var td = BuildPending(TrackedDownloadState.FailedPending);
+            RegistryReturns(td);
+
+            Mocker.GetMock<IMangaFailedDownloadService>()
+                .Setup(f => f.ProcessFailed(It.IsAny<TrackedDownload>()))
+                .Throws(new System.InvalidOperationException("boom"));
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            td.Status.Should().Be(TrackedDownloadStatus.Warning);
+            td.StatusMessages.Should().Contain(
+                m => m.Messages.Any(x => x.Contains("Processing failed")),
+                "#321: a ProcessFailed throw is surfaced with a generic 'Processing failed' label");
+            td.StatusMessages.Should().NotContain(
+                m => m.Messages.Any(x => x.Contains("Import failed")),
+                "#321: a ProcessFailed throw must NOT be mislabeled as an import failure");
+
+            ExceptionVerification.ExpectedErrors(1);
         }
     }
 }

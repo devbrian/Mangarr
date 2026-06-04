@@ -301,6 +301,54 @@ namespace NzbDrone.Core.Test.Download.Manga
                 .Verify(e => e.PublishEvent(It.IsAny<ChapterDownloadCompletedEvent>()), Times.Never);
         }
 
+        // ── #319 — short-circuits surface a Warning on the tracked download (not just the log) ──
+
+        [Test]
+        public void Import_warns_tracked_download_when_no_remote_chapter_319()
+        {
+            _trackedDownload.RemoteChapter = null;
+
+            Subject.Import(_trackedDownload);
+
+            _trackedDownload.Status.Should().Be(TrackedDownloadStatus.Warning);
+            _trackedDownload.StatusMessages.Should().NotBeEmpty(
+                "#319: a no-RemoteChapter short-circuit must surface on the queue row, not just the server log");
+
+            NzbDrone.Test.Common.ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
+        public void Import_warns_tracked_download_when_staging_path_missing_319()
+        {
+            Mocker.GetMock<IDiskProvider>()
+                .Setup(d => d.FileExists(It.IsAny<string>()))
+                .Returns(false);
+
+            Subject.Import(_trackedDownload);
+
+            _trackedDownload.Status.Should().Be(TrackedDownloadStatus.Warning);
+            _trackedDownload.StatusMessages.Should().NotBeEmpty();
+
+            NzbDrone.Test.Common.ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
+        public void Import_warns_tracked_download_with_rejection_reason_when_decision_rejected_319()
+        {
+            Mocker.GetMock<IMakeMangaImportDecision>()
+                .Setup(d => d.GetDecision(It.IsAny<LocalChapter>(), It.IsAny<DownloadClientItem>()))
+                .Returns<LocalChapter, DownloadClientItem>((lc, _) =>
+                    new MangaImportDecision(lc, new MangaImportRejection(ImportRejectionReason.NotUpgradeAllowed, "not an upgrade")));
+
+            Subject.Import(_trackedDownload);
+
+            _trackedDownload.Status.Should().Be(TrackedDownloadStatus.Warning);
+            _trackedDownload.StatusMessages.Should().Contain(m => m.Messages.Any(x => x.Contains("not an upgrade")),
+                "#319: the user should see WHY the import was rejected on the queue row");
+
+            // Rejection is logged at Info, not Warn — no ExpectedWarns needed.
+        }
+
         // ── 5. Check transition ─────────────────────────────────────────────────────────
 
         [Test]
