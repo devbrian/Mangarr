@@ -8,6 +8,7 @@ using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Manga;
 using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.Indexers;
+using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Commands;
@@ -284,6 +285,151 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
                         It.IsAny<CommandPriority>(),
                         It.IsAny<CommandTrigger>()),
                     Times.AtLeastOnce);
+        }
+
+        // ── #278: edit-family cache reconcile (mirror of Sonarr TrackedDownloadService) ────────────
+        //
+        //   The registry is seeded by a first Refresh() (the builder's RemoteChapter.Manga.Id == 7).
+        //   A MangaAdded/Updated/BulkEdited/Deleted event for a tracked manga must swap the row's
+        //   Manga snapshot IN PLACE and republish TrackedDownloadRefreshedEvent (immediate reconcile);
+        //   an edit for an untracked manga must be a no-op (no extra publish).
+
+        // Records EVERY published TrackedDownloadRefreshedEvent (the seeding Refresh + each reconcile),
+        // so a test can assert the reconcile PAYLOAD — the list MangaQueueService rebuilds its projection
+        // from — actually carries the reconciled Manga, not merely that the in-memory registry mutated
+        // and that a publish happened (CodeRabbit PR #317).
+        private List<TrackedDownloadRefreshedEvent> RecordPublishedRefreshes()
+        {
+            var published = new List<TrackedDownloadRefreshedEvent>();
+            Mocker.GetMock<IEventAggregator>()
+                .Setup(e => e.PublishEvent(It.IsAny<TrackedDownloadRefreshedEvent>()))
+                .Callback<TrackedDownloadRefreshedEvent>(published.Add);
+
+            // Seed the registry — one in-flight item whose RemoteChapter.Manga.Id == 7.
+            Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
+
+            return published;
+        }
+
+        [Test]
+        public void MangaUpdatedEvent_for_a_tracked_manga_reconciles_in_place_and_republishes()
+        {
+            var published = RecordPublishedRefreshes();
+
+            var edited = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Edited Title", Path = "/new/path" };
+
+            Subject.Handle(new MangaUpdatedEvent(edited));
+
+            // Seeding Refresh = publish #1, the reconcile = publish #2.
+            published.Should().HaveCount(2);
+
+            // The PUBLISHED payload (what MangaQueueService rebuilds the queue projection from) carries
+            // the reconciled instance — not just the in-memory registry.
+            published.Last().TrackedDownloads.Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(edited);
+            Subject.GetTrackedDownloads().Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(edited);
+        }
+
+        [Test]
+        public void MangaUpdatedEvent_covers_a_failed_move_rollback_path()
+        {
+            // CodeRabbit PR #317: a failed root-folder move reverts the path via the 2-arg
+            // MangaService.UpdateManga, which publishes MangaUpdatedEvent only (NOT MangaEditedEvent).
+            // Exercise BOTH legs of the rollback sequence: the edit first swaps the row to the
+            // (about-to-fail) destination path, then RevertPath swaps it back. The reconcile must
+            // handle the SECOND MangaUpdatedEvent (the revert) too — else the row stays stuck on the
+            // failed destination path until poll-rebuild.
+            var published = RecordPublishedRefreshes();
+
+            var failedDestination = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Test Manga", Path = "/failed/path" };
+            var reverted = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Test Manga", Path = "/original/path" };
+
+            // Leg 1 — the edit moved the row to the destination the filesystem move then failed on.
+            Subject.Handle(new MangaUpdatedEvent(failedDestination));
+            Subject.GetTrackedDownloads().Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(failedDestination);
+
+            // Leg 2 — RevertPath rolls the path back via the 2-arg UpdateManga (MangaUpdatedEvent only).
+            Subject.Handle(new MangaUpdatedEvent(reverted));
+
+            // Seed + 2 reconciles = 3 publishes; the final payload + registry carry the reverted snapshot.
+            published.Should().HaveCount(3);
+            published.Last().TrackedDownloads.Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(reverted);
+            Subject.GetTrackedDownloads().Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(reverted);
+        }
+
+        [Test]
+        public void MangaBulkEditedEvent_for_a_tracked_manga_reconciles_in_place_and_republishes()
+        {
+            var published = RecordPublishedRefreshes();
+
+            var edited = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Bulk Edited", Path = "/bulk/path" };
+
+            Subject.Handle(new MangaBulkEditedEvent(new List<NzbDrone.Core.Manga.Manga>
+            {
+                new() { Id = 999, Title = "Unrelated" },
+                edited
+            }));
+
+            published.Should().HaveCount(2);
+            published.Last().TrackedDownloads.Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(edited);
+            Subject.GetTrackedDownloads().Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(edited);
+        }
+
+        [Test]
+        public void MangaUpdatedEvent_for_an_untracked_manga_does_not_republish()
+        {
+            var published = RecordPublishedRefreshes();
+
+            var other = new NzbDrone.Core.Manga.Manga { Id = 999, Title = "Other" };
+
+            Subject.Handle(new MangaUpdatedEvent(other));
+
+            // Only the seeding Refresh published — no in-flight/settled row referenced manga 999.
+            published.Should().HaveCount(1);
+        }
+
+        [Test]
+        public void MangaAddedEvent_and_MangaDeletedEvent_for_a_tracked_manga_each_reconcile_and_republish()
+        {
+            var published = RecordPublishedRefreshes();
+
+            var added = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Added" };
+            var deleted = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Deleted" };
+
+            Subject.Handle(new MangaAddedEvent(added));
+            Subject.Handle(new MangaDeletedEvent(deleted, deleteFiles: false));
+
+            // Seeding Refresh + the two family events that matched manga 7 = 3 publishes. The reconcile
+            // swaps the SAME tracked-download instance in place, so the final payload carries the last
+            // swapped Manga (the deleted snapshot). MangaQueueService consumes each event synchronously
+            // at publish time, so it reads the correct Manga for each in turn.
+            published.Should().HaveCount(3);
+            published.Last().TrackedDownloads.Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(deleted);
+        }
+
+        [Test]
+        public void Edit_family_reconcile_does_not_re_track_or_reset_state()
+        {
+            RecordPublishedRefreshes();
+
+            Subject.Handle(new MangaUpdatedEvent(
+                new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Edited" }));
+
+            // Reconcile is a reference-swap only — it must NOT rebuild the row via TrackDownload
+            // (that would reset State to Downloading and re-run the Checks — the #301 bug). Only the
+            // single seeding Refresh tracked the item.
+            Mocker.GetMock<IMangaTrackedDownloadService>()
+                .Verify(
+                    t => t.TrackDownload(It.IsAny<DownloadClientDefinition>(), It.IsAny<DownloadClientItem>()),
+                    Times.Once,
+                    "#278 reconcile must swap the Manga reference in place, never rebuild the tracked download");
         }
 
         // The Debouncer is a real 5s timer; poll for the queued Refresh command up to a generous

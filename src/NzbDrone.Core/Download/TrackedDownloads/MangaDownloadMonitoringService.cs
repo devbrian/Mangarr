@@ -5,6 +5,7 @@ using NLog;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Common.TPL;
 using NzbDrone.Core.Download.Manga;
+using NzbDrone.Core.Manga.Events;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Commands;
@@ -36,6 +37,41 @@ namespace NzbDrone.Core.Download.TrackedDownloads
     //                                                      after a grab/import so the queue reflects
     //                                                      the new in-flight/imported state without
     //                                                      waiting up to a minute (coalesces bursts).
+    //   IHandle<MangaAddedEvent> / IHandle<MangaUpdatedEvent> / IHandle<MangaBulkEditedEvent> /
+    //   IHandle<MangaDeletedEvent>                       — the edit-family cache reconcile (issue
+    //                                                      #278; mirror of Sonarr
+    //                                                      TrackedDownloadService.Handle(Series{Added,
+    //                                                      Edited,BulkEdited,Deleted}Event)). The
+    //                                                      single-item trigger is MangaUpdatedEvent,
+    //                                                      NOT MangaEditedEvent: per the Phase-10
+    //                                                      semantic split MangaEditedEvent fires ONLY
+    //                                                      from the controller-PUT 3-arg UpdateManga
+    //                                                      (which ALSO fires MangaUpdatedEvent), so
+    //                                                      MangaUpdatedEvent strictly supersets it AND
+    //                                                      additionally covers the 2-arg paths the
+    //                                                      edit event misses — most importantly
+    //                                                      MoveMangaService.RevertPath's rollback after
+    //                                                      a failed root-folder move (else a row just
+    //                                                      swapped to the failed destination path would
+    //                                                      stay stale until poll-rebuild — CodeRabbit
+    //                                                      PR #317), plus MangaLinksController and the
+    //                                                      RefreshMangaService metadata pulse.
+    //                                                      Subscribing to MangaUpdatedEvent instead of
+    //                                                      BOTH also avoids a double reconcile/republish
+    //                                                      on the controller-PUT path. When an
+    //                                                      update touches a manga that a tracked-download
+    //                                                      row references, swap the stale Manga snapshot
+    //                                                      for the freshly-edited instance IN PLACE and
+    //                                                      republish — so a settled row reused across
+    //                                                      polls (#301) reflects the edit (e.g. a
+    //                                                      root-folder bulk move's new Path) IMMEDIATELY
+    //                                                      instead of waiting for the next poll-rebuild
+    //                                                      (eventual where Sonarr is immediate). See
+    //                                                      ReconcileTrackedManga — it does NOT rebuild
+    //                                                      the row (no TrackDownload, no State reset),
+    //                                                      so it is NOT the Pitfall-9 hazard (that bans
+    //                                                      publishing from the grab/import handlers,
+    //                                                      which WOULD need a registry rebuild).
     //
     //   Refresh() control flow (write/track FIRST, publish LAST — anti-pattern F):
     //     (0) pause the debounce + snapshot the prior registry keyed by DownloadId (the #301 merge)
@@ -76,7 +112,11 @@ namespace NzbDrone.Core.Download.TrackedDownloads
         IMangaDownloadMonitoringService,
         IExecute<RefreshMonitoredMangaDownloadsCommand>,
         IHandle<ChapterGrabbedEvent>,
-        IHandle<ChapterImportedEvent>
+        IHandle<ChapterImportedEvent>,
+        IHandle<MangaAddedEvent>,
+        IHandle<MangaUpdatedEvent>,
+        IHandle<MangaBulkEditedEvent>,
+        IHandle<MangaDeletedEvent>
     {
         private readonly IDownloadClientFactory _downloadClientFactory;
         private readonly IMangaTrackedDownloadService _trackedDownloadService;
@@ -140,6 +180,105 @@ namespace NzbDrone.Core.Download.TrackedDownloads
         public void Handle(ChapterImportedEvent message)
         {
             _refreshDebounce.Execute();
+        }
+
+        // ── Edit-family cache reconcile (issue #278) ───────────────────────────────────────────────
+        // Mirror of Sonarr TrackedDownloadService.Handle(Series{Added,Edited,BulkEdited,Deleted}Event).
+        // Sonarr re-resolves each affected cached item via UpdateCachedItem (a DB re-parse); the manga
+        // events carry the fresh Manga instance(s) in their payload, so the reconcile is a direct
+        // reference-swap instead. Added/Updated/Deleted carry a single Manga; BulkEdited carries the
+        // list (the root-folder bulk-move path that motivated #278).
+        //
+        // The single-item trigger is MangaUpdatedEvent (the "any non-bulk update" signal), NOT
+        // MangaEditedEvent: MangaUpdatedEvent supersets the edit event (the controller-PUT 3-arg
+        // UpdateManga fires both) and additionally fires on MoveMangaService.RevertPath's rollback
+        // after a failed root-folder move + MangaLinksController + the RefreshMangaService pulse —
+        // paths MangaEditedEvent misses (CodeRabbit PR #317).
+
+        public void Handle(MangaAddedEvent message)
+        {
+            ReconcileTrackedManga(new[] { message.Manga });
+        }
+
+        public void Handle(MangaUpdatedEvent message)
+        {
+            ReconcileTrackedManga(new[] { message.Manga });
+        }
+
+        public void Handle(MangaBulkEditedEvent message)
+        {
+            ReconcileTrackedManga(message.Manga);
+        }
+
+        public void Handle(MangaDeletedEvent message)
+        {
+            ReconcileTrackedManga(new[] { message.Manga });
+        }
+
+        // Swap the stale RemoteChapter.Manga snapshot for the freshly-edited instance on every registry
+        // row that references an affected manga, then republish the (reconciled) registry so the KEPT
+        // MangaQueueService projection → MangaQueueUpdatedEvent → SignalR re-renders immediately.
+        //
+        // Reference-swap ONLY — this never calls TrackDownload / rebuilds the row, so a settled row's
+        // terminal State (Failed/Imported) is preserved (rebuilding would reset it to Downloading and
+        // re-run the Completed/Failed Checks — the #301 duplicate-event bug). Settled rows reused across
+        // polls (#301) are exactly the rows that benefit: without this they would carry the pre-edit Path
+        // until evicted. Downloading/ImportBlocked rows rebuild next poll regardless, but the republish
+        // surfaces the edit now. Publishing here is SAFE (unlike the Pitfall-9 grab/import handlers): no
+        // registry rebuild happens, so there is no flicker-to-empty window.
+        private void ReconcileTrackedManga(IReadOnlyCollection<NzbDrone.Core.Manga.Manga> editedManga)
+        {
+            if (editedManga == null || editedManga.Count == 0)
+            {
+                return;
+            }
+
+            // Last-wins on a duplicate id (not expected — bulk edits are de-duped upstream).
+            var byId = new Dictionary<int, NzbDrone.Core.Manga.Manga>();
+            foreach (var manga in editedManga)
+            {
+                if (manga != null)
+                {
+                    byId[manga.Id] = manga;
+                }
+            }
+
+            if (byId.Count == 0)
+            {
+                return;
+            }
+
+            // Snapshot the reconciled registry INSIDE the lock so the published payload is exactly the
+            // list this call just reconciled. Building it later via GetTrackedDownloads() would re-take
+            // the lock separately, and a concurrent Refresh() could swap _trackedDownloads in between —
+            // publishing a different registry than the one reconciled here and defeating the immediate
+            // refresh (CodeRabbit PR #317).
+            List<TrackedDownload> refreshedSnapshot = null;
+            lock (_registryLock)
+            {
+                var reconciled = false;
+                foreach (var trackedDownload in _trackedDownloads)
+                {
+                    var manga = trackedDownload.RemoteChapter?.Manga;
+                    if (manga != null && byId.TryGetValue(manga.Id, out var fresh))
+                    {
+                        trackedDownload.RemoteChapter.Manga = fresh;
+                        reconciled = true;
+                    }
+                }
+
+                if (reconciled)
+                {
+                    refreshedSnapshot = _trackedDownloads.ToList();
+                }
+            }
+
+            // Only republish when something actually matched (mirrors Sonarr's `if (cachedItems.Any())`
+            // gate) — an edit to a manga with no in-flight/settled download is a no-op for the queue.
+            if (refreshedSnapshot != null)
+            {
+                _eventAggregator.PublishEvent(new TrackedDownloadRefreshedEvent(refreshedSnapshot));
+            }
         }
 
         // The debounced action — push the scheduled poll command rather than calling Refresh()
