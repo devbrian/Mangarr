@@ -74,6 +74,8 @@ Per-download grab history (separate from generic episode history). Tracks the in
 | `TrackedDownloadService.cs` | In-memory cache of active downloads polled from clients |
 | `TrackedDownload.cs` | Snapshot DTO |
 | `TrackedDownloadAlreadyImportedService.cs` | Detect already-imported items |
+| `MangaTrackedDownloadService.cs` | Stateless per-item matcher (`TrackDownload` builds a `TrackedDownload` from the DownloadId history join + page-progress lookup) — Phase 36 manga sibling |
+| `MangaDownloadMonitoringService.cs` | The poll heart + registry owner (`List<TrackedDownload>` merged across polls per #301). `IExecute<RefreshMonitoredMangaDownloadsCommand>` + `IHandle<ChapterGrabbedEvent/ChapterImportedEvent>` (5s debounce) + **`IHandle<MangaAddedEvent/MangaEditedEvent/MangaBulkEditedEvent/MangaDeletedEvent>` — the issue #278 edit-family cache reconcile** (mirror of Sonarr `TrackedDownloadService` Series-edit handlers; swaps the affected rows' `RemoteChapter.Manga` snapshot in place and republishes `TrackedDownloadRefreshedEvent`, immediate where poll-rebuild was eventual). Phase 36 manga sibling. |
 
 ### `Aggregation/`
 Aggregates parsed-from-client info with parsed-from-title info (e.g., resolves `RemoteEpisode` from a download client item).
