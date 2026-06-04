@@ -336,15 +336,25 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
         {
             // CodeRabbit PR #317: a failed root-folder move reverts the path via the 2-arg
             // MangaService.UpdateManga, which publishes MangaUpdatedEvent only (NOT MangaEditedEvent).
-            // Subscribing the reconcile to MangaUpdatedEvent (not MangaEditedEvent) is what makes the
-            // rollback re-reconcile a row that was just swapped to the failed destination path.
+            // Exercise BOTH legs of the rollback sequence: the edit first swaps the row to the
+            // (about-to-fail) destination path, then RevertPath swaps it back. The reconcile must
+            // handle the SECOND MangaUpdatedEvent (the revert) too — else the row stays stuck on the
+            // failed destination path until poll-rebuild.
             var published = RecordPublishedRefreshes();
 
+            var failedDestination = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Test Manga", Path = "/failed/path" };
             var reverted = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Test Manga", Path = "/original/path" };
 
+            // Leg 1 — the edit moved the row to the destination the filesystem move then failed on.
+            Subject.Handle(new MangaUpdatedEvent(failedDestination));
+            Subject.GetTrackedDownloads().Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(failedDestination);
+
+            // Leg 2 — RevertPath rolls the path back via the 2-arg UpdateManga (MangaUpdatedEvent only).
             Subject.Handle(new MangaUpdatedEvent(reverted));
 
-            published.Should().HaveCount(2);
+            // Seed + 2 reconciles = 3 publishes; the final payload + registry carry the reverted snapshot.
+            published.Should().HaveCount(3);
             published.Last().TrackedDownloads.Should().ContainSingle()
                 .Which.RemoteChapter.Manga.Should().BeSameAs(reverted);
             Subject.GetTrackedDownloads().Should().ContainSingle()
