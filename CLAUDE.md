@@ -88,7 +88,9 @@ This project is a **fork/migration of [Sonarr](https://github.com/Sonarr/Sonarr)
 yarn install
 
 # 2. Build backend & frontend
-dotnet build src/Mangarr.sln --configuration Debug
+#    On macOS/Linux add -p:EnableWindowsTargeting=true — the net10.0-windows service
+#    wrapper (src/NzbDrone/Mangarr.csproj) trips NETSDK1100 otherwise. (No-op on Windows.)
+dotnet build src/Mangarr.sln --configuration Debug   # macOS/Linux: append -p:EnableWindowsTargeting=true
 yarn build
 
 # 3. Run
@@ -178,7 +180,7 @@ Tests projects: `NzbDrone.Core.Test`, `NzbDrone.Common.Test`, `NzbDrone.Host.Tes
 
 ```bash
 yarn clean && yarn build                                    # Clean + dev build
-dotnet build src/Mangarr.sln --configuration Release         # Release build
+dotnet build src/Mangarr.sln --configuration Release         # Release build (macOS/Linux: add -p:EnableWindowsTargeting=true)
 yarn build --env production                                 # Production frontend bundle
 yarn lint && yarn lint-fix                                  # Lint
 yarn stylelint                                              # CSS lint
