@@ -10,8 +10,8 @@ import React from 'react';
 import Label from 'Components/Label';
 import { kinds } from 'Helpers/Props';
 import MangaPoster from 'Manga/MangaPoster';
-import { Tag } from 'Tags/useTags';
-import { SuggestedManga } from './MangaSearchInput';
+import type { Tag } from 'Tags/useTags';
+import type { SuggestedManga } from './MangaSearchInput';
 import styles from './MangaSearchResult.css';
 
 interface Match {

@@ -43,7 +43,7 @@ function getSuggestions(manga: SuggestedManga[], value: string) {
           ],
           refIndex: 0,
         });
-        if (suggestions.length > limit) {
+        if (suggestions.length >= limit) {
           break;
         }
       }

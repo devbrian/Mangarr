@@ -55,7 +55,6 @@ export interface SuggestedManga
   extends Pick<
     Manga,
     | 'title'
-    | 'titleSlug'
     | 'sortTitle'
     | 'images'
     | 'alternateTitles'
@@ -63,6 +62,10 @@ export interface SuggestedManga
     | 'aniListId'
     | 'malId'
   > {
+  // Required here (Manga.titleSlug is optional) — both navigation paths build
+  // /manga/${titleSlug}, so a slug-less record would route to /manga/undefined.
+  // useMangaSuggestions filters those out, guaranteeing this is always present.
+  titleSlug: string;
   firstCharacter: string;
   tags: Tag[];
 }
@@ -85,7 +88,7 @@ function useMangaSuggestions(tagList: Tag[]) {
   const { data: allManga = [] } = useManga();
 
   return useMemo(() => {
-    return allManga.map((manga): SuggestedManga => {
+    return allManga.flatMap((manga): SuggestedManga[] => {
       const {
         title,
         titleSlug,
@@ -98,26 +101,33 @@ function useMangaSuggestions(tagList: Tag[]) {
         tags = [],
       } = manga;
 
-      return {
-        title,
-        titleSlug,
-        sortTitle,
-        images,
-        alternateTitles,
-        mangaDexId,
-        aniListId,
-        malId,
-        firstCharacter: title.charAt(0).toLowerCase(),
-        tags: tags.reduce<Tag[]>((acc, id) => {
-          const matchingTag = tagList.find((tag) => tag.id === id);
+      // Skip slug-less records so navigation never builds /manga/undefined.
+      if (!titleSlug) {
+        return [];
+      }
 
-          if (matchingTag) {
-            acc.push(matchingTag);
-          }
+      return [
+        {
+          title,
+          titleSlug,
+          sortTitle,
+          images,
+          alternateTitles,
+          mangaDexId,
+          aniListId,
+          malId,
+          firstCharacter: title.charAt(0).toLowerCase(),
+          tags: tags.reduce<Tag[]>((acc, id) => {
+            const matchingTag = tagList.find((tag) => tag.id === id);
 
-          return acc;
-        }, []),
-      };
+            if (matchingTag) {
+              acc.push(matchingTag);
+            }
+
+            return acc;
+          }, []),
+        },
+      ];
     });
   }, [allManga, tagList]);
 }
@@ -141,10 +151,10 @@ function MangaSearchInput() {
   const suggestionGroups = useMemo(() => {
     const result: Section[] = [];
 
-    if (suggestions.length || isLoading.current) {
+    if (suggestions.length || requestLoading) {
       result.push({
         title: translate('ExistingManga'),
-        loading: isLoading.current,
+        loading: requestLoading,
         suggestions,
       });
     }
@@ -160,7 +170,7 @@ function MangaSearchInput() {
     });
 
     return result;
-  }, [suggestions, value]);
+  }, [suggestions, value, requestLoading]);
 
   const handleSuggestionsReceived = useCallback(
     (message: { data: { value: string; suggestions: MangaSuggestion[] } }) => {
@@ -179,7 +189,7 @@ function MangaSearchInput() {
         setRequestLoading(true);
 
         const payload = {
-          value: requestValue,
+          value: requestValue.current,
           manga,
         };
 
