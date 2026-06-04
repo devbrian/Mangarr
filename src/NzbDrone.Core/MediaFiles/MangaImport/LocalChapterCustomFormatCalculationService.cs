@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using NLog;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.Parser.Model;
@@ -57,15 +58,18 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
         private readonly ICustomFormatCalculationService _formatCalculator;
         private readonly ICustomFormatProfileService _customFormatProfileService;
         private readonly IConfigService _configService;
+        private readonly Logger _logger;
 
         public LocalChapterCustomFormatCalculationService(
             ICustomFormatCalculationService formatCalculator,
             ICustomFormatProfileService customFormatProfileService,
-            IConfigService configService)
+            IConfigService configService,
+            Logger logger)
         {
             _formatCalculator = formatCalculator;
             _customFormatProfileService = customFormatProfileService;
             _configService = configService;
+            _logger = logger;
         }
 
         public List<CustomFormat> ParseChapterCustomFormats(LocalChapter localChapter)
@@ -113,9 +117,33 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
         private CustomFormatProfile ResolveCustomFormatProfile(LocalChapter localChapter)
         {
             // Phase 5 D-07 fallback: per-Manga FK ?? global default. Mirrors
-            // MangaDownloadDecisionMaker.cs:179 + UpgradeSpecification.cs:172.
+            // MangaDownloadDecisionMaker.cs:223 + UpgradeSpecification.cs:172.
             var profileId = localChapter.Manga?.CustomFormatProfileId ?? _configService.DefaultCustomFormatProfileId;
-            return profileId.HasValue ? _customFormatProfileService.Get(profileId.Value) : null;
+
+            // BL-03 (DEF-19-02-01) parity with MangaDownloadDecisionMaker.cs:238-254.
+            // A Manga can carry CustomFormatProfileId == 0 — the int default the AddManga
+            // modal sends when no CF profile is picked and none is the global default — or an
+            // orphaned FK to a since-deleted profile. CustomFormatProfileService.Get throws
+            // ModelNotFoundException on a missing/zero row. Left unguarded, that exception
+            // propagated out of MangaImportDecisionMaker.GetDecision and was swallowed by
+            // MangaDownloadProcessingService.Process, wedging the tracked download in
+            // "Downloaded - Importing" on an infinite, silent retry (the download side was
+            // already hardened by BL-03; the import side was the divergence). A missing/zero/
+            // orphaned profile means "no CF scoring" — score 0, same as the no-profile branch.
+            if (!profileId.HasValue || profileId.Value <= 0)
+            {
+                return null;
+            }
+
+            try
+            {
+                return _customFormatProfileService.Get(profileId.Value);
+            }
+            catch (Datastore.ModelNotFoundException)
+            {
+                _logger.Warn("CustomFormatProfile {0} not found (orphaned FK); scoring chapter 0", profileId.Value);
+                return null;
+            }
         }
     }
 }

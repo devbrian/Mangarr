@@ -164,13 +164,43 @@ namespace NzbDrone.Core.MediaFiles.MangaImport.Specifications
         private TranslationProfile ResolveTranslationProfile(LocalChapter lc)
         {
             var profileId = lc.Manga?.TranslationProfileId ?? _configService.DefaultTranslationProfileId;
-            return profileId == null ? null : _translationProfileService.Get(profileId.Value);
+            return ResolveProfile(profileId, id => _translationProfileService.Get(id), "TranslationProfile");
         }
 
         private CustomFormatProfile ResolveCustomFormatProfile(LocalChapter lc)
         {
             var profileId = lc.Manga?.CustomFormatProfileId ?? _configService.DefaultCustomFormatProfileId;
-            return profileId == null ? null : _customFormatProfileService.Get(profileId.Value);
+            return ResolveProfile(profileId, id => _customFormatProfileService.Get(id), "CustomFormatProfile");
+        }
+
+        // BL-03 (DEF-19-02-01) parity with MangaDownloadDecisionMaker.cs:238-254 and
+        // LocalChapterCustomFormatCalculationService.ResolveCustomFormatProfile. A Manga can
+        // carry TranslationProfileId / CustomFormatProfileId == 0 (the int default the AddManga
+        // modal sends when no profile is picked and none is the global default), or an orphaned
+        // FK to a since-deleted profile. The profile services' Get throws ModelNotFoundException
+        // on a missing/zero row; left unguarded that exception propagated out of the import spec
+        // and was swallowed by MangaDownloadProcessingService.Process, wedging the tracked
+        // download in "Downloaded - Importing" on an infinite, silent retry. A missing/zero/
+        // orphaned profile degrades to null — the upgrade gate already null-tolerates both
+        // profiles (translationProfile?.UpgradeAllowed ?? true, customFormatProfile?.UpgradeAllowed
+        // ?? false, ResolveRank => int.MaxValue), so this means "unranked, no CF scoring".
+        private TProfile ResolveProfile<TProfile>(int? profileId, System.Func<int, TProfile> get, string profileType)
+            where TProfile : class
+        {
+            if (!profileId.HasValue || profileId.Value <= 0)
+            {
+                return null;
+            }
+
+            try
+            {
+                return get(profileId.Value);
+            }
+            catch (Datastore.ModelNotFoundException)
+            {
+                _logger.Warn("{0} {1} not found (orphaned FK); treating as no profile", profileType, profileId.Value);
+                return null;
+            }
         }
 
         // Compute the existing ChapterFile's CF score against the CustomFormatProfile by
