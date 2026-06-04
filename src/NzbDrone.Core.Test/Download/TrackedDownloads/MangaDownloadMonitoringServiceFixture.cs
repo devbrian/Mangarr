@@ -290,7 +290,7 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
         // ── #278: edit-family cache reconcile (mirror of Sonarr TrackedDownloadService) ────────────
         //
         //   The registry is seeded by a first Refresh() (the builder's RemoteChapter.Manga.Id == 7).
-        //   A MangaAdded/Edited/BulkEdited/Deleted event for a tracked manga must swap the row's
+        //   A MangaAdded/Updated/BulkEdited/Deleted event for a tracked manga must swap the row's
         //   Manga snapshot IN PLACE and republish TrackedDownloadRefreshedEvent (immediate reconcile);
         //   an edit for an untracked manga must be a no-op (no extra publish).
 
@@ -309,14 +309,13 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
         }
 
         [Test]
-        public void MangaEditedEvent_for_a_tracked_manga_reconciles_in_place_and_republishes()
+        public void MangaUpdatedEvent_for_a_tracked_manga_reconciles_in_place_and_republishes()
         {
             CaptureRefreshedRegistry();
 
             var edited = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Edited Title", Path = "/new/path" };
-            var old = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Test Manga", Path = "/old/path" };
 
-            Subject.Handle(new MangaEditedEvent(edited, old));
+            Subject.Handle(new MangaUpdatedEvent(edited));
 
             // Seeding Refresh = publish #1, the reconcile = publish #2.
             Mocker.GetMock<IEventAggregator>()
@@ -325,6 +324,25 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
             // The registry row's Manga snapshot was swapped for the freshly-edited instance.
             Subject.GetTrackedDownloads().Should().ContainSingle()
                 .Which.RemoteChapter.Manga.Should().BeSameAs(edited);
+        }
+
+        [Test]
+        public void MangaUpdatedEvent_covers_a_failed_move_rollback_path()
+        {
+            // CodeRabbit PR #317: a failed root-folder move reverts the path via the 2-arg
+            // MangaService.UpdateManga, which publishes MangaUpdatedEvent only (NOT MangaEditedEvent).
+            // Subscribing the reconcile to MangaUpdatedEvent (not MangaEditedEvent) is what makes the
+            // rollback re-reconcile a row that was just swapped to the failed destination path.
+            CaptureRefreshedRegistry();
+
+            var reverted = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Test Manga", Path = "/original/path" };
+
+            Subject.Handle(new MangaUpdatedEvent(reverted));
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<TrackedDownloadRefreshedEvent>()), Times.Exactly(2));
+            Subject.GetTrackedDownloads().Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(reverted);
         }
 
         [Test]
@@ -348,13 +366,13 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
         }
 
         [Test]
-        public void MangaEditedEvent_for_an_untracked_manga_does_not_republish()
+        public void MangaUpdatedEvent_for_an_untracked_manga_does_not_republish()
         {
             CaptureRefreshedRegistry();
 
             var other = new NzbDrone.Core.Manga.Manga { Id = 999, Title = "Other" };
 
-            Subject.Handle(new MangaEditedEvent(other, other));
+            Subject.Handle(new MangaUpdatedEvent(other));
 
             // Only the seeding Refresh published — no in-flight/settled row referenced manga 999.
             Mocker.GetMock<IEventAggregator>()
@@ -379,9 +397,8 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
         {
             CaptureRefreshedRegistry();
 
-            Subject.Handle(new MangaEditedEvent(
-                new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Edited" },
-                new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Test Manga" }));
+            Subject.Handle(new MangaUpdatedEvent(
+                new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Edited" }));
 
             // Reconcile is a reference-swap only — it must NOT rebuild the row via TrackDownload
             // (that would reset State to Downloading and re-run the Checks — the #301 bug). Only the

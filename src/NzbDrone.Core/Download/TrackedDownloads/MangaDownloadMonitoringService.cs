@@ -37,12 +37,29 @@ namespace NzbDrone.Core.Download.TrackedDownloads
     //                                                      after a grab/import so the queue reflects
     //                                                      the new in-flight/imported state without
     //                                                      waiting up to a minute (coalesces bursts).
-    //   IHandle<MangaAddedEvent> / IHandle<MangaEditedEvent> / IHandle<MangaBulkEditedEvent> /
+    //   IHandle<MangaAddedEvent> / IHandle<MangaUpdatedEvent> / IHandle<MangaBulkEditedEvent> /
     //   IHandle<MangaDeletedEvent>                       — the edit-family cache reconcile (issue
     //                                                      #278; mirror of Sonarr
     //                                                      TrackedDownloadService.Handle(Series{Added,
-    //                                                      Edited,BulkEdited,Deleted}Event)). When an
-    //                                                      edit touches a manga that a tracked-download
+    //                                                      Edited,BulkEdited,Deleted}Event)). The
+    //                                                      single-item trigger is MangaUpdatedEvent,
+    //                                                      NOT MangaEditedEvent: per the Phase-10
+    //                                                      semantic split MangaEditedEvent fires ONLY
+    //                                                      from the controller-PUT 3-arg UpdateManga
+    //                                                      (which ALSO fires MangaUpdatedEvent), so
+    //                                                      MangaUpdatedEvent strictly supersets it AND
+    //                                                      additionally covers the 2-arg paths the
+    //                                                      edit event misses — most importantly
+    //                                                      MoveMangaService.RevertPath's rollback after
+    //                                                      a failed root-folder move (else a row just
+    //                                                      swapped to the failed destination path would
+    //                                                      stay stale until poll-rebuild — CodeRabbit
+    //                                                      PR #317), plus MangaLinksController and the
+    //                                                      RefreshMangaService metadata pulse.
+    //                                                      Subscribing to MangaUpdatedEvent instead of
+    //                                                      BOTH also avoids a double reconcile/republish
+    //                                                      on the controller-PUT path. When an
+    //                                                      update touches a manga that a tracked-download
     //                                                      row references, swap the stale Manga snapshot
     //                                                      for the freshly-edited instance IN PLACE and
     //                                                      republish — so a settled row reused across
@@ -97,7 +114,7 @@ namespace NzbDrone.Core.Download.TrackedDownloads
         IHandle<ChapterGrabbedEvent>,
         IHandle<ChapterImportedEvent>,
         IHandle<MangaAddedEvent>,
-        IHandle<MangaEditedEvent>,
+        IHandle<MangaUpdatedEvent>,
         IHandle<MangaBulkEditedEvent>,
         IHandle<MangaDeletedEvent>
     {
@@ -168,16 +185,22 @@ namespace NzbDrone.Core.Download.TrackedDownloads
         // ── Edit-family cache reconcile (issue #278) ───────────────────────────────────────────────
         // Mirror of Sonarr TrackedDownloadService.Handle(Series{Added,Edited,BulkEdited,Deleted}Event).
         // Sonarr re-resolves each affected cached item via UpdateCachedItem (a DB re-parse); the manga
-        // edit events carry the freshly-edited Manga instance(s) in their payload, so the reconcile is a
-        // direct reference-swap instead. Added/Edited/Deleted carry a single Manga; BulkEdited carries
-        // the list (the root-folder bulk-move path that motivated #278).
+        // events carry the fresh Manga instance(s) in their payload, so the reconcile is a direct
+        // reference-swap instead. Added/Updated/Deleted carry a single Manga; BulkEdited carries the
+        // list (the root-folder bulk-move path that motivated #278).
+        //
+        // The single-item trigger is MangaUpdatedEvent (the "any non-bulk update" signal), NOT
+        // MangaEditedEvent: MangaUpdatedEvent supersets the edit event (the controller-PUT 3-arg
+        // UpdateManga fires both) and additionally fires on MoveMangaService.RevertPath's rollback
+        // after a failed root-folder move + MangaLinksController + the RefreshMangaService pulse —
+        // paths MangaEditedEvent misses (CodeRabbit PR #317).
 
         public void Handle(MangaAddedEvent message)
         {
             ReconcileTrackedManga(new[] { message.Manga });
         }
 
-        public void Handle(MangaEditedEvent message)
+        public void Handle(MangaUpdatedEvent message)
         {
             ReconcileTrackedManga(new[] { message.Manga });
         }

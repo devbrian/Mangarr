@@ -25,8 +25,9 @@ namespace NzbDrone.Core.Manga
     // Mangarr-invented divergence — NOT a Sonarr mirror, despite an earlier comment claiming so
     // — and was removed. Do not re-add a refresh/rename push here. Sonarr's OTHER bulk-edit side
     // effect — TrackedDownloadService's cache reconcile — is NOT owned here either: it now lives on
-    // MangaDownloadMonitoringService.IHandle<MangaBulkEditedEvent> (+ the Added/Edited/Deleted
-    // family), the manga owner of tracked-download state. That closed issue #278: its precondition
+    // MangaDownloadMonitoringService.IHandle<MangaBulkEditedEvent> (+ the Added/Updated/Deleted
+    // family — MangaUpdatedEvent, not MangaEditedEvent, so the move-rollback + refresh paths are
+    // covered too), the manga owner of tracked-download state. That closed issue #278: its precondition
     // ("only if a downloader other than the in-process image client is added") went TRUE at Phase 39
     // (the external, asynchronously-tracked GatewayDownloadClient became the sole download client and
     // the #301 cross-poll registry began holding RemoteChapter.Manga across edits), so the
