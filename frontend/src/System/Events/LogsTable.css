@@ -1,0 +1,16 @@
+/*
+ * The events page hosts a non-virtualized log table whose height can exceed the
+ * viewport. PageContent (.content) is a flex column whose scroll child
+ * (PageContentBody, flex: 1 0 1px) only bounds + scrolls when it is a DIRECT
+ * flex child. This wrapper exists solely to carry the `system-events-page`
+ * test hook (PageContent already hardcodes its own data-testid); without flex
+ * sizing it grows to full content height and breaks the scroll chain (page
+ * freezes, content below the fold is clipped). Making it a flex passthrough
+ * keeps the test-hook box while restoring PageContentBody as the scroller.
+ */
+.pageWrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}

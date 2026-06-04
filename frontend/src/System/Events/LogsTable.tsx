@@ -25,6 +25,7 @@ import {
 } from './eventOptionsStore';
 import LogsTableRow from './LogsTableRow';
 import useEvents, { useFilters } from './useEvents';
+import styles from './LogsTable.css';
 
 function LogsTable() {
   const executeCommand = useExecuteCommand();
@@ -90,7 +91,7 @@ function LogsTable() {
 
   return (
     <PageContent title={translate('Logs')}>
-      <div data-testid="system-events-page">
+      <div className={styles.pageWrapper} data-testid="system-events-page">
         <PageToolbar>
           <PageToolbarSection>
             <PageToolbarButton
