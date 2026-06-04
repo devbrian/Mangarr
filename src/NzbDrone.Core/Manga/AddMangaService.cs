@@ -267,6 +267,25 @@ namespace NzbDrone.Core.Manga
             newManga.TranslationProfileId = userTranslationProfileId;
             newManga.CustomFormatProfileId = userCustomFormatProfileId;
 
+            // #320: the AddManga modal sends profileId == 0 (the int default) when no profile is
+            // picked and none is the global default. `0` is a non-existent FK — profile rows start
+            // at id 1 — so persisting it makes every downstream consumer special-case it, and it was
+            // the upstream trigger for the import wedge in #318. The canonical "use the seeded default"
+            // sentinel is NULL: every consumer resolves `Manga.<X>ProfileId ?? Config.Default<X>ProfileId`,
+            // and both profile services seed Config.Default*ProfileId to the Default profile on first
+            // run (TranslationProfileService.cs:112 / CustomFormatProfileService.cs:135). Coerce the
+            // 0 sentinel to NULL here — the single server-side chokepoint for every add path — so 0
+            // never reaches persistence and the runtime fallback resolves to the real Default profile.
+            if (newManga.TranslationProfileId == 0)
+            {
+                newManga.TranslationProfileId = null;
+            }
+
+            if (newManga.CustomFormatProfileId == 0)
+            {
+                newManga.CustomFormatProfileId = null;
+            }
+
             // Carry over the primary IDs returned by GetMangaInfo (incl. any links extracted by
             // MapManga, e.g. MangaDex links.al/mal).
             newManga.MangaDexId ??= primaryManga.MangaDexId;

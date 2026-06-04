@@ -64,20 +64,19 @@ public class MangaMissingLanguageFilterFixture : AutomationTest
     {
         await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
 
-        // PR #173 CI-fix (2026-05-15): the AddMangaFlow accepts modal defaults; the
-        // frontend `add_manga_options` zustand store starts at `translationProfileId: 0`
+        // PR #173 / #320: the AddMangaFlow accepts modal defaults; the frontend
+        // `add_manga_options` zustand store starts at `translationProfileId: 0`
         // (addMangaOptionsStore.ts:30) and the Add Manga modal does NOT auto-pick the
-        // first profile when the dropdown initializes. Backend
-        // AddMangaService.PrepareForAdd (line 267) writes the user-supplied value
-        // verbatim — so the seeded manga lands with TranslationProfileId=0 and the
-        // LANG-02 `BeGreaterThan(0)` assertion below fails. Assign the
-        // baseline-seeded default TranslationProfile to the manga via PUT before
-        // probing — this restores the "manga has a TP assigned" precondition the
-        // LANG-02 contract requires, without coupling to UI-side default-fill
-        // behavior. TranslationProfileService.Handle(ApplicationStartedEvent) seeds
-        // "English Only" as profile id 1 on first boot
-        // (TranslationProfileService.cs:92-112) — fetch the live list to be safe
-        // against future seed-id reshuffles.
+        // first profile. As of #320, AddMangaService.PrepareForAdd coerces that 0 ->
+        // null (the canonical "use the seeded default" sentinel), so the seeded manga
+        // lands with TranslationProfileId=null — and the LANG-02 `BeGreaterThan(0)`
+        // assertion below still needs a concrete profile id. Assign the baseline-seeded
+        // default TranslationProfile to the manga via PUT before probing — this
+        // restores the "manga has a TP assigned" precondition the LANG-02 contract
+        // requires, without coupling to UI-side default-fill behavior.
+        // TranslationProfileService.Handle(ApplicationStartedEvent) seeds "English Only"
+        // as profile id 1 on first boot (TranslationProfileService.cs:92-112) — fetch
+        // the live list to be safe against future seed-id reshuffles.
         var (mangaIdBefore, _, _) = await ResolveMangaContextAsync();
         await AssignDefaultTranslationProfileAsync(mangaIdBefore);
 
@@ -151,15 +150,19 @@ public class MangaMissingLanguageFilterFixture : AutomationTest
         var manga = mangaDoc.RootElement[0];
         var mangaId = manga.GetProperty("id").GetInt32();
 
-        // PR #173 CI-fix (2026-05-15): `translationProfileId` is `int?` on
-        // MangaResource (Mangarr.Api.V5/Manga/MangaResource.cs:38) — serializes as
-        // JSON null when unset. Bare GetInt32() throws on null tokens; defend with
-        // a 0 fallback so the AssignDefaultTranslationProfileAsync precondition
-        // path can detect the missing-profile state without an exception.
-        var tpElem = manga.GetProperty("translationProfileId");
-        var translationProfileId = tpElem.ValueKind == JsonValueKind.Null
-            ? 0
-            : tpElem.GetInt32();
+        // #320 (2026-06-04): AddMangaService.PrepareForAdd now coerces the
+        // modal-default profileId 0 -> null so the broken sentinel never persists
+        // (a null FK resolves to Config.DefaultTranslationProfileId at runtime).
+        // `int?` props serialize with WhenWritingNull, so an UNSET translationProfileId
+        // is now OMITTED from the JSON entirely (previously the AddManga modal default
+        // landed the literal 0, which WAS present). Use TryGetProperty so the
+        // absent-or-null state maps to 0 without throwing KeyNotFoundException — the
+        // AssignDefaultTranslationProfileAsync call below then assigns a real profile
+        // for the LANG-02 BeGreaterThan(0) assertion.
+        var translationProfileId = manga.TryGetProperty("translationProfileId", out var tpElem)
+                                   && tpElem.ValueKind != JsonValueKind.Null
+            ? tpElem.GetInt32()
+            : 0;
 
         var chapterId = await SeedFkResolver.ResolveFirstChapterIdAsync(RootUri, ApiKey, mangaId);
 

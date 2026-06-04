@@ -110,6 +110,96 @@ namespace NzbDrone.Core.Test.MangaTests
             result.Should().NotBeNull();
         }
 
+        // ── #320 — profileId == 0 sentinel must be coerced to NULL before persistence ──────────
+
+        [Test]
+        public void Add_coerces_zero_TranslationProfileId_to_null_320()
+        {
+            Manga.Manga captured = null;
+            Mocker.GetMock<IMangaService>()
+                  .Setup(m => m.AddManga(It.IsAny<Manga.Manga>()))
+                  .Returns<Manga.Manga>(m =>
+                  {
+                      captured = m;
+                      m.Id = 7;
+                      return m;
+                  });
+
+            var newManga = new Manga.Manga
+            {
+                MangaDexId = _primaryResult.MangaDexId,
+                Title = "Test",
+                RootFolderPath = "C:\\Test",
+                TranslationProfileId = 0,
+                CustomFormatProfileId = 1
+            };
+
+            Subject.AddManga(newManga);
+
+            captured.Should().NotBeNull();
+            captured.TranslationProfileId.Should().BeNull(
+                "#320: the 0 sentinel must be coerced to null so the runtime ?? Config.Default fallback resolves the seeded default");
+            captured.CustomFormatProfileId.Should().Be(1, "a real profile id must be preserved");
+        }
+
+        [Test]
+        public void Add_coerces_zero_CustomFormatProfileId_to_null_320()
+        {
+            Manga.Manga captured = null;
+            Mocker.GetMock<IMangaService>()
+                  .Setup(m => m.AddManga(It.IsAny<Manga.Manga>()))
+                  .Returns<Manga.Manga>(m =>
+                  {
+                      captured = m;
+                      m.Id = 7;
+                      return m;
+                  });
+
+            var newManga = new Manga.Manga
+            {
+                MangaDexId = _primaryResult.MangaDexId,
+                Title = "Test",
+                RootFolderPath = "C:\\Test",
+                TranslationProfileId = 2,
+                CustomFormatProfileId = 0
+            };
+
+            Subject.AddManga(newManga);
+
+            captured.Should().NotBeNull();
+            captured.CustomFormatProfileId.Should().BeNull("#320: the 0 sentinel must be coerced to null");
+            captured.TranslationProfileId.Should().Be(2, "a real profile id must be preserved");
+        }
+
+        [Test]
+        public void Add_preserves_real_profile_ids_320()
+        {
+            Manga.Manga captured = null;
+            Mocker.GetMock<IMangaService>()
+                  .Setup(m => m.AddManga(It.IsAny<Manga.Manga>()))
+                  .Returns<Manga.Manga>(m =>
+                  {
+                      captured = m;
+                      m.Id = 7;
+                      return m;
+                  });
+
+            var newManga = new Manga.Manga
+            {
+                MangaDexId = _primaryResult.MangaDexId,
+                Title = "Test",
+                RootFolderPath = "C:\\Test",
+                TranslationProfileId = 3,
+                CustomFormatProfileId = 4
+            };
+
+            Subject.AddManga(newManga);
+
+            captured.Should().NotBeNull();
+            captured.TranslationProfileId.Should().Be(3);
+            captured.CustomFormatProfileId.Should().Be(4);
+        }
+
         [Test]
         public void Add_resolves_cross_source_ids_via_resolver()
         {
