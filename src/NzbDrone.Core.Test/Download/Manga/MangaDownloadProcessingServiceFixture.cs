@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -288,6 +289,31 @@ namespace NzbDrone.Core.Test.Download.Manga
                     e => e.PublishEvent(It.IsAny<DownloadCanBeRemovedEvent>()),
                     Times.Never,
                     "#319: a row whose import threw must not be evicted (scratch data preserved for retry)");
+
+            ExceptionVerification.ExpectedErrors(1);
+        }
+
+        // CodeRabbit #321: a throw from ProcessFailed (FailedPending branch) is NOT an import
+        // failure — the surfaced message must not be mislabeled "Import failed".
+        [Test]
+        public void Execute_labels_ProcessFailed_throw_as_processing_not_import_failed_321()
+        {
+            var td = BuildPending(TrackedDownloadState.FailedPending);
+            RegistryReturns(td);
+
+            Mocker.GetMock<IMangaFailedDownloadService>()
+                .Setup(f => f.ProcessFailed(It.IsAny<TrackedDownload>()))
+                .Throws(new System.InvalidOperationException("boom"));
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            td.Status.Should().Be(TrackedDownloadStatus.Warning);
+            td.StatusMessages.Should().Contain(
+                m => m.Messages.Any(x => x.Contains("Processing failed")),
+                "#321: a ProcessFailed throw is surfaced with a generic 'Processing failed' label");
+            td.StatusMessages.Should().NotContain(
+                m => m.Messages.Any(x => x.Contains("Import failed")),
+                "#321: a ProcessFailed throw must NOT be mislabeled as an import failure");
 
             ExceptionVerification.ExpectedErrors(1);
         }
