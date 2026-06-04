@@ -178,3 +178,5 @@ src/.claude/settings.local.json
 # GSD per-plan local verification harness (sandbox dotnet test workaround)
 _corpus_check/
 _metadata_source_check/
+# Machine-local staging for new-machine bootstrap (memory + global settings; never commit — contains dev-stack creds)
+.machine-local/
