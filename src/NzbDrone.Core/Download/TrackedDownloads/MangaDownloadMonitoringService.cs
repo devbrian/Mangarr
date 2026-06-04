@@ -248,9 +248,15 @@ namespace NzbDrone.Core.Download.TrackedDownloads
                 return;
             }
 
-            var reconciled = false;
+            // Snapshot the reconciled registry INSIDE the lock so the published payload is exactly the
+            // list this call just reconciled. Building it later via GetTrackedDownloads() would re-take
+            // the lock separately, and a concurrent Refresh() could swap _trackedDownloads in between —
+            // publishing a different registry than the one reconciled here and defeating the immediate
+            // refresh (CodeRabbit PR #317).
+            List<TrackedDownload> refreshedSnapshot = null;
             lock (_registryLock)
             {
+                var reconciled = false;
                 foreach (var trackedDownload in _trackedDownloads)
                 {
                     var manga = trackedDownload.RemoteChapter?.Manga;
@@ -260,13 +266,18 @@ namespace NzbDrone.Core.Download.TrackedDownloads
                         reconciled = true;
                     }
                 }
+
+                if (reconciled)
+                {
+                    refreshedSnapshot = _trackedDownloads.ToList();
+                }
             }
 
             // Only republish when something actually matched (mirrors Sonarr's `if (cachedItems.Any())`
             // gate) — an edit to a manga with no in-flight/settled download is a no-op for the queue.
-            if (reconciled)
+            if (refreshedSnapshot != null)
             {
-                _eventAggregator.PublishEvent(new TrackedDownloadRefreshedEvent(GetTrackedDownloads()));
+                _eventAggregator.PublishEvent(new TrackedDownloadRefreshedEvent(refreshedSnapshot));
             }
         }
 

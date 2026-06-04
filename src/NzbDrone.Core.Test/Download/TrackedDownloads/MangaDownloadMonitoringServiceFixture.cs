@@ -294,34 +294,39 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
         //   Manga snapshot IN PLACE and republish TrackedDownloadRefreshedEvent (immediate reconcile);
         //   an edit for an untracked manga must be a no-op (no extra publish).
 
-        // Captures the TrackedDownloads carried by the LAST published TrackedDownloadRefreshedEvent.
-        private List<TrackedDownload> CaptureRefreshedRegistry()
+        // Records EVERY published TrackedDownloadRefreshedEvent (the seeding Refresh + each reconcile),
+        // so a test can assert the reconcile PAYLOAD — the list MangaQueueService rebuilds its projection
+        // from — actually carries the reconciled Manga, not merely that the in-memory registry mutated
+        // and that a publish happened (CodeRabbit PR #317).
+        private List<TrackedDownloadRefreshedEvent> RecordPublishedRefreshes()
         {
-            List<TrackedDownload> lastPublished = null;
+            var published = new List<TrackedDownloadRefreshedEvent>();
             Mocker.GetMock<IEventAggregator>()
                 .Setup(e => e.PublishEvent(It.IsAny<TrackedDownloadRefreshedEvent>()))
-                .Callback<TrackedDownloadRefreshedEvent>(e => lastPublished = e.TrackedDownloads);
+                .Callback<TrackedDownloadRefreshedEvent>(published.Add);
 
             // Seed the registry — one in-flight item whose RemoteChapter.Manga.Id == 7.
             Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
 
-            return lastPublished;
+            return published;
         }
 
         [Test]
         public void MangaUpdatedEvent_for_a_tracked_manga_reconciles_in_place_and_republishes()
         {
-            CaptureRefreshedRegistry();
+            var published = RecordPublishedRefreshes();
 
             var edited = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Edited Title", Path = "/new/path" };
 
             Subject.Handle(new MangaUpdatedEvent(edited));
 
             // Seeding Refresh = publish #1, the reconcile = publish #2.
-            Mocker.GetMock<IEventAggregator>()
-                .Verify(e => e.PublishEvent(It.IsAny<TrackedDownloadRefreshedEvent>()), Times.Exactly(2));
+            published.Should().HaveCount(2);
 
-            // The registry row's Manga snapshot was swapped for the freshly-edited instance.
+            // The PUBLISHED payload (what MangaQueueService rebuilds the queue projection from) carries
+            // the reconciled instance — not just the in-memory registry.
+            published.Last().TrackedDownloads.Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(edited);
             Subject.GetTrackedDownloads().Should().ContainSingle()
                 .Which.RemoteChapter.Manga.Should().BeSameAs(edited);
         }
@@ -333,14 +338,15 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
             // MangaService.UpdateManga, which publishes MangaUpdatedEvent only (NOT MangaEditedEvent).
             // Subscribing the reconcile to MangaUpdatedEvent (not MangaEditedEvent) is what makes the
             // rollback re-reconcile a row that was just swapped to the failed destination path.
-            CaptureRefreshedRegistry();
+            var published = RecordPublishedRefreshes();
 
             var reverted = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Test Manga", Path = "/original/path" };
 
             Subject.Handle(new MangaUpdatedEvent(reverted));
 
-            Mocker.GetMock<IEventAggregator>()
-                .Verify(e => e.PublishEvent(It.IsAny<TrackedDownloadRefreshedEvent>()), Times.Exactly(2));
+            published.Should().HaveCount(2);
+            published.Last().TrackedDownloads.Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(reverted);
             Subject.GetTrackedDownloads().Should().ContainSingle()
                 .Which.RemoteChapter.Manga.Should().BeSameAs(reverted);
         }
@@ -348,7 +354,7 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
         [Test]
         public void MangaBulkEditedEvent_for_a_tracked_manga_reconciles_in_place_and_republishes()
         {
-            CaptureRefreshedRegistry();
+            var published = RecordPublishedRefreshes();
 
             var edited = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Bulk Edited", Path = "/bulk/path" };
 
@@ -358,9 +364,9 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
                 edited
             }));
 
-            Mocker.GetMock<IEventAggregator>()
-                .Verify(e => e.PublishEvent(It.IsAny<TrackedDownloadRefreshedEvent>()), Times.Exactly(2));
-
+            published.Should().HaveCount(2);
+            published.Last().TrackedDownloads.Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(edited);
             Subject.GetTrackedDownloads().Should().ContainSingle()
                 .Which.RemoteChapter.Manga.Should().BeSameAs(edited);
         }
@@ -368,34 +374,40 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
         [Test]
         public void MangaUpdatedEvent_for_an_untracked_manga_does_not_republish()
         {
-            CaptureRefreshedRegistry();
+            var published = RecordPublishedRefreshes();
 
             var other = new NzbDrone.Core.Manga.Manga { Id = 999, Title = "Other" };
 
             Subject.Handle(new MangaUpdatedEvent(other));
 
             // Only the seeding Refresh published — no in-flight/settled row referenced manga 999.
-            Mocker.GetMock<IEventAggregator>()
-                .Verify(e => e.PublishEvent(It.IsAny<TrackedDownloadRefreshedEvent>()), Times.Once);
+            published.Should().HaveCount(1);
         }
 
         [Test]
         public void MangaAddedEvent_and_MangaDeletedEvent_for_a_tracked_manga_each_reconcile_and_republish()
         {
-            CaptureRefreshedRegistry();
+            var published = RecordPublishedRefreshes();
 
-            Subject.Handle(new MangaAddedEvent(new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Added" }));
-            Subject.Handle(new MangaDeletedEvent(new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Deleted" }, deleteFiles: false));
+            var added = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Added" };
+            var deleted = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Deleted" };
 
-            // Seeding Refresh + the two family events that matched manga 7 = 3 publishes.
-            Mocker.GetMock<IEventAggregator>()
-                .Verify(e => e.PublishEvent(It.IsAny<TrackedDownloadRefreshedEvent>()), Times.Exactly(3));
+            Subject.Handle(new MangaAddedEvent(added));
+            Subject.Handle(new MangaDeletedEvent(deleted, deleteFiles: false));
+
+            // Seeding Refresh + the two family events that matched manga 7 = 3 publishes. The reconcile
+            // swaps the SAME tracked-download instance in place, so the final payload carries the last
+            // swapped Manga (the deleted snapshot). MangaQueueService consumes each event synchronously
+            // at publish time, so it reads the correct Manga for each in turn.
+            published.Should().HaveCount(3);
+            published.Last().TrackedDownloads.Should().ContainSingle()
+                .Which.RemoteChapter.Manga.Should().BeSameAs(deleted);
         }
 
         [Test]
         public void Edit_family_reconcile_does_not_re_track_or_reset_state()
         {
-            CaptureRefreshedRegistry();
+            RecordPublishedRefreshes();
 
             Subject.Handle(new MangaUpdatedEvent(
                 new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Edited" }));
