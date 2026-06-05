@@ -46,6 +46,17 @@ cd "$REPO_ROOT"
 # shellcheck source=scripts/kill-orphan-test-processes.sh
 . "$REPO_ROOT/scripts/kill-orphan-test-processes.sh"
 
+# Cross-platform build: the unit step runs `dotnet test src/Mangarr.sln` (a real
+# build — deliberately NOT --no-build), which pulls in the net10.0-windows service
+# wrapper (src/NzbDrone/Mangarr.csproj). On macOS/Linux that trips NETSDK1100
+# unless EnableWindowsTargeting=true is set (mirrors the CLAUDE.md build note).
+# No-op on Windows. Without this, the unit fixtures never execute on a non-Windows
+# orchestrator and the gate FAILs on a build error rather than a real fixture red.
+case "$(uname -s 2>/dev/null)" in
+  CYGWIN*|MINGW*|MSYS*|Windows_NT) WIN_TARGETING="" ;;
+  *)                               WIN_TARGETING="-p:EnableWindowsTargeting=true" ;;
+esac
+
 # ---- Argument parsing -------------------------------------------------------
 
 PHASE_BASE=""
@@ -464,6 +475,7 @@ if [ -n "$UNIT_FILTERS" ]; then
   RAW_EXIT=0
   dotnet test src/Mangarr.sln \
        --configuration Debug \
+       $WIN_TARGETING \
        --filter "$UNIT_FILTER_EXPR" \
        --logger "console;verbosity=normal" > "$RUN_LOG" 2>&1 || RAW_EXIT=$?
   classify_run_log "$RUN_LOG" "$RAW_EXIT" || EXIT_CODE=1
@@ -529,6 +541,7 @@ if [ -n "$AUTOMATION_FILTERS" ]; then
          MANGARR_TEST_ASSEMBLY_PATH="$AUTO_CASSETTE_ASM" \
          dotnet test src/NzbDrone.Automation.Test/Mangarr.Automation.Test.csproj \
          --configuration Debug \
+         $WIN_TARGETING \
          --filter "$AUTOMATION_FILTER_EXPR" \
          --logger "console;verbosity=normal" > "$RUN_LOG" 2>&1 || RAW_EXIT=$?
     classify_run_log "$RUN_LOG" "$RAW_EXIT" || EXIT_CODE=1
