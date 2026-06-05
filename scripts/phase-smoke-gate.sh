@@ -169,16 +169,24 @@ is_port_8989_busy() {
   # is broken or denied (e.g. some restricted containers). Capture probe
   # output into a variable, propagate probe failure as return 2.
   local probe_out
+  # Fall through to the next tool on a probe-tool ERROR (not just absence), so a
+  # tool that EXISTS but rejects these flags does not shadow a working later tool.
+  # macOS BSD `netstat` rejects the Linux/Windows `-ano` flags (exit 64); without
+  # this fall-through it returned 2 and shadowed the working `lsof` branch below,
+  # FATAL-ing the gate on macOS. The capture-then-check-exit shape preserves the
+  # CodeRabbit #198 anti-false-pass intent: a broken probe never yields "free".
   if command -v ss >/dev/null 2>&1; then
-    probe_out=$(ss -ltn 2>/dev/null) || return 2
-    printf '%s\n' "$probe_out" | grep -qE '[:.]8989[[:space:]]'
-    return $?
+    if probe_out=$(ss -ltn 2>/dev/null); then
+      printf '%s\n' "$probe_out" | grep -qE '[:.]8989[[:space:]]'
+      return $?
+    fi
   fi
   if command -v netstat >/dev/null 2>&1; then
     # Match both `LISTEN` (Linux/BSD) and `LISTENING` (Windows) end-states.
-    probe_out=$(netstat -ano 2>/dev/null) || return 2
-    printf '%s\n' "$probe_out" | grep -qE '[:.]8989\b.*LISTEN(ING)?'
-    return $?
+    if probe_out=$(netstat -ano 2>/dev/null); then
+      printf '%s\n' "$probe_out" | grep -qE '[:.]8989\b.*LISTEN(ING)?'
+      return $?
+    fi
   fi
   if command -v lsof >/dev/null 2>&1; then
     # lsof returns 0 = match, 1 = no match (clean run); anything else = probe error.
