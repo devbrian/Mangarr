@@ -98,7 +98,15 @@ namespace NzbDrone.Core.Indexers.Gateway
                     // field so the InteractiveSearch Indexer column can show which source a
                     // release actually came from. Survives CleanupReleases (which only stamps
                     // Indexer/IndexerId/Protocol/Priority).
-                    Source = r.SourceKey
+                    Source = r.SourceKey,
+
+                    // D-06 (RECON-04): thread the cross-source ID dict (mangadexId/anilistId/malId)
+                    // through verbatim so the Plan-03 synthesis attribution gate can ID-match first.
+                    // Passed UNCHANGED — no transform/filter here; defensive value parsing
+                    // (TryGuid/TryInt, never throw) lives in the synthesis service (T-40-05). A null
+                    // dict stays null so the gate falls through to exact-title (D-06 ordering).
+                    // Survives CleanupReleases the same way Source does (T-40-06).
+                    Ids = r.Ids
                 });
             }
 
