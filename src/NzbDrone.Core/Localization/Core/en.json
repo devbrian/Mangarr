@@ -807,6 +807,8 @@
   "GatewayApiKeyHelpText": "API key for the manga-gateway. Sent as the X-Api-Key header on every request; never logged.",
   "GatewayLanguages": "Languages",
   "GatewayLanguagesHelpText": "Restrict gateway searches to these translation languages. Leave empty to accept all languages the gateway returns.",
+  "GatewayResultLimit": "Result Limit",
+  "GatewayResultLimitHelpText": "Maximum number of results to request per search. Leave blank to use the gateway's advertised default page size. The value is passed to the gateway as-is.",
   "GatewaySources": "Sources",
   "GatewaySourcesHelpText": "Limit searches to specific gateway sources. Leave empty to use every source the gateway has enabled.",
   "GatewayUrl": "URL",

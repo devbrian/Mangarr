@@ -156,6 +156,42 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         }
 
         [Test]
+        public void search_uses_caps_default_page_size_when_no_override()
+        {
+            // caps.json advertises limits.defaultPageSize = 50; with no Settings.ResultLimit override
+            // the search body Limit must fall back to that caps default.
+            Subject.Settings.ResultLimit = null;
+
+            var criteria = new MangaSearchCriteria { Manga = MangaWithTitle("Solo Leveling") };
+            var request = Subject.GetSearchRequests(criteria).GetAllTiers().First().First();
+
+            BodyOf(request).Limit.Should().Be(_caps.Limits.DefaultPageSize);
+        }
+
+        [Test]
+        public void search_passes_through_result_limit_override_verbatim()
+        {
+            // A user override wins over the caps default and is passed through UN-clamped — even when
+            // it exceeds limits.maxPageSize (the gateway owns its own ceiling; we do not clamp).
+            Subject.Settings.ResultLimit = 250;
+
+            var criteria = new MangaSearchCriteria { Manga = MangaWithTitle("Solo Leveling") };
+            var request = Subject.GetSearchRequests(criteria).GetAllTiers().First().First();
+
+            BodyOf(request).Limit.Should().Be(250);
+        }
+
+        [Test]
+        public void recent_uses_result_limit_override()
+        {
+            Subject.Settings.ResultLimit = 250;
+
+            var request = Subject.GetRecentRequests().GetAllTiers().First().First();
+
+            request.Url.FullUri.Should().Contain("limit=250");
+        }
+
+        [Test]
         public void empty_effective_recent_sources_yields_no_request()
         {
             // WR-06: with an EMPTY selection AND no recent-capable caps source, EffectiveSources

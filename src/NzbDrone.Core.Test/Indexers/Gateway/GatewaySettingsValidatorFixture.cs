@@ -50,5 +50,34 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         {
             ValidSettings().Validate().IsValid.Should().BeTrue();
         }
+
+        [Test]
+        public void result_limit_null_is_valid()
+        {
+            // Blank (null) = use the gateway's advertised default page size.
+            var settings = ValidSettings();
+            settings.ResultLimit = null;
+
+            settings.Validate().IsValid.Should().BeTrue();
+        }
+
+        [TestCase(0)]
+        [TestCase(-5)]
+        public void result_limit_must_be_positive_when_provided(int badLimit)
+        {
+            var settings = ValidSettings();
+            settings.ResultLimit = badLimit;
+
+            settings.Validate().IsValid.Should().BeFalse();
+        }
+
+        [Test]
+        public void result_limit_positive_is_valid()
+        {
+            var settings = ValidSettings();
+            settings.ResultLimit = 250;
+
+            settings.Validate().IsValid.Should().BeTrue();
+        }
     }
 }

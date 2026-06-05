@@ -62,7 +62,7 @@ namespace NzbDrone.Core.Indexers.Gateway
 
             var builder = new HttpRequestBuilder(Settings.BaseUrl)
                 .Resource("recent")
-                .AddQueryParam("limit", DefaultPageSize());
+                .AddQueryParam("limit", EffectiveLimit());
 
             foreach (var source in sourceList)
             {
@@ -111,7 +111,7 @@ namespace NzbDrone.Core.Indexers.Gateway
                 Languages = MappedLanguages().ToList(),
                 Sources = sources.ToList(),
                 Interactive = criteria?.InteractiveSearch ?? false,
-                Limit = DefaultPageSize(),
+                Limit = EffectiveLimit(),
                 Offset = 0
             };
 
@@ -176,8 +176,16 @@ namespace NzbDrone.Core.Indexers.Gateway
         private bool SupportsParam(string param)
             => Capabilities?.SupportedSearchParams?.Contains(param) ?? false;
 
-        private int DefaultPageSize()
+        // Per-search result count: a user-provided Settings.ResultLimit override wins (passed through
+        // verbatim — the gateway is authoritative on its own MaxPageSize ceiling, so we do NOT clamp);
+        // otherwise the caps-advertised DefaultPageSize, falling back to 50.
+        private int EffectiveLimit()
         {
+            if (Settings?.ResultLimit is int limit && limit > 0)
+            {
+                return limit;
+            }
+
             var size = Capabilities?.Limits?.DefaultPageSize ?? 0;
             return size > 0 ? size : 50;
         }

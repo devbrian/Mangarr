@@ -19,6 +19,11 @@ namespace NzbDrone.Core.Indexers.Gateway
         {
             RuleFor(c => c.BaseUrl).ValidRootUrl();
             RuleFor(c => c.ApiKey).NotEmpty();
+
+            // Optional override. Blank (null) = use the gateway's advertised default page size;
+            // a provided value is passed through verbatim (the gateway is authoritative on its own
+            // maxPageSize ceiling — we do not clamp client-side).
+            RuleFor(c => c.ResultLimit).GreaterThan(0).When(c => c.ResultLimit.HasValue);
         }
     }
 
@@ -56,6 +61,12 @@ namespace NzbDrone.Core.Indexers.Gateway
 
         [FieldDefinition(3, Label = "GatewayLanguages", Type = FieldType.Select, SelectOptions = typeof(RealLanguageFieldConverter), HelpText = "GatewayLanguagesHelpText")]
         public IEnumerable<int> MultiLanguages { get; set; }
+
+        // Optional per-search result-count override. Null/blank = use the gateway's advertised
+        // Limits.DefaultPageSize (falling back to 50). Passed through verbatim — NOT clamped to
+        // Limits.MaxPageSize; the gateway owns its own ceiling.
+        [FieldDefinition(4, Label = "GatewayResultLimit", Type = FieldType.Number, HelpText = "GatewayResultLimitHelpText", Advanced = true)]
+        public int? ResultLimit { get; set; }
 
         // IIndexerSettings floor member; no UI field.
         public IEnumerable<int> FailDownloads { get; set; }
