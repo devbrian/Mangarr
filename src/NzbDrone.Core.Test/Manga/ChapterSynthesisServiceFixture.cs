@@ -114,8 +114,8 @@ namespace NzbDrone.Core.Test.MangaTests
 
             IList<Chapter> captured = null;
             Mocker.GetMock<IChapterListService>()
-                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>()))
-                .Callback<Manga.Manga, IEnumerable<Chapter>>((_, list) => captured = list?.ToList());
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
 
             Subject.SynthesizeFromDecisions(_searched, decisions);
 
@@ -138,8 +138,8 @@ namespace NzbDrone.Core.Test.MangaTests
 
             IList<Chapter> captured = null;
             Mocker.GetMock<IChapterListService>()
-                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>()))
-                .Callback<Manga.Manga, IEnumerable<Chapter>>((_, list) => captured = list?.ToList());
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
 
             Subject.SynthesizeFromDecisions(_searched, decisions);
 
@@ -174,7 +174,8 @@ namespace NzbDrone.Core.Test.MangaTests
             Mocker.GetMock<IChapterListService>()
                 .Verify(
                     s => s.SyncChapters(It.IsAny<Manga.Manga>(),
-                        It.Is<IEnumerable<Chapter>>(list => list.Any())),
+                        It.Is<IEnumerable<Chapter>>(list => list.Any()),
+                        It.IsAny<bool>()),
                     Times.Never);
         }
 
@@ -202,8 +203,8 @@ namespace NzbDrone.Core.Test.MangaTests
 
             IList<Chapter> captured = null;
             Mocker.GetMock<IChapterListService>()
-                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>()))
-                .Callback<Manga.Manga, IEnumerable<Chapter>>((_, list) => captured = list?.ToList());
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
 
             Subject.SynthesizeFromDecisions(_searched, decisions);
 
@@ -226,8 +227,8 @@ namespace NzbDrone.Core.Test.MangaTests
 
             IList<Chapter> captured = null;
             Mocker.GetMock<IChapterListService>()
-                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>()))
-                .Callback<Manga.Manga, IEnumerable<Chapter>>((_, list) => captured = list?.ToList());
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
 
             Subject.SynthesizeFromDecisions(_searched, decisions);
 
@@ -248,8 +249,8 @@ namespace NzbDrone.Core.Test.MangaTests
 
             IList<Chapter> captured = null;
             Mocker.GetMock<IChapterListService>()
-                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>()))
-                .Callback<Manga.Manga, IEnumerable<Chapter>>((_, list) => captured = list?.ToList());
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
 
             Subject.SynthesizeFromDecisions(_searched, decisions);
 
@@ -270,8 +271,8 @@ namespace NzbDrone.Core.Test.MangaTests
 
             IList<Chapter> captured = null;
             Mocker.GetMock<IChapterListService>()
-                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>()))
-                .Callback<Manga.Manga, IEnumerable<Chapter>>((_, list) => captured = list?.ToList());
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
 
             Subject.SynthesizeFromDecisions(_searched, decisions);
 
@@ -302,8 +303,8 @@ namespace NzbDrone.Core.Test.MangaTests
 
             IList<Chapter> captured = null;
             Mocker.GetMock<IChapterListService>()
-                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>()))
-                .Callback<Manga.Manga, IEnumerable<Chapter>>((_, list) => captured = list?.ToList());
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
 
             Subject.SynthesizeFromDecisions(_searched, decisions);
 
@@ -335,8 +336,8 @@ namespace NzbDrone.Core.Test.MangaTests
 
             IList<Chapter> captured = null;
             Mocker.GetMock<IChapterListService>()
-                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>()))
-                .Callback<Manga.Manga, IEnumerable<Chapter>>((_, list) => captured = list?.ToList());
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
 
             Subject.SynthesizeForGrab(remote);
 
@@ -366,8 +367,8 @@ namespace NzbDrone.Core.Test.MangaTests
 
             IList<Chapter> captured = null;
             Mocker.GetMock<IChapterListService>()
-                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>()))
-                .Callback<Manga.Manga, IEnumerable<Chapter>>((_, list) => captured = list?.ToList());
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
 
             Subject.SynthesizeForGrab(remote);
 
@@ -398,8 +399,42 @@ namespace NzbDrone.Core.Test.MangaTests
             Subject.SynthesizeForGrab(remote);
 
             Mocker.GetMock<IChapterListService>()
-                .Verify(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>()),
+                .Verify(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()),
                     Times.Never);
+        }
+
+        // WR-01 + WR-02: SynthesizeForGrab returns the resolved row (re-read post-sync so it
+        // carries its persisted Id) for the caller to re-hydrate RemoteChapter.Chapters, AND
+        // it calls SyncChapters with preserveExistingOnNull: true so a synthesized null Title
+        // can never clobber a real title written by a concurrent refresh.
+        [Test]
+        public void SynthesizeForGrab_returns_rehydration_rows_and_preserves_existing_on_null()
+        {
+            var saved = new Chapter { Id = 555, MangaId = _searched.Id, ChapterNumber = 7m };
+            Mocker.GetMock<IChapterService>()
+                .SetupSequence(s => s.FindByMangaAndNumber(_searched.Id, 7m))
+                .Returns((Chapter)null)   // absence check -> synthesize
+                .Returns(saved);          // post-sync re-read -> resolved with Id
+
+            var remote = new RemoteChapter
+            {
+                Manga = _searched,
+                ParsedChapterInfo = new ParsedChapterInfo
+                {
+                    MangaTitle = "The Forgotten Field",
+                    ChapterNumbers = new[] { 7m },
+                    ChapterType = ChapterType.Regular,
+                },
+                Release = new ReleaseInfo { Title = "The Forgotten Field" },
+            };
+
+            var result = Subject.SynthesizeForGrab(remote);
+
+            result.Should().ContainSingle(c => c.Id == 555);
+
+            Mocker.GetMock<IChapterListService>()
+                .Verify(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), true),
+                    Times.Once);
         }
     }
 }

@@ -18,7 +18,11 @@ namespace NzbDrone.Core.Manga
         void SynthesizeFromDecisions(Manga manga, List<MangaDownloadDecision> decisions);
 
         // On-grab: synthesize the single grabbed number (whole OR fractional, D-04)
-        // when no local Chapter row exists for it.
-        void SynthesizeForGrab(RemoteChapter remoteChapter);
+        // when no local Chapter row exists for it. Returns the resolved Chapter rows for
+        // the grabbed numbers (newly-synthesized AND already-existing), so the caller can
+        // re-hydrate the cached RemoteChapter.Chapters — the cached object was resolved at
+        // search time, when an uncataloged number had no row, so without re-hydration the
+        // freshly-synthesized row would never qualify the decision (Phase 40 WR-01).
+        IReadOnlyList<Chapter> SynthesizeForGrab(RemoteChapter remoteChapter);
     }
 }

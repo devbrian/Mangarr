@@ -177,7 +177,28 @@ namespace Mangarr.Api.V5.Manga.Release
             // would otherwise be rejected for having no local Chapter row. This is belt-and-
             // suspenders with the Part A captured-result 404 backstop (D-11): synthesis closes
             // the genuine gap; the 404 guard below still surfaces any remaining Rejected/Skipped.
-            _chapterSynthesisService.SynthesizeForGrab(remoteChapter);
+            //
+            // WR-03: synthesis is a best-effort side effect — a transient DB error (or a
+            // UNIQUE-violation under the WR-02 refresh race) must NOT blow up an otherwise
+            // grabbable release with an unhandled 500. WR-01: re-hydrate the cached
+            // RemoteChapter.Chapters from the resolved rows — the cache was built at search
+            // time when the uncataloged number had no row, so IsQualifiedReport (which requires
+            // Chapters.Any()) would reject the grab unless we merge the just-synthesized row in.
+            try
+            {
+                var ensured = _chapterSynthesisService.SynthesizeForGrab(remoteChapter);
+                foreach (var chapter in ensured)
+                {
+                    if (remoteChapter.Chapters.All(c => c.Id != chapter.Id))
+                    {
+                        remoteChapter.Chapters.Add(chapter);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "On-grab chapter synthesis failed for release '{0}'; continuing with grab.", remoteChapter);
+            }
 
             try
             {

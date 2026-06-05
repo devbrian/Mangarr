@@ -193,6 +193,45 @@ namespace NzbDrone.Core.Test.MangaTests
         }
 
         [Test]
+        public void SyncChapters_preserveExistingOnNull_does_not_clobber_real_Title_with_synthesized_null()
+        {
+            // Phase 40 WR-02: the synthesis caller passes preserveExistingOnNull: true. A
+            // synthesized row carries Title = null ("unknown", NOT canonical). Under the TOCTOU
+            // race where a concurrent refresh inserted the real chapter between the synthesis
+            // absence-check and this sync, the synthesized null must NOT clobber the real Title
+            // (nor the canonical ChapterType). Contrast with the clobber test above (default false).
+            var existing = new Chapter
+            {
+                Id = 42,
+                MangaId = 1,
+                ChapterNumber = 5m,
+                Title = "Real MangaDex Title",
+                ChapterType = ChapterType.Special,
+            };
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.GetByMangaId(1))
+                .Returns(new List<Chapter> { existing });
+
+            var remote = new List<Chapter>
+            {
+                new() { ChapterNumber = 5m, Title = null, ChapterType = ChapterType.Regular },
+            };
+
+            IList<Chapter> captured = null;
+            Mocker.GetMock<IChapterRepository>()
+                .Setup(r => r.UpdateMany(It.IsAny<IList<Chapter>>()))
+                .Callback<IList<Chapter>>(list => captured = list);
+
+            Subject.SyncChapters(_manga, remote, preserveExistingOnNull: true);
+
+            captured.Should().NotBeNull();
+            captured[0].Title.Should().Be("Real MangaDex Title",
+                "a synthesized null Title must not clobber a real one under preserveExistingOnNull");
+            captured[0].ChapterType.Should().Be(ChapterType.Special,
+                "a synthesized row carries no authoritative ChapterType under preserveExistingOnNull");
+        }
+
+        [Test]
         public void SyncChapters_does_not_DELETE_stale_chapters()
         {
             // Locked stale-handling decision (Phase 16.1 PATTERNS.md Pitfall 6 +

@@ -101,7 +101,7 @@ namespace NzbDrone.Core.Manga
                     continue;
                 }
 
-                rows.Add(BuildRow(number, null, null, null, monitored));
+                rows.Add(BuildRow(number, null, null, null, monitored, ChapterType.Regular));
             }
 
             if (rows.Count == 0)
@@ -115,28 +115,33 @@ namespace NzbDrone.Core.Manga
                 manga.Title,
                 manga.Id);
 
-            _chapterListService.SyncChapters(manga, rows);
+            _chapterListService.SyncChapters(manga, rows, preserveExistingOnNull: true);
         }
 
-        public void SynthesizeForGrab(RemoteChapter remoteChapter)
+        public IReadOnlyList<Chapter> SynthesizeForGrab(RemoteChapter remoteChapter)
         {
             var manga = remoteChapter?.Manga;
             var numbers = remoteChapter?.ParsedChapterInfo?.ChapterNumbers;
 
             if (manga == null || numbers == null || numbers.Length == 0)
             {
-                return;
+                return Array.Empty<Chapter>();
             }
 
             // The grabbed number is whole OR fractional (D-04). A grab targets a single
-            // chapter; take the parsed number(s) and synthesize only the absent ones.
+            // chapter; take the parsed number(s) and synthesize only the absent ones. Track
+            // the resolved row for every grabbed number (already-existing OR newly-synthesized)
+            // so the caller can re-hydrate RemoteChapter.Chapters (WR-01).
             var monitored = ResolveMonitored(manga);
+            var resolved = new List<Chapter>();
             var rows = new List<Chapter>();
 
             foreach (var number in numbers.Distinct())
             {
-                if (_chapterService.FindByMangaAndNumber(manga.Id, number) != null)
+                var existing = _chapterService.FindByMangaAndNumber(manga.Id, number);
+                if (existing != null)
                 {
+                    resolved.Add(existing);
                     continue;
                 }
 
@@ -152,7 +157,7 @@ namespace NzbDrone.Core.Manga
 
             if (rows.Count == 0)
             {
-                return;
+                return resolved;
             }
 
             _logger.Debug(
@@ -161,7 +166,20 @@ namespace NzbDrone.Core.Manga
                 manga.Title,
                 manga.Id);
 
-            _chapterListService.SyncChapters(manga, rows);
+            _chapterListService.SyncChapters(manga, rows, preserveExistingOnNull: true);
+
+            // Re-read each synthesized number so the returned rows carry their persisted Id
+            // (robust regardless of whether InsertMany back-fills the in-memory objects).
+            foreach (var row in rows)
+            {
+                var saved = _chapterService.FindByMangaAndNumber(manga.Id, row.ChapterNumber);
+                if (saved != null)
+                {
+                    resolved.Add(saved);
+                }
+            }
+
+            return resolved;
         }
 
         // (1) Precision-first attribution gate. ID-match runs FIRST when Ids present; else

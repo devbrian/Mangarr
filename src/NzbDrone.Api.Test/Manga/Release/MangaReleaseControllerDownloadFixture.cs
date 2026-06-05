@@ -63,9 +63,12 @@ namespace NzbDrone.Api.Test.Manga.Release
                   .Returns(_cache.Object);
 
             // Capture invocation order: SynthesizeForGrab must run BEFORE ProcessDecision (D-04).
+            // Returns the resolved Chapter rows (WR-01) — default empty here; individual tests
+            // override to assert the controller re-hydrates RemoteChapter.Chapters.
             Mocker.GetMock<IChapterSynthesisService>()
                   .Setup(s => s.SynthesizeForGrab(It.IsAny<RemoteChapter>()))
-                  .Callback(() => _invocationOrder.Add("SynthesizeForGrab"));
+                  .Callback(() => _invocationOrder.Add("SynthesizeForGrab"))
+                  .Returns(new List<NzbDrone.Core.Manga.Chapter>());
 
             // Default: a healthy grab. Individual tests override the return value.
             Mocker.GetMock<IProcessMangaDownloadDecisions>()
@@ -192,6 +195,41 @@ namespace NzbDrone.Api.Test.Manga.Release
                   .Verify(s => s.SynthesizeForGrab(_remoteChapter), Times.Once);
 
             // The D-10 guard logs a Warn before throwing; acknowledge it.
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
+        // Test H (WR-01) — the controller re-hydrates RemoteChapter.Chapters from the rows
+        // SynthesizeForGrab returns, so a just-synthesized uncataloged chapter qualifies the
+        // decision (the cached RemoteChapter had no row for it at search time).
+        [Test]
+        public async Task DownloadRelease_should_rehydrate_chapters_from_synthesis_result()
+        {
+            _remoteChapter.Chapters = new List<NzbDrone.Core.Manga.Chapter>();
+            var synthesized = new NzbDrone.Core.Manga.Chapter { Id = 4242, ChapterNumber = 24m };
+
+            Mocker.GetMock<IChapterSynthesisService>()
+                  .Setup(s => s.SynthesizeForGrab(It.IsAny<RemoteChapter>()))
+                  .Returns(new List<NzbDrone.Core.Manga.Chapter> { synthesized });
+
+            await Subject.DownloadRelease(BuildResource());
+
+            _remoteChapter.Chapters.Should().ContainSingle(c => c.Id == 4242);
+        }
+
+        // Test I (WR-03) — synthesis is best-effort: a throw from SynthesizeForGrab must NOT
+        // blow up an otherwise-grabbable release. The grab proceeds and returns 200.
+        [Test]
+        public async Task DownloadRelease_should_continue_when_synthesis_throws()
+        {
+            Mocker.GetMock<IChapterSynthesisService>()
+                  .Setup(s => s.SynthesizeForGrab(It.IsAny<RemoteChapter>()))
+                  .Throws(new InvalidOperationException("synthesis blew up"));
+
+            var result = await Subject.DownloadRelease(BuildResource());
+
+            result.Result.Should().BeOfType<Ok<MangaReleaseResource>>();
+
+            // The WR-03 guard logs a Warn on the swallowed synthesis failure; acknowledge it.
             ExceptionVerification.ExpectedWarns(1);
         }
     }
