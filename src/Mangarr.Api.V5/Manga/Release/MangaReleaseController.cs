@@ -41,6 +41,7 @@ namespace Mangarr.Api.V5.Manga.Release
         private readonly IProcessMangaDownloadDecisions _processDownloadDecisions;
         private readonly IMangaService _mangaService;
         private readonly IChapterService _chapterService;
+        private readonly IChapterSynthesisService _chapterSynthesisService;
         private readonly Logger _logger;
 
         private readonly ICached<RemoteChapter> _remoteChapterCache;
@@ -49,6 +50,7 @@ namespace Mangarr.Api.V5.Manga.Release
                                       IProcessMangaDownloadDecisions processDownloadDecisions,
                                       IMangaService mangaService,
                                       IChapterService chapterService,
+                                      IChapterSynthesisService chapterSynthesisService,
                                       ICacheManager cacheManager,
                                       Logger logger)
         {
@@ -56,6 +58,7 @@ namespace Mangarr.Api.V5.Manga.Release
             _processDownloadDecisions = processDownloadDecisions;
             _mangaService = mangaService;
             _chapterService = chapterService;
+            _chapterSynthesisService = chapterSynthesisService;
             _logger = logger;
 
             _remoteChapterCache = cacheManager.GetCache<RemoteChapter>(GetType(), "remoteChapters");
@@ -167,6 +170,14 @@ namespace Mangarr.Api.V5.Manga.Release
                 throw new NzbDroneClientException(HttpStatusCode.NotFound,
                     "Couldn't find requested release in cache, try searching again");
             }
+
+            // Phase 40 RECON-03 / D-04: on-grab synthesis runs BEFORE the decision so the
+            // freshly-synthesized Chapter row makes the decision qualify. A manual grab of a
+            // chapter the MangaDex metadata catalog never enumerated (but the gateway exposes)
+            // would otherwise be rejected for having no local Chapter row. This is belt-and-
+            // suspenders with the Part A captured-result 404 backstop (D-11): synthesis closes
+            // the genuine gap; the 404 guard below still surfaces any remaining Rejected/Skipped.
+            _chapterSynthesisService.SynthesizeForGrab(remoteChapter);
 
             try
             {
