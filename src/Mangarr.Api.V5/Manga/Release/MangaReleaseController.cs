@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using NLog;
 using NzbDrone.Common.Cache;
 using NzbDrone.Core.DecisionEngine.Manga;
+using NzbDrone.Core.Download;
 using NzbDrone.Core.Exceptions;
 using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.IndexerSearch.Manga;
@@ -30,14 +31,9 @@ namespace Mangarr.Api.V5.Manga.Release
     //   * The Grab POST routes through IProcessMangaDownloadDecisions.ProcessDecision (sonarr-
     //     consistency-audit F-02 fix 2026-05-06) — same Pending/Rejected/Failed bucketing as the
     //     batch ProcessDecisions path used by ChapterSearchService + MangaSearchService. The
-    //     service then hands the cached RemoteChapter to IDownloadService.DownloadReport via
-    //     RemoteChapter.ToRemoteEpisodeShim() — Phase 4 D-10's `Protocol == DownloadProtocol.Http`
-    //     early-return guard routes the manga-protocol release into InProcessImageDownloadClient.
-    //
-    // Phase 8 cleanup: collapse with ReleaseController when Tv/ deletes — the TV-side
-    // `Protocol == DownloadProtocol.Http` early-return guard disappears with it; the manga
-    // grab path becomes a direct call into a unified IDownloadService through the unified
-    // IProcessDownloadDecisions service.
+    //     service hands the cached RemoteChapter into the manga download pipeline; the grab POST
+    //     surfaces a Rejected/Skipped decision as a 404 (Phase 40 D-10) rather than greening the
+    //     UI button on a grab that queued nothing.
     [V5ApiController("manga/release")]
     public class MangaReleaseController : Controller
     {
@@ -161,9 +157,9 @@ namespace Mangarr.Api.V5.Manga.Release
         [Produces("application/json")]
         public async Task<Results<Ok<MangaReleaseResource>, NotFound>> DownloadRelease([FromBody] MangaReleaseResource resource)
         {
-            // PIPELINE-01 Grab — looks up the cached RemoteChapter by Guid and delegates to
-            // IDownloadService.DownloadReport. Phase 4 D-10 routes Protocol=Http into the
-            // InProcessImageDownloadClient via the early-return guard in CompletedDownloadService.
+            // PIPELINE-01 Grab — looks up the cached RemoteChapter by Guid and routes it through
+            // IProcessMangaDownloadDecisions.ProcessDecision. A Rejected/Skipped decision is surfaced
+            // as a 404 (Phase 40 D-10) so the UI never greens a grab that queued nothing.
             var remoteChapter = _remoteChapterCache.Find(GetCacheKey(resource));
             if (remoteChapter == null)
             {
@@ -178,12 +174,19 @@ namespace Mangarr.Api.V5.Manga.Release
                 // IProcessMangaDownloadDecisions.ProcessDecision — same Pending/Rejected/Failed
                 // bucketing as the batch ProcessDecisions path. The service applies the
                 // qualified-report gate, the TemporarilyRejected → Pending(Delay) routing, and
-                // the IDownloadService.DownloadReport(remoteChapter.ToRemoteEpisodeShim(), id)
-                // call via the shared ProcessDecisionInternal — Phase 4 D-10's
-                // `Protocol == DownloadProtocol.Http` early-return guard still routes the
-                // manga-protocol release into InProcessImageDownloadClient.
+                // the shared ProcessDecisionInternal download dispatch.
+                //
+                // Phase 40 D-10: capture the ProcessedDecisionResult (previously discarded) and
+                // surface a Rejected/Skipped grab as a 404 + Warn log — mirrors the cache-miss
+                // throw above so the UI button never greens on a grab that queued nothing.
                 var decision = new NzbDrone.Core.DecisionEngine.Manga.MangaDownloadDecision(remoteChapter);
-                await _processDownloadDecisions.ProcessDecision(decision, downloadClientId: null);
+                var result = await _processDownloadDecisions.ProcessDecision(decision, downloadClientId: null);
+                if (result is ProcessedDecisionResult.Rejected or ProcessedDecisionResult.Skipped)
+                {
+                    _logger.Warn("Manga grab for release '{0}' returned {1}; nothing queued.", remoteChapter, result);
+                    throw new NzbDroneClientException(HttpStatusCode.NotFound,
+                        "Release could not be grabbed. Try searching again.");
+                }
             }
             catch (ReleaseDownloadException ex)
             {

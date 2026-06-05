@@ -79,6 +79,10 @@ namespace NzbDrone.Api.Test.Manga.Release
                 async () => await Subject.DownloadRelease(BuildResource()));
 
             ex.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+            // The D-10 guard logs a Warn before throwing; acknowledge it so the TestBase
+            // unexpected-log assertion passes.
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         // Test B — Skipped decision must surface as a 404 (D-10).
@@ -93,6 +97,10 @@ namespace NzbDrone.Api.Test.Manga.Release
                 async () => await Subject.DownloadRelease(BuildResource()));
 
             ex.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+            // The D-10 guard logs a Warn before throwing; acknowledge it so the TestBase
+            // unexpected-log assertion passes.
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         // Test C — Grabbed decision is the unchanged happy path: 200 with the release resource.
