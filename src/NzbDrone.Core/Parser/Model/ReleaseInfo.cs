@@ -38,6 +38,16 @@ namespace NzbDrone.Core.Parser.Model
 
         public string Origin { get; set; }
         public string Source { get; set; }
+
+        // Phase 40 / D-06 (RECON-04): cross-source ID dict (mangadexId/anilistId/malId) threaded by
+        // GatewayParser from GatewayRelease.Ids for the Plan-03 synthesis attribution gate, which
+        // ID-matches first and falls through to exact-title match when this is null. Nullable with NO
+        // initializer ON PURPOSE — a missing dict must stay null (an empty dict would mask "no IDs
+        // supplied" as "matched zero IDs" and break the D-06 fall-through). Survives
+        // IndexerBase.CleanupReleases the same way the Source field does (it only stamps
+        // Indexer/IndexerId/Protocol/Priority).
+        public Dictionary<string, object> Ids { get; set; }
+
         public string Container { get; set; }
         public string Codec { get; set; }
         public string Resolution { get; set; }

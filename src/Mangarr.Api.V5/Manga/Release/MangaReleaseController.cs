@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using NLog;
 using NzbDrone.Common.Cache;
 using NzbDrone.Core.DecisionEngine.Manga;
+using NzbDrone.Core.Download;
 using NzbDrone.Core.Exceptions;
 using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.IndexerSearch.Manga;
@@ -30,14 +31,9 @@ namespace Mangarr.Api.V5.Manga.Release
     //   * The Grab POST routes through IProcessMangaDownloadDecisions.ProcessDecision (sonarr-
     //     consistency-audit F-02 fix 2026-05-06) — same Pending/Rejected/Failed bucketing as the
     //     batch ProcessDecisions path used by ChapterSearchService + MangaSearchService. The
-    //     service then hands the cached RemoteChapter to IDownloadService.DownloadReport via
-    //     RemoteChapter.ToRemoteEpisodeShim() — Phase 4 D-10's `Protocol == DownloadProtocol.Http`
-    //     early-return guard routes the manga-protocol release into InProcessImageDownloadClient.
-    //
-    // Phase 8 cleanup: collapse with ReleaseController when Tv/ deletes — the TV-side
-    // `Protocol == DownloadProtocol.Http` early-return guard disappears with it; the manga
-    // grab path becomes a direct call into a unified IDownloadService through the unified
-    // IProcessDownloadDecisions service.
+    //     service hands the cached RemoteChapter into the manga download pipeline; the grab POST
+    //     surfaces a Rejected/Skipped decision as a 404 (Phase 40 D-10) rather than greening the
+    //     UI button on a grab that queued nothing.
     [V5ApiController("manga/release")]
     public class MangaReleaseController : Controller
     {
@@ -45,6 +41,7 @@ namespace Mangarr.Api.V5.Manga.Release
         private readonly IProcessMangaDownloadDecisions _processDownloadDecisions;
         private readonly IMangaService _mangaService;
         private readonly IChapterService _chapterService;
+        private readonly IChapterSynthesisService _chapterSynthesisService;
         private readonly Logger _logger;
 
         private readonly ICached<RemoteChapter> _remoteChapterCache;
@@ -53,6 +50,7 @@ namespace Mangarr.Api.V5.Manga.Release
                                       IProcessMangaDownloadDecisions processDownloadDecisions,
                                       IMangaService mangaService,
                                       IChapterService chapterService,
+                                      IChapterSynthesisService chapterSynthesisService,
                                       ICacheManager cacheManager,
                                       Logger logger)
         {
@@ -60,6 +58,7 @@ namespace Mangarr.Api.V5.Manga.Release
             _processDownloadDecisions = processDownloadDecisions;
             _mangaService = mangaService;
             _chapterService = chapterService;
+            _chapterSynthesisService = chapterSynthesisService;
             _logger = logger;
 
             _remoteChapterCache = cacheManager.GetCache<RemoteChapter>(GetType(), "remoteChapters");
@@ -161,9 +160,9 @@ namespace Mangarr.Api.V5.Manga.Release
         [Produces("application/json")]
         public async Task<Results<Ok<MangaReleaseResource>, NotFound>> DownloadRelease([FromBody] MangaReleaseResource resource)
         {
-            // PIPELINE-01 Grab — looks up the cached RemoteChapter by Guid and delegates to
-            // IDownloadService.DownloadReport. Phase 4 D-10 routes Protocol=Http into the
-            // InProcessImageDownloadClient via the early-return guard in CompletedDownloadService.
+            // PIPELINE-01 Grab — looks up the cached RemoteChapter by Guid and routes it through
+            // IProcessMangaDownloadDecisions.ProcessDecision. A Rejected/Skipped decision is surfaced
+            // as a 404 (Phase 40 D-10) so the UI never greens a grab that queued nothing.
             var remoteChapter = _remoteChapterCache.Find(GetCacheKey(resource));
             if (remoteChapter == null)
             {
@@ -172,18 +171,54 @@ namespace Mangarr.Api.V5.Manga.Release
                     "Couldn't find requested release in cache, try searching again");
             }
 
+            // Phase 40 RECON-03 / D-04: on-grab synthesis runs BEFORE the decision so the
+            // freshly-synthesized Chapter row makes the decision qualify. A manual grab of a
+            // chapter the MangaDex metadata catalog never enumerated (but the gateway exposes)
+            // would otherwise be rejected for having no local Chapter row. This is belt-and-
+            // suspenders with the Part A captured-result 404 backstop (D-11): synthesis closes
+            // the genuine gap; the 404 guard below still surfaces any remaining Rejected/Skipped.
+            //
+            // WR-03: synthesis is a best-effort side effect — a transient DB error (or a
+            // UNIQUE-violation under the WR-02 refresh race) must NOT blow up an otherwise
+            // grabbable release with an unhandled 500. WR-01: re-hydrate the cached
+            // RemoteChapter.Chapters from the resolved rows — the cache was built at search
+            // time when the uncataloged number had no row, so IsQualifiedReport (which requires
+            // Chapters.Any()) would reject the grab unless we merge the just-synthesized row in.
+            try
+            {
+                var ensured = _chapterSynthesisService.SynthesizeForGrab(remoteChapter);
+                foreach (var chapter in ensured)
+                {
+                    if (remoteChapter.Chapters.All(c => c.Id != chapter.Id))
+                    {
+                        remoteChapter.Chapters.Add(chapter);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "On-grab chapter synthesis failed for release '{0}'; continuing with grab.", remoteChapter);
+            }
+
             try
             {
                 // F-02 fix (sonarr-consistency-audit 2026-05-06): route through
                 // IProcessMangaDownloadDecisions.ProcessDecision — same Pending/Rejected/Failed
                 // bucketing as the batch ProcessDecisions path. The service applies the
                 // qualified-report gate, the TemporarilyRejected → Pending(Delay) routing, and
-                // the IDownloadService.DownloadReport(remoteChapter.ToRemoteEpisodeShim(), id)
-                // call via the shared ProcessDecisionInternal — Phase 4 D-10's
-                // `Protocol == DownloadProtocol.Http` early-return guard still routes the
-                // manga-protocol release into InProcessImageDownloadClient.
+                // the shared ProcessDecisionInternal download dispatch.
+                //
+                // Phase 40 D-10: capture the ProcessedDecisionResult (previously discarded) and
+                // surface a Rejected/Skipped grab as a 404 + Warn log — mirrors the cache-miss
+                // throw above so the UI button never greens on a grab that queued nothing.
                 var decision = new NzbDrone.Core.DecisionEngine.Manga.MangaDownloadDecision(remoteChapter);
-                await _processDownloadDecisions.ProcessDecision(decision, downloadClientId: null);
+                var result = await _processDownloadDecisions.ProcessDecision(decision, downloadClientId: null);
+                if (result is ProcessedDecisionResult.Rejected or ProcessedDecisionResult.Skipped)
+                {
+                    _logger.Warn("Manga grab for release '{0}' returned {1}; nothing queued.", remoteChapter, result);
+                    throw new NzbDroneClientException(HttpStatusCode.NotFound,
+                        "Release could not be grabbed. Try searching again.");
+                }
             }
             catch (ReleaseDownloadException ex)
             {

@@ -344,6 +344,77 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         }
 
         [Test]
+        public void ids_dict_round_trips_onto_releaseinfo_ids()
+        {
+            // RECON-04 / D-06 enabler: a release carrying a cross-source Ids dict
+            // (mangadexId/malId/anilistId) must surface those Ids verbatim on the produced
+            // ReleaseInfo.Ids so the synthesis attribution gate (Plan 03) can ID-match first.
+            // The parser passes the dict through unchanged — no parsing/filtering here (T-40-05:
+            // defensive value parsing lives in the synthesis service). This also proves the field
+            // survives the same passthrough the Source field already survives (Assumption A3).
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease
+                    {
+                        Guid = "comix.to:ids:1",
+                        Title = "Solo Leveling Chapter 1",
+                        SourceKey = "comix.to",
+                        DownloadHandle = "R6.token",
+                        PublishDate = DateTime.UtcNow,
+                        MangaTitle = "Solo Leveling",
+                        ChapterNumber = 1m,
+                        Language = "en",
+                        Ids = new Dictionary<string, object>
+                        {
+                            { "mangadexId", "fb716acf-4257-4613-bf30-32d7c32dc199" },
+                            { "malId", 12345 }
+                        }
+                    }
+                }
+            };
+
+            var release = Subject.ParseResponse(MakeResponse(response.ToJson())).Single();
+
+            release.Ids.Should().NotBeNull("a release carrying cross-source Ids must surface them on ReleaseInfo.Ids");
+            release.Ids.Should().ContainKey("mangadexId");
+            release.Ids["mangadexId"].ToString().Should().Be("fb716acf-4257-4613-bf30-32d7c32dc199");
+            release.Ids.Should().ContainKey("malId");
+            release.Ids["malId"].ToString().Should().Be("12345");
+        }
+
+        [Test]
+        public void null_ids_dict_yields_null_releaseinfo_ids()
+        {
+            // D-06 ordering: an absent/null Ids dict must leave ReleaseInfo.Ids null (NOT an empty
+            // dict) so the synthesis attribution gate falls through to the exact-title match instead
+            // of mis-treating "no IDs supplied" as "matched zero IDs".
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease
+                    {
+                        Guid = "comix.to:no-ids:1",
+                        Title = "Solo Leveling Chapter 2",
+                        SourceKey = "comix.to",
+                        DownloadHandle = "R6.token",
+                        PublishDate = DateTime.UtcNow,
+                        MangaTitle = "Solo Leveling",
+                        ChapterNumber = 2m,
+                        Language = "en",
+                        Ids = null
+                    }
+                }
+            };
+
+            var release = Subject.ParseResponse(MakeResponse(response.ToJson())).Single();
+
+            release.Ids.Should().BeNull("an absent Ids dict must fall through to the exact-title gate (D-06 ordering)");
+        }
+
+        [Test]
         public void search_error_envelope_with_auth_code_throws_apikey_exception()
         {
             // Codex P2 (parity with caps CR-02): a 2xx body wrapping a top-level error envelope

@@ -15,6 +15,14 @@ namespace NzbDrone.Core.Manga
     // stale-handling to a future phase if needed.
     public interface IChapterListService
     {
-        void SyncChapters(Manga manga, IEnumerable<Chapter> remoteChapters);
+        // preserveExistingOnNull (Phase 40 WR-02/IN-02): the DEFAULT (false) keeps the
+        // metadata-refresh contract where a null Title/ChapterType is canonical and overwrites
+        // verbatim (MangaDexMetadataSource null-EN-title suppression, 2026-05-10). The
+        // ChapterSynthesisService caller passes true: a synthesized row carries no authoritative
+        // Title/ChapterType (null = "unknown", not "canonically absent"), so on the TOCTOU
+        // update branch — a concurrent RefreshMangaCommand inserting the same number with a real
+        // title between the synthesis absence-check and this sync — a null synthesized value must
+        // NOT clobber the real one.
+        void SyncChapters(Manga manga, IEnumerable<Chapter> remoteChapters, bool preserveExistingOnNull = false);
     }
 }

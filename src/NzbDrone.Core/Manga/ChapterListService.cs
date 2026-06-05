@@ -35,7 +35,7 @@ namespace NzbDrone.Core.Manga
             _logger = logger;
         }
 
-        public void SyncChapters(Manga manga, IEnumerable<Chapter> remoteChapters)
+        public void SyncChapters(Manga manga, IEnumerable<Chapter> remoteChapters, bool preserveExistingOnNull = false)
         {
             if (remoteChapters == null)
             {
@@ -79,10 +79,32 @@ namespace NzbDrone.Core.Manga
                     // remote-driven; the structural mutable fields below keep their
                     // coalesce guard because their semantic is "transient API gap" rather
                     // than "canonically absent."
-                    match.Title = remote.Title;
+                    //
+                    // Phase 40 WR-02/IN-02: when preserveExistingOnNull is set (the synthesis
+                    // caller), the verbatim semantics flip for Title/ChapterType — a synthesized
+                    // null is "unknown," NOT canonical, so it must not clobber a real value a
+                    // concurrent refresh wrote in the TOCTOU window. The metadata-refresh caller
+                    // (default false) keeps the canonical-null verbatim behavior unchanged.
+                    if (preserveExistingOnNull)
+                    {
+                        match.Title = remote.Title ?? match.Title;
+                    }
+                    else
+                    {
+                        match.Title = remote.Title;
+                    }
+
                     match.AbsoluteChapterNumber = remote.AbsoluteChapterNumber ?? match.AbsoluteChapterNumber;
                     match.VolumeNumber = remote.VolumeNumber ?? match.VolumeNumber;
-                    match.ChapterType = remote.ChapterType;
+
+                    // ChapterType is a non-nullable enum, so it has no null sentinel; under
+                    // preserveExistingOnNull the synthesized row carries no authoritative type
+                    // (it defaults to Regular), so leave the existing canonical type untouched.
+                    if (!preserveExistingOnNull)
+                    {
+                        match.ChapterType = remote.ChapterType;
+                    }
+
                     match.FirstReleaseDate = remote.FirstReleaseDate ?? match.FirstReleaseDate;
                     match.ExternalId = remote.ExternalId ?? match.ExternalId;
                     toUpdate.Add(match);

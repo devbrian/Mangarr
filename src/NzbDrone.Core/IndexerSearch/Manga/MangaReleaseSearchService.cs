@@ -6,6 +6,7 @@ using NLog;
 using NzbDrone.Core.DecisionEngine.Manga;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.IndexerSearch.Definitions;
+using NzbDrone.Core.Manga;
 using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.IndexerSearch.Manga
@@ -29,21 +30,48 @@ namespace NzbDrone.Core.IndexerSearch.Manga
     {
         private readonly IIndexerFactory _indexerFactory;
         private readonly IMakeMangaDownloadDecision _decisionMaker;
+        private readonly IChapterSynthesisService _chapterSynthesisService;
         private readonly Logger _logger;
 
         public MangaReleaseSearchService(IIndexerFactory indexerFactory,
                                          IMakeMangaDownloadDecision decisionMaker,
+                                         IChapterSynthesisService chapterSynthesisService,
                                          Logger logger)
         {
             _indexerFactory = indexerFactory;
             _decisionMaker = decisionMaker;
+            _chapterSynthesisService = chapterSynthesisService;
             _logger = logger;
         }
 
         public async Task<List<MangaDownloadDecision>> MangaSearch(MangaSearchCriteria criteria)
         {
             var reports = await FetchFromIndexers(indexer => indexer.Fetch(criteria), "manga");
-            return _decisionMaker.GetSearchDecision(reports, criteria).ToList();
+            var decisions = _decisionMaker.GetSearchDecision(reports, criteria).ToList();
+
+            // Phase 40 RECON-02 / D-01: whole-manga [0..maxWhole] catalog backfill. The
+            // external gateway exposes chapter releases the MangaDex metadata catalog never
+            // enumerated; mirror the genuinely-missing WHOLE numbers into the local Chapter
+            // catalog so RSS/missing search can discover them. Synthesis is a pure side-effect
+            // (attribution-gated, idempotent via SyncChapters) — the decision list is returned
+            // unchanged. MangaSearch ONLY (NOT ChapterSearch — RESEARCH Open Question #1: the
+            // chapter-scoped path relies on the on-grab hook in MangaReleaseController).
+            //
+            // Best-effort (CodeRabbit PR #328): synthesis is a side-effect — a throw must NOT
+            // abort the search or swallow the decisions the user/RSS-sync is waiting for.
+            try
+            {
+                _chapterSynthesisService.SynthesizeFromDecisions(criteria.Manga, decisions);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex,
+                    "Chapter synthesis failed for manga search '{0}' (id={1}); returning decisions unchanged.",
+                    criteria.Manga?.Title,
+                    criteria.Manga?.Id);
+            }
+
+            return decisions;
         }
 
         public async Task<List<MangaDownloadDecision>> ChapterSearch(ChapterSearchCriteria criteria)
