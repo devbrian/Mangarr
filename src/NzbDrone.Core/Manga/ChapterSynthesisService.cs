@@ -70,7 +70,16 @@ namespace NzbDrone.Core.Manga
                 .Where(n => n == decimal.Truncate(n))
                 .ToList();
 
-            var maxWhole = wholeNumbers.DefaultIfEmpty(0m).Max();
+            // All-fractional edge (CodeRabbit PR #328): if attribution passed but every
+            // attributed number is fractional, there is no whole-number backlog to backfill.
+            // Bail BEFORE the DefaultIfEmpty(0m) below would force maxWhole=0 and synthesize a
+            // phantom chapter 0 (D-02 keeps fractionals out of on-search synthesis entirely).
+            if (wholeNumbers.Count == 0)
+            {
+                return;
+            }
+
+            var maxWhole = wholeNumbers.Max();
 
             if (maxWhole > MaxWholeCap)
             {

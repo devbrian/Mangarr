@@ -56,7 +56,20 @@ namespace NzbDrone.Core.IndexerSearch.Manga
             // (attribution-gated, idempotent via SyncChapters) — the decision list is returned
             // unchanged. MangaSearch ONLY (NOT ChapterSearch — RESEARCH Open Question #1: the
             // chapter-scoped path relies on the on-grab hook in MangaReleaseController).
-            _chapterSynthesisService.SynthesizeFromDecisions(criteria.Manga, decisions);
+            //
+            // Best-effort (CodeRabbit PR #328): synthesis is a side-effect — a throw must NOT
+            // abort the search or swallow the decisions the user/RSS-sync is waiting for.
+            try
+            {
+                _chapterSynthesisService.SynthesizeFromDecisions(criteria.Manga, decisions);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex,
+                    "Chapter synthesis failed for manga search '{0}' (id={1}); returning decisions unchanged.",
+                    criteria.Manga?.Title,
+                    criteria.Manga?.Id);
+            }
 
             return decisions;
         }

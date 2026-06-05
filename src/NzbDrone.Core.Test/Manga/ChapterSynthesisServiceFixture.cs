@@ -148,6 +148,31 @@ namespace NzbDrone.Core.Test.MangaTests
             captured.Should().NotContain(c => c.ChapterNumber == 14.5m);
         }
 
+        [Test]
+        public void SynthesizeFromDecisions_synthesizes_nothing_when_all_attributed_numbers_are_fractional()
+        {
+            // CodeRabbit PR #328: attribution passes but EVERY number is fractional => there is
+            // no whole-number backlog. The old DefaultIfEmpty(0m).Max() forced maxWhole=0 and
+            // synthesized a phantom chapter 0. Assert SyncChapters is never reached.
+            var decisions = new List<MangaDownloadDecision>
+            {
+                Decision("The Forgotten Field", new[] { 1.5m }),
+                Decision("The Forgotten Field", new[] { 2.5m }),
+            };
+
+            IList<Chapter> captured = null;
+            Mocker.GetMock<IChapterListService>()
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
+
+            Subject.SynthesizeFromDecisions(_searched, decisions);
+
+            captured.Should().BeNull("no whole-number backlog exists, so no phantom chapter 0 is synthesized");
+            Mocker.GetMock<IChapterListService>()
+                .Verify(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()),
+                    Times.Never);
+        }
+
         // ---- Attribution (RECON-02 / D-06/D-07) ----
 
         [Test]
