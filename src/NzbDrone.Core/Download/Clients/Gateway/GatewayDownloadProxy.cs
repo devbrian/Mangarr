@@ -167,20 +167,20 @@ namespace NzbDrone.Core.Download.Clients.Gateway
             }
             catch (HttpException ex)
             {
-                throw new DownloadClientException("Unable to connect to the Manga Gateway, {0}", ex, ex.Message);
+                throw new DownloadClientException("Unable to connect to the Mangarr Gateway, {0}", ex, ex.Message);
             }
             catch (HttpRequestException ex)
             {
-                throw new DownloadClientUnavailableException("Unable to connect to the Manga Gateway, {0}", ex, ex.Message);
+                throw new DownloadClientUnavailableException("Unable to connect to the Mangarr Gateway, {0}", ex, ex.Message);
             }
             catch (WebException ex)
             {
                 if (ex.Status == WebExceptionStatus.TrustFailure)
                 {
-                    throw new DownloadClientUnavailableException("Unable to connect to the Manga Gateway, certificate validation failed.", ex);
+                    throw new DownloadClientUnavailableException("Unable to connect to the Mangarr Gateway, certificate validation failed.", ex);
                 }
 
-                throw new DownloadClientUnavailableException("Unable to connect to the Manga Gateway, {0}", ex, ex.Message);
+                throw new DownloadClientUnavailableException("Unable to connect to the Mangarr Gateway, {0}", ex, ex.Message);
             }
         }
 
@@ -193,12 +193,12 @@ namespace NzbDrone.Core.Download.Clients.Gateway
             {
                 // Host only — never the api key.
                 _logger.Warn("Gateway rejected the API key ({0})", response.Request?.Url.Host);
-                throw new DownloadClientAuthenticationException("Manga Gateway authentication failed");
+                throw new DownloadClientAuthenticationException("Mangarr Gateway authentication failed");
             }
 
             if (response.HasHttpError)
             {
-                throw new DownloadClientException("Manga Gateway request failed with status {0}", response.StatusCode);
+                throw new DownloadClientException("Mangarr Gateway request failed with status {0}", response.StatusCode);
             }
         }
     }

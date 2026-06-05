@@ -526,7 +526,7 @@ namespace NzbDrone.Api.Test.Manga.Queue
                 {
                     Manga = new NzbDrone.Core.Manga.Manga { Id = 1 },
                     Chapters = new List<NzbDrone.Core.Manga.Chapter> { new NzbDrone.Core.Manga.Chapter { Id = chapterId } },
-                    Release = new ReleaseInfo { Title = "Some Release", Indexer = "Manga Gateway", Guid = "g1" }
+                    Release = new ReleaseInfo { Title = "Some Release", Indexer = "Mangarr Gateway", Guid = "g1" }
                 }
             };
         }

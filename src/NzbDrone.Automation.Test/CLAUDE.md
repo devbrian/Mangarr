@@ -109,7 +109,7 @@ the Phase-37 gateway work), out of scope for the Phase-39 retirement.
 **Indexer-fixture cluster repointed to the gateway (Plan 39-07 gap-closure).**
 `TestKit.SeedIndexerAsync` now seeds the `GatewayIndexer` (`implementation="GatewayIndexer"`,
 `configContract="GatewaySettings"`, `baseUrl`+`apiKey`, `?skipTesting=true`) under the
-distinct name `"Gateway (test seed)"` (the auto-seeded default disabled "Manga Gateway" row
+distinct name `"Gateway (test seed)"` (the auto-seeded default disabled "Mangarr Gateway" row
 keeps a distinct name). The generic provider-CRUD/test/action indexer fixtures were repointed
 (NOT deleted — repointing RESTORES coverage against the sole indexer): `IndexerAddModalSchemaFixture`
 + `AddIndexerModal.GatewayCard` target `add-indexer-gateway`; `IndexerAddEditDeleteFixture` +

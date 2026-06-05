@@ -90,7 +90,15 @@ namespace NzbDrone.Core.Indexers.Gateway
                     Size = r.SizeBytes ?? 0,
                     DownloadProtocol = DownloadProtocol.Http,
                     ScanlationGroup = r.ScanlationGroup,
-                    TranslatedLanguage = r.Language
+                    TranslatedLanguage = r.Language,
+
+                    // GWIX: the gateway is a single host (Indexer is stamped to the gateway's
+                    // display name by CleanupReleases), but each release names its upstream
+                    // SourceKey (mangadex/comix/…). Surface it via the kept ReleaseInfo.Source
+                    // field so the InteractiveSearch Indexer column can show which source a
+                    // release actually came from. Survives CleanupReleases (which only stamps
+                    // Indexer/IndexerId/Protocol/Priority).
+                    Source = r.SourceKey
                 });
             }
 

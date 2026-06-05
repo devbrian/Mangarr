@@ -102,7 +102,7 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
             Subject.Definition = new DownloadClientDefinition
             {
                 Id = 1,
-                Name = "Manga Gateway",
+                Name = "Mangarr Gateway",
                 Settings = _settings,
                 ConfigContract = nameof(GatewayDownloadClientSettings)
             };

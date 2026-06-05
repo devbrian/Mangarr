@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Phase 38 (GWDL-01..04) — the **"Manga Gateway"** out-of-process `IDownloadClient`. Submits the
+Phase 38 (GWDL-01..04) — the **"Mangarr Gateway"** out-of-process `IDownloadClient`. Submits the
 opaque release handle the Phase-37 `GatewayIndexer` minted (R6) to the external manga-gateway's
 `POST /downloads`, tracks the returned `jobId` as the `DownloadId` (idempotent), maps gateway job
 status to `DownloadItemStatus`, and resolves `OutputPath`/`OutputRootFolders` through

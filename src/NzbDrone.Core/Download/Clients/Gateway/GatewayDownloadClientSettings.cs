@@ -54,11 +54,11 @@ namespace NzbDrone.Core.Download.Clients.Gateway
         public int Port { get; set; }
 
         [FieldDefinition(2, Label = "UseSsl", Type = FieldType.Checkbox, HelpText = "DownloadClientSettingsUseSslHelpText")]
-        [FieldToken(TokenField.HelpText, "UseSsl", "clientName", "Manga Gateway")]
+        [FieldToken(TokenField.HelpText, "UseSsl", "clientName", "Mangarr Gateway")]
         public bool UseSsl { get; set; }
 
         [FieldDefinition(3, Label = "UrlBase", Type = FieldType.Textbox, Advanced = true, HelpText = "DownloadClientSettingsUrlBaseHelpText")]
-        [FieldToken(TokenField.HelpText, "UrlBase", "clientName", "Manga Gateway")]
+        [FieldToken(TokenField.HelpText, "UrlBase", "clientName", "Mangarr Gateway")]
         [FieldToken(TokenField.HelpText, "UrlBase", "url", "http://[host]:[port]/[urlBase]/api")]
         public string UrlBase { get; set; }
 

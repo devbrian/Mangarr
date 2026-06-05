@@ -83,7 +83,7 @@ namespace NzbDrone.Core.Test.Indexer
             _stored.Select(d => d.Implementation)
                    .Should().BeEquivalentTo(new[] { nameof(GatewayIndexer) });
             _stored.Select(d => d.Name)
-                   .Should().BeEquivalentTo(new[] { "Manga Gateway" });
+                   .Should().BeEquivalentTo(new[] { "Mangarr Gateway" });
 
             // Phase 37 A3: GatewayIndexer seeds DISABLED-by-default — its empty default settings
             // (blank BaseUrl/ApiKey) fail config.Validate().IsValid, so DefaultDefinitions yields
@@ -143,7 +143,7 @@ namespace NzbDrone.Core.Test.Indexer
             // exactly one row, and it is the Gateway (NOT the orphan).
             _stored.Should().HaveCount(1);
             _stored[0].Implementation.Should().Be(nameof(GatewayIndexer));
-            _stored[0].Name.Should().Be("Manga Gateway");
+            _stored[0].Name.Should().Be("Mangarr Gateway");
 
             // The reseeded gateway is DISABLED-by-default (Phase 37 A3 — empty default settings
             // fail validation), proving the reseed went through the real DefaultDefinitions path.
@@ -162,7 +162,7 @@ namespace NzbDrone.Core.Test.Indexer
         // proves the gateway is seeded WITHOUT being auto-enabled.
         private sealed class GatewayIndexer : IIndexer
         {
-            public string Name => "Manga Gateway";
+            public string Name => "Mangarr Gateway";
             public System.Type ConfigContract => typeof(GatewaySettings);
             public ProviderMessage Message => null;
             public IEnumerable<ProviderDefinition> DefaultDefinitions => new[]

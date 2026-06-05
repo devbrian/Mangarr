@@ -285,7 +285,7 @@ public class TestKit
     ///
     /// The <c>GatewaySettingsValidator</c> requires a valid root URL (<c>BaseUrl</c>) and a
     /// non-empty <c>ApiKey</c>; both are sent explicitly. The app auto-seeds a default
-    /// DISABLED "Manga Gateway" gateway indexer at startup, so this test-seed instance uses a
+    /// DISABLED "Mangarr Gateway" gateway indexer at startup, so this test-seed instance uses a
     /// DISTINCT name ("Gateway (test seed)" by default) to avoid collision. Seeded ENABLED so
     /// the Edit modal's Test button fires the local browser→Mangarr POST the offline fixtures
     /// observe; <c>?skipTesting=true</c> bypasses the enabled-provider <c>Test()</c> call in

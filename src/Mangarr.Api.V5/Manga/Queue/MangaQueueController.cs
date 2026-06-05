@@ -376,7 +376,7 @@ namespace Mangarr.Api.V5.Manga.Queue
         // the frontend's `?remove=&blocklist=&skipRedownload=&changeCategory=` query params, so the
         // Activity Queue Remove action NEVER called IDownloadClient.RemoveItem. With the in-process
         // image downloader (the only client pre-Phase-38) there was nothing to remove from an
-        // external client, so the gap was invisible; the Phase-38 Manga Gateway client is the first
+        // external client, so the gap was invisible; the Phase-38 Mangarr Gateway client is the first
         // EXTERNAL client, and a removed row's gateway job survived → the row reappeared on the next
         // ~90s poll. The signature now accepts the canonical Sonarr query params and routes an
         // in-flight tracked download through the owning client's RemoveItem (mirrors
