@@ -180,3 +180,5 @@ _corpus_check/
 _metadata_source_check/
 # Machine-local staging for new-machine bootstrap (memory + global settings; never commit — contains dev-stack creds)
 .machine-local/
+# Playwright MCP scratch output (UI snapshots / console logs from live dev-stack verification)
+.playwright-mcp/

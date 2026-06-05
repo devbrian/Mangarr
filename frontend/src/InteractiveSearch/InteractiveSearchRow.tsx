@@ -261,7 +261,11 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
 
       <TableRowCell className={styles.indexer}>
         {indexer}
-        {source ? <div className={styles.source}>{source}</div> : null}
+        {source ? (
+          <div className={styles.source} aria-label={`Source: ${source}`}>
+            {source}
+          </div>
+        ) : null}
       </TableRowCell>
 
       <TableRowCell className={styles.history}>
