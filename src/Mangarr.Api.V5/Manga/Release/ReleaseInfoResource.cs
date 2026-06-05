@@ -24,6 +24,12 @@ namespace Mangarr.Api.V5.Manga.Release
         public long Size { get; set; }
         public int IndexerId { get; set; }
         public string? Indexer { get; set; }
+
+        // GWIX: the gateway aggregates many upstream sources under one indexer identity. `Indexer`
+        // is the gateway's display name (stamped by CleanupReleases); `Source` is the per-release
+        // upstream SourceKey (mangadex/comix/…) the GatewayParser carries on ReleaseInfo.Source.
+        // The InteractiveSearch row shows it under the indexer name. Null for non-gateway releases.
+        public string? Source { get; set; }
         public string? Title { get; set; }
 
         // Frontend interface (useReleases.ts:86-87) declares these as `number` — preserve the
@@ -63,6 +69,7 @@ namespace Mangarr.Api.V5.Manga.Release
                 Size = releaseInfo.Size,
                 IndexerId = releaseInfo.IndexerId,
                 Indexer = releaseInfo.Indexer,
+                Source = releaseInfo.Source,
                 Title = releaseInfo.Title,
                 TvdbId = 0,
                 TvRageId = 0,

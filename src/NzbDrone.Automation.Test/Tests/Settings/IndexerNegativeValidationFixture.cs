@@ -47,7 +47,7 @@ public class IndexerNegativeValidationFixture : AutomationTest
 
         var modal = new EditIndexerModal(Page);
 
-        // gh178 sub-C: clear Name (the schema preset is "Manga Gateway"). Name is
+        // gh178 sub-C: clear Name (the schema preset is "Mangarr Gateway"). Name is
         // server-validated via SharedValidator.RuleFor(c => c.Name).NotEmpty()
         // (ProviderControllerBase.cs:44) and has no client-side guard. Phase 39 Plan
         // 39-07: repointed from the retired in-process MangaDex indexer to the gateway.

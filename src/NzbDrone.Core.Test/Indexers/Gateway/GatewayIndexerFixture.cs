@@ -34,7 +34,7 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             Subject.Definition = new IndexerDefinition
             {
                 Id = 99,
-                Name = "Manga Gateway",
+                Name = "Mangarr Gateway",
                 Settings = new GatewaySettings
                 {
                     BaseUrl = "http://localhost:9191",
@@ -61,7 +61,7 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         [Test]
         public void Name_should_be_Manga_Gateway()
         {
-            Subject.Name.Should().Be("Manga Gateway");
+            Subject.Name.Should().Be("Mangarr Gateway");
         }
 
         [Test]
@@ -154,8 +154,14 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             releases.Count(r => r.Guid == "comix.to:solo-leveling:179").Should().Be(1);
 
             // Identity-stamped for free by CleanupReleases.
-            releases.Should().OnlyContain(r => r.Indexer == "Manga Gateway");
+            releases.Should().OnlyContain(r => r.Indexer == "Mangarr Gateway");
             releases.Should().OnlyContain(r => r.IndexerId == 99);
+
+            // GWIX: the per-release upstream SourceKey is carried onto ReleaseInfo.Source by the
+            // GatewayParser and survives CleanupReleases (which only stamps Indexer/IndexerId/
+            // Protocol/Priority). Surfaced in the InteractiveSearch Indexer column so the user can
+            // see which upstream source each release came from. search.json is all comix.to.
+            releases.Should().OnlyContain(r => r.Source == "comix.to");
         }
 
         [Test]

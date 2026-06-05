@@ -16,7 +16,7 @@ using NzbDrone.Core.RemotePathMappings;
 namespace NzbDrone.Core.Download.Clients.Gateway
 {
     /// <summary>
-    /// Phase 38 GWDL-01..04 — the "Manga Gateway" out-of-process <see cref="IDownloadClient"/>.
+    /// Phase 38 GWDL-01..04 — the "Mangarr Gateway" out-of-process <see cref="IDownloadClient"/>.
     /// The client half of the SABnzbd three-file decomposition (state-mapping + <c>GetStatus</c> +
     /// <c>Test</c>); all HTTP I/O lives in <see cref="IGatewayDownloadProxy"/>.
     ///
@@ -36,7 +36,7 @@ namespace NzbDrone.Core.Download.Clients.Gateway
     /// </summary>
     public class GatewayDownloadClient : DownloadClientBase<GatewayDownloadClientSettings>
     {
-        public override string Name => "Manga Gateway";
+        public override string Name => "Mangarr Gateway";
         public override DownloadProtocol Protocol => DownloadProtocol.Http; // Phase 1 D-04
 
         // D-D hard-default: the gateway always receives outputFormat=cbz (not user-exposed).
@@ -89,7 +89,7 @@ namespace NzbDrone.Core.Download.Clients.Gateway
             {
                 throw new DownloadClientRejectedReleaseException(
                     remoteChapter.Release,
-                    response?.Message ?? "Manga Gateway rejected the grab");
+                    response?.Message ?? "Mangarr Gateway rejected the grab");
             }
 
             return Task.FromResult(response.JobId);
@@ -185,7 +185,7 @@ namespace NzbDrone.Core.Download.Clients.Gateway
 
                 if (version.IsNullOrWhiteSpace())
                 {
-                    failures.Add(new ValidationFailure(string.Empty, "Manga Gateway did not report a version"));
+                    failures.Add(new ValidationFailure(string.Empty, "Mangarr Gateway did not report a version"));
                     return;
                 }
 

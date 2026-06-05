@@ -93,6 +93,11 @@ export interface ReleaseInfo {
   size: number;
   indexerId: number;
   indexer: string;
+  // Gateway per-release upstream source key (mangadex/comix/…). The gateway aggregates
+  // many sources under one indexer identity; `indexer` is the gateway display name and
+  // `source` is which upstream the release actually came from. Undefined for non-gateway
+  // releases. Rendered as a secondary line in the Indexer column.
+  source?: string;
   title: string;
   tvdbId: number;
   tvRageId: number;

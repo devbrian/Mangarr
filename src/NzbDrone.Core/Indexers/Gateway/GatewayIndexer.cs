@@ -44,7 +44,7 @@ namespace NzbDrone.Core.Indexers.Gateway
         private readonly IGatewayCapabilitiesProvider _capsProvider;
         private readonly IIndexerSourceStatusService _sourceStatusService;
 
-        public override string Name => "Manga Gateway";
+        public override string Name => "Mangarr Gateway";
         public override DownloadProtocol Protocol => DownloadProtocol.Http;
 
         public GatewayIndexer(

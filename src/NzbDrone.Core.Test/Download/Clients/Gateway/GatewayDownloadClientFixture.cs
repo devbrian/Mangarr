@@ -74,7 +74,7 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
                     // Mangarr display name — deliberately NOT the gateway sourceKey (GH #310).
                     Guid = "mangadex:m-1:ch-2:en:c-2",
                     DownloadUrl = "opaque-handle",
-                    Indexer = "Manga Gateway"
+                    Indexer = "Mangarr Gateway"
                 }
             };
         }
@@ -88,7 +88,7 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
         [Test]
         public void Name_is_canonical()
         {
-            Subject.Name.Should().Be("Manga Gateway");
+            Subject.Name.Should().Be("Mangarr Gateway");
         }
 
         [Test]

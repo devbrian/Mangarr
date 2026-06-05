@@ -21,6 +21,14 @@
   width: 85px;
 }
 
+.source {
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+
+  color: var(--helpTextColor);
+  font-size: $smallFontSize;
+}
+
 .quality,
 .languages {
   composes: cell from '~Components/Table/Cells/TableRowCell.css';

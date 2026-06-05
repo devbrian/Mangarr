@@ -67,7 +67,7 @@ public class ManageIndexersSortAndRangeSelectFixture : AutomationTest
         // Debug session manage-indexers-sort-timeout (2026-05-22) — delete the
         // auto-seeded gateway indexer row BEFORE seeding the fixture's
         // AAA/BBB/CCC trio. The fresh-DB IndexerFactory.InitializeProviders seed
-        // leaves the table containing the default disabled "Manga Gateway" row
+        // leaves the table containing the default disabled "Mangarr Gateway" row
         // before fixture seed runs. After name-descending sort, the first visible
         // row could be that default row (not "CCC Indexer"), so the
         // WaitForFunctionAsync below would time out. With the table empty

@@ -31,7 +31,7 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             Subject.Definition = new IndexerDefinition
             {
                 Id = 99,
-                Name = "Manga Gateway",
+                Name = "Mangarr Gateway",
                 Settings = new GatewaySettings
                 {
                     BaseUrl = "http://localhost:9191",

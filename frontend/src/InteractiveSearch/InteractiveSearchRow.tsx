@@ -113,6 +113,7 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
     title,
     infoUrl,
     indexer,
+    source,
     protocol,
   } = release;
 
@@ -258,7 +259,10 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
         </div>
       </TableRowCell>
 
-      <TableRowCell className={styles.indexer}>{indexer}</TableRowCell>
+      <TableRowCell className={styles.indexer}>
+        {indexer}
+        {source ? <div className={styles.source}>{source}</div> : null}
+      </TableRowCell>
 
       <TableRowCell className={styles.history}>
         {history ? (
