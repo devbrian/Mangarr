@@ -15,8 +15,10 @@ namespace NzbDrone.Core.History.Manga
     // Role-match analog: src/NzbDrone.Core/History/HistoryService.cs.
     //
     // Event-driven service (RESEARCH Anti-Pattern: NEVER write history from inside the
-    // Repository). Subscribes to 5 events; each handler builds a ChapterHistory row and
-    // writes via the repository.
+    // Repository). Subscribes to 6 events; each handler builds a ChapterHistory row and
+    // writes via the repository. ImportFailed (import-stage exception) and Ignored (completed
+    // but deliberately not imported — already owned / not an upgrade) were wired after debug
+    // session reimport-no-history-event found their enum members had no writer.
     //
     // Per-EventType Data column key set per RESEARCH §Q-4 lock:
     //   Grabbed         → Indexer, Size, Age, PublishedDate, DownloadClient, CustomFormatScore, Protocol
@@ -32,6 +34,8 @@ namespace NzbDrone.Core.History.Manga
     public class ChapterHistoryService : IChapterHistoryService,
                                          IHandle<ChapterGrabbedEvent>,
                                          IHandle<ChapterImportedEvent>,
+                                         IHandle<ChapterImportFailedEvent>,
+                                         IHandle<ChapterImportIgnoredEvent>,
                                          IHandle<ChapterDownloadFailedEvent>,
                                          IHandle<MangaDeletedEvent>
     {
@@ -188,6 +192,69 @@ namespace NzbDrone.Core.History.Manga
 
             history.Data.Add("DroppedPath", message.SourcePath ?? string.Empty);
             history.Data.Add("DownloadClient", message.DownloadClientItem?.DownloadClientInfo?.Type ?? string.Empty);
+
+            _repository.Insert(history);
+        }
+
+        public void Handle(ChapterImportFailedEvent message)
+        {
+            // ImportFailed row — a completed download that finished but threw during the import
+            // stage (RootFolderNotFound / recycle-bin / move failure). The per-decision catch blocks
+            // in ImportApprovedChapters publish this event; before this handler was wired the failure
+            // was silent in persisted History. Per-EventType Data key set (Q-4): DroppedPath,
+            // FailureReason, RejectionType.
+            if (message?.Chapter == null || message.Manga == null)
+            {
+                return;
+            }
+
+            var history = new ChapterHistory
+            {
+                EventType = ChapterHistoryEventType.ImportFailed,
+                Date = DateTime.UtcNow,
+                SourceTitle = message.SourcePath ?? string.Empty,
+                MangaId = message.Manga.Id,
+                ChapterId = message.Chapter.Id,
+                DownloadId = message.DownloadClientItem?.DownloadId,
+                Successful = false
+            };
+
+            history.Data.Add("DroppedPath", message.SourcePath ?? string.Empty);
+            history.Data.Add("FailureReason", message.FailureReason ?? string.Empty);
+            history.Data.Add("RejectionType", string.Empty);
+
+            _repository.Insert(history);
+        }
+
+        public void Handle(ChapterImportIgnoredEvent message)
+        {
+            // Ignored row — a completed download that finished fine but was DELIBERATELY not imported
+            // (the chapter is already owned, or the release is not an upgrade). NOT a failure — neutral
+            // outcome (debug: reimport-no-history-event). Per-EventType Data key set (Q-4): DownloadClient,
+            // Message, Indexer (+ RejectionType for diagnostics).
+            if (message?.Chapter == null || message.Manga == null)
+            {
+                return;
+            }
+
+            var history = new ChapterHistory
+            {
+                EventType = ChapterHistoryEventType.Ignored,
+                Date = DateTime.UtcNow,
+                SourceTitle = message.SourcePath ?? string.Empty,
+                MangaId = message.Manga.Id,
+                ChapterId = message.Chapter.Id,
+                DownloadId = message.DownloadClientItem?.DownloadId,
+                SourceKey = message.Indexer,
+                TranslatedLanguage = message.TranslatedLanguage,
+                ScanlationGroup = message.ScanlationGroup,
+                Successful = false
+            };
+
+            history.Data.Add("DownloadClient", message.DownloadClientItem?.DownloadClientInfo?.Type ?? string.Empty);
+            history.Data.Add("Message", message.Reason ?? string.Empty);
+            history.Data.Add("Indexer", message.Indexer ?? string.Empty);
+            history.Data.Add("RejectionType", message.RejectionType ?? string.Empty);
 
             _repository.Insert(history);
         }

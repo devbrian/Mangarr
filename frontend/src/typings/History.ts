@@ -11,9 +11,12 @@ export type HistoryEventType =
   | 'downloadIgnored'
   // Manga peers (ChapterHistoryEventType — Phase 6). The TV-only `seriesFolderImported`
   // / `downloadFolderImported` split has no manga analog; manga only emits a single
-  // `imported` event after CompletedDownloadHandling moves the file.
+  // `imported` event after CompletedDownloadHandling moves the file. `ignored` is a
+  // completed download deliberately not imported (already owned / not an upgrade) — the
+  // manga peer of TV's `downloadIgnored` (debug: reimport-no-history-event).
   | 'imported'
-  | 'importFailed';
+  | 'importFailed'
+  | 'ignored';
 
 export interface GrabbedHistoryData {
   indexer: string;

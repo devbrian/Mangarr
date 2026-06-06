@@ -34,7 +34,9 @@ function getIconName(eventType: HistoryEventType, data: HistoryData) {
         : icons.DELETE;
     case 'episodeFileRenamed':
       return icons.ORGANIZE;
+    // `ignored` is the manga peer of `downloadIgnored` — completed but deliberately not imported.
     case 'downloadIgnored':
+    case 'ignored':
       return icons.IGNORE;
     default:
       return icons.UNKNOWN;
@@ -75,6 +77,7 @@ function getTooltip(eventType: HistoryEventType, data: HistoryData) {
     case 'episodeFileRenamed':
       return translate('EpisodeFileRenamedTooltip');
     case 'downloadIgnored':
+    case 'ignored':
       return translate('DownloadIgnoredChapterTooltip');
     default:
       return translate('UnknownEventTooltip');

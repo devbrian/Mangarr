@@ -7,6 +7,7 @@ using NzbDrone.Common.Disk;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Manga;
 using NzbDrone.Core.Download.TrackedDownloads;
+using NzbDrone.Core.History.Manga;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;
@@ -379,6 +380,69 @@ namespace NzbDrone.Core.Test.Download.Manga
             Subject.Check(td);
 
             td.State.Should().Be(TrackedDownloadState.Downloading);
+        }
+
+        // ── Ignored history row (debug: reimport-no-history-event) ───────────────────────
+        // A completed re-grab that is NOT imported (rejected as not-an-upgrade, or short-circuited
+        // because the chapter is already owned) must leave a persisted, neutral Ignored history row
+        // so the grab's outcome is visible in Activity > History instead of only the Grabbed row.
+
+        [Test]
+        public void Import_records_Ignored_history_event_when_decision_rejected()
+        {
+            Mocker.GetMock<IMakeMangaImportDecision>()
+                .Setup(d => d.GetDecision(It.IsAny<LocalChapter>(), It.IsAny<DownloadClientItem>()))
+                .Returns<LocalChapter, DownloadClientItem>((lc, _) =>
+                    new MangaImportDecision(lc, new MangaImportRejection(ImportRejectionReason.NotUpgradeAllowed, "not an upgrade")));
+
+            Subject.Import(_trackedDownload);
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.Is<ChapterImportIgnoredEvent>(c =>
+                    c.Chapter.Id == 42 &&
+                    c.RejectionType == ImportRejectionReason.NotUpgradeAllowed.ToString() &&
+                    c.TranslatedLanguage == "en" &&
+                    c.ScanlationGroup == "Acme Scans")),
+                    Times.Once);
+        }
+
+        [Test]
+        public void Import_records_Ignored_history_event_when_chapter_file_already_exists()
+        {
+            Mocker.GetMock<IChapterFileService>()
+                .Setup(c => c.GetFilesByChapter(42))
+                .Returns(new List<ChapterFile> { new ChapterFile { Id = 1, Path = "existing.cbz" } });
+
+            Subject.Import(_trackedDownload);
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.Is<ChapterImportIgnoredEvent>(c =>
+                    c.Chapter.Id == 42 &&
+                    c.RejectionType == ImportRejectionReason.ChapterAlreadyImported.ToString())),
+                    Times.Once);
+        }
+
+        [Test]
+        public void Import_does_not_record_duplicate_Ignored_event_when_already_recorded()
+        {
+            // The decision-rejection branch returns false and is re-driven every poll cycle; the
+            // download-id dedup guard must suppress a second Ignored row.
+            Mocker.GetMock<IChapterHistoryService>()
+                .Setup(h => h.FindByDownloadId("dl-1"))
+                .Returns(new List<ChapterHistory>
+                {
+                    new ChapterHistory { EventType = ChapterHistoryEventType.Ignored, DownloadId = "dl-1" }
+                });
+
+            Mocker.GetMock<IMakeMangaImportDecision>()
+                .Setup(d => d.GetDecision(It.IsAny<LocalChapter>(), It.IsAny<DownloadClientItem>()))
+                .Returns<LocalChapter, DownloadClientItem>((lc, _) =>
+                    new MangaImportDecision(lc, new MangaImportRejection(ImportRejectionReason.NotUpgradeAllowed, "not an upgrade")));
+
+            Subject.Import(_trackedDownload);
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterImportIgnoredEvent>()), Times.Never);
         }
     }
 }
