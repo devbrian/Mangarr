@@ -48,6 +48,7 @@ module.exports = {
     'filenames',
     'react',
     'react-hooks',
+    'jsx-a11y',
     'simple-import-sort',
     'import',
     '@typescript-eslint',
@@ -307,6 +308,17 @@ module.exports = {
     'react/jsx-no-undef': 2,
     'react/jsx-pascal-case': 2,
     'react/jsx-uses-react': 2,
+
+    // Accessibility (GH #254): keep non-button clickables keyboard-operable.
+    // These two rules flag the regression class where a static element
+    // (div/span/li/…) gets an onClick but no keyboard activation path, so a
+    // keyboard / screen-reader user can never trigger it. The canonical fix
+    // is to use the real-<button> primitives (Components/Link/{Link,Button}
+    // or Components/Card); when a static element must stay, it needs an
+    // interactive role + tabIndex + a key handler (Enter/Space).
+    'jsx-a11y/click-events-have-key-events': 'error',
+    'jsx-a11y/no-static-element-interactions': 'error',
+
     // Explicitly disabled in case we want to enable them again
     'react/no-did-mount-set-state': 0,
     'react/no-did-update-set-state': 0,

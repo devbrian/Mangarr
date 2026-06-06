@@ -170,6 +170,12 @@ function Modal({
     <ModalContext.Provider value={{ headerId }}>
       <FocusLock disabled={false}>
         <div className={styles.modalContainer}>
+          {/*
+            a11y (GH #254): this is the click-outside-to-dismiss backdrop. A
+            backdrop press is inherently a pointer gesture; the keyboard
+            dismissal path is Escape, already wired via handleKeyDown above.
+          */}
+          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
           <div
             ref={backgroundRef}
             className={backdropClassName}

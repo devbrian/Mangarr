@@ -107,6 +107,12 @@ function CheckInput(props: CheckInputProps) {
 
   return (
     <div className={containerClassName}>
+      {/*
+        a11y (GH #254): the keyboard-accessible control is the nested native
+        <input type="checkbox"> (Tab + Space toggles it). The label onClick is
+        a mouse-only affordance, so no keyboard listener is required here.
+      */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
       <label
         className={styles.label}
         data-testid={dataTestId}
