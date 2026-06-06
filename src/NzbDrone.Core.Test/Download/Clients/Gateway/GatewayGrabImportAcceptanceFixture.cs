@@ -234,7 +234,7 @@ namespace NzbDrone.Core.Test.Download.Clients.Gateway
                 }
             });
 
-            var parser = new GatewayParser(Mocker.GetMock<IIndexerSourceStatusService>().Object);
+            var parser = new GatewayParser(Mocker.GetMock<IIndexerSourceStatusService>().Object, TestLogger);
 
             var httpRequest = new HttpRequest("http://gateway-host:9191/search");
             var httpResponse = new HttpResponse(httpRequest, new HttpHeader(), searchBody, HttpStatusCode.OK);
