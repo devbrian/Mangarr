@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Core.DecisionEngine.Manga;
@@ -103,6 +106,54 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             // en wins: Compare(loser=es, winner=en) < 0 ; equivalently Compare(en, es) > 0.
             Subject.Compare(enCandidate, esCandidate).Should().BeGreaterThan(0);
             Subject.Compare(esCandidate, enCandidate).Should().BeLessThan(0);
+        }
+
+        // Regression guard (debug session manga-search-sort-icomparer):
+        // CompareAge MUST compare the stable ReleaseInfo.PublishDate field, never the live
+        // ReleaseInfo.AgeHours getter (which recomputes DateTime.UtcNow on every read). When two
+        // releases share a PublishDate — the gateway stamps DateTime.UtcNow on every dateless
+        // release, so a single search batch collapses to near-identical dates — and all higher-rank
+        // keys tie, the age tiebreaker MUST return a stable, symmetric 0. The old AgeHours getter
+        // returned ±1 from sub-tick clock drift between the two reads, making Compare
+        // non-antisymmetric → OrderBy(d => d, comparer) threw "IComparer returns inconsistent results".
+        [Test]
+        public void Identical_publish_date_with_all_keys_tied_compares_equal_and_symmetric()
+        {
+            GivenProfile(7, "en");
+            var fixedDate = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+
+            var a = Decision(BuildRemoteChapter(releaseLanguage: "en", customFormatScore: 0, translationProfileId: 7, indexerPriority: 50, size: 10_000_000));
+            var b = Decision(BuildRemoteChapter(releaseLanguage: "en", customFormatScore: 0, translationProfileId: 7, indexerPriority: 50, size: 10_000_000));
+            a.RemoteChapter.Release.PublishDate = fixedDate;
+            b.RemoteChapter.Release.PublishDate = fixedDate;
+
+            // All keys tie AND publish dates are identical → genuine equality, both directions 0.
+            Subject.Compare(a, b).Should().Be(0);
+            Subject.Compare(b, a).Should().Be(0);
+        }
+
+        // Regression guard: reproduce the exact operation ProcessMangaDownloadDecisions performs —
+        // OrderBy(d => d, comparer) over a batch of equal-key releases sharing one PublishDate.
+        // The old live-AgeHours comparer threw InvalidOperationException
+        // ("...IComparer: 'System.Comparison`1[System.Int32]'") mid-sort; the PublishDate fix makes
+        // every comparison a stable 0 so the sort completes.
+        [Test]
+        public void OrderBy_over_equal_key_same_date_batch_does_not_throw_inconsistent_comparer()
+        {
+            GivenProfile(7, "en");
+            var fixedDate = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+
+            var decisions = new List<MangaDownloadDecision>();
+            for (var i = 0; i < 64; i++)
+            {
+                var d = Decision(BuildRemoteChapter(releaseLanguage: "en", customFormatScore: 0, translationProfileId: 7, indexerPriority: 50, size: 10_000_000, chapterId: 100 + i));
+                d.RemoteChapter.Release.PublishDate = fixedDate;
+                decisions.Add(d);
+            }
+
+            Action sort = () => decisions.OrderBy(d => d, Subject).ToList();
+
+            sort.Should().NotThrow();
         }
     }
 }
