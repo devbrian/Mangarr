@@ -32,10 +32,8 @@ function formatReleaseNumber(
     return absoluteEpisodeNumbers[0];
   }
 
-  if (seasonNumber !== undefined) {
-    return translate('SeasonNumberToken', { seasonNumber });
-  }
-
+  // Sonarr divergence (GH #327): the TV `SeasonNumberToken` fallback was removed —
+  // manga has no season number to render and the key is absent from en.json.
   return null;
 }
 

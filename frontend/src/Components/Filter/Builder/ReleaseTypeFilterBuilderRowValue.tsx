@@ -23,12 +23,7 @@ const releaseTypeList = [
       return translate('MultiChapter');
     },
   },
-  {
-    id: 'seasonPack',
-    get name() {
-      return translate('SeasonPack');
-    },
-  },
+  // Sonarr divergence (GH #327): 'seasonPack' option dropped — manga has no season packs.
 ];
 
 type ReleaseTypeFilterBuilderRowValueProps<T> = Omit<

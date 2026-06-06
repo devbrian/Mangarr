@@ -50,8 +50,8 @@ function getReleaseTypeName(releaseType?: ReleaseType): string | null {
       return translate('SingleChapter');
     case 'multiEpisode':
       return translate('MultiChapter');
-    case 'seasonPack':
-      return translate('SeasonPack');
+    // Sonarr divergence (GH #327): 'seasonPack' case dropped — the backend ReleaseType
+    // enum value is never produced for manga; falls through to Unknown.
     default:
       return translate('Unknown');
   }
