@@ -1130,6 +1130,7 @@
   "IndexerSettingsSeedTime": "Seed Time",
   "IndexerSettingsSeedTimeHelpText": "The time a torrent should be seeded before stopping, empty uses the download client's default",
   "IndexerSettingsWebsiteUrl": "Website URL",
+  "IndexerSourceUnavailableHealthCheckMessage": "Indexer sources unavailable due to failures: {sourceKeys}",
   "IndexerStatusAllUnavailableHealthCheckMessage": "All indexers are unavailable due to failures",
   "IndexerStatusUnavailableHealthCheckMessage": "Indexers unavailable due to failures: {indexerNames}",
   "IndexerTagMangaHelpText": "Only use this indexer for manga with at least one matching tag. Leave blank to use with all manga.",

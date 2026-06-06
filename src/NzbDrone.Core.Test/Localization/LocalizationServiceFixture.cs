@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using FluentAssertions;
 using NUnit.Framework;
 using NzbDrone.Common.EnvironmentInfo;
@@ -64,6 +65,27 @@ namespace NzbDrone.Core.Test.Localization
             var localizedString = Subject.GetLocalizedString("badString");
 
             localizedString.Should().Be("badString");
+        }
+
+        [Test]
+        public void should_resolve_indexer_source_unavailable_health_check_message_and_interpolate_source_keys()
+        {
+            // Root cause #1: the key MUST exist in en.json — a missing key makes
+            // GetLocalizedString return the raw key string verbatim (proven by
+            // should_return_argument_if_string_doesnt_exists), which is what the
+            // System → Health page was literally rendering.
+            // Root cause #2: the {sourceKeys} token MUST interpolate the supplied
+            // source names so the warning names which source(s) are unavailable.
+            var localizedString = Subject.GetLocalizedString(
+                "IndexerSourceUnavailableHealthCheckMessage",
+                new Dictionary<string, object> { { "sourceKeys", "mangadex, comix.to" } });
+
+            // Guards root cause #1: a resolved value is NOT the raw key string.
+            localizedString.Should().NotBe("IndexerSourceUnavailableHealthCheckMessage");
+
+            // Guards root cause #2: the {sourceKeys} token interpolated the source names.
+            localizedString.Should().Contain("mangadex");
+            localizedString.Should().Contain("comix.to");
         }
 
         [Test]
