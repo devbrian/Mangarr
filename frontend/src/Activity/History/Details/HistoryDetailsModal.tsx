@@ -13,7 +13,7 @@ import { useMarkAsFailed } from '../useHistory';
 import HistoryDetails from './HistoryDetails';
 import styles from './HistoryDetailsModal.css';
 
-function getHeaderTitle(eventType: HistoryEventType) {
+function getHeaderTitle(eventType: HistoryEventType, sourceTitle: string) {
   switch (eventType) {
     case 'grabbed':
       return translate('Grabbed');
@@ -21,11 +21,17 @@ function getHeaderTitle(eventType: HistoryEventType) {
       return translate('DownloadFailed');
     case 'downloadFolderImported':
       return translate('EpisodeImported');
+    // Manga peers (ChapterHistoryEventType — Phase 6).
+    case 'imported':
+      return translate('Imported');
+    case 'importFailed':
+      return translate('ImportFailed', { sourceTitle });
     case 'episodeFileDeleted':
       return translate('EpisodeFileDeleted');
     case 'episodeFileRenamed':
       return translate('EpisodeFileRenamed');
     case 'downloadIgnored':
+    case 'ignored':
       return translate('DownloadIgnored');
     default:
       return translate('Unknown');
@@ -64,7 +70,7 @@ function HistoryDetailsModal(props: HistoryDetailsModalProps) {
   return (
     <Modal isOpen={isOpen} onModalClose={onModalClose}>
       <ModalContent onModalClose={onModalClose}>
-        <ModalHeader>{getHeaderTitle(eventType)}</ModalHeader>
+        <ModalHeader>{getHeaderTitle(eventType, sourceTitle)}</ModalHeader>
 
         <ModalBody>
           <HistoryDetails

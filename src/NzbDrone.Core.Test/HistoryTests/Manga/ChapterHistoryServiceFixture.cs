@@ -158,6 +158,72 @@ namespace NzbDrone.Core.Test.HistoryTests.Manga
         }
 
         [Test]
+        public void Handle_ChapterImportFailedEvent_inserts_row_with_ImportFailed_Data_keys()
+        {
+            var failedEvent = new ChapterImportFailedEvent
+            {
+                Manga = _manga,
+                Chapter = _chapter,
+                SourcePath = "/dropped/Test - 001.cbz",
+                FailureReason = "Root folder is missing",
+                DownloadClientItem = new DownloadClientItem
+                {
+                    DownloadId = "dl-impfail-1",
+                    DownloadClientInfo = new DownloadClientItemClientInfo { Type = "Gateway" }
+                }
+            };
+
+            Subject.Handle(failedEvent);
+
+            Mocker.GetMock<IChapterHistoryRepository>().Verify(r => r.Insert(It.Is<ChapterHistory>(h =>
+                h.EventType == ChapterHistoryEventType.ImportFailed &&
+                h.MangaId == 7 &&
+                h.ChapterId == 42 &&
+                h.DownloadId == "dl-impfail-1" &&
+                h.Successful == false &&
+                h.Data["FailureReason"] == "Root folder is missing" &&
+                h.Data.ContainsKey("DroppedPath") &&
+                h.Data.ContainsKey("RejectionType"))));
+        }
+
+        [Test]
+        public void Handle_ChapterImportIgnoredEvent_inserts_row_with_Ignored_Data_keys()
+        {
+            var ignoredEvent = new ChapterImportIgnoredEvent
+            {
+                Manga = _manga,
+                Chapter = _chapter,
+                SourcePath = "/staging/Test - 001.cbz",
+                Reason = "Chapter already imported — not re-importing this download",
+                RejectionType = "ChapterAlreadyImported",
+                Indexer = "MangaDex",
+                TranslatedLanguage = "en",
+                ScanlationGroup = "Speedcat",
+                DownloadClientItem = new DownloadClientItem
+                {
+                    DownloadId = "dl-ignored-1",
+                    DownloadClientInfo = new DownloadClientItemClientInfo { Type = "Gateway" }
+                }
+            };
+
+            Subject.Handle(ignoredEvent);
+
+            Mocker.GetMock<IChapterHistoryRepository>().Verify(r => r.Insert(It.Is<ChapterHistory>(h =>
+                h.EventType == ChapterHistoryEventType.Ignored &&
+                h.MangaId == 7 &&
+                h.ChapterId == 42 &&
+                h.DownloadId == "dl-ignored-1" &&
+                h.SourceKey == "MangaDex" &&
+                h.TranslatedLanguage == "en" &&
+                h.ScanlationGroup == "Speedcat" &&
+                h.Successful == false &&
+                h.Data["Message"] == "Chapter already imported — not re-importing this download" &&
+                h.Data["RejectionType"] == "ChapterAlreadyImported" &&
+                h.Data.ContainsKey("DownloadClient") &&
+                h.Data.ContainsKey("Indexer"))));
+        }
+
+        [Test]
         public void FindByChapterId_pass_through_to_repository()
         {
             Mocker.GetMock<IChapterHistoryRepository>()

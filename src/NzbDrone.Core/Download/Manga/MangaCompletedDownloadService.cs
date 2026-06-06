@@ -2,10 +2,13 @@ using System.Collections.Generic;
 using System.Linq;
 using NLog;
 using NzbDrone.Common.Disk;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Download.TrackedDownloads;
+using NzbDrone.Core.History.Manga;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.MangaImport;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Download.Manga
@@ -63,6 +66,7 @@ namespace NzbDrone.Core.Download.Manga
         private readonly IMakeMangaImportDecision _decisionMaker;
         private readonly IImportApprovedChapters _importer;
         private readonly IDiskProvider _diskProvider;
+        private readonly IChapterHistoryService _historyService;
         private readonly IEventAggregator _eventAggregator;
         private readonly Logger _logger;
 
@@ -71,6 +75,7 @@ namespace NzbDrone.Core.Download.Manga
             IMakeMangaImportDecision decisionMaker,
             IImportApprovedChapters importer,
             IDiskProvider diskProvider,
+            IChapterHistoryService historyService,
             IEventAggregator eventAggregator,
             Logger logger)
         {
@@ -78,6 +83,7 @@ namespace NzbDrone.Core.Download.Manga
             _decisionMaker = decisionMaker;
             _importer = importer;
             _diskProvider = diskProvider;
+            _historyService = historyService;
             _eventAggregator = eventAggregator;
             _logger = logger;
         }
@@ -160,6 +166,18 @@ namespace NzbDrone.Core.Download.Manga
                     chapters.Count,
                     trackedDownload.DownloadItem?.DownloadId);
 
+                // A re-grab of a chapter you already own short-circuits here BEFORE the upgrade
+                // decision runs. Record a (neutral) Ignored history row so the grab's outcome is
+                // visible in Activity > History instead of silently leaving only the Grabbed row
+                // (debug: reimport-no-history-event). Deduped on download id so the resilience
+                // re-poll / restart-replay of an already-evicted import does not re-write it.
+                RecordIgnored(
+                    trackedDownload,
+                    remoteChapter,
+                    chapters,
+                    "Chapter already imported — not re-importing this download",
+                    ImportRejectionReason.ChapterAlreadyImported.ToString());
+
                 // Already fully imported by a prior pass — the row IS legitimately importable/removable.
                 // Returning true lets the caller flip it to Imported so the now-redundant scratch
                 // data is evicted (the idempotency win is the import-already-happened case).
@@ -197,6 +215,17 @@ namespace NzbDrone.Core.Download.Manga
                 // #319: surface the rejection reason on the queue row so the user can see WHY the
                 // item isn't importing (e.g. NotUpgradeAllowed) instead of a silent stuck state.
                 trackedDownload.Warn("Import rejected: {0}", rejectionSummary);
+
+                // Record a (neutral) Ignored history row so the rejected re-grab is visible in
+                // Activity > History (debug: reimport-no-history-event). This branch RETURNS FALSE
+                // → the row stays ImportPending and is re-driven every poll cycle, so RecordIgnored
+                // MUST dedupe on download id or it would write a fresh row every minute.
+                RecordIgnored(
+                    trackedDownload,
+                    remoteChapter,
+                    chapters,
+                    rejectionSummary,
+                    string.Join("; ", decision.Rejections.Select(r => r.Reason.ToString())));
 
                 // WR-05: a rejected decision (e.g. NotUpgradeAllowed) was NOT imported. Returning
                 // false leaves the row in place (Q-8 retention posture) instead of being evicted with
@@ -239,6 +268,55 @@ namespace NzbDrone.Core.Download.Manga
 
             // Genuine import — the caller may now flip the row to Imported and evict it.
             return true;
+        }
+
+        // Publishes a ChapterImportIgnoredEvent per chapter so ChapterHistoryService writes a neutral
+        // Ignored row — skipping any chapter that ALREADY has an Ignored row for this download (dedup).
+        // The dedup is load-bearing for the decision-rejection caller, which returns false and is
+        // re-driven every poll cycle; without it a non-upgrade rejection would spam a fresh Ignored row
+        // every minute. Scoped per (DownloadId, ChapterId) so a multi-chapter pack whose rows were only
+        // partially persisted (e.g. a crash mid-write) still records the missing chapters on a later pass.
+        private void RecordIgnored(
+            TrackedDownload trackedDownload,
+            RemoteChapter remoteChapter,
+            List<NzbDrone.Core.Manga.Chapter> chapters,
+            string reason,
+            string rejectionType)
+        {
+            var downloadId = trackedDownload.DownloadItem?.DownloadId;
+
+            if (downloadId.IsNotNullOrWhiteSpace())
+            {
+                var ignoredChapterIds = _historyService.FindByDownloadId(downloadId)?
+                    .Where(h => h.EventType == ChapterHistoryEventType.Ignored)
+                    .Select(h => h.ChapterId)
+                    .ToHashSet() ?? new HashSet<int>();
+
+                chapters = chapters.Where(c => !ignoredChapterIds.Contains(c.Id)).ToList();
+                if (chapters.Count == 0)
+                {
+                    return;
+                }
+            }
+
+            var release = remoteChapter.Release;
+            var stagingPath = trackedDownload.DownloadItem?.OutputPath.FullPath;
+
+            foreach (var chapter in chapters)
+            {
+                _eventAggregator.PublishEvent(new ChapterImportIgnoredEvent
+                {
+                    Manga = remoteChapter.Manga,
+                    Chapter = chapter,
+                    SourcePath = stagingPath,
+                    Reason = reason,
+                    RejectionType = rejectionType,
+                    Indexer = release?.Indexer,
+                    TranslatedLanguage = release?.TranslatedLanguage,
+                    ScanlationGroup = release?.ScanlationGroup,
+                    DownloadClientItem = trackedDownload.DownloadItem
+                });
+            }
         }
 
         private long SafeGetFileSize(string path)

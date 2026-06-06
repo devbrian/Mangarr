@@ -314,7 +314,7 @@ function HistoryDetails(props: HistoryDetailsProps) {
     );
   }
 
-  if (eventType === 'downloadIgnored') {
+  if (eventType === 'downloadIgnored' || eventType === 'ignored') {
     const { message } = data as DownloadIgnoredHistory;
 
     return (
