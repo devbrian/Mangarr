@@ -105,12 +105,25 @@ namespace NzbDrone.Core.DecisionEngine.Manga
         private int CompareIndexerPriority(MangaDownloadDecision x, MangaDownloadDecision y)
             => CompareByReverse(x.RemoteChapter?.Release, y.RemoteChapter?.Release, r => r?.IndexerPriority ?? int.MaxValue);
 
-        // Newer wins — lower AgeHours = better. Mirrors TV CompareAgeIfUsenet shape with manga
-        // simplification: no protocol gate (Phase 4 D-10 — manga is HTTP-only). CompareByReverse +
-        // OrderByDescending = lower AgeHours sorts first.
-        // WR-01: null-safe — null Release sorts LAST (double.MaxValue worst-age sentinel).
+        // Newer wins — later PublishDate = better. Mirrors TV CompareAgeIfUsenet shape with manga
+        // simplification: no protocol gate (Phase 4 D-10 — manga is HTTP-only).
+        //
+        // DEBUG FIX (manga-search-sort-icomparer): compare the STABLE PublishDate field, NOT the
+        // live ReleaseInfo.AgeHours getter. AgeHours recomputes DateTime.UtcNow on every read
+        // (ReleaseInfo.cs:106-116), so two releases that share a PublishDate — the gateway stamps
+        // DateTime.UtcNow on every dateless release (GatewayParser.cs:92), so a single search batch
+        // collapses to near-identical dates — produce a non-zero, sign-unstable delta whose value
+        // depends on which UtcNow read happened first. That makes Compare non-antisymmetric and
+        // non-transitive, so OrderBy(d => d, _comparer) in ProcessMangaDownloadDecisions throws
+        // "Unable to sort because the IComparer.Compare() method returns inconsistent results"
+        // mid-sort (LINQ sorts an int[] index map, hence IComparer 'System.Comparison`1[System.Int32]').
+        // PublishDate is a stored field, so comparing it is deterministic AND gives the IDENTICAL
+        // ordering: AgeHours = UtcNow - PublishDate, so lower-age ⟺ later-PublishDate, which means
+        // CompareByReverse(AgeHours) and CompareBy(PublishDate) yield the same sign for every input.
+        // WR-01: null-safe — null Release sorts as oldest (DateTime.MinValue worst-age sentinel,
+        // the PublishDate analog of the prior double.MaxValue age sentinel).
         private int CompareAge(MangaDownloadDecision x, MangaDownloadDecision y)
-            => CompareByReverse(x.RemoteChapter?.Release, y.RemoteChapter?.Release, r => r?.AgeHours ?? double.MaxValue);
+            => CompareBy(x.RemoteChapter?.Release, y.RemoteChapter?.Release, r => r?.PublishDate ?? DateTime.MinValue);
 
         // Larger size wins. Mirrors TV CompareSize fallback shape — CompareBy + OrderByDescending =
         // larger size sorts first.
