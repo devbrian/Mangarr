@@ -333,9 +333,20 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     private MangaStatisticsResource ComputeStatistics(int mangaId)
     {
         var chapters = _chapterService.GetChaptersByManga(mangaId) ?? new List<NzbDrone.Core.Manga.Chapter>();
-        var chapterCount = chapters.Count;
+        var totalChapterCount = chapters.Count;
         var chapterFileCount = chapters.Count(c => c.ChapterFileId.HasValue);
         var monitoredChapterCount = chapters.Count(c => c.Monitored);
+
+        // Progress-bar denominator (Sonarr SeriesStatistics.EpisodeCount peer): a chapter
+        // counts toward "available" when it is monitored OR already on disk. Mirrors
+        // SeriesStatisticsRepository's `(Monitored AND aired) OR EpisodeFileId > 0` MINUS
+        // the air-date gate — manga FirstReleaseDate is frequently NULL (not every metadata
+        // source populates it), so gating on it would silently drop monitored, not-yet-
+        // downloaded chapters from the denominator. The HasFile term keeps the invariant
+        // chapterFileCount <= chapterCount (an unmonitored-but-downloaded chapter still
+        // counts). An unmonitored chapter with no file is excluded — the fix for the
+        // "224 / 225" bug where the denominator kept counting an unmonitored chapter.
+        var chapterCount = chapters.Count(c => c.Monitored || c.ChapterFileId.HasValue);
 
         var sizeOnDisk = 0L;
         var fileIds = chapters
@@ -359,12 +370,12 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
         {
             ChapterCount = chapterCount,
             ChapterFileCount = chapterFileCount,
-            TotalChapterCount = chapterCount,
+            TotalChapterCount = totalChapterCount,
             MonitoredChapterCount = monitoredChapterCount,
             SizeOnDisk = sizeOnDisk,
             EpisodeCount = chapterCount,
             EpisodeFileCount = chapterFileCount,
-            TotalEpisodeCount = chapterCount,
+            TotalEpisodeCount = totalChapterCount,
             MonitoredEpisodeCount = monitoredChapterCount,
             SeasonCount = 0,
         };
