@@ -431,7 +431,7 @@ namespace NzbDrone.Core.Test.Download.Manga
                 .Setup(h => h.FindByDownloadId("dl-1"))
                 .Returns(new List<ChapterHistory>
                 {
-                    new ChapterHistory { EventType = ChapterHistoryEventType.Ignored, DownloadId = "dl-1" }
+                    new ChapterHistory { EventType = ChapterHistoryEventType.Ignored, DownloadId = "dl-1", ChapterId = 42 }
                 });
 
             Mocker.GetMock<IMakeMangaImportDecision>()
@@ -443,6 +443,41 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             Mocker.GetMock<IEventAggregator>()
                 .Verify(e => e.PublishEvent(It.IsAny<ChapterImportIgnoredEvent>()), Times.Never);
+        }
+
+        [Test]
+        public void Import_records_Ignored_only_for_pack_chapters_not_already_recorded()
+        {
+            // Multi-chapter pack (42 + 99): chapter 42 already has an Ignored row for this download,
+            // chapter 99 does not. Dedup is scoped per (DownloadId, ChapterId), so only 99 is recorded.
+            var td = new TrackedDownloadBuilder()
+                .WithDownloadId("dl-1")
+                .WithChapters(42, 99)
+                .WithLanguage("en")
+                .Completed()
+                .WithOutputPath(@"C:\staging\pack\pack.cbz")
+                .Build();
+            td.RemoteChapter.Release.ScanlationGroup = "Acme Scans";
+            td.RemoteChapter.Release.TranslatedLanguage = "en";
+
+            Mocker.GetMock<IChapterHistoryService>()
+                .Setup(h => h.FindByDownloadId("dl-1"))
+                .Returns(new List<ChapterHistory>
+                {
+                    new ChapterHistory { EventType = ChapterHistoryEventType.Ignored, DownloadId = "dl-1", ChapterId = 42 }
+                });
+
+            Mocker.GetMock<IMakeMangaImportDecision>()
+                .Setup(d => d.GetDecision(It.IsAny<LocalChapter>(), It.IsAny<DownloadClientItem>()))
+                .Returns<LocalChapter, DownloadClientItem>((lc, _) =>
+                    new MangaImportDecision(lc, new MangaImportRejection(ImportRejectionReason.NotUpgradeAllowed, "not an upgrade")));
+
+            Subject.Import(td);
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.Is<ChapterImportIgnoredEvent>(c => c.Chapter.Id == 99)), Times.Once);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.Is<ChapterImportIgnoredEvent>(c => c.Chapter.Id == 42)), Times.Never);
         }
     }
 }

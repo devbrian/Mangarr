@@ -271,9 +271,11 @@ namespace NzbDrone.Core.Download.Manga
         }
 
         // Publishes a ChapterImportIgnoredEvent per chapter so ChapterHistoryService writes a neutral
-        // Ignored row — UNLESS this download already has an Ignored row (dedup). The dedup is load-
-        // bearing for the decision-rejection caller, which returns false and is re-driven every poll
-        // cycle; without it a non-upgrade rejection would spam a fresh Ignored row every minute.
+        // Ignored row — skipping any chapter that ALREADY has an Ignored row for this download (dedup).
+        // The dedup is load-bearing for the decision-rejection caller, which returns false and is
+        // re-driven every poll cycle; without it a non-upgrade rejection would spam a fresh Ignored row
+        // every minute. Scoped per (DownloadId, ChapterId) so a multi-chapter pack whose rows were only
+        // partially persisted (e.g. a crash mid-write) still records the missing chapters on a later pass.
         private void RecordIgnored(
             TrackedDownload trackedDownload,
             RemoteChapter remoteChapter,
@@ -285,8 +287,13 @@ namespace NzbDrone.Core.Download.Manga
 
             if (downloadId.IsNotNullOrWhiteSpace())
             {
-                var existing = _historyService.FindByDownloadId(downloadId);
-                if (existing != null && existing.Any(h => h.EventType == ChapterHistoryEventType.Ignored))
+                var ignoredChapterIds = _historyService.FindByDownloadId(downloadId)?
+                    .Where(h => h.EventType == ChapterHistoryEventType.Ignored)
+                    .Select(h => h.ChapterId)
+                    .ToHashSet() ?? new HashSet<int>();
+
+                chapters = chapters.Where(c => !ignoredChapterIds.Contains(c.Id)).ToList();
+                if (chapters.Count == 0)
                 {
                     return;
                 }
