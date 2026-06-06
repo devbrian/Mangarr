@@ -1682,6 +1682,7 @@
   "OnChapterFileDelete": "On Chapter File Delete",
   "OnChapterFileDeleteForUpgrade": "On Chapter File Delete For Upgrade",
   "OnChapterImport": "On Chapter Import",
+  "OnExistingFile": "On Existing File",
   "OnFileImport": "On File Import",
   "OnFileUpgrade": "On File Upgrade",
   "OnGrab": "On Grab",
