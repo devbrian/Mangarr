@@ -89,6 +89,20 @@ function SelectMangaModalContent(props: SelectMangaModalContentProps) {
     [onMangaSelect]
   );
 
+  // a11y (GH #254): the row is a `role="button"` div, so keyboard users that
+  // Tab to it must be able to activate it the same way a native <button>
+  // would — on Enter and Space. preventDefault on Space stops the default
+  // page-scroll; Enter/Space then proxy to the same select handler as click.
+  const onMangaKeyDown = useCallback(
+    (manga: Manga) => (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onMangaSelect(manga);
+      }
+    },
+    [onMangaSelect]
+  );
+
   return (
     <ModalContent onModalClose={onModalClose}>
       <ModalHeader>
@@ -140,6 +154,7 @@ function SelectMangaModalContent(props: SelectMangaModalContentProps) {
                     tabIndex={0}
                     data-testid={`select-manga-modal-row-${manga.id}`}
                     onClick={onMangaPress(manga)}
+                    onKeyDown={onMangaKeyDown(manga)}
                   >
                     <div className={styles.title}>{manga.title}</div>
                     <div className={styles.metadata}>

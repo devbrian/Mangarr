@@ -47,6 +47,11 @@ function TagInputInput<T extends TagBase>(props: TagInputInputProps<T>) {
   );
 
   return (
+    // a11y (GH #254): onMouseDown only forwards focus to the nested text
+    // <input> when the user clicks empty container space — a mouse-only
+    // convenience. Keyboard users Tab directly to that input, which is the
+    // real interactive control, so the container needs no role/key handler.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div ref={forwardedRef} className={className} onMouseDown={handleMouseDown}>
       {tags.map((tag, index) => {
         return (
