@@ -75,7 +75,7 @@ namespace NzbDrone.Core.Indexers.Gateway
         // The parser needs the source-status service for warnings[] → RecordFailure (D-03a);
         // it does NOT come "for free" from a base class (HttpIndexerBase has no SourceKey path).
         public override IParseIndexerResponse GetParser()
-            => new GatewayParser(_sourceStatusService);
+            => new GatewayParser(_sourceStatusService, _logger);
 
         public override object RequestAction(string action, IDictionary<string, string> query)
         {

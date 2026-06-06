@@ -13,6 +13,7 @@ using NzbDrone.Core.Indexers.Gateway;
 using NzbDrone.Core.Indexers.Gateway.Responses;
 using NzbDrone.Core.Parser.Manga;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.Indexers.Gateway
 {
@@ -66,6 +67,9 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             parsed.ChapterNumbers.Should().Contain(179m);
             parsed.ScanlationGroup.Should().Be("Team Lumikha");
             parsed.TranslatedLanguage.Should().Be("en");
+
+            // search.json carries exactly 1 warnings[] entry → 1 NLog Warn (root cause #3).
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
@@ -78,6 +82,9 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
 
             release.Should().NotBeNull("a title-only release must never be dropped (D-02b)");
             release.Title.Should().Be("Some Raw Release v3 ch 5", "the verbatim gateway title is preserved");
+
+            // search.json carries exactly 1 warnings[] entry → 1 NLog Warn (root cause #3).
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
@@ -102,6 +109,9 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             MangaParser.ParseChapterTitle(c179.Title).ChapterNumbers.Should().Contain(179m);
             MangaParser.ParseChapterTitle(c125.Title).ChapterNumbers.Should().Contain(12.5m);
             MangaParser.ParseChapterTitle(c1123.Title).ChapterNumbers.Should().Contain(1.123m);
+
+            // search.json carries exactly 1 warnings[] entry → 1 NLog Warn (root cause #3).
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
@@ -134,6 +144,9 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             // The parser itself does NOT de-dup — both duplicate-guid rows are present here.
             // (Plan 04's Fetch via CleanupReleases collapses them by Guid.)
             releases.Count(r => r.Guid == "comix.to:solo-leveling:179").Should().Be(2);
+
+            // search.json carries exactly 1 warnings[] entry → 1 NLog Warn (root cause #3).
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
@@ -147,6 +160,11 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
 
             // The good releases are STILL returned (a warning never suppresses results).
             releases.Count.Should().BeGreaterThan(0);
+
+            // Root cause #3: each warnings[] entry ALSO emits an NLog Warn so the per-source
+            // soft failure reaches /system/events. search.json carries exactly 1 warning →
+            // exactly 1 Warn; this consumes (and thereby asserts) it.
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
@@ -155,6 +173,9 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             // A response carrying warnings[] must never throw out of ParseResponse.
             var act = () => Subject.ParseResponse(MakeResponse(_searchJson));
             act.Should().NotThrow();
+
+            // search.json carries exactly 1 warnings[] entry → 1 NLog Warn (root cause #3).
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
@@ -448,6 +469,9 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             var act = () => Subject.ParseResponse(MakeResponse(_searchJson));
 
             act.Should().NotThrow();
+
+            // search.json carries exactly 1 warnings[] entry → 1 NLog Warn (root cause #3).
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         private IndexerResponse MakeResponse(string content)

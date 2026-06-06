@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
+using NLog;
 using NzbDrone.Common.Http;
 using NzbDrone.Core.Indexers.Exceptions;
 using NzbDrone.Core.Indexers.Gateway.Responses;
@@ -32,10 +33,12 @@ namespace NzbDrone.Core.Indexers.Gateway
     public class GatewayParser : IParseIndexerResponse
     {
         private readonly IIndexerSourceStatusService _sourceStatusService;
+        private readonly Logger _logger;
 
-        public GatewayParser(IIndexerSourceStatusService sourceStatusService)
+        public GatewayParser(IIndexerSourceStatusService sourceStatusService, Logger logger)
         {
             _sourceStatusService = sourceStatusService;
+            _logger = logger;
         }
 
         public IList<ReleaseInfo> ParseResponse(IndexerResponse indexerResponse)
@@ -120,6 +123,14 @@ namespace NzbDrone.Core.Indexers.Gateway
                 if (w?.SourceKey != null)
                 {
                     _sourceStatusService.RecordFailure(w.SourceKey);
+
+                    // Root cause #3: also surface the per-source soft failure on /system/events.
+                    // RecordFailure only escalates the SourceKey's status ladder (no log line), so
+                    // the warning's Code + Message were previously discarded. Emit an NLog Warn that
+                    // NAMES the source so the per-source degradation reaches the NLog-backed events
+                    // view. NLog positional args (not string interpolation) per T-lb8-01 — the
+                    // semi-trusted gateway Message is passed as an arg, never format-interpreted.
+                    _logger.Warn("Gateway source '{0}' reported a warning [{1}]: {2}", w.SourceKey, w.Code, w.Message);
                 }
             }
 
