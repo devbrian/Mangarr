@@ -131,19 +131,8 @@ export const FILTERS: Filter[] = [
     label: () => translate('All'),
     filters: [],
   },
-  {
-    key: 'season-pack',
-    label: () => translate('SeasonPack'),
-    filters: [
-      {
-        key: 'fullSeason',
-        value: [true],
-        type: 'equal',
-      },
-    ],
-  },
-  // Sonarr divergence: Phase 17.3 Plan 17.3-14 — not-season-pack filter dropped
-  // (manga has no seasons per DOMAIN-02).
+  // Sonarr divergence: Phase 17.3 Plan 17.3-14 dropped the not-season-pack filter;
+  // GH #327 dropped the remaining season-pack filter (manga has no seasons per DOMAIN-02).
   {
     key: 'not-rejected',
     label: () => translate('NotRejected'),
@@ -245,12 +234,6 @@ export const FILTER_BUILDER: FilterBuilderProp<Release>[] = [
     },
   },
   {
-    name: 'fullSeason',
-    label: () => translate('SeasonPack'),
-    type: filterBuilderTypes.EXACT,
-    valueType: filterBuilderValueTypes.BOOL,
-  },
-  {
     name: 'episodeRequested',
     label: () => translate('EpisodeRequested'),
     type: filterBuilderTypes.EXACT,
@@ -265,10 +248,6 @@ const FILTER_PREDICATES = {
 
   episodeRequested: (item: Release, value: boolean, type: FilterType) => {
     return applyFilterPredicate(item.episodeRequested, value, type);
-  },
-
-  fullSeason: (item: Release, value: boolean, type: FilterType) => {
-    return applyFilterPredicate(item.parsedInfo.fullSeason, value, type);
   },
 
   indexerId: (item: Release, value: number, type: FilterType) => {

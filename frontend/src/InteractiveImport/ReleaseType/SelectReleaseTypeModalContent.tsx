@@ -31,12 +31,7 @@ const options = [
       return translate('MultiChapter');
     },
   },
-  {
-    key: 'seasonPack',
-    get value() {
-      return translate('SeasonPack');
-    },
-  },
+  // Sonarr divergence (GH #327): 'seasonPack' option dropped — manga has no season packs.
 ];
 
 interface SelectReleaseTypeModalContentProps {

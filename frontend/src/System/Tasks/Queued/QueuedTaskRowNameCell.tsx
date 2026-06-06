@@ -53,14 +53,6 @@ export default function QueuedTaskRowNameCell(
         {sortedSeries.length ? (
           <span> - {formatTitles(sortedSeries.map((s) => s.title))}</span>
         ) : null}
-        {'seasonNumber' in body && body.seasonNumber ? (
-          <span>
-            {' '}
-            {translate('SeasonNumberToken', {
-              seasonNumber: body.seasonNumber,
-            })}
-          </span>
-        ) : null}
       </span>
 
       {clientUserAgent ? (
