@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
@@ -55,8 +56,15 @@ public class IndexerNegativeValidationFixture : AutomationTest
 
         // STATE assertion: POST /api/v5/indexer returns 400 (FluentValidation
         // failure on Name.NotEmpty) — the backend rejects the empty Name.
+        //
+        // Anchor the predicate on the resource boundary (mirrors
+        // SettingsProviderFlow.SaveAsync). A bare `Url.Contains("/api/v5/indexer")`
+        // also matches the `/api/v5/indexer/action/gatewaySources` select-options
+        // action POST that the GatewaySettings `enabledSources` dropdown fires —
+        // that action returns 200 and would race-resolve this wait BEFORE the real
+        // create POST, surfacing a false 200 (the prior flaky 200/400 failure).
         var postTask = Page.WaitForResponseAsync(
-            r => r.Url.Contains("/api/v5/indexer") && r.Request.Method == "POST",
+            r => Regex.IsMatch(r.Url, @"/api/v5/indexer(\?.*)?$") && r.Request.Method == "POST",
             new() { Timeout = 15_000 });
 
         await modal.SaveButton.ClickAsync();
