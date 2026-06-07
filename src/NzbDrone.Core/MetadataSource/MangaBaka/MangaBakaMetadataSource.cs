@@ -283,7 +283,11 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
 
             if (record.SecondaryTitles != null)
             {
-                var firstNonEmpty = record.SecondaryTitles.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+                var firstNonEmpty = record.SecondaryTitles.Values
+                    .Where(list => list != null)
+                    .SelectMany(list => list)
+                    .Select(entry => entry?.Title)
+                    .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
                 if (firstNonEmpty != null)
                 {
                     return firstNonEmpty;
@@ -309,9 +313,11 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
 
             if (record.SecondaryTitles != null)
             {
-                foreach (var value in record.SecondaryTitles.Values)
+                foreach (var entry in record.SecondaryTitles.Values
+                             .Where(list => list != null)
+                             .SelectMany(list => list))
                 {
-                    AddNormalized(collected, value);
+                    AddNormalized(collected, entry?.Title);
                 }
             }
 

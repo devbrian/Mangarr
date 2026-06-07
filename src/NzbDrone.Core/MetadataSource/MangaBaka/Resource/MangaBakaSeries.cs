@@ -38,8 +38,14 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka.Resource
         [JsonProperty("romanized_title")]
         public string RomanizedTitle { get; set; }
 
+        // PITFALL 3 (verified live against GET /v1/series/3397, Plan 41 close-out): the API
+        // ships `secondary_titles` as a language-keyed dictionary whose VALUES are ARRAYS of
+        // localized-title objects — `{ "unknown": [ { type, title, note }, ... ] }` — NOT a
+        // flat string map. A `Dictionary<string,string>` typing throws a Newtonsoft
+        // JsonReaderException ("Unexpected character '['") that fails the ENTIRE response
+        // (search 500s, by-id silently empties).
         [JsonProperty("secondary_titles")]
-        public Dictionary<string, string> SecondaryTitles { get; set; }
+        public Dictionary<string, List<MangaBakaSecondaryTitle>> SecondaryTitles { get; set; }
 
         [JsonProperty("titles")]
         public List<MangaBakaTitleEntry> Titles { get; set; }
@@ -94,6 +100,23 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka.Resource
 
         [JsonProperty("primary")]
         public bool Primary { get; set; }
+    }
+
+    /// <summary>
+    /// One entry of a <c>secondary_titles[lang]</c> array — a localized alternate title.
+    /// The API nests these under language keys (e.g. <c>"unknown"</c>, <c>"en"</c>); only
+    /// <see cref="Title"/> is harvested for alt-title matching.
+    /// </summary>
+    public class MangaBakaSecondaryTitle
+    {
+        [JsonProperty("title")]
+        public string Title { get; set; }
+
+        [JsonProperty("type")]
+        public string Type { get; set; }
+
+        [JsonProperty("note")]
+        public string Note { get; set; }
     }
 
     /// <summary>

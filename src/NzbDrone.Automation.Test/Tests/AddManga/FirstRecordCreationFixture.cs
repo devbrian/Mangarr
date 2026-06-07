@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
 using NUnit.Framework;
+using NzbDrone.Automation.Test.Flows;
 
 namespace NzbDrone.Automation.Test.Tests.AddManga;
 
@@ -17,8 +18,8 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 ///   1. baseline RootFolder seeded by AutomationTest.OneTimeSetUp
 ///   2. OneTimeSetUp drops TWO manga subfolders + CBZ inside the baseline root
 ///      (UUID-named + human-title-named) so the scan view surfaces ≥2 unmapped
-///      folder rows. Both folders auto-match to the same target manga ("Komi
-///      Can't Communicate") via the existing UUID + new term-based cassettes —
+///      folder rows. Both folders auto-match to the same target manga ("Solo
+///      Leveling") via by-id (MangaBaka 3397) + term-based cassettes —
 ///      this is the controller-branch-coverage matrix per GH issue #207.
 ///   3. UI drive: SelectFolder → click root → ImportManga scan → wait for
 ///      per-row lookup (auto-selects both rows) → UNCHECK the UUID row so
@@ -32,11 +33,11 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 /// Cassette-coverage matrix (issue #207 — both branches now covered by PRSmoke):
 ///   | Folder name                             | MangaLookupController branch        | Cassette source                               |
 ///   |-----------------------------------------|-------------------------------------|------------------------------------------------|
-///   | a96676e5-8ae2-425e-b549-7f15dd34a6d8    | UUID short-circuit (lines 48-52)    | by-id: SearchForNewMangaByMangaDexId           |
-///   | Komi Can't Communicate                  | Title fallback (lines 64-67)        | term-based: /manga?title=komi%20cant%20...     |
+///   | 3397 (Solo Leveling)                    | by-id short-circuit (lines 48-52)    | by-id: SearchForNewMangaByMangaDexId           |
+///   | Solo Leveling                            | Title fallback (lines 64-67)        | term-based: /v1/series/search?q=Solo+Leveling     |
 ///
 /// **Why only 1 row is imported (not both):** Both seeded folders auto-match
-/// to the SAME MangaDex UUID `a96676e5-8ae2-425e-b549-7f15dd34a6d8`. The
+/// to the SAME MangaBaka id `3397` (Solo Leveling). The
 /// frontend `ImportMangaFooter.handleImportPress` fires `Promise.allSettled`
 /// over selected rows — concurrent POSTs. `AddMangaService.PrepareForAdd`
 /// (line 220) only dedupes via `FindByMangaDexId` *before* insert, with no
@@ -62,19 +63,20 @@ public class FirstRecordCreationFixture : AutomationTest
     // `?term=<folderName>` on `/api/v5/manga/lookup`. Two folders are seeded so
     // both MangaLookupController branches get PRSmoke coverage:
     //
-    //   MangaFolderUuid  → Guid.TryParse(term) true  → UUID short-circuit branch
+    //   MangaFolderId    → int.TryParse(term) true   → by-id short-circuit branch
     //                       → SearchForNewMangaByMangaDexId via cassette
     //                       → by-id metadata fetch
     //
-    //   MangaFolderTitle → Guid.TryParse(term) false → title fallback branch
+    //   MangaFolderTitle → Guid/int.TryParse(term) false → title fallback branch
     //                       → SearchForNewManga(term) via cassette
-    //                       → GET /manga?title=Komi+Can%27t+Communicate&...
+    //                       → GET /v1/series/search?q=Solo+Leveling
     //
-    // Both auto-match to the same target manga (MangaDex UUID
-    // a96676e5-8ae2-425e-b549-7f15dd34a6d8 — "Komi Can't Communicate"), so the
-    // controller-branch coverage widens with zero new MangaDex target surface.
-    private const string MangaFolderUuid = "a96676e5-8ae2-425e-b549-7f15dd34a6d8";
-    private const string MangaFolderTitle = "Komi Can't Communicate";
+    // Phase 41: MangaBaka is the default primary, so the by-id branch uses a
+    // MangaBaka INTEGER id (a MangaDex UUID would no longer resolve). Both folders
+    // auto-match to the same target manga (MangaBaka id 3397 — "Solo Leveling"),
+    // so the controller-branch coverage widens with zero new target surface.
+    private const string MangaFolderId = AddMangaFlow.KnownMangaBakaId;
+    private const string MangaFolderTitle = "Solo Leveling";
 
     [OneTimeSetUp]
     public async Task SeedLibraryImportFixturesAsync()
@@ -85,7 +87,7 @@ public class FirstRecordCreationFixture : AutomationTest
         // exactly 2 unmapped-folder rows — one keyed by UUID, one by human
         // title (issue #207 coverage matrix).
         var baselineRoot = Path.Combine(Runner.AppData, "MangaLibrary");
-        SeedUnmappedFolder(baselineRoot, MangaFolderUuid);
+        SeedUnmappedFolder(baselineRoot, MangaFolderId);
         SeedUnmappedFolder(baselineRoot, MangaFolderTitle);
     }
 
@@ -186,8 +188,8 @@ public class FirstRecordCreationFixture : AutomationTest
         // Uncheck the UUID-folder row so only the title-folder row POSTs on
         // Import. Both rows auto-select on lookup resolution (ImportMangaRow.tsx
         // line 145-150). The title folder's `-select` testid is
-        // `import-manga-row-Komi Can't Communicate-select`; the UUID folder's
-        // is `import-manga-row-a96676e5-...-select`.
+        // `import-manga-row-Solo Leveling-select`; the id folder's
+        // is `import-manga-row-3397-select`.
         //
         // Why: see the fixture-header comment "Why only 1 row is imported".
         // Both lookup branches were exercised during the scan phase above; the
@@ -214,7 +216,7 @@ public class FirstRecordCreationFixture : AutomationTest
                 new() { Timeout = 20_000 });
 
         var uuidRowSelect = Page.GetByTestId(
-            $"import-manga-row-{MangaFolderUuid}-select");
+            $"import-manga-row-{MangaFolderId}-select");
 
         // The TableSelectCell wraps the checkbox in a sibling; the testid IS
         // on the wrapping cell. Click the cell to toggle the inner checkbox.
