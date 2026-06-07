@@ -1,0 +1,15 @@
+{
+  "Request": {
+    "Method": "GET",
+    "Url": "https://images.mangabaka.dev/9/d/f/d/5/9/c/6/f032/4552/b91f/86686c9e7c8b.jpg"
+  },
+  "Response": {
+    "Status": 200,
+    "Body": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=",
+    "BodyIsBase64": true,
+    "Headers": {
+      "Content-Type": "image/png",
+      "Content-Length": "68"
+    }
+  }
+}
