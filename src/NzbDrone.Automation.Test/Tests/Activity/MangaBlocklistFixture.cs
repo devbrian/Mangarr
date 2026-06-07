@@ -35,7 +35,7 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 [Category("AutomationTest")]
 public class MangaBlocklistFixture : AutomationTest
 {
-    private const string KnownMangaBakaId = "3397";
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task blocklist_remove_row_disappears_state_assertion()

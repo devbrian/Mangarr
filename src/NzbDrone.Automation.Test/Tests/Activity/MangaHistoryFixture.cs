@@ -35,7 +35,7 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 [Category("AutomationTest")]
 public class MangaHistoryFixture : AutomationTest
 {
-    private const string KnownMangaBakaId = "3397";
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task history_page_renders_table_with_decision_cells_when_rows_present()

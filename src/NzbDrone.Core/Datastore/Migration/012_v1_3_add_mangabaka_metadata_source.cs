@@ -57,7 +57,7 @@ namespace NzbDrone.Core.Datastore.Migration
                 cmd.Transaction = transaction;
                 cmd.CommandText = @"UPDATE ""MetadataSources""
                                     SET ""IsPrimary"" = @notPrimary
-                                    WHERE ""Id"" = (SELECT MIN(""Id"") FROM ""MetadataSources"" WHERE ""Implementation"" = 'MangaDexMetadataSource')
+                                    WHERE ""Id"" = (SELECT MIN(""Id"") FROM ""MetadataSources"" WHERE ""Implementation"" = 'MangaDexMetadataSource' AND ""IsPrimary"" = @primary)
                                       AND ""IsPrimary"" = @primary";
 
                 var primaryParam = cmd.CreateParameter();

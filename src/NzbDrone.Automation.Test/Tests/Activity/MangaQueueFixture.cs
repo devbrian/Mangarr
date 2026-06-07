@@ -36,7 +36,7 @@ public class MangaQueueFixture : AutomationTest
     // AddMangaFlow.KnownMangaBakaId. The exact chapter set is deterministic via
     // cassette; the fixture asserts on row SHAPE (status cell presence), not
     // row count.
-    private const string KnownMangaBakaId = "3397";
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task queue_page_renders_table_with_state_assertions_on_visible_rows()

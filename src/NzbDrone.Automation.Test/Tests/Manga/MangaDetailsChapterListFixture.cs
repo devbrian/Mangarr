@@ -78,7 +78,7 @@ public class MangaDetailsChapterListFixture : AutomationTest
             "GET /api/v5/chapter response must be a JSON array of ChapterResource");
         doc.RootElement.GetArrayLength().Should().BeGreaterThan(
             0,
-            "AddMangaFlow seeds a manga whose chapter list has >= 1 entry (cassette-replayed MangaDex)");
+            "AddMangaFlow seeds a manga whose chapter list has >= 1 entry (cassette-replayed MangaBaka)");
 
         // STATE assertion 3: records carry the expected mangaId.
         var firstChapter = doc.RootElement[0];
