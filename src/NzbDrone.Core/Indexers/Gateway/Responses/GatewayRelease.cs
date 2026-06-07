@@ -45,6 +45,12 @@ namespace NzbDrone.Core.Indexers.Gateway.Responses
         // Pitfall 3: long? — defaults to 0 on the wire.
         public long? SizeBytes { get; set; }
 
+        // Advisory / nullable: per-release vote count. Wire field name `votes` (Newtonsoft
+        // default camelCase resolution already matches). int? (Pitfall-3 nullable-numeric
+        // convention, same as SizeBytes/ChapterNumber) so an absent value on an older gateway
+        // version has no exception path — the parser coalesces it to 0 (?? 0).
+        public int? Votes { get; set; }
+
         public Dictionary<string, object> Ids { get; set; }
     }
 }

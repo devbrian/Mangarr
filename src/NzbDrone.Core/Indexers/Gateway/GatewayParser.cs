@@ -103,6 +103,11 @@ namespace NzbDrone.Core.Indexers.Gateway
                     // Indexer/IndexerId/Protocol/Priority).
                     Source = r.SourceKey,
 
+                    // Per-release vote count. `?? 0` is the absent-safe default for older gateway
+                    // versions that omit `votes` — never NREs, never 500s. Parked on the canonical
+                    // ReleaseInfo so a future highest-votes Custom Format spec can read it.
+                    Votes = r.Votes ?? 0,
+
                     // D-06 (RECON-04): thread the cross-source ID dict (mangadexId/anilistId/malId)
                     // through verbatim so the Plan-03 synthesis attribution gate can ID-match first.
                     // Passed UNCHANGED — no transform/filter here; defensive value parsing

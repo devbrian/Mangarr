@@ -72,6 +72,16 @@ namespace NzbDrone.Core.Parser.Model
         public string TranslatedLanguage { get; set; }
 
         /// <summary>
+        /// Per-release vote count supplied by the manga gateway (<c>GatewayRelease.Votes</c>,
+        /// mapped by <c>GatewayParser</c>). A future Custom Format spec will consume this for
+        /// highest-votes release selection (that consumer is out of scope now). Survives
+        /// <c>IndexerBase.CleanupReleases</c> the same way <see cref="Source"/> / <see cref="Ids"/>
+        /// do (CleanupReleases only stamps Indexer/IndexerId/Protocol/Priority). Non-nullable
+        /// <c>int</c> defaulting to 0 so decision/CF code never null-checks.
+        /// </summary>
+        public int Votes { get; set; }
+
+        /// <summary>
         /// Phase 6 PIPELINE-04 — manga sibling of <c>GrabbedReleaseInfo.EpisodeIds</c>. Stamped
         /// at search-time after MangaParsingService.Map resolves a release to one or more
         /// Chapter rows; consumed by Plan 06-07 <c>MatchesGrabSpecification</c> to reject

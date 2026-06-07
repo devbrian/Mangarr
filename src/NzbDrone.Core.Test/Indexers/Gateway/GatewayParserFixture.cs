@@ -436,6 +436,65 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         }
 
         [Test]
+        public void votes_maps_onto_releaseinfo_votes()
+        {
+            // A gateway release carrying a numeric `votes` surfaces it verbatim on the produced
+            // ReleaseInfo.Votes so a future highest-votes Custom Format spec can read it without
+            // a re-plumb. Mirrors the Source/Ids passthrough.
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease
+                    {
+                        Guid = "comix.to:votes:1",
+                        Title = "Solo Leveling Chapter 1",
+                        SourceKey = "comix.to",
+                        DownloadHandle = "R6.token",
+                        PublishDate = DateTime.UtcNow,
+                        MangaTitle = "Solo Leveling",
+                        ChapterNumber = 1m,
+                        Language = "en",
+                        Votes = 42
+                    }
+                }
+            };
+
+            var release = Subject.ParseResponse(MakeResponse(response.ToJson())).Single();
+
+            release.Votes.Should().Be(42, "a present votes value flows through to ReleaseInfo.Votes");
+        }
+
+        [Test]
+        public void absent_votes_defaults_to_zero()
+        {
+            // An older gateway that omits `votes` (null on the wire) must coalesce to 0 — never
+            // NRE or 500. ReleaseInfo.Votes is a non-nullable int defaulting to 0 (absent-safe).
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease
+                    {
+                        Guid = "comix.to:no-votes:1",
+                        Title = "Solo Leveling Chapter 2",
+                        SourceKey = "comix.to",
+                        DownloadHandle = "R6.token",
+                        PublishDate = DateTime.UtcNow,
+                        MangaTitle = "Solo Leveling",
+                        ChapterNumber = 2m,
+                        Language = "en",
+                        Votes = null
+                    }
+                }
+            };
+
+            var release = Subject.ParseResponse(MakeResponse(response.ToJson())).Single();
+
+            release.Votes.Should().Be(0, "an absent/null votes value defaults to 0 (older gateway, absent-safe)");
+        }
+
+        [Test]
         public void search_error_envelope_with_auth_code_throws_apikey_exception()
         {
             // Codex P2 (parity with caps CR-02): a 2xx body wrapping a top-level error envelope

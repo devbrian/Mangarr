@@ -30,6 +30,10 @@ namespace Mangarr.Api.V5.Manga.Release
         // upstream SourceKey (mangadex/comix/…) the GatewayParser carries on ReleaseInfo.Source.
         // The InteractiveSearch row shows it under the indexer name. Null for non-gateway releases.
         public string? Source { get; set; }
+
+        // Per-release vote count carried from ReleaseInfo.Votes (mirrors how Source is carried).
+        // The frontend reads it off `release.release.votes` for the InteractiveSearch Votes column.
+        public int Votes { get; set; }
         public string? Title { get; set; }
 
         // Frontend interface (useReleases.ts:86-87) declares these as `number` — preserve the
@@ -70,6 +74,7 @@ namespace Mangarr.Api.V5.Manga.Release
                 IndexerId = releaseInfo.IndexerId,
                 Indexer = releaseInfo.Indexer,
                 Source = releaseInfo.Source,
+                Votes = releaseInfo.Votes,
                 Title = releaseInfo.Title,
                 TvdbId = 0,
                 TvRageId = 0,
