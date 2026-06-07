@@ -11,8 +11,12 @@
 //   * Form fields: standardChapterFormat (text + token picker), mangaFolderFormat (text + token picker),
 //     renameChapters (toggle), replaceIllegalCharacters (toggle), colonReplacementFormat (select)
 //   * Presets dropdown wires GET /api/v5/config/manganaming/presets/manga (Komga / Kavita / ComicRack /
-//     Custom — Phase 5 D-13..D-16). Selecting a preset patches the standardChapterFormat +
-//     mangaFolderFormat fields. Default = Komga (Phase 5 D-16).
+//     Custom — Phase 5 D-13..D-16). Selecting Komga/Kavita/ComicRack patches the standardChapterFormat +
+//     mangaFolderFormat fields; "Custom" is a manual-edit marker that leaves the fields untouched.
+//     The selector has no "Select preset" placeholder — on load it derives the matching preset from the
+//     saved format (Komga out of the box per Phase 5 D-16), and editing a format field flips it to Custom.
+//     The standardChapterFormat box is always visible (not gated on RenameChapters) so the preset templates
+//     are discoverable.
 //   * Token picker is MangaNamingModal (manga-shape token list — no daily/anime/season/airDate)
 //   * Live preview uses client-side token substitution (POST /preview endpoint not in scope this phase)
 //
@@ -159,15 +163,23 @@ function MangaNaming({ setChildSave, onChildStateChange }: MangaNamingProps) {
     useModalOpenState(false);
   const [namingModalOptions, setNamingModalOptions] =
     useState<MangaNamingModalOptions | null>(null);
-  const [selectedPreset, setSelectedPreset] = useState<string>('');
+  // null = "not yet chosen this session"; falls through to the derived preset
+  // (see derivedPreset below). A concrete string means the user picked a preset
+  // or edited a field, and it wins over the derived value.
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
 
   const handleInputChange = useCallback(
     (change: InputChanged) => {
       const key = change.name as keyof MangaNamingSettingsModel;
 
       updateSetting(key, change.value as MangaNamingSettingsModel[typeof key]);
-      // Manual edits clear the active preset selection.
-      setSelectedPreset('');
+
+      // Only edits to the format templates make this a "custom" format. Toggles
+      // like RenameChapters / ReplaceIllegalCharacters / ColonReplacement share
+      // this handler but must not hijack the preset selector.
+      if (key === 'standardChapterFormat' || key === 'mangaFolderFormat') {
+        setSelectedPreset('Custom');
+      }
     },
     [updateSetting]
   );
@@ -189,22 +201,23 @@ function MangaNaming({ setChildSave, onChildStateChange }: MangaNamingProps) {
   }, [setNamingModalOpen]);
 
   const presetOptions: EnhancedSelectInputValue<string>[] = useMemo(() => {
-    return [
-      {
-        key: '',
-        value: translate('SelectPreset'),
-      },
-      ...presets.map((p: MangaNamingPreset) => ({
-        key: p.name,
-        value: p.name,
-        hint: p.description,
-      })),
-    ];
+    return presets.map((p: MangaNamingPreset) => ({
+      key: p.name,
+      value: p.name,
+      hint: p.description,
+    }));
   }, [presets]);
 
   const handlePresetChange = useCallback(
     ({ value }: { value: string }) => {
       setSelectedPreset(value);
+
+      // "Custom" is a manual-edit marker, not a template — selecting it leaves
+      // the format fields untouched so it never clobbers the user's own edits.
+      if (value === 'Custom') {
+        return;
+      }
+
       const preset = presets.find((p) => p.name === value);
       if (preset) {
         updateSetting('standardChapterFormat', preset.standardChapterFormat);
@@ -214,7 +227,29 @@ function MangaNaming({ setChildSave, onChildStateChange }: MangaNamingProps) {
     [presets, updateSetting]
   );
 
-  const renameChapters = hasSettings && settings.renameChapters.value;
+  // Reflect the saved format in the preset selector on first load: match the
+  // current templates against the known presets, falling back to "Custom" when
+  // the user has a bespoke format. "Custom" is excluded from matching because
+  // its template is identical to "Komga" (the default) — matching it would be
+  // ambiguous. Once the user picks a preset or edits a field, `selectedPreset`
+  // becomes non-null and overrides this derived value.
+  const derivedPreset = useMemo(() => {
+    if (!hasSettings || presets.length === 0) {
+      return '';
+    }
+
+    const match = presets.find(
+      (p) =>
+        p.name !== 'Custom' &&
+        p.standardChapterFormat === settings.standardChapterFormat.value &&
+        p.mangaFolderFormat === settings.mangaFolderFormat.value
+    );
+
+    return match ? match.name : 'Custom';
+  }, [hasSettings, presets, settings]);
+
+  const effectivePreset = selectedPreset ?? derivedPreset;
+
   const replaceIllegalCharacters =
     hasSettings && settings.replaceIllegalCharacters.value;
 
@@ -222,6 +257,15 @@ function MangaNaming({ setChildSave, onChildStateChange }: MangaNamingProps) {
   const mangaFolderFormatHelpTexts: string[] = [];
 
   if (hasSettings) {
+    // The box is always visible (so presets are discoverable) but the backend
+    // only applies the template on import when RenameChapters is on — flag that
+    // so a visible-but-inert format isn't misleading.
+    if (!settings.renameChapters.value) {
+      standardChapterFormatHelpTexts.push(
+        translate('StandardChapterFormatRenameDisabledHelpText')
+      );
+    }
+
     const chapterPreview = substituteSampleTokens(
       settings.standardChapterFormat.value
     );
@@ -270,7 +314,7 @@ function MangaNaming({ setChildSave, onChildStateChange }: MangaNamingProps) {
             <FormInputGroup
               type={inputTypes.SELECT}
               name="namingPreset"
-              value={selectedPreset}
+              value={effectivePreset}
               values={presetOptions}
               helpText={translate('MangaNamingPresetHelpText')}
               onChange={handlePresetChange}
@@ -331,27 +375,25 @@ function MangaNaming({ setChildSave, onChildStateChange }: MangaNamingProps) {
             </FormGroup>
           ) : null}
 
-          {renameChapters ? (
-            <FormGroup size={sizes.LARGE}>
-              <FormLabel>{translate('StandardChapterFormat')}</FormLabel>
+          <FormGroup size={sizes.LARGE}>
+            <FormLabel>{translate('StandardChapterFormat')}</FormLabel>
 
-              <FormInputGroup
-                inputClassName={styles.namingInput}
-                type={inputTypes.TEXT}
-                name="standardChapterFormat"
-                buttons={
-                  <FormInputButton
-                    onPress={handleStandardChapterFormatModalOpenClick}
-                  >
-                    ?
-                  </FormInputButton>
-                }
-                onChange={handleInputChange}
-                {...settings.standardChapterFormat}
-                helpTexts={standardChapterFormatHelpTexts}
-              />
-            </FormGroup>
-          ) : null}
+            <FormInputGroup
+              inputClassName={styles.namingInput}
+              type={inputTypes.TEXT}
+              name="standardChapterFormat"
+              buttons={
+                <FormInputButton
+                  onPress={handleStandardChapterFormatModalOpenClick}
+                >
+                  ?
+                </FormInputButton>
+              }
+              onChange={handleInputChange}
+              {...settings.standardChapterFormat}
+              helpTexts={standardChapterFormatHelpTexts}
+            />
+          </FormGroup>
 
           <FormGroup size={sizes.MEDIUM}>
             <FormLabel>{translate('MangaFolderFormat')}</FormLabel>

@@ -2099,6 +2099,7 @@
   "SslPort": "SSL Port",
   "Standard": "Standard",
   "StandardChapterFormat": "Standard Chapter Format",
+  "StandardChapterFormatRenameDisabledHelpText": "This template is only applied when Rename Chapters is enabled. With renaming off, Mangarr keeps the existing file names.",
   "StartImport": "Start Import",
   "StartProcessing": "Start Processing",
   "Started": "Started",
