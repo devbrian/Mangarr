@@ -21,6 +21,17 @@ namespace NzbDrone.Core.Parser.Manga
     //
     // CJK ideographs (鬼滅の刃) flow through unchanged: they are categorized as
     // letters by char.IsLetter, and ToLowerInvariant is a no-op for them.
+    //
+    // SEARCH-QUERY VARIANT (NormalizeForSearch): identical pipeline EXCEPT step 4
+    // replaces stripped punctuation with a SPACE instead of removing it with no
+    // replacement char. Use this — NOT Normalize — when building an outbound query
+    // for an EXTERNAL tokenizing full-text engine (MangaDex/AniList/MAL). Those
+    // engines indexed their titles with their own tokenizer, so the comparison-
+    // canonicalization "merge adjacent words" rule that is harmless for SYMMETRIC
+    // in-DB comparison silently breaks the query against an ASYMMETRIC remote index
+    // (debug session chick-class-hunter-search-miss, 2026-06-07): "Chick-Class
+    // Hunter" must reach MangaDex as the tokens chick/class/hunter, not as the
+    // single non-existent token "chickclass".
     public static class MangaTitleNormalizer
     {
         // Drops trailing parenthetical or bracketed alt-title suffix only — NOT
@@ -29,7 +40,30 @@ namespace NzbDrone.Core.Parser.Manga
         private static readonly Regex AltSuffixRegex =
             new(@"\s*[\(\[][^\)\]]*[\)\]]\s*$", RegexOptions.Compiled);
 
+        /// <summary>
+        /// Canonical comparison form — the single source of truth for SYMMETRIC
+        /// in-DB title matching (AddManga dedup, CrossSourceIdResolver fuzzy match,
+        /// FindByTitle / FindByAlternativeTitle). Strips punctuation with NO
+        /// replacement char so "My/Hero!Academia?" → "myheroacademia". Do NOT use
+        /// this to build a query for an external search engine — see
+        /// <see cref="NormalizeForSearch"/>.
+        /// </summary>
         public static string Normalize(string title)
+            => NormalizeInternal(title, replacePunctuationWithSpace: false);
+
+        /// <summary>
+        /// Search-query form for EXTERNAL tokenizing full-text engines
+        /// (MangaDex/AniList/MAL). Identical to <see cref="Normalize"/> EXCEPT
+        /// stripped punctuation becomes a SPACE so intra-word punctuation does NOT
+        /// merge adjacent words into one token: "Chick-Class Hunter" →
+        /// "chick class hunter" (matches MangaDex's chick/class/hunter token
+        /// index) rather than "chickclass hunter" (matches nothing). Fixes debug
+        /// session chick-class-hunter-search-miss (2026-06-07).
+        /// </summary>
+        public static string NormalizeForSearch(string title)
+            => NormalizeInternal(title, replacePunctuationWithSpace: true);
+
+        private static string NormalizeInternal(string title, bool replacePunctuationWithSpace)
         {
             if (string.IsNullOrWhiteSpace(title))
             {
@@ -53,8 +87,11 @@ namespace NzbDrone.Core.Parser.Manga
                 }
             }
 
-            // 4. Lowercase + strip punctuation (NO replacement char) so mid-word
-            //    punctuation collapses without inserting spaces.
+            // 4. Lowercase + strip punctuation. For the comparison form (Normalize)
+            //    punctuation is dropped with NO replacement char so mid-word
+            //    punctuation collapses without inserting spaces. For the search form
+            //    (NormalizeForSearch) it is replaced with a space so word boundaries
+            //    survive for the remote tokenizer.
             var lowered = sb.ToString().ToLowerInvariant();
             var stripped = new StringBuilder(lowered.Length);
             foreach (var c in lowered)
@@ -62,6 +99,10 @@ namespace NzbDrone.Core.Parser.Manga
                 if (char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))
                 {
                     stripped.Append(c);
+                }
+                else if (replacePunctuationWithSpace)
+                {
+                    stripped.Append(' ');
                 }
             }
 

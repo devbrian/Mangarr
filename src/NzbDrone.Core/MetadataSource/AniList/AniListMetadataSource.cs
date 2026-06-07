@@ -64,7 +64,11 @@ namespace NzbDrone.Core.MetadataSource.AniList
 
         public override List<Manga.Manga> SearchForNewManga(string title)
         {
-            var page = QueryMediaSearch(MangaTitleNormalizer.Normalize(title));
+            // NormalizeForSearch (NOT Normalize): AniList's search matches against a
+            // tokenized index, so intra-word punctuation must become a space rather
+            // than merging adjacent words into one non-existent token (debug session
+            // chick-class-hunter-search-miss, 2026-06-07).
+            var page = QueryMediaSearch(MangaTitleNormalizer.NormalizeForSearch(title));
             return page?.Media?.Select(MapManga).ToList() ?? new List<Manga.Manga>();
         }
 
