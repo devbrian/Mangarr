@@ -34,6 +34,13 @@ public class MangaLookupFixture : AutomationTest
     [Test]
     public async Task lookup_returns_results()
     {
+        // Phase 41 (41-03 D-01a) flipped the DEFAULT primary metadata source from
+        // MangaDex to MangaBaka. This fixture pastes a MangaDex UUID and asserts
+        // cassette-replayed MangaDex results, and the lookup endpoint dispatches to
+        // IMetadataSourceFactory.GetPrimary() at request time — so MangaDex is no
+        // longer the default and must be promoted to primary explicitly first.
+        await EnsureMangaDexPrimaryAsync();
+
         var addPage = await new AddMangaPage(Page).OpenAsync(RootUri);
 
         // Arm the lookup response listener BEFORE typing into the search input
@@ -69,5 +76,27 @@ public class MangaLookupFixture : AutomationTest
         count.Should().BeGreaterThan(
             0,
             "AddNewMangaSearchResult rows must render after the lookup returns results");
+    }
+
+    /// <summary>
+    /// Seed a MangaDex metadata source and promote it to primary. Required since Phase 41
+    /// (41-03 D-01a) made MangaBaka the default primary: a fresh DB auto-seeds ONLY the
+    /// primary-default provider, so no MangaDex row exists out-of-the-box. This fixture
+    /// pastes a MangaDex UUID and asserts cassette-replayed MangaDex results, and the lookup
+    /// endpoint dispatches to <c>GetPrimary()</c> at request time — so MangaDex must be both
+    /// present and primary first. Mirrors <c>MetadataSourceSetPrimaryFixture</c>.
+    /// </summary>
+    private async Task EnsureMangaDexPrimaryAsync()
+    {
+        var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
+        var mangaDexId = await tk.SeedMetadataSourceAsync("MangaDex (lookup primary)");
+
+        var setPrimaryResp = await Page.APIRequest.PostAsync(
+            $"{RootUri}/api/v5/metadatasource/{mangaDexId}/setprimary",
+            new APIRequestContextOptions { DataObject = new { } });
+        setPrimaryResp.Status.Should().BeInRange(
+            200,
+            299,
+            "MangaDex must be promoted to primary so the UUID lookup routes to the MangaDex cassette");
     }
 }
