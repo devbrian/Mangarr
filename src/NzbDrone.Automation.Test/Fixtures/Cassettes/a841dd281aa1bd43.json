@@ -1,0 +1,17 @@
+{
+  "Request": {
+    "Method": "GET",
+    "Url": "http://localhost:8080/version"
+  },
+  "Response": {
+    "Status": 200,
+    "Body": "{\u0022version\u0022:\u00220.1.0\u0022,\u0022status\u0022:\u0022ok\u0022}",
+    "BodyIsBase64": false,
+    "Headers": {
+      "Content-Type": "application/json",
+      "Content-Length": "33",
+      "Server": "BaseHTTP/0.6, Python/3.9.6",
+      "Date": "Sun, 07 Jun 2026 23:09:25 GMT"
+    }
+  }
+}
