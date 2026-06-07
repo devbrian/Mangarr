@@ -81,6 +81,19 @@ namespace NzbDrone.Core.Indexers.Gateway
         {
             if (action == "gatewaySources")
             {
+                // A freshly-added gateway indexer (opened from the Add picker) has no BaseUrl
+                // yet, but this select-options action fires on modal OPEN — before the user
+                // types a URL and before field validation runs. GetCapabilities would then
+                // build a request from a null/empty BaseUrl and throw UriFormatException,
+                // surfacing as a 500 that breaks the Add modal. Return an empty option set
+                // until a URL is present (the dropdown simply stays empty, exactly as it does
+                // when the gateway advertises no sources); the BaseUrl.ValidRootUrl() validator
+                // still enforces a real URL at save time.
+                if (string.IsNullOrWhiteSpace(Settings.BaseUrl))
+                {
+                    return new { options = new List<object>() };
+                }
+
                 // GWIX-02 / D-01: the source dropdown ALWAYS refetches a live /caps (cache bypass)
                 // so the user sees the gateway's current source list, not a 12h-stale snapshot.
                 var caps = _capsProvider.GetCapabilities(Settings, forceRefresh: true);
