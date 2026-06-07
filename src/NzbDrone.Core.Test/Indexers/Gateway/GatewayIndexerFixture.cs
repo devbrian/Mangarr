@@ -11,6 +11,7 @@ using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Indexers.Gateway;
 using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.Indexers.Gateway
 {
@@ -123,6 +124,11 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
 
             var releases = await Subject.Fetch(criteria);
             releases.Should().NotBeNull();
+
+            // search.json carries a `source_degraded` warning (comix.to anti-bot challenge on
+            // page 2); GatewayIndexer surfaces it as a Warn, so the LoggingTest teardown must
+            // expect exactly one.
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
@@ -162,6 +168,11 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             // Protocol/Priority). Surfaced in the InteractiveSearch Indexer column so the user can
             // see which upstream source each release came from. search.json is all comix.to.
             releases.Should().OnlyContain(r => r.Source == "comix.to");
+
+            // search.json carries a `source_degraded` warning (comix.to anti-bot challenge on
+            // page 2); GatewayIndexer surfaces it as a Warn, so the LoggingTest teardown must
+            // expect exactly one.
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
