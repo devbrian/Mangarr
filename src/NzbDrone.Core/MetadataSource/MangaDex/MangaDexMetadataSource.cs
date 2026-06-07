@@ -102,7 +102,12 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
 
         public override List<NzbDrone.Core.Manga.Manga> SearchForNewManga(string title)
         {
-            var normalized = MangaTitleNormalizer.Normalize(title);
+            // Use NormalizeForSearch (NOT Normalize) — MangaDex /manga?title= is a
+            // tokenizing full-text search, so intra-word punctuation must become a
+            // space ("Chick-Class Hunter" -> "chick class hunter") rather than
+            // merging adjacent words into the non-existent token "chickclass"
+            // (debug session chick-class-hunter-search-miss, 2026-06-07).
+            var normalized = MangaTitleNormalizer.NormalizeForSearch(title);
             return Api.Search(normalized).Select(MapManga).ToList();
         }
 
