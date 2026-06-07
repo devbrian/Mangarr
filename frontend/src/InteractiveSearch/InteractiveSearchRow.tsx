@@ -114,6 +114,7 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
     infoUrl,
     indexer,
     source,
+    votes,
     protocol,
   } = release;
 
@@ -321,6 +322,8 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
       <TableRowCell>{translatedLanguage?.toUpperCase() ?? ''}</TableRowCell>
 
       <TableRowCell>{scanlationGroup ?? ''}</TableRowCell>
+
+      <TableRowCell>{votes ?? 0}</TableRowCell>
 
       <TableRowCell className={styles.customFormatScore}>
         {/* Sonarr divergence: Phase 17.3 Plan 17.3-13b — EpisodeFormats no-op

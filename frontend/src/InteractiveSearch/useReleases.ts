@@ -98,6 +98,10 @@ export interface ReleaseInfo {
   // `source` is which upstream the release actually came from. Undefined for non-gateway
   // releases. Rendered as a secondary line in the Indexer column.
   source?: string;
+  // Gateway-supplied per-release vote count. Optional because older gateway payloads /
+  // non-gateway releases may omit it; the row renders `votes ?? 0`. Plumbed via
+  // ReleaseInfo.Votes (backend) for a future highest-votes Custom Format.
+  votes?: number;
   title: string;
   tvdbId: number;
   tvRageId: number;
@@ -359,6 +363,8 @@ const SORT_PREDICATES = {
   title: (item: Release, _direction: SortDirection) => {
     return item.release.title;
   },
+
+  votes: (item: Release, _direction: SortDirection) => item.release.votes ?? 0,
 } as const;
 
 interface ReleaseStore {

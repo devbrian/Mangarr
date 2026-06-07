@@ -70,6 +70,12 @@ const { useOptions, useOption, getOptions, getOption, setOptions, setOption } =
           isVisible: true,
         },
         {
+          name: 'votes',
+          label: () => translate('Votes'),
+          isSortable: true,
+          isVisible: true,
+        },
+        {
           name: 'customFormatScore',
           label: createElement(Icon, {
             name: icons.SCORE,

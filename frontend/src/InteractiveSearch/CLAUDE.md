@@ -11,7 +11,7 @@
 | File | Purpose |
 |------|---------|
 | `InteractiveSearch.tsx` | Main modal with sortable/filterable release list |
-| `InteractiveSearchRow.tsx` | One release row (title, indexer, size, peers, quality, language, custom format score, rejections) |
+| `InteractiveSearchRow.tsx` | One release row (title, indexer, source, translated language, scanlation group, votes, custom format score, rejections). The **Votes** column (between scanlation group and custom format score) shows the gateway-supplied per-release vote count, plumbed via `ReleaseInfo.Votes` for a future highest-votes Custom Format; renders `votes ?? 0`. Column order in `releaseOptionsStore.ts` MUST stay aligned with the cell order here. |
 | `InteractiveSearchFilterModal.tsx` | Filter popup |
 | `InteractiveSearchPayload.ts` | Manga-only discriminated union: `ChapterSearchPayload` (`{ kind: 'chapter', chapterId }`) + `MangaSearchPayload` (`{ kind: 'manga', mangaId }`). The TV-shape `EpisodeSearchPayload` / `SeasonSearchPayload` variants were retired in issue #263. `searchPayload.kind` is the single routing discriminator (the redundant `InteractiveSearchType` prop + file were deleted in issue #263). |
 | `Peers.tsx` | Seeders/peers display |
