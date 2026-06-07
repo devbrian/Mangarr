@@ -65,6 +65,8 @@ public class CrossVerticalExclusionFixture : AutomationTest
 
         var mangaId = 0;
         string seededMangaDexId = null;
+        int? seededMalId = null;
+        int? seededAniListId = null;
         foreach (var element in mangaListDoc.RootElement.EnumerateArray())
         {
             if (element.TryGetProperty("mangaBakaId", out var mbProp)
@@ -76,9 +78,36 @@ public class CrossVerticalExclusionFixture : AutomationTest
                     && mdxProp.ValueKind == JsonValueKind.String
                     ? mdxProp.GetString()
                     : null;
+
+                // MangaBaka-sourced manga have a NULL mangaDexId (a MangaBaka
+                // record is not a MangaDex record per D-03a); the cross-vertical
+                // exclusion is therefore keyed on the MalId/AniListId cross-refs
+                // that the MangaBaka `source` block populates. Capture all three
+                // so the exclusion-match below can assert on whichever id(s) the
+                // provider actually filled.
+                if (element.TryGetProperty("malId", out var malProp)
+                    && malProp.ValueKind == JsonValueKind.Number)
+                {
+                    seededMalId = malProp.GetInt32();
+                }
+
+                if (element.TryGetProperty("aniListId", out var alProp)
+                    && alProp.ValueKind == JsonValueKind.Number)
+                {
+                    seededAniListId = alProp.GetInt32();
+                }
+
                 break;
             }
         }
+
+        // At least one cross-source id must be populated for the exclusion to be
+        // creatable (ImportListExclusionService skips an all-null row). MangaBaka
+        // resolves Solo Leveling's MalId + AniListId from its `source` block.
+        (seededMangaDexId != null || seededMalId != null || seededAniListId != null)
+            .Should().BeTrue(
+                "the MangaBaka-seeded manga must carry at least one cross-source id "
+                + "(MangaDexId/MalId/AniListId) for the import-list exclusion to be keyed on");
 
         mangaId.Should().BeGreaterThan(
             0,
@@ -106,14 +135,27 @@ public class CrossVerticalExclusionFixture : AutomationTest
                 foreach (var rec in exclusionsDoc.RootElement.GetProperty("records").EnumerateArray())
                 {
                     // ImportListExclusionResource carries no mangaBakaId field (only the
-                    // MangaDexId/MalId/AniListId triplet per Migration 003), so the exclusion
-                    // row is matched against the seeded manga's OWN mangaDexId captured at
-                    // lookup — self-consistent regardless of which cross-reference IDs the
-                    // MangaBaka provider populated.
-                    if (seededMangaDexId != null
+                    // MangaDexId/MalId/AniListId triplet per Migration 003). A MangaBaka-
+                    // sourced manga has a NULL mangaDexId, so the exclusion row is keyed on
+                    // the MalId/AniListId cross-refs instead. Match on ANY of the three
+                    // cross-source ids the seeded manga actually carries — self-consistent
+                    // regardless of which ids the MangaBaka provider populated.
+                    var matchesMangaDexId = seededMangaDexId != null
                         && rec.TryGetProperty("mangaDexId", out var rMdx)
                         && rMdx.ValueKind == JsonValueKind.String
-                        && string.Equals(rMdx.GetString(), seededMangaDexId, StringComparison.OrdinalIgnoreCase))
+                        && string.Equals(rMdx.GetString(), seededMangaDexId, StringComparison.OrdinalIgnoreCase);
+
+                    var matchesMalId = seededMalId != null
+                        && rec.TryGetProperty("malId", out var rMal)
+                        && rMal.ValueKind == JsonValueKind.Number
+                        && rMal.GetInt32() == seededMalId.Value;
+
+                    var matchesAniListId = seededAniListId != null
+                        && rec.TryGetProperty("aniListId", out var rAl)
+                        && rAl.ValueKind == JsonValueKind.Number
+                        && rAl.GetInt32() == seededAniListId.Value;
+
+                    if (matchesMangaDexId || matchesMalId || matchesAniListId)
                     {
                         exclusionFound = true;
                         break;
@@ -130,10 +172,13 @@ public class CrossVerticalExclusionFixture : AutomationTest
         }
 
         exclusionFound.Should().BeTrue(
-            "ImportListExclusion row matching mangaDexId={0} must be auto-created via " +
+            "ImportListExclusion row matching one of the seeded manga's cross-source ids " +
+            "(mangaDexId={0} / malId={1} / aniListId={2}) must be auto-created via " +
             "ImportListExclusionService.Handle(MangaDeletedEvent) within 5s of DELETE — " +
             "precondition for the cross-vertical filter on the next sync",
-            seededMangaDexId);
+            seededMangaDexId,
+            seededMalId,
+            seededAniListId);
 
         // 4. POST the global ImportListSync command.
         var commandResp = await http.PostAsJsonAsync("command", new { name = "ImportListSync" });
