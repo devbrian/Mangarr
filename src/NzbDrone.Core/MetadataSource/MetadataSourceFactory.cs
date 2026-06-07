@@ -89,12 +89,53 @@ namespace NzbDrone.Core.MetadataSource
         // every provider whose DefaultDefinitions[0].Name doesn't equal GetType().Name
         // (MetadataSourceBase sets it to the friendly Name property instead). Mirrors
         // the S4 idempotent-seed pattern in TranslationProfileService.Handle.
+        //
+        // Open Question 2 resolution (Phase 41, option (b) — factory backfill):
+        // Migration 012 demotes the MangaDex primary on upgrade but deliberately does NOT
+        // INSERT the new MangaBaka primary row (replicating the provider's default Settings-
+        // JSON serialization in raw SQL is fragile and drifts when the Settings shape changes —
+        // the factory's Create(provider.DefaultDefinitions[...]) path is the single
+        // serialization source-of-truth). The original `if (All().Any()) return;` short-circuit
+        // is the gap: a flag-flip migration matches zero rows on installs that have never seen
+        // MangaBaka, so MangaBaka would never become primary on a non-empty (upgraded) DB.
+        //
+        // Fix: on a NON-EMPTY table, run a backfill branch that creates any primary-default
+        // provider that lacks a row, promoting it to primary ONLY when no primary currently
+        // exists. Migration 012 demoted MangaDex, so on the common upgrade path no primary
+        // exists and MangaBaka is promoted; on the explicit-non-MangaDex-primary path a primary
+        // still exists and MangaBaka backfills NON-primary, preserving the user's choice. This
+        // preserves the at-most-one-primary invariant on both fresh and upgraded DBs.
         protected override void InitializeProviders()
         {
-            if (All().Any())
+            var existing = All().ToList();
+
+            if (existing.Count == 0)
             {
+                // Fresh-DB path (unchanged behavior): seed each provider's primary-default
+                // definition. Now that MangaDex's DefaultIsPrimary flips to false (Plan 41-03),
+                // only MangaBaka seeds as primary on a fresh DB.
+                foreach (var provider in _providers)
+                {
+                    var primaryDefault = provider.DefaultDefinitions
+                        .OfType<MetadataSourceDefinition>()
+                        .FirstOrDefault(d => d.IsPrimary);
+
+                    if (primaryDefault != null)
+                    {
+                        Create(primaryDefault);
+                    }
+                }
+
                 return;
             }
+
+            // Non-empty (upgrade) backfill branch. A primary-default provider lacking a row is
+            // created; it becomes primary only when no primary currently exists. The
+            // same-Implementation skip keeps the backfill idempotent (no duplicate row on
+            // re-boot), and the UNIQUE(MetadataSources.Name) caution from the fresh-DB path
+            // still applies — only providers whose DefaultDefinitions expose a primary default
+            // are touched.
+            var hasPrimary = existing.Any(d => d.IsPrimary);
 
             foreach (var provider in _providers)
             {
@@ -102,9 +143,22 @@ namespace NzbDrone.Core.MetadataSource
                     .OfType<MetadataSourceDefinition>()
                     .FirstOrDefault(d => d.IsPrimary);
 
-                if (primaryDefault != null)
+                if (primaryDefault == null)
                 {
-                    Create(primaryDefault);
+                    continue;
+                }
+
+                if (existing.Any(d => d.Implementation == primaryDefault.Implementation))
+                {
+                    continue;
+                }
+
+                primaryDefault.IsPrimary = !hasPrimary;
+                Create(primaryDefault);
+
+                if (primaryDefault.IsPrimary)
+                {
+                    hasPrimary = true;
                 }
             }
         }
