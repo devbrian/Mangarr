@@ -7,6 +7,7 @@ using Moq;
 using Newtonsoft.Json;
 using NUnit.Framework;
 using NzbDrone.Common.Http;
+using NzbDrone.Core.Manga;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.MangaBaka;
 using NzbDrone.Core.MetadataSource.MangaBaka.Resource;
@@ -119,6 +120,55 @@ namespace NzbDrone.Core.Test.MetadataSource.MangaBaka
             var result = Subject.GetMangaInfo("3397");
 
             result.Item1.MangaBakaId.Should().Be(3397);
+        }
+
+        // Phase 41 fix-forward: MangaBaka ships the publication demographic INSIDE the
+        // flat `genres` array (no dedicated field). MapManga extracts it so the
+        // DemographicSpecification auto-tagging path works for MangaBaka-sourced manga
+        // (parity with MangaDexMetadataSource.MapDemographic).
+        [TestCase("shounen", MangaDemographic.Shonen)]
+        [TestCase("shonen", MangaDemographic.Shonen)]
+        [TestCase("shoujo", MangaDemographic.Shojo)]
+        [TestCase("shojo", MangaDemographic.Shojo)]
+        [TestCase("seinen", MangaDemographic.Seinen)]
+        [TestCase("josei", MangaDemographic.Josei)]
+        public void GetMangaInfo_maps_demographic_from_genres(string genre, MangaDemographic expected)
+        {
+            var resource = new MangaBakaSeriesResource
+            {
+                Data = new MangaBakaSeries
+                {
+                    Id = 3397,
+                    Title = "Test Manga",
+                    Genres = new List<string> { "action", "adventure", genre },
+                },
+            };
+            SetupGetByIdMock(resource);
+
+            var result = Subject.GetMangaInfo("3397");
+
+            result.Item1.Demographic.Should().Be(expected);
+        }
+
+        // No demographic term among the genres → Demographic stays null (the
+        // "not categorized" sentinel; Manga.Demographic is nullable).
+        [Test]
+        public void GetMangaInfo_leaves_demographic_null_when_no_demographic_genre()
+        {
+            var resource = new MangaBakaSeriesResource
+            {
+                Data = new MangaBakaSeries
+                {
+                    Id = 3397,
+                    Title = "Test Manga",
+                    Genres = new List<string> { "action", "adventure", "fantasy" },
+                },
+            };
+            SetupGetByIdMock(resource);
+
+            var result = Subject.GetMangaInfo("3397");
+
+            result.Item1.Demographic.Should().BeNull();
         }
 
         // D-04: total_chapters="201" synthesizes a whole-number 1..201 catalog.

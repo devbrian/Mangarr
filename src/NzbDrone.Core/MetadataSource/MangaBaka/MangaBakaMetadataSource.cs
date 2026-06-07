@@ -172,6 +172,7 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
                 Artist = record.Artists?.FirstOrDefault(),
                 TotalChapterCount = ParseTotalChapters(record.TotalChapters),
                 AlternativeTitles = CollectAlternativeTitles(record),
+                Demographic = MapDemographic(record.Genres),
             };
 
             // Cover: MangaBaka pre-resolves the URL (cover.raw.url) — no CDN-path assembly
@@ -199,6 +200,41 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
             }
 
             return manga;
+        }
+
+        // MangaBaka ships the publication demographic INSIDE the flat `genres` array
+        // (e.g. ["action","adventure","shounen"]) rather than as a dedicated field —
+        // there is no `publicationDemographic` peer like MangaDex's. Scan the genres for
+        // the first demographic term and map it to the MangaDemographic enum so the
+        // DemographicSpecification auto-tagging path works for MangaBaka-sourced manga
+        // (parity with MangaDexMetadataSource.MapDemographic). Both common romanizations
+        // are accepted (shounen/shonen, shoujo/shojo). Returns null when no demographic
+        // term is present (the "not categorized" sentinel — Manga.Demographic is nullable).
+        private static NzbDrone.Core.Manga.MangaDemographic? MapDemographic(List<string> genres)
+        {
+            if (genres == null)
+            {
+                return null;
+            }
+
+            foreach (var genre in genres)
+            {
+                switch (genre?.Trim().ToLowerInvariant())
+                {
+                    case "shounen":
+                    case "shonen":
+                        return NzbDrone.Core.Manga.MangaDemographic.Shonen;
+                    case "shoujo":
+                    case "shojo":
+                        return NzbDrone.Core.Manga.MangaDemographic.Shojo;
+                    case "seinen":
+                        return NzbDrone.Core.Manga.MangaDemographic.Seinen;
+                    case "josei":
+                        return NzbDrone.Core.Manga.MangaDemographic.Josei;
+                }
+            }
+
+            return null;
         }
 
         // Clone of MangaDexMetadataSource.ParseLastChapterCount (D-04): total_chapters is a
