@@ -215,7 +215,19 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
     malId,
   } = manga;
 
-  const chapterCount = chapters.length;
+  // Progress-bar denominator (issue #335 / PR #336 follow-up): a chapter counts
+  // toward "available" when it is monitored OR already on disk — the exact mirror
+  // of the backend MangaStatisticsRepository ChapterCount predicate
+  // (`Monitored OR ChapterFileId > 0`) and MangaController's former inline
+  // ComputeStatistics. Computing it from the live chapters array (rather than
+  // chapters.length) keeps the hero label consistent with the library index tile
+  // — which reads statistics.chapterCount — AND keeps it reactive to in-tab
+  // monitor toggles. Using chapters.length here was the "224 / 225" bug: an
+  // unmonitored, fileless chapter inflated the denominator that PR #336 had
+  // already excluded everywhere statistics.chapterCount is consumed.
+  const chapterCount = chapters.filter(
+    (c) => c.monitored || c.chapterFileId != null
+  ).length;
   const chapterFileCount = chapters.filter(
     (c) => c.chapterFileId != null
   ).length;
