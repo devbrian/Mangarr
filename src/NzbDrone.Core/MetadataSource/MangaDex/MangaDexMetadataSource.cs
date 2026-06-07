@@ -64,10 +64,15 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
 
         public override string DefaultSourceKey => "mangadex";
 
-        // D-16: ships as v1 default primary. Users can promote AniList or MAL via
-        // MetadataSourceFactory.SetPrimary; this only seeds the auto-created
+        // Phase 41 D-01a: MangaBaka is now the v1.3 default primary (it carries direct
+        // cross-source ids); MangaDex demotes to a non-primary default. This is the
+        // matched half of D-01a — without it a fresh DB would seed TWO primaries
+        // (MangaBaka + MangaDex), tripping MetadataSourceFactory.GetPrimary's
+        // SingleOrDefault (Pitfall 1). MangaDex stays a first-class non-primary fallback
+        // (it has a real per-chapter feed and is NOT deprecated — D-02); users can re-promote
+        // it via MetadataSourceFactory.SetPrimary. This only seeds the auto-created
         // DefaultDefinition's IsPrimary flag at first startup.
-        public override bool DefaultIsPrimary => true;
+        public override bool DefaultIsPrimary => false;
 
         // Lazily-constructed API wrapper. Ctor runs before Definition is assigned by
         // ProviderFactory (per ThingiProvider contract); we cannot read Settings in our
