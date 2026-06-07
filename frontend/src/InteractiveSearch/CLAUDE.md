@@ -74,8 +74,12 @@ Adapted in Plan 07-05:
   caller pattern from `Chapter/ChapterDetailsModal.tsx` / `Manga/Details/MangaDetails.tsx`
   Search tab (the `type` prop was retired in issue #263).
 
+Result row columns shipped: Source, Translated Language, Scanlation Group, and Votes
+(`InteractiveSearchRow.tsx` renders `ReleaseInfo.Votes` as `votes ?? 0`; the
+`releaseOptionsStore.ts` column order must stay aligned with the row cell order).
+
 Still pending Phase 8 cleanup:
-- Result row column extension (Page Count, Scanlation Group, etc.) — deferred.
+- Remaining result-row column extensions beyond the shipped set (e.g. Page Count) — deferred.
 - Override Match `chapter` mapping — deferred.
 
 ## Stable test attributes
