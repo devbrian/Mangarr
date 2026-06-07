@@ -44,7 +44,16 @@ namespace NzbDrone.Core.DecisionEngine.Manga
         public async Task<ProcessedMangaDecisions> ProcessDecisions(List<MangaDownloadDecision> decisions)
         {
             var qualifiedReports = GetQualifiedReports(decisions);
-            var prioritizedDecisions = qualifiedReports.OrderBy(d => d, _comparer).ToList();
+
+            // OrderByDescending — MangaDownloadDecisionComparer follows the OrderByDescending
+            // convention ("better" yields a POSITIVE compare value; see its fixture + the TV
+            // ProcessDownloadDecisions original). We then iterate best-first and grab the first
+            // acceptable candidate per chapter. NOTE: this was OrderBy (ascending) until
+            // quick-260607-cto — that consumed the descending-convention comparer backwards, so
+            // among 2+ qualified candidates for one chapter the WORST was grabbed (lowest
+            // translation rank, lowest CF, worst indexer priority, oldest, smallest). See
+            // ProcessMangaDownloadDecisionsFixture.Should_grab_best_ranked_candidate_for_same_chapter_*.
+            var prioritizedDecisions = qualifiedReports.OrderByDescending(d => d, _comparer).ToList();
             var grabbed = new List<MangaDownloadDecision>();
             var pending = new List<MangaDownloadDecision>();
             var rejected = decisions.Where(d => d.Rejected).ToList();

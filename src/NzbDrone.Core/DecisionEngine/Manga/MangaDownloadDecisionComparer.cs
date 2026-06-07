@@ -7,9 +7,11 @@ using NzbDrone.Core.Profiles.Translations;
 namespace NzbDrone.Core.DecisionEngine.Manga
 {
     // Sonarr divergence: NEW manga comparer per Phase 5 D-08 — see DIVERGENCE.md.
-    // Ordering (best -> worst): Language rank -> CF score -> Indexer priority -> Age -> Size.
+    // Ordering (best -> worst): Language rank -> CF score -> Indexer priority -> Votes -> Age -> Size.
     // Indexer priority promoted above age/size per user direction (source-stability matters
-    // more than freshness at human-library scale). NOTE: TV ordering at DownloadDecisionComparer.cs:30-41
+    // more than freshness at human-library scale). Votes (gateway per-release vote count, plumbed
+    // in quick-260607-bnf) is a tiebreaker AFTER indexer priority and BEFORE age — higher votes
+    // wins among otherwise-equal candidates (quick-260607-cto, user direction). NOTE: TV ordering at DownloadDecisionComparer.cs:30-41
     // is Quality -> CF -> Protocol -> EpisodeCount -> EpisodeNumber -> IndexerPriority -> Peers -> Age -> Size —
     // manga has NO Quality / EpisodeCount / EpisodeNumber / Peers / Protocol concepts.
     //
@@ -36,6 +38,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga
                 CompareLanguageRank,        // outer gate per D-08; cf-only-walkthrough.md verdict
                 CompareCustomFormatScore,   // inner per D-08
                 CompareIndexerPriority,     // promoted above age/size per user direction
+                CompareVotes,               // higher gateway votes wins (quick-260607-cto)
                 CompareAge,                 // newer wins
                 CompareSize                 // larger wins (sane manga fallback)
             };
@@ -104,6 +107,15 @@ namespace NzbDrone.Core.DecisionEngine.Manga
         // WR-01: null-safe — null Release sorts LAST (int.MaxValue worst-priority sentinel).
         private int CompareIndexerPriority(MangaDownloadDecision x, MangaDownloadDecision y)
             => CompareByReverse(x.RemoteChapter?.Release, y.RemoteChapter?.Release, r => r?.IndexerPriority ?? int.MaxValue);
+
+        // Higher votes wins. Gateway per-release vote count (ReleaseInfo.Votes, plumbed in
+        // quick-260607-bnf; defaults to 0 when an older gateway omits it). Mirrors CompareSize's
+        // CompareBy shape — CompareBy + OrderByDescending = higher value sorts first. Tiebreaker
+        // AFTER indexer priority (source stability) and BEFORE age (freshness) per user direction
+        // (quick-260607-cto). Pre-wires the future highest-votes Custom Format idea without a re-plumb.
+        // WR-01: null-safe — null Release sorts LAST (votes 0 worst sentinel).
+        private int CompareVotes(MangaDownloadDecision x, MangaDownloadDecision y)
+            => CompareBy(x.RemoteChapter?.Release, y.RemoteChapter?.Release, r => r?.Votes ?? 0);
 
         // Newer wins — later PublishDate = better. Mirrors TV CompareAgeIfUsenet shape with manga
         // simplification: no protocol gate (Phase 4 D-10 — manga is HTTP-only).
