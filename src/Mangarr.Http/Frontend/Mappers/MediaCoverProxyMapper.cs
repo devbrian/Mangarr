@@ -11,7 +11,13 @@ namespace Mangarr.Http.Frontend.Mappers
 {
     public class MediaCoverProxyMapper : IMapHttpRequestsToDisk
     {
-        private readonly Regex _regex = new(@"/MediaCoverProxy/(?<hash>\w+)/(?<filename>(.+)\.(jpg|png|gif))");
+        // The hash is the lookup key; the filename is used only for mime-type guessing
+        // (falls back to application/octet-stream below). Accept ANY filename after the
+        // hash — MangaBaka (Phase 41 default primary) serves covers as `.webp` and as
+        // extension-less CDN path segments, neither of which matched the original
+        // `.jpg|.png|.gif`-only pattern, so every such cover 404'd. MangaDex always used
+        // `.jpg/.png`, which is why this latent limitation only surfaced with MangaBaka.
+        private readonly Regex _regex = new(@"/MediaCoverProxy/(?<hash>\w+)/(?<filename>.+)");
 
         private readonly IMediaCoverProxy _mediaCoverProxy;
         private readonly IContentTypeProvider _mimeTypeProvider;
