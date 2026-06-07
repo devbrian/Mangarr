@@ -29,12 +29,12 @@ namespace NzbDrone.Automation.Test.Tests.Wanted;
 [Category("PRSmoke")]
 public class MangaCutoffTableFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task table_loads()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         var cutoffTask = Page.WaitForResponseAsync(
             r => r.Url.Contains("/api/v5/manga/wanted/cutoff") && r.Request.Method == "GET",

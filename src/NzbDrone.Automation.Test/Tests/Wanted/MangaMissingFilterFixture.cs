@@ -36,12 +36,12 @@ namespace NzbDrone.Automation.Test.Tests.Wanted;
 [Category("AutomationTest")]
 public class MangaMissingFilterFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task missing_filter_menu_opens_and_applies_filter()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
         await new MangaMissingPage(Page).OpenAsync(RootUri);
 
         // STATE assertion 1: shell present.

@@ -34,12 +34,12 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("PRSmoke")]
 public class MangaDetailsChapterListFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task loads_chapter_rows()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         var mangaId = await ResolveMangaIdAsync();
 

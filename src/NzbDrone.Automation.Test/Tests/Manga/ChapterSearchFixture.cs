@@ -20,12 +20,12 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("AutomationTest")]
 public class ChapterSearchFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task search_pushes_command()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // Switch to the Chapters tab. The Search-cell button is per-row in the
         // ChapterRow actions column (ChapterSearchCell.tsx).

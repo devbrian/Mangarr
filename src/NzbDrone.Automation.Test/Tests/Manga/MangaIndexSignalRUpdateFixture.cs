@@ -26,12 +26,12 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("AutomationTest")]
 public class MangaIndexSignalRUpdateFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task card_status_updates_on_event()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
         await new MangaIndexPage(Page).OpenAsync(RootUri);
 
         // STATE assertion 1: poster card initial render. Exactly 1 card for

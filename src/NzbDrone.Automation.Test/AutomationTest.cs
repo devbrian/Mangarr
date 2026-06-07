@@ -103,7 +103,7 @@ public abstract class AutomationTest
         // modal's Add button POST fails its required-field validation
         // (RootFolderPath is mandatory; TranslationProfile/CustomFormatProfile
         // come from Phase 5 baseline migration). Without this seed, every
-        // AddMangaFlow.AddByMangaDexIdAsync call times out at ConfirmAddAsync.
+        // AddMangaFlow.AddByMangaBakaIdAsync call times out at ConfirmAddAsync.
         // Phase 39 Plan 39-07: the baseline download client is now the external
         // GatewayDownloadClient (the in-process image downloader was retired in
         // Plan 39-02).

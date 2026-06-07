@@ -53,12 +53,12 @@ namespace NzbDrone.Automation.Test.Tests.Wanted;
 [Category("AutomationTest")]
 public class MangaCutoffUnmetFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task cutoff_unmet_page_renders_table_with_state_cells()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // gh #153: seed below-cutoff state via the TestKit helper. Capture the
         // AddMangaFlow-seeded manga + one of its chapters as the FKs, then create

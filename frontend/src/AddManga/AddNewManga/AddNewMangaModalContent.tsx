@@ -200,6 +200,7 @@ function AddNewMangaModalContent({
     addManga({
       title: manga.title,
       titleSlug: manga.titleSlug,
+      mangaBakaId: manga.mangaBakaId,
       mangaDexId: manga.mangaDexId,
       aniListId: manga.aniListId,
       malId: manga.malId,

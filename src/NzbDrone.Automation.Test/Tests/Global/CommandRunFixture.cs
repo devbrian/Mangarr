@@ -25,12 +25,12 @@ namespace NzbDrone.Automation.Test.Tests.Global;
 [Category("AutomationTest")]
 public class CommandRunFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task ui_button_pushes_command()
     {
-        var details = await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        var details = await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
         await Assertions.Expect(details.MainContainer).ToBeVisibleAsync();
 
         // Race a POST /api/v5/command on the Refresh button click — that's the

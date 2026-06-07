@@ -16,7 +16,7 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 /// cycle write-path) per D-04 mechanical row-axis rule.
 ///
 /// Drives the AddManga search → result-row Add → modal Confirm flow that
-/// AddMangaFlow.AddByMangaDexIdAsync encapsulates. Distinct from
+/// AddMangaFlow.AddByMangaBakaIdAsync encapsulates. Distinct from
 /// AddMangaFlowFixture (the end-to-end happy path PRSmoke) — this fixture is
 /// pinned to the INVENTORY modal-action row's `open_submit_close` covering-test
 /// to satisfy reconcile-inventory.py's row-pinning contract.
@@ -32,7 +32,7 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 [Category("AutomationTest")]
 public class AddNewMangaModalFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task open_submit_close()
@@ -51,7 +51,7 @@ public class AddNewMangaModalFixture : AutomationTest
         // navigates to /add/manga, searches, clicks the row Add button, waits
         // for the modal Add button to be enabled, clicks Confirm, and asserts
         // the modal hides — which is exactly the open_submit_close contract.
-        var details = await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        var details = await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // STATE assertion 1: POST /api/v5/manga returned 2xx.
         var resp = await postTask;

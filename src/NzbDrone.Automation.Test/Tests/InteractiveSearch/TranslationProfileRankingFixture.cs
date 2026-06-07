@@ -47,7 +47,7 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 [Category("PRSmoke")]
 public class TranslationProfileRankingFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [OneTimeSetUp]
     public async Task SeedProfileAsync()
@@ -64,7 +64,7 @@ public class TranslationProfileRankingFixture : AutomationTest
     [Test]
     public async Task rank_order_matches_profile()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         var (mangaId, chapterId) = await ResolveSeedFksAsync();
         mangaId.Should().BeGreaterThan(0, "AddMangaFlow must seed a manga row");

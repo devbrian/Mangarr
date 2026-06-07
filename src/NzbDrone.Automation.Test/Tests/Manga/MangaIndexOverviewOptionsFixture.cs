@@ -30,12 +30,12 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("AutomationTest")]
 public class MangaIndexOverviewOptionsFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task options_persist()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         var index = await new MangaIndexPage(Page).OpenAsync(RootUri);
         await Assertions.Expect(index.PageRoot).ToBeVisibleAsync();

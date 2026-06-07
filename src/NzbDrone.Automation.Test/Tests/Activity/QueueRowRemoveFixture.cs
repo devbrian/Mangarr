@@ -38,12 +38,12 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 [Category("AutomationTest")]
 public class QueueRowRemoveFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task queue_row_remove_decrements_count_for_seeded_pending_row()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // Plan 19-05: seed a real MangaPendingReleases row via the raw-SQLite
         // TestKit helper (Plan 19-01 verdict — D-03 queue seam). Capture the

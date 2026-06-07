@@ -15,7 +15,7 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 /// per the mechanical row-axis rule.
 ///
 /// Drives the AddManga search input flow and asserts the lookup endpoint
-/// fires + returns a non-empty results array (cassette-replayed MangaDex).
+/// fires + returns a non-empty results array (cassette-replayed MangaBaka).
 ///
 /// State assertion (per feedback_verify_ui_state_not_just_rendering):
 ///   1. GET /api/v5/manga/lookup returns 200.
@@ -29,18 +29,15 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 [Category("PRSmoke")]
 public class MangaLookupFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    // Phase 41 (41-03 D-01a) flipped the DEFAULT primary metadata source from
+    // MangaDex to MangaBaka. A fresh DB auto-seeds ONLY MangaBaka, so no setup
+    // seeding is required — the lookup endpoint dispatches to the auto-seeded
+    // primary at request time and this MangaBaka anchor id routes to its cassette.
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task lookup_returns_results()
     {
-        // Phase 41 (41-03 D-01a) flipped the DEFAULT primary metadata source from
-        // MangaDex to MangaBaka. This fixture pastes a MangaDex UUID and asserts
-        // cassette-replayed MangaDex results, and the lookup endpoint dispatches to
-        // IMetadataSourceFactory.GetPrimary() at request time — so MangaDex is no
-        // longer the default and must be promoted to primary explicitly first.
-        await EnsureMangaDexPrimaryAsync();
-
         var addPage = await new AddMangaPage(Page).OpenAsync(RootUri);
 
         // Arm the lookup response listener BEFORE typing into the search input
@@ -50,7 +47,7 @@ public class MangaLookupFixture : AutomationTest
             new() { Timeout = 30_000 });
 
         // Filling triggers the AddNewManga.tsx debounced lookup (500ms).
-        await addPage.SearchInput.FillAsync(KnownMangaDexId);
+        await addPage.SearchInput.FillAsync(KnownMangaBakaId);
 
         // STATE assertion 1: GET /api/v5/manga/lookup returned 200.
         var resp = await lookupTask;
@@ -67,36 +64,14 @@ public class MangaLookupFixture : AutomationTest
             "lookup response must be a JSON array of MangaResource (the lookup-results envelope)");
         body.Should().NotBe(
             "[]",
-            "cassette-replayed MangaDex must return at least one result for the known UUID");
+            "cassette-replayed MangaBaka must return at least one result for the known id");
 
         // STATE assertion 3: at least one search-result row renders in the UI.
-        var resultRow = addPage.ResultRowByKey(KnownMangaDexId);
-        await resultRow.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
-        var count = await Page.Locator("[data-testid^='add-manga-result-']").CountAsync();
+        var resultRows = Page.Locator("[data-testid^='add-manga-result-']");
+        await resultRows.First.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
+        var count = await resultRows.CountAsync();
         count.Should().BeGreaterThan(
             0,
             "AddNewMangaSearchResult rows must render after the lookup returns results");
-    }
-
-    /// <summary>
-    /// Seed a MangaDex metadata source and promote it to primary. Required since Phase 41
-    /// (41-03 D-01a) made MangaBaka the default primary: a fresh DB auto-seeds ONLY the
-    /// primary-default provider, so no MangaDex row exists out-of-the-box. This fixture
-    /// pastes a MangaDex UUID and asserts cassette-replayed MangaDex results, and the lookup
-    /// endpoint dispatches to <c>GetPrimary()</c> at request time — so MangaDex must be both
-    /// present and primary first. Mirrors <c>MetadataSourceSetPrimaryFixture</c>.
-    /// </summary>
-    private async Task EnsureMangaDexPrimaryAsync()
-    {
-        var tk = new TestKit.TestKit(RootUri, ApiKey, string.Empty);
-        var mangaDexId = await tk.SeedMetadataSourceAsync("MangaDex (lookup primary)");
-
-        var setPrimaryResp = await Page.APIRequest.PostAsync(
-            $"{RootUri}/api/v5/metadatasource/{mangaDexId}/setprimary",
-            new APIRequestContextOptions { DataObject = new { } });
-        setPrimaryResp.Status.Should().BeInRange(
-            200,
-            299,
-            "MangaDex must be promoted to primary so the UUID lookup routes to the MangaDex cassette");
     }
 }

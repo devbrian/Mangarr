@@ -16,7 +16,7 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 // relied on ImportListSync to produce a Manga record, which fails because
 // TestImportList is excluded from production DI (Pitfall 2). Now:
 //   1. Registers MangaDexImportList (real Phase 27 provider) so the row exists.
-//   2. Seeds a Manga directly via AddMangaFlow.AddByMangaDexIdAsync (cassette-
+//   2. Seeds a Manga directly via AddMangaFlow.AddByMangaBakaIdAsync (cassette-
 //      replayed MangaDex lookup — works without working OAuth).
 //   3. Deletes the Manga via DELETE /api/v5/manga/{id}; MangaService.DeleteManga
 //      defaults addImportListExclusion: true per Phase 26 Plan 26-04 D-12.
@@ -30,7 +30,7 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 [Category("AutomationTest")]
 public class AutoExclusionOnDeleteFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [OneTimeSetUp]
     public async Task RegisterProviderAsync()
@@ -51,20 +51,20 @@ public class AutoExclusionOnDeleteFixture : AutomationTest
         //    AddMangaModal Confirm). This guarantees a real Manga row with a
         //    valid MangaDexId in the DB — the dummy-cred MangaDex sync would
         //    produce 0 records.
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         using var http = new HttpClient { BaseAddress = new Uri($"{RootUri}/api/v5/") };
         http.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
         http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         // 2. Pull the seeded Manga's id + triplet. AddMangaFlow uses the canonical
-        //    KnownMangaDexId; locate it by GUID match.
+        //    KnownMangaBakaId; locate it by mangaBakaId match.
         var mangaListResp = await http.GetAsync("manga");
         mangaListResp.IsSuccessStatusCode.Should().BeTrue("GET /api/v5/manga must return 2xx");
         using var mangaListDoc = JsonDocument.Parse(await mangaListResp.Content.ReadAsStringAsync());
         mangaListDoc.RootElement.GetArrayLength().Should().BeGreaterThan(
             0,
-            "AddMangaFlow.AddByMangaDexIdAsync must have persisted at least one Manga record");
+            "AddMangaFlow.AddByMangaBakaIdAsync must have persisted at least one Manga record");
 
         var mangaId = 0;
         string mangaDexId = null;
@@ -73,14 +73,16 @@ public class AutoExclusionOnDeleteFixture : AutomationTest
 
         foreach (var element in mangaListDoc.RootElement.EnumerateArray())
         {
-            var elementMdxProp = element.TryGetProperty("mangaDexId", out var mdxProp) && mdxProp.ValueKind == JsonValueKind.String
-                ? mdxProp.GetString()
+            var elementMbkProp = element.TryGetProperty("mangaBakaId", out var mbkProp) && mbkProp.ValueKind == JsonValueKind.Number
+                ? (int?)mbkProp.GetInt32()
                 : null;
 
-            if (string.Equals(elementMdxProp, KnownMangaDexId, StringComparison.OrdinalIgnoreCase))
+            if (elementMbkProp == int.Parse(KnownMangaBakaId))
             {
                 mangaId = element.GetProperty("id").GetInt32();
-                mangaDexId = elementMdxProp;
+                mangaDexId = element.TryGetProperty("mangaDexId", out var mdxProp) && mdxProp.ValueKind == JsonValueKind.String
+                    ? mdxProp.GetString()
+                    : null;
                 malId = element.TryGetProperty("malId", out var malProp) && malProp.ValueKind == JsonValueKind.Number
                     ? malProp.GetInt32()
                     : (int?)null;
@@ -93,8 +95,8 @@ public class AutoExclusionOnDeleteFixture : AutomationTest
 
         mangaId.Should().BeGreaterThan(
             0,
-            "AddMangaFlow seed must produce a Manga with mangaDexId={0}",
-            KnownMangaDexId);
+            "AddMangaFlow seed must produce a Manga with mangaBakaId={0}",
+            KnownMangaBakaId);
 
         // 3. DELETE the Manga. addImportListExclusion defaults true per
         //    MangaService.cs:155-162; no query param required.

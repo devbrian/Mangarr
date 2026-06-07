@@ -19,12 +19,12 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("AutomationTest")]
 public class MangaDetailsFlatChapterListFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task renders_flat()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // Switch to the Chapters tab — MangaDetails default lands on 'overview'.
         await Page.GetByRole(AriaRole.Tab, new PageGetByRoleOptions { Name = "Chapters" })

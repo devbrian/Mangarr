@@ -12,17 +12,17 @@ namespace NzbDrone.Automation.Test.Tests.Wanted;
 [Category("AutomationTest")]
 public class MangaMissingFixture : AutomationTest
 {
-    // Stable MangaDex UUID used by Plan-04 cassettes. AddMangaFlow records the
+    // Stable MangaBaka id used by Plan-04 cassettes. AddMangaFlow records the
     // initial-add network exchange to a cassette under Fixtures/Cassettes/
     // so cluster fixtures can seed deterministically.
-    private const string KnownMangaDexId = "a96676e5-8ae2-425e-b549-7f15dd34a6d8";
+    private const string KnownMangaBakaId = "3397";
 
     [Test]
     public async Task missing_page_renders_table_or_empty_state()
     {
         // Seed manga via UI flow (D-06 — UI-populates-via-UI; D-08 first-class
-        // AddByMangaDexIdAsync helper). Wave 2 parallel-plan dependency on Plan-04.
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        // AddByMangaBakaIdAsync helper). Wave 2 parallel-plan dependency on Plan-04.
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
         await new MangaMissingPage(Page).OpenAsync(RootUri);
 
         // Page-level table testid must be visible (the Missing page wraps the

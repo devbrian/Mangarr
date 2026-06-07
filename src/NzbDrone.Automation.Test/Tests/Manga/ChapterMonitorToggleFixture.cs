@@ -17,12 +17,12 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("AutomationTest")]
 public class ChapterMonitorToggleFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task toggle_persists()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // Switch to the Chapters tab (MangaDetails default may be 'overview').
         // The tab is keyed by role="tab" + visible name "Chapters" per

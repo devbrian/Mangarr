@@ -35,12 +35,12 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 [Category("AutomationTest")]
 public class BlocklistBulkRemoveFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task blocklist_bulk_remove_clears_seeded_rows()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // Plan 19-05: seed a real MangaBlocklist row via the raw-SQLite
         // TestKit helper (Plan 19-01 verdict). Capture the AddMangaFlow-seeded

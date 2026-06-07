@@ -32,12 +32,12 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 [Category("PRSmoke")]
 public class QueueTableLoadFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task queue_loads()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // D-03 seed: a real MangaPendingReleases row via the raw-SQLite TestKit
         // helper (Plan 19-01 verdict). SeedPendingQueueItemAsync also triggers

@@ -26,12 +26,12 @@ namespace NzbDrone.Automation.Test.Tests.Wanted;
 [Category("PRSmoke")]
 public class MangaMissingTableFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task table_loads()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // Arm response listener BEFORE navigation so we capture the first
         // GET /api/v5/manga/wanted/missing request.

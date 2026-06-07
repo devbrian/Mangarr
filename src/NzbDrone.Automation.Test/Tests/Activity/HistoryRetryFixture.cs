@@ -48,13 +48,13 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 [Category("AutomationTest")]
 public class HistoryRetryFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
     private const string SeededFailureMessage = "TestKit-seeded failed download";
 
     [Test]
     public async Task history_failed_row_renders_details_and_retry_endpoint_enqueues_search()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // Plan 19-05: seed a real DownloadFailed ChapterHistory row via the
         // raw-SQLite TestKit helper (Plan 19-01 verdict). Capture the

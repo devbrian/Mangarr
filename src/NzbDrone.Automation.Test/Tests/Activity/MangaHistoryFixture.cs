@@ -35,12 +35,12 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 [Category("AutomationTest")]
 public class MangaHistoryFixture : AutomationTest
 {
-    private const string KnownMangaDexId = "a96676e5-8ae2-425e-b549-7f15dd34a6d8";
+    private const string KnownMangaBakaId = "3397";
 
     [Test]
     public async Task history_page_renders_table_with_decision_cells_when_rows_present()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // gh #152: seed a real DownloadFailed ChapterHistory row via the
         // raw-SQLite TestKit helper (Plan 19-01 verdict). Resolve the

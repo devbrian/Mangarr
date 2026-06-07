@@ -45,6 +45,7 @@ function AddNewMangaSearchResult({ manga }: AddNewMangaSearchResultProps) {
     images,
     primaryAuthor,
     totalChapterCount,
+    mangaBakaId,
     mangaDexId,
     aniListId,
     malId,
@@ -57,6 +58,9 @@ function AddNewMangaSearchResult({ manga }: AddNewMangaSearchResultProps) {
   const { data: libraryManga } = useManga();
   const existingManga = useMemo(() => {
     return libraryManga.find((m) => {
+      if (mangaBakaId != null && m.mangaBakaId === mangaBakaId) {
+        return true;
+      }
       if (mangaDexId && m.mangaDexId === mangaDexId) {
         return true;
       }
@@ -68,7 +72,7 @@ function AddNewMangaSearchResult({ manga }: AddNewMangaSearchResultProps) {
       }
       return false;
     });
-  }, [libraryManga, mangaDexId, aniListId, malId]);
+  }, [libraryManga, mangaBakaId, mangaDexId, aniListId, malId]);
   const isExistingManga = Boolean(existingManga);
   const existingTitleSlug = existingManga?.titleSlug ?? existingManga?.id;
 
@@ -117,9 +121,13 @@ function AddNewMangaSearchResult({ manga }: AddNewMangaSearchResultProps) {
 
   // Phase 18 Plan-04: row-scoping testid. Tests target an individual result via
   // `getByTestId('add-manga-result-{id}').getByTestId('add-manga-add-button')`.
-  // The id source is MangaDex / AniList / MAL in that priority order; falls
-  // back to titleSlug for offline cassettes that may not carry an external id.
+  // The id source is MangaBaka (Phase 41 default primary) / MangaDex / AniList /
+  // MAL in that priority order; falls back to titleSlug for offline cassettes
+  // that may not carry an external id.
   const resultRowTestId = useMemo(() => {
+    if (mangaBakaId != null) {
+      return `add-manga-result-${mangaBakaId}`;
+    }
     if (mangaDexId) {
       return `add-manga-result-${mangaDexId}`;
     }
@@ -130,7 +138,7 @@ function AddNewMangaSearchResult({ manga }: AddNewMangaSearchResultProps) {
       return `add-manga-result-mal-${malId}`;
     }
     return `add-manga-result-${titleSlug ?? 'unknown'}`;
-  }, [mangaDexId, aniListId, malId, titleSlug]);
+  }, [mangaBakaId, mangaDexId, aniListId, malId, titleSlug]);
 
   return (
     <div className={styles.searchResult} data-testid={resultRowTestId}>

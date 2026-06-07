@@ -23,6 +23,8 @@ export interface AddMangaResult {
   primaryAuthor?: string;
   images: MangaImage[];
   // External IDs — singular per Phase 2 02-CONTEXT (manga is 1:1 across sources).
+  // mangaBakaId added Phase 41 (MangaBaka default-primary source).
+  mangaBakaId?: number;
   mangaDexId?: string;
   aniListId?: number;
   malId?: number;
@@ -69,6 +71,8 @@ export interface AddMangaPayload {
   tags: number[];
   searchForMissingChapters: boolean;
   // Pass-through identifiers — singular per Phase 2 02-CONTEXT.
+  // mangaBakaId added Phase 41 (MangaBaka default-primary source).
+  mangaBakaId?: number;
   mangaDexId?: string;
   aniListId?: number;
   malId?: number;

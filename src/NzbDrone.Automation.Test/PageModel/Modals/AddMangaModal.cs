@@ -5,7 +5,7 @@ namespace NzbDrone.Automation.Test.PageModel.Modals;
 
 /// <summary>
 /// AddManga side-panel modal (AddNewMangaModalContent.tsx). Owned by Phase 18 Plan-04.
-/// Used by AddMangaFlow.AddByMangaDexIdAsync as the final-step modal where the user
+/// Used by AddMangaFlow.AddByMangaBakaIdAsync as the final-step modal where the user
 /// confirms an add; returns the resulting MangaDetailsPage after the post-add navigation.
 /// </summary>
 public class AddMangaModal : PageBase
@@ -45,7 +45,7 @@ public class AddMangaModal : PageBase
     /// pre-Phase-15-delete useAddSeries.ts — `onSuccess` only updates the
     /// React Query cache; no history.push. The modal auto-closes on add
     /// success but the user stays on /add/manga. Callers needing the
-    /// MangaDetailsPage should use AddMangaFlow.AddByMangaDexIdAsync, which
+    /// MangaDetailsPage should use AddMangaFlow.AddByMangaBakaIdAsync, which
     /// adapts via an explicit MangaIndex → card click navigation step.
     ///
     /// Debug session pr-smoke-add-manga-timeout (2026-05-14): waits for the Add

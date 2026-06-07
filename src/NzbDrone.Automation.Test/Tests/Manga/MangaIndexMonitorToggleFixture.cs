@@ -12,7 +12,7 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 // The Mangarr poster card has no per-card monitor toggle (Posters view shows only
 // Refresh/Search/Edit; toggle lives in the MangaStatusCell isSelectMode path).
 // Canonical Manga-level monitor toggle for a single fixture lives on MangaDetails
-// (always visible) — AddMangaFlow.AddByMangaDexIdAsync lands directly on
+// (always visible) — AddMangaFlow.AddByMangaBakaIdAsync lands directly on
 // /manga/{slug}, so this fixture exercises the toggle at the page where it ships
 // always-visible. The toggle dispatches PUT /api/v5/manga/{id} via
 // useToggleMangaMonitored.
@@ -20,12 +20,12 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("AutomationTest")]
 public class MangaIndexMonitorToggleFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task toggle_persists()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // AddMangaFlow lands on /manga/{slug} — the MonitorToggleButton on
         // MangaDetails is the canonical Manga-level monitor toggle surface.

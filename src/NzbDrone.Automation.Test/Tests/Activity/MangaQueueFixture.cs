@@ -32,16 +32,16 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 [Category("AutomationTest")]
 public class MangaQueueFixture : AutomationTest
 {
-    // MangaDex UUID for "Komi Can't Communicate" — stable cassette anchor per
-    // AddMangaFlow.KnownMangaDexId. The exact chapter set is deterministic via
+    // MangaBaka id for "Solo Leveling" — stable cassette anchor per
+    // AddMangaFlow.KnownMangaBakaId. The exact chapter set is deterministic via
     // cassette; the fixture asserts on row SHAPE (status cell presence), not
     // row count.
-    private const string KnownMangaDexId = "a96676e5-8ae2-425e-b549-7f15dd34a6d8";
+    private const string KnownMangaBakaId = "3397";
 
     [Test]
     public async Task queue_page_renders_table_with_state_assertions_on_visible_rows()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // gh #152: seed a real MangaPendingReleases row via the raw-SQLite
         // TestKit helper (Plan 19-01 verdict — D-03 queue seam). Capture the

@@ -36,12 +36,12 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 [Category("AutomationTest")]
 public class BulkGrabFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task bulk_grab()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // Resolve manga id so the call has a real seed context.
         var mangaId = await ResolveMangaIdAsync();

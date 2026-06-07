@@ -34,12 +34,12 @@ namespace NzbDrone.Automation.Test.Tests.Components;
 [Category("AutomationTest")]
 public class FilterBuilderModalFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task builder_works()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // Use the History page (same reliable Filter dropdown surface as the
         // CustomFiltersModal sibling fixture).

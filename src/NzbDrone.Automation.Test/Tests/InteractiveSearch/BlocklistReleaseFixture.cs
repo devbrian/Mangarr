@@ -49,12 +49,12 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 [Category("PRSmoke")]
 public class BlocklistReleaseFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task blocklist_button_persists()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         var (mangaId, chapterId) = await ResolveSeedFksAsync();
 

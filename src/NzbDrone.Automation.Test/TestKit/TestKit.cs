@@ -57,7 +57,7 @@ public class TestKit
     public async Task SeedBaselineAsync()
     {
         // BL-03 (18-REVIEW): every ExecuteAsync call must check IsSuccessful and throw
-        // on 4xx/5xx. Silent seed failure -> downstream AddMangaFlow.AddByMangaDexIdAsync
+        // on 4xx/5xx. Silent seed failure -> downstream AddMangaFlow.AddByMangaBakaIdAsync
         // times out at 30s with no diagnostic (exactly the symptom Plan 18-14 D-D /
         // issue #102 was chasing). The seed contract is "baseline must exist before
         // browser opens"; without status-checking, that contract is unenforced.
@@ -538,15 +538,14 @@ public class TestKit
     }
 
     /// <summary>
-    /// Phase 20 Plan 20-01 (D-06) — Seeds a MangaDex MetadataSource via
+    /// Phase 20 Plan 20-01 (D-06) / Phase 41 — Seeds a MangaBaka MetadataSource via
     /// <c>POST /api/v5/metadatasource?skipTesting=true</c>. Canonical implementation
-    /// <c>"MangaDexMetadataSource"</c> + configContract
-    /// <c>"MangaDexMetadataSourceSettings"</c> (verified at
-    /// src/NzbDrone.Core/MetadataSource/MangaDex/MangaDexMetadataSource.cs +
-    /// MangaDexMetadataSourceSettings.cs). MetadataSource IS a ProviderControllerBase
-    /// descendant — skipTesting=true mandatory.
+    /// <c>"MangaBakaMetadataSource"</c> + configContract
+    /// <c>"MangaBakaMetadataSourceSettings"</c>. MangaBaka is the DEFAULT PRIMARY
+    /// metadata source as of Phase 41 (was MangaDex). MetadataSource IS a
+    /// ProviderControllerBase descendant — skipTesting=true mandatory.
     /// </summary>
-    public async Task<int> SeedMetadataSourceAsync(string name = "MangaDex (test seed)")
+    public async Task<int> SeedMetadataSourceAsync(string name = "MangaBaka (test seed)")
     {
         var response = await ExecuteWithStartupRetryAsync(
             nameof(SeedMetadataSourceAsync),
@@ -558,12 +557,12 @@ public class TestKit
                 {
                     enable = true,
                     name,
-                    implementation = "MangaDexMetadataSource",
-                    configContract = "MangaDexMetadataSourceSettings",
+                    implementation = "MangaBakaMetadataSource",
+                    configContract = "MangaBakaMetadataSourceSettings",
                     fields = new object[]
                     {
-                        new { name = "baseUrl", value = "https://api.mangadex.org" },
-                        new { name = "sourceKey", value = "mangadex" }
+                        new { name = "baseUrl", value = "https://api.mangabaka.org" },
+                        new { name = "sourceKey", value = "mangabaka" }
                     }
                 });
                 return req;
