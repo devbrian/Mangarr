@@ -9,10 +9,13 @@ using NzbDrone.Core.Profiles.Translations;
 
 namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
 {
-    // Test semantics note: callers consume the comparer via OrderByDescending (mirror Mangarr's
-    // DownloadDecisionPriorizationService.cs:29). With OrderByDescending(comparer), the item
-    // with the HIGHER Compare value sorts FIRST. So "X wins" means Subject.Compare(loser, winner)
-    // returns a NEGATIVE value (loser < winner) — winner sorts first under OrderByDescending.
+    // Test semantics note: the live consumer (ProcessMangaDownloadDecisions.cs) sorts with
+    // OrderByDescending(d => d, comparer) and grabs the first acceptable candidate per chapter.
+    // With OrderByDescending(comparer), the item with the HIGHER Compare value sorts FIRST. So
+    // "X wins" means Subject.Compare(loser, winner) returns a NEGATIVE value (loser < winner) —
+    // winner sorts first under OrderByDescending. (The consumer used OrderBy ascending until
+    // quick-260607-cto, which consumed this descending-convention comparer backwards — the
+    // inversion fix realigned it; ProcessMangaDownloadDecisionsFixture guards the live direction.)
     [TestFixture]
     public class MangaDownloadDecisionComparerFixture
         : MangaDecisionEngineSpecFixtureBase<MangaDownloadDecisionComparer>
@@ -62,6 +65,34 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             // B wins (lower IndexerPriority value = better — mirrors TV CompareIndexerPriority).
             Subject.Compare(a, b).Should().BeLessThan(0);
             Subject.Compare(b, a).Should().BeGreaterThan(0);
+        }
+
+        [Test]
+        public void within_same_language_cf_and_indexer_higher_votes_wins()
+        {
+            // quick-260607-cto: votes is the tiebreaker AFTER indexer priority and BEFORE age.
+            // Everything above votes ties (same language rank, CF, indexer priority) → higher votes wins.
+            GivenProfile(7, "en");
+            var a = Decision(BuildRemoteChapter(releaseLanguage: "en", customFormatScore: 50, translationProfileId: 7, indexerPriority: 10, votes: 3));
+            var b = Decision(BuildRemoteChapter(releaseLanguage: "en", customFormatScore: 50, translationProfileId: 7, indexerPriority: 10, votes: 99));
+
+            // B wins (higher votes): Compare(loser=A, winner=B) < 0.
+            Subject.Compare(a, b).Should().BeLessThan(0);
+            Subject.Compare(b, a).Should().BeGreaterThan(0);
+        }
+
+        [Test]
+        public void votes_ranks_below_indexer_priority()
+        {
+            // Indexer priority is the stronger key: a better (lower) indexer priority wins even
+            // when the other candidate has far more votes — votes only breaks ties at equal priority.
+            GivenProfile(7, "en");
+            var betterIndexer = Decision(BuildRemoteChapter(releaseLanguage: "en", customFormatScore: 50, translationProfileId: 7, indexerPriority: 5, votes: 0));
+            var moreVotes = Decision(BuildRemoteChapter(releaseLanguage: "en", customFormatScore: 50, translationProfileId: 7, indexerPriority: 25, votes: 999));
+
+            // betterIndexer wins despite zero votes: Compare(loser=moreVotes, winner=betterIndexer) < 0.
+            Subject.Compare(betterIndexer, moreVotes).Should().BeGreaterThan(0);
+            Subject.Compare(moreVotes, betterIndexer).Should().BeLessThan(0);
         }
 
         [Test]

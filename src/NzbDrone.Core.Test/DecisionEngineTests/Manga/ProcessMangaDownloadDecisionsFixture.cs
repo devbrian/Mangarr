@@ -125,6 +125,31 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
                 .Verify(d => d.DownloadReport(It.IsAny<RemoteChapter>(), null), Times.Exactly(3));
         }
 
+        // Regression guard (quick-260607-cto): ProcessMangaDownloadDecisions must consume the
+        // comparer via OrderByDescending and grab the BEST-ranked candidate for a chapter. Two
+        // candidates for the SAME chapter; the HIGHER CustomFormatScore must win. The higher-CF
+        // candidate is listed FIRST on purpose, so a no-op/pass-through sort would also (correctly)
+        // grab it — this test FAILS only if the comparer is consulted AND ranks the WORSE candidate
+        // first, which is exactly the OrderBy-ascending inversion this fix removed.
+        [Test]
+        public async Task Should_grab_best_ranked_candidate_for_same_chapter_higher_custom_format_score_wins()
+        {
+            var high = new MangaDownloadDecision(BuildRemoteChapter(100));
+            high.RemoteChapter.CustomFormatScore = 10;
+
+            var low = new MangaDownloadDecision(BuildRemoteChapter(100));
+            low.RemoteChapter.CustomFormatScore = 0;
+
+            // Higher-CF candidate listed FIRST on purpose (see comment above).
+            var decisions = new List<MangaDownloadDecision> { high, low };
+
+            var result = await Subject.ProcessDecisions(decisions);
+
+            result.Grabbed.Should().HaveCount(1);
+            result.Grabbed[0].RemoteChapter.CustomFormatScore.Should().Be(10,
+                "the higher custom-format-score candidate must be grabbed for a given chapter");
+        }
+
         [Test]
         public async Task Should_route_temporarily_rejected_to_pending_with_delay_reason()
         {

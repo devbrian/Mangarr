@@ -29,7 +29,8 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             int chapterId = 100,
             int indexerPriority = 50,
             double ageHours = 24,
-            long size = 10_000_000)
+            long size = 10_000_000,
+            int votes = 0)
         {
             return new RemoteChapter
             {
@@ -52,6 +53,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
                     IndexerPriority = indexerPriority,
                     PublishDate = System.DateTime.UtcNow.AddHours(-ageHours),
                     Size = size,
+                    Votes = votes,
                     Indexer = "TestIndexer"
                 },
                 CustomFormats = new List<CustomFormat>(),
