@@ -4,31 +4,26 @@ using FizzWare.NBuilder;
 using FluentAssertions;
 using Mangarr.Api.V5.Manga;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Moq;
 using NUnit.Framework;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.MangaStats;
 using NzbDrone.Core.MediaCover;
-using NzbDrone.Core.MediaFiles;
 using NzbDrone.Test.Common;
-using ChapterModel = NzbDrone.Core.Manga.Chapter;
 
 namespace NzbDrone.Api.Test.Manga
 {
-    // Regression fixture for the "224 / 225" chapter-monitoring count bug
-    // (.planning/debug/chapter-unmonitor-count.md): MangaController.ComputeStatistics
-    // set the progress denominator ChapterCount = chapters.Count (every chapter), so an
-    // unmonitored chapter with no file kept inflating the total even though it should be
-    // excluded. The fix makes ChapterCount the Sonarr SeriesStatistics.EpisodeCount peer
-    // — Count(c => c.Monitored || c.ChapterFileId.HasValue) — while TotalChapterCount keeps
-    // the true total.
+    // Issue #335 — MangaController now links statistics from the SQL-aggregated
+    // IMangaStatisticsService (Sonarr SeriesController pattern) instead of the inline
+    // ComputeStatistics it carried as the F-05 stopgap. The denominator semantics
+    // ("224/225" unmonitored-fileless exclusion) moved INTO the SQL repository and are
+    // pinned by NzbDrone.Core.Test/MangaStatsTests/MangaStatisticsRepositoryFixture.
     //
-    // Tested through the public GetAll() endpoint because ComputeStatistics + MapResource
-    // are private and GetResourceById is protected (cross-assembly). GetAll() calls
-    // MapResource -> ComputeStatistics for each manga, attaching Statistics.
+    // This controller-level fixture verifies the WIRING: the model → resource mapping
+    // (counts + sizeOnDisk + TV-shape aliases) and the F-05 always-present contract — a
+    // manga absent from the aggregate query still gets a zeroed Statistics object, never null.
     //
-    // Fixture lives under NzbDrone.Api.Test (not NzbDrone.Core.Test) for the same reason as
-    // MangaControllerSignalRFixture: Mangarr.Core.Test does not project-reference
-    // Mangarr.Api.V5; Mangarr.Api.Test does.
+    // Fixture lives under NzbDrone.Api.Test (not NzbDrone.Core.Test) because Mangarr.Core.Test
+    // does not project-reference Mangarr.Api.V5; Mangarr.Api.Test does.
     [TestFixture]
     public class MangaControllerStatisticsFixture : TestBase<MangaController>
     {
@@ -50,28 +45,11 @@ namespace NzbDrone.Api.Test.Manga
                   .Returns(new List<NzbDrone.Core.Manga.Manga> { _manga });
         }
 
-        private static ChapterModel BuildChapter(int id, decimal number, bool monitored, int? chapterFileId)
+        private void GivenStatistics(params MangaStatistics[] statistics)
         {
-            return Builder<ChapterModel>.CreateNew()
-                .With(c => c.Id = id)
-                .With(c => c.MangaId = 4)
-                .With(c => c.ChapterNumber = number)
-                .With(c => c.Monitored = monitored)
-                .With(c => c.ChapterFileId = chapterFileId)
-                .Build();
-        }
-
-        private void GivenChapters(params ChapterModel[] chapters)
-        {
-            Mocker.GetMock<IChapterService>()
-                  .Setup(s => s.GetChaptersByManga(4))
-                  .Returns(chapters.ToList());
-
-            // ComputeStatistics sums file sizes for chapters with a file; return empty so
-            // the size lookup is a clean no-op (count assertions don't depend on size).
-            Mocker.GetMock<IChapterFileService>()
-                  .Setup(s => s.Get(It.IsAny<IEnumerable<int>>()))
-                  .Returns(new List<ChapterFile>());
+            Mocker.GetMock<IMangaStatisticsService>()
+                  .Setup(s => s.MangaStatistics())
+                  .Returns(statistics.ToList());
         }
 
         private MangaStatisticsResource StatisticsFromGetAll()
@@ -81,44 +59,51 @@ namespace NzbDrone.Api.Test.Manga
         }
 
         [Test]
-        public void should_exclude_unmonitored_chapter_with_no_file_from_ChapterCount_denominator()
+        public void should_link_statistics_from_the_aggregate_service_onto_the_resource()
         {
-            // The bug repro: Chapter 0 is unmonitored AND has no file. Pre-fix the
-            // denominator counted it (225); post-fix it must be excluded (224).
-            GivenChapters(
-                BuildChapter(id: 1, number: 0m, monitored: false, chapterFileId: null), // Chapter 0 — the unmonitored, fileless one
-                BuildChapter(id: 2, number: 1m, monitored: true, chapterFileId: null),  // monitored, missing
-                BuildChapter(id: 3, number: 2m, monitored: true, chapterFileId: 10));   // monitored, downloaded
+            GivenStatistics(new MangaStatistics
+            {
+                MangaId = 4,
+                TotalChapterCount = 3,
+                ChapterCount = 2,
+                ChapterFileCount = 1,
+                MonitoredChapterCount = 2,
+                SizeOnDisk = 4096,
+            });
 
             var stats = StatisticsFromGetAll();
 
-            // 3 total, but Chapter 0 (unmonitored + no file) drops out of the denominator.
             stats.TotalChapterCount.Should().Be(3);
             stats.ChapterCount.Should().Be(2);
-            stats.MonitoredChapterCount.Should().Be(2);
             stats.ChapterFileCount.Should().Be(1);
+            stats.MonitoredChapterCount.Should().Be(2);
+            stats.SizeOnDisk.Should().Be(4096);
 
             // TV-shape alias fields mirror the chapter-shape canonical fields.
             stats.EpisodeCount.Should().Be(2);
+            stats.EpisodeFileCount.Should().Be(1);
             stats.TotalEpisodeCount.Should().Be(3);
+            stats.MonitoredEpisodeCount.Should().Be(2);
+            stats.SeasonCount.Should().Be(0);
         }
 
         [Test]
-        public void should_still_count_unmonitored_chapter_that_has_a_file_in_ChapterCount()
+        public void should_attach_zeroed_statistics_when_manga_is_absent_from_the_aggregate_query()
         {
-            // Invariant guard: an unmonitored-but-downloaded chapter must stay in the
-            // denominator (the HasFile term), so chapterFileCount <= chapterCount always holds.
-            GivenChapters(
-                BuildChapter(id: 1, number: 0m, monitored: false, chapterFileId: 10), // unmonitored but on disk
-                BuildChapter(id: 2, number: 1m, monitored: true, chapterFileId: 20));  // monitored, downloaded
+            // The repository GROUP BY only emits rows for manga that have chapters. A manga with
+            // none (here: the stats list does not contain MangaId 4) must still get a non-null,
+            // all-zero Statistics object so the Phase 7 index tiles render "0 / 0" rather than
+            // breaking on a missing field (the original F-05 bug).
+            GivenStatistics(); // empty — no row for manga 4
 
             var stats = StatisticsFromGetAll();
 
-            stats.TotalChapterCount.Should().Be(2);
-            stats.ChapterCount.Should().Be(2);            // both count: one monitored, one has-file
-            stats.MonitoredChapterCount.Should().Be(1);
-            stats.ChapterFileCount.Should().Be(2);
-            stats.ChapterFileCount.Should().BeLessOrEqualTo(stats.ChapterCount);
+            stats.Should().NotBeNull();
+            stats.TotalChapterCount.Should().Be(0);
+            stats.ChapterCount.Should().Be(0);
+            stats.ChapterFileCount.Should().Be(0);
+            stats.EpisodeCount.Should().Be(0);
+            stats.SeasonCount.Should().Be(0);
         }
     }
 }

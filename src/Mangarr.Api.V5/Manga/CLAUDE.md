@@ -6,6 +6,26 @@ v1 developer REST endpoints for the manga domain. Phase 2 shipped the core CRUD 
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Api.V5\Manga`
 
+## Statistics (issue #335)
+
+`MangaResource.Statistics` is populated from the SQL-aggregated `IMangaStatisticsService`
+(`NzbDrone.Core/MangaStats/`) — the Sonarr `SeriesStatisticsService` analog — **not** an inline
+per-manga chapter read. The former inline `MangaController.ComputeStatistics` (the "F-05 stopgap")
+was retired when issue #335 fixed the previously-dead service. Wiring mirrors Sonarr's
+`SeriesController`:
+- `GetAll` runs ONE `MangaStatistics()` aggregate query, keys it by `MangaId`, and links per
+  resource via `LinkMangaStatistics` (a dictionary miss → zeroed `MangaStatisticsResource`,
+  preserving the F-05 always-present contract).
+- `GetResourceById` runs the per-id `MangaStatistics(id)` query via `FetchAndLinkMangaStatistics`.
+- `MangaStatisticsResourceMapper.ToResource` (in `MangaResource.cs`) maps the model → DTO,
+  filling the TV-shape aliases (`episodeCount` etc.) and `SeasonCount = 0`.
+
+The progress-bar denominator (`ChapterCount`) is `Monitored OR HasFile` — Sonarr's air-date gate
+is intentionally dropped (manga `FirstReleaseDate` is frequently NULL); the `Next/Previous/Last`
+airing-date aggregates are not selected (no manga airing concept). See DIVERGENCE.md issue #335.
+Coverage: `NzbDrone.Core.Test/MangaStatsTests/MangaStatisticsRepositoryFixture.cs` (SQL) +
+`NzbDrone.Api.Test/Manga/MangaControllerStatisticsFixture.cs` (controller wiring).
+
 ## Key Files
 
 ### Phase 2 — core CRUD

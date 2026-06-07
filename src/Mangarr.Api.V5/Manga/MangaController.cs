@@ -12,6 +12,7 @@ using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Manga.Commands;
 using NzbDrone.Core.Manga.Events;
+using NzbDrone.Core.MangaStats;
 using NzbDrone.Core.MediaCover;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.Events;
@@ -43,8 +44,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
 {
     private readonly IMangaService _mangaService;
     private readonly IAddMangaService _addMangaService;
-    private readonly IChapterService _chapterService;
-    private readonly IChapterFileService _chapterFileService;
+    private readonly IMangaStatisticsService _mangaStatisticsService;
     private readonly IMapMangaCoversToLocal _coverMapper;
     private readonly IManageCommandQueue _commandQueueManager;
     private readonly Logger _logger;
@@ -52,8 +52,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     public MangaController(IBroadcastSignalRMessage signalRBroadcaster,
                            IMangaService mangaService,
                            IAddMangaService addMangaService,
-                           IChapterService chapterService,
-                           IChapterFileService chapterFileService,
+                           IMangaStatisticsService mangaStatisticsService,
                            IMapMangaCoversToLocal coverMapper,
                            IManageCommandQueue commandQueueManager,
                            Logger logger)
@@ -61,8 +60,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     {
         _mangaService = mangaService;
         _addMangaService = addMangaService;
-        _chapterService = chapterService;
-        _chapterFileService = chapterFileService;
+        _mangaStatisticsService = mangaStatisticsService;
         _coverMapper = coverMapper;
         _commandQueueManager = commandQueueManager;
         _logger = logger;
@@ -81,6 +79,13 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     public Ok<List<MangaResource>> GetAll()
     {
         var all = _mangaService.GetAllManga();
+
+        // Sonarr-canonical SeriesController.AllSeries pattern (issue #335): ONE SQL-aggregated
+        // statistics query for the whole library, keyed by MangaId — never an inline per-manga
+        // chapter-list read. The repository GROUP BY only returns rows for manga that have
+        // chapters, so the dictionary miss for a zero-chapter manga falls back to a zeroed
+        // resource (F-05 always-present contract) inside LinkMangaStatistics.
+        var statsByMangaId = _mangaStatisticsService.MangaStatistics().ToDictionary(s => s.MangaId);
         var result = new List<MangaResource>(all.Count);
 
         foreach (var m in all)
@@ -89,6 +94,7 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
 
             if (resource != null)
             {
+                LinkMangaStatistics(resource, statsByMangaId.GetValueOrDefault(m.Id));
                 result.Add(resource);
             }
         }
@@ -107,7 +113,14 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
             throw new NotFoundException();
         }
 
-        return MapResource(manga);
+        var resource = MapResource(manga);
+
+        if (resource != null)
+        {
+            FetchAndLinkMangaStatistics(resource);
+        }
+
+        return resource;
     }
 
     [RestPostById]
@@ -313,72 +326,26 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
             _coverMapper.ConvertToLocalUrls(manga.Id, resource.Images);
         }
 
-        if (resource != null)
-        {
-            resource.Statistics = ComputeStatistics(manga.Id);
-        }
-
         return resource;
     }
 
-    // F-05 fix: inline statistics computation. A future plan will replace this
-    // with a SQL-aggregated SeriesStatisticsService analog (per-manga in one
-    // query); for v1 the per-manga chapter list is small and the extra GET-time
-    // round-trip is negligible (typical manga have < 1000 chapters; the chapter
-    // table read is already the bottleneck of the Add Manga flow). The TV-shape
-    // alias fields are populated alongside the chapter-shape canonical fields
-    // because the Phase 7 MangaIndexPoster + MangaIndexOverview components
-    // inherit the Series-tile verbatim and read episodeCount/episodeFileCount
-    // pre-Phase-8 collapse.
-    private MangaStatisticsResource ComputeStatistics(int mangaId)
+    // Issue #335: statistics now come from the SQL-aggregated IMangaStatisticsService
+    // (the SeriesStatisticsService analog under NzbDrone.Core/MangaStats/) instead of an
+    // inline per-manga chapter-list read. The list path (GetAll) batches a single
+    // MangaStatistics() query and links via the dictionary overload below; the single-GET
+    // path uses this per-id query. Mirrors Sonarr SeriesController.FetchAndLinkSeriesStatistics.
+    private void FetchAndLinkMangaStatistics(MangaResource resource)
     {
-        var chapters = _chapterService.GetChaptersByManga(mangaId) ?? new List<NzbDrone.Core.Manga.Chapter>();
-        var totalChapterCount = chapters.Count;
-        var chapterFileCount = chapters.Count(c => c.ChapterFileId.HasValue);
-        var monitoredChapterCount = chapters.Count(c => c.Monitored);
+        LinkMangaStatistics(resource, _mangaStatisticsService.MangaStatistics(resource.Id));
+    }
 
-        // Progress-bar denominator (Sonarr SeriesStatistics.EpisodeCount peer): a chapter
-        // counts toward "available" when it is monitored OR already on disk. Mirrors
-        // SeriesStatisticsRepository's `(Monitored AND aired) OR EpisodeFileId > 0` MINUS
-        // the air-date gate — manga FirstReleaseDate is frequently NULL (not every metadata
-        // source populates it), so gating on it would silently drop monitored, not-yet-
-        // downloaded chapters from the denominator. The HasFile term keeps the invariant
-        // chapterFileCount <= chapterCount (an unmonitored-but-downloaded chapter still
-        // counts). An unmonitored chapter with no file is excluded — the fix for the
-        // "224 / 225" bug where the denominator kept counting an unmonitored chapter.
-        var chapterCount = chapters.Count(c => c.Monitored || c.ChapterFileId.HasValue);
-
-        var sizeOnDisk = 0L;
-        var fileIds = chapters
-            .Where(c => c.ChapterFileId.HasValue)
-            .Select(c => c.ChapterFileId!.Value)
-            .Distinct()
-            .ToList();
-        if (fileIds.Count > 0)
-        {
-            try
-            {
-                sizeOnDisk = _chapterFileService.Get(fileIds).Sum(f => f.Size);
-            }
-            catch (Exception ex)
-            {
-                _logger.Debug(ex, "Failed to size chapter files for manga {0}", mangaId);
-            }
-        }
-
-        return new MangaStatisticsResource
-        {
-            ChapterCount = chapterCount,
-            ChapterFileCount = chapterFileCount,
-            TotalChapterCount = totalChapterCount,
-            MonitoredChapterCount = monitoredChapterCount,
-            SizeOnDisk = sizeOnDisk,
-            EpisodeCount = chapterCount,
-            EpisodeFileCount = chapterFileCount,
-            TotalEpisodeCount = totalChapterCount,
-            MonitoredEpisodeCount = monitoredChapterCount,
-            SeasonCount = 0,
-        };
+    // Always attach a Statistics object (zeroed when stats are null/absent) so the Phase 7
+    // MangaIndex tiles — which read episodeCount/episodeFileCount eagerly — never fall back to
+    // a missing-field "0 / 0" for a manga that actually has downloaded chapters (the original
+    // F-05 bug). The mapper handles the null → zeroed projection.
+    private static void LinkMangaStatistics(MangaResource resource, MangaStatistics? statistics)
+    {
+        resource.Statistics = statistics.ToResource();
     }
 
     [NonAction]

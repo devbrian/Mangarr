@@ -1,5 +1,6 @@
 using Mangarr.Http.REST;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.MangaStats;
 using NzbDrone.Core.MediaCover;
 
 namespace Mangarr.Api.V5.Manga;
@@ -97,6 +98,39 @@ public class MangaStatisticsResource
     public int TotalEpisodeCount { get; set; }
     public int MonitoredEpisodeCount { get; set; }
     public int SeasonCount { get; set; }
+}
+
+// Issue #335: maps the SQL-aggregated MangaStatistics model (NzbDrone.Core.MangaStats) onto
+// the wire DTO. Mirrors Sonarr's SeriesStatisticsResourceMapper.ToResource. A null model maps
+// to a zeroed resource (NOT null, unlike Sonarr) to honour the F-05 always-present contract:
+// the Phase 7 MangaIndex tiles read episodeCount/episodeFileCount eagerly and render "0 / 0"
+// if the Statistics object is missing entirely. SeasonCount is always 0 (manga has no seasons
+// per PROJECT.md). The TV-shape aliases mirror the chapter-shape canonical fields.
+public static class MangaStatisticsResourceMapper
+{
+    public static MangaStatisticsResource ToResource(this MangaStatistics? model)
+    {
+        if (model == null)
+        {
+            return new MangaStatisticsResource();
+        }
+
+        return new MangaStatisticsResource
+        {
+            ChapterCount = model.ChapterCount,
+            ChapterFileCount = model.ChapterFileCount,
+            TotalChapterCount = model.TotalChapterCount,
+            MonitoredChapterCount = model.MonitoredChapterCount,
+            SizeOnDisk = model.SizeOnDisk,
+
+            // TV-shape aliases (Plan 07-04 historical lock — verbatim chapter-shape mirror).
+            EpisodeCount = model.ChapterCount,
+            EpisodeFileCount = model.ChapterFileCount,
+            TotalEpisodeCount = model.TotalChapterCount,
+            MonitoredEpisodeCount = model.MonitoredChapterCount,
+            SeasonCount = 0,
+        };
+    }
 }
 
 // Bug fix new-manga-default-monitored (2026-05-08): wire-shape mirror of

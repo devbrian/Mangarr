@@ -36,16 +36,13 @@ namespace NzbDrone.Core.MangaStats
 
         public List<MangaStatistics> MangaStatistics()
         {
-            var time = DateTime.UtcNow;
-            return MapResults(Query<MangaStatistics>(ChaptersBuilder(time), _selectChaptersTemplate),
+            return MapResults(Query<MangaStatistics>(ChaptersBuilder(), _selectChaptersTemplate),
                 Query<ChapterFileRollup>(ChapterFilesBuilder(), _selectChapterFilesTemplate));
         }
 
         public List<MangaStatistics> MangaStatistics(int mangaId)
         {
-            var time = DateTime.UtcNow;
-
-            return MapResults(Query<MangaStatistics>(ChaptersBuilder(time).Where<Chapter>(x => x.MangaId == mangaId), _selectChaptersTemplate),
+            return MapResults(Query<MangaStatistics>(ChaptersBuilder().Where<Chapter>(x => x.MangaId == mangaId), _selectChaptersTemplate),
                 Query<ChapterFileRollup>(ChapterFilesBuilder().Where<ChapterFile>(x => x.MangaId == mangaId), _selectChapterFilesTemplate));
         }
 
@@ -103,24 +100,33 @@ namespace NzbDrone.Core.MangaStats
             }
         }
 
-        private SqlBuilder ChaptersBuilder(DateTime currentDate)
+        private SqlBuilder ChaptersBuilder()
         {
-            var parameters = new DynamicParameters();
-            parameters.Add("currentDate", currentDate, null);
-
             var trueIndicator = _database.DatabaseType == DatabaseType.PostgreSQL ? "true" : "1";
-            var falseIndicator = _database.DatabaseType == DatabaseType.PostgreSQL ? "false" : "0";
 
+            // ChapterCount (the progress-bar denominator) deliberately OMITS the air-date gate that
+            // Sonarr's SeriesStatisticsRepository applies (`(Monitored AND aired) OR EpisodeFileId > 0`).
+            // Manga FirstReleaseDate is frequently NULL — not every metadata source populates it — so
+            // gating on it would silently drop monitored, not-yet-downloaded chapters from the
+            // denominator. This matches MangaController's former inline ComputeStatistics semantics
+            // (Count(c => c.Monitored || c.ChapterFileId.HasValue)) and keeps the invariant
+            // chapterFileCount <= chapterCount, including the "224/225" fix where an
+            // unmonitored-and-fileless chapter must drop out of the denominator. See DIVERGENCE.md.
+            //
+            // Sonarr divergence (issue #335 + DIVERGENCE.md): the Next/Previous/Last *ChapterDate
+            // aggregates (Sonarr SeriesStatistics.NextAiring / PreviousAiring / LastAired peers) are
+            // INTENTIONALLY NOT selected. Manga has no airing concept — MangaResource /
+            // MangaStatisticsResource surface no calendar/airing dates — so they have zero consumers,
+            // AND the `MIN/MAX(CASE ... FirstReleaseDate ...)` expressions lose SQLite type affinity
+            // and come back as strings that DapperUtcConverter cannot cast to DateTime (a latent
+            // runtime throw — the original "ReleaseDate" bug was the same class of dead-code defect).
+            // The model's three DateTime? properties stay (Sonarr shape parity) but are left null.
             return new SqlBuilder(_database.DatabaseType)
                 .Select($@"""Chapters"".""MangaId"" AS MangaId,
                              COUNT(*) AS TotalChapterCount,
-                             SUM(CASE WHEN (""Monitored"" = {trueIndicator} AND ""ReleaseDate"" <= @currentDate) OR ""ChapterFileId"" > 0 THEN 1 ELSE 0 END) AS ChapterCount,
+                             SUM(CASE WHEN ""Monitored"" = {trueIndicator} OR ""ChapterFileId"" > 0 THEN 1 ELSE 0 END) AS ChapterCount,
                              SUM(CASE WHEN ""ChapterFileId"" > 0 THEN 1 ELSE 0 END) AS ChapterFileCount,
-                             SUM(CASE WHEN ""Monitored"" = {trueIndicator} THEN 1 ELSE 0 END) AS MonitoredChapterCount,
-                             MIN(CASE WHEN ""ReleaseDate"" < @currentDate OR ""Monitored"" = {falseIndicator} THEN NULL ELSE ""ReleaseDate"" END) AS NextChapterDate,
-                             MAX(CASE WHEN ""ReleaseDate"" >= @currentDate OR ""Monitored"" = {falseIndicator} THEN NULL ELSE ""ReleaseDate"" END) AS PreviousChapterDate,
-                             MAX(""ReleaseDate"") AS LastChapterDate",
-                    parameters)
+                             SUM(CASE WHEN ""Monitored"" = {trueIndicator} THEN 1 ELSE 0 END) AS MonitoredChapterCount")
                 .GroupBy<Chapter>(x => x.MangaId);
         }
 
