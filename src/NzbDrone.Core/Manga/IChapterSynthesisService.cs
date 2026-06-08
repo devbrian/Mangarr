@@ -16,7 +16,12 @@ namespace NzbDrone.Core.Manga
         // [1..maxWhole] (plus Chapter 0 only when a chapter-0 release is attributed)
         // for the searched manga from the attribution-gated decisions.
         // Fractionals are NEVER bulk-synthesized on search (D-02).
-        void SynthesizeFromDecisions(Manga manga, List<MangaDownloadDecision> decisions);
+        //
+        // Returns the number of NEW Chapter rows written (0 when nothing was genuinely
+        // absent). The RSS self-heal path (MangaRssSyncService) uses a non-zero count as
+        // the gate for a same-tick re-decision against the updated catalog; on-search
+        // callers may ignore it.
+        int SynthesizeFromDecisions(Manga manga, List<MangaDownloadDecision> decisions);
 
         // On-grab: synthesize the single grabbed number (whole OR fractional, D-04)
         // when no local Chapter row exists for it. Returns the resolved Chapter rows for

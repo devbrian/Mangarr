@@ -45,11 +45,11 @@ namespace NzbDrone.Core.Manga
             _logger = logger;
         }
 
-        public void SynthesizeFromDecisions(Manga manga, List<MangaDownloadDecision> decisions)
+        public int SynthesizeFromDecisions(Manga manga, List<MangaDownloadDecision> decisions)
         {
             if (manga == null || decisions == null || decisions.Count == 0)
             {
-                return;
+                return 0;
             }
 
             // (1) Attribution gate per release — NEVER trust the search scope.
@@ -59,7 +59,7 @@ namespace NzbDrone.Core.Manga
 
             if (attributed.Count == 0)
             {
-                return;
+                return 0;
             }
 
             // (2)+(3) Collect WHOLE chapter numbers only (D-02 — fractionals enter via on-grab).
@@ -76,7 +76,7 @@ namespace NzbDrone.Core.Manga
             // phantom chapter 0 (D-02 keeps fractionals out of on-search synthesis entirely).
             if (wholeNumbers.Count == 0)
             {
-                return;
+                return 0;
             }
 
             var maxWhole = wholeNumbers.Max();
@@ -126,7 +126,7 @@ namespace NzbDrone.Core.Manga
 
             if (rows.Count == 0)
             {
-                return;
+                return 0;
             }
 
             _logger.Debug(
@@ -136,6 +136,8 @@ namespace NzbDrone.Core.Manga
                 manga.Id);
 
             _chapterListService.SyncChapters(manga, rows, preserveExistingOnNull: true);
+
+            return rows.Count;
         }
 
         public IReadOnlyList<Chapter> SynthesizeForGrab(RemoteChapter remoteChapter)
