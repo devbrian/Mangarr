@@ -15,7 +15,6 @@
 | `InteractiveSearchFilterModal.tsx` | Filter popup |
 | `InteractiveSearchPayload.ts` | Manga-only discriminated union: `ChapterSearchPayload` (`{ kind: 'chapter', chapterId }`) + `MangaSearchPayload` (`{ kind: 'manga', mangaId }`). The TV-shape `EpisodeSearchPayload` / `SeasonSearchPayload` variants were retired in issue #263. `searchPayload.kind` is the single routing discriminator (the redundant `InteractiveSearchType` prop + file were deleted in issue #263). |
 | `Peers.tsx` | Seeders/peers display |
-| `ReleaseSceneIndicator.tsx` | Scene release indicator |
 | `releaseOptionsStore.ts` | Zustand: search options |
 | `useReleases.ts` | API hook (`useReleases({ seriesId, seasonNumber?, episodeId? })`). **Phase 7 Plan 07-05** added `getReleasePath()` discriminator: chapter / manga payloads route to `/api/v5/manga/release` (Phase 6 endpoint), TV variants stay on `/release`. |
 
