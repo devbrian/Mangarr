@@ -8,7 +8,9 @@ using NzbDrone.Core.Download.Pending;
 using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.IndexerSearch.Manga;
+using NzbDrone.Core.Manga;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common;
@@ -398,6 +400,160 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
                     e => e.PublishEvent(It.Is<MangaRssSyncCompleteEvent>(
                         evt => ReferenceEquals(evt.ProcessedDecisions, decisions))),
                     Times.Once);
+        }
+
+        // ---------------- Phase 40 RSS self-heal — synthesize uncataloged chapters from /recent ----------------
+
+        private static MangaDownloadDecision DecisionForManga(int mangaId, string title)
+        {
+            return new MangaDownloadDecision(new RemoteChapter
+            {
+                Manga = new NzbDrone.Core.Manga.Manga { Id = mangaId, Title = title }
+            });
+        }
+
+        [Test]
+        public void Execute_should_synthesize_chapters_once_per_resolved_manga()
+        {
+            // RSS has no single search target, so the decisions are grouped by their resolved
+            // RemoteChapter.Manga and synthesized one manga at a time.
+            var decisions = new List<MangaDownloadDecision>
+            {
+                DecisionForManga(7, "Solo Leveling"),
+                DecisionForManga(7, "Solo Leveling"),
+                DecisionForManga(10, "Solo Leveling: Ragnarok"),
+            };
+
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                .Setup(d => d.GetRssDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<bool>()))
+                .Returns(decisions);
+
+            var indexer = BuildHttpIndexer(1, "MangaDex");
+            Mocker.GetMock<IIndexerFactory>()
+                .Setup(f => f.RssEnabled(true))
+                .Returns(new List<IIndexer> { indexer.Object });
+
+            Subject.Execute(new MangaRssSyncCommand());
+
+            // Manga 7 — both decisions grouped into a single call.
+            Mocker.GetMock<IChapterSynthesisService>()
+                .Verify(s => s.SynthesizeFromDecisions(
+                    It.Is<NzbDrone.Core.Manga.Manga>(m => m.Id == 7),
+                    It.Is<List<MangaDownloadDecision>>(d => d.Count == 2)),
+                    Times.Once);
+
+            // Manga 10 — single decision, its own call.
+            Mocker.GetMock<IChapterSynthesisService>()
+                .Verify(s => s.SynthesizeFromDecisions(
+                    It.Is<NzbDrone.Core.Manga.Manga>(m => m.Id == 10),
+                    It.Is<List<MangaDownloadDecision>>(d => d.Count == 1)),
+                    Times.Once);
+        }
+
+        [Test]
+        public void Execute_should_skip_synthesis_for_decisions_with_no_resolved_manga()
+        {
+            // UnknownManga decisions (GetManga returned null → RemoteChapter.Manga == null, or
+            // a null RemoteChapter entirely) must never reach synthesis — there is no manga to
+            // attribute the release to.
+            var decisions = new List<MangaDownloadDecision>
+            {
+                new MangaDownloadDecision(new RemoteChapter { Manga = null }),
+                new MangaDownloadDecision(null),
+            };
+
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                .Setup(d => d.GetRssDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<bool>()))
+                .Returns(decisions);
+
+            var indexer = BuildHttpIndexer(1, "MangaDex");
+            Mocker.GetMock<IIndexerFactory>()
+                .Setup(f => f.RssEnabled(true))
+                .Returns(new List<IIndexer> { indexer.Object });
+
+            Subject.Execute(new MangaRssSyncCommand());
+
+            Mocker.GetMock<IChapterSynthesisService>()
+                .Verify(s => s.SynthesizeFromDecisions(
+                    It.IsAny<NzbDrone.Core.Manga.Manga>(),
+                    It.IsAny<List<MangaDownloadDecision>>()),
+                    Times.Never);
+        }
+
+        [Test]
+        public void Execute_should_isolate_synthesis_failure_and_still_grab_and_publish()
+        {
+            // Best-effort: synthesis is a pure side-effect — a throw must not abort the RSS
+            // tick or swallow the decisions the grab pipeline + complete-event are waiting for.
+            var decisions = new List<MangaDownloadDecision> { DecisionForManga(7, "Solo Leveling") };
+
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                .Setup(d => d.GetRssDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<bool>()))
+                .Returns(decisions);
+
+            Mocker.GetMock<IChapterSynthesisService>()
+                .Setup(s => s.SynthesizeFromDecisions(
+                    It.IsAny<NzbDrone.Core.Manga.Manga>(),
+                    It.IsAny<List<MangaDownloadDecision>>()))
+                .Throws(new InvalidOperationException("simulated synthesis crash"));
+
+            var indexer = BuildHttpIndexer(1, "MangaDex");
+            Mocker.GetMock<IIndexerFactory>()
+                .Setup(f => f.RssEnabled(true))
+                .Returns(new List<IIndexer> { indexer.Object });
+
+            Subject.Execute(new MangaRssSyncCommand());
+
+            Mocker.GetMock<IProcessMangaDownloadDecisions>()
+                .Verify(p => p.ProcessDecisions(It.Is<List<MangaDownloadDecision>>(d => ReferenceEquals(d, decisions))),
+                    Times.Once);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<MangaRssSyncCompleteEvent>()), Times.Once);
+
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
+        public void Execute_should_synthesize_BEFORE_handing_decisions_to_grab_pipeline()
+        {
+            // Catalog backfill must happen before the grab pipeline so the synthesized rows
+            // are wanted for the next RSS tick / Missing sweep. MockSequence asserts strict
+            // source-order: synthesis FIRST, ProcessDecisions SECOND.
+            var sequence = new MockSequence();
+
+            Mocker.GetMock<IChapterSynthesisService>()
+                .InSequence(sequence)
+                .Setup(s => s.SynthesizeFromDecisions(
+                    It.IsAny<NzbDrone.Core.Manga.Manga>(),
+                    It.IsAny<List<MangaDownloadDecision>>()));
+
+            Mocker.GetMock<IProcessMangaDownloadDecisions>()
+                .InSequence(sequence)
+                .Setup(p => p.ProcessDecisions(It.IsAny<List<MangaDownloadDecision>>()))
+                .ReturnsAsync(new ProcessedMangaDecisions(
+                    new List<MangaDownloadDecision>(),
+                    new List<MangaDownloadDecision>(),
+                    new List<MangaDownloadDecision>()));
+
+            var decisions = new List<MangaDownloadDecision> { DecisionForManga(7, "Solo Leveling") };
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                .Setup(d => d.GetRssDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<bool>()))
+                .Returns(decisions);
+
+            var indexer = BuildHttpIndexer(1, "MangaDex");
+            Mocker.GetMock<IIndexerFactory>()
+                .Setup(f => f.RssEnabled(true))
+                .Returns(new List<IIndexer> { indexer.Object });
+
+            Subject.Execute(new MangaRssSyncCommand());
+
+            Mocker.GetMock<IChapterSynthesisService>()
+                .Verify(s => s.SynthesizeFromDecisions(
+                    It.IsAny<NzbDrone.Core.Manga.Manga>(),
+                    It.IsAny<List<MangaDownloadDecision>>()),
+                    Times.Once);
+            Mocker.GetMock<IProcessMangaDownloadDecisions>()
+                .Verify(p => p.ProcessDecisions(It.IsAny<List<MangaDownloadDecision>>()), Times.Once);
         }
     }
 }

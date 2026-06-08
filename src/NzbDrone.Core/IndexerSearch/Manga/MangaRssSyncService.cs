@@ -8,6 +8,7 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.DecisionEngine.Manga;
 using NzbDrone.Core.Download.Pending.Manga;
 using NzbDrone.Core.Indexers;
+using NzbDrone.Core.Manga;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Parser.Model;
@@ -58,6 +59,7 @@ namespace NzbDrone.Core.IndexerSearch.Manga
         private readonly IMakeMangaDownloadDecision _decisionMaker;
         private readonly IProcessMangaDownloadDecisions _processDownloadDecisions;
         private readonly IMangaPendingReleaseService _pendingReleaseService;
+        private readonly IChapterSynthesisService _chapterSynthesisService;
         private readonly IConfigService _configService;
         private readonly IEventAggregator _eventAggregator;
         private readonly Logger _logger;
@@ -66,6 +68,7 @@ namespace NzbDrone.Core.IndexerSearch.Manga
                                    IMakeMangaDownloadDecision decisionMaker,
                                    IProcessMangaDownloadDecisions processDownloadDecisions,
                                    IMangaPendingReleaseService pendingReleaseService,
+                                   IChapterSynthesisService chapterSynthesisService,
                                    IConfigService configService,
                                    IEventAggregator eventAggregator,
                                    Logger logger)
@@ -74,6 +77,7 @@ namespace NzbDrone.Core.IndexerSearch.Manga
             _decisionMaker = decisionMaker;
             _processDownloadDecisions = processDownloadDecisions;
             _pendingReleaseService = pendingReleaseService;
+            _chapterSynthesisService = chapterSynthesisService;
             _configService = configService;
             _eventAggregator = eventAggregator;
             _logger = logger;
@@ -116,6 +120,10 @@ namespace NzbDrone.Core.IndexerSearch.Manga
 
             var decisions = _decisionMaker.GetRssDecision(reports);
 
+            // Phase 40 RSS self-heal — backfill the local Chapter catalog from the gateway's
+            // recent releases BEFORE the grab pipeline runs. See SynthesizeFromRssDecisions.
+            SynthesizeFromRssDecisions(decisions);
+
             // Debug-session queue-items-not-downloading (2026-05-13) — mirror TV
             // RssSyncService.Sync() line 44: hand approved decisions to the grab pipeline.
             // ProcessMangaDownloadDecisions buckets results into Grabbed / Pending / Rejected
@@ -147,6 +155,53 @@ namespace NzbDrone.Core.IndexerSearch.Manga
             // writes happened inside ProcessDecisions; the batch event publish is the
             // LAST line of Execute.
             _eventAggregator.PublishEvent(new MangaRssSyncCompleteEvent(decisions));
+        }
+
+        // Phase 40 RSS self-heal (see DIVERGENCE.md § Phase 40). The scheduled /recent poll
+        // surfaces gateway chapter releases the MangaDex metadata catalog never enumerated.
+        // The user-initiated search path (MangaReleaseSearchService.MangaSearch) already
+        // backfills the catalog via IChapterSynthesisService.SynthesizeFromDecisions; without
+        // the same hook here, a brand-new chapter that ONLY ever appears in the gateway's
+        // recent feed (and was never reached by a manual / Wanted search since) maps to an
+        // EMPTY RemoteChapter.Chapters list, is dropped by the decision specs, and never
+        // becomes wanted/grabbable. Synthesizing here lets RSS self-heal that gap: the
+        // newly-synthesized rows become monitored/wanted (when Manga.MonitorNewItems == All)
+        // and grab on the next RSS tick (release still in the recent window) or the daily
+        // MissingChapterSearch sweep.
+        //
+        // RSS has NO single search target (unlike MangaSearch's criteria.Manga), so the
+        // decisions are grouped by their resolved RemoteChapter.Manga and synthesized one
+        // manga at a time. The per-release attribution gate inside SynthesizeFromDecisions
+        // (ID-match-else-EXACT-title; the inexact / fuzzy strategy is EXCLUDED — D-06/D-07
+        // cross-title-corruption guard) is the safety net: a release the decision maker only
+        // fuzzy-resolved to a manga fails the gate and is NOT backfilled.
+        //
+        // Best-effort (mirrors MangaReleaseSearchService.MangaSearch): synthesis is a pure
+        // side-effect — a throw must never abort the RSS tick or swallow the decisions the
+        // grab pipeline is waiting for. Failures are isolated per-manga so one bad group does
+        // not skip synthesis for the others.
+        private void SynthesizeFromRssDecisions(List<MangaDownloadDecision> decisions)
+        {
+            var groupedByManga = decisions
+                .Where(d => d.RemoteChapter?.Manga != null)
+                .GroupBy(d => d.RemoteChapter.Manga.Id);
+
+            foreach (var group in groupedByManga)
+            {
+                var manga = group.First().RemoteChapter.Manga;
+
+                try
+                {
+                    _chapterSynthesisService.SynthesizeFromDecisions(manga, group.ToList());
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn(ex,
+                        "Chapter synthesis failed for RSS-synced manga '{0}' (id={1}); continuing RSS sync.",
+                        manga?.Title,
+                        manga?.Id);
+                }
+            }
         }
 
         private async Task<IList<ReleaseInfo>> FetchIndexerSafe(IIndexer indexer)
