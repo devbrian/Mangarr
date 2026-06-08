@@ -6,7 +6,8 @@
 //
 // Behavior under test:
 //   * Delta (RECON-02): on-search backfills the genuinely-missing contiguous WHOLE
-//     range [0..maxWhole] minus already-cataloged numbers.
+//     range [1..maxWhole] minus already-cataloged numbers, plus Chapter 0 ONLY when a
+//     chapter-0 release was actually attributed (no phantom Chapter 0).
 //   * Fractional exclusion (RECON-02 / D-02): a 14.5 release is NEVER bulk-synthesized
 //     on search.
 //   * Attribution Killing-Field (RECON-02 / D-06/D-07): a release that does NOT belong
@@ -128,7 +129,8 @@ namespace NzbDrone.Core.Test.MangaTests
         public void SynthesizeFromDecisions_never_synthesizes_fractional_on_search()
         {
             // Whole {1,2} plus a 14.5 release => the fractional must NOT appear and must NOT
-            // inflate maxWhole. Existing none => backfill {0,1,2}.
+            // inflate maxWhole. Existing none => backfill {1,2}; chapter 0 is NOT synthesized
+            // because no chapter-0 release was attributed.
             var decisions = new List<MangaDownloadDecision>
             {
                 Decision("The Forgotten Field", new[] { 1m }),
@@ -144,8 +146,54 @@ namespace NzbDrone.Core.Test.MangaTests
             Subject.SynthesizeFromDecisions(_searched, decisions);
 
             captured.Should().NotBeNull();
-            captured.Select(c => c.ChapterNumber).Should().BeEquivalentTo(new[] { 0m, 1m, 2m });
+            captured.Select(c => c.ChapterNumber).Should().BeEquivalentTo(new[] { 1m, 2m });
             captured.Should().NotContain(c => c.ChapterNumber == 14.5m);
+        }
+
+        [Test]
+        public void SynthesizeFromDecisions_does_not_synthesize_phantom_chapter_zero()
+        {
+            // A single max-whole attributed release (chapter 10), existing none => backfill the
+            // contiguous range {1..10}. Chapter 0 must NOT appear: no chapter-0 release was
+            // attributed, so synthesizing a phantom Chapter 0 is a bug.
+            var decisions = new List<MangaDownloadDecision>
+            {
+                Decision("The Forgotten Field", new[] { 10m }),
+            };
+
+            IList<Chapter> captured = null;
+            Mocker.GetMock<IChapterListService>()
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
+
+            Subject.SynthesizeFromDecisions(_searched, decisions);
+
+            captured.Should().NotBeNull();
+            captured.Select(c => c.ChapterNumber).Should().BeEquivalentTo(
+                new[] { 1m, 2m, 3m, 4m, 5m, 6m, 7m, 8m, 9m, 10m });
+            captured.Should().NotContain(c => c.ChapterNumber == 0m);
+        }
+
+        [Test]
+        public void SynthesizeFromDecisions_synthesizes_chapter_zero_when_zero_release_attributed()
+        {
+            // A genuine chapter-0 release IS attributed (gateway {0,3}, existing none) => Chapter 0
+            // is synthesized alongside the {1,2,3} backfill.
+            var decisions = new List<MangaDownloadDecision>
+            {
+                Decision("The Forgotten Field", new[] { 0m }),
+                Decision("The Forgotten Field", new[] { 3m }),
+            };
+
+            IList<Chapter> captured = null;
+            Mocker.GetMock<IChapterListService>()
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
+
+            Subject.SynthesizeFromDecisions(_searched, decisions);
+
+            captured.Should().NotBeNull();
+            captured.Select(c => c.ChapterNumber).Should().BeEquivalentTo(new[] { 0m, 1m, 2m, 3m });
         }
 
         [Test]

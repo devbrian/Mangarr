@@ -13,7 +13,8 @@ namespace NzbDrone.Core.Manga
     public interface IChapterSynthesisService
     {
         // On-search: backfill the genuinely-missing contiguous WHOLE-number range
-        // [0..maxWhole] for the searched manga from the attribution-gated decisions.
+        // [1..maxWhole] (plus Chapter 0 only when a chapter-0 release is attributed)
+        // for the searched manga from the attribution-gated decisions.
         // Fractionals are NEVER bulk-synthesized on search (D-02).
         void SynthesizeFromDecisions(Manga manga, List<MangaDownloadDecision> decisions);
 
