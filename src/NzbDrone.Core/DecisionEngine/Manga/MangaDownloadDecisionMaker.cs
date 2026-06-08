@@ -59,18 +59,33 @@ namespace NzbDrone.Core.DecisionEngine.Manga
             _logger = logger;
         }
 
-        // BL-02 — resolve the canonical Phase 3 D-17 source key (e.g. "mangadex" / "comix.to")
-        // from the indexer instance. ReleaseInfo.Indexer carries the user-named instance
-        // (e.g. "My MangaDex Mirror"); the SourceKeySpecification CF spec needs the canonical
-        // key the indexer SettingsBase exposes. Falls back to ReleaseInfo.Indexer (the user-
-        // named instance) when the indexer can't be resolved (e.g. in tests, or if the indexer
-        // has been deleted between report fetch and decision time) so naming-token consumers
-        // still get a non-null value.
+        // BL-02 — resolve the source key the SourceKeySpecification CF spec matches on.
+        //
+        // quick-260608-gmm (Finding 3): PREFER the per-release ReleaseInfo.Source first. Post-Phase-39
+        // a single Gateway indexer aggregates many upstreams (comix / mangaball / mangadex / mangadot),
+        // so the indexer-level key (IHttpAggregatorSettings.SourceKey / ReleaseInfo.Indexer) is
+        // IDENTICAL for every release and cannot differentiate a per-source Custom Format. GatewayParser
+        // stamps the real upstream onto ReleaseInfo.Source (= r.SourceKey), and it survives
+        // CleanupReleases — so when it is present it is the authoritative per-release source key and
+        // wins over the aggregator key.
+        //
+        // Fallback (legacy / in-process paths that don't set Source): resolve the canonical Phase 3
+        // D-17 key from the indexer instance. ReleaseInfo.Indexer carries the user-named instance
+        // (e.g. "My MangaDex Mirror"); the spec needs the canonical key the indexer SettingsBase
+        // exposes. Falls back to ReleaseInfo.Indexer (the user-named instance) when the indexer can't
+        // be resolved (e.g. in tests, or if the indexer has been deleted between report fetch and
+        // decision time) so naming-token consumers still get a non-null value.
         private string ResolveSourceKey(ReleaseInfo report)
         {
             if (report == null)
             {
                 return null;
+            }
+
+            // quick-260608-gmm (Finding 3) — per-release gateway upstream wins when present.
+            if (!string.IsNullOrWhiteSpace(report.Source))
+            {
+                return report.Source;
             }
 
             try
@@ -205,7 +220,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga
                                 ChapterInfo = remoteChapter.ParsedChapterInfo,
                                 Manga = remoteChapter.Manga,
                                 Release = report,
-                                SourceKey = ResolveSourceKey(report),    // BL-02 — canonical D-17 key (mangadex / comix.to)
+                                SourceKey = ResolveSourceKey(report),    // BL-02 — per-release ReleaseInfo.Source (gateway upstream) preferred; indexer key fallback (quick-260608-gmm Finding 3)
                                 Size = report.Size,
                                 IndexerFlags = report.IndexerFlags,
                                 Filename = report.Title

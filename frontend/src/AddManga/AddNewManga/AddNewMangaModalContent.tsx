@@ -21,7 +21,7 @@
 //     §Form / monitor labels (NOT the 11 Sonarr-side entries).
 //
 // Phase 8 cleanup: collapse with AddNewSeriesModalContent when AddSeries/ deletes.
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { AddMangaResult } from 'AddManga/AddManga';
 import {
   AddMangaOptions,
@@ -96,6 +96,8 @@ const monitorValues: EnhancedSelectInputValue<string>[] = [
 interface ProfileResource {
   id: number;
   name?: string;
+  // Backend-computed from Config.Default{Translation,CustomFormat}ProfileId (quick-260608-gmm).
+  isDefault?: boolean;
 }
 
 function AddNewMangaModalContent({
@@ -138,6 +140,43 @@ function AddNewMangaModalContent({
       value: profile.name ?? `Custom Format Profile ${profile.id}`,
     }));
   }, [customFormatProfilesData]);
+
+  // Pre-select the default profile (the one flagged isDefault, else the first) whenever the
+  // stored selection is unset (0) or points at a profile that no longer exists. The persisted
+  // addMangaOptionsStore seeds both ids at 0 ("fall back to Config default"), and
+  // EnhancedSelectInput does NOT write a default back — so without this the Custom Format select
+  // rendered blank and POST /manga sent customFormatProfileId 0 (orphan FK -> no CF scoring)
+  // unless the user picked one by hand. Mirrors the AddNewManga "re-bind to a real profile id once
+  // the query resolves" contract (AddNewManga/CLAUDE.md §Profile fall-back sentinel). quick-260608-gmm.
+  useEffect(() => {
+    if (!translationProfilesData?.length) {
+      return;
+    }
+    const valid = translationProfilesData.some(
+      (p) => p.id === options.translationProfileId
+    );
+    if (!valid) {
+      const fallback =
+        translationProfilesData.find((p) => p.isDefault) ??
+        translationProfilesData[0];
+      setAddMangaOption('translationProfileId', fallback.id);
+    }
+  }, [translationProfilesData, options.translationProfileId]);
+
+  useEffect(() => {
+    if (!customFormatProfilesData?.length) {
+      return;
+    }
+    const valid = customFormatProfilesData.some(
+      (p) => p.id === options.customFormatProfileId
+    );
+    if (!valid) {
+      const fallback =
+        customFormatProfilesData.find((p) => p.isDefault) ??
+        customFormatProfilesData[0];
+      setAddMangaOption('customFormatProfileId', fallback.id);
+    }
+  }, [customFormatProfilesData, options.customFormatProfileId]);
 
   const { settings, validationErrors, validationWarnings } = useMemo(() => {
     return {

@@ -30,7 +30,9 @@ function AddSpecificationModalContent({
     useSelector((state: AppState) => state.settings.customFormatSpecifications);
 
   useEffect(() => {
-    dispatch(fetchCustomFormatSpecificationSchema());
+    // quick-260608-gmm: request the manga spec set so the manga conditions
+    // (Source Key, Scanlation Group, etc.) are selectable in "Add Condition".
+    dispatch(fetchCustomFormatSpecificationSchema({ mediaType: 'manga' }));
   }, [dispatch]);
 
   return (

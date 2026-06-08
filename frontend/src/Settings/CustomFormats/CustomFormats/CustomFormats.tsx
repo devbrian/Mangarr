@@ -19,15 +19,15 @@ import EditCustomFormatModal from './EditCustomFormatModal';
 import styles from './CustomFormats.css';
 
 // Sonarr divergence: per Phase 7 D-05 — mediaType filter prop added — see DIVERGENCE.md.
-// Phase 5 D-10 backend `?mediaType=` query parameter wired through createFetchHandler payload.
-// 'both' omits the parameter entirely (returns the union — backend default behavior).
-export type CustomFormatMediaTypeFilter = 'manga' | 'series' | 'both';
+// quick-260608-gmm: collapsed to manga-only — the CF subsystem no longer offers 'series'/'both'.
+// The CF list is always fetched with mediaType='manga' (forwarded to /customformat?mediaType=manga).
+export type CustomFormatMediaTypeFilter = 'manga';
 
 interface CustomFormatsProps {
   mediaType?: CustomFormatMediaTypeFilter;
 }
 
-function CustomFormats({ mediaType = 'both' }: CustomFormatsProps = {}) {
+function CustomFormats({ mediaType = 'manga' }: CustomFormatsProps = {}) {
   const dispatch = useDispatch();
 
   const { error, isFetching, isPopulated, isDeleting, items } = useSelector(
@@ -60,10 +60,9 @@ function CustomFormats({ mediaType = 'both' }: CustomFormatsProps = {}) {
   }, []);
 
   useEffect(() => {
-    // Sonarr divergence: per Phase 7 D-05 — mediaType filter dispatched as fetch payload.
-    // createFetchHandler forwards otherPayload as `data` (jQuery `traditional:true`) → ?mediaType=manga.
-    const payload = mediaType === 'both' ? {} : { mediaType };
-    dispatch(fetchCustomFormats(payload));
+    // quick-260608-gmm: always fetch the manga CF list (subsystem is manga-only).
+    // createFetchHandler forwards the payload as `data` (jQuery `traditional:true`) → ?mediaType=manga.
+    dispatch(fetchCustomFormats({ mediaType }));
   }, [dispatch, mediaType]);
 
   return (

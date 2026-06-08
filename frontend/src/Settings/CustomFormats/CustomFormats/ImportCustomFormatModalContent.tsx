@@ -161,7 +161,8 @@ function ImportCustomFormatModalContent({
   }, [json, clearPending, dispatch, parseSpecification, onModalClose]);
 
   useEffect(() => {
-    dispatch(fetchCustomFormatSpecificationSchema());
+    // quick-260608-gmm: request the manga spec set (CF subsystem is manga-only).
+    dispatch(fetchCustomFormatSpecificationSchema({ mediaType: 'manga' }));
   }, [dispatch]);
 
   useEffect(() => {

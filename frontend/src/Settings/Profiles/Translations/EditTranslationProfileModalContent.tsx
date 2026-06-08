@@ -103,6 +103,9 @@ function defaultProfile(): TranslationProfileResource {
     allowLanguagesNotInProfile: false,
     // Phase 6 D-10: per-profile upgrade flag defaults TRUE (language rank ordered, *arr promise).
     upgradeAllowed: true,
+    // quick-260608-gmm: wired to Config.DefaultTranslationProfileId (backend computes on read,
+    // sets the global key on save when true). A brand-new profile is not default until checked.
+    isDefault: false,
   };
 }
 
@@ -337,6 +340,19 @@ function EditTranslationProfileModalContent({
     []
   );
 
+  // quick-260608-gmm: checking Default points Config.DefaultTranslationProfileId at this
+  // profile on save (the controller moves the single global default). Unchecking is a backend
+  // no-op — the default is changed by checking a different profile.
+  const handleIsDefaultChange = useCallback(
+    (change: InputChangedHandler<boolean>) => {
+      setItem((prev) => ({
+        ...prev,
+        isDefault: change.value,
+      }));
+    },
+    []
+  );
+
   // `languages` is a flat string[]; rank = array index, so all mutations operate
   // on the index directly. Editing a code replaces the entry at `idx`.
   const handleLanguageCodeChange = useCallback(
@@ -450,6 +466,18 @@ function EditTranslationProfileModalContent({
                     {translate('AddLanguage')}
                   </Button>
                 </div>
+              </FormGroup>
+
+              <FormGroup size={sizes.EXTRA_SMALL}>
+                <FormLabel size={sizes.SMALL}>
+                  {translate('DefaultProfile')}
+                </FormLabel>
+                <FormInputGroup
+                  type={inputTypes.CHECK}
+                  name="isDefault"
+                  value={item.isDefault}
+                  onChange={handleIsDefaultChange}
+                />
               </FormGroup>
 
               <FormGroup size={sizes.EXTRA_SMALL}>

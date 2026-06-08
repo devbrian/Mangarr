@@ -174,6 +174,69 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
         }
 
         [Test]
+        public void cfInput_SourceKey_prefers_per_release_Source_over_indexer_key()
+        {
+            // quick-260608-gmm (Finding 3): ResolveSourceKey must prefer the per-release
+            // ReleaseInfo.Source (the gateway upstream stamped by GatewayParser) over the
+            // indexer-level key, AND fall back to report.Indexer when Source is empty. We CAPTURE
+            // the MangaCustomFormatInput the maker builds via a Moq .Callback on the already-mocked
+            // ParseCustomFormat to assert cfInput.SourceKey end-to-end.
+            _translationProfileService.Setup(s => s.Get(7))
+                .Returns(new TranslationProfile { Id = 7, Languages = new List<string> { "en" }, AllowLanguagesNotInProfile = true });
+
+            var manga = new NzbDrone.Core.Manga.Manga { Id = 1, Title = "Test Manga", Monitored = true, TranslationProfileId = 7 };
+            var remoteChapter = new RemoteChapter
+            {
+                Manga = manga,
+                Chapters = new List<Chapter> { new() { Id = 100, Monitored = true, ChapterNumber = 42m } },
+                ParsedChapterInfo = new ParsedChapterInfo()
+            };
+
+            _parsingService.Setup(p => p.GetManga(It.IsAny<string>())).Returns(manga);
+            _parsingService.Setup(p => p.Map(It.IsAny<ParsedChapterInfo>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<IList<Chapter>>())).Returns(remoteChapter);
+
+            MangaCustomFormatInput captured = null;
+            _formatCalculator.Setup(f => f.ParseCustomFormat(It.IsAny<MangaCustomFormatInput>()))
+                .Callback<MangaCustomFormatInput>(input => captured = input)
+                .Returns(new List<CustomFormat>());
+
+            // (a) per-release Source wins even though the aggregator branch would be reachable.
+            // IndexerId = 0 keeps the test free of an IIndexerFactory setup; the new FIRST branch
+            // short-circuits before the indexer lookup regardless.
+            var withSource = new ReleaseInfo { Title = "Test Manga - Chapter 042 [Group]", TranslatedLanguage = "en", Source = "comix", IndexerId = 0, Indexer = "Gateway" };
+            _maker.GetRssDecision(new List<ReleaseInfo> { withSource });
+
+            captured.Should().NotBeNull("the CF augmentation site must fire");
+            captured.SourceKey.Should().Be("comix", "per-release ReleaseInfo.Source is the authoritative source key (Finding 3)");
+
+            // (b) empty Source falls through to the indexer-level resolution; with IndexerId = 0 the
+            // aggregator branch is skipped and the final fallback returns report.Indexer.
+            captured = null;
+            var withoutSource = new ReleaseInfo { Title = "Test Manga - Chapter 043 [Group]", TranslatedLanguage = "en", Source = null, IndexerId = 0, Indexer = "Gateway" };
+            _maker.GetRssDecision(new List<ReleaseInfo> { withoutSource });
+
+            captured.Should().NotBeNull();
+            captured.SourceKey.Should().Be("Gateway", "empty Source must fall back to the indexer-level resolution (report.Indexer)");
+
+            // (c) empty-string Source falls through identically to null — ResolveSourceKey uses
+            // !string.IsNullOrWhiteSpace, so "" is not treated as a per-release source (CodeRabbit).
+            captured = null;
+            var withEmptySource = new ReleaseInfo { Title = "Test Manga - Chapter 044 [Group]", TranslatedLanguage = "en", Source = "", IndexerId = 0, Indexer = "Gateway" };
+            _maker.GetRssDecision(new List<ReleaseInfo> { withEmptySource });
+
+            captured.Should().NotBeNull();
+            captured.SourceKey.Should().Be("Gateway", "empty-string Source must fall back to indexer resolution");
+
+            // (d) whitespace-only Source falls through the same way (IsNullOrWhiteSpace).
+            captured = null;
+            var withWhitespaceSource = new ReleaseInfo { Title = "Test Manga - Chapter 045 [Group]", TranslatedLanguage = "en", Source = "   ", IndexerId = 0, Indexer = "Gateway" };
+            _maker.GetRssDecision(new List<ReleaseInfo> { withWhitespaceSource });
+
+            captured.Should().NotBeNull();
+            captured.SourceKey.Should().Be("Gateway", "whitespace-only Source must fall back to indexer resolution");
+        }
+
+        [Test]
         public void Comparer_ranks_language_outer_above_CF_score_inner()
         {
             // D-08 ordering: language rank (en=0) outranks CF score (1000).

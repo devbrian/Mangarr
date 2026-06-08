@@ -23,7 +23,9 @@ namespace Mangarr.Api.V5.CustomFormats;
 // — the manga specs auto-flow because they implement ICustomFormatSpecification. Wave 4
 // plan 05-07's MangaCustomFormatRoundTripFixture verifies end-to-end.
 //
-// Phase 8 cleanup: drop the `?mediaType` filter when only manga remains (Tv/ deletes).
+// quick-260608-gmm: the Series media type was removed from the CF subsystem (manga-only). The
+// schema endpoint's `?mediaType` default now resolves a null/absent value to the manga set rather
+// than the old Series set; the `series` branch is gone.
 [V5ApiController]
 public class CustomFormatController : RestController<CustomFormatResource>
 {
@@ -134,16 +136,14 @@ public class CustomFormatController : RestController<CustomFormatResource>
     public object GetTemplates([FromQuery] string? mediaType = null)
     {
         // Phase 5 D-10 — filter specs by AppliesTo discriminator per Open Question 3.
-        // Phase 8 cleanup: drop the filter (only manga remains after Tv/ deletes).
+        // quick-260608-gmm: the Series media type was removed (CF subsystem is manga-only) and the
+        // `null → series` default was flipped — an explicit ?mediaType=manga AND the null/absent/default
+        // case both return the manga set (AppliesTo == Manga || All). The old `series` branch is gone.
         IEnumerable<ICustomFormatSpecification> filteredSpecs = _specifications;
 
-        if (string.Equals(mediaType, "manga", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrEmpty(mediaType) || string.Equals(mediaType, "manga", StringComparison.OrdinalIgnoreCase))
         {
             filteredSpecs = filteredSpecs.Where(s => s.AppliesTo == MediaType.Manga || s.AppliesTo == MediaType.All);
-        }
-        else if (mediaType == null || string.Equals(mediaType, "series", StringComparison.OrdinalIgnoreCase))
-        {
-            filteredSpecs = filteredSpecs.Where(s => s.AppliesTo == MediaType.Series || s.AppliesTo == MediaType.All);
         }
 
         // Unknown / future mediaType values fall through with no filter (safe default for v2 expansion).

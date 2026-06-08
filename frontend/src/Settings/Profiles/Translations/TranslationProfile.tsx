@@ -47,15 +47,17 @@ import styles from './TranslationProfile.css';
 //   - `allowLanguagesNotInProfile` is the Phase 5 D-02 strict-mode bool (default false).
 //   - `upgradeAllowed` is the Phase 6 D-10 per-profile upgrade flag (default true) — the
 //     OUTER half of UpgradeSpecification's D-10 three-state AND-merge (GH #138).
-// The backend has NO per-profile `isDefault` flag — the default profile is the
-// global `Config.DefaultTranslationProfileId` config key — and NO `fallback` enum
-// or per-language `allowed`/`rank` fields. Those are not surfaced here.
+//   - `isDefault` is NOT a column — it is backend-computed from the global
+//     `Config.DefaultTranslationProfileId` (== this id) and, on save when checked, points that
+//     config key at this profile (quick-260608-gmm; mirrors the CustomFormatProfile Default).
+// There is NO `fallback` enum or per-language `allowed`/`rank` field. Those are not surfaced.
 export interface TranslationProfileResource {
   id: number;
   name: string;
   languages: string[];
   allowLanguagesNotInProfile: boolean;
   upgradeAllowed: boolean;
+  isDefault: boolean;
 }
 
 interface TranslationProfileProps extends TranslationProfileResource {
@@ -65,7 +67,7 @@ interface TranslationProfileProps extends TranslationProfileResource {
 const PATH = '/translationprofile';
 
 function TranslationProfile(props: TranslationProfileProps) {
-  const { id, name, languages, onEditPress } = props;
+  const { id, name, languages, isDefault, onEditPress } = props;
 
   const queryClient = useQueryClient();
   const { mutate: deleteProfile, isPending: isDeleting } = useApiMutation<
@@ -125,6 +127,10 @@ function TranslationProfile(props: TranslationProfileProps) {
           >
             {name}
           </div>
+
+          {isDefault ? (
+            <Label kind={kinds.INFO}>{translate('Default')}</Label>
+          ) : null}
         </div>
 
         <div className={styles.languages}>
