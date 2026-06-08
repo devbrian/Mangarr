@@ -1318,3 +1318,17 @@ Brings forward part of the long-deferred "Phase 8 cleanup" — but **scoped to t
 - DIVERGENCE.md Phase 5 D-10 `MediaType` / CF `AppliesTo` discriminator entry (the surface this trims) + Phase 39 (the single-Gateway-indexer aggregation that motivated the Gap-1 fix).
 
 *Last updated: 2026-06-08 (quick task 260608-gmm — appended the CF-subsystem Series-removal section above: dropped the `MediaType.Series` enum value + the lone `ReleaseTypeSpecification`, removed the dead `AppliesTo==Series` guard, flipped `CustomFormatController.GetTemplates` to default a null mediaType to the manga set (also fixing Gap 2), and collapsed the frontend CF settings page's `series`/`both` filter to manga-only. Consistency-RESTORING (removes dead TV-shape CF surface); Series references OUTSIDE the CF subsystem are explicitly untouched. Companion Gap-1 `ResolveSourceKey` per-release-`Source` preference noted (no TV analog). All previous trailers preserved verbatim above per historical-accuracy contract.)*
+
+## Interactive search display order reuses the auto-download priority comparer (quick task 260608-j33) (2026-06-08)
+
+Interactive search display order now reuses `MangaDownloadDecisionComparer` (the auto-download priority comparer) for `ReleaseWeight`; whole-manga (`?mangaId`) search additionally groups by chapter number ascending then priority within chapter — no Sonarr per-episode-grouping peer (manga divergence). quick-260608-j33.
+
+The single-chapter prioritize-before-weight half is **consistency-RESTORING** — Sonarr's `ReleaseController.MapDecisions` calls `PrioritizeDecisions(decisions)` before assigning the weight; the manga peer (`MangaReleaseController.MapDecisions`) had skipped that step, so `ReleaseWeight` reflected arbitrary indexer fan-out / report order instead of download priority. The whole-manga chapter-grouping half is a genuine manga divergence: Sonarr does not group its season/series interactive search by episode.
+
+| File / Path | Type | Source | Rationale |
+|-------------|------|--------|-----------|
+| `src/Mangarr.Api.V5/Manga/Release/MangaReleaseController.cs` | edit | quick-260608-j33 | Injects `MangaDownloadDecisionComparer` (the concrete comparer `ProcessMangaDownloadDecisions` injects) + adds `OrderForDisplay(decisions, groupByChapter)` / `ChapterSortKey` helpers; both GET branches now route decisions through `OrderForDisplay` before `MapDecisions` assigns `ReleaseWeight` (0 = top). `MapDecisions` itself is unchanged — iteration order is now the priority order. |
+
+No frontend change: the Zustand `releaseStore` already defaults to `{ sortKey: 'releaseWeight', sortDirection: 'ascending' }`, so the table renders the new order out of the box.
+
+*Last updated: 2026-06-08 (quick task 260608-j33 — appended the interactive-search-display-order section above: `MangaReleaseController.GetReleases` prioritizes decisions via `MangaDownloadDecisionComparer` (OrderByDescending convention) before `ReleaseWeight` assignment, restoring Sonarr `ReleaseController.MapDecisions`→`PrioritizeDecisions`; the whole-manga branch additionally groups by chapter number ascending then priority within chapter (manga divergence, no Sonarr per-episode peer). No frontend change — the `releaseWeight`-ascending default already renders the order. All previous trailers preserved verbatim above per historical-accuracy contract.)*
