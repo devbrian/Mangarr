@@ -578,14 +578,6 @@ namespace NzbDrone.Core.Configuration
             set { SetValue("MangaRssSyncInterval", value); }
         }
 
-        public int MaxAutoRetriesPerChapter
-        {
-            // D-13 default 3. Bounded auto-retry: after N alternates exhausted, chapter sits in
-            // History as DownloadFailed; user manually retries from History row (HISTORY-03).
-            get { return GetValueInt("MaxAutoRetriesPerChapter", 3); }
-            set { SetValue("MaxAutoRetriesPerChapter", value); }
-        }
-
         private string GetValue(string key)
         {
             return GetValue(key, string.Empty);

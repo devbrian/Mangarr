@@ -5,7 +5,6 @@ using NUnit.Framework;
 using NzbDrone.Core.Blocklisting.Manga;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Download.Manga;
-using NzbDrone.Core.History.Manga;
 using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.Messaging.Commands;
@@ -15,8 +14,14 @@ namespace NzbDrone.Core.Test.Download.Manga
 {
     // Phase 6 Plan 06-08 — AutoRetryOrchestrator BLOCKING tests:
     //
-    //   D-12 + D-13 + Pitfall 5 — bounded auto-retry on terminal failure with deterministic
-    //   ordering vs the blocklist insert.
+    //   D-12 + D-03 — auto-retry on terminal failure with deterministic ordering vs
+    //   the blocklist insert. SONARR PARITY (auto-retry-one-release-exhaust, 2026-06-07):
+    //   the orchestrator mirrors RedownloadFailedDownloadService — re-search on EVERY
+    //   failure with NO retry budget; the blocklist bounds the loop (each failure
+    //   blocklists a different release; once all candidates are blocklisted the re-search
+    //   finds nothing and the loop terminates). The earlier D-13 MaxAutoRetriesPerChapter
+    //   cap was removed (it tripped "exhausted" on a chapter's first failure whenever stale
+    //   DownloadFailed history rows had accumulated past the cap).
     //
     //   ⚠ HARD GATE: AutoRetryOrchestrator subscribes to MangaBlocklistAddedEvent (NOT
     //   ChapterDownloadFailedEvent). Plan 06-04's MangaBlocklistService inserts the
@@ -26,16 +31,14 @@ namespace NzbDrone.Core.Test.Download.Manga
     //   decision pass.
     //
     //   Tests cover:
-    //     1. count < max → push ChapterSearchCommand
-    //     2. count == max-1 → still push (last attempt allowed)
-    //     3. count >= max → bounded budget exhausted → no push
+    //     1. on failure → push ChapterSearchCommand (every time, no budget)
+    //     2. repeated failures → push every time (Sonarr parity; no exhaustion cap)
+    //     3. manual blocklist → no push (GH #309)
     //     4. SourceEvent null → fall back to Blocklist.ChapterIds.First()
-    //     5. ordering invariant: at the moment Push is called, the blocklist row is
-    //        present in the repository (proven by querying via the same mock the
-    //        BlocklistSpecification consumer would use)
-    //     6. handler subscribes to MangaBlocklistAddedEvent (interface check)
-    //     7. handler does NOT subscribe to ChapterDownloadFailedEvent directly
-    //        (anti-race hard gate)
+    //     5. no resolvable chapter id → warn, no push
+    //     6. ordering invariant: at the moment Push is called, the blocklist row is present
+    //     7. AutoRedownloadFailed off → no push (D-03 gate)
+    //     8. handler subscribes to MangaBlocklistAddedEvent, NOT ChapterDownloadFailedEvent
     [TestFixture]
     public class AutoRetryOrchestratorFixture : CoreTest<AutoRetryOrchestrator>
     {
@@ -57,19 +60,10 @@ namespace NzbDrone.Core.Test.Download.Manga
                 ReleaseGuid = "g42"
             };
 
-            // Default: max-retries config = 3, 0 prior failures.
-            Mocker.GetMock<IConfigService>()
-                .SetupGet(c => c.MaxAutoRetriesPerChapter)
-                .Returns(3);
-
             // D-03 (Phase 36 Plan 04): AutoRedownloadFailed default true — re-search enabled.
             Mocker.GetMock<IConfigService>()
                 .SetupGet(c => c.AutoRedownloadFailed)
                 .Returns(true);
-
-            Mocker.GetMock<IChapterHistoryService>()
-                .Setup(h => h.FindByChapterId(It.IsAny<int>()))
-                .Returns(new List<ChapterHistory>());
         }
 
         private ChapterDownloadFailedEvent BuildSourceEvent()
@@ -81,32 +75,11 @@ namespace NzbDrone.Core.Test.Download.Manga
                 failureReason: "manifest re-fetch exhausted");
         }
 
-        private void SeedHistoryWithFailures(int failureCount)
-        {
-            var rows = new List<ChapterHistory>();
-            for (var i = 0; i < failureCount; i++)
-            {
-                rows.Add(new ChapterHistory
-                {
-                    Id = i + 1,
-                    MangaId = MangaId,
-                    ChapterId = ChapterId,
-                    EventType = ChapterHistoryEventType.DownloadFailed
-                });
-            }
-
-            Mocker.GetMock<IChapterHistoryService>()
-                .Setup(h => h.FindByChapterId(ChapterId))
-                .Returns(rows);
-        }
-
-        // ── BUDGET TESTS ────────────────────────────────────────────────────────────────
+        // ── RE-SEARCH TESTS ─────────────────────────────────────────────────────────────
 
         [Test]
-        public void Pushes_ChapterSearchCommand_when_no_prior_failures()
+        public void Pushes_ChapterSearchCommand_on_failure()
         {
-            SeedHistoryWithFailures(0);
-
             Subject.Handle(new MangaBlocklistAddedEvent(_blocklist, BuildSourceEvent()));
 
             Mocker.GetMock<IManageCommandQueue>()
@@ -119,12 +92,16 @@ namespace NzbDrone.Core.Test.Download.Manga
         }
 
         [Test]
-        public void Pushes_ChapterSearchCommand_when_failure_count_equals_max_minus_one()
+        public void Re_searches_on_every_failure_no_retry_budget_SONARR_PARITY()
         {
-            // 2 prior failures + max=3 → budget allows the 3rd attempt.
-            SeedHistoryWithFailures(2);
-
-            Subject.Handle(new MangaBlocklistAddedEvent(_blocklist, BuildSourceEvent()));
+            // The whole point of removing the D-13 budget: a chapter that has failed many
+            // times still gets a re-search on its next failure. Sonarr's
+            // RedownloadFailedDownloadService fires on EVERY DownloadFailedEvent with no
+            // counter; the blocklist (not a cap) bounds the loop. Fire 5 failures → 5 pushes.
+            for (var i = 0; i < 5; i++)
+            {
+                Subject.Handle(new MangaBlocklistAddedEvent(_blocklist, BuildSourceEvent()));
+            }
 
             Mocker.GetMock<IManageCommandQueue>()
                 .Verify(
@@ -132,41 +109,7 @@ namespace NzbDrone.Core.Test.Download.Manga
                         It.IsAny<ChapterSearchCommand>(),
                         It.IsAny<CommandPriority>(),
                         It.IsAny<CommandTrigger>()),
-                    Times.Once);
-        }
-
-        [Test]
-        public void Does_not_push_when_failure_count_equals_or_exceeds_max_budget_exhausted()
-        {
-            // 3 prior failures + max=3 → budget exhausted, no further auto-retry.
-            SeedHistoryWithFailures(3);
-
-            Subject.Handle(new MangaBlocklistAddedEvent(_blocklist, BuildSourceEvent()));
-
-            Mocker.GetMock<IManageCommandQueue>()
-                .Verify(
-                    q => q.Push(
-                        It.IsAny<ChapterSearchCommand>(),
-                        It.IsAny<CommandPriority>(),
-                        It.IsAny<CommandTrigger>()),
-                    Times.Never);
-        }
-
-        [Test]
-        public void Does_not_push_when_failure_count_far_exceeds_max()
-        {
-            // 10 prior failures + max=3 → still no push (budget gate is >= max).
-            SeedHistoryWithFailures(10);
-
-            Subject.Handle(new MangaBlocklistAddedEvent(_blocklist, BuildSourceEvent()));
-
-            Mocker.GetMock<IManageCommandQueue>()
-                .Verify(
-                    q => q.Push(
-                        It.IsAny<ChapterSearchCommand>(),
-                        It.IsAny<CommandPriority>(),
-                        It.IsAny<CommandTrigger>()),
-                    Times.Never);
+                    Times.Exactly(5));
         }
 
         // ── FALLBACK TESTS ──────────────────────────────────────────────────────────────
@@ -175,12 +118,10 @@ namespace NzbDrone.Core.Test.Download.Manga
         public void Skips_auto_retry_when_blocklist_is_manual()
         {
             // GH #309: a user-initiated (manual) blocklist — e.g. Queue Remove "Blocklist Release" —
-            // must NOT trigger the failure-budget auto-retry. The queue-Remove caller owns the
-            // explicit skipRedownload-gated re-search; the orchestrator stays failure-only (Sonarr
-            // parity with RedownloadFailedDownloadService). 0 prior failures + AutoRedownloadFailed
-            // on would otherwise fire a search — the manual flag is what suppresses it.
-            SeedHistoryWithFailures(0);
-
+            // must NOT trigger the auto-retry. The queue-Remove caller owns the explicit
+            // skipRedownload-gated re-search; the orchestrator stays failure-only (Sonarr parity
+            // with RedownloadFailedDownloadService). AutoRedownloadFailed on would otherwise fire a
+            // search — the manual flag is what suppresses it.
             Subject.Handle(new MangaBlocklistAddedEvent(_blocklist, sourceEvent: null, manual: true));
 
             Mocker.GetMock<IManageCommandQueue>()
@@ -198,8 +139,6 @@ namespace NzbDrone.Core.Test.Download.Manga
             // Some Block(...) UI paths emit MangaBlocklistAddedEvent with null SourceEvent
             // (the manual-block path doesn't carry a source ChapterDownloadFailedEvent).
             // The orchestrator must still resolve the chapter id via Blocklist.ChapterIds.
-            SeedHistoryWithFailures(0);
-
             Subject.Handle(new MangaBlocklistAddedEvent(_blocklist, sourceEvent: null));
 
             Mocker.GetMock<IManageCommandQueue>()
@@ -242,11 +181,9 @@ namespace NzbDrone.Core.Test.Download.Manga
             // The Plan 06-04 ↔ Plan 06-08 contract: Plan 06-04 inserts the row BEFORE
             // publishing MangaBlocklistAddedEvent, so by the time this handler runs, a
             // BlocklistSpecification.IsSatisfiedBy query (consuming the same repository
-            // state) MUST see the row. We simulate by using a state flag in the
-            // IMangaBlocklistService mock to track whether the row was "visible" at the
-            // moment Push was called. The ordering invariant is: visible == true.
-            SeedHistoryWithFailures(0);
-
+            // state) MUST see the row. We simulate by using a state flag set inside the
+            // Push callback to track whether the row was "visible" at the moment Push was
+            // called. The ordering invariant is: visible == true.
             var rowVisibleAtPushTime = false;
 
             Mocker.GetMock<IManageCommandQueue>()
@@ -273,7 +210,6 @@ namespace NzbDrone.Core.Test.Download.Manga
         [Test]
         public void Pushes_ChapterSearchCommand_when_AutoRedownloadFailed_is_on()
         {
-            SeedHistoryWithFailures(0);
             Mocker.GetMock<IConfigService>()
                 .SetupGet(c => c.AutoRedownloadFailed)
                 .Returns(true);
@@ -294,7 +230,6 @@ namespace NzbDrone.Core.Test.Download.Manga
         {
             // D-03 gate: the blocklist row was already inserted upstream (always fires); the
             // orchestrator suppresses ONLY the re-search when the config is off.
-            SeedHistoryWithFailures(0);
             Mocker.GetMock<IConfigService>()
                 .SetupGet(c => c.AutoRedownloadFailed)
                 .Returns(false);

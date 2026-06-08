@@ -30,9 +30,10 @@ namespace Mangarr.Api.V5.Manga.History
     //   * Add mangaIds / chapterId filters (HISTORY-02 per-Manga/Chapter scope).
     //   * Retry POST endpoint pushes ChapterSearchCommand (Plan 06-06) instead of
     //     IFailedDownloadService.MarkAsFailed — manga's auto-retry orchestrator (Plan 06-08)
-    //     handles the fail+blocklist flow when a download terminally fails. Retry from
-    //     History is the user's manual escape hatch after the auto-retry budget is exhausted
-    //     (per HISTORY-03 + D-13 Config.MaxAutoRetriesPerChapter cap).
+    //     handles the fail+blocklist flow when a download terminally fails. The orchestrator
+    //     mirrors Sonarr's RedownloadFailedDownloadService (no retry budget — the blocklist
+    //     bounds the loop), so Retry from History is the user's manual escape hatch for the
+    //     terminal case where every candidate release has been blocklisted (per HISTORY-03).
     //   * includeSubresources hydrates Manga/Chapter via service-layer Get (Plan 06-03 D-21
     //     decision: ChapterHistoryRepository.GetPaged does NOT JOIN — controller hydrates).
     //
@@ -112,7 +113,8 @@ namespace Mangarr.Api.V5.Manga.History
         [HttpPost("failed/{id:int}/retry")]
         public NoContent RetryFailed([FromRoute] int id)
         {
-            // HISTORY-03 — manual retry escape hatch after the D-13 auto-retry budget exhausts.
+            // HISTORY-03 — manual retry escape hatch for the terminal case where every candidate
+            // release has been blocklisted (auto-retry has no budget — the blocklist bounds the loop).
             // Pushes a single-element ChapterSearchCommand (Plan 06-06) for the failed chapter;
             // the decision engine will skip the now-blocklisted release (Plan 06-04 D-19) and
             // grab next-best.

@@ -106,6 +106,10 @@ namespace NzbDrone.Core.Download.TrackedDownloads
         // imports / processes-failed / evicts. Manga has no in-memory ITrackedDownloadService cache
         // (the TV one was deleted in the Phase 15 Tv/ cutover); the monitor that builds the list owns it.
         List<TrackedDownload> GetTrackedDownloads();
+
+        // Sonarr ITrackedDownloadService.StopTracking peer — evict a removed download from the
+        // registry immediately and republish so the queue projection drops it synchronously.
+        void StopTracking(string downloadId);
     }
 
     public class MangaDownloadMonitoringService :
@@ -163,6 +167,40 @@ namespace NzbDrone.Core.Download.TrackedDownloads
                 // Defensive copy so a concurrent Refresh() assignment cannot tear an in-flight read.
                 return _trackedDownloads.ToList();
             }
+        }
+
+        // Sonarr ITrackedDownloadService.StopTracking peer (debug auto-retry-one-release-exhaust).
+        // Evict a download from the registry the moment it's removed from the client, instead of
+        // waiting for the next Refresh() to drop it once GetItems() stops reporting it. Republish
+        // TrackedDownloadRefreshedEvent so the KEPT MangaQueueService projection drops it from the
+        // queue SYNCHRONOUSLY — otherwise the auto-retry ChapterSearchCommand (queued during
+        // ProcessFailed, executed right after Process()) would still see the dead Failed row and
+        // QueueDuplicateSpecification would reject every replacement with chapterAlreadyQueued.
+        public void StopTracking(string downloadId)
+        {
+            if (downloadId.IsNullOrWhiteSpace())
+            {
+                return;
+            }
+
+            List<TrackedDownload> snapshot;
+            lock (_registryLock)
+            {
+                var remaining = _trackedDownloads
+                    .Where(t => !string.Equals(t.DownloadItem?.DownloadId, downloadId, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (remaining.Count == _trackedDownloads.Count)
+                {
+                    return; // nothing tracked under that id — no-op, no republish
+                }
+
+                _trackedDownloads = remaining;
+                snapshot = _trackedDownloads.ToList();
+            }
+
+            _logger.Debug("Stopped tracking download {0}", downloadId);
+            _eventAggregator.PublishEvent(new TrackedDownloadRefreshedEvent(snapshot));
         }
 
         public void Execute(RefreshMonitoredMangaDownloadsCommand message)

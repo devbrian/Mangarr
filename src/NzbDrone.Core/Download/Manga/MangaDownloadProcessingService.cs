@@ -143,6 +143,12 @@ namespace NzbDrone.Core.Download.Manga
             // Imported downloads are no longer trackable — evict them AFTER processing the trackable
             // set (D-04: only Imported + removable rows; never on completion).
             RemoveCompletedDownloads();
+
+            // Sonarr DownloadEventHub.Handle(DownloadFailedEvent) parity — remove terminally-Failed
+            // rows from the client + registry so the auto-retry re-search isn't blocked by the dead
+            // row (debug auto-retry-one-release-exhaust). Runs in the SAME pass that flipped the row
+            // to Failed (ProcessFailed above), BEFORE the queued auto-retry ChapterSearchCommand runs.
+            RemoveFailedDownloads();
         }
 
         private void RemoveCompletedDownloads()
@@ -156,6 +162,61 @@ namespace NzbDrone.Core.Download.Manga
             foreach (var trackedDownload in removable)
             {
                 _eventAggregator.PublishEvent(new DownloadCanBeRemovedEvent(trackedDownload));
+            }
+        }
+
+        // Sonarr DownloadEventHub.Handle(DownloadFailedEvent) parity (debug auto-retry-one-release-
+        // exhaust). A download that has reached the terminal Failed state must be removed from the
+        // owning client AND evicted from the registry/queue when the client's RemoveFailedDownloads
+        // setting is on (default true) — exactly as Sonarr removes a failed item on DownloadFailedEvent
+        // (RemoveItem + StopTracking). Mangarr ported the #301 "keep terminal state across polls" half
+        // of Sonarr's failed lifecycle but never this removal half, so failed rows lingered in the queue
+        // and QueueDuplicateSpecification rejected every auto-retry replacement with chapterAlreadyQueued.
+        // State == Failed is only reached via the grabbed-history-gated genuine-failure path
+        // (MangaFailedDownloadService.Check Fails ONLY a grabbed download → FailedPending → ProcessFailed
+        // → Failed), so this targets the same set Sonarr's DownloadEventHub removes.
+        private void RemoveFailedDownloads()
+        {
+            var removable = _monitoringService.GetTrackedDownloads()
+                .Where(t => t.DownloadItem != null
+                            && t.DownloadItem.CanBeRemoved
+                            && t.State == TrackedDownloadState.Failed)
+                .ToList();
+
+            foreach (var trackedDownload in removable)
+            {
+                var item = trackedDownload.DownloadItem;
+
+                var downloadClient = _downloadClientFactory.GetAvailableProviders()
+                    .FirstOrDefault(c => c.Definition.Id == trackedDownload.DownloadClient);
+
+                if (downloadClient == null)
+                {
+                    _logger.Warn(
+                        "Cannot remove failed download {0} — owning client {1} is not available",
+                        item.DownloadId,
+                        trackedDownload.DownloadClient);
+                    continue;
+                }
+
+                // Honor the per-client RemoveFailedDownloads toggle (Sonarr DownloadEventHub early-returns
+                // when it is off — the failed row then stays in the queue by user choice).
+                var definition = downloadClient.Definition as DownloadClientDefinition;
+                if (definition == null || !definition.RemoveFailedDownloads)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    downloadClient.RemoveItem(item, deleteData: true);
+                    _monitoringService.StopTracking(item.DownloadId);
+                    _logger.Debug("Removed failed download {0} from client {1}", item.DownloadId, downloadClient.Definition.Name);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Couldn't remove failed download {0} from client {1}", item.DownloadId, downloadClient.Definition.Name);
+                }
             }
         }
 

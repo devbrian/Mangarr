@@ -435,6 +435,54 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
         // The Debouncer is a real 5s timer; poll for the queued Refresh command up to a generous
         // ceiling so the test is not flaky under CI load. The debounce duration is a private
         // implementation detail — we assert eventual dispatch, not exact timing.
+        // ── StopTracking — evict from registry + republish (debug auto-retry-one-release-exhaust) ──
+        // Sonarr ITrackedDownloadService.StopTracking peer. The failed-removal sweep calls this so the
+        // dead Failed row leaves the queue projection BEFORE the queued auto-retry ChapterSearchCommand
+        // runs — otherwise QueueDuplicateSpecification rejects every replacement with chapterAlreadyQueued.
+
+        [Test]
+        public void StopTracking_evicts_the_download_from_the_registry()
+        {
+            Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
+            Subject.GetTrackedDownloads().Should().ContainSingle();
+
+            Subject.StopTracking("dl-1");
+
+            Subject.GetTrackedDownloads().Should().BeEmpty(
+                "StopTracking removes the row so the queue projection drops it before the auto-retry re-search runs");
+        }
+
+        [Test]
+        public void StopTracking_republishes_TrackedDownloadRefreshedEvent_so_the_queue_updates()
+        {
+            Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
+            Mocker.GetMock<IEventAggregator>().Invocations.Clear();
+
+            Subject.StopTracking("dl-1");
+
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(
+                    e => e.PublishEvent(It.Is<TrackedDownloadRefreshedEvent>(m => m.TrackedDownloads.Count == 0)),
+                    Times.Once,
+                    "the queue projection (MangaQueueService) only updates on TrackedDownloadRefreshedEvent");
+        }
+
+        [Test]
+        public void StopTracking_is_a_no_op_for_an_unknown_download_id()
+        {
+            Subject.Execute(new RefreshMonitoredMangaDownloadsCommand());
+            Mocker.GetMock<IEventAggregator>().Invocations.Clear();
+
+            Subject.StopTracking("does-not-exist");
+
+            Subject.GetTrackedDownloads().Should().ContainSingle("an unknown id must not evict anything");
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(
+                    e => e.PublishEvent(It.IsAny<TrackedDownloadRefreshedEvent>()),
+                    Times.Never,
+                    "no republish when nothing was removed");
+        }
+
         private void WaitForDebounce()
         {
             var deadline = DateTime.UtcNow.AddSeconds(15);

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Phase 6 Plan 06-08 staging-handoff orchestration. Bridges Phase 4's archived-CBZ output (`ChapterDownloadState.Status=Completed` + `ChapterArchivedEvent`) to Phase 6's `ImportApprovedChapters` (Plan 06-07) via a hybrid event-handler + scheduled-poller pattern, and runs the bounded auto-retry orchestration loop that closes the *arr self-healing pipeline (D-12 / D-13 / Pitfall 5).
+Phase 6 Plan 06-08 staging-handoff orchestration. Bridges Phase 4's archived-CBZ output (`ChapterDownloadState.Status=Completed` + `ChapterArchivedEvent`) to Phase 6's `ImportApprovedChapters` (Plan 06-07) via a hybrid event-handler + scheduled-poller pattern, and runs the auto-retry orchestration loop that closes the *arr self-healing pipeline (D-12). **Note (2026-06-07, debug `auto-retry-one-release-exhaust`): the D-13 `MaxAutoRetriesPerChapter` retry budget was REMOVED — `AutoRetryOrchestrator` now mirrors Sonarr's `RedownloadFailedDownloadService` (re-search on every failure, no counter; the blocklist bounds the loop).**
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Download\Manga`
 
@@ -12,7 +12,7 @@ Phase 6 Plan 06-08 staging-handoff orchestration. Bridges Phase 4's archived-CBZ
 |------|---------|
 | `ProcessMangaCompletedCommand.cs` | Payload-less `Command` POCO. `SendUpdatesToClient => false` (poll-path scheduled task — no UI surface). Registered in `TaskManager.defaultTasks` at 1-minute cadence per Anti-pattern C compliance. |
 | `ProcessMangaCompletedDownloads.cs` | Hybrid orchestrator: `IHandle<ChapterArchivedEvent>` (reactive happy path) + `IExecute<ProcessMangaCompletedCommand>` (1-min resilience poll). Both paths converge on a single `ProcessOne(chapterId, stagingPath)` method that idempotency-checks against `IChapterFileService.GetFilesByChapter`, runs `IMakeMangaImportDecision.GetDecision`, and dispatches into `IImportApprovedChapters.Import`. On success: deletes the `ChapterDownloadState` row + scratch dir per Phase 4 D-08 lifecycle. |
-| `AutoRetryOrchestrator.cs` | Bounded auto-retry loop: `IHandle<MangaBlocklistAddedEvent>` (NOT `ChapterDownloadFailedEvent`). Counts prior `ChapterHistory{DownloadFailed}` rows via `IChapterHistoryService.FindByChapterId`; if count < `IConfigService.MaxAutoRetriesPerChapter`, pushes a fresh `ChapterSearchCommand` for the failed chapter — `BlocklistSpecification` then rejects the just-failed release and the next-best ranks up. After N retries exhausted, the chapter sits in History as `DownloadFailed` for manual user retry (HISTORY-03). |
+| `AutoRetryOrchestrator.cs` | Auto-retry loop (Sonarr-parity, **no retry budget** since 2026-06-07): `IHandle<MangaBlocklistAddedEvent>` (NOT `ChapterDownloadFailedEvent`). On every non-manual blocklist-added event (gated only by `IConfigService.AutoRedownloadFailed`), pushes a fresh `ChapterSearchCommand` for the failed chapter — `BlocklistSpecification` then rejects the just-failed release and the next-best ranks up. The loop is bounded NATURALLY by the blocklist (each failure blocklists a different release; once all candidates are blocklisted the re-search finds nothing and stops), exactly like Sonarr's `RedownloadFailedDownloadService`. When every candidate is blocklisted the chapter sits in History as `DownloadFailed` for manual user retry (HISTORY-03). |
 
 ## Patterns / Conventions
 
@@ -62,27 +62,22 @@ public class AutoRetryOrchestrator : IHandle<MangaBlocklistAddedEvent>  // ← p
 
 **Why not `ChapterDownloadFailedEvent` directly:** `MangaBlocklistService.Handle(ChapterDownloadFailedEvent)` (Plan 06-04) and a hypothetical `AutoRetryOrchestrator.Handle(ChapterDownloadFailedEvent)` would both subscribe to the SAME event. Sonarr's `IEventAggregator.PublishEvent` fans handlers out synchronously, but **handler order on a single event is non-deterministic** — DryIoc resolves handlers in registration order, but the registration order is enumeration-dependent.
 
-The race: if `AutoRetryOrchestrator.Handle` runs BEFORE `MangaBlocklistService.Handle`, the `ChapterSearchCommand` is queued AGAINST a repository state that does not yet contain the just-failed release's blocklist row. `BlocklistSpecification.IsSatisfiedBy` returns Accept, and the same release gets re-grabbed → fails again → blocklisted again → loops until `MaxAutoRetriesPerChapter` saves us.
+The race: if `AutoRetryOrchestrator.Handle` runs BEFORE `MangaBlocklistService.Handle`, the `ChapterSearchCommand` is queued AGAINST a repository state that does not yet contain the just-failed release's blocklist row. `BlocklistSpecification.IsSatisfiedBy` returns Accept, and the same release gets re-grabbed → fails again → blocklisted again → an infinite same-release loop (there is no retry budget to break it — that is exactly why the post-Insert event subscription is load-bearing, not optional).
 
 The fix: subscribe to `MangaBlocklistAddedEvent` instead. Plan 06-04's `MangaBlocklistService` enforces the ORDERING INVARIANT — `_repository.Insert(blocklist)` runs FIRST, then `_eventAggregator.PublishEvent(new MangaBlocklistAddedEvent(blocklist, message))`. Synchronous fan-out guarantees the row is COMMITTED when this handler runs. `BlocklistSpecification` correctly rejects the just-blocklisted release on the next decision pass; the next-best ranked release is grabbed.
 
 The `AutoRetryOrchestratorFixture.Subscribes_to_MangaBlocklistAddedEvent_not_ChapterDownloadFailedEvent_ANTI_RACE_GATE` test asserts via runtime reflection that the IHandle interface for `MangaBlocklistAddedEvent` IS implemented AND the IHandle interface for `ChapterDownloadFailedEvent` is NOT implemented.
 
-### Bounded auto-retry budget (D-13 + Pitfall 5)
+### No retry budget — Sonarr parity (2026-06-07; debug `auto-retry-one-release-exhaust`)
 
 ```csharp
-var failureCount = _historyService.FindByChapterId(chapterId)
-    .Count(h => h.EventType == ChapterHistoryEventType.DownloadFailed);
-var max = _configService.MaxAutoRetriesPerChapter;  // default 3 (D-13)
-if (failureCount >= max) { /* exhausted — log Info + return */ }
-else { _commandQueueManager.Push(new ChapterSearchCommand(...)); }
+// On every non-manual MangaBlocklistAddedEvent, gated only by AutoRedownloadFailed:
+_commandQueueManager.Push(new ChapterSearchCommand(new List<int> { chapterId }));
 ```
 
-Without the bound, a degenerate case (every ranked release for a chapter blocklisted by Pitfall 5 mitigation in `MangaBlocklistService`) could loop forever. **Bounded N is the safety floor** — after N exhausted, the chapter sits in History as `DownloadFailed`; the user manually retries from the History row (HISTORY-03 path).
+The orchestrator re-searches on EVERY failure with no per-chapter counter, mirroring Sonarr's `RedownloadFailedDownloadService.Handle`. The loop is bounded NATURALLY by the blocklist: each failure blocklists a DIFFERENT release, so the next-best ranks up; once every candidate for the chapter is blocklisted the re-search finds nothing acceptable, nothing is grabbed, no new failure fires, and the loop terminates. The chapter then sits in History as `DownloadFailed` for manual user retry (HISTORY-03 path).
 
-### BL-01 GUARD (cross-domain ID-collision)
-
-`AutoRetryOrchestrator` queries `IChapterHistoryService.FindByChapterId(chapterId)` — manga sibling table. **Never** `IHistoryService.FindByEpisodeId(...)` — `Episode.Id` and `Chapter.Id` are independent SQLite autoincrement spaces; collision between any chapter and any unrelated TV episode would silently pollute the count. This is the same BL-01 fix applied at `AlreadyImportedSpecification` (Plan 06-03 / Plan 06-07).
+**Why the earlier D-13 `MaxAutoRetriesPerChapter` budget was removed:** it keyed exhaustion on the LIFETIME count of `DownloadFailed` history rows for the chapter (`IChapterHistoryService.FindByChapterId(chapterId).Count(DownloadFailed)`). A chapter that had accumulated ≥ N failed rows over its life — including the spurious-duplicate-row class fixed in the prior grabbed-history-gate session — tripped "exhausted" on its very FIRST new observed failure, suppressing the next-best re-search that is the whole point of the *arr promise (the user saw "exhausted 3 auto-retries" after a single grab). The config key (`IConfigService.MaxAutoRetriesPerChapter`) and the orchestrator's `IChapterHistoryService` dependency were both deleted. Do NOT reintroduce a per-chapter retry cap; trust the blocklist to bound the loop exactly as Sonarr does.
 
 ### Idempotency in ProcessOne
 
@@ -118,8 +113,8 @@ A failure here (read-only filesystem, permission glitch, file-locked) MUST NOT p
 | `CompletedDownloadService.Check(TrackedDownload)` (poll-driven via `CheckForFinishedDownloadCommand`) | `ProcessMangaCompletedDownloads.Handle(ChapterArchivedEvent)` (reactive) + `Execute(ProcessMangaCompletedCommand)` (poll) | Manga gets BOTH paths (Pattern 1); TV is poll-only |
 | `CompletedDownloadService` dispatches `IDownloadedEpisodesImportService.ProcessRootFolder` | `ProcessMangaCompletedDownloads` dispatches `IImportApprovedChapters.Import` | Plan 06-07 deliverable |
 | TV's `Protocol == DownloadProtocol.Http` early-return at `CompletedDownloadService.cs:74-77` (Phase 4 D-10) | `ProcessMangaCompletedDownloads` is the manga-protocol handler the TV early-return defers to | Phase 8 collapse drops the early-return when `ImportApprovedEpisodes` deletes |
-| TV uses `IHistoryService.FindByDownloadId` to correlate grab → import | Manga uses `IChapterHistoryService.FindByChapterId` (BL-01 fix) for the auto-retry budget count | Cross-domain ID collision class of bug |
-| TV has no `AutoRetryOrchestrator` peer (`RedownloadFailedDownloadService.cs` + `RedownloadFailedSettings.cs` are TV's nearest analog but use a per-attempt timer not a bounded count) | Manga ships `AutoRetryOrchestrator` with explicit `MaxAutoRetriesPerChapter` budget (D-13) | No exact peer; D-12/D-13 is manga-shaped |
+| TV uses `IHistoryService.FindByDownloadId` to correlate grab → import | Manga `AutoRetryOrchestrator` no longer reads history at all (the retry-budget count was removed 2026-06-07) | N/A — no per-chapter count after Sonarr-parity change |
+| Sonarr's `RedownloadFailedDownloadService.cs` re-searches on every `DownloadFailedEvent` (no counter) | Manga `AutoRetryOrchestrator` is now a faithful peer: re-search on every `MangaBlocklistAddedEvent` (no counter); only the subscribed event differs (post-Insert event vs `EventHandleOrder.Last`, both for the same blocklist-committed-before-re-search guarantee) | Direct parity; the D-13 budget divergence was reverted |
 
 ### Phase 8 collapse plan
 
@@ -141,5 +136,5 @@ When `Tv/` deletes (Phase 8 milestone), this directory collapses with `src/NzbDr
 - TV side (the Sonarr peer this manga handler was modelled on): `NzbDrone.Core/Download/CompletedDownloadService.cs` (Phase 4 D-10 early-return guard for Protocol=Http) — DELETED in the Phase 15 `Tv/` removal; cited for provenance only, absent at HEAD (path shown repo-relative-from-`src/` since it no longer resolves).
 - TaskManager registration: [src/NzbDrone.Core/Jobs/TaskManager.cs](../../Jobs/TaskManager.cs) — `defaultTasks` block contains the `ProcessMangaCompletedCommand` entry
 - Anti-pattern C skill: [.claude/skills/sonarr-consistency-audit/SKILL.md](../../../../.claude/skills/sonarr-consistency-audit/SKILL.md)
-- Tests: [src/NzbDrone.Core.Test/Download/Manga/](../../../NzbDrone.Core.Test/Download/Manga/) — `ProcessMangaCompletedDownloadsFixture` (11 tests) + `AutoRetryOrchestratorFixture` (8 tests)
+- Tests: [src/NzbDrone.Core.Test/Download/Manga/](../../../NzbDrone.Core.Test/Download/Manga/) — `ProcessMangaCompletedDownloadsFixture` (11 tests) + `AutoRetryOrchestratorFixture` (9 tests — incl. `Re_searches_on_every_failure_no_retry_budget_SONARR_PARITY`)
 - Plan: [.planning/phases/06-pipeline-wanted-history-blocklist-reader-notify/06-08-PLAN.md](../../../../.planning/phases/06-pipeline-wanted-history-blocklist-reader-notify/06-08-PLAN.md)

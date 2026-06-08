@@ -125,10 +125,10 @@ namespace NzbDrone.Core.Configuration
         int? DefaultTranslationProfileId { get; set; }
         int? DefaultCustomFormatProfileId { get; set; }
 
-        // Phase 6 — global RSS sync + auto-retry config keys (D-07 / D-13).
+        // Phase 6 — global RSS sync config key (D-07).
         // MangaRssSyncInterval default 15min (Sonarr RssSyncInterval default parity); per-IndexerDefinition.SyncInterval override on top.
-        // MaxAutoRetriesPerChapter default 3 (D-13 bounded auto-retry against perpetual blocklist churn).
+        // (MaxAutoRetriesPerChapter / D-13 removed 2026-06-07 — AutoRetryOrchestrator mirrors
+        //  Sonarr's RedownloadFailedDownloadService with no retry budget; the blocklist bounds the loop.)
         int MangaRssSyncInterval { get; set; }
-        int MaxAutoRetriesPerChapter { get; set; }
     }
 }
