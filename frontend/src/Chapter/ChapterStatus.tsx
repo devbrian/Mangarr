@@ -156,7 +156,7 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
   if (hasFile) {
     return (
       <Icon
-        name={icons.FILE}
+        name={icons.FILE_IMPORTED}
         kind={kinds.SUCCESS}
         title={translate('Imported')}
       />
@@ -180,13 +180,16 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
     // mirrors Episode.Monitored && EpisodeFileId == 0 (Sonarr Tv/Episode.cs).
     // Phase 16 D-04 alias-flip on the (now-removed) per-translation collection
     // reverted in Phase 16.1 per SPEC REVERT-05.
-    // Pill literal is `'Missing'` for max Sonarr parity
-    // (per CONTEXT.md additional_context Pitfall #5 + PATTERNS.md Pitfall 8).
+    // Glyph is `icons.MISSING` (exclamation-in-triangle, amber WARNING) — the
+    // actionable "wanted but absent" signal. The prior `icons.MONITORED`
+    // bookmark glyph was indistinguishable from the unmonitored bookmark and
+    // did not read as "missing". Pill literal stays `'Missing'` for max Sonarr
+    // parity (per CONTEXT.md additional_context Pitfall #5 + PATTERNS.md Pitfall 8).
     // 6-state precedence preserved: failed > blocklisted > have-file > queued >
     // wanted/missing > unmonitored. NO 7th state.
     return (
       <Icon
-        name={icons.MONITORED}
+        name={icons.MISSING}
         kind={kinds.WARNING}
         title={translate('Missing')}
       />

@@ -16,7 +16,6 @@ interface CssExports {
   'protocol': string;
   'quality': string;
   'rejected': string;
-  'sceneMapping': string;
   'size': string;
   'source': string;
   'titleContent': string;

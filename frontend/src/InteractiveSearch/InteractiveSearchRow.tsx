@@ -26,7 +26,6 @@ import InteractiveSearchPayload from './InteractiveSearchPayload';
 // routes to its manga-shape OverrideMatch sibling.
 import ChapterOverrideMatchModal from './OverrideMatch/Chapter/ChapterOverrideMatchModal';
 import MangaOverrideMatchModal from './OverrideMatch/Manga/MangaOverrideMatchModal';
-import ReleaseSceneIndicator from './ReleaseSceneIndicator';
 import { Release, useGrabMangaRelease } from './useReleases';
 import styles from './InteractiveSearchRow.css';
 
@@ -82,17 +81,11 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
   const {
     decision,
     history,
-    parsedInfo,
     release,
     publishDate,
     customFormatScore,
     customFormats,
-    sceneMapping,
-    mappedSeasonNumber,
-    mappedEpisodeNumbers,
-    mappedAbsoluteEpisodeNumbers,
     indexerFlags = 0,
-    episodeRequested,
     downloadAllowed,
     searchPayload,
     translatedLanguage,
@@ -100,9 +93,6 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
   } = props;
 
   const { rejections = [] } = decision;
-
-  const { absoluteEpisodeNumbers, episodeNumbers, isDaily, seasonNumber } =
-    parsedInfo;
 
   const {
     guid,
@@ -245,18 +235,6 @@ function InteractiveSearchRow(props: InteractiveSearchRowProps) {
       <TableRowCell data-testid={`${rowTestId}-title`}>
         <div className={styles.titleContent}>
           <Link to={infoUrl}>{title}</Link>
-          <ReleaseSceneIndicator
-            className={styles.sceneMapping}
-            seasonNumber={mappedSeasonNumber}
-            episodeNumbers={mappedEpisodeNumbers}
-            absoluteEpisodeNumbers={mappedAbsoluteEpisodeNumbers}
-            sceneSeasonNumber={seasonNumber}
-            sceneEpisodeNumbers={episodeNumbers}
-            sceneAbsoluteEpisodeNumbers={absoluteEpisodeNumbers}
-            sceneMapping={sceneMapping}
-            episodeRequested={episodeRequested}
-            isDaily={isDaily}
-          />
         </div>
       </TableRowCell>
 

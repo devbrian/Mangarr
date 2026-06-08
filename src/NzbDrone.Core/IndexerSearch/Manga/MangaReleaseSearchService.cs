@@ -49,7 +49,8 @@ namespace NzbDrone.Core.IndexerSearch.Manga
             var reports = await FetchFromIndexers(indexer => indexer.Fetch(criteria), "manga");
             var decisions = _decisionMaker.GetSearchDecision(reports, criteria).ToList();
 
-            // Phase 40 RECON-02 / D-01: whole-manga [0..maxWhole] catalog backfill. The
+            // Phase 40 RECON-02 / D-01: whole-manga [1..maxWhole] (plus Chapter 0 only when a
+            // chapter-0 release is attributed) catalog backfill. The
             // external gateway exposes chapter releases the MangaDex metadata catalog never
             // enumerated; mirror the genuinely-missing WHOLE numbers into the local Chapter
             // catalog so RSS/missing search can discover them. Synthesis is a pure side-effect

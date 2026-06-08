@@ -102,7 +102,11 @@ namespace NzbDrone.Core.Manga
             var monitored = ResolveMonitored(manga);
 
             var rows = new List<Chapter>();
-            for (var i = 0; i <= (int)maxWhole; i++)
+
+            // Backfill [1..maxWhole] — start at 1, NOT 0. Chapter 0 is NOT a guaranteed member
+            // of every manga's chapter list (most series start at chapter 1), so backfilling it
+            // unconditionally synthesized a phantom Chapter 0 on every search.
+            for (var i = 1; i <= (int)maxWhole; i++)
             {
                 var number = (decimal)i;
                 if (existingNumbers.Contains(number))
@@ -111,6 +115,13 @@ namespace NzbDrone.Core.Manga
                 }
 
                 rows.Add(BuildRow(number, null, null, null, monitored, ChapterType.Regular));
+            }
+
+            // Synthesize Chapter 0 ONLY when an actual chapter-0 release was attributed (some
+            // manga DO publish a Chapter 0 prologue). Same genuinely-absent guard as the loop.
+            if (wholeNumbers.Contains(0m) && !existingNumbers.Contains(0m))
+            {
+                rows.Add(BuildRow(0m, null, null, null, monitored, ChapterType.Regular));
             }
 
             if (rows.Count == 0)
