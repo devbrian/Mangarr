@@ -7,7 +7,6 @@ using NzbDrone.Core.Blocklisting.Manga;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.DecisionEngine.Manga;
 using NzbDrone.Core.Download.Manga;
-using NzbDrone.Core.History.Manga;
 using NzbDrone.Core.IndexerSearch.Manga;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
@@ -159,8 +158,7 @@ namespace NzbDrone.Core.Test.MangaPipeline
             // Real services resolved through the DryIoc container:
             //   - IMangaBlocklistRepository → REAL MangaBlocklistRepository (against real DB)
             //   - MangaBlocklistService     → REAL (Mocker.Resolve constructs concrete)
-            //   - IChapterHistoryService    → Mock (auto-mocked; returns 0 prior failures)
-            //   - IConfigService            → Mock (auto-mocked; default 3 retries)
+            //   - IConfigService            → Mock (AutoRedownloadFailed = true; no retry budget)
             //   - AutoRetryOrchestrator     → REAL (Mocker.Resolve constructs concrete)
             //   - IEventAggregator          → Mock (we capture MangaBlocklistAddedEvent
             //                                   manually + invoke AutoRetryOrchestrator.Handle
@@ -185,27 +183,17 @@ namespace NzbDrone.Core.Test.MangaPipeline
             // Real blocklist service — its ctor injection now picks up realRepo.
             var blocklistService = Mocker.Resolve<MangaBlocklistService>();
 
-            // Real config service — default returns 3 (the production default), but the
-            // auto-mock returns 0; explicitly configure the budget so the retry fires.
-            Mocker.GetMock<IConfigService>()
-                  .SetupGet(c => c.MaxAutoRetriesPerChapter)
-                  .Returns(3);
-
-            // Phase 36 Plan 04 D-03 gate: AutoRetryOrchestrator.Handle now early-returns when
+            // Phase 36 Plan 04 D-03 gate: AutoRetryOrchestrator.Handle early-returns when
             // IConfigService.AutoRedownloadFailed is off (canonical mirror of
             // v5-develop:RedownloadFailedDownloadService — re-search suppressed, blocklist still
             // applied). The production default is true, but the auto-mock returns false; this
-            // test exercises the auto-redownload redirect path, so enable the setting explicitly
-            // (same pattern as MaxAutoRetriesPerChapter above).
+            // test exercises the auto-redownload redirect path, so enable the setting explicitly.
+            // (The D-13 MaxAutoRetriesPerChapter budget + IChapterHistoryService failure-count
+            //  gate were removed 2026-06-07 for Sonarr parity — re-search fires on every failure
+            //  with no cap; the blocklist bounds the loop.)
             Mocker.GetMock<IConfigService>()
                   .SetupGet(c => c.AutoRedownloadFailed)
                   .Returns(true);
-
-            // Mock IChapterHistoryService — return zero prior DownloadFailed history rows
-            // for the chapter so the bounded-budget gate (D-13) admits the retry.
-            Mocker.GetMock<IChapterHistoryService>()
-                  .Setup(s => s.FindByChapterId(SeededChapter.Id))
-                  .Returns(new List<ChapterHistory>());
 
             // ── Spy: capture the blocklist row count at the moment AutoRetryOrchestrator
             // pushes ChapterSearchCommand. The ordering invariant says the row must be
