@@ -213,6 +213,11 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
     mangaDexId,
     aniListId,
     malId,
+    kitsuId,
+    animeNewsNetworkId,
+    shikimoriId,
+    animePlanetId,
+    mangaUpdatesId,
   } = manga;
 
   // Progress-bar denominator (issue #335 / PR #336 follow-up): a chapter counts
@@ -386,7 +391,14 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
                     </div>
                   </Label>
 
-                  {mangaDexId || aniListId || malId ? (
+                  {mangaDexId ||
+                  aniListId ||
+                  malId ||
+                  kitsuId ||
+                  animeNewsNetworkId ||
+                  shikimoriId ||
+                  animePlanetId ||
+                  mangaUpdatesId ? (
                     <Tooltip
                       anchor={
                         <Label
@@ -406,6 +418,11 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
                           mangaDexId={mangaDexId}
                           aniListId={aniListId}
                           malId={malId}
+                          kitsuId={kitsuId}
+                          animeNewsNetworkId={animeNewsNetworkId}
+                          shikimoriId={shikimoriId}
+                          animePlanetId={animePlanetId}
+                          mangaUpdatesId={mangaUpdatesId}
                         />
                       }
                       kind={kinds.INVERSE}
