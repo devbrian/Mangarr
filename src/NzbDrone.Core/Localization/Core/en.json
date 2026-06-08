@@ -193,7 +193,6 @@
   "BlocklistReleases": "Blocklist Releases",
   "Blocklisted": "Blocklisted",
   "BlocklistedAt": "Blocklisted at {date}",
-  "Both": "Both",
   "Branch": "Branch",
   "BranchUpdate": "Branch to use to update {appName}",
   "BranchUpdateMechanism": "Branch used by external update mechanism",
