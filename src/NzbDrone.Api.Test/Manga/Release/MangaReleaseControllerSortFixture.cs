@@ -22,7 +22,8 @@ namespace NzbDrone.Api.Test.Manga.Release
     // — the auto-download priority comparer) BEFORE MapDecisions assigns ReleaseWeight, so the
     // interactive-search default order equals the order the engine would grab in:
     //   * single-chapter (?chapterId): best-first by the comparer (download priority);
-    //   * whole-manga   (?mangaId):    grouped by chapter number ascending, then priority within.
+    //   * whole-manga   (?mangaId):    grouped by chapter number DESCENDING (user direction
+    //                                  quick-260608-j33 follow-up), then priority within each chapter.
     // ReleaseWeight (0 = top) encodes that order; the unchanged frontend `releaseWeight`-ascending
     // default renders it. The tests fail if the controller reverts to unprioritized insertion-order
     // weights or drops the chapter grouping.
@@ -118,9 +119,9 @@ namespace NzbDrone.Api.Test.Manga.Release
             resources[2].ReleaseWeight.Should().Be(2);
         }
 
-        // Test B — whole-manga search groups by chapter ascending, then priority within chapter.
+        // Test B — whole-manga search groups by chapter DESCENDING, then priority within chapter.
         [Test]
-        public async Task MangaSearch_should_group_by_chapter_then_priority()
+        public async Task MangaSearch_should_group_by_chapter_descending_then_priority()
         {
             Mocker.GetMock<IMangaService>()
                   .Setup(s => s.GetManga(1))
@@ -148,18 +149,18 @@ namespace NzbDrone.Api.Test.Manga.Release
             var resources = ok!.Value!;
             resources.Should().HaveCount(4);
 
-            // Chapter ascending, then CF descending within chapter:
-            // ch1/CF50, ch1/CF10, ch2/CF40, ch2/CF20.
-            resources[0].CustomFormatScore.Should().Be(50);
-            resources[1].CustomFormatScore.Should().Be(10);
-            resources[2].CustomFormatScore.Should().Be(40);
-            resources[3].CustomFormatScore.Should().Be(20);
+            // Chapter DESCENDING, then CF descending within chapter:
+            // ch2/CF40, ch2/CF20, ch1/CF50, ch1/CF10.
+            resources[0].CustomFormatScore.Should().Be(40);
+            resources[1].CustomFormatScore.Should().Be(20);
+            resources[2].CustomFormatScore.Should().Be(50);
+            resources[3].CustomFormatScore.Should().Be(10);
 
             // The chapter number is mapped onto MappedEpisodeNumbers[0].
-            resources[0].MappedEpisodeNumbers[0].Should().Be(1);
-            resources[1].MappedEpisodeNumbers[0].Should().Be(1);
-            resources[2].MappedEpisodeNumbers[0].Should().Be(2);
-            resources[3].MappedEpisodeNumbers[0].Should().Be(2);
+            resources[0].MappedEpisodeNumbers[0].Should().Be(2);
+            resources[1].MappedEpisodeNumbers[0].Should().Be(2);
+            resources[2].MappedEpisodeNumbers[0].Should().Be(1);
+            resources[3].MappedEpisodeNumbers[0].Should().Be(1);
 
             // ReleaseWeight encodes the final flattened order, 0 = top.
             resources[0].ReleaseWeight.Should().Be(0);

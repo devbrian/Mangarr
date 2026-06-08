@@ -247,25 +247,27 @@ namespace Mangarr.Api.V5.Manga.Release
         // yields a POSITIVE compare value — see ProcessMangaDownloadDecisions.ProcessDecisions ≈
         // line 48-56), so OrderByDescending(d => d, _comparer) puts the candidate the auto-download
         // engine would grab first at the top. The whole-manga branch first groups by chapter number
-        // ascending (manga divergence — no Sonarr per-episode interactive-search grouping), then ranks
-        // by priority within each chapter.
+        // DESCENDING (manga divergence — no Sonarr per-episode interactive-search grouping; user
+        // direction quick-260608-j33 follow-up: newest/highest chapters first), then ranks by
+        // priority within each chapter.
         private List<NzbDrone.Core.DecisionEngine.Manga.MangaDownloadDecision> OrderForDisplay(
             List<NzbDrone.Core.DecisionEngine.Manga.MangaDownloadDecision> decisions, bool groupByChapter)
         {
             if (groupByChapter)
             {
-                return decisions.OrderBy(d => ChapterSortKey(d)).ThenByDescending(d => d, _comparer).ToList();
+                return decisions.OrderByDescending(d => ChapterSortKey(d)).ThenByDescending(d => d, _comparer).ToList();
             }
 
             return decisions.OrderByDescending(d => d, _comparer).ToList();
         }
 
         // A decision whose RemoteChapter has no Chapters (e.g. an UnknownManga-rejected row) sorts
-        // LAST in the whole-manga grouping (chapter sort key = decimal.MaxValue) and never throws.
+        // LAST in the whole-manga grouping and never throws. The grouping is OrderByDescending, so
+        // the "no chapter" sentinel is decimal.MinValue (smallest key sorts last under descending).
         private static decimal ChapterSortKey(NzbDrone.Core.DecisionEngine.Manga.MangaDownloadDecision d)
             => d.RemoteChapter?.Chapters != null && d.RemoteChapter.Chapters.Any()
                 ? d.RemoteChapter.Chapters.Min(c => c.ChapterNumber)
-                : decimal.MaxValue;
+                : decimal.MinValue;
 
         private List<MangaReleaseResource> MapDecisions(List<NzbDrone.Core.DecisionEngine.Manga.MangaDownloadDecision> decisions)
         {
