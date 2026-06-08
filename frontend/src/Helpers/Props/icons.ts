@@ -60,6 +60,7 @@ import {
   faEye as fasEye,
   faFastBackward as fasFastBackward,
   faFastForward as fasFastForward,
+  faFile as fasFile,
   faFileCircleQuestion as fasFileCircleQuestion,
   faFileExport as fasFileExport,
   faFileInvoice as farFileInvoice,
@@ -158,6 +159,7 @@ export const EXPORT = fasFileExport;
 export const EXTERNAL_LINK = fasExternalLinkAlt;
 export const FATAL = fasTimesCircle;
 export const FILE = farFile;
+export const FILE_IMPORTED = fasFile;
 export const FILE_MISSING = fasFileCircleQuestion;
 export const FILTER = fasFilter;
 export const FINALE_SEASON = fasCirclePause;
