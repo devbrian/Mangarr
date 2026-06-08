@@ -1,6 +1,8 @@
 using System.Linq;
 using NLog;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Download.TrackedDownloads;
+using NzbDrone.Core.History.Manga;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.Messaging.Events;
 
@@ -21,14 +23,27 @@ namespace NzbDrone.Core.Download.Manga
     // MangaId/ChapterId from the in-memory TrackedDownload.RemoteChapter (authoritative) and pass
     // RowId = 0. Never read ChapterDownloadState.Id here.
     //
-    // BLOCKLIST ALWAYS FIRES: ProcessFailed publishes ChapterDownloadFailedEvent unconditionally.
-    // MangaBlocklistService.Handle(ChapterDownloadFailedEvent) inserts the blocklist row (Insert
-    // FIRST) then publishes MangaBlocklistAddedEvent — AutoRetryOrchestrator subscribes to THAT
-    // (anti-race contract; NOT ChapterDownloadFailedEvent directly). The new D-03 AutoRedownloadFailed
-    // gate lives in AutoRetryOrchestrator and suppresses ONLY the re-search; the blocklist insert is
-    // untouched, so blocklisting happens whether or not auto-redownload is enabled.
+    // GRABBED-HISTORY GATE (RESTORED — quick-task 260607-tjn / Fix A; see
+    // .planning/debug/chapter-status-stale-failed.md): Check NOW pre-filters on grabbed history,
+    // exactly like Sonarr FailedDownloadService.Check/ProcessFailed (GetGrabbedHistory(downloadId) +
+    // grabbedItems.Empty() bail in BOTH methods). Blocklist + downloadFailed history + auto-retry fire
+    // ONLY when the download correlates to an outstanding Grabbed ChapterHistory row for that exact
+    // DownloadId AND that grab is not already reconciled to an Imported event (IsAlreadyImported —
+    // history-based, the Sonarr TrackedDownloadAlreadyImported.IsImported peer, NOT the file-based
+    // chapters.All(GetFilesByChapter) check). A stale/re-listed gateway "failed" job for an
+    // already-imported or never-grabbed chapter therefore can NOT write a spurious downloadFailed row.
+    // This RESTORES Sonarr parity (reduces divergence) — no DIVERGENCE.md entry.
     //
-    // Phase 38 cleanup: becomes the canonical failed-download entry when the gateway path lands.
+    // When the gate passes (grabbed + not-imported genuine failure), ProcessFailed publishes one
+    // ChapterDownloadFailedEvent per chapter in the pack (WR-07). MangaBlocklistService.Handle inserts
+    // the blocklist row (Insert FIRST) then publishes MangaBlocklistAddedEvent — AutoRetryOrchestrator
+    // subscribes to THAT (anti-race contract; NOT ChapterDownloadFailedEvent directly). The D-03
+    // AutoRedownloadFailed gate lives in AutoRetryOrchestrator and suppresses ONLY the re-search; the
+    // blocklist insert is untouched, so for a genuine grabbed failure blocklisting happens whether or
+    // not auto-redownload is enabled.
+    //
+    // The up-front terminal Failed transition in ProcessFailed is retained for the #301 one-shot
+    // property (a row reused across polls via the monitor's registry merge is not re-processed).
     // ============================================================================
     public interface IMangaFailedDownloadService
     {
@@ -39,13 +54,16 @@ namespace NzbDrone.Core.Download.Manga
     public class MangaFailedDownloadService : IMangaFailedDownloadService
     {
         private readonly IEventAggregator _eventAggregator;
+        private readonly IChapterHistoryService _chapterHistoryService;
         private readonly Logger _logger;
 
         public MangaFailedDownloadService(
             IEventAggregator eventAggregator,
+            IChapterHistoryService chapterHistoryService,
             Logger logger)
         {
             _eventAggregator = eventAggregator;
+            _chapterHistoryService = chapterHistoryService;
             _logger = logger;
         }
 
@@ -67,6 +85,31 @@ namespace NzbDrone.Core.Download.Manga
             var status = trackedDownload.DownloadItem?.Status;
             if (status == DownloadItemStatus.Failed || status == DownloadItemStatus.Warning)
             {
+                // Sonarr FailedDownloadService.Check grabbed-history bail (RESTORED). Only a download
+                // that correlates to an outstanding Grabbed ChapterHistory row for THIS exact DownloadId
+                // is failed. A stale/re-listed gateway "failed" job for a never-grabbed (or fresh-jobId)
+                // chapter has no matching grab → Warn + return WITHOUT calling Fail() (no FailedPending,
+                // no downstream blocklist/history/auto-retry). TrackedDownload.Warn sets Status=Warning +
+                // StatusMessages; it does NOT log via NLog, so no ExpectedWarns is needed in tests.
+                var downloadId = trackedDownload.DownloadItem?.DownloadId;
+                var grabbedItems = _chapterHistoryService.Find(downloadId, ChapterHistoryEventType.Grabbed);
+
+                if (grabbedItems.Empty())
+                {
+                    trackedDownload.Warn("Download failed but wasn't grabbed by Mangarr, skipping automatic download handling");
+                    return;
+                }
+
+                // Sonarr TrackedDownloadAlreadyImported.IsImported peer (history-based). A same-jobId
+                // gateway re-list of an already-imported chapter still has a persisted Grabbed row, so
+                // the grabbed gate alone would NOT bail — but its grab is reconciled to an Imported event,
+                // so this skips it.
+                if (IsAlreadyImported(trackedDownload))
+                {
+                    _logger.Debug("Failed download {0} is already imported (grab reconciled to Imported); skipping", downloadId);
+                    return;
+                }
+
                 trackedDownload.Fail();
             }
         }
@@ -79,16 +122,34 @@ namespace NzbDrone.Core.Download.Manga
             // events → no duplicate blocklist/history rows or repeated auto-retry searches). Mirrors
             // Sonarr FailedDownloadService.ProcessFailed (FailedPending guard + State = Failed).
             //
-            // Set Failed up front (vs. Sonarr's just-before-publish placement): Mangarr's Check does not
-            // pre-filter on grabbed history, so an unresolvable row CAN reach FailedPending and fall into
-            // the early-return below — transitioning unconditionally keeps that case one-shot too (no
-            // per-poll Warn spam) rather than leaving it FailedPending forever.
+            // Set Failed up front (vs. Sonarr's just-before-publish placement): a row that bails on one
+            // of the gates below must stay one-shot too (no per-poll re-entry), so transition before the
+            // grabbed/already-imported bail rather than leaving it FailedPending forever.
             if (trackedDownload.State != TrackedDownloadState.FailedPending)
             {
                 return;
             }
 
             trackedDownload.State = TrackedDownloadState.Failed;
+
+            // Sonarr FailedDownloadService.ProcessFailed grabbed-history bail (RESTORED) — symmetric with
+            // Check. Even though Check already pre-filters, ProcessFailed re-asserts the gate (Sonarr does
+            // too) so a row that reached FailedPending by another path (or whose grab was reconciled to
+            // Imported between Check and ProcessFailed) does not blocklist/auto-retry a non-failure.
+            var downloadId = trackedDownload.DownloadItem?.DownloadId;
+            var grabbedItems = _chapterHistoryService.Find(downloadId, ChapterHistoryEventType.Grabbed);
+
+            if (grabbedItems.Empty())
+            {
+                _logger.Warn("Failed download {0} wasn't grabbed by Mangarr; skipping blocklist/auto-retry", downloadId);
+                return;
+            }
+
+            if (IsAlreadyImported(trackedDownload))
+            {
+                _logger.Debug("Failed download {0} already imported; skipping blocklist/auto-retry", downloadId);
+                return;
+            }
 
             var remoteChapter = trackedDownload.RemoteChapter;
             if (remoteChapter?.Manga == null || remoteChapter.Chapters == null || !remoteChapter.Chapters.Any())
@@ -127,11 +188,37 @@ namespace NzbDrone.Core.Download.Manga
                     SourceTitle = release?.Title ?? trackedDownload.DownloadItem?.Title
                 };
 
-                // BLOCKLIST ALWAYS — publishing the event drives MangaBlocklistService.Handle (Insert
-                // FIRST, then MangaBlocklistAddedEvent → AutoRetryOrchestrator). The D-03 re-search gate
-                // is downstream in AutoRetryOrchestrator; the blocklist insert is unconditional.
+                // Grabbed + not-already-imported genuine failure — publishing the event drives
+                // MangaBlocklistService.Handle (Insert FIRST, then MangaBlocklistAddedEvent →
+                // AutoRetryOrchestrator). The D-03 re-search gate is downstream in AutoRetryOrchestrator;
+                // the blocklist insert for a genuine grabbed failure is unconditional.
                 _eventAggregator.PublishEvent(failedEvent);
             }
+        }
+
+        // Sonarr TrackedDownloadAlreadyImported.IsImported peer — history-based (NOT the file-based
+        // chapters.All(GetFilesByChapter) check in MangaCompletedDownloadService.Import, a manga
+        // invention the user explicitly rejected). A download is "already imported" when EVERY chapter
+        // in the pack has its most-recent ChapterHistory event for THIS DownloadId == Imported (the grab
+        // reconciled to an import). Robust against a same-jobId gateway re-list of an already-imported
+        // chapter (whose persisted Grabbed row would otherwise pass the grabbed gate).
+        private bool IsAlreadyImported(TrackedDownload trackedDownload)
+        {
+            var chapters = trackedDownload.RemoteChapter?.Chapters;
+            if (chapters == null || !chapters.Any())
+            {
+                return false;
+            }
+
+            var historyItems = _chapterHistoryService.FindByDownloadId(trackedDownload.DownloadItem?.DownloadId);
+            if (historyItems.Empty())
+            {
+                return false;
+            }
+
+            return chapters.All(c => historyItems.Where(h => h.ChapterId == c.Id)
+                .OrderByDescending(h => h.Date)
+                .FirstOrDefault() is { EventType: ChapterHistoryEventType.Imported });
         }
     }
 }
