@@ -148,6 +148,14 @@ export const links: SidebarItem[] = [
       // Sonarr divergence: Phase 15 Plan 15-07 D-12 — Quality nav DELETED entirely
       // (paired with Settings.tsx false-guard block delete in same wave). The
       // Phase 7 D-05 `false ? [{...}] : []` spread guard previously here is gone.
+      // quick-260608-gmm: the Custom Format Profiles row was present in Settings.tsx
+      // (the /settings landing page) but missing here, so the sidebar jumped Profiles ->
+      // Custom Formats and the page was only reachable via the landing page / direct URL.
+      // Added to match Settings.tsx ordering (Profiles -> Custom Format Profiles -> Custom Formats).
+      {
+        title: () => translate('CustomFormatProfiles'),
+        to: '/settings/customformatprofiles',
+      },
       {
         title: () => translate('CustomFormats'),
         to: '/settings/customformats',
