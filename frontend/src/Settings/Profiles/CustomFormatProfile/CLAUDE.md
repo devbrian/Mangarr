@@ -21,7 +21,7 @@ This sub-tree is the manga sibling of the QualityProfile editor. Every file port
 | `CustomFormatProfile.tsx` | Single-card display (name + isDefault badge + score range + allowed-format count + upgradeAllowed badge + delete confirm) | `QualityProfile.tsx` |
 | `CustomFormatProfile.css` + `.css.d.ts` | Single-card styling | `QualityProfile.css` + `.css.d.ts` |
 | `EditCustomFormatProfileModal.tsx` | Modal scaffold wrapper | `EditQualityProfileModal.tsx` |
-| `EditCustomFormatProfileModalContent.tsx` | Form: name + isDefault + upgradeAllowed + min/max score + formatItems list (customFormatId + score) + Save/Delete | `EditQualityProfileModalContent.tsx` |
+| `EditCustomFormatProfileModalContent.tsx` | Form: name + isDefault + upgradeAllowed + min/max score + formatItems list (format + score) + Save/Delete | `EditQualityProfileModalContent.tsx` |
 | `CLAUDE.md` | This documentation | — |
 
 ## API Wiring

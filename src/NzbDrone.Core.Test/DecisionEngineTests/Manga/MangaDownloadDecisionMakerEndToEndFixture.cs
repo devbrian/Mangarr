@@ -217,6 +217,23 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
 
             captured.Should().NotBeNull();
             captured.SourceKey.Should().Be("Gateway", "empty Source must fall back to the indexer-level resolution (report.Indexer)");
+
+            // (c) empty-string Source falls through identically to null — ResolveSourceKey uses
+            // !string.IsNullOrWhiteSpace, so "" is not treated as a per-release source (CodeRabbit).
+            captured = null;
+            var withEmptySource = new ReleaseInfo { Title = "Test Manga - Chapter 044 [Group]", TranslatedLanguage = "en", Source = "", IndexerId = 0, Indexer = "Gateway" };
+            _maker.GetRssDecision(new List<ReleaseInfo> { withEmptySource });
+
+            captured.Should().NotBeNull();
+            captured.SourceKey.Should().Be("Gateway", "empty-string Source must fall back to indexer resolution");
+
+            // (d) whitespace-only Source falls through the same way (IsNullOrWhiteSpace).
+            captured = null;
+            var withWhitespaceSource = new ReleaseInfo { Title = "Test Manga - Chapter 045 [Group]", TranslatedLanguage = "en", Source = "   ", IndexerId = 0, Indexer = "Gateway" };
+            _maker.GetRssDecision(new List<ReleaseInfo> { withWhitespaceSource });
+
+            captured.Should().NotBeNull();
+            captured.SourceKey.Should().Be("Gateway", "whitespace-only Source must fall back to indexer resolution");
         }
 
         [Test]
