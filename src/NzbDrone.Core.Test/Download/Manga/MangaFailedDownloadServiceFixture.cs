@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -24,12 +25,17 @@ namespace NzbDrone.Core.Test.Download.Manga
     //   The blocklist + re-search chain stays KEPT: MangaBlocklistService handles
     //   ChapterDownloadFailedEvent → MangaBlocklistAddedEvent → AutoRetryOrchestrator.
     //
+    //   Test-double discipline (CodeRabbit PR #343): the IChapterHistoryService doubles are bound to
+    //   the EXACT DownloadId under test (NOT It.IsAny<string>()), so the tests genuinely verify the
+    //   gate's DownloadId correlation — a download whose id is not explicitly seeded falls through to
+    //   the SetUp catch-all (empty grabbed history) and bails, which is precisely the contract.
+    //
     //   Tests cover:
     //     1. ProcessFailed publishes ChapterDownloadFailedEvent (grabbed + not-imported) with RowId=0
     //     2. ProcessFailed never reads ChapterDownloadState.Id (RowId always 0)
     //     3. Provenance (Source/DownloadClient/Release) carried from in-memory RemoteChapter
     //     4. Check transitions Failed/Warning → FailedPending (grabbed + not-imported)
-    //     5. Grabbed-history bail + already-imported reconciliation (Check + ProcessFailed)
+    //     5. Grabbed-history bail (incl. exact-DownloadId correlation) + already-imported reconciliation
     [TestFixture]
     public class MangaFailedDownloadServiceFixture : CoreTest<MangaFailedDownloadService>
     {
@@ -47,28 +53,44 @@ namespace NzbDrone.Core.Test.Download.Manga
             _trackedDownload.RemoteChapter.Release.Indexer = "MangaDex";
             _trackedDownload.RemoteChapter.Release.Title = "Test Manga - Chapter 001";
 
-            // Intended path: the download correlates to an outstanding Grabbed ChapterHistory row for
-            // its DownloadId, and that grab is NOT yet reconciled to an Imported event. The 9 original
-            // contract tests all run this happy path; the grabbed-bail / already-imported tests override
-            // these per-test (last Moq setup wins).
-            SeedGrabbed(42);
-        }
-
-        // Default seed: Find(_, Grabbed) → a single Grabbed row; FindByDownloadId(_) → that same
-        // Grabbed-only list, so IsAlreadyImported is false (last event per chapter == Grabbed).
-        private void SeedGrabbed(int chapterId)
-        {
-            var grabbed = new List<ChapterHistory>
-            {
-                new() { ChapterId = chapterId, EventType = ChapterHistoryEventType.Grabbed, Date = DateTime.UtcNow.AddMinutes(-10) }
-            };
-
+            // Catch-all default: a DownloadId that is NOT explicitly seeded has no grabbed history, so
+            // the gate bails. This is what makes the exact-DownloadId correlation observable — only the
+            // ids passed to SeedGrabbed(...) get an outstanding grab. (Moq matches the LAST matching
+            // setup, so the per-id SeedGrabbed calls below win over this catch-all for their own id.)
             Mocker.GetMock<IChapterHistoryService>()
                 .Setup(s => s.Find(It.IsAny<string>(), ChapterHistoryEventType.Grabbed))
+                .Returns(new List<ChapterHistory>());
+            Mocker.GetMock<IChapterHistoryService>()
+                .Setup(s => s.FindByDownloadId(It.IsAny<string>()))
+                .Returns(new List<ChapterHistory>());
+
+            // Intended path for _trackedDownload: an outstanding Grabbed row for its DownloadId, NOT yet
+            // reconciled to Imported. The original contract tests all run this happy path; the
+            // grabbed-bail / already-imported tests override per-test (last Moq setup wins).
+            SeedGrabbed("dl-fail-1", 42);
+        }
+
+        // Bind the grabbed-history doubles to the EXACT DownloadId so the tests verify the gate's
+        // DownloadId correlation (not just "some grab exists"). Find(downloadId, Grabbed) and
+        // FindByDownloadId(downloadId) return a Grabbed-only list → the gate passes and
+        // IsAlreadyImported is false (last event per chapter == Grabbed).
+        private void SeedGrabbed(string downloadId, params int[] chapterIds)
+        {
+            var grabbed = chapterIds
+                .Select(id => new ChapterHistory
+                {
+                    ChapterId = id,
+                    EventType = ChapterHistoryEventType.Grabbed,
+                    Date = DateTime.UtcNow.AddMinutes(-10)
+                })
+                .ToList();
+
+            Mocker.GetMock<IChapterHistoryService>()
+                .Setup(s => s.Find(downloadId, ChapterHistoryEventType.Grabbed))
                 .Returns(grabbed);
 
             Mocker.GetMock<IChapterHistoryService>()
-                .Setup(s => s.FindByDownloadId(It.IsAny<string>()))
+                .Setup(s => s.FindByDownloadId(downloadId))
                 .Returns(grabbed);
         }
 
@@ -114,6 +136,8 @@ namespace NzbDrone.Core.Test.Download.Manga
             pack.RemoteChapter.Release.Indexer = "MangaDex";
             pack.RemoteChapter.Release.Title = "Test Manga - c179-181";
 
+            SeedGrabbed("dl-pack-fail", 179, 180, 181);
+
             var failedChapterIds = new List<int>();
             Mocker.GetMock<NzbDrone.Core.Messaging.Events.IEventAggregator>()
                 .Setup(e => e.PublishEvent(It.IsAny<ChapterDownloadFailedEvent>()))
@@ -155,6 +179,9 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             Mocker.GetMock<NzbDrone.Core.Messaging.Events.IEventAggregator>()
                 .Verify(e => e.PublishEvent(It.IsAny<ChapterDownloadFailedEvent>()), Times.Never);
+
+            // "dl-no-chapter" is unseeded → the grabbed-empty bail logs one Warn before the
+            // RemoteChapter-null guard is ever reached.
             NzbDrone.Test.Common.ExceptionVerification.ExpectedWarns(1);
         }
 
@@ -163,7 +190,8 @@ namespace NzbDrone.Core.Test.Download.Manga
         [Test]
         public void Check_transitions_failed_item_to_FailedPending()
         {
-            var td = new TrackedDownloadBuilder().WithChapters(42).Failed().Build();
+            var td = new TrackedDownloadBuilder().WithDownloadId("dl-check-1").WithChapters(42).Failed().Build();
+            SeedGrabbed("dl-check-1", 42);
 
             // Builder already calls Fail() (Error + FailedPending). Reset to verify Check drives it.
             td.State = TrackedDownloadState.Downloading;
@@ -176,7 +204,8 @@ namespace NzbDrone.Core.Test.Download.Manga
         [Test]
         public void Check_transitions_warning_item_to_FailedPending()
         {
-            var td = new TrackedDownloadBuilder().WithChapters(42).Build();
+            var td = new TrackedDownloadBuilder().WithDownloadId("dl-check-2").WithChapters(42).Build();
+            SeedGrabbed("dl-check-2", 42);
             td.DownloadItem.Status = DownloadItemStatus.Warning;
             td.State = TrackedDownloadState.Downloading;
 
@@ -242,12 +271,8 @@ namespace NzbDrone.Core.Test.Download.Manga
         [Test]
         public void Check_bails_when_no_grabbed_history_for_downloadId()
         {
-            // Sonarr FailedDownloadService.Check grabbedItems.Empty() bail (RESTORED): no outstanding
-            // Grabbed row for this DownloadId → Warn + return WITHOUT Fail() (stays Downloading).
-            Mocker.GetMock<IChapterHistoryService>()
-                .Setup(s => s.Find(It.IsAny<string>(), ChapterHistoryEventType.Grabbed))
-                .Returns(new List<ChapterHistory>());
-
+            // No outstanding Grabbed row for this (unseeded) DownloadId → Warn + return WITHOUT Fail()
+            // (stays Downloading). Sonarr FailedDownloadService.Check grabbedItems.Empty() bail.
             var td = new TrackedDownloadBuilder().WithDownloadId("dl-ungrabbed").WithChapters(42).Failed().Build();
             td.State = TrackedDownloadState.Downloading;
 
@@ -259,13 +284,31 @@ namespace NzbDrone.Core.Test.Download.Manga
         }
 
         [Test]
+        public void Check_bails_when_grabbed_history_exists_only_for_a_different_downloadId()
+        {
+            // SetUp seeds a Grabbed row for "dl-fail-1" only. This download has a DIFFERENT id, so the
+            // gate (which keys on THIS download's exact DownloadId) finds no matching grab and bails.
+            // This is the exact-DownloadId correlation contract: a grab for another job must NOT satisfy it.
+            var td = new TrackedDownloadBuilder().WithDownloadId("dl-other-job").WithChapters(42).Failed().Build();
+            td.State = TrackedDownloadState.Downloading;
+
+            Subject.Check(td);
+
+            td.State.Should().Be(TrackedDownloadState.Downloading,
+                "the grabbed-history gate must correlate on THIS download's exact DownloadId, "
+                + "not be satisfied by a grab recorded for a different job");
+            td.Status.Should().Be(TrackedDownloadStatus.Warning);
+        }
+
+        [Test]
         public void Check_skips_already_imported_chapter_same_jobId()
         {
-            // Grabbed row is non-empty (SetUp default) BUT FindByDownloadId shows the grab for ch42 is
-            // already reconciled to a newer Imported event — a same-jobId gateway re-list of an
-            // already-imported chapter. Must NOT re-Fail.
+            // A same-jobId gateway re-list of an already-imported chapter: the Grabbed row for this
+            // DownloadId still exists (so the grabbed gate passes), BUT it is already reconciled to a
+            // newer Imported event → IsAlreadyImported → must NOT re-Fail.
+            SeedGrabbed("dl-imported", 42);
             Mocker.GetMock<IChapterHistoryService>()
-                .Setup(s => s.FindByDownloadId(It.IsAny<string>()))
+                .Setup(s => s.FindByDownloadId("dl-imported"))
                 .Returns(new List<ChapterHistory>
                 {
                     new() { ChapterId = 42, EventType = ChapterHistoryEventType.Grabbed, Date = DateTime.UtcNow.AddHours(-6) },
@@ -284,8 +327,9 @@ namespace NzbDrone.Core.Test.Download.Manga
         [Test]
         public void ProcessFailed_bails_when_no_grabbed_history()
         {
+            // Override _trackedDownload's seeded grab with an empty result for its id.
             Mocker.GetMock<IChapterHistoryService>()
-                .Setup(s => s.Find(It.IsAny<string>(), ChapterHistoryEventType.Grabbed))
+                .Setup(s => s.Find("dl-fail-1", ChapterHistoryEventType.Grabbed))
                 .Returns(new List<ChapterHistory>());
 
             // _trackedDownload is FailedPending (built via .Failed()).
@@ -306,8 +350,9 @@ namespace NzbDrone.Core.Test.Download.Manga
         [Test]
         public void ProcessFailed_skips_already_imported_chapters()
         {
+            // Grabbed gate passes for "dl-fail-1" (SetUp), but the grab is reconciled to Imported.
             Mocker.GetMock<IChapterHistoryService>()
-                .Setup(s => s.FindByDownloadId(It.IsAny<string>()))
+                .Setup(s => s.FindByDownloadId("dl-fail-1"))
                 .Returns(new List<ChapterHistory>
                 {
                     new() { ChapterId = 42, EventType = ChapterHistoryEventType.Grabbed, Date = DateTime.UtcNow.AddHours(-6) },
@@ -334,9 +379,11 @@ namespace NzbDrone.Core.Test.Download.Manga
             pack.RemoteChapter.Release.Indexer = "MangaDex";
             pack.RemoteChapter.Release.Title = "Test Manga - c179-181";
 
-            // Grabbed for all three; Imported for ONLY 179. IsAlreadyImported requires ALL → false.
+            // Grabbed for all three (gate passes); Imported for ONLY 179. IsAlreadyImported requires
+            // ALL chapters reconciled → false → every chapter still blocklists + auto-retries.
+            SeedGrabbed("dl-pack-mixed", 179, 180, 181);
             Mocker.GetMock<IChapterHistoryService>()
-                .Setup(s => s.FindByDownloadId(It.IsAny<string>()))
+                .Setup(s => s.FindByDownloadId("dl-pack-mixed"))
                 .Returns(new List<ChapterHistory>
                 {
                     new() { ChapterId = 179, EventType = ChapterHistoryEventType.Grabbed, Date = DateTime.UtcNow.AddHours(-6) },
