@@ -555,5 +555,84 @@ namespace NzbDrone.Core.Test.IndexerSearchTests.Manga
             Mocker.GetMock<IProcessMangaDownloadDecisions>()
                 .Verify(p => p.ProcessDecisions(It.IsAny<List<MangaDownloadDecision>>()), Times.Once);
         }
+
+        [Test]
+        public void Execute_should_re_decide_against_updated_catalog_when_synthesis_created_rows()
+        {
+            // Same-tick grab: when synthesis writes new rows, the reports are re-evaluated
+            // against the now-updated catalog and the SECOND decision list (the one whose
+            // freshly-synthesized chapters now resolve) is what flows to the grab pipeline.
+            var firstPass = new List<MangaDownloadDecision> { DecisionForManga(7, "Solo Leveling") };
+            var secondPass = new List<MangaDownloadDecision> { DecisionForManga(7, "Solo Leveling") };
+
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                .SetupSequence(d => d.GetRssDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<bool>()))
+                .Returns(firstPass)
+                .Returns(secondPass);
+
+            // Synthesis reports it created rows → gate opens.
+            Mocker.GetMock<IChapterSynthesisService>()
+                .Setup(s => s.SynthesizeFromDecisions(
+                    It.IsAny<NzbDrone.Core.Manga.Manga>(),
+                    It.IsAny<List<MangaDownloadDecision>>()))
+                .Returns(3);
+
+            var indexer = BuildHttpIndexer(1, "MangaDex");
+            Mocker.GetMock<IIndexerFactory>()
+                .Setup(f => f.RssEnabled(true))
+                .Returns(new List<IIndexer> { indexer.Object });
+
+            Subject.Execute(new MangaRssSyncCommand());
+
+            // Two decision passes; synthesis runs exactly once (NOT re-run on the second pass).
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                .Verify(d => d.GetRssDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<bool>()), Times.Exactly(2));
+            Mocker.GetMock<IChapterSynthesisService>()
+                .Verify(s => s.SynthesizeFromDecisions(
+                    It.IsAny<NzbDrone.Core.Manga.Manga>(),
+                    It.IsAny<List<MangaDownloadDecision>>()),
+                    Times.Once);
+
+            // The grab pipeline + complete-event carry the SECOND (post-synthesis) decision list.
+            Mocker.GetMock<IProcessMangaDownloadDecisions>()
+                .Verify(p => p.ProcessDecisions(It.Is<List<MangaDownloadDecision>>(d => ReferenceEquals(d, secondPass))),
+                    Times.Once);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.Is<MangaRssSyncCompleteEvent>(
+                    evt => ReferenceEquals(evt.ProcessedDecisions, secondPass))),
+                    Times.Once);
+        }
+
+        [Test]
+        public void Execute_should_NOT_re_decide_when_synthesis_created_nothing()
+        {
+            // Steady state (catalog already complete) — synthesis returns 0, so exactly one
+            // decision pass runs and its result flows straight to the grab pipeline.
+            var onlyPass = new List<MangaDownloadDecision> { DecisionForManga(7, "Solo Leveling") };
+
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                .Setup(d => d.GetRssDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<bool>()))
+                .Returns(onlyPass);
+
+            // Synthesis writes nothing → gate stays closed (explicit 0; also the default).
+            Mocker.GetMock<IChapterSynthesisService>()
+                .Setup(s => s.SynthesizeFromDecisions(
+                    It.IsAny<NzbDrone.Core.Manga.Manga>(),
+                    It.IsAny<List<MangaDownloadDecision>>()))
+                .Returns(0);
+
+            var indexer = BuildHttpIndexer(1, "MangaDex");
+            Mocker.GetMock<IIndexerFactory>()
+                .Setup(f => f.RssEnabled(true))
+                .Returns(new List<IIndexer> { indexer.Object });
+
+            Subject.Execute(new MangaRssSyncCommand());
+
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                .Verify(d => d.GetRssDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<bool>()), Times.Once);
+            Mocker.GetMock<IProcessMangaDownloadDecisions>()
+                .Verify(p => p.ProcessDecisions(It.Is<List<MangaDownloadDecision>>(d => ReferenceEquals(d, onlyPass))),
+                    Times.Once);
+        }
     }
 }

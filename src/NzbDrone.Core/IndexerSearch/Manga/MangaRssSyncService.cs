@@ -122,7 +122,23 @@ namespace NzbDrone.Core.IndexerSearch.Manga
 
             // Phase 40 RSS self-heal — backfill the local Chapter catalog from the gateway's
             // recent releases BEFORE the grab pipeline runs. See SynthesizeFromRssDecisions.
-            SynthesizeFromRssDecisions(decisions);
+            var synthesizedCount = SynthesizeFromRssDecisions(decisions);
+
+            // Same-tick grab: ONLY when synthesis actually wrote new rows, re-run the decision
+            // pass against the now-updated catalog so a chapter that was uncataloged on the
+            // first pass (empty RemoteChapter.Chapters → dropped by the specs) resolves and
+            // qualifies THIS tick instead of waiting for the next RSS poll / Missing sweep. The
+            // count gate keeps the steady-state common case (catalog already complete →
+            // synthesizedCount == 0) at exactly one decision pass. Synthesis only ADDS rows
+            // (SyncChapters never deletes / never touches Monitored on update), so a release
+            // approved on the first pass can never be downgraded by the second.
+            if (synthesizedCount > 0)
+            {
+                _logger.Debug(
+                    "Synthesized {0} new chapter row(s) from RSS releases; re-evaluating reports against the updated catalog.",
+                    synthesizedCount);
+                decisions = _decisionMaker.GetRssDecision(reports);
+            }
 
             // Debug-session queue-items-not-downloading (2026-05-13) — mirror TV
             // RssSyncService.Sync() line 44: hand approved decisions to the grab pipeline.
@@ -179,9 +195,13 @@ namespace NzbDrone.Core.IndexerSearch.Manga
         // Best-effort (mirrors MangaReleaseSearchService.MangaSearch): synthesis is a pure
         // side-effect — a throw must never abort the RSS tick or swallow the decisions the
         // grab pipeline is waiting for. Failures are isolated per-manga so one bad group does
-        // not skip synthesis for the others.
-        private void SynthesizeFromRssDecisions(List<MangaDownloadDecision> decisions)
+        // not skip synthesis for the others. Returns the total number of NEW Chapter rows
+        // written across all manga (0 when the catalog was already complete) — the caller
+        // gates the same-tick re-decision on this being non-zero.
+        private int SynthesizeFromRssDecisions(List<MangaDownloadDecision> decisions)
         {
+            var totalSynthesized = 0;
+
             var groupedByManga = decisions
                 .Where(d => d.RemoteChapter?.Manga != null)
                 .GroupBy(d => d.RemoteChapter.Manga.Id);
@@ -192,7 +212,7 @@ namespace NzbDrone.Core.IndexerSearch.Manga
 
                 try
                 {
-                    _chapterSynthesisService.SynthesizeFromDecisions(manga, group.ToList());
+                    totalSynthesized += _chapterSynthesisService.SynthesizeFromDecisions(manga, group.ToList());
                 }
                 catch (Exception ex)
                 {
@@ -202,6 +222,8 @@ namespace NzbDrone.Core.IndexerSearch.Manga
                         manga?.Id);
                 }
             }
+
+            return totalSynthesized;
         }
 
         private async Task<IList<ReleaseInfo>> FetchIndexerSafe(IIndexer indexer)
