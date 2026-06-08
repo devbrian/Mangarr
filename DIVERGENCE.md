@@ -1318,3 +1318,26 @@ Brings forward part of the long-deferred "Phase 8 cleanup" — but **scoped to t
 - DIVERGENCE.md Phase 5 D-10 `MediaType` / CF `AppliesTo` discriminator entry (the surface this trims) + Phase 39 (the single-Gateway-indexer aggregation that motivated the Gap-1 fix).
 
 *Last updated: 2026-06-08 (quick task 260608-gmm — appended the CF-subsystem Series-removal section above: dropped the `MediaType.Series` enum value + the lone `ReleaseTypeSpecification`, removed the dead `AppliesTo==Series` guard, flipped `CustomFormatController.GetTemplates` to default a null mediaType to the manga set (also fixing Gap 2), and collapsed the frontend CF settings page's `series`/`both` filter to manga-only. Consistency-RESTORING (removes dead TV-shape CF surface); Series references OUTSIDE the CF subsystem are explicitly untouched. Companion Gap-1 `ResolveSourceKey` per-release-`Source` preference noted (no TV analog). All previous trailers preserved verbatim above per historical-accuracy contract.)*
+
+## Interactive search display order reuses the auto-download priority comparer (quick task 260608-j33) (2026-06-08)
+
+Interactive search display order now reuses `MangaDownloadDecisionComparer` (the auto-download priority comparer) for `ReleaseWeight`; whole-manga (`?mangaId`) search additionally groups by chapter number **descending** then priority within chapter — no Sonarr per-episode-grouping peer (manga divergence). quick-260608-j33 (chapter order flipped ascending→descending in the same-PR user follow-up: the Search tab lists newest/highest chapters first).
+
+The single-chapter prioritize-before-weight half is **consistency-RESTORING** — Sonarr's `ReleaseController.MapDecisions` calls `PrioritizeDecisions(decisions)` before assigning the weight; the manga peer (`MangaReleaseController.MapDecisions`) had skipped that step, so `ReleaseWeight` reflected arbitrary indexer fan-out / report order instead of download priority. The whole-manga chapter-grouping half is a genuine manga divergence: Sonarr does not group its season/series interactive search by episode.
+
+| File / Path | Type | Source | Rationale |
+|-------------|------|--------|-----------|
+| `src/Mangarr.Api.V5/Manga/Release/MangaReleaseController.cs` | edit | quick-260608-j33 | Injects `MangaDownloadDecisionComparer` (the concrete comparer `ProcessMangaDownloadDecisions` injects) + adds `OrderForDisplay(decisions, groupByChapter)` / `ChapterSortKey` helpers; both GET branches now route decisions through `OrderForDisplay` before `MapDecisions` assigns `ReleaseWeight` (0 = top). `MapDecisions` itself is unchanged — iteration order is now the priority order. |
+
+No frontend change: the Zustand `releaseStore` already defaults to `{ sortKey: 'releaseWeight', sortDirection: 'ascending' }`, so the table renders the new order out of the box.
+
+## CustomFormatProfile `MaxFormatScore` of 0 means "no upper cap" (quick task 260608-j33 follow-up) (2026-06-08)
+
+`MaxFormatScore` is the manga-divergent NULLABLE upper-cap on `CustomFormatProfile` (Phase 5 D-07 / Adaptation Hotspot 4 — Sonarr's `QualityProfile` has no max-score concept; null = no cap). A profile saved with the max-score field left blank persists `MaxFormatScore = 0`, not null. Both consumers treated a literal 0 as a real cap of 0, so `CustomFormatMinimumScoreSpecification` rejected every release with any positive CF score (`Custom Formats score 25 exceeds profile 'SourceRank' maximum 0`) and `ChapterCutoffService` counted the profile as enforcing a score window. Fixed by treating `0` (and `null`) as "no cap" in both sites — only enforce when the cap is `> 0`. This repairs already-persisted `0` rows without requiring a re-save or a migration. No Sonarr peer (the whole `MaxFormatScore` concept is a manga divergence).
+
+| File / Path | Type | Source | Rationale |
+|-------------|------|--------|-----------|
+| `src/NzbDrone.Core/DecisionEngine/Manga/Specifications/CustomFormatMinimumScoreSpecification.cs` | edit | quick-260608-j33 | Reject on the max cap only when `MaxFormatScore.HasValue && MaxFormatScore.Value > 0 && score > Max` (was `HasValue && score > Max`). |
+| `src/NzbDrone.Core/Manga/ChapterCutoffService.cs` | edit | quick-260608-j33 | Profile is "below cutoff" only when `MinFormatScore > 0 || MaxFormatScore is > 0` (was `|| MaxFormatScore.HasValue`) — consistent 0=no-cap semantic. |
+
+*Last updated: 2026-06-08 (quick task 260608-j33 — appended the interactive-search-display-order section + the `MaxFormatScore`-0-means-no-cap section above. j33 PR scope grew with two in-PR user follow-ups: (1) whole-manga Search tab chapter order flipped ascending→descending; (2) `MaxFormatScore` of 0 treated as no upper cap in both the search-time CF spec and the cutoff service. `MangaReleaseController.GetReleases` prioritizes decisions via `MangaDownloadDecisionComparer` (OrderByDescending convention) before `ReleaseWeight` assignment, restoring Sonarr `ReleaseController.MapDecisions`→`PrioritizeDecisions`. No frontend change — the `releaseWeight`-ascending default already renders the order. All previous trailers preserved verbatim above per historical-accuracy contract.)*

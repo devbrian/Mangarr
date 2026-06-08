@@ -34,6 +34,16 @@ namespace Mangarr.Api.V5.Manga.Release
     //     service hands the cached RemoteChapter into the manga download pipeline; the grab POST
     //     surfaces a Rejected/Skipped decision as a 404 (Phase 40 D-10) rather than greening the
     //     UI button on a grab that queued nothing.
+    //
+    // quick-260608-j33: GetReleases now PRIORITIZES decisions via MangaDownloadDecisionComparer
+    // (the same comparer ProcessMangaDownloadDecisions grabs in, OrderByDescending convention)
+    // BEFORE MapDecisions assigns ReleaseWeight. This restores Sonarr ReleaseController.MapDecisions'
+    // PrioritizeDecisions step (the manga peer had skipped it, so ReleaseWeight reflected arbitrary
+    // indexer fan-out order, NOT download priority). The whole-manga (?mangaId) path ADDITIONALLY
+    // groups by chapter number ascending then ranks within each chapter — a manga-domain divergence
+    // (Sonarr does not group its season/series interactive search by episode). ReleaseWeight (0 =
+    // top) therefore encodes the display order, which the unchanged frontend `releaseWeight`-
+    // ascending default renders with no frontend change.
     [V5ApiController("manga/release")]
     public class MangaReleaseController : Controller
     {
@@ -42,6 +52,7 @@ namespace Mangarr.Api.V5.Manga.Release
         private readonly IMangaService _mangaService;
         private readonly IChapterService _chapterService;
         private readonly IChapterSynthesisService _chapterSynthesisService;
+        private readonly MangaDownloadDecisionComparer _comparer;
         private readonly Logger _logger;
 
         private readonly ICached<RemoteChapter> _remoteChapterCache;
@@ -51,6 +62,7 @@ namespace Mangarr.Api.V5.Manga.Release
                                       IMangaService mangaService,
                                       IChapterService chapterService,
                                       IChapterSynthesisService chapterSynthesisService,
+                                      MangaDownloadDecisionComparer comparer,
                                       ICacheManager cacheManager,
                                       Logger logger)
         {
@@ -59,6 +71,7 @@ namespace Mangarr.Api.V5.Manga.Release
             _mangaService = mangaService;
             _chapterService = chapterService;
             _chapterSynthesisService = chapterSynthesisService;
+            _comparer = comparer;
             _logger = logger;
 
             _remoteChapterCache = cacheManager.GetCache<RemoteChapter>(GetType(), "remoteChapters");
@@ -107,7 +120,7 @@ namespace Mangarr.Api.V5.Manga.Release
                     };
 
                     var decisions = await _releaseSearchService.ChapterSearch(criteria);
-                    return TypedResults.Ok(MapDecisions(decisions));
+                    return TypedResults.Ok(MapDecisions(OrderForDisplay(decisions, groupByChapter: false)));
                 }
 
                 if (mangaId.HasValue)
@@ -135,7 +148,7 @@ namespace Mangarr.Api.V5.Manga.Release
                     };
 
                     var decisions = await _releaseSearchService.MangaSearch(criteria);
-                    return TypedResults.Ok(MapDecisions(decisions));
+                    return TypedResults.Ok(MapDecisions(OrderForDisplay(decisions, groupByChapter: true)));
                 }
 
                 throw new NzbDroneClientException(HttpStatusCode.BadRequest, "chapterId or mangaId must be provided");
@@ -228,6 +241,33 @@ namespace Mangarr.Api.V5.Manga.Release
 
             return TypedResults.Ok(resource);
         }
+
+        // quick-260608-j33: re-order decisions into the display order BEFORE MapDecisions assigns
+        // ReleaseWeight (0 = top). The comparer follows the OrderByDescending convention ("better"
+        // yields a POSITIVE compare value — see ProcessMangaDownloadDecisions.ProcessDecisions ≈
+        // line 48-56), so OrderByDescending(d => d, _comparer) puts the candidate the auto-download
+        // engine would grab first at the top. The whole-manga branch first groups by chapter number
+        // DESCENDING (manga divergence — no Sonarr per-episode interactive-search grouping; user
+        // direction quick-260608-j33 follow-up: newest/highest chapters first), then ranks by
+        // priority within each chapter.
+        private List<NzbDrone.Core.DecisionEngine.Manga.MangaDownloadDecision> OrderForDisplay(
+            List<NzbDrone.Core.DecisionEngine.Manga.MangaDownloadDecision> decisions, bool groupByChapter)
+        {
+            if (groupByChapter)
+            {
+                return decisions.OrderByDescending(d => ChapterSortKey(d)).ThenByDescending(d => d, _comparer).ToList();
+            }
+
+            return decisions.OrderByDescending(d => d, _comparer).ToList();
+        }
+
+        // A decision whose RemoteChapter has no Chapters (e.g. an UnknownManga-rejected row) sorts
+        // LAST in the whole-manga grouping and never throws. The grouping is OrderByDescending, so
+        // the "no chapter" sentinel is decimal.MinValue (smallest key sorts last under descending).
+        private static decimal ChapterSortKey(NzbDrone.Core.DecisionEngine.Manga.MangaDownloadDecision d)
+            => d.RemoteChapter?.Chapters != null && d.RemoteChapter.Chapters.Any()
+                ? d.RemoteChapter.Chapters.Min(c => c.ChapterNumber)
+                : decimal.MinValue;
 
         private List<MangaReleaseResource> MapDecisions(List<NzbDrone.Core.DecisionEngine.Manga.MangaDownloadDecision> decisions)
         {
