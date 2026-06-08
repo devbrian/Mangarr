@@ -8,7 +8,7 @@
 //
 // Manga sibling diverges from EditQualityProfileModalContent:
 //   * No schema fetch — CustomFormatProfile is a flat shape
-//   * formatItems list (Phase 5 D-07) — each row has customFormatId dropdown + score numeric input
+//   * formatItems list (Phase 5 D-07) — each row has a `format` (CustomFormat id) dropdown + score numeric input
 //   * Available CustomFormats fetched via /api/v5/customformat?mediaType=manga (Phase 5 D-10)
 //   * minFormatScore / maxFormatScore numeric range pickers
 //   * upgradeAllowed Toggle (Phase 5 D-10 / Phase 6 D-10 — three-state effective-upgrade-allowed)
@@ -85,7 +85,7 @@ interface FormatItemRowProps {
   idx: number;
   formatItem: CustomFormatProfileResource['formatItems'][number];
   customFormatValues: { key: string; value: string }[];
-  onFormatChange: (idx: number, customFormatId: number) => void;
+  onFormatChange: (idx: number, format: number) => void;
   onScoreChange: (idx: number, score: number) => void;
   onRemove: (idx: number) => void;
 }
@@ -128,8 +128,8 @@ function FormatItemRow({
       <div style={{ minWidth: 200 }}>
         <FormInputGroup
           type={inputTypes.SELECT}
-          name={`customFormatId-${idx}`}
-          value={String(formatItem.customFormatId)}
+          name={`format-${idx}`}
+          value={String(formatItem.format)}
           values={customFormatValues}
           onChange={handleFormatChange}
         />
@@ -305,11 +305,11 @@ function EditCustomFormatProfileModalContent({
   );
 
   const handleFormatItemFormatChange = useCallback(
-    (idx: number, customFormatId: number) => {
+    (idx: number, format: number) => {
       setItem((prev) => ({
         ...prev,
         formatItems: prev.formatItems.map((fi, i) =>
-          i === idx ? { ...fi, customFormatId } : fi
+          i === idx ? { ...fi, format } : fi
         ),
       }));
     },
@@ -332,10 +332,7 @@ function EditCustomFormatProfileModalContent({
     const firstAvailable = customFormats[0]?.id ?? 0;
     setItem((prev) => ({
       ...prev,
-      formatItems: [
-        ...prev.formatItems,
-        { customFormatId: firstAvailable, score: 0 },
-      ],
+      formatItems: [...prev.formatItems, { format: firstAvailable, score: 0 }],
     }));
   }, [customFormats]);
 

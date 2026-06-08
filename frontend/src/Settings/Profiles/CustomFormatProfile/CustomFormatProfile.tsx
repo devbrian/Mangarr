@@ -24,7 +24,10 @@ import translate from 'Utilities/String/translate';
 import styles from './CustomFormatProfile.css';
 
 export interface CustomFormatProfileFormatItem {
-  customFormatId: number;
+  // Wire field is `format` (the CustomFormat id) per CustomFormatProfileFormatItemResource
+  // (Mangarr.Api.V5). It was previously typed `customFormatId`, which exists on no payload —
+  // so the editor read undefined (blank format dropdown) and wrote `format` as 0 on save.
+  format: number;
   score: number;
 }
 

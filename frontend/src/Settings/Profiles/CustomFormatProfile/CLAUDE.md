@@ -41,7 +41,7 @@ interface CustomFormatProfile {
   id: number;
   name: string;
   isDefault: boolean;
-  formatItems: { customFormatId: number; score: number }[];
+  formatItems: { format: number; score: number }[]; // `format` = the CustomFormat id (wire field per CustomFormatProfileFormatItemResource)
   minFormatScore: number;
   maxFormatScore: number;
   upgradeAllowed: boolean;
