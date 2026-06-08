@@ -6,11 +6,11 @@
 
 .nameContainer {
   display: flex;
-  justify-content: space-between;
 
   /* The Default Label badge is the second flex child; flex-start keeps it a natural-height pill
      instead of stretching to the tall 24px name (quick-260608-gmm — mirrors CustomFormatProfile). */
   align-items: flex-start;
+  justify-content: space-between;
 }
 
 .name {
