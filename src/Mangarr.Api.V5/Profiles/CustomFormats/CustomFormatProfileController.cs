@@ -5,6 +5,7 @@ using Mangarr.Http.REST.Attributes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Profiles.CustomFormats;
 
 namespace Mangarr.Api.V5.Profiles.CustomFormats;
@@ -19,10 +20,12 @@ namespace Mangarr.Api.V5.Profiles.CustomFormats;
 public class CustomFormatProfileController : RestController<CustomFormatProfileResource>
 {
     private readonly ICustomFormatProfileService _profileService;
+    private readonly IConfigService _configService;
 
-    public CustomFormatProfileController(ICustomFormatProfileService profileService)
+    public CustomFormatProfileController(ICustomFormatProfileService profileService, IConfigService configService)
     {
         _profileService = profileService;
+        _configService = configService;
 
         // WR-04: cap Name length + cap FormatItems count (DoS surface). NotEmpty alone would
         // let a client submit a 10MB Name and pollute the SQLite CustomFormatProfiles.Name
@@ -44,6 +47,7 @@ public class CustomFormatProfileController : RestController<CustomFormatProfileR
     {
         var model = resource.ToModel();
         model = _profileService.Add(model);
+        ApplyDefaultFlag(resource.IsDefault, model.Id);
         return TypedCreated(model.Id);
     }
 
@@ -60,18 +64,40 @@ public class CustomFormatProfileController : RestController<CustomFormatProfileR
     {
         var model = resource.ToModel();
         _profileService.Update(model);
+        ApplyDefaultFlag(resource.IsDefault, model.Id);
         return TypedAccepted(model.Id);
     }
 
     protected override CustomFormatProfileResource GetResourceById(int id)
     {
-        return _profileService.Get(id).ToResource();
+        return StampDefault(_profileService.Get(id).ToResource());
     }
 
     [HttpGet]
     [Produces("application/json")]
     public Ok<List<CustomFormatProfileResource>> GetAll()
     {
-        return TypedResults.Ok(_profileService.All().ToResource());
+        return TypedResults.Ok(_profileService.All().ToResource().ConvertAll(StampDefault));
+    }
+
+    // The "default profile" is the global Config.DefaultCustomFormatProfileId, not a per-row
+    // column. Stamp IsDefault on every outgoing resource so the editor's Default checkbox + the
+    // card badge reflect reality.
+    private CustomFormatProfileResource StampDefault(CustomFormatProfileResource resource)
+    {
+        resource.IsDefault = _configService.DefaultCustomFormatProfileId == resource.Id;
+        return resource;
+    }
+
+    // Checking Default points the global config key at this profile (moves the single default —
+    // any previously-default profile reads IsDefault==false on the next fetch). Unchecking is a
+    // deliberate no-op: the seed + delete-guard invariant guarantees exactly one default always
+    // exists, so the default is changed by checking a DIFFERENT profile, never by clearing.
+    private void ApplyDefaultFlag(bool isDefault, int id)
+    {
+        if (isDefault)
+        {
+            _configService.DefaultCustomFormatProfileId = id;
+        }
     }
 }

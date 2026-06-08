@@ -34,6 +34,17 @@ This sub-tree is the manga sibling of the QualityProfile editor. Every file port
 
 React Query cache keys: `['/customformatprofile']` and `['/customformat?mediaType=manga']` (singular `path`-shaped).
 
+> **quick-260608-gmm (Default + Upgrades-Allowed checkboxes wired up):** the editor's two
+> checkboxes were both rendering indeterminate because the backend resource didn't supply the
+> fields. Fixed: (1) `CustomFormatProfileResource` now maps `UpgradeAllowed` (a real, consumed
+> `CustomFormatProfile` column — `UpgradeSpecification.cs` reads it as the inner half of the D-10
+> AND-merge) in both `ToResource`/`ToModel`; (2) `IsDefault` is backend-computed by
+> `CustomFormatProfileController` from `Config.DefaultCustomFormatProfileId` (== Id) on read, and
+> set on POST/PUT when checked (moves the single global default; unchecking is a no-op). Also fixed
+> the format-item dropdown, which bound `customFormatId` but the wire field is `format` (the
+> CustomFormat id) — see the corrected Data Shape below. No migration (UpgradeAllowed column
+> already exists; IsDefault is config-backed).
+
 ## Data Shape (Phase 5 D-07)
 
 ```typescript

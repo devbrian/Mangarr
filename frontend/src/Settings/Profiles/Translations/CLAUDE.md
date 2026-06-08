@@ -46,8 +46,17 @@ interface TranslationProfileResource {
   languages: string[]; // flat ordered BCP-47 codes; array index = preference rank (Phase 5 D-03)
   allowLanguagesNotInProfile: boolean; // Phase 5 D-02 strict-mode bool, default false
   upgradeAllowed: boolean; // Phase 6 D-10 per-profile upgrade flag, default true (GH #138)
+  isDefault: boolean; // quick-260608-gmm — backend-computed from Config.DefaultTranslationProfileId
 }
 ```
+
+> **quick-260608-gmm (Default checkbox wired up):** the GH #127 note below is historically
+> accurate — there is no `isDefault` *column*. But the editor now exposes a functional **Default**
+> checkbox: `TranslationProfileController` injects `IConfigService`, stamps
+> `IsDefault = (DefaultTranslationProfileId == Id)` on every GET, and on POST/PUT with
+> `isDefault:true` points the global config key at that profile (moving the single default;
+> unchecking is a no-op — change the default by checking a different profile). Mirrors the
+> `CustomFormatProfile` Default checkbox fixed in the same task. No migration (config-backed).
 
 > **GH #127 history (debug `gh127-tprofile-langs-mismatch`, 2026-05-14):** Phase 7 D-05
 > built this sub-tree speculatively against a `languages: { language, rank, allowed }[]`

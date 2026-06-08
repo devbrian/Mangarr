@@ -16,6 +16,13 @@ public class TranslationProfileResource : RestResource
     // the field, freezing it at the C# default true and making it unconfigurable from
     // the UI. Exposed here to round-trip it (mirrors Sonarr QualityProfile.UpgradeAllowed).
     public bool UpgradeAllowed { get; set; } = true;
+
+    // IsDefault is NOT a column on TranslationProfile — the default profile is the global
+    // Config.DefaultTranslationProfileId. The controller computes this on read (== this Id) and,
+    // on create/update with IsDefault==true, points the config key at this profile. The mapper
+    // leaves it false; only the controller (which has IConfigService) sets it. (quick-260608-gmm:
+    // wired up to match the CustomFormatProfile Default checkbox.)
+    public bool IsDefault { get; set; }
 }
 
 public static class TranslationProfileResourceMapper
