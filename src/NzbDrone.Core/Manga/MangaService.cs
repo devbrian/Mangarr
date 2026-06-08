@@ -85,6 +85,11 @@ namespace NzbDrone.Core.Manga
             return _mangaRepository.FindByAniListId(aniListId);
         }
 
+        public Manga FindByMangaBakaId(int mangaBakaId)
+        {
+            return _mangaRepository.FindByMangaBakaId(mangaBakaId);
+        }
+
         public Manga FindByTitle(string title)
         {
             return _mangaRepository.FindByTitle(title);

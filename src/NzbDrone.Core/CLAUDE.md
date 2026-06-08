@@ -92,7 +92,7 @@ for the full Manga directory contents.
 | (no `Season` peer) | PROJECT.md Volumes/Seasons Out-of-Scope; `Chapter.VolumeNumber` is display-only with no Volumes table. |
 | `Manga/MangaService.cs` | Manga CRUD, lookup |
 | `Manga/ChapterService.cs` (under `Manga/Chapter/` or sibling) | Chapter CRUD, monitor toggling |
-| `Manga/RefreshMangaService.cs` | Sync metadata from external source (MangaDex / AniList / MAL) |
+| `Manga/RefreshMangaService.cs` | Sync metadata from external source (MangaBaka / MangaDex / AniList / MAL). Auto-relinks a manga whose active-primary cross-source ID is missing (e.g. added under MangaDex, then MangaBaka promoted) via `TryRelinkPrimaryId` — title search + `CrossSourceIdResolver` confirm + fill-null ID carry-over + persist, so libraries heal themselves on primary swap; no confident match → skip + Warn. |
 | `Manga/AddMangaService.cs` | Add-new-manga workflow |
 | `Manga/MangaEditedService.cs` | Apply post-edit side effects |
 | `Manga/MangaRepository.cs` / `ChapterRepository.cs` | Dapper-based repos |

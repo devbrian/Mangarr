@@ -20,6 +20,7 @@ namespace NzbDrone.Core.Manga
         Manga FindByMangaDexId(Guid mangaDexId);
         Manga FindByMalId(int malId);
         Manga FindByAniListId(int aniListId);
+        Manga FindByMangaBakaId(int mangaBakaId);
         Manga FindByTitle(string title);
         Manga FindByTitle(string title, int year);
         List<Manga> FindByTitleInexact(string title);

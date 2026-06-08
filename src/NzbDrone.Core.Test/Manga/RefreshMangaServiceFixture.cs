@@ -15,6 +15,7 @@ using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
+using NzbDrone.Core.MetadataSource.MangaBaka;
 using NzbDrone.Core.MetadataSource.MangaDex;
 using NzbDrone.Core.MetadataSource.MyAnimeList;
 using NzbDrone.Core.Parser.Manga;
@@ -54,6 +55,11 @@ namespace NzbDrone.Core.Test.MangaTests
             Mocker.GetMock<IMetadataSourceFactory>()
                   .Setup(f => f.GetPrimary())
                   .Returns(_primaryDef);
+
+            // CrossSourceIdResolver is a concrete class — inject a real instance so the
+            // auto-relink path (RefreshMangaService.TryRelinkPrimaryId) exercises the
+            // genuine Jaro-Winkler + multi-axis gate. Mirrors AddMangaServiceFixture.
+            Mocker.SetConstant(new CrossSourceIdResolver(NLog.LogManager.GetCurrentClassLogger()));
 
             // Phase 8 cluster-01 cascade: production now snapshots chapters via
             // IChapterService.GetChaptersByManga before/after the chapter-sync pass to compute
@@ -170,6 +176,91 @@ namespace NzbDrone.Core.Test.MangaTests
             stub.GetMangaInfoCalls.Should().BeEmpty();
 
             // WR-08: the skip is now logged at Warn so users see they need to relink.
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
+        public void Execute_auto_relinks_manga_to_new_primary_when_id_missing_and_title_matches()
+        {
+            // A manga added under MangaDex (has MangaDexId, no MangaBakaId) after the user
+            // promoted MangaBaka to primary. The active primary has no source id for it, so
+            // RefreshMangaService must auto-resolve the MangaBakaId by a confirmed title
+            // match and proceed with the refresh instead of skipping.
+            var bakaPrimary = new MetadataSourceDefinition { Id = 4, Name = "MangaBaka", IsPrimary = true };
+            Mocker.GetMock<IMetadataSourceFactory>().Setup(f => f.GetPrimary()).Returns(bakaPrimary);
+
+            var existing = new Manga.Manga
+            {
+                Id = 1,
+                Title = "Dungeons and Crayons",
+                MangaDexId = Guid.NewGuid(),
+                MangaBakaId = null,
+                PublicationYear = 2020,
+                PrimaryAuthor = "Some Author",
+                TotalChapterCount = 50,
+                Path = TestMangaPath,
+            };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(existing);
+            Mocker.GetMock<IMangaService>()
+                  .Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>()))
+                  .Returns<Manga.Manga, bool>((m, _) => m);
+
+            // The MangaBaka search hit clears the CrossSourceIdResolver gate (identical
+            // title + matching year/author/chapter-count → 3/3 axes).
+            var hit = new Manga.Manga
+            {
+                Title = "Dungeons and Crayons",
+                MangaBakaId = 999,
+                PublicationYear = 2020,
+                PrimaryAuthor = "Some Author",
+                TotalChapterCount = 50,
+            };
+            var refreshed = new Manga.Manga { Id = 1, Title = "Dungeons and Crayons", MangaBakaId = 999 };
+            var stub = new StubMangaBakaProvider(hit, refreshed);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            // The resolved MangaBakaId was persisted (relink) and the refresh proceeded
+            // through GetMangaInfo with that id — no skip, no warn.
+            existing.MangaBakaId.Should().Be(999);
+            existing.MangaDexId.Should().NotBeNull("the original MangaDex link is preserved as a fallback");
+            Mocker.GetMock<IMangaService>()
+                  .Verify(m => m.UpdateManga(It.Is<Manga.Manga>(x => x.MangaBakaId == 999), false), Times.AtLeastOnce());
+            stub.GetMangaInfoCalls.Should().Contain("999");
+        }
+
+        [Test]
+        public void Execute_skips_manga_when_auto_relink_finds_no_confident_match()
+        {
+            // Same setup as the happy path but the MangaBaka search hit has a wildly
+            // different title so the resolver gate fails — the manga is skip-warned and
+            // its existing metadata is left untouched (never repointed to a wrong title).
+            var bakaPrimary = new MetadataSourceDefinition { Id = 4, Name = "MangaBaka", IsPrimary = true };
+            Mocker.GetMock<IMetadataSourceFactory>().Setup(f => f.GetPrimary()).Returns(bakaPrimary);
+
+            var existing = new Manga.Manga
+            {
+                Id = 1,
+                Title = "Dungeons and Crayons",
+                MangaDexId = Guid.NewGuid(),
+                MangaBakaId = null,
+                Path = TestMangaPath,
+            };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(existing);
+
+            var hit = new Manga.Manga { Title = "Totally Unrelated Series", MangaBakaId = 999 };
+            var stub = new StubMangaBakaProvider(hit, new Manga.Manga { Id = 1 });
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            existing.MangaBakaId.Should().BeNull("no confident match → no relink");
+            stub.GetMangaInfoCalls.Should().BeEmpty("the manga was skipped, not refreshed");
             ExceptionVerification.ExpectedWarns(1);
         }
 
@@ -639,6 +730,40 @@ namespace NzbDrone.Core.Test.MangaTests
             {
                 _result = result;
                 Definition = new MetadataSourceDefinition { Id = 3, Name = "MyAnimeList", IsPrimary = false };
+            }
+
+            public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)
+            {
+                GetMangaInfoCalls.Add(sourceId);
+                return Tuple.Create(_result, (IEnumerable<Chapter>)(Chapters ?? Enumerable.Empty<Chapter>()));
+            }
+
+            public IEnumerable<Chapter> Chapters { get; set; }
+        }
+
+        // Auto-relink helper: a MangaBaka primary that returns a single search hit for
+        // any title and records both the search terms and the GetMangaInfo source ids it
+        // is asked for. Lets the auto-relink test assert that a MangaDex-added manga is
+        // repointed at MangaBaka and the refresh proceeds with the resolved id.
+        private class StubMangaBakaProvider : MangaBakaMetadataSource
+        {
+            private readonly Manga.Manga _searchHit;
+            private readonly Manga.Manga _result;
+            public List<string> SearchCalls { get; } = new();
+            public List<string> GetMangaInfoCalls { get; } = new();
+
+            public StubMangaBakaProvider(Manga.Manga searchHit, Manga.Manga result)
+                : base(new Mock<NzbDrone.Common.Http.IHttpClient>().Object, NLog.LogManager.GetCurrentClassLogger())
+            {
+                _searchHit = searchHit;
+                _result = result;
+                Definition = new MetadataSourceDefinition { Id = 4, Name = "MangaBaka", IsPrimary = true };
+            }
+
+            public override List<Manga.Manga> SearchForNewManga(string title)
+            {
+                SearchCalls.Add(title);
+                return _searchHit != null ? new List<Manga.Manga> { _searchHit } : new List<Manga.Manga>();
             }
 
             public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)

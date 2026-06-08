@@ -143,6 +143,11 @@ namespace NzbDrone.Core.Manga
             return Query(m => m.AniListId == aniListId).SingleOrDefault();
         }
 
+        public Manga FindByMangaBakaId(int mangaBakaId)
+        {
+            return Query(m => m.MangaBakaId == mangaBakaId).SingleOrDefault();
+        }
+
         public Manga FindByPath(string path)
         {
             return Query(m => m.Path == path).FirstOrDefault();
