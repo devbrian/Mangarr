@@ -6,9 +6,12 @@
 // 6-state badge set per UI-SPEC §Chapter status badge set + RESEARCH Lock #4.
 // Status precedence (when multiple states could apply):
 //   failed > blocklisted > have-file > queued > wanted > unmonitored
-// NOTE: `failed` is `!hasFile`-guarded (see isFailed below) so a present
-// ChapterFile always wins over a stale historical downloadFailed event —
-// Sonarr EpisodeStatus parity (debug: chapter-status-stale-failed).
+// NOTE: BOTH `failed` and `blocklisted` are `!hasFile`-guarded (see isFailed +
+// isBlocklisted below) so a present ChapterFile always wins over a stale
+// historical downloadFailed event OR a lingering blocklist row — Sonarr
+// EpisodeStatus parity (debug: chapter-status-stale-failed + auto-retry-one-
+// release-exhaust follow-up: a chapter that the auto-retry recovered via a
+// next-best release still carries the blocklist row for the release that failed).
 //
 // Manga sibling preserves: small icon-button rendering pattern; Helpers/Props
 // icons + kinds.
@@ -111,7 +114,15 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
         (q.chapterIds?.includes(chapter.id) ?? false)
     );
 
+  // `!hasFile`-guarded for the SAME reason as isFailed above: the "Best release
+  // for this chapter is blocklisted" badge is an actionable WANTED-state warning
+  // (the chapter can't be auto-grabbed because its best release is blocklisted).
+  // Once the chapter has a file — e.g. the auto-retry grabbed a next-best release
+  // after the failed one was blocklisted — the blocklist row legitimately persists
+  // as history, but it must NOT paint the row red over an imported CBZ. Sonarr
+  // EpisodeStatus never renders a blocklist warning over a downloaded episode.
   const isBlocklisted =
+    !hasFile &&
     !!blocklist?.records &&
     blocklist.records.some((b) => b.chapterIds?.includes(chapter.id) ?? false);
 

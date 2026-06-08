@@ -50,6 +50,11 @@ URL-shaped React Query cache contract from Plan 07-02 SignalR handlers.
 - **Status-precedence order** in `ChapterStatus.tsx`:
   `failed > blocklisted > have-file > queued > wanted > unmonitored`
   (Lock #4). Wrong precedence breaks the UI-04 chapter-row icon meaning.
+  **Both `failed` and `blocklisted` are `!hasFile`-guarded** so a present
+  ChapterFile always wins (debug: chapter-status-stale-failed +
+  auto-retry-one-release-exhaust follow-up — a chapter the auto-retry recovered
+  via a next-best release still carries the blocklist row for the failed release,
+  which must not paint the imported row red).
 - **No per-row `chapterId`-filtered queries inside `ChapterStatus`** — issue #51
   lifted the `lastEvent === 'downloadFailed'` lookup into
   `Manga/Details/MangaDetailsProvider` (one whole-manga `/manga/history?mangaIds=<id>`
