@@ -19,11 +19,11 @@ namespace NzbDrone.Automation.Test.Tests.Settings.AutoTagging;
 ///   STEP 1 — Fresh DB: create AutoTagging rule with DemographicSpecification
 ///            value=Shonen (MangaDemographic.Shonen=1) + Tags=[seedTagId] via
 ///            POST /api/v5/autotagging.
-///   STEP 2 — Add Komi Can't Communicate via AddMangaFlow.AddByMangaDexIdAsync
+///   STEP 2 — Add Komi Can't Communicate via AddMangaFlow.AddByMangaBakaIdAsync
 ///            (MangaDex publicationDemographic=shounen, maps to Shonen=1 per
 ///            Plan 24-02 MapDemographic helper). Plan note (CONTEXT.md line
 ///            634) called for Solo Leveling but Komi is the canonical
-///            cassette-replayed test anchor (KnownMangaDexId on
+///            cassette-replayed test anchor (KnownMangaBakaId on
 ///            AddMangaFlow.cs:36) — same Shonen demographic, deterministic
 ///            and network-OFF per Phase 18 D-06. The MangaAutoTaggingApplier
 ///            IHandle of MangaAddedEvent fires on the add and applies the
@@ -106,7 +106,7 @@ public class AutoTaggingFirstRecordFixture : AutomationTest
         // IHandle<MangaAddedEvent> fires and applies the rule. Verify Komi
         // carries the seed tag.
         // ===================================================================
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, AddMangaFlow.KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, AddMangaFlow.KnownMangaBakaId);
 
         // Allow the IHandle<MangaAddedEvent> dispatch to settle.
         await WaitForKomiToCarryTagAsync(
@@ -206,7 +206,7 @@ public class AutoTaggingFirstRecordFixture : AutomationTest
     }
 
     /// <summary>
-    /// Polls GET /api/v5/manga, finds Komi by MangaDexId, asserts whether its
+    /// Polls GET /api/v5/manga, finds Komi by MangaBakaId, asserts whether its
     /// `tags` array contains the seed tag. Bounded retry loop (≤10s) avoids
     /// flake when the applier's IHandle dispatch lands on a different thread
     /// than the API request; do NOT use an unbounded until-loop per memory
@@ -227,8 +227,9 @@ public class AutoTaggingFirstRecordFixture : AutomationTest
 
             var komi = root.EnumerateArray()
                 .FirstOrDefault(e =>
-                    e.TryGetProperty("mangaDexId", out var mdxId)
-                    && mdxId.GetString() == AddMangaFlow.KnownMangaDexId);
+                    e.TryGetProperty("mangaBakaId", out var mbId)
+                    && mbId.ValueKind == global::System.Text.Json.JsonValueKind.Number
+                    && mbId.GetInt32() == int.Parse(AddMangaFlow.KnownMangaBakaId));
 
             komi.ValueKind.Should().NotBe(global::System.Text.Json.JsonValueKind.Undefined,
                 $"{stepLabel} — Komi MUST exist in the library (added via AddMangaFlow in STEP 2)");
@@ -248,6 +249,6 @@ public class AutoTaggingFirstRecordFixture : AutomationTest
         lastCarried.Should().Be(
             expectedToCarry,
             $"{stepLabel}. After 10s of polling, the actual tag-carry state did not match the AT-09 expectation. " +
-            $"Komi MangaDexId={AddMangaFlow.KnownMangaDexId}; seedTagId={seedTagId}.");
+            $"Komi MangaBakaId={AddMangaFlow.KnownMangaBakaId}; seedTagId={seedTagId}.");
     }
 }

@@ -113,9 +113,10 @@ function AddNewManga() {
           <div className={styles.searchResults}>
             {data.map((item, index) => {
               // Lookup rows may not yet carry a database id; key on a stable
-              // identifier from MangaDex / AniList / MAL when present, else
-              // fall back to the position in the result list.
+              // identifier from MangaBaka / MangaDex / AniList / MAL when present,
+              // else fall back to the position in the result list.
               const key =
+                (item.mangaBakaId != null ? `mb-${item.mangaBakaId}` : null) ??
                 item.mangaDexId ??
                 (item.aniListId != null ? `al-${item.aniListId}` : null) ??
                 (item.malId != null ? `mal-${item.malId}` : null) ??

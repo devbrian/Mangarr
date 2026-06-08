@@ -254,6 +254,7 @@ function ImportMangaFooter({ rootFolderPath }: ImportMangaFooterProps) {
       return addMangaAsync({
         title: m.title,
         titleSlug: m.titleSlug,
+        mangaBakaId: m.mangaBakaId,
         mangaDexId: m.mangaDexId,
         aniListId: m.aniListId,
         malId: m.malId,

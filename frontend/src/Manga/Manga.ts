@@ -108,6 +108,7 @@ interface Manga extends ModelBase {
   mangaDexId?: string;
   aniListId?: number;
   malId?: number;
+  mangaBakaId?: number;
   // Plural arrays carried for future-multi-source extension; preferred shape per
   // plan must_haves §truths (downstream Plans 07-04..07-10 may reference either).
   aniListIds?: number[];

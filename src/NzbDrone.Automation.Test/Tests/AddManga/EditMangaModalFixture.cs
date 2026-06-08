@@ -9,7 +9,7 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 
 /// <summary>
 /// Phase 18 Plan-04 AddManga cluster — Edit modal open + save round-trip.
-/// Chains AddMangaFlow.AddByMangaDexIdAsync to seed a manga, then clicks
+/// Chains AddMangaFlow.AddByMangaBakaIdAsync to seed a manga, then clicks
 /// the MangaDetails Edit button, asserts the modal opens, clicks Save, and
 /// asserts the modal closes + URL still on /manga/{slug}.
 ///
@@ -27,12 +27,12 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 [Category("AutomationTest")]
 public class EditMangaModalFixture : AutomationTest
 {
-    private const string KnownMangaDexId = "a96676e5-8ae2-425e-b549-7f15dd34a6d8";
+    private const string KnownMangaBakaId = "3397";
 
     [Test]
     public async Task edit_modal_opens_and_saves()
     {
-        var details = await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        var details = await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         await details.EditButton.ClickAsync();
 

@@ -21,13 +21,13 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 /// Distinct from AddNewMangaModalFixture (modal-action axis row 146; Nightly;
 /// asserts the open → submit → close UI contract). This fixture asserts on
 /// the endpoint URL + status + the wire-shape of the response body (id
-/// emitted; mangaDexId persisted) — distinct from the modal-action axis
+/// emitted; mangaBakaId persisted) — distinct from the modal-action axis
 /// fixture which focuses on the modal-close + URL-transition contract.
 ///
 /// State assertion (per feedback_verify_ui_state_not_just_rendering):
 ///   1. POST /api/v5/manga returns 2xx.
 ///   2. Response body wires an integer id (the new MangaId).
-///   3. The seeded mangaDexId round-trips on the response payload.
+///   3. The seeded mangaBakaId round-trips on the response payload.
 ///
 /// Pitfall 10: Comix disabled in OneTimeSetUp.
 /// </summary>
@@ -36,7 +36,7 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 [Category("PRSmoke")]
 public class AddMangaModalFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task add_button_posts_manga()
@@ -54,7 +54,7 @@ public class AddMangaModalFixture : AutomationTest
         // POST. This proves the modal Add button wires to the v5 endpoint
         // end-to-end (rather than asserting on a synthetic Page.APIRequest
         // shape that bypasses the UI).
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // STATE assertion 1: POST /api/v5/manga returned 2xx.
         var resp = await postTask;
@@ -71,10 +71,10 @@ public class AddMangaModalFixture : AutomationTest
             "\"id\"",
             "POST /api/v5/manga response must carry an `id` field (MangaResource.Id)");
 
-        // STATE assertion 3: the seeded mangaDexId round-trips on the response.
+        // STATE assertion 3: the seeded mangaBakaId round-trips on the response.
         // Confirms the wire-shape preserves the cross-source id input.
         body.Should().Contain(
-            KnownMangaDexId,
-            "POST /api/v5/manga response must echo the input mangaDexId field");
+            KnownMangaBakaId,
+            "POST /api/v5/manga response must echo the input mangaBakaId field");
     }
 }

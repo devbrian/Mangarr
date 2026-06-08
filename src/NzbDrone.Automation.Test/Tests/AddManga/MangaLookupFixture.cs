@@ -15,7 +15,7 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 /// per the mechanical row-axis rule.
 ///
 /// Drives the AddManga search input flow and asserts the lookup endpoint
-/// fires + returns a non-empty results array (cassette-replayed MangaDex).
+/// fires + returns a non-empty results array (cassette-replayed MangaBaka).
 ///
 /// State assertion (per feedback_verify_ui_state_not_just_rendering):
 ///   1. GET /api/v5/manga/lookup returns 200.
@@ -29,7 +29,11 @@ namespace NzbDrone.Automation.Test.Tests.AddManga;
 [Category("PRSmoke")]
 public class MangaLookupFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    // Phase 41 (41-03 D-01a) flipped the DEFAULT primary metadata source from
+    // MangaDex to MangaBaka. A fresh DB auto-seeds ONLY MangaBaka, so no setup
+    // seeding is required — the lookup endpoint dispatches to the auto-seeded
+    // primary at request time and this MangaBaka anchor id routes to its cassette.
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task lookup_returns_results()
@@ -43,7 +47,7 @@ public class MangaLookupFixture : AutomationTest
             new() { Timeout = 30_000 });
 
         // Filling triggers the AddNewManga.tsx debounced lookup (500ms).
-        await addPage.SearchInput.FillAsync(KnownMangaDexId);
+        await addPage.SearchInput.FillAsync(KnownMangaBakaId);
 
         // STATE assertion 1: GET /api/v5/manga/lookup returned 200.
         var resp = await lookupTask;
@@ -60,12 +64,12 @@ public class MangaLookupFixture : AutomationTest
             "lookup response must be a JSON array of MangaResource (the lookup-results envelope)");
         body.Should().NotBe(
             "[]",
-            "cassette-replayed MangaDex must return at least one result for the known UUID");
+            "cassette-replayed MangaBaka must return at least one result for the known id");
 
         // STATE assertion 3: at least one search-result row renders in the UI.
-        var resultRow = addPage.ResultRowByKey(KnownMangaDexId);
-        await resultRow.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
-        var count = await Page.Locator("[data-testid^='add-manga-result-']").CountAsync();
+        var resultRows = Page.Locator("[data-testid^='add-manga-result-']");
+        await resultRows.First.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
+        var count = await resultRows.CountAsync();
         count.Should().BeGreaterThan(
             0,
             "AddNewMangaSearchResult rows must render after the lookup returns results");

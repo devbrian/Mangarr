@@ -101,6 +101,7 @@ function ChapterRow({ chapter, columns }: ChapterRowProps) {
                 chapterId={chapter.id}
                 mangaId={chapter.mangaId}
                 chapterTitle={chapter.title}
+                chapterNumber={chapter.chapterNumber}
               />
             </TableRowCell>
           );

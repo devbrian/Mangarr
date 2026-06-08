@@ -44,14 +44,14 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("PRSmoke")]
 public class MangaFolderFieldFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task folder_field_renders()
     {
         // Seed a manga via AddMangaFlow so a real Manga row exists in the DB
         // with a populated Path (root folder + title slug).
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         var mangaId = await ResolveMangaIdAsync();
 

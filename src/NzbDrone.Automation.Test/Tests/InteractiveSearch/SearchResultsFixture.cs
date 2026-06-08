@@ -35,12 +35,12 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveSearch;
 [Category("PRSmoke")]
 public class SearchResultsFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task results_render()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         var slug = Page.Url.Split('/')[^1];
         slug.Should().NotBeNullOrEmpty();

@@ -40,12 +40,17 @@ public class MangaLookupController : Controller
         var primaryDef = _metaFactory.GetPrimary();
         var primary = _metaFactory.GetInstance(primaryDef);
 
-        // UUID short-circuit: if the user pastes a MangaDex UUID into the search input,
-        // route to the by-id lookup instead of fuzzy title search (which won't match a UUID).
-        // The provider returns an empty list on 404 so an unknown UUID falls back to the
+        // By-id short-circuit: if the user pastes a MangaDex UUID OR an integer MangaBaka id
+        // into the search input, route to the by-id lookup instead of fuzzy title search
+        // (which won't match a raw id). The numeric branch serves MangaBaka's integer ids
+        // (parallel to the MangaDex UUID branch); for the MangaBaka primary,
+        // SearchForNewMangaByMangaDexId performs the int-by-id lookup (param name is
+        // legacy-string, behavior is provider-defined per Plan 41-03). ISearchForNewManga is
+        // deliberately NOT widened (D-07-R / Open Q1 — 4-provider blast radius).
+        // The provider returns an empty list on 404 so an unknown id falls back to the
         // existing no-match UX (zero results). Mirrors the Sonarr-shape "paste TVDB id" UX.
         List<NzbDrone.Core.Manga.Manga> hits;
-        if (Guid.TryParse(term, out _))
+        if (Guid.TryParse(term, out _) || int.TryParse(term, out _))
         {
             try
             {

@@ -53,7 +53,7 @@ namespace NzbDrone.Automation.Test.Tests.InteractiveImport;
 /// **Pitfall 10:** Comix disabled in OneTimeSetUp.
 ///
 /// **Forward extension when #175 + Plan 30-03 modal body land end-to-end:**
-///   - Seed 2+ manga via AddMangaFlow.AddByMangaDexIdAsync.
+///   - Seed 2+ manga via AddMangaFlow.AddByMangaBakaIdAsync.
 ///   - Navigate Queue + seed a queue row.
 ///   - Open InteractiveImportModal → click the manga cell (testid
 ///     <c>interactive-import-row-{id}-manga</c>) → assert

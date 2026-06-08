@@ -24,12 +24,12 @@ namespace NzbDrone.Automation.Test.Tests.Wanted;
 [Category("AutomationTest")]
 public class MangaMissingSearchAllFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task search_all_triggers_command_or_toast()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
         await new MangaMissingPage(Page).OpenAsync(RootUri);
 
         // STATE assertion 1: shell present.

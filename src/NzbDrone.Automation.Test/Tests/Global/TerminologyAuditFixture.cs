@@ -20,7 +20,7 @@ namespace NzbDrone.Automation.Test.Tests.Global;
 /// as a state predicate.
 ///
 /// Cross-process AddManga seed dependency: NONE. This fixture is fully live —
-/// it navigates pure-read routes; no AddMangaFlow.AddByMangaDexIdAsync hop is
+/// it navigates pure-read routes; no AddMangaFlow.AddByMangaBakaIdAsync hop is
 /// required (issue #102 D-D race does not apply).
 /// </summary>
 [TestFixture]

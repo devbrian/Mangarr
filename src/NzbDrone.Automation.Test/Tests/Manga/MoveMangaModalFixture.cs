@@ -35,7 +35,7 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("AutomationTest")]
 public class MoveMangaModalFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     private string _secondRootFolder = string.Empty;
 
@@ -51,7 +51,7 @@ public class MoveMangaModalFixture : AutomationTest
     [Test]
     public async Task move_confirm()
     {
-        var details = await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        var details = await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         await details.EditButton.ClickAsync();
         var editModal = new EditMangaModal(Page);

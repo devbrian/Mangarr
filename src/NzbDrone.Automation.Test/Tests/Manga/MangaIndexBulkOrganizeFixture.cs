@@ -29,14 +29,14 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("AutomationTest")]
 public class MangaIndexBulkOrganizeFixture : AutomationTest
 {
-    private const string KnownMangaDexId  = AddMangaFlow.KnownMangaDexId;
-    private const string KnownMangaDexId2 = AddMangaFlow.KnownMangaDexId2;
+    private const string KnownMangaBakaId  = AddMangaFlow.KnownMangaBakaId;
+    private const string KnownMangaBakaId2 = AddMangaFlow.KnownMangaBakaId2;
 
     [Test]
     public async Task bulk_organize()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId2);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId2);
 
         var index = await new MangaIndexPage(Page).OpenAsync(RootUri);
         await Assertions.Expect(index.PageRoot).ToBeVisibleAsync();

@@ -22,12 +22,12 @@ namespace NzbDrone.Automation.Test.Tests.Routes;
 [Category("AutomationTest")]
 public class MangaDetailsPageLoadFixture : AutomationTest
 {
-    private const string KnownMangaDexId = "a96676e5-8ae2-425e-b549-7f15dd34a6d8";
+    private const string KnownMangaBakaId = "3397";
 
     [Test]
     public async Task loads_manga_details_for_added_manga()
     {
-        var details = await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        var details = await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         await Assertions.Expect(details.PageRoot).ToBeVisibleAsync();
         Page.Url.Should().MatchRegex(@"/manga/[^/]+$");

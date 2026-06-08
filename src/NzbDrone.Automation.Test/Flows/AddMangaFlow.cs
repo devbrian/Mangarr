@@ -30,50 +30,50 @@ namespace NzbDrone.Automation.Test.Flows;
 public static class AddMangaFlow
 {
     /// <summary>
-    /// Canonical first test-anchor MangaDex UUID — Komi Can't Communicate
-    /// (Komi-san wa Komyushou Desu.). Used as the default seed in single-manga fixtures.
+    /// Canonical first test-anchor MangaBaka id — Solo Leveling. Used as the
+    /// default seed in single-manga fixtures.
     /// </summary>
-    public const string KnownMangaDexId = "a96676e5-8ae2-425e-b549-7f15dd34a6d8";
+    public const string KnownMangaBakaId = "3397";
 
     /// <summary>
-    /// Canonical second test-anchor MangaDex UUID — Chainsaw Man. Used by
+    /// Canonical second test-anchor MangaBaka id — Chainsaw Man. Used by
     /// MangaIndexBulkActionsFixture and any future fixture that requires 2
     /// distinct manga in the seed state (avoids unique-key collision on the
-    /// Manga.MangaDexId column).
+    /// Manga.MangaBakaId column).
     /// </summary>
-    public const string KnownMangaDexId2 = "a77742b1-befd-49a4-bff5-1ad4e6b0ef7b";
+    public const string KnownMangaBakaId2 = "1677";
 
     /// <summary>
-    /// Add a manga by MangaDex ID, accepting the modal defaults (root folder, monitor,
+    /// Add a manga by MangaBaka ID, accepting the modal defaults (root folder, monitor,
     /// translation profile from Settings). Returns the resulting MangaDetailsPage where
     /// the user lands after the post-add navigation.
     /// </summary>
     /// <param name="page">Active Playwright page for the test.</param>
     /// <param name="rootUri">Mangarr backend root URI (honor port mobility — never hard-code :8989).</param>
-    /// <param name="mangaDexId">Stable MangaDex UUID used as the row identifier in the search-result row testid.</param>
-    public static async Task<MangaDetailsPage> AddByMangaDexIdAsync(IPage page, string rootUri, string mangaDexId)
+    /// <param name="mangaBakaId">Stable MangaBaka id used as the row identifier in the search-result row testid.</param>
+    public static async Task<MangaDetailsPage> AddByMangaBakaIdAsync(IPage page, string rootUri, string mangaBakaId)
     {
         var addPage = await new AddMangaPage(page).OpenAsync(rootUri);
 
         // Fill the search input + submit. The Mangarr AddManga page debounces (500ms per
         // AddNewManga.tsx) — pressing Enter does not bypass debounce, so simply fill + wait
-        // for the result row. The result row is keyed by mangaDexId per
-        // AddNewMangaSearchResult.tsx's data-testid={`add-manga-result-${mangaDexId}`}.
+        // for the result row. The result row is keyed by mangaBakaId per
+        // AddNewMangaSearchResult.tsx's data-testid={`add-manga-result-${mangaBakaId}`}.
         //
-        // 2026-05-18: live MangaDex `/manga/{id}` calls can transiently fail or
+        // 2026-05-18: live MangaBaka `/manga/{id}` calls can transiently fail or
         // rate-limit when several fixtures run in close succession (observed on
         // Phase 24 smoke gate Run #1 + #3 + #4: bulk_edit + bulk_save + bulk_delete
         // + bulk_tags + bulk_organize intermittently failed on the second test manga
-        // `a77742b1-...` (Chainsaw Man) — different subset each run, all failing on
+        // `1677` (Chainsaw Man) — different subset each run, all failing on
         // the result-row wait. Single retry inside a 60s window wasn't enough; some
         // rate-limit windows last 90s+. We retry up to 4 total attempts with
         // progressive sleep (1s, 10s, 30s) between retriggers to ride out longer
         // throttle windows without masking a real backend regression (a code-bug
         // failure would still fail every attempt, taking ~120s+ total before
         // surfacing).
-        await addPage.SearchInput.FillAsync(mangaDexId);
+        await addPage.SearchInput.FillAsync(mangaBakaId);
 
-        var resultRow = addPage.ResultRowByKey(mangaDexId);
+        var resultRow = addPage.ResultRowByKey(mangaBakaId);
         var retryWaitsMs = new[] { 1_000, 10_000, 30_000 };
         var attempt = 0;
         while (true)
@@ -87,7 +87,7 @@ public static class AddMangaFlow
             {
                 await addPage.SearchInput.FillAsync(string.Empty);
                 await page.WaitForTimeoutAsync(retryWaitsMs[attempt]);
-                await addPage.SearchInput.FillAsync(mangaDexId);
+                await addPage.SearchInput.FillAsync(mangaBakaId);
                 attempt++;
             }
         }

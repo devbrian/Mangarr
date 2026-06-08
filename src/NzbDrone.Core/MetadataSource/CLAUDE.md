@@ -134,6 +134,7 @@ UNTOUCHED until Phase 8 cutover.
 | `IMetadataSourceRepository.cs` / `MetadataSourceRepository.cs` | ProviderRepository<MetadataSourceDefinition> with `FindByName` + `GetPrimary` |
 | `MangaNotFoundException.cs` | Thrown by providers on upstream 404 |
 | `MangaDex/`, `AniList/`, `MyAnimeList/` | v1 provider implementations (Plans 02-06..02-08) |
+| `MangaBaka/` | v1.3 DEFAULT PRIMARY provider (Phase 41 — Plans 41-02/41-03). `DefaultIsPrimary=true` (D-01a); direct cross-source ids + synthesized `1..total_chapters` catalog. See [MangaBaka/CLAUDE.md](./MangaBaka/CLAUDE.md). |
 | `CrossSourceIdResolver.cs` | Jaro-Winkler ≥0.85 + 2-of-3 multi-axis confirm per D-19..D-22 (Plan 02-09) |
 
 ### IsPrimary Invariant (D-15)
@@ -158,9 +159,32 @@ to keep the registries clean.
 - DELETE `IProvideSeriesInfo`, `ISearchForNewSeries`, `SkyHookProxy` (TV side)
 - KEEP `IProvideMangaInfo`, `ISearchForNewManga` (already manga-named — no rename needed)
 
+## Phase 41 Additions (MangaBaka default-primary + seeding backfill)
+
+Phase 41 adds the **MangaBaka** metadata source as the new v1.3 DEFAULT PRIMARY (D-01a) and resolves the seed-vs-migration gap (RESEARCH Open Question 2). NEW-in-Mangarr — no Sonarr analog. See [MangaBaka/CLAUDE.md](./MangaBaka/CLAUDE.md) and `DIVERGENCE.md` (Phase 41).
+
+### DefaultIsPrimary flip (Plan 41-03)
+
+- `MangaBakaMetadataSource.DefaultIsPrimary => true` (D-01a — new default primary).
+- `MangaDexMetadataSource.DefaultIsPrimary => false` (paired flip) so a fresh DB seeds exactly ONE primary. MangaDex is KEPT as a first-class fallback (D-01 / D-02), not deprecated.
+
+### Migration 012 — guarded demote (Plan 41-01)
+
+`012_v1_3_add_mangabaka_metadata_source.cs` (`[Migration(12)]`, head was 011) adds `Manga.MangaBakaId` and DEMOTES only the MangaDex-as-primary row on upgrade (D-01 guard; cross-dialect-safe typed `DbType.Boolean` params, `MIN("Id")` single-row scope). It deliberately does **NOT** INSERT a MangaBaka primary row — replicating the provider's Settings-JSON serialization in raw SQL is fragile.
+
+### `InitializeProviders` backfill (Plan 41-01)
+
+`MetadataSourceFactory.InitializeProviders` no longer unconditionally short-circuits on a non-empty table. A non-empty (upgrade) backfill branch creates any primary-default provider lacking a row, promoting it to primary ONLY when no primary currently exists:
+
+- **Common upgrade path:** Migration 012 demoted MangaDex → no primary exists → MangaBaka is promoted.
+- **Explicit non-MangaDex primary:** a primary still exists → MangaBaka backfills NON-primary, preserving the user's choice.
+
+This preserves the at-most-one-primary invariant (D-15) on BOTH fresh and upgraded DBs. Proven by `NzbDrone.Core.Test/MetadataSource/MangaBakaSeedFixture.cs` (fresh / upgraded-no-primary / upgraded-explicit-primary; each asserts `Count(IsPrimary) == 1`).
+
 ## Cross-References
 
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview
+- [MangaBaka/CLAUDE.md](./MangaBaka/CLAUDE.md) — MangaBaka default-primary provider (Phase 41)
 - [../Manga/CLAUDE.md](../Manga/CLAUDE.md) — Manga/Chapter populated from this (the Sonarr `Tv/` analog was deleted in Phase 15)
 - [../Manga/RefreshMangaService.cs](../Manga/RefreshMangaService.cs) — Caller (replaced the deleted Sonarr `Tv/RefreshSeriesService.cs`)
 - [../../Mangarr.Api.V5/Manga/MangaLookupController.cs](../../Mangarr.Api.V5/Manga/MangaLookupController.cs) — Search-add UX entrypoint (replaced the deleted Sonarr `Series/SeriesLookupController.cs`)

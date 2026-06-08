@@ -38,7 +38,7 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 [Category("AutomationTest")]
 public class HistoryTableLoadFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task history_table_loads_with_state_assertions_after_chained_grab()
@@ -47,7 +47,7 @@ public class HistoryTableLoadFixture : AutomationTest
         // ChapterHistory row directly via the raw-SQLite TestKit helper so the
         // History page is populated — independent of the retired in-process
         // InteractiveSearch→grab pipeline (Phase 39 Plan 39-07).
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         var slug = Page.Url.Split('/')[^1];
         slug.Should().NotBeNullOrEmpty("AddMangaFlow must land on the manga details URL");

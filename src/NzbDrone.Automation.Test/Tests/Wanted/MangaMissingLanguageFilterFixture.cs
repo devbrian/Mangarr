@@ -57,12 +57,12 @@ namespace NzbDrone.Automation.Test.Tests.Wanted;
 [Category("PRSmoke")]
 public class MangaMissingLanguageFilterFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task language_filter_persists()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // PR #173 / #320: the AddMangaFlow accepts modal defaults; the frontend
         // `add_manga_options` zustand store starts at `translationProfileId: 0`

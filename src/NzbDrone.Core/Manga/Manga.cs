@@ -8,7 +8,9 @@ namespace NzbDrone.Core.Manga
     // Group 8) but diverges on cross-source ID typing per Phase 2 02-CONTEXT.md
     // specifics: Manga has 1:1 canonical MAL/AniList relationships (unlike anime, which
     // uses HashSet<int>). MangaDexId is Guid? because MangaDex IDs are UUIDs (D-09;
-    // 02-RESEARCH §Open Question 4).
+    // 02-RESEARCH §Open Question 4). MangaBakaId is the integer cross-source id for the
+    // MangaBaka provider (Phase 41 D-03) — typed int? to mirror MalId/AniListId, diverging
+    // from the Guid? MangaDexId because MangaBaka ids are integers, not UUIDs.
     //
     // Persistence: shape matches Migration 002 + 001 baseline columns. Dapper handles
     // Guid? <-> string column round-trips through the global GuidConverter that
@@ -29,6 +31,7 @@ namespace NzbDrone.Core.Manga
         public Guid? MangaDexId { get; set; }
         public int? MalId { get; set; }
         public int? AniListId { get; set; }
+        public int? MangaBakaId { get; set; }
 
         // Phase 5 — per-Manga profile FK columns.
         // Per Phase 5 D-01 (TranslationProfile) + D-07 (CustomFormatProfile). Both nullable int —
@@ -125,8 +128,8 @@ namespace NzbDrone.Core.Manga
 
         // Apply user-mutable fields from a refresh / edit. Mirrors AddSeriesService's
         // ApplyChanges pattern (Tv/Series.cs:70-86): canonical IDs (MangaDexId/MalId/
-        // AniListId) are immutable post-add and intentionally NOT copied here — manual
-        // relink uses the dedicated /api/v5/manga/{id}/links endpoint (Plan 02-09).
+        // AniListId/MangaBakaId) are immutable post-add and intentionally NOT copied here —
+        // manual relink uses the dedicated /api/v5/manga/{id}/links endpoint (Plan 02-09).
         //
         // Phase 8 audit gap-02 (Series-vs-Manga.md): TV's Series.ApplyChanges is
         // dual-purpose — covers BOTH the refresh-merge cycle AND the user-edit cycle

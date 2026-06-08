@@ -11,8 +11,8 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 /// Phase 18 Plan 18-18 — MangaIndex bulk-edit + bulk-delete coverage
 /// (INVENTORY v5-endpoint rows 74, 75: PUT/DELETE /api/v5/manga/editor).
 ///
-/// Seeds 2 distinct manga via AddMangaFlow (using KnownMangaDexId +
-/// KnownMangaDexId2 — the second anchor was added in Plan 18-14 D-Step-0
+/// Seeds 2 distinct manga via AddMangaFlow (using KnownMangaBakaId +
+/// KnownMangaBakaId2 — the second anchor was added in Plan 18-14 D-Step-0
 /// precisely to enable this fixture's "2 manga in library" requirement).
 ///
 /// Flow exercised:
@@ -37,15 +37,15 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("AutomationTest")]
 public class MangaIndexBulkActionsFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
-    private const string KnownMangaDexId2 = AddMangaFlow.KnownMangaDexId2;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
+    private const string KnownMangaBakaId2 = AddMangaFlow.KnownMangaBakaId2;
 
     [Test]
     public async Task bulk_delete_removes_both_seeded_manga_from_index()
     {
         // Seed 2 manga via UI (D-06 — UI-populates-via-UI).
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId2);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId2);
 
         // Navigate to the MangaIndex grid.
         var index = await new MangaIndexPage(Page).OpenAsync(RootUri);

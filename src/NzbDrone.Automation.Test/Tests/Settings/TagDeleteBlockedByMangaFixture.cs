@@ -44,7 +44,7 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 [Category("PRSmoke")]
 public class TagDeleteBlockedByMangaFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     private int _tagId;
 
@@ -55,7 +55,7 @@ public class TagDeleteBlockedByMangaFixture : AutomationTest
         //    default offline mode; live under LiveService matrix). This places
         //    `Komi Can't Communicate` in the library with a known mangaId
         //    available through the post-add API listing.
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // 2. Seed a tag with a per-run-unique label (avoids cross-run cache
         //    collision; label-length capped at 24 chars to keep the human-
@@ -85,7 +85,7 @@ public class TagDeleteBlockedByMangaFixture : AutomationTest
         using var doc = JsonDocument.Parse(listBody);
         var mangaArray = doc.RootElement;
         mangaArray.GetArrayLength().Should().BeGreaterThan(0,
-            "AddMangaFlow.AddByMangaDexIdAsync should have produced at least one manga row");
+            "AddMangaFlow.AddByMangaBakaIdAsync should have produced at least one manga row");
         var first = mangaArray[0];
         var mangaId = first.GetProperty("id").GetInt32();
 

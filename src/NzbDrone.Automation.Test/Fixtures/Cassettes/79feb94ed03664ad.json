@@ -1,0 +1,17 @@
+{
+  "Request": {
+    "Method": "GET",
+    "Url": "http://localhost:8080/caps"
+  },
+  "Response": {
+    "Status": 200,
+    "Body": "{\u0022gatewayVersion\u0022:\u00220.1.0\u0022,\u0022sources\u0022:[{\u0022key\u0022:\u0022mangadex\u0022,\u0022name\u0022:\u0022MangaDex\u0022,\u0022enabled\u0022:true,\u0022supportsSearch\u0022:true,\u0022supportsRecent\u0022:true,\u0022idTypes\u0022:[\u0022mangadexId\u0022],\u0022languages\u0022:[\u0022en\u0022,\u0022es\u0022,\u0022es-la\u0022,\u0022fr\u0022,\u0022de\u0022,\u0022pt-br\u0022,\u0022ru\u0022,\u0022ja\u0022,\u0022ko\u0022,\u0022zh\u0022],\u0022rateLimitPerMinute\u0022:300,\u0022antibot\u0022:\u0022none\u0022},{\u0022key\u0022:\u0022comix\u0022,\u0022name\u0022:\u0022Comix\u0022,\u0022enabled\u0022:true,\u0022supportsSearch\u0022:true,\u0022supportsRecent\u0022:true,\u0022idTypes\u0022:[],\u0022languages\u0022:[\u0022en\u0022],\u0022rateLimitPerMinute\u0022:120,\u0022antibot\u0022:\u0022cloudflare\u002Bencrypted\u0022},{\u0022key\u0022:\u0022mangaball\u0022,\u0022name\u0022:\u0022MangaBall\u0022,\u0022enabled\u0022:true,\u0022supportsSearch\u0022:true,\u0022supportsRecent\u0022:true,\u0022idTypes\u0022:[],\u0022languages\u0022:[\u0022ar\u0022,\u0022ca\u0022,\u0022de\u0022,\u0022en\u0022,\u0022es\u0022,\u0022es-la\u0022,\u0022fr\u0022,\u0022id\u0022,\u0022it\u0022,\u0022ja\u0022,\u0022ko\u0022,\u0022pt-br\u0022,\u0022ru\u0022,\u0022vi\u0022],\u0022rateLimitPerMinute\u0022:480,\u0022antibot\u0022:\u0022none\u0022},{\u0022key\u0022:\u0022mangadot\u0022,\u0022name\u0022:\u0022Mangadot\u0022,\u0022enabled\u0022:true,\u0022supportsSearch\u0022:true,\u0022supportsRecent\u0022:false,\u0022idTypes\u0022:[],\u0022languages\u0022:[\u0022en\u0022],\u0022rateLimitPerMinute\u0022:480,\u0022antibot\u0022:\u0022none\u0022}],\u0022supportedSearchParams\u0022:[\u0022q\u0022,\u0022mangadexId\u0022,\u0022anilistId\u0022,\u0022malId\u0022,\u0022chapter\u0022,\u0022volume\u0022,\u0022language\u0022,\u0022sourceKey\u0022],\u0022limits\u0022:{\u0022defaultPageSize\u0022:50,\u0022maxPageSize\u0022:100},\u0022downloadFormats\u0022:[\u0022cbz\u0022,\u0022cbt\u0022,\u0022folder\u0022]}",
+    "BodyIsBase64": false,
+    "Headers": {
+      "Content-Type": "application/json",
+      "Content-Length": "1061",
+      "Server": "BaseHTTP/0.6, Python/3.9.6",
+      "Date": "Sun, 07 Jun 2026 23:22:15 GMT"
+    }
+  }
+}

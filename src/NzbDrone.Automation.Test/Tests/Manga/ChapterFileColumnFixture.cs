@@ -27,12 +27,12 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("AutomationTest")]
 public class ChapterFileColumnFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task chapter_table_renders_file_column_for_each_chapter_row()
     {
-        var details = await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        var details = await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // STATE assertion 1: MangaDetails page shell present.
         await Assertions.Expect(details.MainContainer).ToBeVisibleAsync();
@@ -61,7 +61,7 @@ public class ChapterFileColumnFixture : AutomationTest
         var rowCount = await chapterRows.CountAsync();
 
         // BL-05 (18-REVIEW): seeded manga MUST have at least one chapter row.
-        // The fresh-DB Komi seed (KnownMangaDexId) is the canonical fixture
+        // The fresh-DB Komi seed (KnownMangaBakaId) is the canonical fixture
         // anchor; if rowCount is zero the cassette tier regressed and the
         // fixture must fail loudly (silent-empty is the bug class BL-05
         // closes).

@@ -47,6 +47,7 @@ public class MangaResource : RestResource
     public Guid? MangaDexId { get; set; }
     public int? MalId { get; set; }
     public int? AniListId { get; set; }
+    public int? MangaBakaId { get; set; }
 
     // Cross-source confirm axes (read-only display; populated by primary metadata source).
     public int? TotalChapterCount { get; set; }
@@ -181,6 +182,7 @@ public static class MangaResourceMapper
             MangaDexId = model.MangaDexId,
             MalId = model.MalId,
             AniListId = model.AniListId,
+            MangaBakaId = model.MangaBakaId,
             TotalChapterCount = model.TotalChapterCount,
             PublicationYear = model.PublicationYear,
             PrimaryAuthor = model.PrimaryAuthor,
@@ -228,6 +230,7 @@ public static class MangaResourceMapper
             MangaDexId = resource.MangaDexId,
             MalId = resource.MalId,
             AniListId = resource.AniListId,
+            MangaBakaId = resource.MangaBakaId,
             TotalChapterCount = resource.TotalChapterCount,
             PublicationYear = resource.PublicationYear,
             PrimaryAuthor = resource.PrimaryAuthor,

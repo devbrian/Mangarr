@@ -200,6 +200,7 @@ function ManageCustomFormatsModalContentInner(
           <SpinnerButton
             isSpinning={isSaving}
             isDisabled={!anySelected}
+            data-testid="settings-customformat-manage-edit-button"
             onPress={onEditPress}
           >
             {translate('Edit')}

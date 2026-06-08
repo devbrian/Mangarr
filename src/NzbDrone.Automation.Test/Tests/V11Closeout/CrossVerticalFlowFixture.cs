@@ -24,7 +24,7 @@ namespace NzbDrone.Automation.Test.Tests.V11Closeout;
 //                                    (Phase 23 trimmed-schema shape; verifies
 //                                    the tag↔delay-profile linkage works
 //                                    after the 4-column drop)
-//   4. AddMangaFlow.AddByMangaDexIdAsync — seed a Manga; the Phase 24 cascade
+//   4. AddMangaFlow.AddByMangaBakaIdAsync — seed a Manga; the Phase 24 cascade
 //                                    runs on the MangaAddedEvent
 //   5. GET /api/v5/manga           — verify the cascade-applied tag actually
 //                                    landed on the seeded Manga (poll-with-
@@ -50,7 +50,7 @@ namespace NzbDrone.Automation.Test.Tests.V11Closeout;
 [Category("PRSmoke")]
 public class CrossVerticalFlowFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task tag_autotagging_delayprofile_creation_chain_and_route_walks_succeed()
@@ -124,7 +124,7 @@ public class CrossVerticalFlowFixture : AutomationTest
 
         // Leg 4: Seed a Manga via AddMangaFlow. The MangaAddedEvent will fire
         // and Phase 24's AutoTaggingCascadeService should evaluate the rule.
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // Leg 5: Verify the chain is intact in API state. The chain LINKS
         // (Tag / AutoTagging row referencing the tag / DelayProfile referencing

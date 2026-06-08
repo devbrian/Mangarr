@@ -13,6 +13,7 @@ using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
+using NzbDrone.Core.MetadataSource.MangaBaka;
 using NzbDrone.Core.MetadataSource.MangaDex;
 using NzbDrone.Core.MetadataSource.MyAnimeList;
 
@@ -168,6 +169,7 @@ namespace NzbDrone.Core.Manga
                 // Use the cross-resolved ID matching this primary.
                 var sourceId = primary switch
                 {
+                    MangaBakaMetadataSource _ => existing.MangaBakaId?.ToString(),
                     MangaDexMetadataSource _ => existing.MangaDexId?.ToString(),
                     AniListMetadataSource _ => existing.AniListId?.ToString(),
                     MyAnimeListMetadataSource _ => existing.MalId?.ToString(),

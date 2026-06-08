@@ -51,12 +51,12 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("PRSmoke")]
 public class MangaLinksResolverFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task resolves_anilist_mal()
     {
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         var mangaId = await ResolveMangaIdAsync();
 

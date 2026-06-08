@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Playwright;
 using NUnit.Framework;
+using NzbDrone.Automation.Test.Flows;
 using NzbDrone.Automation.Test.PageModel.Modals;
 using NzbDrone.Automation.Test.PageModel.Settings;
 
@@ -26,6 +27,15 @@ public class EditDownloadClientModalFixture : AutomationTest
     [Test]
     public async Task edit_persists()
     {
+        // This fixture verifies edit PERSISTENCE, not connection validity. The gateway
+        // DownloadClient's save-time Test() probes the gateway's /status and validates that
+        // its advertised output folder (e.g. /data/manga) is locally reachable — true in the
+        // docker/CI environment where the gateway mount exists, but not in a bare offline
+        // test run, where it would 400 the PUT. Inject ?skipTesting=true so the edit is
+        // persisted without the live output-folder probe (mirrors the negative-validation +
+        // CRUD fixtures, which already bypass).
+        await SettingsProviderFlow.BypassConnectionTestAsync(Page, "downloadclient");
+
         var page = await new SettingsDownloadClientsPage(Page).OpenAsync(RootUri);
         var card = page.CardByName("Gateway (test seed)");
         await Assertions.Expect(card).ToBeVisibleAsync(new() { Timeout = 15_000 });

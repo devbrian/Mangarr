@@ -9,7 +9,7 @@ namespace NzbDrone.Automation.Test.Flows;
 /// <summary>
 /// GH #277 — shared bounded-poll resolver for seed foreign keys (manga id +
 /// chapter id(s)) read back via the V5 API after
-/// <see cref="AddMangaFlow.AddByMangaDexIdAsync"/>.
+/// <see cref="AddMangaFlow.AddByMangaBakaIdAsync"/>.
 ///
 /// Chapter rows are populated by the ASYNC RefreshMangaCommand chain
 /// (<c>MangaAddedEvent → RefreshMangaCommand → chapter-info sync → MangaScannedEvent</c>)

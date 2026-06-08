@@ -41,7 +41,7 @@ namespace NzbDrone.Automation.Test.Tests.Settings;
 [Category("AutomationTest")]
 public class TagVisibleInMangaEditFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     private const string LabelPrefix = "p22tag-";
     private string _label;
@@ -52,7 +52,7 @@ public class TagVisibleInMangaEditFixture : AutomationTest
         // 1. Seed a manga via the canonical UI flow (puts Komi in the library
         //    with a stable titleSlug). Required because the Edit modal is
         //    only reachable from /manga/{titleSlug} → Edit button.
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // 2. Seed a tag with a label whose prefix `p22tag-` is unique to this
         //    fixture (avoids cross-fixture collision; the trailing GUID

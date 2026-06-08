@@ -17,16 +17,25 @@ export interface ChapterTitleLinkProps {
   chapterId: number;
   mangaId: number;
   chapterTitle?: string;
+  chapterNumber?: number;
 }
 
 function ChapterTitleLink({
   chapterId,
   mangaId,
   chapterTitle,
+  chapterNumber,
 }: ChapterTitleLinkProps) {
   const [isOpen, setIsOpen] = useState(false);
   const handlePress = useCallback(() => setIsOpen(true), []);
   const handleClose = useCallback(() => setIsOpen(false), []);
+
+  // Synthesized chapters (e.g. MangaBaka, which ships only a chapter COUNT and
+  // no per-chapter feed) carry no Title. Rendering an empty Link produces a
+  // zero-width, unclickable button — the user can't open the details modal.
+  // Fall back to "Chapter {number}" so the link always has clickable content.
+  const displayLabel =
+    chapterTitle || (chapterNumber != null ? `Chapter ${chapterNumber}` : '');
 
   return (
     <>
@@ -34,7 +43,7 @@ function ChapterTitleLink({
         data-testid={`chapter-row-${chapterId}-title`}
         onPress={handlePress}
       >
-        {chapterTitle}
+        {displayLabel}
       </Link>
 
       <ChapterDetailsModal

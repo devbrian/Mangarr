@@ -7,6 +7,7 @@ using NLog;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
+using NzbDrone.Core.MetadataSource.MangaBaka;
 using NzbDrone.Core.MetadataSource.MangaDex;
 using NzbDrone.Core.MetadataSource.MyAnimeList;
 using NzbDrone.Core.Organizer.Manga;
@@ -287,7 +288,8 @@ namespace NzbDrone.Core.Manga
             }
 
             // Carry over the primary IDs returned by GetMangaInfo (incl. any links extracted by
-            // MapManga, e.g. MangaDex links.al/mal).
+            // MapManga, e.g. MangaDex links.al/mal, or the MangaBaka source_links cross-refs).
+            newManga.MangaBakaId ??= primaryManga.MangaBakaId;
             newManga.MangaDexId ??= primaryManga.MangaDexId;
             newManga.MalId ??= primaryManga.MalId;
             newManga.AniListId ??= primaryManga.AniListId;
@@ -358,6 +360,7 @@ namespace NzbDrone.Core.Manga
         {
             var sourceId = primary switch
             {
+                MangaBakaMetadataSource _ => manga.MangaBakaId?.ToString(),
                 MangaDexMetadataSource _ => manga.MangaDexId?.ToString(),
                 AniListMetadataSource _ => manga.AniListId?.ToString(),
                 MyAnimeListMetadataSource _ => manga.MalId?.ToString(),

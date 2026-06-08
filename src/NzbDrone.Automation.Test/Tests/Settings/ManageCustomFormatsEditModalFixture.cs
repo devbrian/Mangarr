@@ -53,8 +53,14 @@ public class ManageCustomFormatsEditModalFixture : AutomationTest
         await Assertions.Expect(rowCheckbox).ToBeVisibleAsync();
         await rowCheckbox.ClickAsync();
 
-        // Click the bulk Edit button (label "Edit").
-        await manageDialog.GetByRole(AriaRole.Button, new() { Name = "Edit", Exact = true }).First.ClickAsync();
+        // Click the bulk Edit button in the manage-modal FOOTER. GH #180 follow-up:
+        // a bare GetByRole(Button, Name="Edit") is AMBIGUOUS inside this dialog — each
+        // ManageCustomFormatsModalRow renders an actions-cell pencil IconButton whose
+        // aria-label is also "Edit" (ManageCustomFormatsModalRow.tsx), and it precedes
+        // the footer button in DOM order, so `.First` resolved to the ROW pencil and
+        // opened the SINGLE-CF editor instead of the bulk-edit modal. Target the footer
+        // SpinnerButton by its D-18 testid (ManageCustomFormatsModalContent.tsx).
+        await manageDialog.GetByTestId("settings-customformat-manage-edit-button").ClickAsync();
 
         // The bulk-edit modal opens on top of the manage modal.
         await Assertions.Expect(Page.GetByRole(AriaRole.Dialog)).ToHaveCountAsync(2, new() { Timeout = 15_000 });

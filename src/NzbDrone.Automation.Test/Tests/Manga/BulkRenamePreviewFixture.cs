@@ -32,13 +32,13 @@ namespace NzbDrone.Automation.Test.Tests.Manga;
 [Category("AutomationTest")]
 public class BulkRenamePreviewFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task bulk_preview_renders()
     {
         // Seed manga via AddMangaFlow so a real Manga + Chapter row pair exists in DB.
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         // Resolve the seeded manga id + one chapter id (FKs for SeedChapterFileAsync).
         var (mangaId, chapterId) = await ResolveSeedFksAsync();

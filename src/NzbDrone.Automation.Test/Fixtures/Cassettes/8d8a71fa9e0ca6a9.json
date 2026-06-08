@@ -1,0 +1,17 @@
+{
+  "Request": {
+    "Method": "GET",
+    "Url": "http://localhost:8080/status"
+  },
+  "Response": {
+    "Status": 200,
+    "Body": "{\u0022isLocalhost\u0022:false,\u0022removesCompletedDownloads\u0022:false,\u0022outputRootFolders\u0022:[\u0022/data/manga\u0022],\u0022version\u0022:\u00220.1.0\u0022,\u0022capabilities\u0022:{\u0022pause\u0022:false,\u0022outputFormats\u0022:[\u0022cbz\u0022,\u0022cbt\u0022,\u0022folder\u0022],\u0022maxConcurrentChapters\u0022:8}}",
+    "BodyIsBase64": false,
+    "Headers": {
+      "Content-Type": "application/json",
+      "Content-Length": "205",
+      "Server": "BaseHTTP/0.6, Python/3.9.6",
+      "Date": "Sun, 07 Jun 2026 23:09:25 GMT"
+    }
+  }
+}

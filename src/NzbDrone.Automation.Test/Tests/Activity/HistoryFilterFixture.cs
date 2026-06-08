@@ -42,7 +42,7 @@ namespace NzbDrone.Automation.Test.Tests.Activity;
 [Category("AutomationTest")]
 public class HistoryFilterFixture : AutomationTest
 {
-    private const string KnownMangaDexId = AddMangaFlow.KnownMangaDexId;
+    private const string KnownMangaBakaId = AddMangaFlow.KnownMangaBakaId;
 
     [Test]
     public async Task history_filter_menu_opens_and_applies_filter()
@@ -51,7 +51,7 @@ public class HistoryFilterFixture : AutomationTest
         // ChapterHistory row directly via the raw-SQLite TestKit helper so the
         // History page has a deterministic row to filter — independent of the
         // retired in-process InteractiveSearch→grab pipeline (Phase 39 Plan 39-07).
-        await AddMangaFlow.AddByMangaDexIdAsync(Page, RootUri, KnownMangaDexId);
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
 
         var slug = Page.Url.Split('/')[^1];
         slug.Should().NotBeNullOrEmpty("AddMangaFlow must land on the manga details URL");

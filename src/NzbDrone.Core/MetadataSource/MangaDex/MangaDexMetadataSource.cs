@@ -12,9 +12,11 @@ using NzbDrone.Core.Parser.Manga;
 namespace NzbDrone.Core.MetadataSource.MangaDex
 {
     /// <summary>
-    /// v1 PRIMARY metadata source per D-16 — ships with <see cref="DefaultIsPrimary"/> = true.
-    /// Implements <see cref="IProvideMangaInfo"/> + <see cref="ISearchForNewManga"/> against
-    /// <c>api.mangadex.org</c>.
+    /// First-class metadata source implementing <see cref="IProvideMangaInfo"/> +
+    /// <see cref="ISearchForNewManga"/> against <c>api.mangadex.org</c>. Was the v1 default
+    /// primary (D-16), but Phase 41 (41-03 D-01a) flipped <see cref="DefaultIsPrimary"/> to
+    /// <c>false</c> — MangaBaka is now the default primary, and MangaDex is KEPT as a
+    /// first-class fallback (D-01/D-02), not deprecated.
     ///
     /// <para>
     /// Honest UA per Phase 1 D-13/D-14 + MangaDex ToS. <see cref="MangaDexMetadataSourceSettings"/>
@@ -64,10 +66,15 @@ namespace NzbDrone.Core.MetadataSource.MangaDex
 
         public override string DefaultSourceKey => "mangadex";
 
-        // D-16: ships as v1 default primary. Users can promote AniList or MAL via
-        // MetadataSourceFactory.SetPrimary; this only seeds the auto-created
+        // Phase 41 D-01a: MangaBaka is now the v1.3 default primary (it carries direct
+        // cross-source ids); MangaDex demotes to a non-primary default. This is the
+        // matched half of D-01a — without it a fresh DB would seed TWO primaries
+        // (MangaBaka + MangaDex), tripping MetadataSourceFactory.GetPrimary's
+        // SingleOrDefault (Pitfall 1). MangaDex stays a first-class non-primary fallback
+        // (it has a real per-chapter feed and is NOT deprecated — D-02); users can re-promote
+        // it via MetadataSourceFactory.SetPrimary. This only seeds the auto-created
         // DefaultDefinition's IsPrimary flag at first startup.
-        public override bool DefaultIsPrimary => true;
+        public override bool DefaultIsPrimary => false;
 
         // Lazily-constructed API wrapper. Ctor runs before Definition is assigned by
         // ProviderFactory (per ThingiProvider contract); we cannot read Settings in our
