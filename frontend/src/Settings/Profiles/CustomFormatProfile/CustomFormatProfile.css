@@ -7,6 +7,11 @@
 .nameContainer {
   display: flex;
   justify-content: space-between;
+
+  /* The second flex child is the Default Label badge (not a fixed-height clone button like the
+     QualityProfile analog). Without flex-start the default `align-items: stretch` stretches the
+     Label to the tall 24px name's height, rendering a squished vertical box (quick-260608-gmm). */
+  align-items: flex-start;
 }
 
 .name {
