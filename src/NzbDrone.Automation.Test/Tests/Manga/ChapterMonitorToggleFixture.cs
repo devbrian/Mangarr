@@ -68,4 +68,55 @@ public class ChapterMonitorToggleFixture : AutomationTest
         afterLabel.Should().NotBeNull();
         afterLabel.Should().NotBe(beforeLabel);
     }
+
+    // Quick task 260608-mg8 — the Chapters-tab header cell above the per-row
+    // bookmark column now hosts a monitor/unmonitor-ALL toggle
+    // (chapter-table-monitor-all-toggle) wired to the SAME bulk endpoint
+    // PUT /api/v5/chapter/monitor via useBulkToggleChaptersMonitored. This test
+    // proves one click on the header toggle flips every chapter row's monitored
+    // state (the bulk endpoint actually mutated state, not just re-rendered).
+    [Test]
+    public async Task toggle_all_flips_every_row()
+    {
+        await AddMangaFlow.AddByMangaBakaIdAsync(Page, RootUri, KnownMangaBakaId);
+
+        await Page.GetByRole(AriaRole.Tab, new PageGetByRoleOptions { Name = "Chapters" })
+                  .ClickAsync();
+
+        await Page.GetByTestId("manga-details-chapter-table")
+                  .WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
+
+        // The header monitor-all toggle lives in the (previously empty) header
+        // cell above the per-row bookmark column.
+        var headerToggle = Page.GetByTestId("chapter-table-monitor-all-toggle");
+        await Assertions.Expect(headerToggle).ToBeVisibleAsync();
+
+        var headerBefore = await headerToggle.GetAttributeAsync("aria-label");
+        headerBefore.Should().NotBeNull();
+
+        // Derive the first chapter-row id exactly as toggle_persists does.
+        var rowsLocator = Page.GetByTestId(new Regex(@"^chapter-row-\d+$"));
+        var rowCount = await rowsLocator.CountAsync();
+        rowCount.Should().BeGreaterThan(0, "the seeded manga must have at least one chapter row");
+
+        var firstRow = rowsLocator.First;
+        var rowTestId = await firstRow.GetAttributeAsync("data-testid");
+        rowTestId.Should().NotBeNullOrEmpty();
+        var chapterId = rowTestId!.Replace("chapter-row-", string.Empty);
+
+        var firstRowToggle = Page.GetByTestId($"chapter-row-{chapterId}-monitor-toggle");
+        var rowBefore = await firstRowToggle.GetAttributeAsync("aria-label");
+        rowBefore.Should().NotBeNull();
+
+        await headerToggle.ClickAsync();
+
+        // STATE assertion: web-first Expect polls through the bulk
+        // PUT /api/v5/chapter/monitor round-trip + React re-render (mirrors the
+        // toggle_persists GH#288 guard — a bare GetAttributeAsync read races the
+        // re-render). The header aria-label flips AND the first row's toggle
+        // aria-label flips to the opposite monitored state, proving the bulk
+        // endpoint mutated chapter state (not merely re-rendered the icon).
+        await Assertions.Expect(headerToggle).Not.ToHaveAttributeAsync("aria-label", headerBefore!);
+        await Assertions.Expect(firstRowToggle).Not.ToHaveAttributeAsync("aria-label", rowBefore!);
+    }
 }
