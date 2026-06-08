@@ -61,6 +61,21 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             result.Accepted.Should().BeTrue();
         }
 
+        // Regression: a profile saved with the max field left blank persists MaxFormatScore = 0,
+        // NOT null. A literal 0 must be treated as "no cap" — otherwise every release with any
+        // positive CF score is rejected ("score 25 exceeds profile 'X' maximum 0").
+        [Test]
+        public void accepts_when_max_is_zero_treated_as_no_cap()
+        {
+            Mocker.GetMock<ICustomFormatProfileService>()
+                  .Setup(s => s.Get(7))
+                  .Returns(BuildCustomFormatProfile(7, min: 0, max: 0));
+
+            var rc = BuildRemoteChapter(customFormatScore: 25, customFormatProfileId: 7);
+            var result = Subject.IsSatisfiedBy(rc, new ReleaseDecisionInformation());
+            result.Accepted.Should().BeTrue();
+        }
+
         [Test]
         public void accepts_when_no_profile_assigned_and_no_global_default()
         {

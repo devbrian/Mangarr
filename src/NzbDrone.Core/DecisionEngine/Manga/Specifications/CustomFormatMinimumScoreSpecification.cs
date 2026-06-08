@@ -11,8 +11,9 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
     // Direct mirror of CustomFormatAllowedByProfileSpecification at
     // src/NzbDrone.Core/DecisionEngine/Specifications/CustomFormatAllowedByProfileSpecification.cs (35 lines)
     // with profile-source swap to ICustomFormatProfileService.
-    // ADAPTATION HOTSPOT 4: honors NULLABLE MaxFormatScore (null = no upper cap; Sonarr's
-    // QualityProfile has no max-score concept).
+    // ADAPTATION HOTSPOT 4: honors NULLABLE MaxFormatScore (null OR 0 = no upper cap; Sonarr's
+    // QualityProfile has no max-score concept). 0 is treated as "no cap" so a profile saved with a
+    // blank max field (which persists 0) does not reject every positively-scored release.
     // Phase 8 cleanup: collapse with TV CustomFormatAllowedByProfileSpecification when Tv/ deletes.
     public class CustomFormatMinimumScoreSpecification : IMangaDecisionEngineSpecification
     {
@@ -91,7 +92,12 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
                     profile.MinFormatScore);
             }
 
-            if (profile.MaxFormatScore.HasValue && score > profile.MaxFormatScore.Value)
+            // A MaxFormatScore of 0 (or null) means "no upper cap". A profile created with the max
+            // field left blank persists 0, not null — treating that literal 0 as a real cap rejected
+            // every release with any positive CF score ("score 25 exceeds profile 'X' maximum 0").
+            // Only enforce the cap when it is a positive value. (Guards already-persisted 0 rows
+            // without requiring the user to re-save the profile.)
+            if (profile.MaxFormatScore.HasValue && profile.MaxFormatScore.Value > 0 && score > profile.MaxFormatScore.Value)
             {
                 return DownloadSpecDecision.Reject(
                     DownloadRejectionReason.CustomFormatMaximumScore,
@@ -107,7 +113,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
                 formats,
                 profile.Name,
                 profile.MinFormatScore,
-                profile.MaxFormatScore?.ToString() ?? "(no cap)");
+                profile.MaxFormatScore is > 0 ? profile.MaxFormatScore.Value.ToString() : "(no cap)");
             return DownloadSpecDecision.Accept();
         }
     }

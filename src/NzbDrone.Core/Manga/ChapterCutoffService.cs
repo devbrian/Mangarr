@@ -32,9 +32,10 @@ namespace NzbDrone.Core.Manga
     //     A single-language profile (e.g. the seeded "English Only" default) has
     //     no language to upgrade to, so its profile id is NOT in the below-cutoff set.
     //   * CustomFormatProfile is "below cutoff" when its MinFormatScore > 0 OR when
-    //     MaxFormatScore is set — i.e. there is a score window the user wants
-    //     enforced. A profile with MinFormatScore=0 + MaxFormatScore=null (the
-    //     seeded default) accepts every score and is NOT in the below-cutoff set.
+    //     MaxFormatScore is a positive cap — i.e. there is a score window the user
+    //     wants enforced. A profile with MinFormatScore=0 + MaxFormatScore=null/0
+    //     (the seeded default, or a blank max field) accepts every score and is NOT
+    //     in the below-cutoff set. (0 = no cap, consistent with the search-time spec.)
     //
     // The repository then narrows the paged Chapter query to rows whose Manga is
     // assigned to ANY profile id in the below-cutoff sets. The Wanted/Cutoff feed
@@ -83,7 +84,10 @@ namespace NzbDrone.Core.Manga
                 // Score window enforced (min > 0 OR max capped) means a file could land
                 // outside the window and need upgrading. The seeded default
                 // (MinFormatScore=0 + MaxFormatScore=null) accepts every score and is excluded.
-                if (profile.MinFormatScore > 0 || profile.MaxFormatScore.HasValue)
+                // A MaxFormatScore of 0 means "no cap" (same as null) — a profile saved with the
+                // max field blank persists 0, so 0 must NOT count as an enforced upper bound here
+                // (consistent with CustomFormatMinimumScoreSpecification).
+                if (profile.MinFormatScore > 0 || profile.MaxFormatScore is > 0)
                 {
                     belowCutoffCustomFormatProfileIds.Add(profile.Id);
                 }
