@@ -174,16 +174,17 @@ namespace NzbDrone.Core.DecisionEngine.Manga
                         // the search path. When the parsed release title resolves to a different
                         // manga than the searched manga, that release is cross-title indexer
                         // noise: MangaSpecification will permanently reject it as
-                        // MatchesAnotherSeries. The Warn log makes this audit-able from the log
-                        // file during the first release cycle so we can spot regressions or
-                        // alt-title-coverage gaps before complaints land. Logged BEFORE Map() so
-                        // every cross-manga case is captured, even for releases whose Chapters
-                        // resolution would later fail.
+                        // MatchesAnotherSeries. This is an expected, high-volume condition on
+                        // every search (the gateway returns releases for every similarly-named
+                        // title), so it is logged at Debug to mirror Sonarr's canonical
+                        // SeriesSpecification ("Series {0} does not match {1}", Debug) rather than
+                        // spamming the WARN log. Logged BEFORE Map() so every cross-manga case is
+                        // captured, even for releases whose Chapters resolution would later fail.
                         if (searchCriteria?.Manga != null
                             && manga != null
                             && manga.Id != searchCriteria.Manga.Id)
                         {
-                            _logger.Warn(
+                            _logger.Debug(
                                 "Search-path release '{0}' resolved to manga '{1}' (id={2}) but search target is manga '{3}' (id={4}); MangaSpecification will reject as wrong manga.",
                                 report.Title,
                                 manga.Title,

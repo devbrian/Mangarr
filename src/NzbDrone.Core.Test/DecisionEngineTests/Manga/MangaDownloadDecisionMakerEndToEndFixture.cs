@@ -20,7 +20,6 @@ using NzbDrone.Core.Profiles;
 using NzbDrone.Core.Profiles.CustomFormats;
 using NzbDrone.Core.Profiles.Translations;
 using NzbDrone.Core.Test.Framework;
-using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
 {
@@ -344,8 +343,9 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             decisions[0].Approved.Should().BeFalse("GH #118: cross-title indexer noise must be rejected — release belongs to manga B but search target is manga A");
             decisions[0].Rejections.Should().Contain(r => r.Reason == DownloadRejectionReason.MatchesAnotherSeries);
 
-            // Acknowledge the cross-manga Warn log the maker fires for observability.
-            ExceptionVerification.ExpectedWarns(1);
+            // The cross-manga observability log is emitted at Debug (mirroring Sonarr's
+            // canonical SeriesSpecification) — cross-title indexer noise is an expected,
+            // high-volume search condition, so no Warn is fired.
         }
 
         [Test]
