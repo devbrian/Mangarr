@@ -1,5 +1,7 @@
+using System;
 using System.Linq;
 using NLog;
+using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Queue.Manga;
 
@@ -48,7 +50,17 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
             // Phase 6 D-20 STUB body replacement — wires Phase 5 STUB.
             var queue = _mangaQueueService.GetMangaQueue();
 
+            // Sonarr QueueSpecification FailedPending skip (debug auto-retry-one-release-exhaust):
+            // a failed/failing download must NOT block its own auto-retry replacement. Sonarr skips
+            // ONLY FailedPending because its DownloadEventHub removes Failed items from the queue.
+            // Mangarr's RemoveFailedDownloads sweep (MangaDownloadProcessingService) does the same, BUT
+            // (a) there is a transient window before the sweep runs and (b) #301 keeps Failed rows sticky
+            // across polls AND the gateway RemoveItem is best-effort — so a Failed row can linger if its
+            // removal throws. We therefore skip BOTH FailedPending and Failed (the manga-shaped widening
+            // of Sonarr's FailedPending-only skip). Without this the re-search rejects every replacement
+            // with ChapterAlreadyQueued against the dead row.
             var queuedChapterIds = queue
+                .Where(q => !IsFailedOrFailing(q))
                 .SelectMany(q => q.RemoteChapter?.Chapters?.Select(c => c.Id) ?? Enumerable.Empty<int>())
                 .ToHashSet();
 
@@ -67,6 +79,14 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
             }
 
             return DownloadSpecDecision.Accept();
+        }
+
+        // MangaQueueItem.TrackedDownloadState is td.State.ToString() (PascalCase enum name); parse it
+        // back rather than string-matching so a rename of the enum can't silently break the guard.
+        private static bool IsFailedOrFailing(MangaQueueItem item)
+        {
+            return Enum.TryParse<TrackedDownloadState>(item.TrackedDownloadState, ignoreCase: true, out var state)
+                   && (state == TrackedDownloadState.FailedPending || state == TrackedDownloadState.Failed);
         }
     }
 }

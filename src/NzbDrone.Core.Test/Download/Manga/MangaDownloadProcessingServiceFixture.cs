@@ -147,6 +147,55 @@ namespace NzbDrone.Core.Test.Download.Manga
             _downloadClient.Verify(c => c.RemoveItem(td.DownloadItem, true), Times.Once);
         }
 
+        // ── Sonarr DownloadEventHub parity — Failed removable → RemoveItem + StopTracking ──────
+        // (debug auto-retry-one-release-exhaust). A terminally-Failed removable row is removed from
+        // the client AND evicted from the registry so the auto-retry re-search isn't blocked by the
+        // dead row (QueueDuplicateSpecification chapterAlreadyQueued). State == Failed is set by
+        // ProcessFailed in the same Process() pass; the test seeds it directly to isolate the sweep.
+
+        [Test]
+        public void Execute_removes_a_Failed_removable_download_from_client_and_registry()
+        {
+            var td = BuildPending(TrackedDownloadState.Failed);
+            RegistryReturns(td);
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            _downloadClient.Verify(c => c.RemoveItem(td.DownloadItem, true), Times.Once);
+            Mocker.GetMock<IMangaDownloadMonitoringService>()
+                .Verify(m => m.StopTracking(td.DownloadItem.DownloadId), Times.Once);
+        }
+
+        [Test]
+        public void Execute_does_not_remove_Failed_download_when_RemoveFailedDownloads_is_off()
+        {
+            // Sonarr DownloadEventHub early-returns on !definition.RemoveFailedDownloads — the user
+            // opted to keep failed items, so we must not remove them.
+            _definition.RemoveFailedDownloads = false;
+            var td = BuildPending(TrackedDownloadState.Failed);
+            RegistryReturns(td);
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            _downloadClient.Verify(c => c.RemoveItem(It.IsAny<DownloadClientItem>(), It.IsAny<bool>()), Times.Never);
+            Mocker.GetMock<IMangaDownloadMonitoringService>()
+                .Verify(m => m.StopTracking(It.IsAny<string>()), Times.Never);
+        }
+
+        [Test]
+        public void Execute_does_not_remove_a_non_Failed_download()
+        {
+            // A still-Downloading row must never be touched by the failed-removal sweep.
+            var td = BuildPending(TrackedDownloadState.Downloading);
+            RegistryReturns(td);
+
+            Subject.Execute(new ProcessMonitoredMangaDownloadsCommand());
+
+            _downloadClient.Verify(c => c.RemoveItem(It.IsAny<DownloadClientItem>(), It.IsAny<bool>()), Times.Never);
+            Mocker.GetMock<IMangaDownloadMonitoringService>()
+                .Verify(m => m.StopTracking(It.IsAny<string>()), Times.Never);
+        }
+
         // ── 4. D-04 — Importing precedes removal; not evicted on completion ─────────────
 
         [Test]

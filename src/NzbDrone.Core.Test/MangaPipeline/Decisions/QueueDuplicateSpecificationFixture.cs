@@ -6,6 +6,7 @@ using NLog;
 using NUnit.Framework;
 using NzbDrone.Core.DecisionEngine;
 using NzbDrone.Core.DecisionEngine.Manga.Specifications;
+using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Parser.Manga.Model;
 using NzbDrone.Core.Parser.Model;
@@ -117,6 +118,53 @@ namespace NzbDrone.Core.Test.MangaPipeline.Decisions
                 .Returns(new List<MangaQueueItem> { BuildQueueItem(7, 43) });
 
             var subject = BuildRemoteChapter(7, 42, 43, 44);
+            var decision = _spec.IsSatisfiedBy(subject, new ReleaseDecisionInformation());
+
+            decision.Accepted.Should().BeFalse();
+            decision.Reason.Should().Be(DownloadRejectionReason.ChapterAlreadyQueued);
+        }
+
+        // ── Sonarr QueueSpecification FailedPending skip parity (debug auto-retry-one-release-exhaust) ──
+
+        [Test]
+        public void Accepts_when_the_only_queued_item_for_the_chapter_is_FailedPending()
+        {
+            // A FailedPending download is being replaced by the auto-retry — it must NOT block the
+            // replacement (Sonarr QueueSpecification skips FailedPending).
+            var failed = BuildQueueItem(7, 42);
+            failed.TrackedDownloadState = TrackedDownloadState.FailedPending.ToString();
+            _queueService.Setup(s => s.GetMangaQueue()).Returns(new List<MangaQueueItem> { failed });
+
+            var subject = BuildRemoteChapter(7, 42);
+            var decision = _spec.IsSatisfiedBy(subject, new ReleaseDecisionInformation());
+
+            decision.Accepted.Should().BeTrue("a FailedPending download must not block its auto-retry replacement");
+        }
+
+        [Test]
+        public void Accepts_when_the_only_queued_item_for_the_chapter_is_Failed()
+        {
+            // Manga widening of the Sonarr skip: #301 keeps Failed rows sticky across polls and the
+            // gateway RemoveItem is best-effort, so a lingering Failed row must not block either.
+            var failed = BuildQueueItem(7, 42);
+            failed.TrackedDownloadState = TrackedDownloadState.Failed.ToString();
+            _queueService.Setup(s => s.GetMangaQueue()).Returns(new List<MangaQueueItem> { failed });
+
+            var subject = BuildRemoteChapter(7, 42);
+            var decision = _spec.IsSatisfiedBy(subject, new ReleaseDecisionInformation());
+
+            decision.Accepted.Should().BeTrue("a Failed download must not block its auto-retry replacement");
+        }
+
+        [Test]
+        public void Rejects_when_queued_item_for_same_chapter_is_actively_Downloading()
+        {
+            // Only failed states are skipped — a genuinely in-flight Downloading item MUST still block.
+            var active = BuildQueueItem(7, 42);
+            active.TrackedDownloadState = TrackedDownloadState.Downloading.ToString();
+            _queueService.Setup(s => s.GetMangaQueue()).Returns(new List<MangaQueueItem> { active });
+
+            var subject = BuildRemoteChapter(7, 42);
             var decision = _spec.IsSatisfiedBy(subject, new ReleaseDecisionInformation());
 
             decision.Accepted.Should().BeFalse();
