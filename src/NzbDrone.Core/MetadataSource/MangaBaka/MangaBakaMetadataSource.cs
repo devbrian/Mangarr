@@ -34,10 +34,12 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
     /// </para>
     ///
     /// <para>
-    /// DIRECT cross-source ids (D-03/D-08-R): MangaBaka ships <c>source.anilist.id</c> and
-    /// <c>source.my_anime_list.id</c> as RAW INTEGERS, so <see cref="MapManga"/> reads them
-    /// straight into <see cref="NzbDrone.Core.Manga.Manga.AniListId"/> /
-    /// <see cref="NzbDrone.Core.Manga.Manga.MalId"/> — short-circuiting the Jaro-Winkler
+    /// DIRECT cross-source ids (D-03/D-08-R): MangaBaka ships <c>source.anilist.id</c>,
+    /// <c>source.my_anime_list.id</c>, <c>source.kitsu.id</c>,
+    /// <c>source.anime_news_network.id</c> and <c>source.shikimori.id</c> as RAW INTEGERS,
+    /// plus <c>source.anime_planet.id</c> / <c>source.manga_updates.id</c> as STRINGS, so
+    /// <see cref="MapManga"/> reads all seven straight into the matching
+    /// <see cref="NzbDrone.Core.Manga.Manga"/> id columns — short-circuiting the Jaro-Winkler
     /// CrossSourceIdResolver and the cross-title mis-attribution it risks (T-41-XID;
     /// load-bearing for Phase-40 gateway grab attribution). MangaDexId stays null (D-03a).
     /// </para>
@@ -185,10 +187,13 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
                 };
             }
 
-            // Direct cross-source ids (D-03/D-08-R): MangaBaka ships these as RAW INTEGERS,
-            // so read them straight in — no int.TryParse on a string (the MangaDex Pitfall 7
-            // path), and short-circuiting CrossSourceIdResolver entirely (T-41-XID). MangaDexId
-            // stays null (D-03a): a MangaBaka-sourced manga is not a MangaDex record.
+            // Direct cross-source ids (D-03/D-08-R): MangaBaka ships these as RAW INTEGERS
+            // (anilist/mal/kitsu/anime_news_network/shikimori) or STRINGS
+            // (anime_planet/manga_updates), so read them straight in — no int.TryParse on a
+            // string (the MangaDex Pitfall 7 path), and short-circuiting CrossSourceIdResolver
+            // entirely (T-41-XID). A null source block or sub-ref leaves the column null (no NRE).
+            // MangaDexId stays null (D-03a): a MangaBaka-sourced manga is not a MangaDex record.
+            // quick-260608-l2e added the five direct ids below alongside the original AniList/MAL.
             if (record.Source?.AniList?.Id is int aniListId)
             {
                 manga.AniListId = aniListId;
@@ -197,6 +202,32 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
             if (record.Source?.MyAnimeList?.Id is int malId)
             {
                 manga.MalId = malId;
+            }
+
+            if (record.Source?.Kitsu?.Id is int kitsuId)
+            {
+                manga.KitsuId = kitsuId;
+            }
+
+            if (record.Source?.AnimeNewsNetwork?.Id is int annId)
+            {
+                manga.AnimeNewsNetworkId = annId;
+            }
+
+            if (record.Source?.Shikimori?.Id is int shikimoriId)
+            {
+                manga.ShikimoriId = shikimoriId;
+            }
+
+            // String ids (slug / base36 token): assign only when non-null/whitespace.
+            if (!string.IsNullOrWhiteSpace(record.Source?.AnimePlanet?.Id))
+            {
+                manga.AnimePlanetId = record.Source.AnimePlanet.Id;
+            }
+
+            if (!string.IsNullOrWhiteSpace(record.Source?.MangaUpdates?.Id))
+            {
+                manga.MangaUpdatesId = record.Source.MangaUpdates.Id;
             }
 
             return manga;

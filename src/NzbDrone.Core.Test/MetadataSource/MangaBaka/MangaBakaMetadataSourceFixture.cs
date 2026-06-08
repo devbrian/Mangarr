@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using FluentAssertions;
@@ -120,6 +121,26 @@ namespace NzbDrone.Core.Test.MetadataSource.MangaBaka
             var result = Subject.GetMangaInfo("3397");
 
             result.Item1.MangaBakaId.Should().Be(3397);
+        }
+
+        // quick-260608-l2e: all five additional cross-source ids (kitsu/ann/shikimori as int,
+        // anime_planet/manga_updates as string) map straight from the real series `source` block.
+        // Reads the live captured payload (series_by_id_3397.json — Solo Leveling) through the
+        // production GetMangaInfo path.
+        [Test]
+        public void GetMangaInfo_maps_all_cross_source_ids_from_real_payload()
+        {
+            var resource = JsonConvert.DeserializeObject<MangaBakaSeriesResource>(
+                File.ReadAllText(Path.Combine("Files", "MetadataSource", "MangaBaka", "series_by_id_3397.json")));
+            SetupGetByIdMock(resource);
+
+            var manga = Subject.GetMangaInfo("3397").Item1;
+
+            manga.KitsuId.Should().Be(54114);
+            manga.AnimeNewsNetworkId.Should().Be(25998);
+            manga.ShikimoriId.Should().Be(121496);
+            manga.AnimePlanetId.Should().Be("solo-leveling");
+            manga.MangaUpdatesId.Should().Be("6z1uqw7");
         }
 
         // Phase 41 fix-forward: MangaBaka ships the publication demographic INSIDE the

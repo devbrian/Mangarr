@@ -18,11 +18,16 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka.Resource
     /// <c>decimal.TryParse(InvariantCulture)</c> + <c>Math.Truncate</c> at the mapping
     /// boundary — never coerced by Newtonsoft.
     ///
-    /// D-08-R cross-source ids: the <see cref="Source"/> block exposes <c>anilist.id</c>
-    /// and <c>my_anime_list.id</c> as RAW INTEGERS (modelled as <c>int?</c> on
-    /// <see cref="MangaBakaSourceRef"/>). The <c>anime_planet.id</c> / <c>manga_updates.id</c>
-    /// ids are STRINGS and the <c>links_v2[]</c> entries are reading-platform links (NOT
-    /// cross-source ids) — both intentionally NOT modelled here.
+    /// D-08-R cross-source ids: the <see cref="Source"/> block exposes SEVEN cross-source
+    /// ids onto <see cref="NzbDrone.Core.Manga.Manga"/>. Five carry RAW INTEGER ids
+    /// (<c>anilist.id</c> / <c>my_anime_list.id</c> / <c>kitsu.id</c> /
+    /// <c>anime_news_network.id</c> / <c>shikimori.id</c>, modelled as <c>int?</c> on
+    /// <see cref="MangaBakaSourceRef"/>); two carry STRING ids (<c>anime_planet.id</c> a
+    /// slug like <c>"solo-leveling"</c>, <c>manga_updates.id</c> a base36 token like
+    /// <c>"6z1uqw7"</c>, modelled as <c>string</c> on <see cref="MangaBakaSourceStringRef"/>
+    /// — NEVER coerced to int). Only the <c>links_v2[]</c> reading-platform links and the
+    /// per-source <c>rating</c> / <c>rating_normalized</c> values remain intentionally NOT
+    /// modelled here (quick-260608-l2e extended the original AniList/MAL-only mapping).
     /// </summary>
     public class MangaBakaSeries
     {
@@ -148,9 +153,12 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka.Resource
     }
 
     /// <summary>
-    /// The direct cross-source block. Per D-08-R only <see cref="AniList"/> and
-    /// <see cref="MyAnimeList"/> carry RAW INTEGER ids (modelled as <c>int?</c>);
-    /// anime_planet/manga_updates ship STRING ids and are intentionally not modelled.
+    /// The direct cross-source block (D-08-R). <see cref="AniList"/>, <see cref="MyAnimeList"/>,
+    /// <see cref="Kitsu"/>, <see cref="AnimeNewsNetwork"/> and <see cref="Shikimori"/> carry RAW
+    /// INTEGER ids (modelled as <c>int?</c> on <see cref="MangaBakaSourceRef"/>);
+    /// <see cref="AnimePlanet"/> and <see cref="MangaUpdates"/> carry STRING ids (modelled as
+    /// <c>string</c> on <see cref="MangaBakaSourceStringRef"/> — a slug / base36 token, NEVER an
+    /// int). Per-source <c>rating</c> values are intentionally not modelled.
     /// </summary>
     public class MangaBakaSource
     {
@@ -159,15 +167,43 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka.Resource
 
         [JsonProperty("my_anime_list")]
         public MangaBakaSourceRef MyAnimeList { get; set; }
+
+        [JsonProperty("kitsu")]
+        public MangaBakaSourceRef Kitsu { get; set; }
+
+        [JsonProperty("anime_news_network")]
+        public MangaBakaSourceRef AnimeNewsNetwork { get; set; }
+
+        [JsonProperty("shikimori")]
+        public MangaBakaSourceRef Shikimori { get; set; }
+
+        [JsonProperty("anime_planet")]
+        public MangaBakaSourceStringRef AnimePlanet { get; set; }
+
+        [JsonProperty("manga_updates")]
+        public MangaBakaSourceStringRef MangaUpdates { get; set; }
     }
 
     /// <summary>
     /// A cross-source reference whose <c>id</c> is a RAW INTEGER (D-08-R) — typed
-    /// <c>int?</c> so a missing/null id deserializes cleanly.
+    /// <c>int?</c> so a missing/null id deserializes cleanly. Used for
+    /// anilist / my_anime_list / kitsu / anime_news_network / shikimori.
     /// </summary>
     public class MangaBakaSourceRef
     {
         [JsonProperty("id")]
         public int? Id { get; set; }
+    }
+
+    /// <summary>
+    /// A cross-source reference whose <c>id</c> is a STRING (D-08-R) — anime_planet ships a
+    /// slug (e.g. <c>"solo-leveling"</c>) and manga_updates a base36 token (e.g. <c>"6z1uqw7"</c>).
+    /// Typed <c>string</c> (NOT <c>int?</c>) because Newtonsoft would throw a JsonReaderException
+    /// trying to coerce these to an integer, failing the entire response.
+    /// </summary>
+    public class MangaBakaSourceStringRef
+    {
+        [JsonProperty("id")]
+        public string Id { get; set; }
     }
 }
