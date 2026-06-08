@@ -23,22 +23,11 @@ namespace NzbDrone.Core.CustomFormats
 
         public virtual bool IsSatisfiedBy(CustomFormatInput input)
         {
-            // WR-03: AppliesTo cross-bleed guard. AppliesTo is honored at UI schema-list time
-            // (CustomFormatController.GetTemplates?mediaType=...) but at score-calculation time
-            // every spec is evaluated against every input — including the manga overload. The
-            // manga-side specs already use an `is not MangaCustomFormatInput → return false`
-            // cast guard to skip TV inputs; mirror the inverse here so MediaType.Series specs
-            // (e.g. ResolutionSpecification, SourceSpecification, ReleaseTypeSpecification)
-            // refuse to match a MangaCustomFormatInput rather than silently returning true on
-            // Resolution.Unknown / QualitySource.Unknown / etc.
-            //
-            // Note: this short-circuits BEFORE Negate flips, so MediaType.Series + Negate=true
-            // does NOT spuriously match every manga release.
-            if (AppliesTo == MediaType.Series && input is MangaCustomFormatInput)
-            {
-                return false;
-            }
-
+            // quick-260608-gmm: the WR-03 AppliesTo cross-bleed guard (AppliesTo == MediaType.Series
+            // && input is MangaCustomFormatInput → return false) was removed along with the Series
+            // media type. With zero Series specs the guard is unreachable. Manga specs keep their own
+            // `is not MangaCustomFormatInput → return false` casts, and All-type specs
+            // (ReleaseTitle/Size/ReleaseGroup/IndexerFlag) correctly evaluate against manga inputs.
             var match = IsSatisfiedByWithoutNegate(input);
 
             if (Negate)
