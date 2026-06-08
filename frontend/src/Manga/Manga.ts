@@ -109,6 +109,12 @@ interface Manga extends ModelBase {
   aniListId?: number;
   malId?: number;
   mangaBakaId?: number;
+  // quick-260608-l2e — additional MangaBaka cross-source ids (source.* block).
+  kitsuId?: number;
+  animeNewsNetworkId?: number;
+  shikimoriId?: number;
+  animePlanetId?: string;
+  mangaUpdatesId?: string;
   // Plural arrays carried for future-multi-source extension; preferred shape per
   // plan must_haves §truths (downstream Plans 07-04..07-10 may reference either).
   aniListIds?: number[];
