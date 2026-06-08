@@ -192,6 +192,15 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
     [toggleMangaMonitored]
   );
 
+  // Toolbar "Manga Monitoring" button — toggles the whole-manga monitored flag
+  // (the same axis as the edit-panel Monitored checkbox + the hero MonitorToggleButton),
+  // parallel to Sonarr's series-monitoring toolbar action. Zero-arg handler (the
+  // PageToolbarButton onPress passes no value) so it flips the current state read
+  // off the manga record.
+  const handleMonitoringTogglePress = useCallback(() => {
+    toggleMangaMonitored({ monitored: !manga?.monitored });
+  }, [toggleMangaMonitored, manga]);
+
   const alternateTitles = useMemo(
     () =>
       (manga?.alternateTitles ?? []).filter((t) => t.title !== manga?.title),
@@ -213,6 +222,11 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
     mangaDexId,
     aniListId,
     malId,
+    kitsuId,
+    animeNewsNetworkId,
+    shikimoriId,
+    animePlanetId,
+    mangaUpdatesId,
   } = manga;
 
   // Progress-bar denominator (issue #335 / PR #336 follow-up): a chapter counts
@@ -239,7 +253,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
         <PageToolbar>
           <PageToolbarSection>
             <PageToolbarButton
-              label={translate('Refresh')}
+              label={translate('RefreshAndScan')}
               iconName={icons.REFRESH}
               spinningName={icons.REFRESH}
               title={translate('RefreshAndScanTooltip')}
@@ -258,6 +272,14 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
             />
 
             <PageToolbarSeparator />
+
+            <PageToolbarButton
+              label={translate('MangaMonitoring')}
+              iconName={monitored ? icons.MONITORED : icons.UNMONITORED}
+              isSpinning={isTogglingMangaMonitored}
+              data-testid="manga-details-monitoring-button"
+              onPress={handleMonitoringTogglePress}
+            />
 
             <PageToolbarButton
               label={translate('Edit')}
@@ -386,7 +408,14 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
                     </div>
                   </Label>
 
-                  {mangaDexId || aniListId || malId ? (
+                  {mangaDexId ||
+                  aniListId ||
+                  malId ||
+                  kitsuId ||
+                  animeNewsNetworkId ||
+                  shikimoriId ||
+                  animePlanetId ||
+                  mangaUpdatesId ? (
                     <Tooltip
                       anchor={
                         <Label
@@ -406,6 +435,11 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
                           mangaDexId={mangaDexId}
                           aniListId={aniListId}
                           malId={malId}
+                          kitsuId={kitsuId}
+                          animeNewsNetworkId={animeNewsNetworkId}
+                          shikimoriId={shikimoriId}
+                          animePlanetId={animePlanetId}
+                          mangaUpdatesId={mangaUpdatesId}
                         />
                       }
                       kind={kinds.INVERSE}

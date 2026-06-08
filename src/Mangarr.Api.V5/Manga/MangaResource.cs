@@ -49,6 +49,15 @@ public class MangaResource : RestResource
     public int? AniListId { get; set; }
     public int? MangaBakaId { get; set; }
 
+    // quick-260608-l2e — additional MangaBaka cross-source ids (source.* block). Read-only on
+    // the wire: present on this allow-list DTO but Manga.ApplyChanges does NOT copy them, so a
+    // PUT cannot mutate them (parity with the four canonical ids above; T-l2e-02 mitigation).
+    public int? KitsuId { get; set; }
+    public int? AnimeNewsNetworkId { get; set; }
+    public int? ShikimoriId { get; set; }
+    public string? AnimePlanetId { get; set; }
+    public string? MangaUpdatesId { get; set; }
+
     // Cross-source confirm axes (read-only display; populated by primary metadata source).
     public int? TotalChapterCount { get; set; }
     public int? PublicationYear { get; set; }
@@ -183,6 +192,11 @@ public static class MangaResourceMapper
             MalId = model.MalId,
             AniListId = model.AniListId,
             MangaBakaId = model.MangaBakaId,
+            KitsuId = model.KitsuId,
+            AnimeNewsNetworkId = model.AnimeNewsNetworkId,
+            ShikimoriId = model.ShikimoriId,
+            AnimePlanetId = model.AnimePlanetId,
+            MangaUpdatesId = model.MangaUpdatesId,
             TotalChapterCount = model.TotalChapterCount,
             PublicationYear = model.PublicationYear,
             PrimaryAuthor = model.PrimaryAuthor,
@@ -231,6 +245,11 @@ public static class MangaResourceMapper
             MalId = resource.MalId,
             AniListId = resource.AniListId,
             MangaBakaId = resource.MangaBakaId,
+            KitsuId = resource.KitsuId,
+            AnimeNewsNetworkId = resource.AnimeNewsNetworkId,
+            ShikimoriId = resource.ShikimoriId,
+            AnimePlanetId = resource.AnimePlanetId,
+            MangaUpdatesId = resource.MangaUpdatesId,
             TotalChapterCount = resource.TotalChapterCount,
             PublicationYear = resource.PublicationYear,
             PrimaryAuthor = resource.PrimaryAuthor,

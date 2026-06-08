@@ -1290,6 +1290,7 @@
   "MangaIndexFooterEnded": "Completed (All chapters monitored)",
   "MangaIndexFooterMissingMonitored": "Missing chapters (Manga monitored)",
   "MangaIndexFooterMissingUnmonitored": "Missing chapters (Manga not monitored)",
+  "MangaMonitoring": "Manga Monitoring",
   "MangaNaming": "Manga Naming",
   "MangaNamingPresetHelpText": "Select a reader-compatible preset (Komga, Kavita, ComicRack) or Custom to enter your own format strings.",
   "MangaNamingSettingsLoadError": "Couldn't load manga naming settings. Check your connection and try again.",

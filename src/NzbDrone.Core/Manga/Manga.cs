@@ -33,6 +33,16 @@ namespace NzbDrone.Core.Manga
         public int? AniListId { get; set; }
         public int? MangaBakaId { get; set; }
 
+        // quick-260608-l2e — additional MangaBaka cross-source ids (source.* block). Int ids
+        // for Kitsu / AnimeNewsNetwork / Shikimori; string ids for AnimePlanet (slug like
+        // "solo-leveling") + MangaUpdates (base36 token like "6z1uqw7"). Immutable post-add
+        // like the four above (intentionally NOT copied in ApplyChanges).
+        public int? KitsuId { get; set; }
+        public int? AnimeNewsNetworkId { get; set; }
+        public int? ShikimoriId { get; set; }
+        public string AnimePlanetId { get; set; }
+        public string MangaUpdatesId { get; set; }
+
         // Phase 5 — per-Manga profile FK columns.
         // Per Phase 5 D-01 (TranslationProfile) + D-07 (CustomFormatProfile). Both nullable int —
         // fall back to Config.DefaultTranslationProfileId / Config.DefaultCustomFormatProfileId
@@ -128,7 +138,8 @@ namespace NzbDrone.Core.Manga
 
         // Apply user-mutable fields from a refresh / edit. Mirrors AddSeriesService's
         // ApplyChanges pattern (Tv/Series.cs:70-86): canonical IDs (MangaDexId/MalId/
-        // AniListId/MangaBakaId) are immutable post-add and intentionally NOT copied here —
+        // AniListId/MangaBakaId/KitsuId/AnimeNewsNetworkId/ShikimoriId/AnimePlanetId/
+        // MangaUpdatesId) are immutable post-add and intentionally NOT copied here —
         // manual relink uses the dedicated /api/v5/manga/{id}/links endpoint (Plan 02-09).
         //
         // Phase 8 audit gap-02 (Series-vs-Manga.md): TV's Series.ApplyChanges is

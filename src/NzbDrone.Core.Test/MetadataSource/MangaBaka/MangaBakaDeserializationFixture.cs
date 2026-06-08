@@ -55,6 +55,16 @@ namespace NzbDrone.Core.Test.MetadataSource.MangaBaka
             resource.Data.Source.Should().NotBeNull();
             resource.Data.Source.AniList.Id.Should().Be(105398);
             resource.Data.Source.MyAnimeList.Id.Should().Be(121496);
+
+            // quick-260608-l2e — the five additional cross-source ids. kitsu/ann/shikimori are
+            // ints; anime_planet/manga_updates are STRINGS. This is the regression guard that the
+            // string-vs-int ref typing matches the live wire shape (a future int-typing of the
+            // string refs would throw a JsonReaderException right here, not silently at runtime).
+            resource.Data.Source.Kitsu.Id.Should().Be(54114);
+            resource.Data.Source.AnimeNewsNetwork.Id.Should().Be(25998);
+            resource.Data.Source.Shikimori.Id.Should().Be(121496);
+            resource.Data.Source.AnimePlanet.Id.Should().Be("solo-leveling");
+            resource.Data.Source.MangaUpdates.Id.Should().Be("6z1uqw7");
         }
 
         [Test]

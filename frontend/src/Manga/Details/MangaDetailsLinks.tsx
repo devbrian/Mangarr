@@ -5,11 +5,20 @@
 // Manga sibling preserves: link-block render + ClipboardButton + Label kinds.
 // Manga sibling diverges from SeriesDetailsLinks:
 //   * External-source set replaced — TVDB/TVMaze/IMDB/TMDB drop, MangaDex/
-//     AniList/MAL surface. URLs sourced from each provider's canonical
-//     manga-detail path:
-//       MangaDex   → https://mangadex.org/title/{uuid}
-//       AniList    → https://anilist.co/manga/{id}
-//       MyAnimeList → https://myanimelist.net/manga/{id}
+//     AniList/MAL surface (+ the MangaBaka cross-source ids added by
+//     quick-260608-l2e: Kitsu / MangaUpdates / AnimePlanet / AnimeNewsNetwork /
+//     Shikimori). URLs sourced from each provider's canonical manga-detail path:
+//       MangaDex         → https://mangadex.org/title/{uuid}
+//       AniList          → https://anilist.co/manga/{id}
+//       MyAnimeList      → https://myanimelist.net/manga/{id}
+//       Kitsu            → https://kitsu.app/manga/{id}
+//       MangaUpdates     → https://www.mangaupdates.com/series/{token}
+//       AnimePlanet      → https://www.anime-planet.com/manga/{slug}
+//       AnimeNewsNetwork → https://www.animenewsnetwork.com/encyclopedia/manga.php?id={id}
+//       Shikimori        → https://shikimori.one/mangas/{id}
+//     The two free-form STRING ids (animePlanetId, mangaUpdatesId) are wrapped in
+//     encodeURIComponent so an upstream-controlled slug cannot break the URL
+//     path/query (T-l2e-01); numeric ids need no encoding.
 //   * IDs read from the Phase 2 baseline singular fields (mangaDexId /
 //     aniListId / malId) which Manga.ts carries as optional. Forward-looking
 //     plural arrays (aniListIds[] / malIds[]) are NOT used here — when a
@@ -26,7 +35,17 @@ import Manga from 'Manga/Manga';
 import translate from 'Utilities/String/translate';
 import styles from './MangaDetailsLinks.css';
 
-type MangaDetailsLinksProps = Pick<Manga, 'mangaDexId' | 'aniListId' | 'malId'>;
+type MangaDetailsLinksProps = Pick<
+  Manga,
+  | 'mangaDexId'
+  | 'aniListId'
+  | 'malId'
+  | 'kitsuId'
+  | 'animeNewsNetworkId'
+  | 'shikimoriId'
+  | 'animePlanetId'
+  | 'mangaUpdatesId'
+>;
 
 interface MangaDetailsLink {
   externalId: string | number;
@@ -35,7 +54,16 @@ interface MangaDetailsLink {
 }
 
 function MangaDetailsLinks(props: MangaDetailsLinksProps) {
-  const { mangaDexId, aniListId, malId } = props;
+  const {
+    mangaDexId,
+    aniListId,
+    malId,
+    kitsuId,
+    animeNewsNetworkId,
+    shikimoriId,
+    animePlanetId,
+    mangaUpdatesId,
+  } = props;
 
   const links = useMemo(() => {
     const validLinks: MangaDetailsLink[] = [];
@@ -64,8 +92,61 @@ function MangaDetailsLinks(props: MangaDetailsLinksProps) {
       });
     }
 
+    if (kitsuId) {
+      validLinks.push({
+        externalId: kitsuId,
+        name: 'Kitsu',
+        url: `https://kitsu.app/manga/${kitsuId}`,
+      });
+    }
+
+    if (mangaUpdatesId) {
+      validLinks.push({
+        externalId: mangaUpdatesId,
+        name: 'MangaUpdates',
+        url: `https://www.mangaupdates.com/series/${encodeURIComponent(
+          mangaUpdatesId
+        )}`,
+      });
+    }
+
+    if (animePlanetId) {
+      validLinks.push({
+        externalId: animePlanetId,
+        name: 'AnimePlanet',
+        url: `https://www.anime-planet.com/manga/${encodeURIComponent(
+          animePlanetId
+        )}`,
+      });
+    }
+
+    if (animeNewsNetworkId) {
+      validLinks.push({
+        externalId: animeNewsNetworkId,
+        name: 'AnimeNewsNetwork',
+        url: `https://www.animenewsnetwork.com/encyclopedia/manga.php?id=${animeNewsNetworkId}`,
+      });
+    }
+
+    if (shikimoriId) {
+      validLinks.push({
+        externalId: shikimoriId,
+        name: 'Shikimori',
+        url: `https://shikimori.one/mangas/${shikimoriId}`,
+      });
+    }
+
     return validLinks;
-  }, [mangaDexId, aniListId, malId]);
+  }, [
+    mangaDexId,
+    aniListId,
+    malId,
+    kitsuId,
+    animeNewsNetworkId,
+    shikimoriId,
+    animePlanetId,
+    mangaUpdatesId,
+  ]);
 
   return (
     <div className={styles.links}>
