@@ -6,6 +6,9 @@
 // 6-state badge set per UI-SPEC §Chapter status badge set + RESEARCH Lock #4.
 // Status precedence (when multiple states could apply):
 //   failed > blocklisted > have-file > queued > wanted > unmonitored
+// NOTE: `failed` is `!hasFile`-guarded (see isFailed below) so a present
+// ChapterFile always wins over a stale historical downloadFailed event —
+// Sonarr EpisodeStatus parity (debug: chapter-status-stale-failed).
 //
 // Manga sibling preserves: small icon-button rendering pattern; Helpers/Props
 // icons + kinds.
@@ -85,7 +88,20 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
   // MangaDetailsProvider — single mangaIds-filtered fetch instead of N
   // chapterId-filtered fetches.
   const lastEvent = useLastChapterHistoryEvent(chapter.id);
-  const isFailed = lastEvent?.eventType === 'downloadFailed';
+
+  const hasFile = chapter.chapterFileId != null;
+
+  // A present ChapterFile always wins over a stale historical failure. Sonarr's
+  // EpisodeStatus never renders a persistent history-derived "failed" badge over
+  // a chapter that already has a file — an active failure surfaces via the live
+  // queue, not a stale History row. RESEARCH Lock #4 specified `failed` only
+  // among the no-file states (its `retryBudgetExhausted` qualifier was dropped in
+  // the original impl, and the `!hasFile` qualifier was missing entirely), so a
+  // re-listed/failed gateway job for an already-imported chapter was painting the
+  // row red even though the CBZ is on disk (debug: chapter-status-stale-failed).
+  // Guarding `isFailed` with `!hasFile` keeps the 6-state precedence honest:
+  // `failed` is reachable only when the chapter genuinely has no file.
+  const isFailed = !hasFile && lastEvent?.eventType === 'downloadFailed';
 
   const isQueued =
     !!queue?.records &&
@@ -99,9 +115,9 @@ function ChapterStatus({ chapter }: ChapterStatusProps) {
     !!blocklist?.records &&
     blocklist.records.some((b) => b.chapterIds?.includes(chapter.id) ?? false);
 
-  const hasFile = chapter.chapterFileId != null;
-
   // Precedence: failed > blocklisted > have-file > queued > wanted > unmonitored
+  // (`failed` is now `!hasFile`-guarded above, so a present file wins over a stale
+  // historical failure — see the isFailed comment.)
   // WR-06 fix: every status title flows through translate() so the badges
   // localize. Keys not yet present in en.json render as the key string
   // (translate() falls back to key) — Plan 07 follow-up adds them to the
