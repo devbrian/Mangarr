@@ -77,13 +77,33 @@ namespace NzbDrone.Core.Manga
             _ => null,
         };
 
-        private static MangaCandidate ToCandidate(Manga m) => new MangaCandidate
+        private static MangaCandidate ToCandidate(Manga m)
         {
-            AllTitles = m?.Title != null ? new List<string> { m.Title } : new List<string>(),
-            PublicationYear = m?.PublicationYear,
-            PrimaryAuthor = m?.PrimaryAuthor,
-            TotalChapterCount = m?.TotalChapterCount,
-        };
+            // Feed the canonical Title plus any AlternativeTitles into the candidate so the
+            // relink's title search + CrossSourceIdResolver gate get more variants to match
+            // against (the caller's Take(3) already anticipates multiple titles). A manga
+            // added under one source whose canonical title differs from the new primary's
+            // can still match via an alternate. Title goes first so it remains the best
+            // search term; nulls/dupes are stripped.
+            var titles = new List<string>();
+            if (!string.IsNullOrEmpty(m?.Title))
+            {
+                titles.Add(m.Title);
+            }
+
+            if (m?.AlternativeTitles != null)
+            {
+                titles.AddRange(m.AlternativeTitles);
+            }
+
+            return new MangaCandidate
+            {
+                AllTitles = titles.Where(t => !string.IsNullOrEmpty(t)).Distinct().ToList(),
+                PublicationYear = m?.PublicationYear,
+                PrimaryAuthor = m?.PrimaryAuthor,
+                TotalChapterCount = m?.TotalChapterCount,
+            };
+        }
 
         // Fill-null carry-over of every cross-source ID from an authoritative source record
         // onto the target. NEVER overwrites an existing id (`??=`), so it can only ENRICH the
