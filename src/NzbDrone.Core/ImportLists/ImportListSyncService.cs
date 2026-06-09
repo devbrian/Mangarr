@@ -13,6 +13,10 @@ using NzbDrone.Core.Manga;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.MetadataSource;
+using NzbDrone.Core.MetadataSource.AniList;
+using NzbDrone.Core.MetadataSource.MangaBaka;
+using NzbDrone.Core.MetadataSource.MangaDex;
+using NzbDrone.Core.MetadataSource.MyAnimeList;
 using NzbDrone.Core.ThingiProvider.Events;
 
 namespace NzbDrone.Core.ImportLists
@@ -174,6 +178,38 @@ namespace NzbDrone.Core.ImportLists
             // are unaffected.
             var crossSourceThrottled = false;
 
+            // v1.3 (quick-260608-vf9 follow-up): resolve the active primary metadata source
+            // ONCE per sync. Pre-v1.3 this whole method was hardcoded to MangaDexId, but
+            // MangaBaka became the default primary (Phase 41) and
+            // AddMangaService.PrepareForAdd -> ResolveSourceIdForPrimary REQUIRES the active
+            // primary's OWN id (e.g. MangaBakaId) or it throws "no source ID for active
+            // primary". So when the primary is NOT MangaDex, each item must be resolved to the
+            // primary's id (StageViaPrimaryResolution) rather than to a MangaDexId — otherwise
+            // every MAL/AniList-only item is silently rejected at the MangaDexId gate below.
+            // When the primary IS MangaDex (or is unconfigured -> Unknown -> legacy default)
+            // the original MangaDexId-centric block runs unchanged.
+            MetadataSourceDefinition activePrimaryDef = null;
+            try
+            {
+                activePrimaryDef = _metadataSourceFactory.GetPrimary();
+            }
+            catch (InvalidOperationException)
+            {
+                // No primary metadata source configured (config-drift) — fall back to the
+                // legacy MangaDexId path so MangaDex-id-carrying items still add.
+            }
+
+            // GetInstance is deliberately OUTSIDE the catch above: if a primary IS configured
+            // but its provider can't be instantiated (broken settings, missing impl), let that
+            // surface as a failed sync instead of swallowing it — otherwise primaryKind would be
+            // non-MangaDex while primarySource is null, routing every item into
+            // StageViaPrimaryResolution where it is silently dropped (CodeRabbit #3377823322).
+            var primarySource = activePrimaryDef != null
+                ? _metadataSourceFactory.GetInstance(activePrimaryDef)
+                : null;
+
+            var primaryKind = ClassifyPrimary(activePrimaryDef);
+
             foreach (var item in items)
             {
                 _logger.ProgressTrace("Processing list item {0}/{1}", reportNumber, items.Count);
@@ -184,6 +220,27 @@ namespace NzbDrone.Core.ImportLists
 
                 if (!importList.EnableAutomaticAdd)
                 {
+                    continue;
+                }
+
+                // Non-MangaDex primary (e.g. MangaBaka, the v1.3 default): resolve the item to
+                // the primary source's own id and stage it, then move on — the MangaDexId-centric
+                // block below does not apply because the library/add path is keyed on the
+                // primary's id, not MangaDexId.
+                if (primaryKind != PrimaryKind.MangaDex && primaryKind != PrimaryKind.Unknown)
+                {
+                    StageViaPrimaryResolution(
+                        item,
+                        importList,
+                        primarySource,
+                        primaryKind,
+                        mangaToAdd,
+                        listExclusions,
+                        existingMalIds,
+                        existingAniListIds,
+                        existingMangaDexIds,
+                        ref crossSourceThrottled);
+
                     continue;
                 }
 
@@ -380,6 +437,227 @@ namespace NzbDrone.Core.ImportLists
             _addMangaService.AddManga(mangaToAdd, true);
 
             _logger.ProgressInfo("Import List Sync Completed. Items found: {0}, Manga added: {1}", items.Count, mangaToAdd.Count);
+        }
+
+        // The active primary's canonical-id family. We classify by Definition.Implementation
+        // (the immutable class name) rather than the concrete instance type so the choice is
+        // stable across user renames AND unit-testable without constructing a real
+        // HttpMetadataSourceBase — this mirrors the WR-13 fix already used in
+        // AddMangaService.ResolveCrossSourceIds.
+        private enum PrimaryKind
+        {
+            Unknown,
+            MangaDex,
+            MangaBaka,
+            AniList,
+            MyAnimeList
+        }
+
+        private static PrimaryKind ClassifyPrimary(MetadataSourceDefinition primaryDef)
+        {
+            if (primaryDef == null)
+            {
+                return PrimaryKind.Unknown;
+            }
+
+            return primaryDef.Implementation switch
+            {
+                nameof(MangaBakaMetadataSource) => PrimaryKind.MangaBaka,
+                nameof(MangaDexMetadataSource) => PrimaryKind.MangaDex,
+                nameof(AniListMetadataSource) => PrimaryKind.AniList,
+                nameof(MyAnimeListMetadataSource) => PrimaryKind.MyAnimeList,
+                _ => PrimaryKind.Unknown
+            };
+        }
+
+        // Does this candidate carry the id field that AddMangaService.ResolveSourceIdForPrimary
+        // requires for the active primary? (e.g. MangaBakaId when MangaBaka is primary.) Without
+        // it, AddManga would throw "no source ID for active primary".
+        private static bool HasPrimaryId(Manga.Manga candidate, PrimaryKind primaryKind) => primaryKind switch
+        {
+            PrimaryKind.MangaBaka => candidate.MangaBakaId.HasValue,
+            PrimaryKind.MangaDex => candidate.MangaDexId.HasValue,
+            PrimaryKind.AniList => candidate.AniListId.HasValue,
+            PrimaryKind.MyAnimeList => candidate.MalId.HasValue,
+            _ => false
+        };
+
+        // Does the raw import-list item already carry the active primary's OWN id? Import items
+        // only ever carry MangaDexId/MalId/AniListId, so this is true only for a MyAnimeList primary
+        // (item.MalId) or an AniList primary (item.AniListId) — a MangaBaka primary never matches
+        // (items carry no MangaBakaId), so it always resolves via the primary's title search.
+        private static bool ItemCarriesPrimaryId(ImportListItemInfo item, PrimaryKind primaryKind) => primaryKind switch
+        {
+            PrimaryKind.MyAnimeList => item.MalId.HasValue,
+            PrimaryKind.AniList => item.AniListId.HasValue,
+            _ => false
+        };
+
+        // Resolve a single import-list item to the active (non-MangaDex) primary's own id and
+        // stage it for add. Import-list items only ever carry MangaDexId/MalId/AniListId (never
+        // a MangaBakaId), so a non-MangaDex primary ALWAYS resolves via the primary's title
+        // search, matching on the alt id(s) the item carries. The matched candidate from the
+        // primary already carries the primary's id (e.g. MangaBakaId), which is exactly what the
+        // downstream AddMangaService.PrepareForAdd needs.
+        //
+        // A MangaDexId-only item cannot resolve here: MangaBaka search results do not expose a
+        // MangaDexId (MetadataSource D-03a), so there is nothing to match on — such an item is
+        // skipped (MangaDex import lists belong under a MangaDex primary).
+        private void StageViaPrimaryResolution(
+            ImportListItemInfo item,
+            ImportListDefinition importList,
+            IMetadataSource primary,
+            PrimaryKind primaryKind,
+            List<Manga.Manga> mangaToAdd,
+            List<ImportListExclusion> listExclusions,
+            HashSet<int> existingMalIds,
+            HashSet<int> existingAniListIds,
+            List<string> existingMangaDexIds,
+            ref bool crossSourceThrottled)
+        {
+            if (!item.MalId.HasValue && !item.AniListId.HasValue)
+            {
+                _logger.Debug("[{0}] Skipped — under a non-MangaDex primary the item carries no MAL/AniList id to resolve against the primary", item.Title);
+                return;
+            }
+
+            // Short-circuit: already in the library by the alt id we carry. Avoids one primary
+            // search per item per sync for titles we already own.
+            if ((item.MalId.HasValue && existingMalIds.Contains(item.MalId.Value)) ||
+                (item.AniListId.HasValue && existingAniListIds.Contains(item.AniListId.Value)))
+            {
+                _logger.Debug("[{0}] Rejected, already in library by alternate-ID (MAL={1}/AniList={2})", item.Title, item.MalId, item.AniListId);
+                return;
+            }
+
+            Manga.Manga match;
+
+            // Exact-id fast path (CodeRabbit #3377823326): when the active primary is MyAnimeList
+            // or AniList, the item ALREADY carries the primary's own id (MalId / AniListId), so no
+            // fuzzy title search is needed — and depending on one could drop a perfectly valid item
+            // on a search miss or a 429. Stage directly from the id the item carries; AddMangaService
+            // .PrepareForAdd then fetches the full record via GetMangaInfo(<primaryId>). MangaBaka
+            // items never carry a MangaBakaId, so they always fall through to the title search below.
+            if (ItemCarriesPrimaryId(item, primaryKind))
+            {
+                match = new Manga.Manga { MalId = item.MalId, AniListId = item.AniListId };
+            }
+            else
+            {
+                if (crossSourceThrottled || primary == null)
+                {
+                    return;
+                }
+
+                try
+                {
+                    var candidates = primary.SearchForNewManga(item.Title) ?? new List<Manga.Manga>();
+
+                    // Strict-AND when the item carries both ids (mirrors the MangaDex-path resolver):
+                    // a candidate must agree on every id the item actually carries.
+                    match = candidates.FirstOrDefault(c =>
+                        (!item.AniListId.HasValue || c.AniListId == item.AniListId) &&
+                        (!item.MalId.HasValue || c.MalId == item.MalId));
+                }
+                catch (TooManyRequestsException)
+                {
+                    crossSourceThrottled = true;
+                    _logger.Warn(
+                        "Cross-source ID lookup against the primary metadata source throttled (HTTP 429); skipping resolution for the rest of this sync. Item [{0}] and subsequent items will be retried on the next scheduled sync.",
+                        item.Title);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn(ex, "[{0}] Cross-source resolution failed; item will be skipped", item.Title);
+                    return;
+                }
+            }
+
+            if (match == null || !HasPrimaryId(match, primaryKind))
+            {
+                _logger.Debug(
+                    "[{0}] Rejected, the primary metadata source returned no match carrying its own id (MAL={1}/AniList={2})",
+                    item.Title,
+                    item.MalId,
+                    item.AniListId);
+                return;
+            }
+
+            var malId = item.MalId ?? match.MalId;
+            var aniListId = item.AniListId ?? match.AniListId;
+            var mangaDexIdString = match.MangaDexId?.ToString();
+
+            // Exclusion check on the manga-ID triplet — match on ANY populated id.
+            var excluded = listExclusions.Any(s =>
+                (mangaDexIdString != null && s.MangaDexId == mangaDexIdString) ||
+                (malId.HasValue && s.MalId == malId) ||
+                (aniListId.HasValue && s.AniListId == aniListId));
+
+            if (excluded)
+            {
+                _logger.Debug("[{0}] Rejected due to list exclusion", item.Title);
+                return;
+            }
+
+            // Library membership post-resolution: the match may surface ids the raw item lacked.
+            if ((malId.HasValue && existingMalIds.Contains(malId.Value)) ||
+                (aniListId.HasValue && existingAniListIds.Contains(aniListId.Value)) ||
+                (mangaDexIdString != null && existingMangaDexIds.Contains(mangaDexIdString)))
+            {
+                _logger.Debug("[{0}] Rejected, manga exists in database (post-resolution)", item.Title);
+                return;
+            }
+
+            // Batch dedup within this sync (two lists pointing at the same title).
+            if (mangaToAdd.Any(m =>
+                (match.MangaBakaId.HasValue && m.MangaBakaId == match.MangaBakaId) ||
+                (malId.HasValue && m.MalId == malId) ||
+                (aniListId.HasValue && m.AniListId == aniListId) ||
+                (match.MangaDexId.HasValue && m.MangaDexId == match.MangaDexId)))
+            {
+                return;
+            }
+
+            var monitored = importList.ShouldMonitor != MonitorTypes.None;
+
+            mangaToAdd.Add(new Manga.Manga
+            {
+                MangaBakaId = match.MangaBakaId,
+                MangaDexId = match.MangaDexId,
+                MalId = malId,
+                AniListId = aniListId,
+                Title = item.Title,
+                Monitored = monitored,
+                MonitorNewItems = importList.MonitorNewItems == NewItemMonitorTypes.All
+                                  ? MangaMonitorNewItems.All
+                                  : MangaMonitorNewItems.None,
+                RootFolderPath = importList.RootFolderPath,
+                TranslationProfileId = importList.TranslationProfileId,
+                CustomFormatProfileId = importList.CustomFormatProfileId,
+                Tags = importList.Tags,
+                AddOptions = new AddMangaOptions
+                {
+                    SearchForMissingChapters = importList.SearchForMissingChapters,
+                    Monitor = importList.ShouldMonitor switch
+                    {
+                        MonitorTypes.All => MangaMonitor.All,
+                        MonitorTypes.Latest => MangaMonitor.Latest,
+                        MonitorTypes.Existing => MangaMonitor.Latest,
+                        MonitorTypes.First => MangaMonitor.Latest,
+                        MonitorTypes.None => MangaMonitor.None,
+                        _ => MangaMonitor.None
+                    }
+                }
+            });
+
+            _logger.Debug(
+                "[{0}] Resolved via primary ({1}) → staged for add (MangaBakaId={2}, MAL={3}, AniList={4})",
+                item.Title,
+                primaryKind,
+                match.MangaBakaId,
+                malId,
+                aniListId);
         }
 
         public void Execute(ImportListSyncCommand message)
