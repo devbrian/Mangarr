@@ -29,13 +29,13 @@ public class MangaResource : RestResource
     public string? RootFolderPath { get; set; }
     public bool Monitored { get; set; }
 
-    // Issue #28: three fields deferred from PR #27's single-Manga Edit modal because
-    // they were not round-tripping end-to-end. All three now flow through ToResource /
-    // ToModel + Manga.ApplyChanges so the Edit modal can persist them via PUT.
-    //   * MonitorNewItems — mirrors Sonarr's SeriesResource.MonitorNewItems (commit ade40b72b).
+    // Issue #28: profile FKs surfaced on the wire so the single-Manga Edit modal can persist
+    // them via PUT. They flow through ToResource / ToModel + Manga.ApplyChanges.
     //   * TranslationProfileId / CustomFormatProfileId — already on the core Manga model
     //     since Phase 5 D-01 + D-07 but were not surfaced on the wire pre-#28.
-    public MangaMonitorNewItems MonitorNewItems { get; set; }
+    // #356: the new-chapter monitoring axis is no longer carried on the wire — it is an
+    // internal, derived field (None->None, else->All at add/import time). The column + POCO
+    // field stay on the core Manga model.
     public int? TranslationProfileId { get; set; }
     public int? CustomFormatProfileId { get; set; }
 
@@ -151,7 +151,12 @@ public static class MangaStatisticsResourceMapper
 // support but does not surface them in the v1 Add Manga UI.
 public class AddMangaOptionsResource
 {
-    public MangaMonitor Monitor { get; set; }
+    // Nullable so an `addOptions` object that OMITS `monitor` is distinguishable from one that
+    // explicitly sends `"none"`. After the #357 ordinal reorder `None` is the zero value, so a
+    // non-nullable enum would silently default an omitted monitor to `None` (add unmonitored) —
+    // a regression from the prior `All`-as-default-0 behavior. ToModel maps null -> MangaMonitor.All
+    // (Sonarr-canonical "monitor everything" default); an explicit `"none"` still opts out.
+    public MangaMonitor? Monitor { get; set; }
     public bool SearchForMissingChapters { get; set; }
     public bool SearchForCutoffUnmetChapters { get; set; }
     public bool IgnoreChaptersWithFiles { get; set; }
@@ -182,7 +187,6 @@ public static class MangaResourceMapper
             Path = model.Path,
             RootFolderPath = model.RootFolderPath,
             Monitored = model.Monitored,
-            MonitorNewItems = model.MonitorNewItems,
             TranslationProfileId = model.TranslationProfileId,
             CustomFormatProfileId = model.CustomFormatProfileId,
             Added = model.Added,
@@ -235,7 +239,6 @@ public static class MangaResourceMapper
             Path = resource.Path,
             RootFolderPath = resource.RootFolderPath,
             Monitored = resource.Monitored,
-            MonitorNewItems = resource.MonitorNewItems,
             TranslationProfileId = resource.TranslationProfileId,
             CustomFormatProfileId = resource.CustomFormatProfileId,
             Added = resource.Added,
@@ -257,7 +260,9 @@ public static class MangaResourceMapper
             Demographic = resource.Demographic,
             AddOptions = resource.AddOptions == null ? null : new AddMangaOptions
             {
-                Monitor = resource.AddOptions.Monitor,
+                // null (monitor omitted from a partial addOptions payload) -> All, preserving the
+                // pre-#357 default-monitored behavior now that None is the zero ordinal.
+                Monitor = resource.AddOptions.Monitor ?? MangaMonitor.All,
                 SearchForMissingChapters = resource.AddOptions.SearchForMissingChapters,
                 SearchForCutoffUnmetChapters = resource.AddOptions.SearchForCutoffUnmetChapters,
                 IgnoreChaptersWithFiles = resource.AddOptions.IgnoreChaptersWithFiles,

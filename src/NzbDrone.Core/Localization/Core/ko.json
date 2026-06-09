@@ -1184,7 +1184,6 @@
   "MonitorLastSeasonDescription": "지난 시즌의 모든 에피소드를 모니터링하세요",
   "MonitorMissingEpisodes": "누락된 에피소드",
   "MonitorMissingEpisodesDescription": "파일이 없거나 아직 방영되지 않은 에피소드를 모니터링하기",
-  "MonitorNewItems": "새로운 항목 모니터링 설정",
   "MonitorNewSeasons": "새로운 시즌 모니터링 설정",
   "MonitorNewSeasonsHelpText": "자동으로 모니터링해야 할 새로운 시즌",
   "MonitorNoEpisodes": "없음",

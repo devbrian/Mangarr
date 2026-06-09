@@ -43,7 +43,6 @@ import styles from './EditMangaModalContent.css';
 // Series/Index/Select/Edit/EditSeriesModalContent.tsx verbatim.
 interface SavePayload {
   monitored?: boolean;
-  monitorNewItems?: string;
   translationProfileId?: number;
   rootFolderPath?: string;
   moveFiles?: boolean;
@@ -87,7 +86,6 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
   const { onSavePress, onModalClose } = props;
 
   const [monitored, setMonitored] = useState(NO_CHANGE);
-  const [monitorNewItems, setMonitorNewItems] = useState(NO_CHANGE);
   const [translationProfileId, setTranslationProfileId] = useState<
     string | number
   >(NO_CHANGE);
@@ -106,11 +104,6 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
       if (monitored !== NO_CHANGE) {
         hasChanges = true;
         payload.monitored = monitored === 'monitored';
-      }
-
-      if (monitorNewItems !== NO_CHANGE) {
-        hasChanges = true;
-        payload.monitorNewItems = monitorNewItems;
       }
 
       if (translationProfileId !== NO_CHANGE) {
@@ -135,14 +128,7 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
 
       onModalClose();
     },
-    [
-      monitored,
-      monitorNewItems,
-      translationProfileId,
-      rootFolderPath,
-      onSavePress,
-      onModalClose,
-    ]
+    [monitored, translationProfileId, rootFolderPath, onSavePress, onModalClose]
   );
 
   const onInputChange = useCallback(
@@ -150,9 +136,6 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
       switch (name) {
         case 'monitored':
           setMonitored(value as string);
-          break;
-        case 'monitorNewItems':
-          setMonitorNewItems(value as string);
           break;
         case 'translationProfileId':
           setTranslationProfileId(value as string);
@@ -210,19 +193,6 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
             name="monitored"
             value={monitored}
             values={monitoredOptions}
-            onChange={onInputChange}
-          />
-        </FormGroup>
-
-        <FormGroup>
-          <FormLabel>{translate('MonitorNewItems')}</FormLabel>
-
-          <FormInputGroup
-            type={inputTypes.MONITOR_NEW_ITEMS_SELECT}
-            name="monitorNewItems"
-            value={monitorNewItems}
-            includeNoChange={true}
-            includeNoChangeDisabled={false}
             onChange={onInputChange}
           />
         </FormGroup>

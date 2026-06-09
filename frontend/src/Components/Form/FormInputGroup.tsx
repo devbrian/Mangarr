@@ -40,9 +40,6 @@ import MangaTypeSelectInput, {
 import MonitorChaptersSelectInput, {
   MonitorChaptersSelectInputProps,
 } from './Select/MonitorChaptersSelectInput';
-import MonitorNewItemsSelectInput, {
-  MonitorNewItemsSelectInputProps,
-} from './Select/MonitorNewItemsSelectInput';
 import ProviderDataSelectInput, {
   ProviderOptionSelectInputProps,
 } from './Select/ProviderOptionSelectInput';
@@ -79,7 +76,6 @@ const componentMap: Record<InputType, ElementType> = {
   keyValueList: KeyValueListInput,
   languageSelect: LanguageSelectInput,
   monitorEpisodesSelect: MonitorChaptersSelectInput,
-  monitorNewItemsSelect: MonitorNewItemsSelectInput,
   number: NumberInput,
   oauth: OAuthInput,
   password: PasswordInput,
@@ -131,8 +127,6 @@ type PickProps<V, C extends InputType> = C extends 'text'
   ? LanguageSelectInputProps
   : C extends 'monitorEpisodesSelect'
   ? MonitorChaptersSelectInputProps
-  : C extends 'monitorNewItemsSelect'
-  ? MonitorNewItemsSelectInputProps
   : C extends 'number'
   ? NumberInputProps
   : C extends 'oauth'

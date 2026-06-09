@@ -1251,7 +1251,6 @@
   "MonitorLastSeasonDescription": "Kövesse nyomon az elmúlt évad összes epizódját",
   "MonitorMissingEpisodes": "Hiányzó epizódok",
   "MonitorMissingEpisodesDescription": "Figyelje azokat az epizódokat, amelyekhez nem tartoznak fájlok, vagy amelyek még nem kerültek adásba",
-  "MonitorNewItems": "Új elemek figyelése",
   "MonitorNewSeasons": "Kövesse az új évadokat",
   "MonitorNewSeasonsHelpText": "Mely új évadokat kell automatikusan figyelni",
   "MonitorNoEpisodes": "Egyik sem",

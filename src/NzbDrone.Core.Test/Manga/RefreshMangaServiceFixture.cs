@@ -558,10 +558,14 @@ namespace NzbDrone.Core.Test.MangaTests
         {
             // issue #28 regression — the metadata-fetch path constructs a fresh Manga
             // from the source response (defaults for MonitorNewItems / TranslationProfileId
-            // / CustomFormatProfileId). Without explicit preservation, ApplyChanges
-            // clobbers the user's choice on every refresh — and MangaEditedService
-            // queues a refresh after every UI single-edit, so without this guard every
-            // Save round-trip silently undoes itself.
+            // / CustomFormatProfileId). The user's stored values must survive a refresh —
+            // and MangaEditedService queues a refresh after every UI single-edit, so a
+            // regression here would silently undo every Save round-trip.
+            //
+            // #356: MonitorNewItems preservation is now STRUCTURAL — Manga.ApplyChanges no
+            // longer copies the field at all, so the metadata defaults can never reach it
+            // (the RefreshMangaService save/restore dance for it is now redundant but
+            // harmless). The profile FKs still rely on the explicit save/restore.
             var existing = new Manga.Manga
             {
                 Id = 1,

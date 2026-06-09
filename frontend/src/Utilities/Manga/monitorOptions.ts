@@ -3,7 +3,8 @@
 // stub. Originally a no-op empty array per Phase 15 Plan 15-12 STUB shape; the
 // stub-comment flagged "v1.x cleanup ticket: populate with translated
 // MangaMonitor labels keyed off Manga.ts MangaMonitor type" — that ticket was
-// filed as issue #209 and is closed by populating the 5-value array below.
+// filed as issue #209 and is closed by populating the array below. #357 extended
+// it to 7 values (added existing + first) when MangaMonitor unified to 7 values.
 //
 // Shape mirrors Sonarr's Utilities/Series/monitorOptions.ts verbatim (deferred
 // translate() via get value() getter — language changes take effect without
@@ -34,6 +35,18 @@ const monitorOptions: MonitorOption[] = [
     key: 'missing',
     get value() {
       return translate('MonitorMissingChapters');
+    },
+  },
+  {
+    key: 'existing',
+    get value() {
+      return translate('MonitorExistingChapters');
+    },
+  },
+  {
+    key: 'first',
+    get value() {
+      return translate('MonitorFirstChapter');
     },
   },
   {

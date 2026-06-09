@@ -76,7 +76,7 @@ namespace NzbDrone.Core.Test.ImportListTests
                 RootFolderPath = @"C:\Manga",
                 TranslationProfileId = 1,
                 CustomFormatProfileId = 1,
-                ShouldMonitor = MonitorTypes.All
+                ShouldMonitor = MangaMonitor.All
             };
 
             Mocker.GetMock<IImportListFactory>()

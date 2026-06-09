@@ -3,7 +3,8 @@
 //
 // Manga sibling preserves: ModelBase + Tags + Images + Monitored.
 // Manga sibling diverges from Series:
-//   * MangaMonitor has 5 values (Phase 6 D-03), not 9 like SeriesMonitor.
+//   * MangaMonitor has 7 values (#357 D-2, supersedes the Phase 6 D-03 5-value lock),
+//     not 9 like SeriesMonitor.
 //   * No SeriesType / Network / QualityProfileId / Season-folder fields.
 //   * Adds TranslationProfileId, CustomFormatProfileId, AniListIds, MalIds, ContentRating.
 //
@@ -24,7 +25,14 @@
 import ModelBase from 'App/ModelBase';
 import ReleaseType from 'InteractiveImport/ReleaseType';
 
-export type MangaMonitor = 'all' | 'future' | 'missing' | 'latest' | 'none';
+export type MangaMonitor =
+  | 'all'
+  | 'future'
+  | 'missing'
+  | 'existing'
+  | 'first'
+  | 'latest'
+  | 'none';
 
 export type MangaStatus =
   | 'ongoing'
@@ -34,8 +42,6 @@ export type MangaStatus =
   | 'unknown';
 
 export type MangaType = 'manga' | 'manhwa' | 'manhua' | 'oneshot';
-
-export type MonitorNewItems = 'all' | 'none';
 
 export type CoverType = 'poster' | 'banner' | 'fanart' | 'cover' | 'screenshot';
 
@@ -101,7 +107,6 @@ interface Manga extends ModelBase {
   qualityProfileId?: number;
   monitored: boolean;
   monitor?: MangaMonitor;
-  monitorNewItems?: MonitorNewItems;
   tags: number[];
   images: MangaImage[];
   // Singular per Phase 2 02-CONTEXT (manga is 1:1 across sources, unlike anime).

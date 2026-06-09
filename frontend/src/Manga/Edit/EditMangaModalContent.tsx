@@ -25,14 +25,13 @@
 // MangaController.UpdateManga enqueues MoveMangaCommand BEFORE ApplyChanges
 // so MoveMangaService sees the original on-disk path.
 //
-// === Editable field set (Issue #28 — 2026-05-09) ===
-// All five field-set fields below round-trip end-to-end through
-// MangaResource + Manga.ApplyChanges. PR #27 originally shipped just
-// Monitored + Tags because MonitorNewItems / TranslationProfileId /
-// CustomFormatProfileId were not yet on the wire. Issue #28 closed those
-// backend gaps; this modal now exposes the full editable surface that the
-// bulk-edit modal also exposes (minus the NoChange semantics that only
-// multi-select needs).
+// === Editable field set (Issue #28 — 2026-05-09; #356 — 2026-06-09) ===
+// The field-set fields below round-trip end-to-end through MangaResource +
+// Manga.ApplyChanges. PR #27 originally shipped just Monitored + Tags;
+// Issue #28 added TranslationProfileId / CustomFormatProfileId. #356 REMOVED
+// the user-facing MonitorNewItems control — new-chapter monitoring is now
+// derived from the Monitor choice at add/import time, so the Edit modal no
+// longer exposes it.
 //
 // Phase 8 cleanup: this file IS the manga canonical now (Tv/ subtree gone).
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -54,7 +53,7 @@ import useApiQuery from 'Helpers/Hooks/useApiQuery';
 import { usePendingChangesStore } from 'Helpers/Hooks/usePendingChangesStore';
 import usePrevious from 'Helpers/Hooks/usePrevious';
 import { icons, inputTypes, kinds, sizes } from 'Helpers/Props';
-import Manga, { MonitorNewItems } from 'Manga/Manga';
+import Manga from 'Manga/Manga';
 import MoveMangaModal from 'Manga/MoveManga/MoveMangaModal';
 import { useSaveManga, useSingleManga } from 'Manga/useManga';
 import selectSettings from 'Store/Selectors/selectSettings';
@@ -74,33 +73,11 @@ export interface EditMangaModalContentProps {
 // `path` was added in issue #81 (was read-only pre-PR).
 interface EditableMangaFields {
   monitored: boolean;
-  monitorNewItems: MonitorNewItems;
   translationProfileId: number;
   customFormatProfileId: number;
   path: string;
   tags: number[];
 }
-
-// 2-value MangaMonitorNewItems mirror — keys match the C# enum value names so
-// JSON round-trip lands on the right enum value at the controller layer.
-// Sonarr precedent: MonitorNewItemsSelectInput.tsx (which reads from a stub
-// monitorNewItemsOptions array). For the single-manga modal we render a plain
-// SELECT input bound to this 2-entry list — no NoChange / Mixed extras
-// (those only matter for the bulk-edit case).
-const monitorNewItemsValues: EnhancedSelectInputValue<string>[] = [
-  {
-    key: 'all',
-    get value() {
-      return translate('MonitorAllChapters');
-    },
-  },
-  {
-    key: 'none',
-    get value() {
-      return translate('MonitorNone');
-    },
-  },
-];
 
 interface ProfileResource {
   id: number;
@@ -173,9 +150,6 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
   const initial = useMemo<EditableMangaFields>(
     () => ({
       monitored: manga.monitored,
-      // Default to 'all' for legacy rows where the backend default landed
-      // before MonitorNewItems was on the wire.
-      monitorNewItems: manga.monitorNewItems ?? 'all',
       // 0 means "fall back to Config.DefaultTranslationProfileId / Config.
       // DefaultCustomFormatProfileId" (Phase 5 D-11 default-seeded entities).
       translationProfileId: manga.translationProfileId ?? 0,
@@ -193,14 +167,8 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
     };
   }, [initial, pendingChanges, saveError]);
 
-  const {
-    monitored,
-    monitorNewItems,
-    translationProfileId,
-    customFormatProfileId,
-    path,
-    tags,
-  } = settings;
+  const { monitored, translationProfileId, customFormatProfileId, path, tags } =
+    settings;
 
   const handleInputChange = useCallback(
     ({ name, value }: InputChanged) => {
@@ -303,19 +271,6 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
                 name="monitored"
                 helpText={translate('MonitoredChaptersHelpText')}
                 {...monitored}
-                onChange={handleInputChange}
-              />
-            </FormGroup>
-
-            <FormGroup size={sizes.MEDIUM}>
-              <FormLabel>{translate('MonitorNewItems')}</FormLabel>
-
-              <FormInputGroup
-                type={inputTypes.SELECT}
-                name="monitorNewItems"
-                values={monitorNewItemsValues}
-                helpText={translate('MonitorNewItemsHelpText')}
-                {...monitorNewItems}
                 onChange={handleInputChange}
               />
             </FormGroup>

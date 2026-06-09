@@ -129,7 +129,6 @@ function MangaIndexRow(props: MangaIndexRowProps) {
   const {
     title,
     monitored,
-    monitorNewItems,
     status,
     path,
     titleSlug,
@@ -320,16 +319,6 @@ function MangaIndexRow(props: MangaIndexRowProps) {
           return (
             <VirtualTableRowCell key={name} className={styles[name]}>
               <MangaTagList tags={tags} />
-            </VirtualTableRowCell>
-          );
-        }
-
-        if (name === 'monitorNewItems') {
-          return (
-            <VirtualTableRowCell key={name} className={styles[name]}>
-              {monitorNewItems === 'all'
-                ? translate('SeasonsMonitoredAll')
-                : translate('SeasonsMonitoredNone')}
             </VirtualTableRowCell>
           );
         }

@@ -1221,7 +1221,6 @@
   "MonitorLastSeasonDescription": "Valvo kaikkia viimeisen kauden jaksoja.",
   "MonitorMissingEpisodes": "Puuttuvat jaksot",
   "MonitorMissingEpisodesDescription": "Valvo jaksoja, joille ei ole tiedostoja tai joita ei ole vielä esitetty.",
-  "MonitorNewItems": "Uusien kausien valvonta",
   "MonitorNewSeasons": "Uusien kausien valvonta",
   "MonitorNewSeasonsHelpText": "Uusien kausien automaattivalvonnan käytäntö.",
   "MonitorNoEpisodes": "Ei mitään",

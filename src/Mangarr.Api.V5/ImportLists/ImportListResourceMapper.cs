@@ -19,7 +19,6 @@ public class ImportListResourceMapper : ProviderResourceMapper<ImportListResourc
         resource.EnableAutomaticAdd = definition.EnableAutomaticAdd;
         resource.SearchForMissingChapters = definition.SearchForMissingChapters;
         resource.ShouldMonitor = definition.ShouldMonitor;
-        resource.MonitorNewItems = definition.MonitorNewItems;
         resource.RootFolderPath = definition.RootFolderPath;
         resource.TranslationProfileId = definition.TranslationProfileId;
         resource.CustomFormatProfileId = definition.CustomFormatProfileId;
@@ -36,7 +35,6 @@ public class ImportListResourceMapper : ProviderResourceMapper<ImportListResourc
         definition.EnableAutomaticAdd = resource.EnableAutomaticAdd;
         definition.SearchForMissingChapters = resource.SearchForMissingChapters;
         definition.ShouldMonitor = resource.ShouldMonitor;
-        definition.MonitorNewItems = resource.MonitorNewItems;
         definition.RootFolderPath = resource.RootFolderPath;
         definition.TranslationProfileId = resource.TranslationProfileId;
         definition.CustomFormatProfileId = resource.CustomFormatProfileId;

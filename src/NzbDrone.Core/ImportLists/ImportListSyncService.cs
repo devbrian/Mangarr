@@ -35,9 +35,11 @@ namespace NzbDrone.Core.ImportLists
     //   * exclusion check: TvdbId equality → MangaDexId string equality.
     //
     // Per RESEARCH §Q5 + Open Q #3, ImportListSyncService deliberately leaves the
-    // monitor + profile fan-out skinny: ShouldMonitor / MonitorNewItems / TranslationProfile /
-    // CustomFormatProfile / RootFolderPath flow through from the ImportListDefinition;
-    // future per-list `SearchForMissingChapters` cascade lives behind
+    // monitor + profile fan-out skinny: ShouldMonitor (the canonical 7-value MangaMonitor) /
+    // TranslationProfile / CustomFormatProfile / RootFolderPath flow through from the
+    // ImportListDefinition. MonitorNewItems is no longer a user-facing axis (#356) — it is
+    // derived from ShouldMonitor via MangaMonitorExtensions.DeriveMonitorNewItems(). Future
+    // per-list `SearchForMissingChapters` cascade lives behind
     // ImportListDefinition.SearchForMissingChapters.
     public class ImportListSyncService : IExecute<ImportListSyncCommand>, IHandleAsync<ProviderDeletedEvent<IMangaImportList>>
     {
@@ -390,7 +392,7 @@ namespace NzbDrone.Core.ImportLists
                 // Guid? values directly to avoid any remaining canonicalization mismatch.
                 if (mangaToAdd.All(m => m.MangaDexId != mangaDexGuid))
                 {
-                    var monitored = importList.ShouldMonitor != MonitorTypes.None;
+                    var monitored = importList.ShouldMonitor != MangaMonitor.None;
 
                     mangaToAdd.Add(new Manga.Manga
                     {
@@ -399,7 +401,7 @@ namespace NzbDrone.Core.ImportLists
                         AniListId = item.AniListId,
                         Title = item.Title,
                         Monitored = monitored,
-                        MonitorNewItems = DeriveMonitorNewItems(importList.ShouldMonitor),
+                        MonitorNewItems = importList.ShouldMonitor.DeriveMonitorNewItems(),
                         RootFolderPath = importList.RootFolderPath,
                         TranslationProfileId = importList.TranslationProfileId,
                         CustomFormatProfileId = importList.CustomFormatProfileId,
@@ -408,25 +410,11 @@ namespace NzbDrone.Core.ImportLists
                         {
                             SearchForMissingChapters = importList.SearchForMissingChapters,
 
-                            // CodeRabbit PR #218: preserve Existing/First semantics
-                            // instead of silently coercing to All. Sonarr's
-                            // MonitorTypes.Existing = "monitor existing chapters,
-                            // no backfill"; MonitorTypes.First = "monitor first
-                            // season only" (a TV concept). For manga's flat chapter
-                            // list, both map most closely to Latest (monitor recent
-                            // chapters, do not backfill the entire library).
-                            // Unknown values fall through to None as a fail-safe so
-                            // a future enum addition does not silently start
-                            // monitoring everything.
-                            Monitor = importList.ShouldMonitor switch
-                            {
-                                MonitorTypes.All => MangaMonitor.All,
-                                MonitorTypes.Latest => MangaMonitor.Latest,
-                                MonitorTypes.Existing => MangaMonitor.Latest,
-                                MonitorTypes.First => MangaMonitor.Latest,
-                                MonitorTypes.None => MangaMonitor.None,
-                                _ => MangaMonitor.None
-                            }
+                            // #357: ShouldMonitor IS now a MangaMonitor — assign it directly,
+                            // no remap. The old MonitorTypes->MangaMonitor block lossily coerced
+                            // Existing/First to Latest because real Existing/First didn't exist;
+                            // they do now (#357 D-3), so the user's choice flows through verbatim.
+                            Monitor = importList.ShouldMonitor
                         }
                     });
                 }
@@ -451,19 +439,14 @@ namespace NzbDrone.Core.ImportLists
             MyAnimeList
         }
 
-        // quick-260608-vf9 follow-up (#1): for manga's flat chapter list the Monitor choice
-        // already encodes new-chapter intent — any monitored ShouldMonitor selection (the
-        // MonitorTypes values All / Existing / Latest / First) implies "keep monitoring chapters
-        // that appear later", and only None means "don't". So derive the per-manga new-chapter
-        // policy from ShouldMonitor instead of carrying a separate MonitorNewItems axis (the
-        // Sonarr "monitor new seasons" artifact, which has no manga peer). Removing the
-        // independent MonitorNewItems concept app-wide (manga Edit modal + index column + API +
-        // schema migration + locales) is tracked as follow-up issue #356.
-        private static MangaMonitorNewItems DeriveMonitorNewItems(MonitorTypes shouldMonitor) =>
-            shouldMonitor == MonitorTypes.None
-                ? MangaMonitorNewItems.None
-                : MangaMonitorNewItems.All;
-
+        // quick-260608-vf9 follow-up (#1) — CLOSED by #356/#357: for manga's flat chapter list the
+        // Monitor choice already encodes new-chapter intent — any monitored ShouldMonitor selection
+        // implies "keep monitoring chapters that appear later", and only None means "don't". The
+        // per-manga new-chapter policy is now derived from ShouldMonitor via the shared
+        // MangaMonitorExtensions.DeriveMonitorNewItems() helper (the per-class private copy was
+        // removed). #356 removed the independent user-facing MonitorNewItems axis app-wide (manga
+        // Edit modal + index column + API + locales); #357 unified ShouldMonitor onto the canonical
+        // 7-value MangaMonitor.
         private static PrimaryKind ClassifyPrimary(MetadataSourceDefinition primaryDef)
         {
             if (primaryDef == null)
@@ -630,7 +613,7 @@ namespace NzbDrone.Core.ImportLists
                 return;
             }
 
-            var monitored = importList.ShouldMonitor != MonitorTypes.None;
+            var monitored = importList.ShouldMonitor != MangaMonitor.None;
 
             mangaToAdd.Add(new Manga.Manga
             {
@@ -640,7 +623,7 @@ namespace NzbDrone.Core.ImportLists
                 AniListId = aniListId,
                 Title = item.Title,
                 Monitored = monitored,
-                MonitorNewItems = DeriveMonitorNewItems(importList.ShouldMonitor),
+                MonitorNewItems = importList.ShouldMonitor.DeriveMonitorNewItems(),
                 RootFolderPath = importList.RootFolderPath,
                 TranslationProfileId = importList.TranslationProfileId,
                 CustomFormatProfileId = importList.CustomFormatProfileId,
@@ -648,15 +631,9 @@ namespace NzbDrone.Core.ImportLists
                 AddOptions = new AddMangaOptions
                 {
                     SearchForMissingChapters = importList.SearchForMissingChapters,
-                    Monitor = importList.ShouldMonitor switch
-                    {
-                        MonitorTypes.All => MangaMonitor.All,
-                        MonitorTypes.Latest => MangaMonitor.Latest,
-                        MonitorTypes.Existing => MangaMonitor.Latest,
-                        MonitorTypes.First => MangaMonitor.Latest,
-                        MonitorTypes.None => MangaMonitor.None,
-                        _ => MangaMonitor.None
-                    }
+
+                    // #357: ShouldMonitor IS now a MangaMonitor — direct assignment, no remap.
+                    Monitor = importList.ShouldMonitor
                 }
             });
 

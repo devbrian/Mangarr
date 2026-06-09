@@ -243,17 +243,17 @@ namespace NzbDrone.Core.Manga
             // Phase 8 cluster-03 cascade: TV's pattern is `series.ApplyChanges(newSeries)`
             // (metadata ← user). Manga's call direction is reversed (newManga ← primaryManga),
             // so since Plan 03-05 expanded ApplyChanges to copy user-owned fields
-            // (RootFolderPath, Path, Tags, Monitored, AddOptions, MonitorNewItems,
-            // TranslationProfileId, CustomFormatProfileId) per audit gap-02 + issue #28
-            // backfill, those user inputs would now get clobbered by the metadata's nulls.
-            // Save user inputs across the call. Phase 9 should restructure PrepareForAdd
+            // (RootFolderPath, Path, Tags, Monitored, AddOptions, TranslationProfileId,
+            // CustomFormatProfileId) per audit gap-02 + issue #28 backfill, those user inputs
+            // would now get clobbered by the metadata's nulls. Save user inputs across the call.
+            // MonitorNewItems is NO LONGER user-owned (#356) — it is derived from the Monitor
+            // choice after ApplyChanges (see below). Phase 9 should restructure PrepareForAdd
             // to use TV's call ordering.
             var userRootFolderPath = newManga.RootFolderPath;
             var userPath = newManga.Path;
             var userTags = newManga.Tags;
             var userMonitored = newManga.Monitored;
             var userAddOptions = newManga.AddOptions;
-            var userMonitorNewItems = newManga.MonitorNewItems;
             var userTranslationProfileId = newManga.TranslationProfileId;
             var userCustomFormatProfileId = newManga.CustomFormatProfileId;
 
@@ -264,9 +264,14 @@ namespace NzbDrone.Core.Manga
             newManga.Tags = userTags ?? newManga.Tags;
             newManga.Monitored = userMonitored;
             newManga.AddOptions = userAddOptions ?? newManga.AddOptions;
-            newManga.MonitorNewItems = userMonitorNewItems;
             newManga.TranslationProfileId = userTranslationProfileId;
             newManga.CustomFormatProfileId = userCustomFormatProfileId;
+
+            // #356 D-1/D-4: MonitorNewItems is DERIVED from the Monitor choice (None->None,
+            // else->All), never echoed from user input. The explicit `?? MangaMonitor.All`
+            // keeps the null-AddOptions path at "monitor new chapters" (Sonarr default) so it
+            // never depends on default(MangaMonitor) (now None=0).
+            newManga.MonitorNewItems = (newManga.AddOptions?.Monitor ?? MangaMonitor.All).DeriveMonitorNewItems();
 
             // #320: the AddManga modal sends profileId == 0 (the int default) when no profile is
             // picked and none is the global default. `0` is a non-existent FK — profile rows start

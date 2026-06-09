@@ -1,5 +1,6 @@
 using Mangarr.Api.V5.Provider;
 using NzbDrone.Core.ImportLists;
+using NzbDrone.Core.Manga;
 
 namespace Mangarr.Api.V5.ImportLists;
 
@@ -18,8 +19,7 @@ public class ImportListResource : ProviderResource<ImportListResource>
 {
     public bool EnableAutomaticAdd { get; set; }
     public bool SearchForMissingChapters { get; set; }
-    public MonitorTypes ShouldMonitor { get; set; }
-    public NewItemMonitorTypes MonitorNewItems { get; set; }
+    public MangaMonitor ShouldMonitor { get; set; }
     public string? RootFolderPath { get; set; }
     public int TranslationProfileId { get; set; }
     public int CustomFormatProfileId { get; set; }
