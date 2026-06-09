@@ -200,12 +200,14 @@ namespace NzbDrone.Core.Manga
             // Surfaced by the issue #81 live on-disk smoke test on 2026-05-13.
             Path = other.Path;
 
-            // Issue #28 backfill — three editable fields previously deferred from
-            // PR #27's single-Manga Edit modal scope. MonitorNewItems mirrors Sonarr's
-            // Series.ApplyChanges line 75 (commit ade40b72b); TranslationProfileId +
-            // CustomFormatProfileId mirror Sonarr's Series.QualityProfileId copy at
-            // line 76 (one FK was split into two per Phase 5 D-01 + D-07).
-            MonitorNewItems = other.MonitorNewItems;
+            // Issue #28 backfill — the two profile FKs mirror Sonarr's Series.QualityProfileId
+            // copy at line 76 (one FK was split into two per Phase 5 D-01 + D-07).
+            //
+            // #356 D-1: MonitorNewItems is deliberately NOT copied here. It is now derived at
+            // add time (AddMangaService) and PRESERVED on every ApplyChanges path (user-edit PUT
+            // + metadata refresh) — the resource no longer carries it, so copying from the
+            // incoming model would clobber the stored value with the default. Leave the stored
+            // MonitorNewItems untouched.
             TranslationProfileId = other.TranslationProfileId;
             CustomFormatProfileId = other.CustomFormatProfileId;
 

@@ -13,33 +13,28 @@ using NzbDrone.Test.Common;
 namespace NzbDrone.Api.Test.Manga
 {
     // Issue #28 (2026-05-09) — pins the MangaController.UpdateManga round-trip for the
-    // three fields PR #27 deliberately deferred from the single-Manga Edit modal:
-    // MonitorNewItems, TranslationProfileId, CustomFormatProfileId.
+    // profile FKs PR #27 deferred from the single-Manga Edit modal: TranslationProfileId,
+    // CustomFormatProfileId.
+    //
+    // #356 (2026-06-09) — MonitorNewItems is no longer a user-facing field. It is no longer
+    // carried on MangaResource, and Manga.ApplyChanges no longer copies it. The new contract
+    // is PRESERVE-ON-EDIT: a PUT that no longer carries monitorNewItems must leave the STORED
+    // value untouched (not reset it to the default). Tests 1 + 2 below pin that preservation.
     //
     // Background: PR #27 shipped the single-Manga Edit modal scoped to Monitored + Tags
-    // because three fields on the core Manga model could not yet round-trip end-to-end
+    // because the two profile FKs on the core Manga model could not yet round-trip end-to-end
     // through the V5 controller stack:
-    //   * MonitorNewItems was not on the Manga core model OR the resource.
     //   * TranslationProfileId was on the Manga core model since Phase 5 D-01 but was
     //     not exposed on MangaResource and was not copied by Manga.ApplyChanges.
     //   * CustomFormatProfileId was on the Manga core model since Phase 5 D-07 but was
     //     not exposed on MangaResource and was not copied by Manga.ApplyChanges.
     //
-    // The Issue #28 fix (this PR) adds:
-    //   * `enum MangaMonitorNewItems { All, None }` + Manga.MonitorNewItems property +
-    //     migration 001 column (edit-001-in-place per dev-migration-policy.md).
-    //   * MangaResource.{MonitorNewItems, TranslationProfileId, CustomFormatProfileId}
-    //     wire fields + ToResource / ToModel mapper round-trip.
-    //   * Three new copies in Manga.ApplyChanges (alongside the existing Monitored /
-    //     Tags / RootFolderPath copies from Phase 8 audit gap-02).
-    //
     // The MangaController.UpdateManga PUT path (MangaController.cs:153-175) calls
     //   existing.ApplyChanges(resource.ToModel()!);
     //   _mangaService.UpdateManga(existing, publishUpdatedEvent: true, triggerSeriesEdited: true);
     //
-    // These tests verify every field arrives at the IMangaService.UpdateManga call site
-    // with the value the inbound resource carried — guarding against regressions that
-    // re-drop any of the three new fields from the resource, the mapper, or ApplyChanges.
+    // These tests verify each profile FK arrives at the IMangaService.UpdateManga call site
+    // with the value the inbound resource carried, and that MonitorNewItems is PRESERVED.
     //
     // Issue #96 (2026-05-12) — extended the fixture with the Path-preservation regression
     // pin (tests 6 + 7 below). External API callers that PUT a partial body without
@@ -52,11 +47,11 @@ namespace NzbDrone.Api.Test.Manga
     //   dotnet test --filter "FullyQualifiedName~MangaControllerUpdateMangaFixture"
     //
     // Tests (7):
-    //   1. UpdateManga_round_trips_MonitorNewItems_All
-    //   2. UpdateManga_round_trips_MonitorNewItems_None
+    //   1. UpdateManga_preserves_stored_MonitorNewItems_All (#356)
+    //   2. UpdateManga_preserves_stored_MonitorNewItems_None (#356)
     //   3. UpdateManga_round_trips_TranslationProfileId
     //   4. UpdateManga_round_trips_CustomFormatProfileId
-    //   5. UpdateManga_round_trips_all_three_fields_together
+    //   5. UpdateManga_round_trips_both_profile_fields_together
     //   6. UpdateManga_preserves_existing_Path_when_resource_omits_path (issue #96)
     //   7. UpdateManga_overwrites_existing_Path_when_resource_supplies_path (issue #96)
     [TestFixture]
@@ -111,7 +106,6 @@ namespace NzbDrone.Api.Test.Manga
         }
 
         private static MangaResource BuildResource(
-            MangaMonitorNewItems monitorNewItems = MangaMonitorNewItems.All,
             int? translationProfileId = 1,
             int? customFormatProfileId = 1,
             string? path = "C:\\Manga\\Existing")
@@ -121,7 +115,6 @@ namespace NzbDrone.Api.Test.Manga
                 .With(r => r.Title = "Existing Manga")
                 .With(r => r.Path = path!)
                 .With(r => r.Monitored = true)
-                .With(r => r.MonitorNewItems = monitorNewItems)
                 .With(r => r.TranslationProfileId = translationProfileId)
                 .With(r => r.CustomFormatProfileId = customFormatProfileId)
                 .With(r => r.Tags = new HashSet<int>())
@@ -129,32 +122,33 @@ namespace NzbDrone.Api.Test.Manga
         }
 
         [Test]
-        public void UpdateManga_round_trips_MonitorNewItems_All()
+        public void UpdateManga_preserves_stored_MonitorNewItems_All()
         {
-            // Pre-condition: existing row already carries All (the seed default).
-            // Send an explicit All to verify the round-trip pins the wire-shape.
-            var resource = BuildResource(monitorNewItems: MangaMonitorNewItems.All);
+            // #356: MonitorNewItems is no longer carried on the resource. The stored value
+            // (All here) must survive the PUT — ApplyChanges no longer touches it.
+            _existing.MonitorNewItems = MangaMonitorNewItems.All;
+            var resource = BuildResource();
 
             Subject.UpdateManga(resource);
 
             _captured.Should().NotBeNull("UpdateManga must be invoked with the mutated existing instance");
             _captured!.MonitorNewItems.Should().Be(MangaMonitorNewItems.All,
-                "ApplyChanges must copy MonitorNewItems = All from the resource");
+                "#356: ApplyChanges must PRESERVE the stored MonitorNewItems (resource no longer carries it)");
         }
 
         [Test]
-        public void UpdateManga_round_trips_MonitorNewItems_None()
+        public void UpdateManga_preserves_stored_MonitorNewItems_None()
         {
-            // Inverse of test 1 — flip the existing All to None and verify the change
-            // arrives at the service layer. Guards against a regression that drops the
-            // MonitorNewItems copy from Manga.ApplyChanges (which would silently keep
-            // the old value).
-            var resource = BuildResource(monitorNewItems: MangaMonitorNewItems.None);
+            // Inverse of test 1 — a stored None must NOT be reset to the All default by an
+            // edit PUT. Guards against a regression that re-adds a MonitorNewItems copy to
+            // Manga.ApplyChanges (which would clobber the stored value with the resource default).
+            _existing.MonitorNewItems = MangaMonitorNewItems.None;
+            var resource = BuildResource();
 
             Subject.UpdateManga(resource);
 
             _captured!.MonitorNewItems.Should().Be(MangaMonitorNewItems.None,
-                "ApplyChanges must overwrite MonitorNewItems with None when the user picks None");
+                "#356: a stored None must survive an edit PUT that no longer carries MonitorNewItems");
         }
 
         [Test]
@@ -183,31 +177,28 @@ namespace NzbDrone.Api.Test.Manga
         }
 
         [Test]
-        public void UpdateManga_round_trips_all_three_fields_together()
+        public void UpdateManga_round_trips_both_profile_fields_together()
         {
-            // Canonical UI path: user changes all three fields, hits Save. Guards against
-            // a regression that drops one of the three copies while keeping the others.
+            // Canonical UI path: user changes both profile FKs, hits Save. Guards against
+            // a regression that drops one of the two copies while keeping the other.
             var resource = BuildResource(
-                monitorNewItems: MangaMonitorNewItems.None,
                 translationProfileId: 11,
                 customFormatProfileId: 13);
 
             Subject.UpdateManga(resource);
 
-            _captured!.MonitorNewItems.Should().Be(MangaMonitorNewItems.None);
             _captured!.TranslationProfileId.Should().Be(11);
             _captured!.CustomFormatProfileId.Should().Be(13);
 
             Mocker.GetMock<IMangaService>()
                   .Verify(s => s.UpdateManga(
                               It.Is<NzbDrone.Core.Manga.Manga>(m =>
-                                  m.MonitorNewItems == MangaMonitorNewItems.None &&
                                   m.TranslationProfileId == 11 &&
                                   m.CustomFormatProfileId == 13),
                               true,  // publishUpdatedEvent — Plan 10-07 controller-PUT contract
                               true), // triggerSeriesEdited — Plan 10-07 controller-PUT contract
                           Times.Once,
-                          "UpdateManga must be called exactly once with all three Issue #28 fields populated " +
+                          "UpdateManga must be called exactly once with both Issue #28 profile fields populated " +
                           "and the Plan 10-07 dual-publish flags both true");
         }
 
