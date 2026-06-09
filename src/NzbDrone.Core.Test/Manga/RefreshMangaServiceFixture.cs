@@ -140,7 +140,7 @@ namespace NzbDrone.Core.Test.MangaTests
                 KitsuId = 55555,
                 MangaUpdatesId = "abc123",
             };
-            var stub = new StubMangaBakaProvider(null, fullRecord);
+            var stub = new StubMangaBakaProvider((Manga.Manga)null, fullRecord);
             Mocker.GetMock<IMetadataSourceFactory>()
                   .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
                   .Returns(stub);
@@ -311,6 +311,73 @@ namespace NzbDrone.Core.Test.MangaTests
             existing.MangaBakaId.Should().BeNull("no confident match → no relink");
             stub.GetMangaInfoCalls.Should().BeEmpty("the manga was skipped, not refreshed");
             ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
+        public void Execute_auto_relink_prefers_authoritative_record_over_sparse_same_title_duplicate()
+        {
+            // Regression for the MangaBaka "The Forgotten Field" mis-match: the primary
+            // returns TWO records for the same series — a sparse duplicate stub (no author,
+            // no cross-source ids) whose canonical title is the exact English string, listed
+            // FIRST, plus the authoritative record (real author + AniList/MAL ids) that also
+            // clears the gate. First-passing selection let the stub win on order; the relink
+            // must instead pick the authoritative record by its richer cross-source signals.
+            var bakaPrimary = new MetadataSourceDefinition { Id = 4, Name = "MangaBaka", IsPrimary = true };
+            Mocker.GetMock<IMetadataSourceFactory>().Setup(f => f.GetPrimary()).Returns(bakaPrimary);
+
+            var existing = new Manga.Manga
+            {
+                Id = 1,
+                Title = "The Forgotten Field",
+                MangaDexId = Guid.NewGuid(),
+                MangaBakaId = null,
+                PublicationYear = 2025,
+                PrimaryAuthor = "Spoon",
+                TotalChapterCount = 24,
+                Path = TestMangaPath,
+            };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(existing);
+            Mocker.GetMock<IMangaService>()
+                  .Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>()))
+                  .Returns<Manga.Manga, bool>((m, _) => m);
+
+            // Sparse stub FIRST in provider order — exact title + contrived to also clear the
+            // gate (year + chapter-count match) but no author and no cross-source ids.
+            var sparseStub = new Manga.Manga
+            {
+                Title = "The Forgotten Field",
+                MangaBakaId = 574752,
+                PublicationYear = 2025,
+                PrimaryAuthor = null,
+                TotalChapterCount = 24,
+            };
+
+            // Authoritative record SECOND — romanized canonical title (English buried in alt
+            // titles), real author, and AniList/MAL cross-source ids.
+            var authoritative = new Manga.Manga
+            {
+                Title = "Ichyeojin Deulpan",
+                AlternativeTitles = new List<string> { "the forgotten field" },
+                MangaBakaId = 586650,
+                AniListId = 211558,
+                MalId = 193185,
+                PublicationYear = 2025,
+                PrimaryAuthor = "Spoon",
+                TotalChapterCount = 24,
+            };
+
+            var refreshed = new Manga.Manga { Id = 1, Title = "Ichyeojin Deulpan", MangaBakaId = 586650 };
+            var stub = new StubMangaBakaProvider(new List<Manga.Manga> { sparseStub, authoritative }, refreshed);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            existing.MangaBakaId.Should().Be(586650,
+                "the authoritative record (author + cross-source ids) must beat the sparse exact-title duplicate listed first");
+            stub.GetMangaInfoCalls.Should().Contain("586650");
+            stub.GetMangaInfoCalls.Should().NotContain("574752", "the sparse duplicate must never be the relink target");
         }
 
         [Test]
@@ -796,15 +863,23 @@ namespace NzbDrone.Core.Test.MangaTests
         // repointed at MangaBaka and the refresh proceeds with the resolved id.
         private class StubMangaBakaProvider : MangaBakaMetadataSource
         {
-            private readonly Manga.Manga _searchHit;
+            private readonly List<Manga.Manga> _searchHits;
             private readonly Manga.Manga _result;
             public List<string> SearchCalls { get; } = new();
             public List<string> GetMangaInfoCalls { get; } = new();
 
             public StubMangaBakaProvider(Manga.Manga searchHit, Manga.Manga result)
+                : this(searchHit != null ? new List<Manga.Manga> { searchHit } : new List<Manga.Manga>(), result)
+            {
+            }
+
+            // Multi-hit overload — models a primary that returns SEVERAL records for one
+            // title (an authoritative record plus sparse same-title duplicate stubs). Order
+            // is preserved so a test can assert the relink picks the BEST, not the first.
+            public StubMangaBakaProvider(List<Manga.Manga> searchHits, Manga.Manga result)
                 : base(new Mock<NzbDrone.Common.Http.IHttpClient>().Object, NLog.LogManager.GetCurrentClassLogger())
             {
-                _searchHit = searchHit;
+                _searchHits = searchHits ?? new List<Manga.Manga>();
                 _result = result;
                 Definition = new MetadataSourceDefinition { Id = 4, Name = "MangaBaka", IsPrimary = true };
             }
@@ -812,7 +887,7 @@ namespace NzbDrone.Core.Test.MangaTests
             public override List<Manga.Manga> SearchForNewManga(string title)
             {
                 SearchCalls.Add(title);
-                return _searchHit != null ? new List<Manga.Manga> { _searchHit } : new List<Manga.Manga>();
+                return new List<Manga.Manga>(_searchHits);
             }
 
             public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)

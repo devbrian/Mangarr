@@ -66,12 +66,32 @@ namespace NzbDrone.Core.MetadataSource
         }
 
         /// <summary>
-        /// Per D-21: Title gate (≥0.85 Jaro-Winkler max-similarity across normalized titles)
-        /// AND ≥2-of-3 multi-axis confirm (publication-year ±1, primary-author exact,
-        /// total-chapter-count within 10%). Returns false + populates <paramref name="reason"/>
-        /// if either gate fails (logged as "unresolved" per D-21).
+        /// Raw match signals for a (primary, secondary) candidate pair — the numbers BEHIND
+        /// the <see cref="TryResolve"/> pass/fail gate. Exposed so callers that must choose
+        /// among SEVERAL gate-clearing candidates can rank by match STRENGTH rather than take
+        /// the first passer in arbitrary provider order. The motivating case: a metadata
+        /// source (e.g. MangaBaka) returns BOTH an authoritative record and sparse same-title
+        /// duplicate stubs for one series; without a strength signal the auto-relink picked
+        /// whichever the provider happened to list first.
         /// </summary>
-        public bool TryResolve(MangaCandidate primary, MangaCandidate secondary, out string reason)
+        public readonly struct MangaMatchScore
+        {
+            /// <summary>Max Jaro-Winkler similarity across the normalized title cartesian product (HIGHER = more similar).</summary>
+            public double TitleSimilarity { get; init; }
+
+            /// <summary>Count of confirmed supporting axes (0..3): publication-year ±1, primary-author exact, chapter-count within 10%.</summary>
+            public int ConfirmedAxes { get; init; }
+
+            /// <summary>True when BOTH gates pass (title ≥ threshold AND axes ≥ min-agreement) — i.e. <see cref="TryResolve"/> would return true.</summary>
+            public bool Passed => TitleSimilarity >= SimilarityThreshold && ConfirmedAxes >= MinAxisAgreement;
+        }
+
+        /// <summary>
+        /// Pure scorer (no logging, no side effects) computing the title similarity + confirmed
+        /// axis count for a candidate pair. <see cref="TryResolve"/> delegates here for its
+        /// pass/fail decision; ranking callers reuse it to compare candidates.
+        /// </summary>
+        public MangaMatchScore Score(MangaCandidate primary, MangaCandidate secondary)
         {
             // Title gate — normalize ALL titles via single source of truth (D-05) before similarity.
             var primaryTitles = primary.AllTitles?
@@ -96,14 +116,7 @@ namespace NzbDrone.Core.MetadataSource
                 }
             }
 
-            if (maxSim < SimilarityThreshold)
-            {
-                reason = $"title-similarity {maxSim:F2} < {SimilarityThreshold:F2}";
-                _logger.Debug("CrossSource unresolved: {0}", reason);
-                return false;
-            }
-
-            // Multi-axis confirm — need ≥2 of 3.
+            // Multi-axis confirm — count agreeing axes (TryResolve needs ≥2 of 3).
             var axes = 0;
             if (primary.PublicationYear.HasValue && secondary.PublicationYear.HasValue
                 && Math.Abs(primary.PublicationYear.Value - secondary.PublicationYear.Value) <= 1)
@@ -139,14 +152,34 @@ namespace NzbDrone.Core.MetadataSource
                 }
             }
 
-            if (axes < MinAxisAgreement)
+            return new MangaMatchScore { TitleSimilarity = maxSim, ConfirmedAxes = axes };
+        }
+
+        /// <summary>
+        /// Per D-21: Title gate (≥0.85 Jaro-Winkler max-similarity across normalized titles)
+        /// AND ≥2-of-3 multi-axis confirm (publication-year ±1, primary-author exact,
+        /// total-chapter-count within 10%). Returns false + populates <paramref name="reason"/>
+        /// if either gate fails (logged as "unresolved" per D-21).
+        /// </summary>
+        public bool TryResolve(MangaCandidate primary, MangaCandidate secondary, out string reason)
+        {
+            var score = Score(primary, secondary);
+
+            if (score.TitleSimilarity < SimilarityThreshold)
             {
-                reason = $"only {axes} of 3 axes confirmed (need >= {MinAxisAgreement})";
+                reason = $"title-similarity {score.TitleSimilarity:F2} < {SimilarityThreshold:F2}";
                 _logger.Debug("CrossSource unresolved: {0}", reason);
                 return false;
             }
 
-            reason = $"sim={maxSim:F2} axes={axes}/3";
+            if (score.ConfirmedAxes < MinAxisAgreement)
+            {
+                reason = $"only {score.ConfirmedAxes} of 3 axes confirmed (need >= {MinAxisAgreement})";
+                _logger.Debug("CrossSource unresolved: {0}", reason);
+                return false;
+            }
+
+            reason = $"sim={score.TitleSimilarity:F2} axes={score.ConfirmedAxes}/3";
             _logger.Trace("CrossSource resolved: {0}", reason);
             return true;
         }

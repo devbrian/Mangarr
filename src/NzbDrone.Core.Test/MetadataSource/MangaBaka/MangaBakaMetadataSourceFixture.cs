@@ -283,6 +283,84 @@ namespace NzbDrone.Core.Test.MetadataSource.MangaBaka
             results[0].Title.Should().Be("Naruto");
         }
 
+        // Mangarr is a manga/manhwa/manhua manager, not a novel reader: MangaBaka `type: "novel"`
+        // records (light/web novels) must be filtered out of search results so they never appear
+        // in the Add picker or the rematch/relink candidate set. Comic types + "other" pass through.
+        [Test]
+        public void Search_excludes_novel_type_records()
+        {
+            var searchResource = new MangaBakaSearchResource
+            {
+                Data = new List<MangaBakaSeries>
+                {
+                    new MangaBakaSeries { Id = 1, Title = "Overlord", Type = "manga" },
+                    new MangaBakaSeries { Id = 2, Title = "Overlord: Prologue", Type = "novel" },
+                    new MangaBakaSeries { Id = 3, Title = "Spice and Wolf", Type = "Light Novel" },
+                    new MangaBakaSeries { Id = 4, Title = "Solo Leveling", Type = "manhwa" },
+                    new MangaBakaSeries { Id = 5, Title = "Some Artbook", Type = "other" },
+                    new MangaBakaSeries { Id = 6, Title = "Untyped", Type = null },
+                },
+            };
+            SetupSearchMock(searchResource);
+
+            var results = Subject.SearchForNewManga("overlord");
+
+            results.Select(m => m.Title)
+                   .Should().BeEquivalentTo("Overlord", "Solo Leveling", "Some Artbook", "Untyped");
+        }
+
+        // The canonical `title` for a non-Latin work is often a romanization (e.g.
+        // "Ichyeojin Deulpan"); the recognizable English title lives in titles[] as the
+        // language=="en", is_primary==true entry. SelectPreferredTitle must surface that so the
+        // library/Add picker shows "The Forgotten Field", not the romanization.
+        [Test]
+        public void GetMangaInfo_prefers_primary_english_title_over_romanized_canonical()
+        {
+            var resource = new MangaBakaSeriesResource
+            {
+                Data = new MangaBakaSeries
+                {
+                    Id = 586650,
+                    Title = "Ichyeojin Deulpan",
+                    RomanizedTitle = "Ichyeojin Deulpan",
+                    NativeTitle = "잊혀진 들판",
+                    Titles = new List<MangaBakaTitleEntry>
+                    {
+                        new MangaBakaTitleEntry { Language = "ko", Title = "잊혀진 들판", IsPrimary = true },
+                        new MangaBakaTitleEntry { Language = "en", Title = "Ichojin Deulpan", IsPrimary = false },
+                        new MangaBakaTitleEntry { Language = "ko-Latn", Title = "Ichyeojin Deulpan", IsPrimary = true },
+                        new MangaBakaTitleEntry { Language = "en", Title = "The Forgotten Field", IsPrimary = true },
+                    },
+                },
+            };
+            SetupGetByIdMock(resource);
+
+            Subject.GetMangaInfo("586650").Item1.Title.Should().Be("The Forgotten Field");
+        }
+
+        // No primary English title in titles[] → fall back to the canonical `title` (never a
+        // non-primary English alias, which could be a worse romanization).
+        [Test]
+        public void GetMangaInfo_falls_back_to_canonical_title_when_no_primary_english()
+        {
+            var resource = new MangaBakaSeriesResource
+            {
+                Data = new MangaBakaSeries
+                {
+                    Id = 1,
+                    Title = "Berserk",
+                    Titles = new List<MangaBakaTitleEntry>
+                    {
+                        new MangaBakaTitleEntry { Language = "ja", Title = "ベルセルク", IsPrimary = true },
+                        new MangaBakaTitleEntry { Language = "en", Title = "Berserk (alt)", IsPrimary = false },
+                    },
+                },
+            };
+            SetupGetByIdMock(resource);
+
+            Subject.GetMangaInfo("1").Item1.Title.Should().Be("Berserk");
+        }
+
         // D-07: MangaBaka has no AniList/MAL reverse-lookup endpoint — both overloads return
         // empty (documented capability gap, NOT a swallowed failure).
         [Test]
