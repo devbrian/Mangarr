@@ -399,9 +399,7 @@ namespace NzbDrone.Core.ImportLists
                         AniListId = item.AniListId,
                         Title = item.Title,
                         Monitored = monitored,
-                        MonitorNewItems = importList.MonitorNewItems == NewItemMonitorTypes.All
-                                          ? MangaMonitorNewItems.All
-                                          : MangaMonitorNewItems.None,
+                        MonitorNewItems = DeriveMonitorNewItems(importList.ShouldMonitor),
                         RootFolderPath = importList.RootFolderPath,
                         TranslationProfileId = importList.TranslationProfileId,
                         CustomFormatProfileId = importList.CustomFormatProfileId,
@@ -452,6 +450,18 @@ namespace NzbDrone.Core.ImportLists
             AniList,
             MyAnimeList
         }
+
+        // quick-260608-vf9 follow-up (#1): for manga's flat chapter list the Monitor choice
+        // already encodes new-chapter intent — All / Future / Missing / Latest all imply "keep
+        // monitoring chapters that appear later", and only None means "don't". So derive the
+        // per-manga new-chapter policy from ShouldMonitor instead of carrying a separate
+        // MonitorNewItems axis (the Sonarr "monitor new seasons" artifact, which has no manga
+        // peer). Removing the independent MonitorNewItems concept app-wide (manga Edit modal +
+        // index column + API + schema migration + locales) is tracked as a follow-up issue.
+        private static MangaMonitorNewItems DeriveMonitorNewItems(MonitorTypes shouldMonitor) =>
+            shouldMonitor == MonitorTypes.None
+                ? MangaMonitorNewItems.None
+                : MangaMonitorNewItems.All;
 
         private static PrimaryKind ClassifyPrimary(MetadataSourceDefinition primaryDef)
         {
@@ -629,9 +639,7 @@ namespace NzbDrone.Core.ImportLists
                 AniListId = aniListId,
                 Title = item.Title,
                 Monitored = monitored,
-                MonitorNewItems = importList.MonitorNewItems == NewItemMonitorTypes.All
-                                  ? MangaMonitorNewItems.All
-                                  : MangaMonitorNewItems.None,
+                MonitorNewItems = DeriveMonitorNewItems(importList.ShouldMonitor),
                 RootFolderPath = importList.RootFolderPath,
                 TranslationProfileId = importList.TranslationProfileId,
                 CustomFormatProfileId = importList.CustomFormatProfileId,

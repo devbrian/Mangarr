@@ -401,5 +401,53 @@ namespace NzbDrone.Core.Test.ImportListTests
                 Times.Never,
                 "an item already carrying the primary's own id must not trigger a fuzzy title search");
         }
+
+        [TestCase(MonitorTypes.All, MangaMonitorNewItems.All)]
+        [TestCase(MonitorTypes.Latest, MangaMonitorNewItems.All)]
+        [TestCase(MonitorTypes.Existing, MangaMonitorNewItems.All)]
+        [TestCase(MonitorTypes.None, MangaMonitorNewItems.None)]
+        public void process_list_items_derives_monitor_new_items_from_monitor_choice(
+            MonitorTypes shouldMonitor,
+            MangaMonitorNewItems expected)
+        {
+            // quick-260608-vf9 follow-up (#1): new-chapter monitoring is derived from the list's
+            // Monitor choice (None => None, anything else => All) rather than a separate axis.
+            var def = new ImportListDefinition
+            {
+                Id = 1,
+                Name = "TestList",
+                EnableAutomaticAdd = true,
+                Implementation = "TestImportList",
+                ConfigContract = "TestImportListSettings",
+                RootFolderPath = @"C:\Manga",
+                ShouldMonitor = shouldMonitor,
+            };
+
+            Mocker.GetMock<IImportListFactory>()
+                  .Setup(f => f.All())
+                  .Returns(new List<ImportListDefinition> { def });
+
+            var items = new List<ImportListItemInfo>
+            {
+                new ImportListItemInfo { ImportListId = 1, Title = "A", MangaDexId = TripletA }
+            };
+
+            Mocker.GetMock<IFetchAndParseImportList>()
+                  .Setup(f => f.Fetch())
+                  .Returns(new ImportListFetchResult(items, anyFailure: false));
+
+            List<Manga.Manga> captured = null;
+            Mocker.GetMock<IAddMangaService>()
+                  .Setup(s => s.AddManga(It.IsAny<List<Manga.Manga>>(), It.IsAny<bool>()))
+                  .Callback<List<Manga.Manga>, bool>((list, _) => captured = list)
+                  .Returns<List<Manga.Manga>, bool>((list, _) => list);
+
+            Subject.Execute(new ImportListSyncCommand());
+
+            captured.Should().NotBeNull();
+            captured.Should().HaveCount(1);
+            captured[0].MonitorNewItems.Should().Be(expected,
+                "new-chapter monitoring follows the Monitor choice (None => None, else => All)");
+        }
     }
 }

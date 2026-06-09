@@ -205,14 +205,13 @@ export const useManageImportList = (
         // defaults of disabled / monitor-none):
         //   * enableAutomaticAdd: true  — lists exist to add manga
         //   * shouldMonitor: 'all'      — monitor all chapters
-        //   * monitorNewItems: 'all'    — keep monitoring chapters that appear
-        //     on later refreshes (the field's dropdown was removed from the
-        //     form; this default preserves the useful new-chapter behavior)
+        // New-chapter monitoring is no longer a separate field: ImportListSync
+        // derives it from this Monitor choice (None => off, else => on), so the
+        // single Monitor control governs both existing AND new chapters.
         // customFormatProfileId is left to CustomFormatProfileSelectInput, which
         // self-selects the isDefault profile on mount.
         enableAutomaticAdd: true,
         shouldMonitor: 'all',
-        monitorNewItems: 'all',
       };
     }
 
