@@ -356,5 +356,50 @@ namespace NzbDrone.Core.Test.ImportListTests
                 Times.Never,
                 "an already-in-library item must not trigger a primary search");
         }
+
+        [Test]
+        public void process_list_items_stages_mal_item_without_search_under_myanimelist_primary()
+        {
+            // CodeRabbit #3377823326 — exact-id fast path: under a MyAnimeList primary the item
+            // ALREADY carries the primary's own id (MalId), so the item must be staged WITHOUT a
+            // fuzzy title search (which could miss/throttle and drop a valid item).
+            var items = new List<ImportListItemInfo>
+            {
+                new ImportListItemInfo { ImportListId = 1, Title = "Berserk", MalId = 2 }
+            };
+
+            Mocker.GetMock<IFetchAndParseImportList>()
+                  .Setup(f => f.Fetch())
+                  .Returns(new ImportListFetchResult(items, anyFailure: false));
+
+            var def = new MetadataSourceDefinition
+            {
+                Id = 1,
+                Name = "MyAnimeList",
+                Implementation = "MyAnimeListMetadataSource",
+                IsPrimary = true
+            };
+            Mocker.GetMock<IMetadataSourceFactory>().Setup(f => f.GetPrimary()).Returns(def);
+            var sourceMock = new Mock<IMetadataSource>();
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(sourceMock.Object);
+
+            List<Manga.Manga> captured = null;
+            Mocker.GetMock<IAddMangaService>()
+                  .Setup(s => s.AddManga(It.IsAny<List<Manga.Manga>>(), It.IsAny<bool>()))
+                  .Callback<List<Manga.Manga>, bool>((list, _) => captured = list)
+                  .Returns<List<Manga.Manga>, bool>((list, _) => list);
+
+            Subject.Execute(new ImportListSyncCommand());
+
+            captured.Should().NotBeNull();
+            captured.Should().HaveCount(1, "the MAL id IS the primary id under a MyAnimeList primary — stage it directly");
+            captured[0].MalId.Should().Be(2);
+            sourceMock.Verify(
+                s => s.SearchForNewManga(It.IsAny<string>()),
+                Times.Never,
+                "an item already carrying the primary's own id must not trigger a fuzzy title search");
+        }
     }
 }

@@ -189,17 +189,24 @@ namespace NzbDrone.Core.ImportLists
             // When the primary IS MangaDex (or is unconfigured -> Unknown -> legacy default)
             // the original MangaDexId-centric block runs unchanged.
             MetadataSourceDefinition activePrimaryDef = null;
-            IMetadataSource primarySource = null;
             try
             {
                 activePrimaryDef = _metadataSourceFactory.GetPrimary();
-                primarySource = activePrimaryDef != null ? _metadataSourceFactory.GetInstance(activePrimaryDef) : null;
             }
             catch (InvalidOperationException)
             {
                 // No primary metadata source configured (config-drift) — fall back to the
                 // legacy MangaDexId path so MangaDex-id-carrying items still add.
             }
+
+            // GetInstance is deliberately OUTSIDE the catch above: if a primary IS configured
+            // but its provider can't be instantiated (broken settings, missing impl), let that
+            // surface as a failed sync instead of swallowing it — otherwise primaryKind would be
+            // non-MangaDex while primarySource is null, routing every item into
+            // StageViaPrimaryResolution where it is silently dropped (CodeRabbit #3377823322).
+            var primarySource = activePrimaryDef != null
+                ? _metadataSourceFactory.GetInstance(activePrimaryDef)
+                : null;
 
             var primaryKind = ClassifyPrimary(activePrimaryDef);
 
@@ -475,6 +482,17 @@ namespace NzbDrone.Core.ImportLists
             _ => false
         };
 
+        // Does the raw import-list item already carry the active primary's OWN id? Import items
+        // only ever carry MangaDexId/MalId/AniListId, so this is true only for a MyAnimeList primary
+        // (item.MalId) or an AniList primary (item.AniListId) — a MangaBaka primary never matches
+        // (items carry no MangaBakaId), so it always resolves via the primary's title search.
+        private static bool ItemCarriesPrimaryId(ImportListItemInfo item, PrimaryKind primaryKind) => primaryKind switch
+        {
+            PrimaryKind.MyAnimeList => item.MalId.HasValue,
+            PrimaryKind.AniList => item.AniListId.HasValue,
+            _ => false
+        };
+
         // Resolve a single import-list item to the active (non-MangaDex) primary's own id and
         // stage it for add. Import-list items only ever carry MangaDexId/MalId/AniListId (never
         // a MangaBakaId), so a non-MangaDex primary ALWAYS resolves via the primary's title
@@ -512,34 +530,48 @@ namespace NzbDrone.Core.ImportLists
                 return;
             }
 
-            if (crossSourceThrottled || primary == null)
-            {
-                return;
-            }
-
             Manga.Manga match;
-            try
-            {
-                var candidates = primary.SearchForNewManga(item.Title) ?? new List<Manga.Manga>();
 
-                // Strict-AND when the item carries both ids (mirrors the MangaDex-path resolver):
-                // a candidate must agree on every id the item actually carries.
-                match = candidates.FirstOrDefault(c =>
-                    (!item.AniListId.HasValue || c.AniListId == item.AniListId) &&
-                    (!item.MalId.HasValue || c.MalId == item.MalId));
-            }
-            catch (TooManyRequestsException)
+            // Exact-id fast path (CodeRabbit #3377823326): when the active primary is MyAnimeList
+            // or AniList, the item ALREADY carries the primary's own id (MalId / AniListId), so no
+            // fuzzy title search is needed — and depending on one could drop a perfectly valid item
+            // on a search miss or a 429. Stage directly from the id the item carries; AddMangaService
+            // .PrepareForAdd then fetches the full record via GetMangaInfo(<primaryId>). MangaBaka
+            // items never carry a MangaBakaId, so they always fall through to the title search below.
+            if (ItemCarriesPrimaryId(item, primaryKind))
             {
-                crossSourceThrottled = true;
-                _logger.Warn(
-                    "Cross-source ID lookup against the primary metadata source throttled (HTTP 429); skipping resolution for the rest of this sync. Item [{0}] and subsequent items will be retried on the next scheduled sync.",
-                    item.Title);
-                return;
+                match = new Manga.Manga { MalId = item.MalId, AniListId = item.AniListId };
             }
-            catch (Exception ex)
+            else
             {
-                _logger.Warn(ex, "[{0}] Cross-source resolution failed; item will be skipped", item.Title);
-                return;
+                if (crossSourceThrottled || primary == null)
+                {
+                    return;
+                }
+
+                try
+                {
+                    var candidates = primary.SearchForNewManga(item.Title) ?? new List<Manga.Manga>();
+
+                    // Strict-AND when the item carries both ids (mirrors the MangaDex-path resolver):
+                    // a candidate must agree on every id the item actually carries.
+                    match = candidates.FirstOrDefault(c =>
+                        (!item.AniListId.HasValue || c.AniListId == item.AniListId) &&
+                        (!item.MalId.HasValue || c.MalId == item.MalId));
+                }
+                catch (TooManyRequestsException)
+                {
+                    crossSourceThrottled = true;
+                    _logger.Warn(
+                        "Cross-source ID lookup against the primary metadata source throttled (HTTP 429); skipping resolution for the rest of this sync. Item [{0}] and subsequent items will be retried on the next scheduled sync.",
+                        item.Title);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn(ex, "[{0}] Cross-source resolution failed; item will be skipped", item.Title);
+                    return;
+                }
             }
 
             if (match == null || !HasPrimaryId(match, primaryKind))
