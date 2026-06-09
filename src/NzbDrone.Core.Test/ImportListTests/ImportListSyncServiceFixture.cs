@@ -405,6 +405,7 @@ namespace NzbDrone.Core.Test.ImportListTests
         [TestCase(MonitorTypes.All, MangaMonitorNewItems.All)]
         [TestCase(MonitorTypes.Latest, MangaMonitorNewItems.All)]
         [TestCase(MonitorTypes.Existing, MangaMonitorNewItems.All)]
+        [TestCase(MonitorTypes.First, MangaMonitorNewItems.All)]
         [TestCase(MonitorTypes.None, MangaMonitorNewItems.None)]
         public void process_list_items_derives_monitor_new_items_from_monitor_choice(
             MonitorTypes shouldMonitor,
