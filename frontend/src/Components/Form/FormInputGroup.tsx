@@ -16,6 +16,9 @@ import NumberInput, { NumberInputProps } from './NumberInput';
 import OAuthInput, { OAuthInputProps } from './OAuthInput';
 import PasswordInput from './PasswordInput';
 import PathInput, { PathInputProps } from './PathInput';
+import CustomFormatProfileSelectInput, {
+  CustomFormatProfileSelectInputProps,
+} from './Select/CustomFormatProfileSelectInput';
 import DownloadClientSelectInput, {
   DownloadClientSelectInputProps,
 } from './Select/DownloadClientSelectInput';
@@ -49,10 +52,6 @@ import QualityProfileSelectInput, {
 import RootFolderSelectInput, {
   RootFolderSelectInputProps,
 } from './Select/RootFolderSelectInput';
-// Phase 17 follow-up (debug qualityprofiles-redux-rename, 2026-05-12 — GH #82
-// Path 1): manga-canonical sibling of QualityProfileSelectInput. Wires
-// /api/v5/translationprofile for any FormInputGroup typed
-// `inputTypes.TRANSLATION_PROFILE_SELECT`.
 import TranslationProfileSelectInput, {
   TranslationProfileSelectInputProps,
 } from './Select/TranslationProfileSelectInput';
@@ -87,6 +86,7 @@ const componentMap: Record<InputType, ElementType> = {
   path: PathInput,
   qualityProfileSelect: QualityProfileSelectInput,
   translationProfileSelect: TranslationProfileSelectInput,
+  customFormatProfileSelect: CustomFormatProfileSelectInput,
   rootFolderSelect: RootFolderSelectInput,
   select: EnhancedSelectInput,
   seriesTag: MangaTagInput,
@@ -145,6 +145,8 @@ type PickProps<V, C extends InputType> = C extends 'text'
   ? QualityProfileSelectInputProps
   : C extends 'translationProfileSelect'
   ? TranslationProfileSelectInputProps
+  : C extends 'customFormatProfileSelect'
+  ? CustomFormatProfileSelectInputProps
   : C extends 'rootFolderSelect'
   ? RootFolderSelectInputProps
   : C extends 'select'
