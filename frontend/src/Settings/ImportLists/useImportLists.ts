@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { orderBy } from 'lodash';
 import { useMemo } from 'react';
 import useApiMutation from 'Helpers/Hooks/useApiMutation';
+import { MangaMonitor } from 'Manga/Manga';
 import { useManageImportListsOptions } from 'Settings/ImportLists/useManageImportListsOptionsStore';
 import {
   SelectedSchema,
@@ -31,11 +32,12 @@ export interface ImportListModel extends Provider {
   enableAutomaticAdd: boolean;
   searchForMissingChapters: boolean;
   // Backend `MangaMonitor` (the single canonical 7-value enum, #357) is JSON-serialized
-  // by name as a string ("all" | "future" | "missing" | "existing" | "first" | "latest" |
-  // "none"); the MonitorChaptersSelectInput component expects `value: string`. Type the
-  // model accordingly. New-chapter monitoring is no longer a separate field (#356) — it is
-  // derived server-side from the Monitor choice.
-  shouldMonitor: string;
+  // by name as one of "all" | "future" | "missing" | "existing" | "first" | "latest" |
+  // "none". Narrowed to the `MangaMonitor` union (not bare `string`) for compile-time
+  // validation of the 7-value contract; it stays assignable to the `value: string` that
+  // MonitorChaptersSelectInput expects. New-chapter monitoring is no longer a separate
+  // field (#356) — it is derived server-side from the Monitor choice.
+  shouldMonitor: MangaMonitor;
   rootFolderPath: string;
   translationProfileId: number;
   customFormatProfileId: number;
@@ -211,7 +213,9 @@ export const useManageImportList = (
         // customFormatProfileId is left to CustomFormatProfileSelectInput, which
         // self-selects the isDefault profile on mount.
         enableAutomaticAdd: true,
-        shouldMonitor: 'all',
+        // Pinned to the MangaMonitor union — without the cast the literal widens to `string`
+        // and no longer satisfies the narrowed `shouldMonitor: MangaMonitor` field.
+        shouldMonitor: 'all' as MangaMonitor,
       };
     }
 

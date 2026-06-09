@@ -1,3 +1,4 @@
+using System;
 using FluentAssertions;
 using Mangarr.Api.V5.ImportLists;
 using NUnit.Framework;
@@ -58,6 +59,18 @@ namespace NzbDrone.Api.Test.ImportLists
             var resource = STJson.Deserialize<ImportListResource>(json);
 
             resource.ShouldMonitor.Should().Be(expected);
+        }
+
+        [Test]
+        public void rejects_unknown_shouldMonitor_name()
+        {
+            // The #357 fix WIDENS the accepted set to exactly the 7 MangaMonitor names without
+            // LOOSENING validation — an undefined name must still throw at the wire (the same
+            // JsonException path the by-name converter takes), so a future serializer-settings
+            // regression that silently swallows bad input is caught here.
+            Action act = () => STJson.Deserialize<ImportListResource>("{\"shouldMonitor\":\"NotAValidValue\"}");
+
+            act.Should().Throw<Exception>();
         }
     }
 }

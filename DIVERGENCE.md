@@ -1374,7 +1374,8 @@ Resolves GitHub issues **#356** + **#357** in one branch. Two divergent monitor 
 - **#356** — Retired the user-facing `MonitorNewItems` axis app-wide: the column + POCO field stay, the value is derived from the Monitor choice (`None`→`None`, else→`All`) at add/import time, and every UI + API surface that exposed it was stripped.
 
 **Three serialization surfaces audited (only one is at risk):**
-1. **V5 API wire** + 2. **`Manga.AddOptions` embedded JSON** — both STJson **by name**, so adding enum values is wire-safe and ordinal-agnostic.
+1. **V5 API wire** — STJson **by name**, so adding enum values is wire-safe and ordinal-agnostic.
+2. **`Manga.AddOptions` embedded JSON** — also STJson **by name**, same safety properties as the API wire.
 3. **`ImportLists.ShouldMonitor`** — an `AsInt32()` column (`001_mangarr_baseline.cs:159`) stored **by ordinal**. To keep existing rows meaning the same with NO migration, `MangaMonitor` is declared with **EXPLICIT ordinals** that match the old `MonitorTypes` values: `None=0, All=1, Existing=2, Latest=3, First=4, Future=5, Missing=6`. Lossless (every previously-persistable int keeps its meaning; `Future`/`Missing` get brand-new ints) and invisible to surfaces 1+2. The C# declaration order deliberately differs from the frontend dropdown display order (`all, future, missing, existing, first, latest, none`) because the wire is by-name.
 
 | File / Path | Type | Source | Rationale |

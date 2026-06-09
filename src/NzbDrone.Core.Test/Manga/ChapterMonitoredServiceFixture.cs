@@ -86,6 +86,9 @@ namespace NzbDrone.Core.Test.MangaTests
             _nullDate.Monitored.Should().BeTrue("ch4 is the highest ChapterNumber (Latest = Max)");
             _chapters.Where(c => c.ChapterNumber != 4m)
                      .Should().OnlyContain(c => !c.Monitored, "only the latest chapter is monitored");
+
+            // Parity with the sibling arms — assert the policy was persisted, not just toggled in-memory.
+            Mocker.GetMock<IChapterService>().Verify(s => s.UpdateMany(_chapters), Times.Once);
         }
     }
 }
