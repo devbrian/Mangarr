@@ -85,6 +85,40 @@ namespace NzbDrone.Core.Manga
             TotalChapterCount = m?.TotalChapterCount,
         };
 
+        // Fill-null carry-over of every cross-source ID from an authoritative source record
+        // onto the target. NEVER overwrites an existing id (`??=`), so it can only ENRICH the
+        // link set — it cannot repoint a manga at a different source's id (preserving the
+        // post-add immutability spirit that Manga.ApplyChanges enforces by omission). Mirrors
+        // AddMangaService's add-time carry-over. Called on every refresh against the full
+        // GetMangaInfo record (whose `source` block carries all 7 ids — unlike the lighter
+        // search-list response), so a manga whose links arrived partial self-heals to the
+        // complete set on the next refresh. Returns true when at least one id was filled.
+        private static bool CarryOverCrossSourceIds(Manga target, Manga source)
+        {
+            if (target == null || source == null)
+            {
+                return false;
+            }
+
+            var before = (target.MangaBakaId, target.MangaDexId, target.MalId, target.AniListId,
+                target.KitsuId, target.AnimeNewsNetworkId, target.ShikimoriId,
+                target.AnimePlanetId, target.MangaUpdatesId);
+
+            target.MangaBakaId ??= source.MangaBakaId;
+            target.MangaDexId ??= source.MangaDexId;
+            target.MalId ??= source.MalId;
+            target.AniListId ??= source.AniListId;
+            target.KitsuId ??= source.KitsuId;
+            target.AnimeNewsNetworkId ??= source.AnimeNewsNetworkId;
+            target.ShikimoriId ??= source.ShikimoriId;
+            target.AnimePlanetId ??= source.AnimePlanetId;
+            target.MangaUpdatesId ??= source.MangaUpdatesId;
+
+            return before != (target.MangaBakaId, target.MangaDexId, target.MalId, target.AniListId,
+                target.KitsuId, target.AnimeNewsNetworkId, target.ShikimoriId,
+                target.AnimePlanetId, target.MangaUpdatesId);
+        }
+
         // Auto-relink a manga that has no cross-source ID for the now-active primary.
         // Searches the active primary by the manga's title(s) and confirms the match via
         // CrossSourceIdResolver (Jaro-Winkler >= 0.85 title + 2-of-3 axis confirm on
@@ -123,18 +157,10 @@ namespace NzbDrone.Core.Manga
                     continue;
                 }
 
-                // Fill-null carry-over of every cross-source id the matched record exposes
-                // (mirrors AddMangaService carry-over). Never overwrites an existing id —
-                // the MangaDexId the manga was added with is preserved as a fallback link.
-                existing.MangaBakaId ??= match.MangaBakaId;
-                existing.MangaDexId ??= match.MangaDexId;
-                existing.MalId ??= match.MalId;
-                existing.AniListId ??= match.AniListId;
-                existing.KitsuId ??= match.KitsuId;
-                existing.AnimeNewsNetworkId ??= match.AnimeNewsNetworkId;
-                existing.ShikimoriId ??= match.ShikimoriId;
-                existing.AnimePlanetId ??= match.AnimePlanetId;
-                existing.MangaUpdatesId ??= match.MangaUpdatesId;
+                // Carry over whatever cross-source ids the search hit exposes (the search-list
+                // response is lighter than the full record and may omit some). The full set is
+                // enriched right after, when the refresh fetches GetMangaInfo for the resolved id.
+                CarryOverCrossSourceIds(existing, match);
 
                 var resolvedId = GetPrimarySourceId(existing, primary);
                 if (string.IsNullOrEmpty(resolvedId))
@@ -358,6 +384,14 @@ namespace NzbDrone.Core.Manga
                     existing.TranslationProfileId = userTranslationProfileId;
                     existing.CustomFormatProfileId = userCustomFormatProfileId;
                     existing.Path = userPath ?? existing.Path;
+
+                    // Enrich cross-source links from the authoritative full record. Manga.ApplyChanges
+                    // deliberately OMITS the cross-source ids (they are immutable post-add), but the
+                    // GetMangaInfo record's `source` block carries the complete set (e.g. MangaBaka's
+                    // 7 ids) — richer than the search-list response the relink path may have used. Fill
+                    // only the nulls, so a manga added under one source self-heals to the full link set
+                    // on refresh under another primary, while never repointing an already-set id.
+                    CarryOverCrossSourceIds(existing, mangaInfo);
 
                     // gap-06: mirror RefreshSeriesService.RefreshSeriesInfo
                     // (Tv/RefreshSeriesService.cs:116-124) — normalize Manga.Path to

@@ -105,6 +105,55 @@ namespace NzbDrone.Core.Test.MangaTests
         }
 
         [Test]
+        public void Execute_enriches_missing_cross_source_ids_from_full_refresh_record()
+        {
+            // Manga already linked to the primary (MangaBaka, has mangaBakaId) so NO relink
+            // runs — but its other cross-source links are partial (only the original three).
+            // The full GetMangaInfo record carries the complete source block; the refresh must
+            // fill the missing ids (never overwriting the ones already set).
+            var bakaPrimary = new MetadataSourceDefinition { Id = 4, Name = "MangaBaka", IsPrimary = true };
+            Mocker.GetMock<IMetadataSourceFactory>().Setup(f => f.GetPrimary()).Returns(bakaPrimary);
+
+            var existing = new Manga.Manga
+            {
+                Id = 1,
+                Title = "Solo Leveling",
+                MangaBakaId = 3397,
+                MangaDexId = Guid.NewGuid(),
+                KitsuId = null,
+                MangaUpdatesId = null,
+                Path = TestMangaPath,
+            };
+            var originalDexId = existing.MangaDexId;
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(existing);
+            Mocker.GetMock<IMangaService>()
+                  .Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>()))
+                  .Returns<Manga.Manga, bool>((m, _) => m);
+
+            // The authoritative by-id record carries the full source block, incl. a DIFFERENT
+            // MangaDexId that must NOT clobber the existing one (fill-null only).
+            var fullRecord = new Manga.Manga
+            {
+                Title = "Solo Leveling",
+                MangaBakaId = 3397,
+                MangaDexId = Guid.NewGuid(),
+                KitsuId = 55555,
+                MangaUpdatesId = "abc123",
+            };
+            var stub = new StubMangaBakaProvider(null, fullRecord);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            existing.KitsuId.Should().Be(55555, "missing id filled from the full record");
+            existing.MangaUpdatesId.Should().Be("abc123", "missing id filled from the full record");
+            existing.MangaDexId.Should().Be(originalDexId, "an already-set id is never overwritten");
+            stub.GetMangaInfoCalls.Should().Contain("3397");
+        }
+
+        [Test]
         public void Execute_uses_MangaDexId_when_primary_is_MangaDex()
         {
             var mdx = Guid.NewGuid();

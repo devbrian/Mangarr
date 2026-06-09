@@ -4,10 +4,11 @@
 //
 // Manga sibling preserves: link-block render + ClipboardButton + Label kinds.
 // Manga sibling diverges from SeriesDetailsLinks:
-//   * External-source set replaced — TVDB/TVMaze/IMDB/TMDB drop, MangaDex/
-//     AniList/MAL surface (+ the MangaBaka cross-source ids added by
+//   * External-source set replaced — TVDB/TVMaze/IMDB/TMDB drop, MangaBaka/
+//     MangaDex/AniList/MAL surface (+ the MangaBaka cross-source ids added by
 //     quick-260608-l2e: Kitsu / MangaUpdates / AnimePlanet / AnimeNewsNetwork /
 //     Shikimori). URLs sourced from each provider's canonical manga-detail path:
+//       MangaBaka         → https://mangabaka.org/{id}   (v1.3 default primary)
 //       MangaDex         → https://mangadex.org/title/{uuid}
 //       AniList          → https://anilist.co/manga/{id}
 //       MyAnimeList      → https://myanimelist.net/manga/{id}
@@ -37,6 +38,7 @@ import styles from './MangaDetailsLinks.css';
 
 type MangaDetailsLinksProps = Pick<
   Manga,
+  | 'mangaBakaId'
   | 'mangaDexId'
   | 'aniListId'
   | 'malId'
@@ -55,6 +57,7 @@ interface MangaDetailsLink {
 
 function MangaDetailsLinks(props: MangaDetailsLinksProps) {
   const {
+    mangaBakaId,
     mangaDexId,
     aniListId,
     malId,
@@ -67,6 +70,15 @@ function MangaDetailsLinks(props: MangaDetailsLinksProps) {
 
   const links = useMemo(() => {
     const validLinks: MangaDetailsLink[] = [];
+
+    // MangaBaka first — it is the v1.3 default primary metadata source.
+    if (mangaBakaId) {
+      validLinks.push({
+        externalId: mangaBakaId,
+        name: 'MangaBaka',
+        url: `https://mangabaka.org/${mangaBakaId}`,
+      });
+    }
 
     if (mangaDexId) {
       validLinks.push({
@@ -138,6 +150,7 @@ function MangaDetailsLinks(props: MangaDetailsLinksProps) {
 
     return validLinks;
   }, [
+    mangaBakaId,
     mangaDexId,
     aniListId,
     malId,
