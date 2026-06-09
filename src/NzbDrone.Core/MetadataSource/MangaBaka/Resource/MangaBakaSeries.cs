@@ -96,15 +96,32 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka.Resource
     }
 
     /// <summary>
-    /// One entry of the <c>titles[]</c> array — a localized title plus a primary flag.
+    /// One entry of the <c>titles[]</c> array — a localized title string with its BCP-47
+    /// <see cref="Language"/> tag (e.g. <c>"en"</c>, <c>"ko"</c>, <c>"ko-Latn"</c> romanization,
+    /// <c>"ja"</c>) and an <see cref="IsPrimary"/> flag marking the preferred title for that
+    /// language. This is the richest title surface MangaBaka ships: unlike the top-level
+    /// <c>title</c> (often a romanization for non-Latin works — e.g. <c>"Ichyeojin Deulpan"</c>),
+    /// the <c>en</c>+primary entry carries the recognizable English title users search for
+    /// (<c>"The Forgotten Field"</c>). <c>MangaBakaMetadataSource.SelectPreferredTitle</c> prefers it.
+    ///
+    /// PITFALL (this bit us): the API key is <c>is_primary</c>, NOT <c>primary</c>, and each
+    /// entry DOES carry a <c>title</c> string — the earlier model omitted the title and used the
+    /// wrong key, leaving the entire <c>titles[]</c> array dead and forcing the romanized
+    /// canonical title into the UI.
     /// </summary>
     public class MangaBakaTitleEntry
     {
         [JsonProperty("language")]
         public string Language { get; set; }
 
-        [JsonProperty("primary")]
-        public bool Primary { get; set; }
+        [JsonProperty("title")]
+        public string Title { get; set; }
+
+        [JsonProperty("traits")]
+        public List<string> Traits { get; set; }
+
+        [JsonProperty("is_primary")]
+        public bool IsPrimary { get; set; }
     }
 
     /// <summary>

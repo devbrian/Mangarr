@@ -341,14 +341,21 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
             return chapters;
         }
 
-        // Pick the best display title. MangaBaka exposes named title fields (vs MangaDex's
-        // language-keyed dictionaries): `title` is the canonical (typically English) title,
-        // `romanized_title` the romanization, `native_title` the native-script form. Prefer
-        // the canonical title, then romanized, then native, then the first secondary title.
-        // (titles[] entries carry only language + primary flag, no title string, so they
-        // cannot contribute here.)
+        // Pick the best display title for an English-facing UI. MangaBaka's top-level `title`
+        // is NOT reliably the English title — for non-Latin works it is a romanization (e.g.
+        // "Ichyeojin Deulpan" for 잊혀진 들판), and the recognizable English title users search
+        // for ("The Forgotten Field") lives in the `titles[]` array as the language=="en",
+        // is_primary==true entry. So prefer that first; only then fall back to the canonical
+        // `title` → romanized → native → first secondary chain. Without this, a relink/refresh
+        // to such a record displays the romanization in the library (the bug this fixes).
         private static string SelectPreferredTitle(MangaBakaSeries record)
         {
+            var englishPrimary = PreferredEnglishTitle(record.Titles);
+            if (!string.IsNullOrWhiteSpace(englishPrimary))
+            {
+                return englishPrimary;
+            }
+
             if (!string.IsNullOrWhiteSpace(record.Title))
             {
                 return record.Title;
@@ -380,12 +387,35 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
             return null;
         }
 
+        // The language=="en", is_primary==true title from the titles[] array — the recognizable
+        // English title for a work whose canonical `title` is a romanization. Match `language`
+        // by an "en" prefix (case-insensitive) so "en"/"en-US" qualify while the romanization
+        // tag "ko-Latn" does NOT. Only an is_primary English entry is preferred; a non-primary
+        // English alias (e.g. a poor alternate romanization) is intentionally skipped so we fall
+        // through to the canonical title rather than display something worse. Returns null when
+        // no primary English title exists.
+        private static string PreferredEnglishTitle(List<MangaBakaTitleEntry> titles)
+        {
+            if (titles == null)
+            {
+                return null;
+            }
+
+            return titles
+                .Where(t => t != null
+                            && t.IsPrimary
+                            && !string.IsNullOrWhiteSpace(t.Title)
+                            && t.Language != null
+                            && t.Language.StartsWith("en", StringComparison.OrdinalIgnoreCase))
+                .Select(t => t.Title)
+                .FirstOrDefault();
+        }
+
         // GH #118 analog (mirror of MangaDexMetadataSource.CollectAlternativeTitles): harvest
         // every title string MangaBaka carries (title / native_title / romanized_title /
-        // secondary_titles values), pre-normalized via MangaTitleNormalizer.Normalize at
-        // write-time so MangaParsingService.GetManga Strategy 2 can do an exact canonical
-        // match against indexer-feed release titles. (titles[] entries carry no title string —
-        // language + primary flag only — so there is nothing to harvest from that array.)
+        // titles[] entries / secondary_titles values), pre-normalized via
+        // MangaTitleNormalizer.Normalize at write-time so MangaParsingService.GetManga Strategy 2
+        // can do an exact canonical match against indexer-feed release titles.
         private static List<string> CollectAlternativeTitles(MangaBakaSeries record)
         {
             var collected = new List<string>();
@@ -393,6 +423,17 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
             AddNormalized(collected, record.Title);
             AddNormalized(collected, record.NativeTitle);
             AddNormalized(collected, record.RomanizedTitle);
+
+            // titles[] now carries real title strings (one per language/romanization) — harvest
+            // them all so e.g. the English "The Forgotten Field" is a matchable alias even when
+            // the canonical title is the romanization.
+            if (record.Titles != null)
+            {
+                foreach (var entry in record.Titles)
+                {
+                    AddNormalized(collected, entry?.Title);
+                }
+            }
 
             if (record.SecondaryTitles != null)
             {
