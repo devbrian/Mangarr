@@ -984,6 +984,8 @@
   "ImportListsMyAnimeListSettingsListStatusHelpText": "Type of list you want to import from, set to 'All' for all lists",
   "ImportListsMyAnimeListSettingsScore": "Minimum Score",
   "ImportListsMyAnimeListSettingsScoreHelpText": "Minimum score for shows to be imported",
+  "ImportListsMyAnimeListStackUrlHelpText": "Public MyAnimeList Interest Stack page URL (e.g. https://myanimelist.net/stacks/85344) or just the numeric stack ID. Must be a Manga stack — browse manga stacks at https://myanimelist.net/stacks/search?type=manga",
+  "ImportListsMyAnimeListStackUrlLabel": "Stack URL or ID",
   "ImportListsPlexSettingsAuthenticateWithPlex": "Authenticate with Plex.tv",
   "ImportListsPlexSettingsWatchlistName": "Plex Watchlist",
   "ImportListsPlexSettingsWatchlistRSSName": "Plex Watchlist RSS",

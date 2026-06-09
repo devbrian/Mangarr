@@ -85,7 +85,14 @@ The Sonarr reference uses a `TvdbId` (with optional `ImdbId` / `TmdbId`) as the 
 
 ### ImportListType enum trim (Pitfall 6)
 
-The reference enum carries `{ Program, Plex, Trakt, Simkl, Other, Advanced }`. Mangarr trims to `{ Program, Other, Advanced }` — Plex/Trakt/Simkl have no manga peers. Phase 27 adds `MangaDex`, `AniList`, `MyAnimeList` values as each concrete provider lands.
+The reference enum carries `{ Program, Plex, Trakt, Simkl, Other, Advanced }`. Mangarr trims to `{ Program, Other, Advanced }` — Plex/Trakt/Simkl have no manga peers. Phase 27 adds `MangaDex`, `AniList`, `MyAnimeList` values as each concrete provider lands. Quick task 260608-vf9 appends `MyAnimeListStack` (public Interest-Stack scrape provider).
+
+### Concrete providers
+
+| Provider dir | Type | Auth | Notes |
+|--------------|------|------|-------|
+| `MangaDex/` | `MangaDexImportList` (OAuth) | password grant | Phase 27 Plan 27-02 — `/user/follows/manga`. See [MangaDex/CLAUDE.md](./MangaDex/CLAUDE.md). |
+| `MyAnimeListStack/` | `MyAnimeListStackImportList` (HTTP scrape) | none (public) | Quick task 260608-vf9 — scrapes a public MyAnimeList Interest-Stack page (`/stacks/{id}`) → `ImportListItemInfo` with `MalId`. `Test()` rejects an Anime stack. Adds `ImportListType.MyAnimeListStack`. See [MyAnimeListStack/CLAUDE.md](./MyAnimeListStack/CLAUDE.md). |
 
 ### Sonarr OAuth Settings POCO pattern (Phase 27 territory)
 
