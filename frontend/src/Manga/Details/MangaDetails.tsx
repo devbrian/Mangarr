@@ -219,6 +219,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
     images,
     tags,
     statistics = {},
+    mangaBakaId,
     mangaDexId,
     aniListId,
     malId,
@@ -432,6 +433,7 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
                       }
                       tooltip={
                         <MangaDetailsLinks
+                          mangaBakaId={mangaBakaId}
                           mangaDexId={mangaDexId}
                           aniListId={aniListId}
                           malId={malId}

@@ -35,6 +35,7 @@ namespace NzbDrone.Core.Manga
         private readonly IShouldRefreshManga _shouldRefreshManga;
         private readonly IMangaDiskScanService _diskScanService;
         private readonly IConfigService _configService;
+        private readonly CrossSourceIdResolver _resolver;
         private readonly IEventAggregator _eventAggregator;
         private readonly ICommandResultReporter _commandResultReporter;
         private readonly Logger _logger;
@@ -46,6 +47,7 @@ namespace NzbDrone.Core.Manga
                                    IShouldRefreshManga shouldRefreshManga,
                                    IMangaDiskScanService diskScanService,
                                    IConfigService configService,
+                                   CrossSourceIdResolver resolver,
                                    IEventAggregator eventAggregator,
                                    ICommandResultReporter commandResultReporter,
                                    Logger logger)
@@ -57,9 +59,150 @@ namespace NzbDrone.Core.Manga
             _shouldRefreshManga = shouldRefreshManga;
             _diskScanService = diskScanService;
             _configService = configService;
+            _resolver = resolver;
             _eventAggregator = eventAggregator;
             _commandResultReporter = commandResultReporter;
             _logger = logger;
+        }
+
+        // The cross-source ID matching the active primary. Mirrors the add-time switch
+        // in AddMangaService.ResolveSourceIdForPrimary. Returns null when the manga has
+        // no id for this primary yet (the auto-relink trigger).
+        private static string GetPrimarySourceId(Manga manga, IProvideMangaInfo primary) => primary switch
+        {
+            MangaBakaMetadataSource _ => manga.MangaBakaId?.ToString(),
+            MangaDexMetadataSource _ => manga.MangaDexId?.ToString(),
+            AniListMetadataSource _ => manga.AniListId?.ToString(),
+            MyAnimeListMetadataSource _ => manga.MalId?.ToString(),
+            _ => null,
+        };
+
+        private static MangaCandidate ToCandidate(Manga m)
+        {
+            // Feed the canonical Title plus any AlternativeTitles into the candidate so the
+            // relink's title search + CrossSourceIdResolver gate get more variants to match
+            // against (the caller's Take(3) already anticipates multiple titles). A manga
+            // added under one source whose canonical title differs from the new primary's
+            // can still match via an alternate. Title goes first so it remains the best
+            // search term; nulls/dupes are stripped.
+            var titles = new List<string>();
+            if (!string.IsNullOrEmpty(m?.Title))
+            {
+                titles.Add(m.Title);
+            }
+
+            if (m?.AlternativeTitles != null)
+            {
+                titles.AddRange(m.AlternativeTitles);
+            }
+
+            return new MangaCandidate
+            {
+                AllTitles = titles.Where(t => !string.IsNullOrEmpty(t)).Distinct().ToList(),
+                PublicationYear = m?.PublicationYear,
+                PrimaryAuthor = m?.PrimaryAuthor,
+                TotalChapterCount = m?.TotalChapterCount,
+            };
+        }
+
+        // Fill-null carry-over of every cross-source ID from an authoritative source record
+        // onto the target. NEVER overwrites an existing id (`??=`), so it can only ENRICH the
+        // link set — it cannot repoint a manga at a different source's id (preserving the
+        // post-add immutability spirit that Manga.ApplyChanges enforces by omission). Mirrors
+        // AddMangaService's add-time carry-over. Called on every refresh against the full
+        // GetMangaInfo record (whose `source` block carries all 7 ids — unlike the lighter
+        // search-list response), so a manga whose links arrived partial self-heals to the
+        // complete set on the next refresh. Returns true when at least one id was filled.
+        private static bool CarryOverCrossSourceIds(Manga target, Manga source)
+        {
+            if (target == null || source == null)
+            {
+                return false;
+            }
+
+            var before = (target.MangaBakaId, target.MangaDexId, target.MalId, target.AniListId,
+                target.KitsuId, target.AnimeNewsNetworkId, target.ShikimoriId,
+                target.AnimePlanetId, target.MangaUpdatesId);
+
+            target.MangaBakaId ??= source.MangaBakaId;
+            target.MangaDexId ??= source.MangaDexId;
+            target.MalId ??= source.MalId;
+            target.AniListId ??= source.AniListId;
+            target.KitsuId ??= source.KitsuId;
+            target.AnimeNewsNetworkId ??= source.AnimeNewsNetworkId;
+            target.ShikimoriId ??= source.ShikimoriId;
+            target.AnimePlanetId ??= source.AnimePlanetId;
+            target.MangaUpdatesId ??= source.MangaUpdatesId;
+
+            return before != (target.MangaBakaId, target.MangaDexId, target.MalId, target.AniListId,
+                target.KitsuId, target.AnimeNewsNetworkId, target.ShikimoriId,
+                target.AnimePlanetId, target.MangaUpdatesId);
+        }
+
+        // Auto-relink a manga that has no cross-source ID for the now-active primary.
+        // Searches the active primary by the manga's title(s) and confirms the match via
+        // CrossSourceIdResolver (Jaro-Winkler >= 0.85 title + 2-of-3 axis confirm on
+        // year/author/chapter-count) — the same gate AddMangaService uses at add-time
+        // (AddMangaService.ResolveCrossSourceIds, D-20/D-21). On a confident match the
+        // matched record's cross-source ids are carried onto the existing row (fill-null,
+        // never clobber) and persisted; returns the resolved primary source id. Returns
+        // null when the primary cannot search, the search errors, or no hit clears the
+        // gate (caller skip-warns and leaves the existing metadata untouched).
+        private string TryRelinkPrimaryId(Manga existing, IProvideMangaInfo primary, MetadataSourceDefinition primaryDef)
+        {
+            if (primary is not ISearchForNewManga searcher)
+            {
+                return null;
+            }
+
+            var candidate = ToCandidate(existing);
+
+            foreach (var title in candidate.AllTitles.Take(3).Where(t => !string.IsNullOrEmpty(t)))
+            {
+                List<Manga> hits;
+                try
+                {
+                    hits = searcher.SearchForNewManga(title);
+                }
+                catch (Exception e)
+                {
+                    // One failed search must not abort the surrounding refresh batch.
+                    _logger.Debug(e, "Auto-relink search failed for manga {0} against {1}", existing.Title, primaryDef.Name);
+                    continue;
+                }
+
+                var match = hits?.FirstOrDefault(h => _resolver.TryResolve(candidate, ToCandidate(h), out _));
+                if (match == null)
+                {
+                    continue;
+                }
+
+                // Carry over whatever cross-source ids the search hit exposes (the search-list
+                // response is lighter than the full record and may omit some). The full set is
+                // enriched right after, when the refresh fetches GetMangaInfo for the resolved id.
+                CarryOverCrossSourceIds(existing, match);
+
+                var resolvedId = GetPrimarySourceId(existing, primary);
+                if (string.IsNullOrEmpty(resolvedId))
+                {
+                    // Match cleared the gate but exposed no id for THIS primary. Keep the
+                    // carried ids but signal no-resolution so the caller skip-warns.
+                    continue;
+                }
+
+                // Persist the relink. publishUpdatedEvent:false mirrors the metadata-write
+                // suppression the rest of the refresh path uses (UI repaint fires via the
+                // trailing ChapterListUpdatedEvent once chapters sync).
+                _mangaService.UpdateManga(existing, publishUpdatedEvent: false);
+                _logger.Info("Auto-relinked manga {0} to active primary {1} (source id {2}) by confirmed title match",
+                    existing.Title,
+                    primaryDef.Name,
+                    resolvedId);
+
+                return resolvedId;
+            }
+
+            return null;
         }
 
         // gap-12 (refresh-also-scan-disk): mirrors Tv/RefreshSeriesService.RescanSeries
@@ -167,25 +310,32 @@ namespace NzbDrone.Core.Manga
                 }
 
                 // Use the cross-resolved ID matching this primary.
-                var sourceId = primary switch
+                var sourceId = GetPrimarySourceId(existing, primary);
+
+                if (string.IsNullOrEmpty(sourceId))
                 {
-                    MangaBakaMetadataSource _ => existing.MangaBakaId?.ToString(),
-                    MangaDexMetadataSource _ => existing.MangaDexId?.ToString(),
-                    AniListMetadataSource _ => existing.AniListId?.ToString(),
-                    MyAnimeListMetadataSource _ => existing.MalId?.ToString(),
-                    _ => null,
-                };
+                    // The manga was added under a DIFFERENT primary (e.g. MangaDex) and
+                    // never received a cross-source ID for the now-active primary (e.g.
+                    // MangaBaka after the user promoted it). Before skipping, attempt an
+                    // auto-relink: search the active primary by the manga's title and
+                    // confirm the match via CrossSourceIdResolver (the same D-20/D-21
+                    // resolution AddMangaService runs at add-time). On success the manga
+                    // is repointed at the new primary and the refresh proceeds; a whole
+                    // library added under MangaDex heals itself on the next refresh.
+                    sourceId = TryRelinkPrimaryId(existing, primary, primaryDef);
+                }
 
                 if (string.IsNullOrEmpty(sourceId))
                 {
                     // WR-08 fix: escalate from Trace to Warn so users notice that a
                     // manga in their library is silently being skipped because the
-                    // active primary has no cross-source ID for it. The CONTEXT D-23
-                    // manual-relink endpoint is the remediation path; without a
-                    // visible signal users would never know it's needed. (Phase 7+
-                    // can extend this to a MissingPrimarySourceIdHealthCheck per the
-                    // review's secondary recommendation.)
-                    _logger.Warn("Skipping manga {0}: no source ID for active primary {1}; manual relink required (POST /api/v5/manga/{2}/links)",
+                    // active primary has no cross-source ID for it AND auto-relink
+                    // could not confidently match it. The CONTEXT D-23 manual-relink
+                    // endpoint is the remediation path; without a visible signal users
+                    // would never know it's needed. (Phase 7+ can extend this to a
+                    // MissingPrimarySourceIdHealthCheck per the review's secondary
+                    // recommendation.)
+                    _logger.Warn("Skipping manga {0}: no source ID for active primary {1} and auto-relink found no confident match; manual relink required (POST /api/v5/manga/{2}/links)",
                         existing.Title,
                         primaryDef.Name,
                         existing.Id);
@@ -254,6 +404,14 @@ namespace NzbDrone.Core.Manga
                     existing.TranslationProfileId = userTranslationProfileId;
                     existing.CustomFormatProfileId = userCustomFormatProfileId;
                     existing.Path = userPath ?? existing.Path;
+
+                    // Enrich cross-source links from the authoritative full record. Manga.ApplyChanges
+                    // deliberately OMITS the cross-source ids (they are immutable post-add), but the
+                    // GetMangaInfo record's `source` block carries the complete set (e.g. MangaBaka's
+                    // 7 ids) — richer than the search-list response the relink path may have used. Fill
+                    // only the nulls, so a manga added under one source self-heals to the full link set
+                    // on refresh under another primary, while never repointing an already-set id.
+                    CarryOverCrossSourceIds(existing, mangaInfo);
 
                     // gap-06: mirror RefreshSeriesService.RefreshSeriesInfo
                     // (Tv/RefreshSeriesService.cs:116-124) — normalize Manga.Path to

@@ -69,6 +69,15 @@ public class MangaLinksController : Controller
             }
         }
 
+        if (body.MangaBakaId.HasValue)
+        {
+            var collision = _mangaService.FindByMangaBakaId(body.MangaBakaId.Value);
+            if (collision != null && collision.Id != id)
+            {
+                return TypedResults.Conflict($"MangaBaka ID {body.MangaBakaId.Value} is already linked to manga {collision.Id}");
+            }
+        }
+
         // PER D-23: manual-only relink. No auto-validation against secondary sources;
         // user explicitly sets the IDs. CrossSourceIdResolver is BYPASSED here.
         if (body.MangaDexId.HasValue)
@@ -86,6 +95,41 @@ public class MangaLinksController : Controller
             manga.AniListId = body.AniListId;
         }
 
+        // MangaBakaId is the v1.3 default-primary id; required so a manga added under a
+        // different primary can be manually relinked to MangaBaka (the remediation path
+        // RefreshMangaService's skip-warning points users at). Collision-guarded above.
+        if (body.MangaBakaId.HasValue)
+        {
+            manga.MangaBakaId = body.MangaBakaId;
+        }
+
+        // The remaining cross-source ids carry no finder/collision guard (not used as a
+        // primary lookup key); accepted verbatim per D-23 manual-only-relink semantics.
+        if (body.KitsuId.HasValue)
+        {
+            manga.KitsuId = body.KitsuId;
+        }
+
+        if (body.AnimeNewsNetworkId.HasValue)
+        {
+            manga.AnimeNewsNetworkId = body.AnimeNewsNetworkId;
+        }
+
+        if (body.ShikimoriId.HasValue)
+        {
+            manga.ShikimoriId = body.ShikimoriId;
+        }
+
+        if (body.AnimePlanetId != null)
+        {
+            manga.AnimePlanetId = body.AnimePlanetId;
+        }
+
+        if (body.MangaUpdatesId != null)
+        {
+            manga.MangaUpdatesId = body.MangaUpdatesId;
+        }
+
         _mangaService.UpdateManga(manga);
 
         var resource = manga.ToResource();
@@ -100,5 +144,11 @@ public class MangaLinksController : Controller
         public Guid? MangaDexId { get; set; }
         public int? MalId { get; set; }
         public int? AniListId { get; set; }
+        public int? MangaBakaId { get; set; }
+        public int? KitsuId { get; set; }
+        public int? AnimeNewsNetworkId { get; set; }
+        public int? ShikimoriId { get; set; }
+        public string? AnimePlanetId { get; set; }
+        public string? MangaUpdatesId { get; set; }
     }
 }

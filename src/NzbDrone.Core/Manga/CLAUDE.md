@@ -32,7 +32,7 @@ This directory is the **manga-side parallel** of `src/NzbDrone.Core/Tv/`. Both c
 
 | File | Purpose |
 |------|---------|
-| `IMangaRepository.cs` + `MangaRepository.cs` | Dapper repo (`BasicRepository<Manga>`). Inherits Phase 1 D-15 Polly retry automatically. `FindByMangaDexId(Guid)` / `FindByMalId(int)` / `FindByAniListId(int)` — diverges from `Tv/SeriesRepository.FindByTvdbId` (manga has singular IDs). |
+| `IMangaRepository.cs` + `MangaRepository.cs` | Dapper repo (`BasicRepository<Manga>`). Inherits Phase 1 D-15 Polly retry automatically. `FindByMangaDexId(Guid)` / `FindByMalId(int)` / `FindByAniListId(int)` / `FindByMangaBakaId(int)` — diverges from `Tv/SeriesRepository.FindByTvdbId` (manga has singular IDs). `FindByMangaBakaId` added for the v1.3 default-primary collision guard on `MangaLinksController` (the manual-relink-to-MangaBaka path). |
 | `IChapterRepository.cs` + `ChapterRepository.cs` | Dapper repo (`BasicRepository<Chapter>`). `Find(int mangaId, decimal chapterNumber)` matches the Phase 16 STRUCT-01 (MangaId, ChapterNumber) UNIQUE key — language axis is gone (per-translation axes now live on `ChapterFile.TranslatedLanguage` + `ChapterFile.ScanlationGroup` per Phase 16.1 — Sonarr-canonical pattern). `GetSyntheticByMangaId` removed (Phase 16 STRUCT-03 — synthetic concept gone; synthetic-ness derives from `monitored && ChapterFileId == null` per Phase 16.1 Sonarr-canonical Wanted/Missing predicate). |
 
 ### Events (Plan 02-03 deliverable — this plan; under `Events/`)
