@@ -1237,7 +1237,6 @@
   "MonitorLastSeasonDescription": "Monitora tots els episodis de l'última temporada",
   "MonitorMissingEpisodes": "Falten episodis",
   "MonitorMissingEpisodesDescription": "Monitora els episodis que no tenen fitxers o que encara no s'han emès",
-  "MonitorNewItems": "Monitora els elements nous",
   "MonitorNewSeasons": "Monitora les estacions noves",
   "MonitorNewSeasonsHelpText": "Quines noves temporades s'han de monitorar automàticament",
   "MonitorNoEpisodes": "Cap",

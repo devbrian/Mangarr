@@ -1232,7 +1232,6 @@
   "MonitorLastSeasonDescription": "Surveiller tous les épisodes de la dernière saison",
   "MonitorMissingEpisodes": "Épisodes manquants",
   "MonitorMissingEpisodesDescription": "Surveiller les épisodes qui n'ont pas de fichiers ou qui n'ont pas encore été diffusés",
-  "MonitorNewItems": "Surveiller les nouveaux éléments",
   "MonitorNewSeasons": "Surveiller les nouvelles saisons",
   "MonitorNewSeasonsHelpText": "Quelles nouvelles saisons doivent être surveillées automatiquement",
   "MonitorNoEpisodes": "Aucun",

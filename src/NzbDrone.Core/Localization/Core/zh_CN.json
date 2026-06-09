@@ -1170,7 +1170,6 @@
   "MonitorLastSeasonDescription": "监控最后季度的所有集",
   "MonitorMissingEpisodes": "缺失剧集",
   "MonitorMissingEpisodesDescription": "监控没有文件或尚未播出的剧集",
-  "MonitorNewItems": "监控新项目",
   "MonitorNewSeasons": "监控新的季",
   "MonitorNewSeasonsHelpText": "应自动监控哪些新的季",
   "MonitorNoEpisodes": "无",

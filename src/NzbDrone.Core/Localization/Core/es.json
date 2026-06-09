@@ -1251,7 +1251,6 @@
   "MonitorLastSeasonDescription": "Monitoriza todos los episodios de la última temporada",
   "MonitorMissingEpisodes": "Episodios faltantes",
   "MonitorMissingEpisodesDescription": "Monitoriza episodios que no tienen archivos o que no se han emitido aún",
-  "MonitorNewItems": "Monitorizar nuevos elementos",
   "MonitorNewSeasons": "Monitorizar nuevas temporadas",
   "MonitorNewSeasonsHelpText": "Qué nuevas temporadas deberían ser monitorizadas automáticamente",
   "MonitorNoEpisodes": "Ninguno",

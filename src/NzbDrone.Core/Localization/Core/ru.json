@@ -1214,7 +1214,6 @@
   "MonitorLastSeasonDescription": "Мониторить все эпизоды последнего сезона",
   "MonitorMissingEpisodes": "Отсутствующие эпизоды",
   "MonitorMissingEpisodesDescription": "Отслеживать эпизоды, у которых нет файлов или которые еще не вышли в эфир",
-  "MonitorNewItems": "Мониторинг новых объектов",
   "MonitorNewSeasons": "Следить за новыми сезонами",
   "MonitorNewSeasonsHelpText": "Какие новые сезоны следует отслеживать автоматически",
   "MonitorNoEpisodes": "Ничто",
