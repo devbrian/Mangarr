@@ -10,25 +10,32 @@ namespace NzbDrone.Core.Manga
     //
     // Mirrors Tv/EpisodeMonitoredService.cs shape: switches on a Monitor enum
     // and flips the per-Chapter Monitored flag accordingly. Diverges on the
-    // enum cardinality — TV's 13-value MonitorTypes collapses to the
-    // 5-value MangaMonitor (Phase 6 D-03) because manga has no Volumes/
+    // enum cardinality — TV's 13-value MonitorTypes collapses to the single
+    // canonical 7-value MangaMonitor (#357 D-2) because manga has no Volumes/
     // Specials/Pilot/SceneNumbering concepts to gate.
     //
-    // Mapping vs TV (per Phase 6 D-03 / audit backfill_notes):
-    //   * MangaMonitor.All     → all chapters monitored
-    //   * MangaMonitor.Future  → ReleaseDate > UtcNow OR ReleaseDate is null
-    //                            (TV's "future" semantics; null treated as
-    //                             unreleased, matching Episode.AirDateUtc null path)
-    //   * MangaMonitor.Missing → chapters without a ChapterFile (ChapterFileId is null)
-    //   * MangaMonitor.Latest  → only the highest ChapterNumber row (replaces
-    //                            TV's LastSeason — manga has no Volume table,
-    //                            so "most recent" is per-Chapter, not per-Volume)
-    //   * MangaMonitor.None    → no chapters monitored
+    // Mapping vs TV (per #357 D-2 / D-3):
+    //   * MangaMonitor.All      → all chapters monitored
+    //   * MangaMonitor.Future   → ReleaseDate > UtcNow OR ReleaseDate is null
+    //                             (TV's "future" semantics; null treated as
+    //                              unreleased, matching Episode.AirDateUtc null path)
+    //   * MangaMonitor.Missing  → chapters without a ChapterFile (ChapterFileId is null)
+    //   * MangaMonitor.Existing → chapters ALREADY released (FirstReleaseDate <= UtcNow)
+    //                             — the manga peer of Sonarr's MonitorTypes.Existing;
+    //                             the exact inverse of the Future predicate (#357 D-3)
+    //   * MangaMonitor.First    → only the lowest ChapterNumber row — the manga peer
+    //                             of Sonarr's MonitorTypes.First (#357 D-3); mirrors
+    //                             Latest but with Min instead of Max
+    //   * MangaMonitor.Latest   → only the highest ChapterNumber row (replaces
+    //                             TV's LastSeason — manga has no Volume table,
+    //                             so "most recent" is per-Chapter, not per-Volume)
+    //   * MangaMonitor.None     → no chapters monitored
     //
-    // Drops TV-only enum values: Pilot/FirstSeason/LastSeason/MonitorSpecials/
-    // UnmonitorSpecials all depend on Seasons (no manga sibling), Recent
-    // depends on AirDateUtc 90-day window (subsumed by Future for v1), Existing
-    // depends on EpisodeFile parity that v1 callers don't surface.
+    // Existing + First DO surface now (#357 unified the import-list MonitorTypes onto
+    // MangaMonitor, which gained these two values). Still drops TV-only enum values:
+    // Pilot/FirstSeason/LastSeason/MonitorSpecials/UnmonitorSpecials all depend on
+    // Seasons (no manga sibling); Recent depends on AirDateUtc 90-day window (subsumed
+    // by Future for v1).
     //
     // Honors AddMangaOptions.IgnoreChaptersWithFiles / IgnoreChaptersWithoutFiles
     // overrides as a final pass — same precedent as TV's
@@ -85,6 +92,21 @@ namespace NzbDrone.Core.Manga
                 case MangaMonitor.Missing:
                     _logger.Debug("[{0}] Monitoring missing chapters", manga.Title);
                     ToggleChaptersMonitoredState(chapters, c => !c.ChapterFileId.HasValue);
+                    break;
+
+                case MangaMonitor.Existing:
+                    _logger.Debug("[{0}] Monitoring existing (already-released) chapters", manga.Title);
+
+                    // #357 D-3: the exact inverse of the Future predicate — chapters whose
+                    // FirstReleaseDate is set and at-or-before now are "already released".
+                    ToggleChaptersMonitoredState(chapters,
+                        c => c.FirstReleaseDate.HasValue && c.FirstReleaseDate.Value <= DateTime.UtcNow);
+                    break;
+
+                case MangaMonitor.First:
+                    _logger.Debug("[{0}] Monitoring first chapter", manga.Title);
+                    var firstNumber = chapters.Min(c => c.ChapterNumber);
+                    ToggleChaptersMonitoredState(chapters, c => c.ChapterNumber == firstNumber);
                     break;
 
                 case MangaMonitor.Latest:

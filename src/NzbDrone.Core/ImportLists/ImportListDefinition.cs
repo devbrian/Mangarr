@@ -1,5 +1,6 @@
 using System;
 using Equ;
+using NzbDrone.Core.Manga;
 using NzbDrone.Core.ThingiProvider;
 
 namespace NzbDrone.Core.ImportLists
@@ -12,10 +13,17 @@ namespace NzbDrone.Core.ImportLists
     //   * SeasonFolder      → DROPPED (TV-only; manga has no Season concept per
     //                          PROJECT.md v1 lock — Migration 001 stripped the column).
     //   * SeriesType        → DROPPED (TV-only; Migration 001 stripped the column).
-    //   * SearchForMissingEpisodes / ShouldMonitor / MonitorNewItems — preserved verbatim
-    //                          per RESEARCH §Q1 (Sonarr-canonical opt-in semantics
-    //                          still apply to manga; ShouldMonitor uses Mangarr's existing
-    //                          MonitorTypes enum from Core.Manga).
+    //   * SearchForMissingEpisodes — preserved verbatim per RESEARCH §Q1.
+    //   * ShouldMonitor — #357: retyped from the Sonarr-inherited MonitorTypes enum to the
+    //                          single canonical 7-value MangaMonitor (Core.Manga). The persisted
+    //                          AsInt32() ShouldMonitor column keeps its meaning because MangaMonitor
+    //                          declares explicit ordinals matching the old MonitorTypes values.
+    //   * MonitorNewItems — #356: REMOVED from the definition (and the V5 resource). The
+    //                          ImportLists.MonitorNewItems DB column is intentionally left orphaned
+    //                          (D-1, no migration) — it is NotNullable().WithDefaultValue(0), so
+    //                          inserts that no longer map the property fall back to the DB default;
+    //                          the column is simply never read/written. New-chapter monitoring is
+    //                          derived from ShouldMonitor via MangaMonitorExtensions.DeriveMonitorNewItems.
     //   * EnableAutomaticAdd / RootFolderPath / Tags — preserved verbatim.
     //
     // Equ memberwise equality preserved verbatim; Enable override maps onto
@@ -28,8 +36,7 @@ namespace NzbDrone.Core.ImportLists
 
         public bool EnableAutomaticAdd { get; set; }
         public bool SearchForMissingChapters { get; set; }
-        public MonitorTypes ShouldMonitor { get; set; }
-        public NewItemMonitorTypes MonitorNewItems { get; set; }
+        public MangaMonitor ShouldMonitor { get; set; }
         public int TranslationProfileId { get; set; }
         public int CustomFormatProfileId { get; set; }
         public string RootFolderPath { get; set; }
@@ -60,26 +67,5 @@ namespace NzbDrone.Core.ImportLists
         {
             return Comparer.GetHashCode(this);
         }
-    }
-
-    // Sonarr's MonitorTypes / NewItemMonitorTypes live under NzbDrone.Core.Tv (DELETED
-    // in Phase 15 D-24). Mangarr's manga-shape peers below carry the same value semantics
-    // verbatim per RESEARCH §Q1 — Sonarr-canonical opt-in for ImportList "add new manga
-    // monitored?" / "monitor newly-listed items?" UX. Lives in this file (sibling to
-    // ImportListDefinition) so the substrate is self-contained; future plans MAY hoist to
-    // Core.Manga if more callers materialize.
-    public enum MonitorTypes
-    {
-        None = 0,
-        All = 1,
-        Existing = 2,
-        Latest = 3,
-        First = 4
-    }
-
-    public enum NewItemMonitorTypes
-    {
-        None = 0,
-        All = 1
     }
 }

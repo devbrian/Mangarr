@@ -41,7 +41,7 @@ namespace NzbDrone.Core.Test.ImportListTests
                 RootFolderPath = @"C:\Manga",
                 TranslationProfileId = 1,
                 CustomFormatProfileId = 1,
-                ShouldMonitor = MonitorTypes.All
+                ShouldMonitor = MangaMonitor.All
             };
 
             Mocker.GetMock<IImportListFactory>()
@@ -402,13 +402,13 @@ namespace NzbDrone.Core.Test.ImportListTests
                 "an item already carrying the primary's own id must not trigger a fuzzy title search");
         }
 
-        [TestCase(MonitorTypes.All, MangaMonitorNewItems.All)]
-        [TestCase(MonitorTypes.Latest, MangaMonitorNewItems.All)]
-        [TestCase(MonitorTypes.Existing, MangaMonitorNewItems.All)]
-        [TestCase(MonitorTypes.First, MangaMonitorNewItems.All)]
-        [TestCase(MonitorTypes.None, MangaMonitorNewItems.None)]
+        [TestCase(MangaMonitor.All, MangaMonitorNewItems.All)]
+        [TestCase(MangaMonitor.Latest, MangaMonitorNewItems.All)]
+        [TestCase(MangaMonitor.Existing, MangaMonitorNewItems.All)]
+        [TestCase(MangaMonitor.First, MangaMonitorNewItems.All)]
+        [TestCase(MangaMonitor.None, MangaMonitorNewItems.None)]
         public void process_list_items_derives_monitor_new_items_from_monitor_choice(
-            MonitorTypes shouldMonitor,
+            MangaMonitor shouldMonitor,
             MangaMonitorNewItems expected)
         {
             // quick-260608-vf9 follow-up (#1): new-chapter monitoring is derived from the list's
