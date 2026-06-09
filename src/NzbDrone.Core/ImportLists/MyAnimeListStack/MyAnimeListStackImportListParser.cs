@@ -19,8 +19,13 @@ namespace NzbDrone.Core.ImportLists.MyAnimeListStack
             new(@"ownlist/manga/add\?selected_manga_id=(\d+)", RegexOptions.Compiled);
 
         // Anime add-button: the anime-stack guard signal (counted, never imported).
+        // The live MAL markup uses `selected_series_id` for anime add-buttons (verified by
+        // capturing a real anime stack — RESEARCH line 37 assumed `selected_anime_id`, which
+        // does NOT appear on the real page). We anchor on the `ownlist/anime/add?` path and
+        // accept BOTH the real `selected_series_id` and the documented `selected_anime_id` so
+        // the anime-stack guard fires against actual MAL HTML, not just the hand-authored shape.
         private static readonly Regex AnimeAddButtonRegex =
-            new(@"ownlist/anime/add\?selected_anime_id=(\d+)", RegexOptions.Compiled);
+            new(@"ownlist/anime/add\?selected_(?:series|anime)_id=(\d+)", RegexOptions.Compiled);
 
         // Title link on the card: /manga/<id>/<Slug_With_Underscores>. Note the leading
         // `myanimelist\.net/manga/` deliberately does NOT match the add-button URL
