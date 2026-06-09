@@ -7,6 +7,8 @@ using NUnit.Framework;
 using NzbDrone.Core.ImportLists;
 using NzbDrone.Core.ImportLists.Exclusions;
 using NzbDrone.Core.Manga;
+using NzbDrone.Core.MetadataSource;
+using NzbDrone.Core.MetadataSource.MangaBaka;
 using NzbDrone.Core.Test.Framework;
 
 namespace NzbDrone.Core.Test.ImportListTests
@@ -210,8 +212,149 @@ namespace NzbDrone.Core.Test.ImportListTests
 
             captured.Should().NotBeNull();
             captured.Should().HaveCount(1,
-                "items without a MangaDexId are deferred to Phase 27's cross-source resolver");
+                "with no primary metadata source mocked (-> Unknown -> legacy MangaDexId path), MAL/AniList-only items cannot resolve and are skipped");
             captured[0].MangaDexId?.ToString().Should().Be(TripletA);
+        }
+
+        // quick-260608-vf9 follow-up: under a MangaBaka primary (the v1.3 default) a MAL-only
+        // import-list item (e.g. from the MyAnimeList Stack list) MUST resolve to the primary's
+        // own id and be staged for add — pre-fix it was silently rejected at the hardcoded
+        // MangaDexId gate because MangaBaka results never carry a MangaDexId (D-03a).
+        private void SetupMangaBakaPrimary(IEnumerable<Manga.Manga> searchResults)
+        {
+            var def = new MetadataSourceDefinition
+            {
+                Id = 1,
+                Name = "MangaBaka",
+                Implementation = nameof(MangaBakaMetadataSource),
+                IsPrimary = true
+            };
+
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetPrimary())
+                  .Returns(def);
+
+            var sourceMock = new Mock<IMetadataSource>();
+            sourceMock.Setup(s => s.SearchForNewManga(It.IsAny<string>()))
+                      .Returns(searchResults.ToList());
+
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(sourceMock.Object);
+        }
+
+        [Test]
+        public void process_list_items_resolves_mal_only_item_to_primary_id_under_mangabaka_primary()
+        {
+            // Item carries ONLY MalId (the MyAnimeList Stack shape). MangaBaka primary search
+            // returns a candidate with the matching MalId AND a MangaBakaId (but NO MangaDexId).
+            // Expected: AddManga staged with the candidate's MangaBakaId so PrepareForAdd ->
+            // ResolveSourceIdForPrimary(MangaBaka) succeeds.
+            var items = new List<ImportListItemInfo>
+            {
+                new ImportListItemInfo { ImportListId = 1, Title = "Solo Leveling", MalId = 121496 }
+            };
+
+            Mocker.GetMock<IFetchAndParseImportList>()
+                  .Setup(f => f.Fetch())
+                  .Returns(new ImportListFetchResult(items, anyFailure: false));
+
+            SetupMangaBakaPrimary(new[]
+            {
+                new Manga.Manga { Title = "Solo Leveling", MangaBakaId = 555, MalId = 121496, MangaDexId = null }
+            });
+
+            List<Manga.Manga> captured = null;
+            Mocker.GetMock<IAddMangaService>()
+                  .Setup(s => s.AddManga(It.IsAny<List<Manga.Manga>>(), It.IsAny<bool>()))
+                  .Callback<List<Manga.Manga>, bool>((list, _) => captured = list)
+                  .Returns<List<Manga.Manga>, bool>((list, _) => list);
+
+            Subject.Execute(new ImportListSyncCommand());
+
+            captured.Should().NotBeNull();
+            captured.Should().HaveCount(1, "the MAL-only item resolves to a MangaBaka candidate carrying MangaBakaId");
+            captured[0].MangaBakaId.Should().Be(555, "the primary (MangaBaka) id must be carried so AddManga can resolve the active primary's source id");
+            captured[0].MalId.Should().Be(121496);
+        }
+
+        [Test]
+        public void process_list_items_rejects_when_mangabaka_match_lacks_mangabaka_id()
+        {
+            // MangaBaka primary returns a MalId-agreeing candidate that has NO MangaBakaId.
+            // AddManga would throw "no source ID for active primary", so the item must be
+            // rejected (not staged) rather than crashing the sync.
+            var items = new List<ImportListItemInfo>
+            {
+                new ImportListItemInfo { ImportListId = 1, Title = "Orphan", MalId = 999 }
+            };
+
+            Mocker.GetMock<IFetchAndParseImportList>()
+                  .Setup(f => f.Fetch())
+                  .Returns(new ImportListFetchResult(items, anyFailure: false));
+
+            SetupMangaBakaPrimary(new[]
+            {
+                new Manga.Manga { Title = "Orphan", MangaBakaId = null, MalId = 999 }
+            });
+
+            List<Manga.Manga> captured = null;
+            Mocker.GetMock<IAddMangaService>()
+                  .Setup(s => s.AddManga(It.IsAny<List<Manga.Manga>>(), It.IsAny<bool>()))
+                  .Callback<List<Manga.Manga>, bool>((list, _) => captured = list)
+                  .Returns<List<Manga.Manga>, bool>((list, _) => list);
+
+            Subject.Execute(new ImportListSyncCommand());
+
+            captured.Should().NotBeNull();
+            captured.Should().BeEmpty("a candidate with no MangaBakaId cannot be added under a MangaBaka primary");
+        }
+
+        [Test]
+        public void process_list_items_skips_search_when_mal_item_already_in_library_under_mangabaka_primary()
+        {
+            // The MAL id is already in the library — the item must short-circuit WITHOUT a
+            // primary search (saves an API call per item per sync).
+            var items = new List<ImportListItemInfo>
+            {
+                new ImportListItemInfo { ImportListId = 1, Title = "Owned", MalId = 121496 }
+            };
+
+            Mocker.GetMock<IFetchAndParseImportList>()
+                  .Setup(f => f.Fetch())
+                  .Returns(new ImportListFetchResult(items, anyFailure: false));
+
+            Mocker.GetMock<IMangaService>()
+                  .Setup(s => s.AllMalIds())
+                  .Returns(new List<int> { 121496 });
+
+            var def = new MetadataSourceDefinition
+            {
+                Id = 1,
+                Name = "MangaBaka",
+                Implementation = nameof(MangaBakaMetadataSource),
+                IsPrimary = true
+            };
+            Mocker.GetMock<IMetadataSourceFactory>().Setup(f => f.GetPrimary()).Returns(def);
+            var sourceMock = new Mock<IMetadataSource>();
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(sourceMock.Object);
+
+            List<Manga.Manga> captured = null;
+            Mocker.GetMock<IAddMangaService>()
+                  .Setup(s => s.AddManga(It.IsAny<List<Manga.Manga>>(), It.IsAny<bool>()))
+                  .Callback<List<Manga.Manga>, bool>((list, _) => captured = list)
+                  .Returns<List<Manga.Manga>, bool>((list, _) => list);
+
+            Subject.Execute(new ImportListSyncCommand());
+
+            captured.Should().NotBeNull();
+            captured.Should().BeEmpty("the MAL id is already in the library");
+            sourceMock.Verify(
+                s => s.SearchForNewManga(It.IsAny<string>()),
+                Times.Never,
+                "an already-in-library item must not trigger a primary search");
         }
     }
 }

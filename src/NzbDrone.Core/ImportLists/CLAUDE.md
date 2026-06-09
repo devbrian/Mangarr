@@ -98,9 +98,14 @@ The reference enum carries `{ Program, Plex, Trakt, Simkl, Other, Advanced }`. M
 
 Trakt's Sonarr Settings POCO uses `[FieldDefinition(Hidden = HiddenType.Hidden, Privacy = PrivacyLevel.Password)]` for the OAuth tokens — Phase 27 providers will mirror this verbatim. The reference slice's Trakt files at `.planning/reference/sonarr-vertical-slices/import-lists/` (parent of this Mangarr substrate) are the authoritative port source.
 
-### Cross-source ID resolution (Phase 27 territory)
+### Cross-source ID resolution (primary-aware since quick-260608-vf9)
 
-`ImportListSyncService.ProcessListItems` only auto-adds items that already carry a `MangaDexId`. Items with only AniListId or MalId are skipped with a debug log line — the AniList → MangaDexId (and MAL → MangaDexId) cross-source resolver lives in the Phase 27 provider work.
+`ImportListSyncService.ProcessListItems` resolves an item to the **active primary metadata source's own id** before staging it for add — because `AddMangaService.PrepareForAdd → ResolveSourceIdForPrimary` REQUIRES that id (e.g. `MangaBakaId` when MangaBaka is primary) or it throws *"no source ID for active primary"*.
+
+- **Primary = MangaDex (or unconfigured → legacy default):** the original MangaDexId-centric path runs. An item already carrying a `MangaDexId` adds directly; a MAL/AniList-only item is resolved to a `MangaDexId` via `MangaDex.SearchForNewManga(title)` (strict-AND id agreement) or skipped.
+- **Primary = MangaBaka / AniList / MyAnimeList (non-MangaDex):** `StageViaPrimaryResolution` resolves the item via `primary.SearchForNewManga(title)`, matches on the alt id(s) the item carries (`MalId`/`AniListId`), and stages the matched candidate carrying the primary's id. A MangaDexId-only item cannot resolve here (MangaBaka results don't expose a MangaDexId per MetadataSource D-03a) and is skipped — MangaDex import lists belong under a MangaDex primary.
+
+The blocker fixed in quick-260608-vf9: pre-fix the method hardcoded `if (match?.MangaDexId != null)`, so under the v1.3 default MangaBaka primary EVERY MAL/AniList-only item (incl. the MyAnimeList Stack list) was silently rejected because MangaBaka search results carry `MangaBakaId` (not `MangaDexId`). The 429 throttle latch + already-in-library short-circuit are preserved in both paths.
 
 ## Cross-References
 
