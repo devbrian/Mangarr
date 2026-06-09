@@ -18,12 +18,18 @@ namespace NzbDrone.Core.ImportLists
     //                          single canonical 7-value MangaMonitor (Core.Manga). The persisted
     //                          AsInt32() ShouldMonitor column keeps its meaning because MangaMonitor
     //                          declares explicit ordinals matching the old MonitorTypes values.
-    //   * MonitorNewItems — #356: REMOVED from the definition (and the V5 resource). The
-    //                          ImportLists.MonitorNewItems DB column is intentionally left orphaned
-    //                          (D-1, no migration) — it is NotNullable().WithDefaultValue(0), so
-    //                          inserts that no longer map the property fall back to the DB default;
-    //                          the column is simply never read/written. New-chapter monitoring is
-    //                          derived from ShouldMonitor via MangaMonitorExtensions.DeriveMonitorNewItems.
+    //   * MonitorNewItems — #356: REMOVED from the V5 resource + every user-facing surface, but
+    //                          KEPT as an INTERNAL field here. The ImportLists.MonitorNewItems DB
+    //                          column is NotNullable() (001_mangarr_baseline.cs) and Mangarr's
+    //                          BasicRepository builds its INSERT column list from the POCO's mapped
+    //                          properties (BasicRepository.GetInsertSql) — dropping the property
+    //                          would NOT omit-and-default the column, it trips the NOT NULL
+    //                          constraint on every insert. So the property stays (typed as the
+    //                          still-existing MangaMonitorNewItems, default All=0), is never set by
+    //                          the resource mapper or read by the sync service, and persists the DB
+    //                          default. New-chapter monitoring is derived from ShouldMonitor via
+    //                          MangaMonitorExtensions.DeriveMonitorNewItems — this field is a
+    //                          no-migration column placeholder only.
     //   * EnableAutomaticAdd / RootFolderPath / Tags — preserved verbatim.
     //
     // Equ memberwise equality preserved verbatim; Enable override maps onto
@@ -37,6 +43,12 @@ namespace NzbDrone.Core.ImportLists
         public bool EnableAutomaticAdd { get; set; }
         public bool SearchForMissingChapters { get; set; }
         public MangaMonitor ShouldMonitor { get; set; }
+
+        // #356: internal-only no-migration column placeholder (see header note). Never surfaced
+        // on the V5 resource or read by ImportListSyncService — it persists the NotNullable DB
+        // column's default (All=0) so BasicRepository's POCO-driven INSERT stays valid.
+        public MangaMonitorNewItems MonitorNewItems { get; set; }
+
         public int TranslationProfileId { get; set; }
         public int CustomFormatProfileId { get; set; }
         public string RootFolderPath { get; set; }

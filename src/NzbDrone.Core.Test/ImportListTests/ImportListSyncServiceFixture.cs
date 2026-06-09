@@ -406,6 +406,8 @@ namespace NzbDrone.Core.Test.ImportListTests
         [TestCase(MangaMonitor.Latest, MangaMonitorNewItems.All)]
         [TestCase(MangaMonitor.Existing, MangaMonitorNewItems.All)]
         [TestCase(MangaMonitor.First, MangaMonitorNewItems.All)]
+        [TestCase(MangaMonitor.Future, MangaMonitorNewItems.All)]
+        [TestCase(MangaMonitor.Missing, MangaMonitorNewItems.All)]
         [TestCase(MangaMonitor.None, MangaMonitorNewItems.None)]
         public void process_list_items_derives_monitor_new_items_from_monitor_choice(
             MangaMonitor shouldMonitor,
@@ -449,6 +451,56 @@ namespace NzbDrone.Core.Test.ImportListTests
             captured.Should().HaveCount(1);
             captured[0].MonitorNewItems.Should().Be(expected,
                 "new-chapter monitoring follows the Monitor choice (None => None, else => All)");
+        }
+
+        // #357 end-to-end at the service layer: a list whose ShouldMonitor is Future or Missing
+        // stages a manga whose AddOptions.Monitor equals that value VERBATIM (the no-remap direct
+        // assignment). Pre-#357 these values could not even be saved on the list (HTTP 400), and
+        // the old switch coerced Existing/First to Latest — this proves the user's choice flows
+        // through unchanged now that ShouldMonitor IS a MangaMonitor.
+        [TestCase(MangaMonitor.Future)]
+        [TestCase(MangaMonitor.Missing)]
+        public void process_list_items_stages_manga_with_monitor_equal_to_shouldMonitor(
+            MangaMonitor shouldMonitor)
+        {
+            var def = new ImportListDefinition
+            {
+                Id = 1,
+                Name = "TestList",
+                EnableAutomaticAdd = true,
+                Implementation = "TestImportList",
+                ConfigContract = "TestImportListSettings",
+                RootFolderPath = @"C:\Manga",
+                ShouldMonitor = shouldMonitor,
+            };
+
+            Mocker.GetMock<IImportListFactory>()
+                  .Setup(f => f.All())
+                  .Returns(new List<ImportListDefinition> { def });
+
+            var items = new List<ImportListItemInfo>
+            {
+                new ImportListItemInfo { ImportListId = 1, Title = "A", MangaDexId = TripletA }
+            };
+
+            Mocker.GetMock<IFetchAndParseImportList>()
+                  .Setup(f => f.Fetch())
+                  .Returns(new ImportListFetchResult(items, anyFailure: false));
+
+            List<Manga.Manga> captured = null;
+            Mocker.GetMock<IAddMangaService>()
+                  .Setup(s => s.AddManga(It.IsAny<List<Manga.Manga>>(), It.IsAny<bool>()))
+                  .Callback<List<Manga.Manga>, bool>((list, _) => captured = list)
+                  .Returns<List<Manga.Manga>, bool>((list, _) => list);
+
+            Subject.Execute(new ImportListSyncCommand());
+
+            captured.Should().NotBeNull();
+            captured.Should().HaveCount(1);
+            captured[0].AddOptions.Monitor.Should().Be(shouldMonitor,
+                "#357: ShouldMonitor flows straight into AddOptions.Monitor with no remap");
+            captured[0].Monitored.Should().BeTrue(
+                "any non-None ShouldMonitor stages the manga monitored");
         }
     }
 }
