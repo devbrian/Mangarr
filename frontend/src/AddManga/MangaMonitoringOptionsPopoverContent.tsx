@@ -3,10 +3,10 @@
 //
 // Manga sibling preserves: popover layout, monitor-label-with-description-row pattern.
 // Manga sibling diverges from SeriesMonitoringOptions:
-//   * 5 entries (Phase 6 D-03), not 11.
+//   * 7 entries (#357 D-2, supersedes the Phase 6 D-03 5-value lock), not 11.
 //   * No 'pilot' / 'firstSeason' / 'lastSeason' / 'recent' / 'monitorSpecials' /
-//     'unmonitorSpecials' / 'existing' — these are TV-shape concepts that have
-//     no manga equivalent.
+//     'unmonitorSpecials' — these are TV-shape concepts that have no manga equivalent.
+//     ('existing' + 'first' DO have manga peers per #357 D-3.)
 //   * Replaces 'Episodes' with 'Chapters' in copy.
 //
 // Phase 8 cleanup: collapse with SeriesMonitoringOptionsPopoverContent when
@@ -32,6 +32,16 @@ function MangaMonitoringOptionsPopoverContent() {
       <DescriptionListItem
         title={translate('MonitorMissingChapters')}
         data={translate('MonitorMissingChaptersDescription')}
+      />
+
+      <DescriptionListItem
+        title={translate('MonitorExistingChapters')}
+        data={translate('MonitorExistingChaptersDescription')}
+      />
+
+      <DescriptionListItem
+        title={translate('MonitorFirstChapter')}
+        data={translate('MonitorFirstChapterDescription')}
       />
 
       <DescriptionListItem

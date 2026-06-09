@@ -30,12 +30,12 @@ import translate from 'Utilities/String/translate';
 export interface ImportListModel extends Provider {
   enableAutomaticAdd: boolean;
   searchForMissingChapters: boolean;
-  // Backend `MonitorTypes` / `NewItemMonitorTypes` enums are JSON-serialized as
-  // strings ("all" | "existing" | "latest" | "first" | "none"); the
-  // MonitorChaptersSelectInput + MonitorNewItemsSelectInput components expect
-  // `value: string`. Type the model accordingly.
+  // Backend `MangaMonitor` (the single canonical 7-value enum, #357) is JSON-serialized
+  // by name as a string ("all" | "future" | "missing" | "existing" | "first" | "latest" |
+  // "none"); the MonitorChaptersSelectInput component expects `value: string`. Type the
+  // model accordingly. New-chapter monitoring is no longer a separate field (#356) — it is
+  // derived server-side from the Monitor choice.
   shouldMonitor: string;
-  monitorNewItems: string;
   rootFolderPath: string;
   translationProfileId: number;
   customFormatProfileId: number;
