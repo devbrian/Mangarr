@@ -151,7 +151,12 @@ public static class MangaStatisticsResourceMapper
 // support but does not surface them in the v1 Add Manga UI.
 public class AddMangaOptionsResource
 {
-    public MangaMonitor Monitor { get; set; }
+    // Nullable so an `addOptions` object that OMITS `monitor` is distinguishable from one that
+    // explicitly sends `"none"`. After the #357 ordinal reorder `None` is the zero value, so a
+    // non-nullable enum would silently default an omitted monitor to `None` (add unmonitored) —
+    // a regression from the prior `All`-as-default-0 behavior. ToModel maps null -> MangaMonitor.All
+    // (Sonarr-canonical "monitor everything" default); an explicit `"none"` still opts out.
+    public MangaMonitor? Monitor { get; set; }
     public bool SearchForMissingChapters { get; set; }
     public bool SearchForCutoffUnmetChapters { get; set; }
     public bool IgnoreChaptersWithFiles { get; set; }
@@ -255,7 +260,9 @@ public static class MangaResourceMapper
             Demographic = resource.Demographic,
             AddOptions = resource.AddOptions == null ? null : new AddMangaOptions
             {
-                Monitor = resource.AddOptions.Monitor,
+                // null (monitor omitted from a partial addOptions payload) -> All, preserving the
+                // pre-#357 default-monitored behavior now that None is the zero ordinal.
+                Monitor = resource.AddOptions.Monitor ?? MangaMonitor.All,
                 SearchForMissingChapters = resource.AddOptions.SearchForMissingChapters,
                 SearchForCutoffUnmetChapters = resource.AddOptions.SearchForCutoffUnmetChapters,
                 IgnoreChaptersWithFiles = resource.AddOptions.IgnoreChaptersWithFiles,

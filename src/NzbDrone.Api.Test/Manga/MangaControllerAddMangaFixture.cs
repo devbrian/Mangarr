@@ -167,6 +167,31 @@ namespace NzbDrone.Api.Test.Manga
         }
 
         [Test]
+        public void AddManga_with_AddOptions_omitting_Monitor_defaults_All_and_Monitored_true()
+        {
+            // #357 ordinal-reorder regression guard (Codex PR #358 review): after `None`
+            // became the zero ordinal, a partial `addOptions` payload that OMITS `monitor`
+            // deserializes `AddMangaOptionsResource.Monitor` to null. ToModel must map null ->
+            // MangaMonitor.All (the prior default-0 behavior), NOT None — otherwise the manga
+            // would silently land unmonitored. Distinct from the explicit-None opt-out above.
+            var resource = BuildResource(new AddMangaOptionsResource
+            {
+                Monitor = null, // simulates `"addOptions": { "searchForMissingChapters": true }`
+                SearchForMissingChapters = true,
+            });
+
+            Subject.AddManga(resource);
+
+            Mocker.GetMock<IAddMangaService>()
+                  .Verify(s => s.AddManga(It.Is<NzbDrone.Core.Manga.Manga>(m =>
+                              m.Monitored &&
+                              m.AddOptions != null &&
+                              m.AddOptions.Monitor == MangaMonitor.All)),
+                          Times.Once,
+                          "omitted Monitor must default to All (Monitored=true), not the new zero-ordinal None");
+        }
+
+        [Test]
         public void AddManga_propagates_AddOptions_into_persisted_model()
         {
             // Second leg of the new-manga-default-monitored bug: the
