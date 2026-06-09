@@ -283,6 +283,32 @@ namespace NzbDrone.Core.Test.MetadataSource.MangaBaka
             results[0].Title.Should().Be("Naruto");
         }
 
+        // Mangarr is a manga/manhwa/manhua manager, not a novel reader: MangaBaka `type: "novel"`
+        // records (light/web novels) must be filtered out of search results so they never appear
+        // in the Add picker or the rematch/relink candidate set. Comic types + "other" pass through.
+        [Test]
+        public void Search_excludes_novel_type_records()
+        {
+            var searchResource = new MangaBakaSearchResource
+            {
+                Data = new List<MangaBakaSeries>
+                {
+                    new MangaBakaSeries { Id = 1, Title = "Overlord", Type = "manga" },
+                    new MangaBakaSeries { Id = 2, Title = "Overlord: Prologue", Type = "novel" },
+                    new MangaBakaSeries { Id = 3, Title = "Spice and Wolf", Type = "Light Novel" },
+                    new MangaBakaSeries { Id = 4, Title = "Solo Leveling", Type = "manhwa" },
+                    new MangaBakaSeries { Id = 5, Title = "Some Artbook", Type = "other" },
+                    new MangaBakaSeries { Id = 6, Title = "Untyped", Type = null },
+                },
+            };
+            SetupSearchMock(searchResource);
+
+            var results = Subject.SearchForNewManga("overlord");
+
+            results.Select(m => m.Title)
+                   .Should().BeEquivalentTo("Overlord", "Solo Leveling", "Some Artbook", "Untyped");
+        }
+
         // D-07: MangaBaka has no AniList/MAL reverse-lookup endpoint — both overloads return
         // empty (documented capability gap, NOT a swallowed failure).
         [Test]

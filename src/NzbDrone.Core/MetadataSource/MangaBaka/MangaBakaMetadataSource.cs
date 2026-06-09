@@ -104,8 +104,24 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
             // as MangaDexMetadataSource.SearchForNewManga (intra-word punctuation must become a
             // space rather than merging adjacent words into a non-existent token).
             var normalized = MangaTitleNormalizer.NormalizeForSearch(title);
-            return Api.Search(normalized).Select(MapManga).ToList();
+
+            // Mangarr is a manga/manhwa/manhua library manager — NOT a novel reader. MangaBaka's
+            // catalog mixes prose `type: "novel"` records (light/web novels) in alongside comics,
+            // and they pollute both the Add picker AND the rematch/relink candidate set
+            // (RefreshMangaService.TryRelinkPrimaryId searches by title through this same path).
+            // Drop them at the source boundary so a novel can never be added or auto-linked.
+            return Api.Search(normalized)
+                .Where(record => !IsNovelType(record.Type))
+                .Select(MapManga)
+                .ToList();
         }
+
+        // True when a MangaBaka `type` denotes prose fiction (excluded — Mangarr is for comics).
+        // MangaBaka ships lowercase types ("manga"/"manhwa"/"manhua"/"novel"/"other"); match
+        // defensively on a "novel" substring so any "light novel" / "web novel" variant is also
+        // excluded, while comic types and the "other" catch-all pass through unchanged.
+        private static bool IsNovelType(string type) =>
+            type != null && type.ToLowerInvariant().Contains("novel");
 
         /// <summary>
         /// Native int-by-id lookup. The <paramref name="mangaBakaId"/> parameter NAME is
