@@ -16,6 +16,10 @@ export const QUALITY_PROFILE_SELECT = 'qualityProfileSelect';
 // Consumed by the bulk Edit Manga modal (Manga/Index/Select/Edit/) and any
 // future manga form referencing the Translation Profile axis.
 export const TRANSLATION_PROFILE_SELECT = 'translationProfileSelect';
+// quick-260608-vf9 follow-up — manga-canonical select for `customFormatProfileId`
+// form fields. Consumed by the import-list Add/Edit modal (defaults to the
+// isDefault custom format profile). Sibling of TRANSLATION_PROFILE_SELECT.
+export const CUSTOM_FORMAT_PROFILE_SELECT = 'customFormatProfileSelect';
 export const INDEXER_SELECT = 'indexerSelect';
 export const INDEXER_FLAGS_SELECT = 'indexerFlagsSelect';
 export const LANGUAGE_SELECT = 'languageSelect';
@@ -47,6 +51,7 @@ export const all = [
   PATH,
   QUALITY_PROFILE_SELECT,
   TRANSLATION_PROFILE_SELECT,
+  CUSTOM_FORMAT_PROFILE_SELECT,
   INDEXER_SELECT,
   DOWNLOAD_CLIENT_SELECT,
   ROOT_FOLDER_SELECT,
@@ -80,6 +85,7 @@ export type InputType =
   | 'path'
   | 'qualityProfileSelect'
   | 'translationProfileSelect'
+  | 'customFormatProfileSelect'
   | 'indexerSelect'
   | 'indexerFlagsSelect'
   | 'languageSelect'

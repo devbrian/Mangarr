@@ -28,12 +28,16 @@ import styles from './EditImportListModalContent.css';
 //   * searchForMissingChapters  (manga peer of the deleted SearchForMissing-
 //     Episodes Sonarr field; Phase 6 rename)
 //   * Season / SeriesType TV-only fields DROPPED (Migration 001)
-//   * customFormatProfileId — substrate round-trips on backend; FE input
-//     deferred to Phase 27 once a CUSTOM_FORMAT_PROFILE_SELECT input type
-//     lands (parity with the AddManga modal's SELECT-with-values pattern).
-//   * Monitor / MonitorNewItems — preserved (RESEARCH §Q1: Sonarr-canonical
-//     opt-in semantics still apply to manga; reuses existing
-//     MONITOR_EPISODES_SELECT / MONITOR_NEW_ITEMS_SELECT input types).
+//   * customFormatProfileId — wired via CUSTOM_FORMAT_PROFILE_SELECT
+//     (quick-260608-vf9 follow-up; the FE input deferred at Phase 26 now ships,
+//     defaulting to the isDefault custom format profile).
+//   * Monitor — preserved (MONITOR_EPISODES_SELECT); new lists default to All.
+//   * MonitorNewItems — REMOVED from the form (quick-260608-vf9 follow-up): it
+//     was Sonarr's "monitor new seasons" control rendered against an empty
+//     manga options stub (no selectable values). The backing flag still drives
+//     new-chapter auto-monitoring (ChapterSynthesisService) and is defaulted to
+//     All for new lists in useImportLists.ts, so new chapters keep being
+//     monitored without the confusing empty dropdown.
 
 export interface EditImportListModalContentProps {
   id?: number;
@@ -73,9 +77,9 @@ function EditImportListModalContent({
     enableAutomaticAdd,
     searchForMissingChapters,
     shouldMonitor,
-    monitorNewItems,
     rootFolderPath,
     translationProfileId,
+    customFormatProfileId,
     tags,
     fields,
   } = item;
@@ -177,18 +181,6 @@ function EditImportListModalContent({
           </FormGroup>
 
           <FormGroup>
-            <FormLabel>{translate('MonitorNewItems')}</FormLabel>
-
-            <FormInputGroup
-              type={inputTypes.MONITOR_NEW_ITEMS_SELECT}
-              name="monitorNewItems"
-              helpText={translate('MonitorNewItemsHelpText')}
-              {...monitorNewItems}
-              onChange={handleInputChange}
-            />
-          </FormGroup>
-
-          <FormGroup>
             <FormLabel>{translate('RootFolder')}</FormLabel>
 
             <FormInputGroup
@@ -209,6 +201,18 @@ function EditImportListModalContent({
               name="translationProfileId"
               helpText={translate('ListTranslationProfileHelpText')}
               {...translationProfileId}
+              onChange={handleInputChange}
+            />
+          </FormGroup>
+
+          <FormGroup>
+            <FormLabel>{translate('CustomFormatProfile')}</FormLabel>
+
+            <FormInputGroup
+              type={inputTypes.CUSTOM_FORMAT_PROFILE_SELECT}
+              name="customFormatProfileId"
+              helpText={translate('ListCustomFormatProfileHelpText')}
+              {...customFormatProfileId}
               onChange={handleInputChange}
             />
           </FormGroup>

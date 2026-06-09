@@ -1223,6 +1223,7 @@
   "LibraryImportTipsDontUseDownloadsFolder": "Do not use for importing downloads from your download client, this is only for existing organized libraries, not unsorted files.",
   "LibraryImportTipsMangaUseRootFolder": "Point Mangarr to the folder containing all of your manga, not a specific one. eg. `{goodFolderExample}` and not `{badFolderExample}`. Additionally, each manga must be in its own folder within the root/library folder.",
   "Links": "Links",
+  "ListCustomFormatProfileHelpText": "Custom Format Profile list items will be added with",
   "ListExclusionsLoadError": "Unable to load List Exclusions",
   "ListOptionsLoadError": "Unable to load list options",
   "ListQualityProfileHelpText": "Quality Profile list items will be added with",

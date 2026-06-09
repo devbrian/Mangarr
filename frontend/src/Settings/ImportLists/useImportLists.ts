@@ -200,6 +200,19 @@ export const useManageImportList = (
       return {
         ...schema,
         name: schema.implementationName,
+        // quick-260608-vf9 follow-up — manga-appropriate defaults for a NEW
+        // import list (the backend schema otherwise hands back the Sonarr
+        // defaults of disabled / monitor-none):
+        //   * enableAutomaticAdd: true  — lists exist to add manga
+        //   * shouldMonitor: 'all'      — monitor all chapters
+        //   * monitorNewItems: 'all'    — keep monitoring chapters that appear
+        //     on later refreshes (the field's dropdown was removed from the
+        //     form; this default preserves the useful new-chapter behavior)
+        // customFormatProfileId is left to CustomFormatProfileSelectInput, which
+        // self-selects the isDefault profile on mount.
+        enableAutomaticAdd: true,
+        shouldMonitor: 'all',
+        monitorNewItems: 'all',
       };
     }
 
