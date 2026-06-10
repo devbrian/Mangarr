@@ -60,6 +60,53 @@
   flex: 1 0 125px;
 }
 
+/* quick-260610-im4: manga-canonical column widths. These classes were missing,
+   so `styles[name]` resolved to undefined and the cells collapsed (squished). */
+.translationProfileId {
+  composes: cell;
+
+  flex: 1 0 125px;
+}
+
+.customFormatProfileId {
+  composes: cell;
+
+  flex: 1 0 150px;
+}
+
+.chapterProgress {
+  composes: cell;
+
+  flex: 0 0 150px;
+}
+
+.chapterCount {
+  composes: cell;
+
+  flex: 0 0 120px;
+}
+
+.scanlationGroups {
+  composes: cell;
+
+  flex: 0 0 180px;
+}
+
+.translatedLanguages {
+  composes: cell;
+
+  flex: 0 0 150px;
+}
+
+.metadataSource,
+.contentRating,
+.originalCountry,
+.originalLanguage {
+  composes: cell;
+
+  flex: 0 0 120px;
+}
+
 .releaseGroups,
 .releaseTypes,
 .added,

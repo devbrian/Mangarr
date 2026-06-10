@@ -6,17 +6,27 @@ interface CssExports {
   'banner': string;
   'bannerGrow': string;
   'certification': string;
+  'chapterCount': string;
+  'chapterProgress': string;
+  'contentRating': string;
+  'customFormatProfileId': string;
   'genres': string;
+  'metadataSource': string;
   'monitorNewItems': string;
+  'originalCountry': string;
+  'originalLanguage': string;
   'path': string;
   'qualityProfileId': string;
   'ratings': string;
   'releaseGroups': string;
   'releaseTypes': string;
+  'scanlationGroups': string;
   'sizeOnDisk': string;
   'sortTitle': string;
   'status': string;
   'tags': string;
+  'translatedLanguages': string;
+  'translationProfileId': string;
   'year': string;
 }
 export const cssExports: CssExports;

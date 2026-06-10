@@ -44,6 +44,7 @@ import styles from './EditMangaModalContent.css';
 interface SavePayload {
   monitored?: boolean;
   translationProfileId?: number;
+  customFormatProfileId?: number;
   rootFolderPath?: string;
   moveFiles?: boolean;
 }
@@ -89,6 +90,9 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
   const [translationProfileId, setTranslationProfileId] = useState<
     string | number
   >(NO_CHANGE);
+  const [customFormatProfileId, setCustomFormatProfileId] = useState<
+    string | number
+  >(NO_CHANGE);
   // Sonarr divergence: Phase 17.3 Plan 17.3-11 (D-14 / D-13 cascade) — the
   // inherited `seriesType` + `seasonFolder` useState hooks were removed; the
   // backing fields no longer exist on Manga.ts per Plan 17.3-07 D-13 trim.
@@ -111,6 +115,11 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
         payload.translationProfileId = translationProfileId as number;
       }
 
+      if (customFormatProfileId !== NO_CHANGE) {
+        hasChanges = true;
+        payload.customFormatProfileId = customFormatProfileId as number;
+      }
+
       // Sonarr divergence: Phase 17.3 Plan 17.3-11 (D-14 / D-13 cascade) —
       // the inherited `seriesType` + `seasonFolder` payload-assignment
       // branches were removed; the backing fields no longer exist on
@@ -128,7 +137,14 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
 
       onModalClose();
     },
-    [monitored, translationProfileId, rootFolderPath, onSavePress, onModalClose]
+    [
+      monitored,
+      translationProfileId,
+      customFormatProfileId,
+      rootFolderPath,
+      onSavePress,
+      onModalClose,
+    ]
   );
 
   const onInputChange = useCallback(
@@ -139,6 +155,9 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
           break;
         case 'translationProfileId':
           setTranslationProfileId(value as string);
+          break;
+        case 'customFormatProfileId':
+          setCustomFormatProfileId(value as string);
           break;
         // Sonarr divergence: Phase 17.3 Plan 17.3-11 (D-14 / D-13 cascade) —
         // the inherited `seriesType` + `seasonFolder` input-change cases
@@ -204,6 +223,25 @@ function EditMangaModalContent(props: EditMangaModalContentProps) {
             type={inputTypes.TRANSLATION_PROFILE_SELECT}
             name="translationProfileId"
             value={translationProfileId}
+            includeNoChange={true}
+            includeNoChangeDisabled={false}
+            onChange={onInputChange}
+          />
+        </FormGroup>
+
+        {/* quick-260610-im4: the bulk editor previously had no Custom Format
+            Profile control even though MangaEditorResource.CustomFormatProfileId
+            (src/Mangarr.Api.V5/Manga/MangaEditorResource.cs) and the FE
+            SaveMangaEditorPayload.customFormatProfileId wire field both already
+            accept it. Mirrors the single-manga Manga/Edit modal which has
+            exposed this since Issue #28. */}
+        <FormGroup>
+          <FormLabel>{translate('CustomFormatProfile')}</FormLabel>
+
+          <FormInputGroup
+            type={inputTypes.CUSTOM_FORMAT_PROFILE_SELECT}
+            name="customFormatProfileId"
+            value={customFormatProfileId}
             includeNoChange={true}
             includeNoChangeDisabled={false}
             onChange={onInputChange}
