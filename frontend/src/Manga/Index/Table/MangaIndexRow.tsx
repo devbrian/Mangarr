@@ -23,10 +23,13 @@ import ReleaseType from 'InteractiveImport/ReleaseType';
 // mount and `onDeleteSeriesPress` chain are not wired here — they were
 // dead under the stub and remain out-of-scope for this fix-forward PR.
 import EditMangaModal from 'Manga/Edit/EditMangaModal';
-import { Statistics } from 'Manga/Manga';
+import MangaIndexProgressBar from 'Manga/Index/ProgressBar/MangaIndexProgressBar';
+import Manga, { Statistics } from 'Manga/Manga';
 import MangaBanner from 'Manga/MangaBanner';
 import { useMangaTableOptions } from 'Manga/mangaOptionsStore';
 import MangaTitleLink from 'Manga/MangaTitleLink';
+import { useCustomFormatProfilesData } from 'Settings/Profiles/CustomFormatProfile/useCustomFormatProfiles';
+import { useTranslationProfileName } from 'Settings/Profiles/Translations/TranslationProfileName';
 import { SelectStateInputProps } from 'typings/props';
 import formatBytes from 'Utilities/Number/formatBytes';
 import translate from 'Utilities/String/translate';
@@ -57,6 +60,24 @@ function getReleaseTypeName(releaseType?: ReleaseType): string | null {
   }
 }
 
+// quick-260610-im4: derive a metadata-source label from whichever cross-source
+// id the manga carries (MangaResource does not emit a dedicated source field).
+function getMetadataSourceName(manga: Manga): string {
+  if (manga.mangaBakaId) {
+    return 'MangaBaka';
+  }
+  if (manga.mangaDexId) {
+    return 'MangaDex';
+  }
+  if (manga.aniListId) {
+    return 'AniList';
+  }
+  if (manga.malId) {
+    return 'MyAnimeList';
+  }
+  return '';
+}
+
 interface MangaIndexRowProps {
   mangaId: number;
   sortKey: string;
@@ -71,6 +92,15 @@ function MangaIndexRow(props: MangaIndexRowProps) {
     useMangaIndexItem(mangaId);
 
   const { showBanners, showSearchAction } = useMangaTableOptions();
+
+  // quick-260610-im4: profile-name resolvers for the translationProfileId /
+  // customFormatProfileId table columns (previously these visible columns fell
+  // through to a `null` cell — blank + width-misaligned). Hooks run
+  // unconditionally before the `if (!manga)` short-circuit.
+  const translationProfileName = useTranslationProfileName(
+    manga?.translationProfileId
+  );
+  const customFormatProfiles = useCustomFormatProfilesData();
 
   const executeCommand = useExecuteCommand();
   const [hasBannerError, setHasBannerError] = useState(false);
@@ -136,13 +166,34 @@ function MangaIndexRow(props: MangaIndexRowProps) {
     statistics = {} as Statistics,
     images,
     certification,
+    contentRating,
+    customFormatProfileId,
+    totalChapterCount,
     year,
     genres = [],
     ratings,
     tags = [],
   } = manga;
 
-  const { sizeOnDisk = 0, releaseGroups = [], releaseTypes = [] } = statistics;
+  const {
+    sizeOnDisk = 0,
+    releaseGroups = [],
+    releaseTypes = [],
+    chapterCount = 0,
+    chapterFileCount = 0,
+    totalChapterCount: statisticsTotalChapterCount = 0,
+  } = statistics;
+
+  // quick-260610-im4: prefer the top-level manga count, fall back to the
+  // statistics aggregate (either may be populated depending on refresh state).
+  const displayChapterCount =
+    totalChapterCount ?? statisticsTotalChapterCount ?? chapterCount;
+
+  const customFormatProfileName =
+    customFormatProfileId == null
+      ? ''
+      : customFormatProfiles.find((p) => p.id === customFormatProfileId)
+          ?.name ?? '';
 
   return (
     <>
@@ -213,6 +264,67 @@ function MangaIndexRow(props: MangaIndexRowProps) {
           return (
             <VirtualTableRowCell key={name} className={styles[name]}>
               {qualityProfile?.name ?? ''}
+            </VirtualTableRowCell>
+          );
+        }
+
+        // quick-260610-im4: manga-canonical columns registered in
+        // mangaOptionsStore.ts that previously had no row branch (fell through
+        // to `return null` → blank cell + width misalignment).
+        if (name === 'translationProfileId') {
+          return (
+            <VirtualTableRowCell key={name} className={styles[name]}>
+              {translationProfileName ?? ''}
+            </VirtualTableRowCell>
+          );
+        }
+
+        if (name === 'customFormatProfileId') {
+          return (
+            <VirtualTableRowCell key={name} className={styles[name]}>
+              {customFormatProfileName}
+            </VirtualTableRowCell>
+          );
+        }
+
+        if (name === 'chapterProgress') {
+          return (
+            <VirtualTableRowCell key={name} className={styles[name]}>
+              <MangaIndexProgressBar
+                mangaId={mangaId}
+                monitored={monitored}
+                status={status}
+                episodeCount={chapterCount}
+                episodeFileCount={chapterFileCount}
+                totalEpisodeCount={statisticsTotalChapterCount}
+                width={125}
+                detailedProgressBar={true}
+                isStandalone={true}
+              />
+            </VirtualTableRowCell>
+          );
+        }
+
+        if (name === 'chapterCount') {
+          return (
+            <VirtualTableRowCell key={name} className={styles[name]}>
+              {displayChapterCount}
+            </VirtualTableRowCell>
+          );
+        }
+
+        if (name === 'metadataSource') {
+          return (
+            <VirtualTableRowCell key={name} className={styles[name]}>
+              {getMetadataSourceName(manga)}
+            </VirtualTableRowCell>
+          );
+        }
+
+        if (name === 'contentRating') {
+          return (
+            <VirtualTableRowCell key={name} className={styles[name]}>
+              {contentRating}
             </VirtualTableRowCell>
           );
         }
@@ -352,7 +464,18 @@ function MangaIndexRow(props: MangaIndexRowProps) {
           );
         }
 
-        return null;
+        // quick-260610-im4: catch-all for any other VISIBLE column that has no
+        // explicit branch (e.g. scanlationGroups / translatedLanguages /
+        // originalCountry / originalLanguage — registered in mangaOptionsStore
+        // but not yet backed by a MangaResource field). Render an empty but
+        // width-correct cell instead of `null` so the body row keeps the same
+        // cell count as the header and the table never squishes/misaligns.
+        return (
+          <VirtualTableRowCell
+            key={name}
+            className={styles[name as keyof typeof styles]}
+          />
+        );
       })}
 
       <EditMangaModal
