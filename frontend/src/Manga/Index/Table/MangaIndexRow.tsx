@@ -62,6 +62,9 @@ function getReleaseTypeName(releaseType?: ReleaseType): string | null {
 
 // quick-260610-im4: derive a metadata-source label from whichever cross-source
 // id the manga carries (MangaResource does not emit a dedicated source field).
+// Precedence is MangaBaka → MangaDex → AniList → MyAnimeList — MangaBaka first
+// because it is the v1.3 default primary metadata source. This mirrors the
+// source order in Manga/Details/MangaDetailsLinks.tsx; keep the two in sync.
 function getMetadataSourceName(manga: Manga): string {
   if (manga.mangaBakaId) {
     return 'MangaBaka';
@@ -192,7 +195,7 @@ function MangaIndexRow(props: MangaIndexRowProps) {
   const customFormatProfileName =
     customFormatProfileId == null
       ? ''
-      : customFormatProfiles.find((p) => p.id === customFormatProfileId)
+      : (customFormatProfiles ?? []).find((p) => p.id === customFormatProfileId)
           ?.name ?? '';
 
   return (
