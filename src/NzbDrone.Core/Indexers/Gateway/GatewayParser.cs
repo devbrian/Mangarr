@@ -123,10 +123,12 @@ namespace NzbDrone.Core.Indexers.Gateway
             // releases above (GWIX-04 isolation). An enabled:false source is filtered upstream in
             // Plan 02's request generator (D-03 skip-only) and never reaches a warnings[] entry, so
             // RecordFailure is never called for a disabled source.
+            var warnedSources = new HashSet<string>(StringComparer.Ordinal);
             foreach (var w in response.Warnings ?? Enumerable.Empty<GatewaySourceWarning>())
             {
                 if (w?.SourceKey != null)
                 {
+                    warnedSources.Add(w.SourceKey);
                     _sourceStatusService.RecordFailure(w.SourceKey);
 
                     // Root cause #3: also surface the per-source soft failure on /system/events.
@@ -137,6 +139,28 @@ namespace NzbDrone.Core.Indexers.Gateway
                     // semi-trusted gateway Message is passed as an arg, never format-interpreted.
                     _logger.Warn("Gateway source '{0}' reported a warning [{1}]: {2}", w.SourceKey, w.Code, w.Message);
                 }
+            }
+
+            // RECOVERY PATH (bug fix — atsumaru-stuck-unavailable). A source that returned at least
+            // one release this fetch AND is NOT in warnings[] is healthy: record a per-source SUCCESS
+            // so its escalation ladder de-escalates and DisabledTill is cleared. Without this call the
+            // per-SourceKey IIndexerSourceStatusService.RecordSuccess(string) had ZERO callers — only
+            // RecordFailure (above) ever fired — so a previously-failing source that recovered stayed
+            // flagged "unavailable" by IndexerSourceFailureCheck until its back-off timer naturally
+            // elapsed (up to 24h at the top of the ladder). This is the per-source analog of the
+            // per-ProviderId HttpIndexerBase success path; it is per-source because one gateway fetch
+            // fans out to many upstream sources. Defensive (GWIX-04): derived from the parsed releases,
+            // never throws, never suppresses results. A warned source is excluded so a fetch that both
+            // returned partial data AND flagged a warning for the same source lets failure win.
+            var succeededSources = (response.Releases ?? Enumerable.Empty<GatewayRelease>())
+                .Where(r => r?.SourceKey != null)
+                .Select(r => r.SourceKey)
+                .Distinct(StringComparer.Ordinal)
+                .Where(key => !warnedSources.Contains(key));
+
+            foreach (var sourceKey in succeededSources)
+            {
+                _sourceStatusService.RecordSuccess(sourceKey);
             }
 
             return releases;

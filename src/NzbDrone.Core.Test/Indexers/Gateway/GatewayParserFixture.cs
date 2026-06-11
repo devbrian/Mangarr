@@ -187,6 +187,128 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
             releases.Count.Should().Be(2);
             Mocker.GetMock<IIndexerSourceStatusService>()
                 .Verify(s => s.RecordFailure(It.IsAny<string>(), It.IsAny<TimeSpan>()), Times.Never());
+
+            // Recovery path (atsumaru-stuck-unavailable): each healthy source in the feed
+            // (comix.to + mangadex, neither warned) records a per-source SUCCESS so its
+            // escalation ladder de-escalates and DisabledTill clears.
+            Mocker.GetMock<IIndexerSourceStatusService>()
+                .Verify(s => s.RecordSuccess("comix.to"), Times.Once());
+            Mocker.GetMock<IIndexerSourceStatusService>()
+                .Verify(s => s.RecordSuccess("mangadex"), Times.Once());
+        }
+
+        // ---- Recovery-path regression fixtures (atsumaru-stuck-unavailable) ---------------------
+
+        [Test]
+        public void healthy_source_records_per_source_success()
+        {
+            // ROOT CAUSE: the per-SourceKey IIndexerSourceStatusService.RecordSuccess(string) had
+            // ZERO callers — only RecordFailure (from warnings[]) ever fired. A source that recovered
+            // (returns data, no longer warned) stayed flagged "unavailable" by IndexerSourceFailureCheck
+            // until its back-off timer naturally elapsed (up to 24h). The parser must now record a
+            // per-source SUCCESS for a source that returned data and is NOT in warnings[].
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease
+                    {
+                        Guid = "atsumaru:solo-leveling:1",
+                        Title = "Solo Leveling Chapter 1",
+                        SourceKey = "atsumaru",
+                        DownloadHandle = "R6.token",
+                        PublishDate = DateTime.UtcNow,
+                        MangaTitle = "Solo Leveling",
+                        ChapterNumber = 1m,
+                        Language = "en"
+                    }
+                }
+            };
+
+            Subject.ParseResponse(MakeResponse(response.ToJson()));
+
+            Mocker.GetMock<IIndexerSourceStatusService>()
+                .Verify(s => s.RecordSuccess("atsumaru"), Times.Once());
+            Mocker.GetMock<IIndexerSourceStatusService>()
+                .Verify(s => s.RecordFailure(It.IsAny<string>(), It.IsAny<TimeSpan>()), Times.Never());
+        }
+
+        [Test]
+        public void multiple_releases_per_source_record_success_once_per_source()
+        {
+            // RecordSuccess is de-duped per SourceKey: two atsumaru releases + one mangadex release
+            // → exactly one success per source, never one-per-release.
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease { Guid = "atsumaru:a:1", Title = "A Chapter 1", SourceKey = "atsumaru", DownloadHandle = "R6.t", PublishDate = DateTime.UtcNow, MangaTitle = "A", ChapterNumber = 1m, Language = "en" },
+                    new GatewayRelease { Guid = "atsumaru:a:2", Title = "A Chapter 2", SourceKey = "atsumaru", DownloadHandle = "R6.t", PublishDate = DateTime.UtcNow, MangaTitle = "A", ChapterNumber = 2m, Language = "en" },
+                    new GatewayRelease { Guid = "mangadex:b:1", Title = "B Chapter 1", SourceKey = "mangadex", DownloadHandle = "R6.t", PublishDate = DateTime.UtcNow, MangaTitle = "B", ChapterNumber = 1m, Language = "en" }
+                }
+            };
+
+            Subject.ParseResponse(MakeResponse(response.ToJson()));
+
+            Mocker.GetMock<IIndexerSourceStatusService>().Verify(s => s.RecordSuccess("atsumaru"), Times.Once());
+            Mocker.GetMock<IIndexerSourceStatusService>().Verify(s => s.RecordSuccess("mangadex"), Times.Once());
+        }
+
+        [Test]
+        public void warned_source_is_excluded_from_success_even_if_it_returned_data()
+        {
+            // The bug-report asymmetry: a source that is BOTH returning some data AND in warnings[]
+            // (partial/degraded) must let FAILURE win — no RecordSuccess for it this fetch, otherwise
+            // a flapping source would oscillate in/out of "unavailable".
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease { Guid = "mangafire:x:1", Title = "X Chapter 1", SourceKey = "mangafire", DownloadHandle = "R6.t", PublishDate = DateTime.UtcNow, MangaTitle = "X", ChapterNumber = 1m, Language = "en" }
+                },
+                Warnings = new List<GatewaySourceWarning>
+                {
+                    new GatewaySourceWarning { SourceKey = "mangafire", Code = "timeout", Message = "slow" }
+                }
+            };
+
+            Subject.ParseResponse(MakeResponse(response.ToJson()));
+
+            Mocker.GetMock<IIndexerSourceStatusService>()
+                .Verify(s => s.RecordFailure("mangafire", It.IsAny<TimeSpan>()), Times.Once());
+            Mocker.GetMock<IIndexerSourceStatusService>()
+                .Verify(s => s.RecordSuccess(It.IsAny<string>()), Times.Never());
+
+            // The warnings[] entry emits exactly 1 NLog Warn (root cause #3).
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
+        public void recovered_source_records_success_while_other_source_records_failure()
+        {
+            // End-to-end shape of the live incident: one fetch returns atsumaru data (recovered) and
+            // a mangafire warning (still failing). atsumaru must de-escalate via RecordSuccess while
+            // mangafire escalates via RecordFailure — the two paths are independent per source.
+            var response = new GatewaySearchResponse
+            {
+                Releases = new List<GatewayRelease>
+                {
+                    new GatewayRelease { Guid = "atsumaru:r:1", Title = "R Chapter 1", SourceKey = "atsumaru", DownloadHandle = "R6.t", PublishDate = DateTime.UtcNow, MangaTitle = "R", ChapterNumber = 1m, Language = "en" }
+                },
+                Warnings = new List<GatewaySourceWarning>
+                {
+                    new GatewaySourceWarning { SourceKey = "mangafire", Code = "timeout", Message = "down" }
+                }
+            };
+
+            Subject.ParseResponse(MakeResponse(response.ToJson()));
+
+            Mocker.GetMock<IIndexerSourceStatusService>().Verify(s => s.RecordSuccess("atsumaru"), Times.Once());
+            Mocker.GetMock<IIndexerSourceStatusService>().Verify(s => s.RecordFailure("mangafire", It.IsAny<TimeSpan>()), Times.Once());
+            Mocker.GetMock<IIndexerSourceStatusService>().Verify(s => s.RecordSuccess("mangafire"), Times.Never());
+
+            // The mangafire warnings[] entry emits exactly 1 NLog Warn (root cause #3).
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         // ---- Code-review regression fixtures (Phase 37 REVIEW.md) -------------------------------
