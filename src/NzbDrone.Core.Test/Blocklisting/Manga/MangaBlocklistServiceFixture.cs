@@ -172,6 +172,42 @@ namespace NzbDrone.Core.Test.Blocklisting.Manga
         }
 
         [Test]
+        public void Blocklisted_does_not_overblock_federated_same_title_mirror_GH362()
+        {
+            // GH-362 end-to-end framing of the mirror-federation tightening: the gateway federates the
+            // same scanlation group's chapter across multiple upstream sources, so two releases can share
+            // Title + SourceKey and differ ONLY by guid. Now that the gateway guid round-trips through the
+            // grab->failure path (Task 1), a transient failure on mirror A blocklists ONLY mirror A —
+            // mirror B (same title, same SourceKey, different guid) is NOT over-blocked, so the auto-retry
+            // can still pick it up. The companion assertion proves an exact-guid re-search IS blocklisted.
+            SeedRepository(BuildSeed(
+                sourceTitle: "Vinland Saga - 0149",
+                sourceKey: "mangaball",
+                releaseGuid: "mangaball:abc:ch-149:en:src-A"));
+
+            var mirrorB = new ReleaseInfo
+            {
+                Title = "Vinland Saga - 0149",
+                Indexer = "mangaball",
+                Guid = "mangaball:abc:ch-149:en:src-B"
+            };
+
+            Subject.Blocklisted(MangaId, mirrorB).Should().BeFalse(
+                "GH-362: a same-title, same-SourceKey federated mirror with a DIFFERENT guid must not be " +
+                "over-blocked by mirror A's failure");
+
+            var mirrorA = new ReleaseInfo
+            {
+                Title = "Vinland Saga - 0149",
+                Indexer = "mangaball",
+                Guid = "mangaball:abc:ch-149:en:src-A"
+            };
+
+            Subject.Blocklisted(MangaId, mirrorA).Should().BeTrue(
+                "the exact blocklisted mirror (same guid) must still be rejected on re-search");
+        }
+
+        [Test]
         public void Blocklisted_returns_false_for_completely_different_release()
         {
             SeedRepository(BuildSeed());
