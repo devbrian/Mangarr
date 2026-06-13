@@ -92,10 +92,19 @@ namespace NzbDrone.Core.Download.History.Manga
             // happened (CR-01 fix: the old "Indexer"/"indexer" writer/reader mismatch dropped Indexer
             // on the in-memory primary path; ScanlationGroup/TranslatedLanguage were never persisted at
             // all, so every loop-imported chapter landed with blank language/group provenance).
+            //
+            // GH-362: also persist the gateway release "guid" here so MapFromHistory can rehydrate
+            // RemoteChapter.Release.Guid on the failure path — without it the failure-path blocklist row
+            // stores ReleaseGuid = null and a transient failure on one federated mirror over-blocks a
+            // working same-titled mirror. Uses the SAME `?? string.Empty` sentinel as the sibling keys
+            // (empty-string never null) to keep the in-memory and post-DB-round-trip dictionaries
+            // byte-identical; a legacy row missing this key reads back as null via ReadData and the #361
+            // null-tolerant fallback still bounds the loop.
             history.Data.Add("downloadClient", message.DownloadClient ?? string.Empty);
             history.Data.Add("indexer", remote.Release?.Indexer ?? string.Empty);
             history.Data.Add("scanlationGroup", remote.Release?.ScanlationGroup ?? string.Empty);
             history.Data.Add("translatedLanguage", remote.Release?.TranslatedLanguage ?? string.Empty);
+            history.Data.Add("guid", remote.Release?.Guid ?? string.Empty);
 
             // Insert-FIRST — synchronous before Handle returns (Pitfall: a poll right after grab
             // must find this row via GetLatestGrab).

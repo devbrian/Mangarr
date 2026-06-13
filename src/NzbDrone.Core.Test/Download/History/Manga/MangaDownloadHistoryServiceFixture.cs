@@ -66,6 +66,23 @@ namespace NzbDrone.Core.Test.Download.History.Manga
                 Times.Once);
         }
 
+        // GH-362 — the grab handler persists the gateway release guid into the Data dictionary so the
+        // failure-path MapFromHistory can rehydrate RemoteChapter.Release.Guid (BuildRemote sets
+        // Guid = "guid-1"). Without this key the blocklist row stores ReleaseGuid = null and a
+        // transient failure over-blocks a same-titled federated mirror.
+        [Test]
+        public void Handle_ChapterGrabbedEvent_persists_release_guid_in_data_GH362()
+        {
+            var remote = BuildRemote(_manga, 42);
+
+            Subject.Handle(new ChapterGrabbedEvent(remote, "dl-g", "InProcess"));
+
+            Mocker.GetMock<IMangaDownloadHistoryRepository>().Verify(r => r.Insert(It.Is<MangaDownloadHistory>(h =>
+                h.Data.ContainsKey("guid") &&
+                h.Data["guid"] == "guid-1")),
+                Times.Once);
+        }
+
         [Test]
         public void Handle_ChapterGrabbedEvent_multi_chapter_resolves_all_chapter_ids()
         {

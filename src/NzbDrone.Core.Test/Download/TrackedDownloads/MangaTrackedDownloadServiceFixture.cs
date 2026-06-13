@@ -298,6 +298,72 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
             tracked.Indexer.Should().Be("MangaDex");
         }
 
+        // (GH-362) RELEASE-GUID ROUND-TRIP — drives the REAL grab-row writer
+        // (MangaDownloadHistoryService.Handle(ChapterGrabbedEvent)) to build the Data dictionary with
+        // production key casing, then feeds that row through the REAL MapFromHistory projection and
+        // asserts RemoteChapter.Release.Guid round-trips. Without the carry-through the failure-path
+        // blocklist row stores ReleaseGuid = null and over-blocks same-titled federated mirrors.
+        [Test]
+        public void TrackDownload_primary_path_carries_release_guid_provenance_GH362()
+        {
+            var historyRepo = new Mock<IMangaDownloadHistoryRepository>();
+            MangaDownloadHistory inserted = null;
+            historyRepo.Setup(r => r.Insert(It.IsAny<MangaDownloadHistory>()))
+                .Callback<MangaDownloadHistory>(h => inserted = h)
+                .Returns<MangaDownloadHistory>(h => h);
+
+            var historyService = new MangaDownloadHistoryService(historyRepo.Object, TestLogger);
+
+            var grabbedRemote = new RemoteChapter
+            {
+                Manga = _manga,
+                Chapters = new List<Chapter> { new() { Id = 42, MangaId = 7, ChapterNumber = 1m } },
+                Release = new NzbDrone.Core.Parser.Model.ReleaseInfo
+                {
+                    Title = "Test Manga - Chapter 001",
+                    Indexer = "MangaDex",
+                    ScanlationGroup = "Acme Scans",
+                    TranslatedLanguage = "en",
+                    Guid = "gateway:6851609b:ch-149:en:68d2325c"
+                }
+            };
+
+            historyService.Handle(new NzbDrone.Core.MediaFiles.ChapterArchiving.ChapterGrabbedEvent(
+                grabbedRemote, "dl-guid", "InProcess"));
+
+            inserted.Should().NotBeNull("the grab handler must insert the join row");
+
+            _historyService.Setup(s => s.GetLatestGrab("dl-guid")).Returns(inserted);
+            SetupChapters(new Chapter { Id = 42, MangaId = 7, ChapterNumber = 1m });
+
+            var tracked = Subject().TrackDownload(_definition, Item("dl-guid"));
+
+            tracked.RemoteChapter.Should().NotBeNull();
+            tracked.RemoteChapter.Release.Should().NotBeNull();
+            tracked.RemoteChapter.Release.Guid.Should().Be("gateway:6851609b:ch-149:en:68d2325c",
+                "GH-362: the gateway release Guid must round-trip through the grab row's Data dictionary " +
+                "so the failure-path blocklist row stores the real guid, not null");
+        }
+
+        // (GH-362) LEGACY PATH — a grab row whose Data carries NO "guid" key (the GrabRow helper writes
+        // no Data) round-trips to RemoteChapter.Release.Guid == null via the ReadData empty->null
+        // normalization. Documents that the #361 null-tolerant blocklist fallback still applies to
+        // pre-change rows (no auto-retry-loop regression).
+        [Test]
+        public void TrackDownload_legacy_grab_row_without_guid_yields_null_release_guid()
+        {
+            _historyService.Setup(s => s.GetLatestGrab("dl-legacy")).Returns(GrabRow("dl-legacy", 42));
+            SetupChapters(new Chapter { Id = 42, MangaId = 7, ChapterNumber = 1m });
+
+            var tracked = Subject().TrackDownload(_definition, Item("dl-legacy"));
+
+            tracked.RemoteChapter.Should().NotBeNull();
+            tracked.RemoteChapter.Release.Should().NotBeNull();
+            tracked.RemoteChapter.Release.Guid.Should().BeNull(
+                "a legacy grab row with no guid key must read back as null so the #361 null-tolerant " +
+                "fallback still bounds the auto-retry loop");
+        }
+
         // (7a) PAGE CHANNEL — gateway path (no source) returns null. The shared DownloadClientItem
         // is never touched and ChapterDownloadState is never read.
         [Test]
