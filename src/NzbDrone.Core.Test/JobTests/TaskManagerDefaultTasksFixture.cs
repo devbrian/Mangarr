@@ -124,6 +124,23 @@ namespace NzbDrone.Core.Test.JobTests
         }
 
         [Test]
+        public void TaskManager_defaultTasks_registers_RefreshMonitoredMangaDownloadsCommand_at_High_priority()
+        {
+            // Search-starves-imports priority-inversion fix: the scheduled completion poll MUST run at
+            // CommandPriority.High, NOT the ScheduledTask default (Low). With only 3 worker threads
+            // (CommandExecutor.THREAD_LIMIT) and Priority-desc-then-FIFO queue ordering
+            // (CommandQueue.TryGet), a large batch of Normal-priority manga searches (minutes-long
+            // gateway scrapes) keeps every thread saturated for hours; a Low poll is outranked by every
+            // queued search and never detects completed downloads, so imports pile up until the batch
+            // drains. High lets the 1-minute poll preempt queued searches for the next freed thread.
+            // Match the `Priority = CommandPriority.High` literal within the same ScheduledTask
+            // initializer (it sits immediately after the TypeName line for this command).
+            _defaultTasksBlock.Should().MatchRegex(
+                @"typeof\(RefreshMonitoredMangaDownloadsCommand\)\.FullName\s*,(?:[^}]*?)Priority\s*=\s*CommandPriority\.High",
+                "RefreshMonitoredMangaDownloadsCommand must be registered at CommandPriority.High so the completion poll is not starved behind a large Normal-priority search batch (priority-inversion fix)");
+        }
+
+        [Test]
         public void TaskManager_defaultTasks_does_NOT_register_ProcessMonitoredMangaDownloadsCommand()
         {
             // Phase 36 Plan 05 Task 1 (Q-poll resolution) — ProcessMonitoredMangaDownloadsCommand is
