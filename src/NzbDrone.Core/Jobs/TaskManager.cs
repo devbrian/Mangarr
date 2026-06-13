@@ -204,7 +204,23 @@ namespace NzbDrone.Core.Jobs
                     new ScheduledTask
                     {
                         Interval = 1,
-                        TypeName = typeof(RefreshMonitoredMangaDownloadsCommand).FullName
+                        TypeName = typeof(RefreshMonitoredMangaDownloadsCommand).FullName,
+
+                        // Sonarr divergence: the scheduled completion poll runs at High, NOT the
+                        // ScheduledTask default (Low). Manga searches are minutes-long gateway scrapes
+                        // pushed at Normal (CommandController / Missing+Cutoff search services); with only
+                        // 3 worker threads (CommandExecutor.THREAD_LIMIT) a large search batch keeps every
+                        // thread saturated for hours. Queue order is Priority-desc then FIFO
+                        // (CommandQueue.TryGet), so a Low poll is outranked by every queued Normal search
+                        // and never gets a thread — completed gateway downloads go undetected and imports
+                        // pile up until the batch drains (priority inversion: this poll is the sole
+                        // steady-state creator of the already-High ProcessMonitoredMangaDownloadsCommand).
+                        // High lets the 1-minute poll preempt queued searches for the next freed thread, so
+                        // imports flow continuously instead of all-at-end. Mirrors the event-driven
+                        // MangaDownloadMonitoringService.QueueRefresh(), which already pushes this command
+                        // at High. NOTE: kept after TypeName so the Interval=1/TypeName regex in
+                        // TaskManagerDefaultTasksFixture stays matched.
+                        Priority = CommandPriority.High
                     }
                 };
 
