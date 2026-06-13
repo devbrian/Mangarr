@@ -155,6 +155,13 @@ namespace NzbDrone.Core.Download.TrackedDownloads
             // never carried at all, so the import core (MangaCompletedDownloadService) built a
             // LocalChapter with BLANK language/group on the load-bearing primary path. Carrying them
             // here restores the file-header "NON-BLANK provenance" contract.
+            //
+            // GH-362: guid is now carried too so the failure-path blocklist row
+            // (MangaBlocklistService.Handle stores ReleaseGuid = release?.Guid) gets the REAL gateway
+            // guid instead of null. With the guid present, blocklist matching tightens to
+            // (Title, SourceKey, Guid) and no longer over-blocks a same-titled federated mirror that
+            // differs only by guid. A legacy grab row with no "guid" key reads back as null (ReadData
+            // empty->null normalization) and the #361 null-tolerant fallback still bounds the loop.
             return new RemoteChapter
             {
                 Manga = manga,
@@ -164,7 +171,8 @@ namespace NzbDrone.Core.Download.TrackedDownloads
                     Title = grabbed.SourceTitle ?? item.Title,
                     Indexer = ReadData(grabbed, "indexer"),
                     ScanlationGroup = ReadData(grabbed, "scanlationGroup"),
-                    TranslatedLanguage = ReadData(grabbed, "translatedLanguage")
+                    TranslatedLanguage = ReadData(grabbed, "translatedLanguage"),
+                    Guid = ReadData(grabbed, "guid")
                 }
             };
         }
