@@ -36,7 +36,7 @@ The matching algorithm is deliberately defensive against the auto-retry-loop haz
 | Field | Mitigation |
 |-------|------------|
 | `Title` | Trim + `ToLowerInvariant` both sides → compare with `OrdinalIgnoreCase` |
-| `ReleaseGuid` | `OrdinalIgnoreCase` compare on raw values |
+| `ReleaseGuid` | Null-tolerant: when either side is null/empty, match-on-`(Title, SourceKey)` only. Otherwise `OrdinalIgnoreCase` compare. **(debug `auto-retry-loop-guid-mismatch`, 2026-06-13 — the failure-path `Release` rebuilt by `MangaTrackedDownloadService.MapFromHistory` drops the gateway Guid, so the blocklisted row stores `ReleaseGuid = null` while the re-search release carries the gateway's required non-empty guid; a strict compare never re-matched → `AutoRetryOrchestrator` re-grabbed the same release every ~5s forever. Made symmetric with the SourceKey fallback below.)** |
 | `SourceKey` | Null-tolerant: when either side is null/empty, match-on-`(Title, Guid)` only. Otherwise `OrdinalIgnoreCase` compare. |
 
 `ReleaseInfo.Indexer` carries the manga `SourceKey` value at the wire layer (per Phase 3 D-17 + Plan 06-03 `ChapterHistoryService.Handle` precedent at line 141). The service reads `release.Indexer` as the SourceKey input; the column on `MangaBlocklist` is named `SourceKey` for canonical clarity.
@@ -90,5 +90,5 @@ When `Tv/` deletes (Phase 8 milestone), this directory collapses with `src/NzbDr
 - Spec consumer: [src/NzbDrone.Core/DecisionEngine/Manga/Specifications/BlocklistSpecification.cs](../../DecisionEngine/Manga/Specifications/BlocklistSpecification.cs) — Phase 6 D-19 STUB body replacement
 - Event consumed: [ChapterDownloadFailedEvent](../../MediaFiles/ChapterArchiving/ChapterDownloadFailedEvent.cs) (Plan 06-01 extension), [MangaDeletedEvent](../../Manga/Events/MangaDeletedEvent.cs)
 - Future consumer: Plan 06-08 `AutoRetryOrchestrator` subscribes to `MangaBlocklistAddedEvent` — guarantees blocklist row is committed before re-search fires.
-- Tests: [src/NzbDrone.Core.Test/Blocklisting/Manga/](../../../NzbDrone.Core.Test/Blocklisting/Manga/) — `MangaBlocklistRepositoryFixture` (4 tests) + `MangaBlocklistServiceFixture` (12 tests covering 4 Pitfall 5 variants + ordering invariant + null-Release tolerance + cascade delete + Clear command + Block ordering)
+- Tests: [src/NzbDrone.Core.Test/Blocklisting/Manga/](../../../NzbDrone.Core.Test/Blocklisting/Manga/) — `MangaBlocklistRepositoryFixture` (4 tests) + `MangaBlocklistServiceFixture` (15 tests covering 7 Pitfall 5 variants — happy/case/trim/null-SourceKey + null-Guid-on-seed/empty-Guid-on-search/both-guids-differ-no-overmatch guard (debug `auto-retry-loop-guid-mismatch`) — + ordering invariant + null-Release tolerance + cascade delete + Clear command + Block ordering)
 - Plan: [.planning/phases/06-pipeline-wanted-history-blocklist-reader-notify/06-04-PLAN.md](../../../../.planning/phases/06-pipeline-wanted-history-blocklist-reader-notify/06-04-PLAN.md)

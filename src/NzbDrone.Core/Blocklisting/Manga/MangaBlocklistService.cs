@@ -29,7 +29,11 @@ namespace NzbDrone.Core.Blocklisting.Manga
     //
     // PITFALL 5 mitigation in Blocklisted(int, ReleaseInfo):
     //   - Title: trim + ToLowerInvariant both sides + OrdinalIgnoreCase compare
-    //   - ReleaseGuid: OrdinalIgnoreCase compare on the raw value
+    //   - ReleaseGuid: null-tolerant — when either side is null/empty, fall back to (Title, SourceKey)
+    //     pair only. Otherwise OrdinalIgnoreCase compare. (The failure-path Release rebuilt by
+    //     MangaTrackedDownloadService.MapFromHistory drops the gateway Guid, so the blocklisted row's
+    //     ReleaseGuid is null while the search-side guid is the gateway's required non-empty value —
+    //     debug auto-retry-loop-guid-mismatch, 2026-06-13.)
     //   - SourceKey: null-tolerant — when either side is null/empty, fall back to (Title, Guid)
     //     pair only. Otherwise OrdinalIgnoreCase compare.
     // The auto-retry loop (Plan 06-08) cannot pick up a release that was just blocklisted because
@@ -78,9 +82,25 @@ namespace NzbDrone.Core.Blocklisting.Manga
             var bTitle = (b.SourceTitle ?? string.Empty).Trim();
             var titleMatch = bTitle.Equals(title, StringComparison.OrdinalIgnoreCase);
 
-            // Guid: OrdinalIgnoreCase on raw values.
-            var bGuid = b.ReleaseGuid ?? string.Empty;
-            var guidMatch = bGuid.Equals(guid, StringComparison.OrdinalIgnoreCase);
+            // Null-tolerant Guid fallback (symmetric with the SourceKey fallback below): when EITHER
+            // side's Guid is null/empty, fall back to (Title, SourceKey) identity only. When both
+            // sides have a value, OrdinalIgnoreCase compare. The failure path
+            // (MangaTrackedDownloadService.MapFromHistory) reconstructs RemoteChapter.Release WITHOUT
+            // the gateway Guid (it carries Title + Indexer + ScanlationGroup + TranslatedLanguage but
+            // no Guid), so the just-blocklisted row stores ReleaseGuid = null while the search-side
+            // release carries the gateway's REQUIRED non-empty guid. A strict guid compare would never
+            // re-match — the AutoRetryOrchestrator would re-grab the same release every ~5s forever
+            // (debug auto-retry-loop-guid-mismatch, 2026-06-13). (Title, SourceKey) is a strong gateway
+            // identity: the title encodes scanlation group + chapter number + language.
+            bool guidMatch;
+            if (string.IsNullOrEmpty(guid) || string.IsNullOrEmpty(b.ReleaseGuid))
+            {
+                guidMatch = true;
+            }
+            else
+            {
+                guidMatch = b.ReleaseGuid.Equals(guid, StringComparison.OrdinalIgnoreCase);
+            }
 
             // Null-tolerant SourceKey fallback: when either side lacks a SourceKey, treat as match
             // on (Title, Guid) only. When both sides have a value, OrdinalIgnoreCase compare.

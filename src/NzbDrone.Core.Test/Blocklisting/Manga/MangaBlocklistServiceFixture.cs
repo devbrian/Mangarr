@@ -12,7 +12,9 @@ using NzbDrone.Core.Test.Framework;
 namespace NzbDrone.Core.Test.Blocklisting.Manga
 {
     // Phase 6 D-11 + D-19 — exercises:
-    //   - Pitfall 5 mitigation (4 variants: happy / case / trim / null SourceKey fallback)
+    //   - Pitfall 5 mitigation (variants: happy / case / trim / null SourceKey fallback /
+    //     null-Guid fallback on seed + empty-Guid fallback on search + both-guids-differ no-overmatch
+    //     guard — the null-Guid variants are the debug auto-retry-loop-guid-mismatch regression, 2026-06-13)
     //   - Negative case (no match)
     //   - Handle(ChapterDownloadFailedEvent) populates row from release identity triple
     //   - Insert-before-PublishEvent ordering invariant (mock interaction sequence)
@@ -106,6 +108,67 @@ namespace NzbDrone.Core.Test.Blocklisting.Manga
             };
 
             Subject.Blocklisted(MangaId, release).Should().BeTrue();
+        }
+
+        [Test]
+        public void Blocklisted_returns_true_when_release_guid_null_on_seed_pitfall5_null_guid_fallback()
+        {
+            // REGRESSION (debug auto-retry-loop-guid-mismatch, 2026-06-13): the failure path
+            // (MangaTrackedDownloadService.MapFromHistory) reconstructs RemoteChapter.Release WITHOUT
+            // the gateway Guid, so MangaBlocklistService.Handle stores ReleaseGuid = null. The very
+            // next re-search returns the same release carrying the gateway's REQUIRED non-empty guid.
+            // Before the fix, the strict guid compare ("".Equals("<guid>") == false) never re-matched,
+            // so the just-blocklisted release was re-grabbed every ~5s forever. The null-tolerant guid
+            // fallback (symmetric with the SourceKey fallback) must treat this as match-on-(Title,
+            // SourceKey). NOTE: the pre-existing pitfall5_null_fallback test only varied SourceKey
+            // nullity — it did NOT cover Guid nullity, which is the exact gap that shipped this loop.
+            SeedRepository(BuildSeed(releaseGuid: null));
+
+            var release = new ReleaseInfo
+            {
+                Title = "Vinland Saga - 0001",
+                Indexer = "MangaDex",
+                Guid = "gateway-required-non-empty-guid"
+            };
+
+            Subject.Blocklisted(MangaId, release).Should().BeTrue();
+        }
+
+        [Test]
+        public void Blocklisted_returns_true_when_release_guid_empty_string_on_search_pitfall5_null_guid_fallback()
+        {
+            // Mirror of the above with the nullity on the SEARCH side (empty-string guid). Blocklisted()
+            // normalizes a null search guid to string.Empty, so the empty-side fallback must hold there
+            // too — otherwise a re-search whose release lost its guid would never re-match a seed that
+            // kept one.
+            SeedRepository(BuildSeed(releaseGuid: "g1"));
+
+            var release = new ReleaseInfo
+            {
+                Title = "Vinland Saga - 0001",
+                Indexer = "MangaDex",
+                Guid = string.Empty
+            };
+
+            Subject.Blocklisted(MangaId, release).Should().BeTrue();
+        }
+
+        [Test]
+        public void Blocklisted_returns_false_when_both_guids_present_but_differ_no_overmatch()
+        {
+            // Guard the null-tolerant fallback does NOT over-match: when BOTH sides carry a non-empty
+            // guid and they differ, the releases are genuinely distinct and must NOT collide even though
+            // Title + SourceKey are identical. The fallback only relaxes when a guid is absent.
+            SeedRepository(BuildSeed(sourceTitle: "Vinland Saga - 0001", sourceKey: "MangaDex", releaseGuid: "g1"));
+
+            var release = new ReleaseInfo
+            {
+                Title = "Vinland Saga - 0001",
+                Indexer = "MangaDex",
+                Guid = "g2"
+            };
+
+            Subject.Blocklisted(MangaId, release).Should().BeFalse();
         }
 
         [Test]
