@@ -154,5 +154,50 @@ namespace NzbDrone.Core.Test.MangaParserTests
             parsed.ChapterNumbers.Should().HaveCount(1);
             parsed.ChapterNumbers[0].Should().Be((decimal)expected);
         }
+
+        // debug session extras-academy-unknown-manga (2026-06-14): a marker WORD
+        // ("Extra") embedded in the real title with a following apostrophe
+        // ("Extra's" / "Extra’s") previously truncated MangaTitle to "The"
+        // because the apostrophe supplied a `\b` boundary that let `extra\b` fire
+        // mid-title. The truncated title never resolved to the library manga, so
+        // every release was rejected as "Unknown Manga". The apostrophe guard keeps
+        // the full title. Covers both the typographic (U+2019, as the gateway
+        // returns it) and ASCII (U+0027) apostrophe.
+        [TestCase("The Extra’s Academy Survival Guide - Chapter 42", "The Extra’s Academy Survival Guide")]
+        [TestCase("The Extra's Academy Survival Guide - Chapter 42", "The Extra's Academy Survival Guide")]
+        [TestCase("The Extra’s Academy Survival Guide Ch.42", "The Extra’s Academy Survival Guide")]
+        public void MangaTitle_with_apostrophe_marker_word_is_not_truncated(string releaseTitle, string expectedTitle)
+        {
+            var parsed = MangaParser.ParseChapterTitle(releaseTitle);
+
+            parsed.Should().NotBeNull();
+            parsed.MangaTitle.Should().Be(expectedTitle);
+            parsed.ChapterNumbers.Should().Equal(new[] { 42m });
+        }
+
+        // Same guard on the ChapterType detector: a possessive marker word in the
+        // title must NOT mis-classify a regular chapter as that type.
+        [Test]
+        public void ChapterType_is_not_misclassified_by_apostrophe_marker_word()
+        {
+            var parsed = MangaParser.ParseChapterTitle("The Extra’s Academy Survival Guide - Chapter 42");
+
+            parsed.Should().NotBeNull();
+            parsed.ChapterType.Should().Be(ChapterType.Regular);
+        }
+
+        // Guard does NOT over-correct: legitimate trailing type markers (followed by
+        // space/digit/dash/end, never an apostrophe) still strip from the title and
+        // set the type.
+        [Test]
+        public void Legitimate_extra_marker_still_strips_and_sets_type()
+        {
+            var parsed = MangaParser.ParseChapterTitle("Some Manga - Extra 5");
+
+            parsed.Should().NotBeNull();
+            parsed.MangaTitle.Should().Be("Some Manga");
+            parsed.ChapterType.Should().Be(ChapterType.Extra);
+            parsed.ChapterNumbers.Should().Equal(new[] { 5m });
+        }
     }
 }

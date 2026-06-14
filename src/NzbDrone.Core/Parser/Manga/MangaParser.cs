@@ -53,15 +53,23 @@ namespace NzbDrone.Core.Parser.Manga
 
         // Special-chapter-type markers (D-09 ChapterType enum). Listed
         // in priority order — Oneshot wins over Extra wins over Bonus, etc.
+        //
+        // Apostrophe guard (debug session extras-academy-unknown-manga, 2026-06-14):
+        // the trailing `(?!['’‘])` mirrors the same guard on MangaTitleRegex so a
+        // marker word that is part of the title's wording ("The Extra's Academy
+        // Survival Guide") is NOT mis-classified — without it, "Extra's" supplies a
+        // `\b` after "extra" and every regular chapter of such a title was tagged
+        // ChapterType.Extra, corrupting organizer naming. A possessive after a marker
+        // word is never a real type marker.
         private static readonly (Regex Pattern, ChapterType Type)[] ChapterTypeMarkers = new[]
         {
-            (new Regex(@"\b(?:one[\s\-]?shot)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Oneshot),
-            (new Regex(@"\bside[\s\-]?story\b", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.SideStory),
-            (new Regex(@"\bprologue\b", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Prologue),
-            (new Regex(@"\bepilogue\b", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Epilogue),
-            (new Regex(@"\b(?:extra|omake)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Extra),
-            (new Regex(@"\bbonus\b", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Bonus),
-            (new Regex(@"\bspecial\b", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Special),
+            (new Regex(@"\b(?:one[\s\-]?shot)\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Oneshot),
+            (new Regex(@"\bside[\s\-]?story\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.SideStory),
+            (new Regex(@"\bprologue\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Prologue),
+            (new Regex(@"\bepilogue\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Epilogue),
+            (new Regex(@"\b(?:extra|omake)\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Extra),
+            (new Regex(@"\bbonus\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Bonus),
+            (new Regex(@"\bspecial\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Special),
         };
 
         // Acceptance gates per task plan must hold:
@@ -113,8 +121,22 @@ namespace NzbDrone.Core.Parser.Manga
         // Manga-title extractor. Strips a leading scanlation-group bracket and a
         // trailing volume / chapter / type marker; whatever is left is the
         // best-effort manga title.
+        //
+        // Apostrophe guard (debug session extras-academy-unknown-manga, 2026-06-14):
+        // the trailing `\b(?!['’‘])` after the marker alternation prevents a
+        // marker WORD that is actually part of the title from truncating it when an
+        // apostrophe follows. "Extra's" / "Extra’s" supplies a `\b` immediately
+        // after "extra", so the bare `\b` previously let `extra\b` fire mid-title and
+        // collapsed "The Extra's Academy Survival Guide" to "The" (the lazy
+        // `(?<title>.+?)` stops at the first marker hit) — which then never resolved
+        // to the library manga and rejected every release as "Unknown Manga". A
+        // marker word immediately followed by an apostrophe is always a possessive
+        // that belongs to the title, never a chapter/type delimiter, so we refuse the
+        // match and let `(?<title>.+?)` keep consuming. Legit markers ("- Extra 5",
+        // "Ch.42", "- Oneshot") are followed by space/digit/dash/end, never an
+        // apostrophe, so they still strip correctly.
         private static readonly Regex MangaTitleRegex =
-            new(@"^(?:\[[^\]]+\]\s*)?(?<title>.+?)(?:\s+(?:-\s+)?(?:vol|v|volume|ch|chapter|chap|c\d|oneshot|one[\s\-]?shot|extra|bonus|side[\s\-]?story|prologue|epilogue|special|omake)\b|$)",
+            new(@"^(?:\[[^\]]+\]\s*)?(?<title>.+?)(?:\s+(?:-\s+)?(?:vol|v|volume|ch|chapter|chap|c\d|oneshot|one[\s\-]?shot|extra|bonus|side[\s\-]?story|prologue|epilogue|special|omake)\b(?!['’‘])|$)",
                 RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         public static ParsedChapterInfo ParseChapterTitle(string title)
