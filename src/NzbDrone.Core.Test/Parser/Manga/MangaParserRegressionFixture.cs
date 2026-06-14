@@ -176,11 +176,13 @@ namespace NzbDrone.Core.Test.MangaParserTests
         }
 
         // Same guard on the ChapterType detector: a possessive marker word in the
-        // title must NOT mis-classify a regular chapter as that type.
-        [Test]
-        public void ChapterType_is_not_misclassified_by_apostrophe_marker_word()
+        // title must NOT mis-classify a regular chapter as that type. Covers both the
+        // typographic (U+2019, as the gateway returns it) and ASCII (U+0027) apostrophe.
+        [TestCase("The Extra’s Academy Survival Guide - Chapter 42")]
+        [TestCase("The Extra's Academy Survival Guide - Chapter 42")]
+        public void ChapterType_is_not_misclassified_by_apostrophe_marker_word(string releaseTitle)
         {
-            var parsed = MangaParser.ParseChapterTitle("The Extra’s Academy Survival Guide - Chapter 42");
+            var parsed = MangaParser.ParseChapterTitle(releaseTitle);
 
             parsed.Should().NotBeNull();
             parsed.ChapterType.Should().Be(ChapterType.Regular);
