@@ -170,6 +170,7 @@ namespace NzbDrone.Core.Download.TrackedDownloads
                 {
                     Title = grabbed.SourceTitle ?? item.Title,
                     Indexer = ReadData(grabbed, "indexer"),
+                    Source = ReadData(grabbed, "source"),
                     ScanlationGroup = ReadData(grabbed, "scanlationGroup"),
                     TranslatedLanguage = ReadData(grabbed, "translatedLanguage"),
                     Guid = ReadData(grabbed, "guid")

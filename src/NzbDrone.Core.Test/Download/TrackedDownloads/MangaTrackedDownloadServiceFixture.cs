@@ -271,6 +271,7 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
                 {
                     Title = "Test Manga - Chapter 001",
                     Indexer = "MangaDex",
+                    Source = "mangadot",
                     ScanlationGroup = "Acme Scans",
                     TranslatedLanguage = "en"
                 }
@@ -295,6 +296,8 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
                 "CR-01: TranslatedLanguage must round-trip through the grab row's Data dictionary");
             tracked.RemoteChapter.Release.Indexer.Should().Be("MangaDex",
                 "CR-01: Indexer must round-trip (the old writer/reader key-casing mismatch dropped it)");
+            tracked.RemoteChapter.Release.Source.Should().Be("mangadot",
+                "the per-release source token must round-trip so the Queue Source column is non-blank");
             tracked.Indexer.Should().Be("MangaDex");
         }
 
