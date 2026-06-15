@@ -85,6 +85,14 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
                     continue;
                 }
 
+                // A null/empty DownloadId is NOT a download-session identifier — pairing on it
+                // would correlate unrelated legacy/manual history rows (both null) and reintroduce
+                // false "already imported" rejections. Require a real id before pairing.
+                if (lastGrabbed.DownloadId.IsNullOrWhiteSpace())
+                {
+                    continue;
+                }
+
                 var imported = chapterHistory.FirstOrDefault(h =>
                     h.EventType == ChapterHistoryEventType.Imported &&
                     h.DownloadId == lastGrabbed.DownloadId);
@@ -99,19 +107,28 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
                     continue;
                 }
 
-                // Gap 2: reject ONLY the same release that was grabbed and imported. Prefer the
-                // stable manga release identity (Guid → ReleaseGuid); fall back to the title
-                // (Title → SourceTitle) to mirror the TV spec.
-                if (lastGrabbed.ReleaseGuid.IsNotNullOrWhiteSpace() &&
-                    release.Guid.IsNotNullOrWhiteSpace() &&
-                    release.Guid.Equals(lastGrabbed.ReleaseGuid, StringComparison.InvariantCultureIgnoreCase))
+                // Gap 2: reject ONLY the same release that was grabbed and imported. The stable
+                // manga release identity is the Guid (ReleaseInfo.Guid → ChapterHistory.ReleaseGuid);
+                // SourceTitle is a fallback for the TV-shaped case where a Guid is unavailable.
+                if (lastGrabbed.ReleaseGuid.IsNotNullOrWhiteSpace() && release.Guid.IsNotNullOrWhiteSpace())
                 {
-                    _logger.Debug("Chapter {0} has same release guid as a grabbed and imported release", chapter.Id);
-                    return DownloadSpecDecision.Reject(DownloadRejectionReason.ChapterAlreadyImported,
-                        "Has same release guid as a grabbed and imported release");
+                    // Both sides carry a usable Guid — it is authoritative. A Guid mismatch means a
+                    // genuinely DIFFERENT release, so we must NOT fall through to the title check
+                    // (a coincidental SourceTitle match would wrongly reject a different/better scan).
+                    if (release.Guid.Equals(lastGrabbed.ReleaseGuid, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        _logger.Debug("Chapter {0} has same release guid as a grabbed and imported release", chapter.Id);
+                        return DownloadSpecDecision.Reject(DownloadRejectionReason.ChapterAlreadyImported,
+                            "Has same release guid as a grabbed and imported release");
+                    }
+
+                    continue;
                 }
 
+                // Guid unavailable on at least one side — fall back to the title (the TV spec's
+                // only identity check).
                 if (release.Title.IsNotNullOrWhiteSpace() &&
+                    lastGrabbed.SourceTitle.IsNotNullOrWhiteSpace() &&
                     release.Title.Equals(lastGrabbed.SourceTitle, StringComparison.InvariantCultureIgnoreCase))
                 {
                     _logger.Debug("Chapter {0} has same release name as a grabbed and imported release", chapter.Id);

@@ -89,10 +89,10 @@ namespace NzbDrone.Core.Test.MangaPipeline.Decisions
         }
 
         [Test]
-        public void Rejects_same_release_by_title_when_guid_differs()
+        public void Rejects_same_release_by_title_when_candidate_has_no_guid()
         {
-            // Candidate guid is empty (older indexers) but the title matches the grabbed+imported
-            // release — TV-style SourceTitle fallback still rejects.
+            // Candidate has no guid (older indexers) so guid matching is unavailable; the title
+            // matches the grabbed+imported release — TV-style SourceTitle fallback still rejects.
             var grab = new DateTime(2026, 6, 1);
             SeedHistory(51, Imported(51, grab.AddMinutes(10)), Grabbed(51, grab, guid: "comix:test-manga:1"));
 
@@ -101,6 +101,35 @@ namespace NzbDrone.Core.Test.MangaPipeline.Decisions
 
             decision.Accepted.Should().BeFalse();
             decision.Reason.Should().Be(DownloadRejectionReason.ChapterAlreadyImported);
+        }
+
+        [Test]
+        public void Accepts_when_guids_differ_even_if_titles_match()
+        {
+            // Both sides have a usable guid but they DIFFER — definitively a different release.
+            // A coincidental SourceTitle match must NOT trigger the title fallback (CR #367).
+            var grab = new DateTime(2026, 6, 1);
+            SeedHistory(56, Imported(56, grab.AddMinutes(10)), Grabbed(56, grab, guid: "comix:test-manga:1", title: ReleaseTitle));
+
+            var subject = BuildRemoteChapter(56, releaseGuid: "mangadex:test-manga:1", releaseTitle: ReleaseTitle);
+            var decision = _spec.IsSatisfiedBy(subject, new ReleaseDecisionInformation());
+
+            decision.Accepted.Should().BeTrue("distinct guids mean a different release; title must not be used as a fallback");
+        }
+
+        [Test]
+        public void Accepts_when_grabbed_download_id_is_empty()
+        {
+            // A null/empty DownloadId is not a real session id. Grab + import both lacking one must
+            // not be paired (null == null) into a false "already imported" rejection (CR #367).
+            var grab = new DateTime(2026, 6, 1);
+            SeedHistory(57,
+                Imported(57, grab.AddMinutes(10), downloadId: null),
+                Grabbed(57, grab, downloadId: null));
+
+            var decision = _spec.IsSatisfiedBy(BuildRemoteChapter(57), new ReleaseDecisionInformation());
+
+            decision.Accepted.Should().BeTrue("history rows without a real DownloadId must not be paired");
         }
 
         [Test]
