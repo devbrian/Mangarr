@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using FluentAssertions;
 using Moq;
@@ -13,26 +14,26 @@ using NzbDrone.Core.Test.Framework;
 
 namespace NzbDrone.Core.Test.MangaPipeline.Decisions
 {
-    // Phase 6 Wave 1 BLOCKING fixture — D-21 STUB-replacement target + BL-01 regression guard.
-    // Wired by Plan 06-03 (ChapterHistoryService + AlreadyImportedChapterSpecification body).
+    // quick-260615 — faithful Sonarr port of the grab-decision AlreadyImported spec.
+    // Replaces the Phase 6 STUB fixture (which only asserted "any Imported row → reject").
     //
-    // BL-01 cross-domain ID-collision regression: the spec MUST query
-    // ChapterHistory.ChapterId — NOT EpisodeHistory.EpisodeId. The Queries_ChapterHistory_only
-    // test seeds an EpisodeHistory row with EpisodeId == 42 of an unrelated TV series, then
-    // calls IsSatisfiedBy for a manga chapter whose Id == 42. If the bug-present STUB still
-    // dispatched to IHistoryService.FindByEpisodeId, this test would fail (the spec would
-    // reject the manga release as "already imported" against the unrelated TV row). The
-    // wired-up version queries the new sibling table — separate Mapper.Entity registration —
-    // and returns Accept.
+    // The spec now mirrors TV AlreadyImportedSpecification: it rejects ONLY the same release
+    // that was grabbed AND imported, and ONLY while the chapter still has a current file. The
+    // headline regression this guards is delete→redownload: a chapter whose ChapterFile was
+    // deleted (ChapterFileId == null) must NOT be blocked by its stale Imported history row.
     //
-    // Phase 6 Pitfall 6 GUARD note: AlreadyImportedChapterSpecification gained an
-    // IChapterHistoryService dependency in this plan. The 11-spec auto-discovery count
-    // (MangaDownloadDecisionMakerEndToEndFixture.All_eleven_manga_specs_auto_discovered_*) still
-    // passes Be(11) because the class shape and IMangaDecisionEngineSpecification interface
-    // implementation are unchanged.
+    // BL-01 cross-domain ID-collision guard is preserved structurally: the spec depends on
+    // IChapterHistoryService (ChapterHistory table) — it can never reach EpisodeHistory.
+    //
+    // Pitfall 6 GUARD note: the class still implements IMangaDecisionEngineSpecification only,
+    // so the 11-spec auto-discovery count (MangaDownloadDecisionMakerEndToEndFixture) is stable.
     [TestFixture]
     public class AlreadyImportedChapterSpecificationFixture : DbTest
     {
+        private const string ReleaseGuid = "comix:test-manga:1";
+        private const string ReleaseTitle = "Test Manga - Chapter 001";
+        private const string DownloadId = "download-abc";
+
         private AlreadyImportedChapterSpecification _spec;
         private Mock<IChapterHistoryService> _chapterHistoryService;
 
@@ -43,29 +44,59 @@ namespace NzbDrone.Core.Test.MangaPipeline.Decisions
             _spec = new AlreadyImportedChapterSpecification(_chapterHistoryService.Object, LogManager.GetLogger("test"));
         }
 
-        private RemoteChapter BuildRemoteChapter(int chapterId, bool monitored = true)
+        // hasFile defaults to true: most cases exercise a chapter that currently has a file.
+        private RemoteChapter BuildRemoteChapter(int chapterId, bool hasFile = true, string releaseGuid = ReleaseGuid, string releaseTitle = ReleaseTitle)
         {
             return new RemoteChapter
             {
                 Manga = new NzbDrone.Core.Manga.Manga { Id = 7, Title = "Test Manga" },
                 Chapters = new List<Chapter>
                 {
-                    new() { Id = chapterId, MangaId = 7, Monitored = monitored, ChapterNumber = 1m }
+                    new()
+                    {
+                        Id = chapterId,
+                        MangaId = 7,
+                        Monitored = true,
+                        ChapterNumber = 1m,
+                        ChapterFileId = hasFile ? 999 : null
+                    }
                 },
-                Release = new ReleaseInfo { Title = "Test Manga - Chapter 001", Indexer = "MangaDex" }
+                Release = new ReleaseInfo { Guid = releaseGuid, Title = releaseTitle, Indexer = "Mangarr Gateway" }
             };
         }
 
-        [Test]
-        public void Rejects_when_imported_history_exists()
+        private void SeedHistory(int chapterId, params ChapterHistory[] rows)
         {
-            _chapterHistoryService.Setup(s => s.FindByChapterId(50))
-                .Returns(new List<ChapterHistory>
-                {
-                    new() { ChapterId = 50, EventType = ChapterHistoryEventType.Imported, MangaId = 7 }
-                });
+            _chapterHistoryService.Setup(s => s.FindByChapterId(chapterId)).Returns(new List<ChapterHistory>(rows));
+        }
 
-            var subject = BuildRemoteChapter(chapterId: 50, monitored: true);
+        private static ChapterHistory Grabbed(int chapterId, DateTime date, string guid = ReleaseGuid, string title = ReleaseTitle, string downloadId = DownloadId)
+            => new() { ChapterId = chapterId, MangaId = 7, EventType = ChapterHistoryEventType.Grabbed, Date = date, ReleaseGuid = guid, SourceTitle = title, DownloadId = downloadId };
+
+        private static ChapterHistory Imported(int chapterId, DateTime date, string downloadId = DownloadId)
+            => new() { ChapterId = chapterId, MangaId = 7, EventType = ChapterHistoryEventType.Imported, Date = date, DownloadId = downloadId };
+
+        [Test]
+        public void Rejects_same_release_when_grabbed_and_imported_and_file_present()
+        {
+            var grab = new DateTime(2026, 6, 1);
+            SeedHistory(50, Imported(50, grab.AddMinutes(10)), Grabbed(50, grab));
+
+            var decision = _spec.IsSatisfiedBy(BuildRemoteChapter(50), new ReleaseDecisionInformation());
+
+            decision.Accepted.Should().BeFalse();
+            decision.Reason.Should().Be(DownloadRejectionReason.ChapterAlreadyImported);
+        }
+
+        [Test]
+        public void Rejects_same_release_by_title_when_guid_differs()
+        {
+            // Candidate guid is empty (older indexers) but the title matches the grabbed+imported
+            // release — TV-style SourceTitle fallback still rejects.
+            var grab = new DateTime(2026, 6, 1);
+            SeedHistory(51, Imported(51, grab.AddMinutes(10)), Grabbed(51, grab, guid: "comix:test-manga:1"));
+
+            var subject = BuildRemoteChapter(51, releaseGuid: "", releaseTitle: ReleaseTitle);
             var decision = _spec.IsSatisfiedBy(subject, new ReleaseDecisionInformation());
 
             decision.Accepted.Should().BeFalse();
@@ -73,30 +104,66 @@ namespace NzbDrone.Core.Test.MangaPipeline.Decisions
         }
 
         [Test]
-        public void Accepts_when_no_import_history()
+        public void Accepts_when_chapter_has_no_current_file()
         {
-            _chapterHistoryService.Setup(s => s.FindByChapterId(60))
-                .Returns(new List<ChapterHistory>());
+            // THE BUG FIX: file was deleted to force a redownload. The Imported+Grabbed history
+            // for the same release still exists, but the chapter has no ChapterFile — it must be
+            // grabbable again.
+            var grab = new DateTime(2026, 6, 1);
+            SeedHistory(52, Imported(52, grab.AddMinutes(10)), Grabbed(52, grab));
 
-            var subject = BuildRemoteChapter(chapterId: 60, monitored: true);
+            var decision = _spec.IsSatisfiedBy(BuildRemoteChapter(52, hasFile: false), new ReleaseDecisionInformation());
+
+            decision.Accepted.Should().BeTrue("a chapter without a current file cannot be 'already imported'");
+        }
+
+        [Test]
+        public void Accepts_different_release_even_when_a_release_was_already_imported()
+        {
+            // Gap 2: a DIFFERENT/better scan (different guid AND title) must remain grabbable.
+            var grab = new DateTime(2026, 6, 1);
+            SeedHistory(53, Imported(53, grab.AddMinutes(10)), Grabbed(53, grab, guid: "comix:test-manga:1", title: "Test Manga - Chapter 001 [Old Group]"));
+
+            var subject = BuildRemoteChapter(53, releaseGuid: "mangadex:test-manga:1", releaseTitle: "Test Manga - Chapter 001 [Better Group]");
             var decision = _spec.IsSatisfiedBy(subject, new ReleaseDecisionInformation());
+
+            decision.Accepted.Should().BeTrue("a different release than the one already imported must still be grabbable");
+        }
+
+        [Test]
+        public void Accepts_when_grabbed_but_not_yet_imported()
+        {
+            // Gap 3: grab exists but no matching Imported row for that DownloadId.
+            SeedHistory(54, Grabbed(54, new DateTime(2026, 6, 1)));
+
+            var decision = _spec.IsSatisfiedBy(BuildRemoteChapter(54), new ReleaseDecisionInformation());
 
             decision.Accepted.Should().BeTrue();
         }
 
         [Test]
-        public void Accepts_when_imported_history_exists_but_chapter_unmonitored()
+        public void Accepts_when_imported_under_a_different_download_id()
         {
-            _chapterHistoryService.Setup(s => s.FindByChapterId(70))
-                .Returns(new List<ChapterHistory>
-                {
-                    new() { ChapterId = 70, EventType = ChapterHistoryEventType.Imported, MangaId = 7 }
-                });
+            // The most recent grab was never imported (its DownloadId has no Imported row); an
+            // older unrelated import under a different DownloadId must not block.
+            var grab = new DateTime(2026, 6, 2);
+            SeedHistory(55,
+                Grabbed(55, grab, downloadId: "download-new"),
+                Imported(55, grab.AddDays(-5), downloadId: "download-old"));
 
-            var subject = BuildRemoteChapter(chapterId: 70, monitored: false);
-            var decision = _spec.IsSatisfiedBy(subject, new ReleaseDecisionInformation());
+            var decision = _spec.IsSatisfiedBy(BuildRemoteChapter(55), new ReleaseDecisionInformation());
 
-            decision.Accepted.Should().BeTrue("unmonitored chapters skip the AlreadyImported gate");
+            decision.Accepted.Should().BeTrue();
+        }
+
+        [Test]
+        public void Accepts_when_no_history()
+        {
+            SeedHistory(60);
+
+            var decision = _spec.IsSatisfiedBy(BuildRemoteChapter(60), new ReleaseDecisionInformation());
+
+            decision.Accepted.Should().BeTrue();
         }
     }
 }
