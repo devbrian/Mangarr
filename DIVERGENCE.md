@@ -1403,3 +1403,27 @@ Resolves GitHub issues **#356** + **#357** in one branch. Two divergent monitor 
 - DIVERGENCE.md Phase 6 D-03 (the original 5-value `MangaMonitor` lock this supersedes) + Phase 26 (the `MonitorTypes`/`NewItemMonitorTypes` import-list enums this retires).
 
 *Last updated: 2026-06-09 (quick task 260609-f8y — appended the monitor-enum-unification section above: `MangaMonitor` 5→7 values with explicit ordinals (None=0..Missing=6) preserving the by-ordinal `ImportLists.ShouldMonitor` column with no migration; `MonitorTypes` + `NewItemMonitorTypes` deleted, `ImportListDefinition.ShouldMonitor` unified onto `MangaMonitor` (#357); `MonitorNewItems` made internal-only — every UI/API surface stripped, value derived from the Monitor choice (#356), the import-list POCO field kept only as a no-migration NotNullable-column placeholder. Consistency-RESTORING (collapses two divergent monitor enums onto one). All previous trailers preserved verbatim above per historical-accuracy contract.)*
+
+## Disk-aware `UpgradeDiskSpecification` restored to the manga decision pipeline (debug session `rss-regrab-existing-chapter`) (2026-06-15)
+
+Fixes a live re-grab loop: an already-imported chapter (e.g. *My Wife Waited in the Wheat Fields* Ch.15 `[en]`, ChapterFile present + CBZ on disk) was grabbed and queued to the gateway on **every** RSS sync cycle. This is a **consistency-RESTORING** change — it ports the Sonarr disk-aware reject gate that was lost when the quality model was dropped.
+
+**Root cause (two facts combine):**
+1. **Structural gap (primary).** When Mangarr dropped Sonarr's quality model (Phase 5 D-04) it also dropped Sonarr's `CutoffSpecification` + `UpgradeDiskSpecification` chain, which on the TV side rejects an RSS release for an episode you already hold a (cutoff-met / non-upgrade) file for — based on the **existing file on disk**. No manga peer was ported, so the manga RSS decision pipeline never inspected the existing `ChapterFile` before grabbing.
+2. **The narrow fallback can't fire.** The only already-have guard, `AlreadyImportedChapterSpecification`, rejects only when an `Imported(3)` ChapterHistory row pairs by `DownloadId` to the latest `Grabbed` row. For an already-imported chapter that pairing is structurally impossible: the original import row carried an empty `DownloadId`, and every re-grab's import is correctly skipped (file-exists/upgrade), recording an `Ignored(5)` row — never a fresh pairable `Imported(3)`. So the spec always Accepted and the chapter was re-grabbed forever.
+
+**Fix:** add `DecisionEngine/Manga/Specifications/UpgradeDiskSpecification.cs` — the decision-side peer of the import-side `MediaFiles/MangaImport/Specifications/UpgradeSpecification.cs`. It applies the **same** D-10 three-state `UpgradeAllowedOverride ?? (translation.UpgradeAllowed && customFormat.UpgradeAllowed)` gate + D-08 language-rank → CF-score comparison, but on `RemoteChapter` so a non-upgrade is rejected **before** grabbing (decision and import now agree). Mirrors Sonarr's "reject the whole release if any mapped chapter already has a file the candidate doesn't beat." The Gap-1 invariant (`ChapterFileId == 0` → skip) is preserved so delete→redownload still works.
+
+| File / Path | Type | Source | Rationale |
+|-------------|------|--------|-----------|
+| `src/NzbDrone.Core/DecisionEngine/Manga/Specifications/UpgradeDiskSpecification.cs` | new | debug `rss-regrab-existing-chapter` | Disk-aware reject gate; `Priority => Disk`, `Type => Permanent`; rejects `DiskUpgradesNotAllowed` (file present + upgrade gate off) or `DiskNotUpgrade` (candidate not a language/CF upgrade). Auto-discovered into `MangaDownloadDecisionMaker` via the `IEnumerable<IMangaDecisionEngineSpecification>` set. |
+| `src/NzbDrone.Core.Test/DecisionEngineTests/Manga/UpgradeDiskSpecificationFixture.cs` | new | debug `rss-regrab-existing-chapter` | 6 cases: no-file→accept (Gap-1, never consults disk), file+gate-off→reject, same-lang-not-CF-upgrade→reject (the bug's steady state), existing-better-lang→reject, candidate-better-lang→accept, no-rows-resolved→accept. |
+| `src/NzbDrone.Core.Test/DecisionEngineTests/Manga/MangaDownloadDecisionMakerEndToEndFixture.cs` — spec-count guard 14→15 | edit | debug `rss-regrab-existing-chapter` | The auto-discovery reflection guard now expects 15 specs (adds UpgradeDisk). |
+
+**Proof:** `UpgradeDiskSpecificationFixture` (6/6) + the full `DecisionEngineTests.Manga` suite (52/52) green; Core Debug build clean. Live dev-stack verification pending.
+
+**Cross-references:**
+- `.planning/debug/rss-regrab-existing-chapter.md` — the debug session (evidence + resolution).
+- DIVERGENCE.md Phase 5 D-04 (quality-model drop that removed the original `CutoffSpecification`/`UpgradeDiskSpecification`) + Phase 6 D-10 (the three-state upgrade gate this reuses).
+
+*Last updated: 2026-06-15 (debug session rss-regrab-existing-chapter — appended the UpgradeDiskSpecification section above: restored the disk-aware decision-side reject gate (Sonarr `UpgradeDiskSpecification`/`CutoffSpecification` peer) lost in the Phase 5 D-04 quality-model drop, fixing an already-imported chapter being re-grabbed on every RSS sync cycle. Consistency-RESTORING. All previous trailers preserved verbatim above per historical-accuracy contract.)*

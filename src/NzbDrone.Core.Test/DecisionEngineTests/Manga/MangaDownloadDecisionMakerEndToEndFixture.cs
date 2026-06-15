@@ -394,7 +394,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
         }
 
         [Test]
-        public void All_fourteen_manga_specs_auto_discovered_via_assembly_reflection()
+        public void All_fifteen_manga_specs_auto_discovered_via_assembly_reflection()
         {
             // F-01 + Pitfall 6 mitigation per 05-VALIDATION.md Wave 0: assert the FULL spec set
             // implements IMangaDecisionEngineSpecification and is reachable from the production
@@ -405,11 +405,14 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             // (audit/no-sibling/DeletedEpisodeFileSpecification.md); Phase 8 cluster 06-03 added
             // MangaSpecification (audit/no-sibling/SeriesSpecification.md); Phase 8 cluster 06-04
             // added SingleChapterSearchMatchSpecification
-            // (audit/no-sibling/SingleEpisodeSearchMatchSpecification.md) for a current total of 14:
+            // (audit/no-sibling/SingleEpisodeSearchMatchSpecification.md); debug session
+            // `rss-regrab-existing-chapter` (2026-06-15) added the disk-aware UpgradeDiskSpecification
+            // (decision-side peer of import-side UpgradeSpecification — rejects re-grabbing an
+            // already-imported chapter) for a current total of 15:
             // MonitoredManga, MonitoredChapter, ChapterRequested, AlreadyImportedChapter,
             // Blocklist, LanguageInTranslationProfile, CustomFormatMinimumScore, MinimumAge,
             // AcceptableSize, MaximumSize, QueueDuplicate, DeletedChapterFile, Manga,
-            // SingleChapterSearchMatch.
+            // SingleChapterSearchMatch, UpgradeDisk.
             //
             // We use reflection on the loaded NzbDrone.Core assembly because the AutoMoqer test
             // container does NOT auto-discover concrete spec types via DryIoc (it falls back to
@@ -423,8 +426,8 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
                             && typeof(IMangaDecisionEngineSpecification).IsAssignableFrom(t))
                 .ToList();
 
-            specTypes.Count.Should().Be(14,
-                "exactly 14 manga decision-engine specs ship after Phase 8 cluster 06-04 backfill; "
+            specTypes.Count.Should().Be(15,
+                "exactly 15 manga decision-engine specs ship after the rss-regrab UpgradeDiskSpecification add; "
                 + "any extra suggests a TV spec was accidentally cross-tagged via "
                 + "IMangaDecisionEngineSpecification (Pitfall 6 — a class that implements both "
                 + "IMangaDecisionEngineSpecification AND IDownloadDecisionEngineSpecification "
