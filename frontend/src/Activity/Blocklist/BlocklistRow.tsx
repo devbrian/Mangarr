@@ -26,6 +26,7 @@
 //
 // Phase 8 cleanup: when Tv/ deletes, the column keys can rename to manga.X.
 import React, { useCallback, useState } from 'react';
+import parseSourceFromGuid from 'Activity/parseSourceFromGuid';
 import { useSelect } from 'App/Select/SelectContext';
 import LanguageBadge from 'Chapter/LanguageBadge';
 import IconButton from 'Components/Link/IconButton';
@@ -72,7 +73,7 @@ function BlocklistRow({
   id,
   mangaId,
   sourceTitle,
-  sourceKey,
+  releaseGuid,
   translatedLanguage,
   date,
   reason,
@@ -172,12 +173,17 @@ function BlocklistRow({
         }
 
         if (name === 'source') {
+          // Per-release source (mangadot / mangafire / …) parsed from the
+          // release guid prefix (source:mangaId:ch:lang:relId). NOT the
+          // top-level `sourceKey`, which holds the constant indexer name
+          // ("Mangarr Gateway") since Phase 39. Blank on legacy rows persisted
+          // before the guid was populated.
           return (
             <TableRowCell
               key={name}
               data-testid={`manga-blocklist-row-${id}-source`}
             >
-              {sourceKey ?? ''}
+              {parseSourceFromGuid(releaseGuid)}
             </TableRowCell>
           );
         }
