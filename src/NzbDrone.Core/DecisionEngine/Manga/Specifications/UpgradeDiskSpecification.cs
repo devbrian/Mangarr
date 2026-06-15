@@ -1,5 +1,8 @@
 using System;
+using System.IO;
+using System.Linq;
 using NLog;
+using NzbDrone.Common.Disk;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.CustomFormats;
@@ -51,6 +54,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
         private readonly ITranslationProfileService _translationProfileService;
         private readonly ICustomFormatProfileService _customFormatProfileService;
         private readonly ICustomFormatCalculationService _formatCalculator;
+        private readonly IDiskProvider _diskProvider;
         private readonly IConfigService _configService;
         private readonly Logger _logger;
 
@@ -58,6 +62,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
                                         ITranslationProfileService translationProfileService,
                                         ICustomFormatProfileService customFormatProfileService,
                                         ICustomFormatCalculationService formatCalculator,
+                                        IDiskProvider diskProvider,
                                         IConfigService configService,
                                         Logger logger)
         {
@@ -65,6 +70,7 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
             _translationProfileService = translationProfileService;
             _customFormatProfileService = customFormatProfileService;
             _formatCalculator = formatCalculator;
+            _diskProvider = diskProvider;
             _configService = configService;
             _logger = logger;
         }
@@ -101,6 +107,21 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
                     continue;
                 }
 
+                // P2 (PR #372 review): defer ChapterFile rows whose artifact is MISSING from disk
+                // to DeletedChapterFileSpecification — that spec runs in this same Disk priority
+                // bucket and emits a TEMPORARY ChapterNotMonitored rejection so the deleted-file
+                // flow can reconcile (disk-scan unmonitor) or re-download. The decision maker
+                // evaluates every spec in a bucket before stopping and MangaDownloadDecision is
+                // TemporarilyRejected only if ALL rejections are Temporary — so a PERMANENT
+                // DiskUpgradesNotAllowed/DiskNotUpgrade here for a missing file would poison that
+                // temporary path. A missing on-disk file is also a legitimate re-download trigger,
+                // so it must never become a permanent reject. Compare only files present on disk.
+                var presentFiles = existingFiles.Where(f => !IsChapterFileMissing(subject.Manga, f)).ToList();
+                if (presentFiles.Count == 0)
+                {
+                    continue;
+                }
+
                 // D-10 three-state fallback: per-Manga override wins; otherwise AND-merge per-profile flags.
                 var effectiveUpgradeAllowed = subject.Manga.UpgradeAllowedOverride
                     ?? ((translationProfile?.UpgradeAllowed ?? true) && (customFormatProfile?.UpgradeAllowed ?? false));
@@ -119,11 +140,12 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
                         "Existing chapter file present and upgrades not allowed by profile/manga override");
                 }
 
-                // Compare the incoming candidate vs each existing ChapterFile. If any existing file
-                // is at-least-as-good (better language rank, or same rank with same-or-better CF
-                // score), the candidate is not an upgrade — reject (mirrors import-side
-                // UpgradeSpecification and Sonarr UpgradeDiskSpecification's whole-release reject).
-                foreach (var existingFile in existingFiles)
+                // Compare the incoming candidate vs each existing on-disk ChapterFile. If any
+                // existing file is at-least-as-good (better language rank, or same rank with
+                // same-or-better CF score), the candidate is not an upgrade — reject (mirrors
+                // import-side UpgradeSpecification and Sonarr UpgradeDiskSpecification's
+                // whole-release reject).
+                foreach (var existingFile in presentFiles)
                 {
                     var rankCompare = CompareLanguageRank(existingFile.TranslatedLanguage, subject.Release?.TranslatedLanguage, translationProfile);
 
@@ -176,6 +198,19 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
             var existingRank = ResolveRank(existingLanguage, profile);
             var incomingRank = ResolveRank(incomingLanguage, profile);
             return existingRank.CompareTo(incomingRank);
+        }
+
+        // Mirrors DeletedChapterFileSpecification.IsChapterFileMissing — a ChapterFile row whose
+        // artifact is gone from disk is not an "existing file" for upgrade purposes.
+        private bool IsChapterFileMissing(NzbDrone.Core.Manga.Manga manga, ChapterFile chapterFile)
+        {
+            if (manga == null || chapterFile == null || chapterFile.RelativePath.IsNullOrWhiteSpace())
+            {
+                return false;
+            }
+
+            var fullPath = Path.Combine(manga.Path, chapterFile.RelativePath);
+            return !_diskProvider.FileExists(fullPath);
         }
 
         private static int ResolveRank(string language, TranslationProfile profile)

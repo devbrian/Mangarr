@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
+using NzbDrone.Common.Disk;
 using NzbDrone.Core.DecisionEngine;
 using NzbDrone.Core.DecisionEngine.Manga.Specifications;
 using NzbDrone.Core.MediaFiles;
@@ -17,6 +18,18 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
     public class UpgradeDiskSpecificationFixture
         : MangaDecisionEngineSpecFixtureBase<UpgradeDiskSpecification>
     {
+        private const string MangaPath = "/library/Test Manga";
+
+        [SetUp]
+        public void Setup()
+        {
+            // Default: existing ChapterFiles are present on disk. The missing-on-disk path
+            // (deferred to DeletedChapterFileSpecification) is exercised explicitly in its own test.
+            Mocker.GetMock<IDiskProvider>()
+                  .Setup(d => d.FileExists(It.IsAny<string>()))
+                  .Returns(true);
+        }
+
         private TranslationProfile BuildUpgradeProfile(int id, IEnumerable<string> languages, bool upgradeAllowed)
         {
             var profile = BuildTranslationProfile(id, languages);
@@ -31,7 +44,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
                 Id = id,
                 TranslatedLanguage = language,
                 ScanlationGroup = "Mangarr Gateway",
-                Path = $"/library/Test Manga/Chapter 0{id}.cbz",
+                Path = $"{MangaPath}/Chapter 0{id}.cbz",
                 RelativePath = $"Chapter 0{id}.cbz"
             };
         }
@@ -57,6 +70,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             // This is the production bug scenario: an imported chapter with the default upgrade
             // gate OFF was re-grabbed every RSS cycle. The spec must reject it.
             var rc = BuildRemoteChapter(releaseLanguage: "en", chapterId: 100);
+            rc.Manga.Path = MangaPath;
             rc.Chapters[0].ChapterFileId = 7528;
             rc.Manga.UpgradeAllowedOverride = false;
 
@@ -80,6 +94,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
                   .Returns(BuildUpgradeProfile(7, new[] { "en" }, upgradeAllowed: true));
 
             var rc = BuildRemoteChapter(releaseLanguage: "en", translationProfileId: 7, customFormatScore: 0, chapterId: 100);
+            rc.Manga.Path = MangaPath;
             rc.Chapters[0].ChapterFileId = 7528;
             rc.Manga.UpgradeAllowedOverride = true;
 
@@ -102,6 +117,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
                   .Returns(BuildUpgradeProfile(7, new[] { "en", "es" }, upgradeAllowed: true));
 
             var rc = BuildRemoteChapter(releaseLanguage: "es", translationProfileId: 7, chapterId: 100);
+            rc.Manga.Path = MangaPath;
             rc.Chapters[0].ChapterFileId = 7528;
             rc.Manga.UpgradeAllowedOverride = true;
 
@@ -124,6 +140,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
                   .Returns(BuildUpgradeProfile(7, new[] { "en", "es" }, upgradeAllowed: true));
 
             var rc = BuildRemoteChapter(releaseLanguage: "en", translationProfileId: 7, chapterId: 100);
+            rc.Manga.Path = MangaPath;
             rc.Chapters[0].ChapterFileId = 7528;
             rc.Manga.UpgradeAllowedOverride = true;
 
@@ -142,11 +159,39 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
             // ChapterFileId set but the FK resolves to no rows (orphaned) — nothing to compare;
             // let the release through rather than block on stale state.
             var rc = BuildRemoteChapter(releaseLanguage: "en", chapterId: 100);
+            rc.Manga.Path = MangaPath;
             rc.Chapters[0].ChapterFileId = 7528;
 
             Mocker.GetMock<IChapterFileService>()
                   .Setup(s => s.GetFilesByChapter(100))
                   .Returns(new List<ChapterFile>());
+
+            var result = Subject.IsSatisfiedBy(rc, new ReleaseDecisionInformation());
+
+            result.Accepted.Should().BeTrue();
+        }
+
+        [Test]
+        public void accepts_and_defers_when_existing_file_is_missing_on_disk()
+        {
+            // P2 (PR #372 review): the ChapterFile row exists but its CBZ is gone from disk.
+            // This spec must NOT emit a permanent DiskUpgradesNotAllowed/DiskNotUpgrade here —
+            // that would poison DeletedChapterFileSpecification's TEMPORARY ChapterNotMonitored
+            // rejection (both run in the Disk priority bucket; a decision is TemporarilyRejected
+            // only if ALL rejections are Temporary). A missing on-disk file is also a legitimate
+            // re-download trigger. So: skip the missing file → Accept.
+            Mocker.GetMock<IDiskProvider>()
+                  .Setup(d => d.FileExists(It.IsAny<string>()))
+                  .Returns(false);
+
+            var rc = BuildRemoteChapter(releaseLanguage: "en", chapterId: 100);
+            rc.Manga.Path = MangaPath;
+            rc.Chapters[0].ChapterFileId = 7528;
+            rc.Manga.UpgradeAllowedOverride = false; // would reject if the missing file were counted
+
+            Mocker.GetMock<IChapterFileService>()
+                  .Setup(s => s.GetFilesByChapter(100))
+                  .Returns(new List<ChapterFile> { BuildExistingFile(7528, "en") });
 
             var result = Subject.IsSatisfiedBy(rc, new ReleaseDecisionInformation());
 
