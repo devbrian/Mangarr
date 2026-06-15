@@ -72,6 +72,7 @@ function BlocklistRow({
   id,
   mangaId,
   sourceTitle,
+  sourceKey,
   translatedLanguage,
   date,
   reason,
@@ -167,6 +168,17 @@ function BlocklistRow({
               date={date}
               data-testid={`manga-blocklist-row-${id}-date`}
             />
+          );
+        }
+
+        if (name === 'source') {
+          return (
+            <TableRowCell
+              key={name}
+              data-testid={`manga-blocklist-row-${id}-source`}
+            >
+              {sourceKey ?? ''}
+            </TableRowCell>
           );
         }
 

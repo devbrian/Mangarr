@@ -57,6 +57,7 @@ interface HistoryRowProps {
   chapterId?: number;
   translatedLanguage?: string;
   scanlationGroup?: string;
+  sourceKey?: string;
   eventType: ChapterHistoryEventType;
   sourceTitle?: string;
   date: string;
@@ -75,6 +76,7 @@ function HistoryRow(props: HistoryRowProps) {
     chapterId,
     translatedLanguage,
     scanlationGroup,
+    sourceKey,
     eventType,
     sourceTitle,
     date,
@@ -211,6 +213,19 @@ function HistoryRow(props: HistoryRowProps) {
         if (name === 'scanlationGroup') {
           return (
             <TableRowCell key={name}>{scanlationGroup ?? ''}</TableRowCell>
+          );
+        }
+
+        if (name === 'source') {
+          // sourceKey is a TOP-LEVEL field on ChapterHistory (not the
+          // GrabbedHistoryData payload) — render the top-level prop.
+          return (
+            <TableRowCell
+              key={name}
+              data-testid={`manga-history-row-${id}-source`}
+            >
+              {sourceKey ?? ''}
+            </TableRowCell>
           );
         }
 

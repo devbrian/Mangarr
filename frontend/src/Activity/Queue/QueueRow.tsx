@@ -91,6 +91,7 @@ interface QueueRowProps {
   errorMessage?: string;
   protocol: DownloadProtocol;
   indexer?: string;
+  sourceKey?: string;
   outputPath?: string;
   downloadClient?: string;
   downloadClientHasPostImportCategory: boolean;
@@ -125,6 +126,7 @@ function QueueRow(props: QueueRowProps) {
     scanlationGroup,
     protocol,
     indexer,
+    sourceKey,
     outputPath,
     downloadClient,
     downloadClientHasPostImportCategory,
@@ -344,6 +346,17 @@ function QueueRow(props: QueueRowProps) {
 
         if (name === 'indexer') {
           return <TableRowCell key={name}>{indexer}</TableRowCell>;
+        }
+
+        if (name === 'source') {
+          return (
+            <TableRowCell
+              key={name}
+              data-testid={`manga-queue-row-${id}-source`}
+            >
+              {sourceKey ?? ''}
+            </TableRowCell>
+          );
         }
 
         if (name === 'downloadClient') {

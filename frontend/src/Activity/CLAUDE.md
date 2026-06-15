@@ -136,6 +136,14 @@ The Activity Queue / History / Blocklist row components were rewritten to consum
 
 **Phase 8 cleanup target:** when Tv/ deletes, the column keys can rename to `manga.X` / `chapter.X` (one-off Zustand migration at that point). The MangaQueue / MangaHistory / MangaBlocklist thin wrappers collapse into the page components.
 
+## Source column (quick-260615-edl) — per-release source-key attribution
+
+All three Activity tables (Queue / History / Blocklist) carry a toggleable **"Source"** column, **visible by default**, rendering the per-release `sourceKey` (the gateway's underlying manga source — e.g. `mangadex`, `comix.to`). Since Phase 39 retired the in-process scrapers and `GatewayIndexer` became the sole indexer, the existing (hidden) "Indexer" column is always the literal string "Gateway" and can no longer distinguish releases; the `sourceKey` (= `ReleaseInfo.Source`) is now the meaningful per-release attribution.
+
+- **Column key** `source` (visible-by-default, `isSortable: false`); registered in `queueOptionsStore.ts` (after `scanlationGroup`, before `protocol`), `historyOptionsStore.ts` (after `scanlationGroup`, before `date`), and `blocklistOptionsStore.ts` (after `translatedLanguage`, before `date`). Reuses the existing `translate('Source')` i18n key — no new key. No store-name bump (a visible column addition is spliced into place by `useOptionsStore.mergeColumns()` for existing persisted users).
+- **Cell render** in each Row's `columns.map` switch on `name === 'source'`, rendering the top-level `sourceKey` prop (empty-string fallback) with the table's `data-testid` convention (`manga-{queue,history,blocklist}-row-${id}-source`).
+- **Wire shape:** History (`ChapterHistory.sourceKey`) and Blocklist (`MangaBlocklist.sourceKey`) already carried `sourceKey` end-to-end. The manga Queue was the backend gap — `MangaQueueResource.SourceKey` (sourced from `ReleaseInfo.Source` in `MangaQueueService.MapQueueItem`) + `typings/MangaQueueItem.ts` `sourceKey?` closed it (see `src/Mangarr.Api.V5/Manga/Queue/CLAUDE.md`).
+
 ## Cross-References
 
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview

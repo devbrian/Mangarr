@@ -62,6 +62,12 @@ const { useOptions, useOption, setOptions, setOption, setSort } =
           isVisible: true,
         },
         {
+          name: 'source',
+          label: () => translate('Source'),
+          isSortable: false,
+          isVisible: true,
+        },
+        {
           name: 'date',
           label: () => translate('Date'),
           isSortable: true,
