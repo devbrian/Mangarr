@@ -36,6 +36,11 @@ namespace NzbDrone.Core.Queue.Manga
         public RemoteChapter RemoteChapter { get; set; }
         public string TranslatedLanguage { get; set; }
         public string ScanlationGroup { get; set; }
+
+        // Carries ReleaseInfo.Source — the gateway's SourceKey (e.g. mangadex / comix.to),
+        // the manga-useful per-release identifier now that GatewayIndexer is the sole indexer
+        // and Indexer is always "Gateway". Mirrors ChapterHistory.SourceKey / MangaBlocklist.SourceKey.
+        public string SourceKey { get; set; }
         public long Size { get; set; }
         public string Title { get; set; }
         public decimal SizeLeft { get; set; }

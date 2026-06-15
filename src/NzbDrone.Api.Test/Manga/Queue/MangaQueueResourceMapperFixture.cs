@@ -61,5 +61,24 @@ namespace NzbDrone.Api.Test.Manga.Queue
             resource.TrackedDownloadStatus.Should().BeNull();
             resource.TrackedDownloadState.Should().BeNull();
         }
+
+        [Test]
+        public void ToResource_carries_SourceKey_verbatim()
+        {
+            // SourceKey is a plain string (the gateway SourceKey from ReleaseInfo.Source) — it
+            // serializes verbatim and must NOT be camelCased by FirstCharToLower (that helper is
+            // only for the enum-ToString status fields per GH #307).
+            var resource = new MangaQueueItem { SourceKey = "comix.to" }.ToResource();
+
+            resource!.SourceKey.Should().Be("comix.to");
+        }
+
+        [Test]
+        public void ToResource_leaves_null_SourceKey_null()
+        {
+            var resource = new MangaQueueItem { SourceKey = null }.ToResource();
+
+            resource!.SourceKey.Should().BeNull();
+        }
     }
 }

@@ -28,6 +28,7 @@
 // Phase 8 cleanup: when Tv/ deletes, the column keys can rename to manga.X /
 // chapter.X (one-off Zustand migration at that point).
 import React, { useCallback, useState } from 'react';
+import parseSourceFromGuid from 'Activity/parseSourceFromGuid';
 import ChapterNumber from 'Chapter/ChapterNumber';
 import ChapterTitleLink from 'Chapter/ChapterTitleLink';
 import LanguageBadge from 'Chapter/LanguageBadge';
@@ -57,6 +58,8 @@ interface HistoryRowProps {
   chapterId?: number;
   translatedLanguage?: string;
   scanlationGroup?: string;
+  sourceKey?: string;
+  releaseGuid?: string;
   eventType: ChapterHistoryEventType;
   sourceTitle?: string;
   date: string;
@@ -75,6 +78,7 @@ function HistoryRow(props: HistoryRowProps) {
     chapterId,
     translatedLanguage,
     scanlationGroup,
+    releaseGuid,
     eventType,
     sourceTitle,
     date,
@@ -211,6 +215,22 @@ function HistoryRow(props: HistoryRowProps) {
         if (name === 'scanlationGroup') {
           return (
             <TableRowCell key={name}>{scanlationGroup ?? ''}</TableRowCell>
+          );
+        }
+
+        if (name === 'source') {
+          // The per-release source (mangadot / mangafire / …) lives in the
+          // leading segment of the release guid (source:mangaId:ch:lang:relId).
+          // The top-level `sourceKey` field is NOT used here — since Phase 39
+          // it holds the constant indexer name ("Mangarr Gateway"). Blank for
+          // imported events (no guid) and legacy rows persisted pre-guid-fix.
+          return (
+            <TableRowCell
+              key={name}
+              data-testid={`manga-history-row-${id}-source`}
+            >
+              {parseSourceFromGuid(releaseGuid)}
+            </TableRowCell>
           );
         }
 

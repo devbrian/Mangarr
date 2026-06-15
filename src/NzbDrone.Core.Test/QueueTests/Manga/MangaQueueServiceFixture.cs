@@ -63,6 +63,7 @@ namespace NzbDrone.Core.Test.QueueTests.Manga
                     Title = "Test Manga - 0001",
                     Guid = $"g-{mangaId}",
                     Indexer = "MangaDex",
+                    Source = "mangadex",
                     TranslatedLanguage = "en",
                     ScanlationGroup = "TestGroup"
                 }
@@ -254,6 +255,7 @@ namespace NzbDrone.Core.Test.QueueTests.Manga
             item.TranslatedLanguage.Should().Be("en");
             item.ScanlationGroup.Should().Be("TestGroup");
             item.Indexer.Should().Be("MangaDex");
+            item.SourceKey.Should().Be("mangadex");
         }
 
         [Test]

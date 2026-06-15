@@ -136,6 +136,18 @@ The Activity Queue / History / Blocklist row components were rewritten to consum
 
 **Phase 8 cleanup target:** when Tv/ deletes, the column keys can rename to `manga.X` / `chapter.X` (one-off Zustand migration at that point). The MangaQueue / MangaHistory / MangaBlocklist thin wrappers collapse into the page components.
 
+## Source column (quick-260615-edl) — per-release source-key attribution
+
+All three Activity tables (Queue / History / Blocklist) carry a toggleable **"Source"** column, **visible by default**, rendering the per-release source (the gateway's underlying manga source — e.g. `mangadot`, `mangafire`, `mangadex`). Since Phase 39 retired the in-process scrapers and `GatewayIndexer` became the sole indexer, the existing (hidden) "Indexer" column is always the literal string "Gateway" and can no longer distinguish releases; the per-release source is now the meaningful attribution.
+
+**⚠ The source value comes from a DIFFERENT field per surface (live-verified 2026-06-15) — they are NOT uniform.** The top-level `sourceKey` field on History/Blocklist holds the CONSTANT indexer name (`"Mangarr Gateway"`), not the per-release source — rendering it would show the same useless string on every row. Only the **Queue** surface's `sourceKey` (= `ReleaseInfo.Source` = `GatewayRelease.SourceKey`) carries the real per-source token. For History/Blocklist the real source lives in the **leading colon-segment of the release guid** (`source:mangaId:ch:lang:relId`), which is verified to equal the gateway's `sourceKey` token (`mangafire:…` ⇒ `mangafire`).
+
+- **Column key** `source` (visible-by-default, `isSortable: false`); registered in `queueOptionsStore.ts` (after `scanlationGroup`, before `protocol`), `historyOptionsStore.ts` (after `scanlationGroup`, before `date`), and `blocklistOptionsStore.ts` (after `translatedLanguage`, before `date`). Reuses the existing `translate('Source')` i18n key — no new key. No store-name bump (a visible column addition is spliced into place by `useOptionsStore.mergeColumns()` for existing persisted users).
+- **Cell render** in each Row's `columns.map` switch on `name === 'source'`, with the `data-testid` convention (`manga-{queue,history,blocklist}-row-${id}-source`):
+  - **Queue** — renders the top-level `sourceKey` prop directly (empty-string fallback). This is the only surface whose `sourceKey` is the real per-release source.
+  - **History / Blocklist** — render `parseSourceFromGuid(releaseGuid)` (`Activity/parseSourceFromGuid.ts` — splits on the first `:`). Blank for imported-history events (which carry no release guid) and for legacy blocklist rows persisted before the guid was populated (`260613-gtv`).
+- **Wire shape:** History (`ChapterHistory.releaseGuid`) and Blocklist (`MangaBlocklist.releaseGuid`) already carried the guid end-to-end. The manga Queue was the backend gap — `MangaQueueResource.SourceKey` (sourced from `ReleaseInfo.Source` in `MangaQueueService.MapQueueItem`) + `typings/MangaQueueItem.ts` `sourceKey?` closed it (see `src/Mangarr.Api.V5/Manga/Queue/CLAUDE.md`).
+
 ## Cross-References
 
 - [../../CLAUDE.md](../../CLAUDE.md) — Frontend overview

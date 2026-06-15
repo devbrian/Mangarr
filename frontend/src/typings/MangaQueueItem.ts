@@ -60,6 +60,7 @@ export interface MangaQueueItem extends ModelBase {
   errorMessage?: string;
   downloadId?: string;
   indexer?: string;
+  sourceKey?: string;
   outputPath?: string;
   protocol: DownloadProtocol;
   downloadClient?: string;
