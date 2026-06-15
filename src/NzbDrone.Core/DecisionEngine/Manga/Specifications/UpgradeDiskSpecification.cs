@@ -202,14 +202,28 @@ namespace NzbDrone.Core.DecisionEngine.Manga.Specifications
 
         // Mirrors DeletedChapterFileSpecification.IsChapterFileMissing — a ChapterFile row whose
         // artifact is gone from disk is not an "existing file" for upgrade purposes.
+        //
+        // Path resolution mirrors the deleted-file spec (Combine(manga.Path, RelativePath)) with a
+        // fallback to the absolute ChapterFile.Path for legacy/partially-populated rows that lack a
+        // RelativePath. When NEITHER resolves to a usable path we treat the row as MISSING (true) so
+        // it is skipped rather than converted into a permanent reject — an unconfirmable on-disk
+        // state must never block deleted-file reconciliation or a legitimate re-download.
         private bool IsChapterFileMissing(NzbDrone.Core.Manga.Manga manga, ChapterFile chapterFile)
         {
-            if (manga == null || chapterFile == null || chapterFile.RelativePath.IsNullOrWhiteSpace())
+            if (manga == null || chapterFile == null)
             {
                 return false;
             }
 
-            var fullPath = Path.Combine(manga.Path, chapterFile.RelativePath);
+            var fullPath = chapterFile.RelativePath.IsNullOrWhiteSpace()
+                ? chapterFile.Path
+                : Path.Combine(manga.Path, chapterFile.RelativePath);
+
+            if (fullPath.IsNullOrWhiteSpace())
+            {
+                return true;
+            }
+
             return !_diskProvider.FileExists(fullPath);
         }
 

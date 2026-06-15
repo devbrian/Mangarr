@@ -197,5 +197,54 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.Manga
 
             result.Accepted.Should().BeTrue();
         }
+
+        [Test]
+        public void rejects_using_absolute_Path_when_RelativePath_is_blank_and_file_present()
+        {
+            // Legacy/partially-populated row: no RelativePath, but the absolute Path resolves and
+            // the file is present on disk → counted as an existing file → upgrade gate applies.
+            var existing = BuildExistingFile(7528, "en");
+            existing.RelativePath = string.Empty; // force the Path fallback branch
+
+            var rc = BuildRemoteChapter(releaseLanguage: "en", chapterId: 100);
+            rc.Manga.Path = MangaPath;
+            rc.Chapters[0].ChapterFileId = 7528;
+            rc.Manga.UpgradeAllowedOverride = false;
+
+            Mocker.GetMock<IDiskProvider>()
+                  .Setup(d => d.FileExists(existing.Path))
+                  .Returns(true);
+            Mocker.GetMock<IChapterFileService>()
+                  .Setup(s => s.GetFilesByChapter(100))
+                  .Returns(new List<ChapterFile> { existing });
+
+            var result = Subject.IsSatisfiedBy(rc, new ReleaseDecisionInformation());
+
+            result.Accepted.Should().BeFalse();
+            result.Reason.Should().Be(DownloadRejectionReason.DiskUpgradesNotAllowed);
+        }
+
+        [Test]
+        public void accepts_when_path_metadata_is_unresolvable()
+        {
+            // Neither RelativePath nor Path resolves → on-disk state unconfirmable → treat as
+            // missing and skip, so we never convert an unresolvable row into a permanent reject.
+            var existing = BuildExistingFile(7528, "en");
+            existing.RelativePath = string.Empty;
+            existing.Path = string.Empty;
+
+            var rc = BuildRemoteChapter(releaseLanguage: "en", chapterId: 100);
+            rc.Manga.Path = MangaPath;
+            rc.Chapters[0].ChapterFileId = 7528;
+            rc.Manga.UpgradeAllowedOverride = false; // would reject if the row were counted
+
+            Mocker.GetMock<IChapterFileService>()
+                  .Setup(s => s.GetFilesByChapter(100))
+                  .Returns(new List<ChapterFile> { existing });
+
+            var result = Subject.IsSatisfiedBy(rc, new ReleaseDecisionInformation());
+
+            result.Accepted.Should().BeTrue();
+        }
     }
 }
