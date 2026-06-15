@@ -27,6 +27,11 @@ namespace Mangarr.Api.V5.Manga.Queue
         public List<int>? ChapterIds { get; set; }
         public string? TranslatedLanguage { get; set; }
         public string? ScanlationGroup { get; set; }
+
+        // The gateway SourceKey carried from ReleaseInfo.Source (e.g. mangadex / comix.to) — the
+        // manga-useful per-release identifier now that GatewayIndexer is the sole indexer and
+        // Indexer is always "Gateway". Mirrors ChapterHistoryResource.SourceKey / MangaBlocklistResource.SourceKey.
+        public string? SourceKey { get; set; }
         public long Size { get; set; }
         public string? Title { get; set; }
         public decimal SizeLeft { get; set; }
@@ -71,6 +76,11 @@ namespace Mangarr.Api.V5.Manga.Queue
                 ChapterIds = model.Chapters?.Select(c => c.Id).ToList(),
                 TranslatedLanguage = model.TranslatedLanguage,
                 ScanlationGroup = model.ScanlationGroup,
+
+                // Plain string (gateway SourceKey from ReleaseInfo.Source) — serializes verbatim.
+                // NOT an enum, so do NOT apply FirstCharToLower (that helper is only for the
+                // enum-ToString status fields per GH #307).
+                SourceKey = model.SourceKey,
                 Size = model.Size,
                 Title = model.Title,
                 SizeLeft = model.SizeLeft,

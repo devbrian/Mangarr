@@ -159,6 +159,7 @@ namespace NzbDrone.Core.Queue.Manga
                 RemoteChapter = rc,
                 TranslatedLanguage = rc?.Release?.TranslatedLanguage,
                 ScanlationGroup = rc?.Release?.ScanlationGroup,
+                SourceKey = rc?.Release?.Source,
                 Size = td.DownloadItem?.TotalSize ?? 0,
                 Title = td.DownloadItem?.Title,
                 SizeLeft = td.DownloadItem?.RemainingSize ?? 0,
