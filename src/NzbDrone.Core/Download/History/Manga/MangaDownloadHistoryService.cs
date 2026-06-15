@@ -106,6 +106,15 @@ namespace NzbDrone.Core.Download.History.Manga
             history.Data.Add("translatedLanguage", remote.Release?.TranslatedLanguage ?? string.Empty);
             history.Data.Add("guid", remote.Release?.Guid ?? string.Empty);
 
+            // Persist the per-release "source" token (the upstream gateway SourceKey, e.g.
+            // "mangadot"/"comix" — NOT the "Mangarr Gateway" indexer name) so MapFromHistory can
+            // rehydrate RemoteChapter.Release.Source on the queue path. Without it the Queue table's
+            // Source column renders blank: unlike language/scanlation group the source key is NOT
+            // encoded in the download title, so the title re-parse cannot recover it. Same
+            // `?? string.Empty` sentinel as the sibling keys; a legacy row missing this key reads
+            // back as null via ReadData.
+            history.Data.Add("source", remote.Release?.Source ?? string.Empty);
+
             // Insert-FIRST — synchronous before Handle returns (Pitfall: a poll right after grab
             // must find this row via GetLatestGrab).
             _repository.Insert(history);

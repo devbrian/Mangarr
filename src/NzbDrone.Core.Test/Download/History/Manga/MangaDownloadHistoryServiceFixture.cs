@@ -43,6 +43,7 @@ namespace NzbDrone.Core.Test.Download.History.Manga
                 {
                     Title = "Test Manga - Chapter 001",
                     Indexer = "MangaDex",
+                    Source = "mangadot",
                     Guid = "guid-1",
                     DownloadProtocol = DownloadProtocol.Http
                 }
@@ -80,6 +81,23 @@ namespace NzbDrone.Core.Test.Download.History.Manga
             Mocker.GetMock<IMangaDownloadHistoryRepository>().Verify(r => r.Insert(It.Is<MangaDownloadHistory>(h =>
                 h.Data.ContainsKey("guid") &&
                 h.Data["guid"] == "guid-1")),
+                Times.Once);
+        }
+
+        // Queue-source fix — the grab handler persists the per-release source token into the Data
+        // dictionary so MapFromHistory can rehydrate RemoteChapter.Release.Source for the Queue
+        // table's Source column (BuildRemote sets Source = "mangadot"). The source key is NOT
+        // encoded in the download title, so without this key the queue re-parse leaves it null.
+        [Test]
+        public void Handle_ChapterGrabbedEvent_persists_release_source_in_data()
+        {
+            var remote = BuildRemote(_manga, 42);
+
+            Subject.Handle(new ChapterGrabbedEvent(remote, "dl-s", "InProcess"));
+
+            Mocker.GetMock<IMangaDownloadHistoryRepository>().Verify(r => r.Insert(It.Is<MangaDownloadHistory>(h =>
+                h.Data.ContainsKey("source") &&
+                h.Data["source"] == "mangadot")),
                 Times.Once);
         }
 
