@@ -227,8 +227,9 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
 
             result.Should().HaveCount(1);
 
-            // Approved decision carrying an error message → Skipped; never a successful (Imported) result.
-            result[0].Result.Should().NotBe(MangaImportResultType.Imported);
+            // Approved decision carrying an error message → Skipped (MangaImportResult.Result:
+            // Approved && Errors.Any() ⇒ Skipped); never a successful (Imported) result.
+            result[0].Result.Should().Be(MangaImportResultType.Skipped);
 
             // No ChapterFile row is written (the move threw before the DB step) and neither the success
             // nor the failure event fires — the canonical handler only rejects + queues a rescan.
