@@ -13,7 +13,7 @@ Parallel manga decision-engine pipeline per Phase 5 D-05 — sibling to the TV `
 | `MangaDownloadDecision.cs` | DTO with `RemoteChapter` + `Rejections` |
 | `MangaDownloadDecisionMaker.cs` | IMakeMangaDownloadDecision impl — priority-grouped spec exec + CF augmentation |
 | `MangaDownloadDecisionComparer.cs` | IComparer<MangaDownloadDecision> with D-08 ordering |
-| `Specifications/` | 11 auto-discovered specs (5 core + 1 language + 1 CF + 4 operational) |
+| `Specifications/` | 15 auto-discovered specs (5 core + 1 language + 1 CF + 4 operational + 4 backfilled: DeletedChapterFile, Manga, SingleChapterSearchMatch, **UpgradeDisk**). `UpgradeDiskSpecification` (debug `rss-regrab-existing-chapter`, 2026-06-15) is the `Priority=Disk` decision-side peer of import-side `UpgradeSpecification` — rejects re-grabbing an already-imported chapter (`DiskUpgradesNotAllowed` / `DiskNotUpgrade`), closing the gap left by the Phase 5 D-04 quality-model drop. |
 
 ## Patterns / Conventions
 - **Compile-error-driven additive contract** (Phase 3 LEARNINGS pattern): `IMangaDecisionEngineSpecification(RemoteChapter)` is a NEW interface, not a method on `IDownloadDecisionEngineSpecification`. TV specs cannot accidentally fire on manga.
