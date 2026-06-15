@@ -214,6 +214,15 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                         var perRowOverwrite =
                             lc.ExistingFileBehavior == ExistingFileBehavior.Replace
                             || overwriteExisting;
+
+                        // A no-overwrite collision (computed library destination already holds a file
+                        // while the chapter has NO ChapterFile DB row) surfaces as FileAlreadyExistsException
+                        // from DiskProviderBase.MoveFile. That is routed into the canonical
+                        // destination-already-exists handler below (reject + Warn + RescanMangaCommand),
+                        // mirroring Sonarr ImportApprovedEpisodes — the import is rejected and a library
+                        // scan reconciles the orphan, rather than the importer adopting it (debug:
+                        // import-retry-loop-file-exists). An explicit Replace / overwriteExisting deletes the
+                        // destination first inside MoveFile, so this collision cannot occur in that case.
                         _diskProvider.MoveFile(lc.Path, destinationPath, perRowOverwrite);
                     }
 
@@ -349,18 +358,23 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                     });
                     importResults.Add(new MangaImportResult(decision, $"Root folder missing: {ex.Message}"));
                 }
-                catch (DestinationAlreadyExistsException ex)
+                catch (Exception ex) when (ex is DestinationAlreadyExistsException or FileAlreadyExistsException)
                 {
                     // Phase 8 audit gap-01 — mirrors ImportApprovedEpisodes lines 181-187.
-                    // Two-source race: a chapter file already lives at the destination
-                    // (e.g., user manually dropped the CBZ while auto-import was running).
-                    // Log Warn, surface a Rejected import result, and queue a
-                    // RescanMangaCommand so a future disk-scan reconciles the orphan
-                    // file into the DB instead of the manga showing as "missing chapter"
-                    // forever. NB: no IExecute<RescanMangaCommand> handler exists yet
-                    // (deferred to follow-up plan); the command is queued and silently
-                    // dropped until the handler ships. The reject result + Warn log
-                    // remain valuable diagnostics in the meantime.
+                    // Destination-already-exists: a chapter file already lives at the computed library
+                    // destination while the chapter has no ChapterFile DB row (a user manually dropped the
+                    // CBZ, an earlier import moved the file but lost its DB row, etc.). The DiskProviderBase
+                    // move path throws FileAlreadyExistsException; a higher-level moving-service path would
+                    // throw DestinationAlreadyExistsException — both are the SAME logical condition and are
+                    // handled identically here (debug: import-retry-loop-file-exists; the two types share no
+                    // inheritance, so catching only one silently dropped FileAlreadyExistsException into the
+                    // generic catch below → ERROR + stack trace re-driven every completed-download cycle).
+                    //
+                    // Sonarr-canonical outcome: log Warn, surface a Rejected import result, and queue a
+                    // RescanMangaCommand so the disk-scan (MangaDiskScanService : IExecute<RescanMangaCommand>)
+                    // reconciles the orphan file into the DB — import moves NEW files, scan adopts EXISTING
+                    // files. The queue row stays visible as failed-to-import ("destination already exists")
+                    // rather than the importer silently adopting an unexpected on-disk file.
                     _logger.Warn(ex, "Couldn't import chapter {0}", lc.Chapter?.ChapterNumber);
                     importResults.Add(new MangaImportResult(decision, $"Failed to import chapter, Destination already exists: {ex.Message}"));
 

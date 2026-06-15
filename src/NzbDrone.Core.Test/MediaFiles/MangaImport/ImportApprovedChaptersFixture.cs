@@ -10,7 +10,10 @@ using NzbDrone.Core.Download;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo;
+using NzbDrone.Core.MediaFiles.Commands;
 using NzbDrone.Core.MediaFiles.MangaImport;
+using NzbDrone.Core.MediaFiles.MangaImport.Manual;
+using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
 using NzbDrone.Core.Organizer.Manga;
 using NzbDrone.Core.Parser.Model;
@@ -202,6 +205,68 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
                 .Verify(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()), Times.Never);
 
             ExceptionVerification.ExpectedErrors(1);
+        }
+
+        [Test]
+        public void should_reject_and_queue_rescan_when_destination_already_exists()
+        {
+            // debug: import-retry-loop-file-exists — the chapter has NO ChapterFile row but the
+            // computed library destination already holds a file (orphan-on-disk). DiskProviderBase.MoveFile
+            // throws FileAlreadyExistsException — a DIFFERENT, unrelated type from the
+            // DestinationAlreadyExistsException the canonical handler caught, so pre-fix it fell through to
+            // the generic catch (ERROR + stack trace) and MangaCompletedDownloadService re-drove the row
+            // every completed-download cycle (infinite loop). Sonarr-canonical outcome (mirrors
+            // ImportApprovedEpisodes): reject the import ("destination already exists") + log Warn + queue a
+            // RescanMangaCommand so the disk-scan reconciles the orphan into the DB. The importer must NOT
+            // silently adopt the on-disk file — import moves NEW files, scan adopts EXISTING ones.
+            Mocker.GetMock<IDiskProvider>()
+                .Setup(d => d.MoveFile(_stagingPath, _destPath, false))
+                .Throws(new FileAlreadyExistsException("File already exists", _destPath));
+
+            var result = Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
+
+            result.Should().HaveCount(1);
+
+            // Approved decision carrying an error message → Skipped (MangaImportResult.Result:
+            // Approved && Errors.Any() ⇒ Skipped); never a successful (Imported) result.
+            result[0].Result.Should().Be(MangaImportResultType.Skipped);
+
+            // No ChapterFile row is written (the move threw before the DB step) and neither the success
+            // nor the failure event fires — the canonical handler only rejects + queues a rescan.
+            Mocker.GetMock<IChapterFileService>().Verify(c => c.Add(It.IsAny<ChapterFile>()), Times.Never);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()), Times.Never);
+            Mocker.GetMock<IEventAggregator>()
+                .Verify(e => e.PublishEvent(It.IsAny<ChapterImportFailedEvent>()), Times.Never);
+
+            // Sonarr-canonical: a RescanMangaCommand for this manga is queued so the disk-scan
+            // (MangaDiskScanService : IExecute<RescanMangaCommand>) reconciles the orphan into the DB.
+            Mocker.GetMock<IManageCommandQueue>()
+                .Verify(q => q.Push(
+                        It.Is<RescanMangaCommand>(r => r.MangaId == _manga.Id),
+                        It.IsAny<CommandPriority>(),
+                        It.IsAny<CommandTrigger>()),
+                    Times.Once);
+
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
+        public void should_pass_overwrite_true_to_MoveFile_when_replace_requested()
+        {
+            // ExistingFileBehavior.Replace must reach the disk as overwrite:true so DiskProviderBase
+            // deletes any existing destination BEFORE the move (a collision cannot occur in that case —
+            // which is why the reject path above is gated on the no-overwrite scenario). Verifies the
+            // per-row overwrite plumbing distinct from the destination-already-exists reject path.
+            var decision = ApprovedDecision();
+            decision.LocalChapter.ExistingFileBehavior = ExistingFileBehavior.Replace;
+
+            var result = Subject.Import(new List<MangaImportDecision> { decision }, true, _downloadClientItem);
+
+            result.Should().HaveCount(1);
+            result[0].Result.Should().Be(MangaImportResultType.Imported);
+            Mocker.GetMock<IDiskProvider>()
+                .Verify(d => d.MoveFile(_stagingPath, _destPath, true), Times.Once);
         }
 
         // ---------------------------------------------------------------------
