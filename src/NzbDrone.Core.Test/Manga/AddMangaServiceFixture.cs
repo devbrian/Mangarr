@@ -506,6 +506,69 @@ namespace NzbDrone.Core.Test.MangaTests
                 "WR-13: implementation-type matching must survive a user rename of the Name field");
         }
 
+        // ── MangaBaka-only add (default v1.3 primary; entry has NO big-3 cross-link) ──────────
+
+        [Test]
+        public void Add_persists_MangaBaka_only_manga_when_primary_is_MangaBaka()
+        {
+            // MangaBaka is the v1.3 default primary; its catalog entries frequently carry no
+            // MangaDex/MAL/AniList link. ResolveSourceIdForPrimary maps MangaBakaMetadataSource ->
+            // MangaBakaId, so an add anchored solely on MangaBakaId must succeed.
+            var bakaResult = new Manga.Manga
+            {
+                Title = "MangaBaka Only",
+                MangaBakaId = 187047,
+                PublicationYear = 2021,
+                PrimaryAuthor = "Some Author",
+                TotalChapterCount = 50,
+            };
+
+            var bakaPrimaryDef = new MetadataSourceDefinition
+            {
+                Id = 4,
+                Name = "MangaBaka",
+                Implementation = nameof(NzbDrone.Core.MetadataSource.MangaBaka.MangaBakaMetadataSource),
+                IsPrimary = true,
+            };
+
+            var bakaProvider = new StubMangaBakaProvider(bakaResult);
+
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetPrimary())
+                  .Returns(bakaPrimaryDef);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(bakaProvider);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.All())
+                  .Returns(new List<MetadataSourceDefinition> { bakaPrimaryDef });
+
+            var newManga = new Manga.Manga { MangaBakaId = 187047, Title = "MangaBaka Only", RootFolderPath = "C:\\Test" };
+
+            var result = Subject.AddManga(newManga);
+
+            Mocker.GetMock<IMangaService>().Verify(m => m.AddManga(It.IsAny<Manga.Manga>()), Times.Once());
+            result.Should().NotBeNull();
+            result.MangaBakaId.Should().Be(187047);
+        }
+
+        [Test]
+        public void Add_rejects_duplicate_MangaBaka_only_manga()
+        {
+            // Widening the controller PostValidator to accept MangaBakaId must not let the same
+            // MangaBaka-only manga be added twice: PrepareForAdd guards via FindByMangaBakaId.
+            Mocker.GetMock<IMangaService>()
+                  .Setup(m => m.FindByMangaBakaId(50102))
+                  .Returns(new Manga.Manga { Id = 99, MangaBakaId = 50102, Title = "Already Here" });
+
+            var newManga = new Manga.Manga { MangaBakaId = 50102, Title = "Dup", RootFolderPath = "C:\\Test" };
+
+            Action add = () => Subject.AddManga(newManga);
+
+            add.Should().Throw<InvalidOperationException>().WithMessage("*MangaBaka ID 50102 already exists*");
+            Mocker.GetMock<IMangaService>().Verify(m => m.AddManga(It.IsAny<Manga.Manga>()), Times.Never());
+        }
+
         // ---- Stub providers ----
 
         private class StubMangaDexProvider : MangaDexMetadataSource
@@ -536,6 +599,24 @@ namespace NzbDrone.Core.Test.MangaTests
             {
                 _result = result;
                 Definition = new MetadataSourceDefinition { Id = 2, Name = "AniList", IsPrimary = false };
+            }
+
+            public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)
+                => Tuple.Create(_result, Enumerable.Empty<Chapter>());
+
+            public override List<Manga.Manga> SearchForNewManga(string title) => SearchHits;
+        }
+
+        private class StubMangaBakaProvider : NzbDrone.Core.MetadataSource.MangaBaka.MangaBakaMetadataSource
+        {
+            private readonly Manga.Manga _result;
+            public List<Manga.Manga> SearchHits { get; set; } = new();
+
+            public StubMangaBakaProvider(Manga.Manga result)
+                : base(new Mock<IHttpClient>().Object, LogManager.GetCurrentClassLogger())
+            {
+                _result = result;
+                Definition = new MetadataSourceDefinition { Id = 4, Name = "MangaBaka", IsPrimary = true };
             }
 
             public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)

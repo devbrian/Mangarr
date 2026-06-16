@@ -67,11 +67,17 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
 
         SharedValidator.RuleFor(m => m.Title).NotEmpty();
 
-        // POST requires at least one cross-source ID — AddMangaService dedup +
-        // CrossSourceIdResolver both key off MangaDex/MAL/AniList IDs (Plan 02-09).
+        // POST requires at least one cross-source ID to anchor + dedup on. MangaBakaId is
+        // accepted alongside the original Plan 02-09 trio: MangaBaka is the v1.3 default
+        // primary source (its catalog entries frequently carry NO MangaDex/MAL/AniList
+        // cross-link), and AddMangaService.ResolveSourceIdForPrimary already maps
+        // MangaBakaMetadataSource -> MangaBakaId, so a MangaBaka-only add is fully supported
+        // below this validator (the dedup guard in PrepareForAdd matches via FindByMangaBakaId).
+        // Without MangaBakaId here, the controller rejected perfectly-addable MangaBaka-primary
+        // titles with no big-3 link.
         PostValidator.RuleFor(m => m).Must(r =>
-                r.MangaDexId.HasValue || r.MalId.HasValue || r.AniListId.HasValue)
-            .WithMessage("At least one of MangaDexId / MalId / AniListId must be set");
+                r.MangaDexId.HasValue || r.MalId.HasValue || r.AniListId.HasValue || r.MangaBakaId.HasValue)
+            .WithMessage("At least one of MangaDexId / MalId / AniListId / MangaBakaId must be set");
     }
 
     [HttpGet]
