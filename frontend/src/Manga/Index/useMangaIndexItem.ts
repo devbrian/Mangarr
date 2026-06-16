@@ -26,8 +26,15 @@ export function useMangaIndexItem(mangaId: number) {
     mangaIds: [mangaId],
   });
 
+  // The constraint body MUST mirror the dispatched MangaSearch payload shape
+  // (`mangaIds: [mangaId]`) — useCommand() matches constraints against the live
+  // command's `body`, and MangaSearchCommand binds `MangaIds: List<int>`
+  // (plural). A singular `{ mangaId }` constraint never matches the running
+  // command (`command.body.mangaId` is undefined), so isSearchingManga stays
+  // false forever and the search SpinnerIconButton never spins — no click
+  // feedback. Mirrors isRefreshingManga above + MangaDetails.isSearching.
   const isSearchingManga = useCommandExecuting(CommandNames.MangaSearch, {
-    mangaId,
+    mangaIds: [mangaId],
   });
 
   return {
