@@ -128,8 +128,11 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
   // History toolbar button activates the in-page History tab (Plan 07-09 sibling
   // already shipped in PR #21 — reuses MangaDetailsHistory.tsx). Per-row analogs
   // live in MangaIndexRow.onRefreshPress / onSearchPress; canonical command name
-  // + payload shapes mirror that file (CommandNames.RefreshManga uses
-  // `mangaIds: [id]` array; CommandNames.MangaSearch uses singular `mangaId`).
+  // + payload shapes mirror that file. BOTH CommandNames.RefreshManga AND
+  // CommandNames.MangaSearch take the plural `mangaIds: [id]` array — the backend
+  // RefreshMangaCommand and MangaSearchCommand bind `MangaIds: List<int>`; a
+  // singular `mangaId` scalar silently no-ops in MangaSearchService.Execute
+  // ("MangaSearchCommand received with no MangaIds; nothing to search").
   const executeCommand = useExecuteCommand();
   const isRefreshing = useCommandExecuting(CommandNames.RefreshManga, {
     mangaIds: [mangaId],

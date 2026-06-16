@@ -70,9 +70,14 @@ function MangaIndexPoster(props: MangaIndexPosterProps) {
   }, [mangaId, executeCommand]);
 
   const onSearchPress = useCallback(() => {
+    // MangaSearchCommand binds to `MangaIds: List<int>` (plural) per Phase 6 D-06
+    // bulk-dispatch shape; a singular `mangaId` payload silently no-ops in
+    // MangaSearchService.Execute ("MangaSearchCommand received with no MangaIds;
+    // nothing to search"). The status reports as "completed" — misleading. Mirror
+    // the Table view's MangaIndexRow.onSearchPress plural shape.
     executeCommand({
       name: CommandNames.MangaSearch,
-      mangaId,
+      mangaIds: [mangaId],
     });
   }, [mangaId, executeCommand]);
 
