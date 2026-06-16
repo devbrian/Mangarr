@@ -190,7 +190,7 @@ yarn watch                                                  # Webpack watch mode
 ## Development Notes
 
 - **Solution file**: `src/Mangarr.sln`
-- **Database migrations**: Auto-applied on startup. Add new migration in `src/NzbDrone.Core/Datastore/Migration/`. Migrations are sequential and post-baseline (`001_mangarr_baseline.cs` → `010_v1_3_retire_in_process_cleanup.cs` currently — Migration 010 is the head, the Phase 39 one-shot that deletes the orphan in-process provider rows + drops the `ChapterDownloadState` table on upgrade); per the post-v1.0.0 policy, schema changes append a new sequential migration (the pre-v1 edit-`001`-in-place rule no longer applies).
+- **Database migrations**: Auto-applied on startup. Add new migration in `src/NzbDrone.Core/Datastore/Migration/`. Migrations are sequential and post-baseline (`001_mangarr_baseline.cs` → `014_v1_3_unique_mangabaka_id.cs` currently — Migration 014 is the head, the PR #373 one-shot that adds the `IX_Manga_MangaBakaId` UNIQUE index, defensively nulling any pre-existing duplicates first, to close the concurrent-POST dedup race for the v1.3 default-primary's anchor ID); per the post-v1.0.0 policy, schema changes append a new sequential migration (the pre-v1 edit-`001`-in-place rule no longer applies).
 - **Default data dir**: `C:\ProgramData\Mangarr` (Win) / `~/.config/Mangarr` (Linux/Mac). Logs in `<data>/logs/`.
 - **Default port**: 8989 (override with `--port=NNNN`).
 - **API key**: Auto-generated on first run; check `<data>/config.xml` or General settings.
