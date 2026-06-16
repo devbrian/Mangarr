@@ -62,7 +62,7 @@ Coverage: `NzbDrone.Core.Test/MangaStatsTests/MangaStatisticsRepositoryFixture.c
 
 - `GET    /api/v5/manga` — list all manga (covers mapped to local URLs)
 - `GET    /api/v5/manga/{id}` — get one manga
-- `POST   /api/v5/manga` — add a manga (delegates to `IAddMangaService.AddManga`; requires at least one of MangaDexId/MalId/AniListId)
+- `POST   /api/v5/manga` — add a manga (delegates to `IAddMangaService.AddManga`; requires at least one of MangaDexId/MalId/AniListId/**MangaBakaId**). MangaBakaId was added to the anchor set because MangaBaka is the v1.3 default primary source and its catalog entries frequently carry no big-3 cross-link; `AddMangaService.PrepareForAdd` dedups MangaBaka-only adds via `FindByMangaBakaId`.
 - `PUT    /api/v5/manga/{id}` — update mutable fields via `Manga.ApplyChanges` (canonical IDs immutable here per Plan 02-09)
 - `DELETE /api/v5/manga/{id}` — delete (optionally with `?deleteFiles=true`)
 - `GET    /api/v5/manga/lookup?term=` — META-01 search via primary metadata source

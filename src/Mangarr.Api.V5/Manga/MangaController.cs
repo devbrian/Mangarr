@@ -67,11 +67,19 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
 
         SharedValidator.RuleFor(m => m.Title).NotEmpty();
 
-        // POST requires at least one cross-source ID — AddMangaService dedup +
-        // CrossSourceIdResolver both key off MangaDex/MAL/AniList IDs (Plan 02-09).
+        // POST requires at least one cross-source ID to anchor + dedup on. MangaBakaId is
+        // accepted alongside the original Plan 02-09 trio: MangaBaka is the v1.3 default
+        // primary source (its catalog entries frequently carry NO MangaDex/MAL/AniList
+        // cross-link), and AddMangaService.ResolveSourceIdForPrimary already maps
+        // MangaBakaMetadataSource -> MangaBakaId, so a MangaBaka-only add is fully supported
+        // below this validator. Dedup parity with the big-3 is two-layered: app-level
+        // (PrepareForAdd via FindByMangaBakaId) + DB-level (Migration 014 IX_Manga_MangaBakaId
+        // UNIQUE, which closes the concurrent-POST race — see the issue #213 catch-blocks in
+        // AddManga). Without MangaBakaId here, the controller rejected perfectly-addable
+        // MangaBaka-primary titles with no big-3 link.
         PostValidator.RuleFor(m => m).Must(r =>
-                r.MangaDexId.HasValue || r.MalId.HasValue || r.AniListId.HasValue)
-            .WithMessage("At least one of MangaDexId / MalId / AniListId must be set");
+                r.MangaDexId.HasValue || r.MalId.HasValue || r.AniListId.HasValue || r.MangaBakaId.HasValue)
+            .WithMessage("At least one of MangaDexId / MalId / AniListId / MangaBakaId must be set");
     }
 
     [HttpGet]
@@ -211,7 +219,8 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
 
         return message.Contains("Manga.MangaDexId", StringComparison.Ordinal) ||
                message.Contains("Manga.MalId", StringComparison.Ordinal) ||
-               message.Contains("Manga.AniListId", StringComparison.Ordinal);
+               message.Contains("Manga.AniListId", StringComparison.Ordinal) ||
+               message.Contains("Manga.MangaBakaId", StringComparison.Ordinal);
     }
 
     // Postgres peer — match against the index name carried verbatim on
@@ -220,7 +229,8 @@ public class MangaController : RestControllerWithSignalR<MangaResource, NzbDrone
     {
         return constraintName is "IX_Manga_MangaDexId"
                               or "IX_Manga_MalId"
-                              or "IX_Manga_AniListId";
+                              or "IX_Manga_AniListId"
+                              or "IX_Manga_MangaBakaId";
     }
 
     [RestPutById]

@@ -34,7 +34,7 @@ namespace NzbDrone.Core.Test.MangaTests
     [TestFixture]
     public class MangaRepositoryUniqueConstraintFixture : DbTest<MangaRepository, MangaModel>
     {
-        private MangaModel BuildManga(string title, Guid? mangaDexId = null, int? malId = null, int? aniListId = null)
+        private MangaModel BuildManga(string title, Guid? mangaDexId = null, int? malId = null, int? aniListId = null, int? mangaBakaId = null)
         {
             return new MangaModel
             {
@@ -48,6 +48,7 @@ namespace NzbDrone.Core.Test.MangaTests
                 MangaDexId = mangaDexId,
                 MalId = malId,
                 AniListId = aniListId,
+                MangaBakaId = mangaBakaId,
             };
         }
 
@@ -108,6 +109,29 @@ namespace NzbDrone.Core.Test.MangaTests
             act.Should().Throw<Exception>()
                 .Where(ex => IsUniqueConstraintViolation(ex, "AniListId"),
                     "the UNIQUE index IX_Manga_AniListId must reject the second insert (SQLite or PostgreSQL)");
+        }
+
+        [Test]
+        public void Insert_with_duplicate_MangaBakaId_throws_constraint_violation()
+        {
+            // Migration 014 — IX_Manga_MangaBakaId UNIQUE closes the concurrent-POST race for
+            // the v1.3 default-primary's standalone anchor ID (parity with the big-3 above).
+            Subject.Insert(BuildManga("Naruto", mangaBakaId: 5050));
+
+            Action act = () => Subject.Insert(BuildManga("Naruto-dup", mangaBakaId: 5050));
+
+            act.Should().Throw<Exception>()
+                .Where(ex => IsUniqueConstraintViolation(ex, "MangaBakaId"),
+                    "the UNIQUE index IX_Manga_MangaBakaId must reject the second insert (SQLite or PostgreSQL)");
+        }
+
+        [Test]
+        public void Insert_two_manga_with_null_MangaBakaId_succeeds()
+        {
+            Subject.Insert(BuildManga("MangaDex-only-1", mangaDexId: Guid.NewGuid()));
+            Subject.Insert(BuildManga("MangaDex-only-2", mangaDexId: Guid.NewGuid()));
+
+            Subject.All().Should().HaveCount(2);
         }
 
         [Test]

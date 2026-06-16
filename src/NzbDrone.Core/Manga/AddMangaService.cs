@@ -123,6 +123,9 @@ namespace NzbDrone.Core.Manga
             var existingAniListIds = new HashSet<int>(_mangaService.GetAllManga()
                 .Where(m => m.AniListId.HasValue)
                 .Select(m => m.AniListId.Value));
+            var existingMangaBakaIds = new HashSet<int>(_mangaService.GetAllManga()
+                .Where(m => m.MangaBakaId.HasValue)
+                .Select(m => m.MangaBakaId.Value));
 
             foreach (var m in newManga)
             {
@@ -165,6 +168,12 @@ namespace NzbDrone.Core.Manga
                         continue;
                     }
 
+                    if (m.MangaBakaId.HasValue && existingMangaBakaIds.Contains(m.MangaBakaId.Value))
+                    {
+                        _logger.Debug("MangaBaka ID {0} was not added — manga {1} already exists in database", m.MangaBakaId, m.Title);
+                        continue;
+                    }
+
                     if (m.MangaDexId.HasValue && mangaToAdd.Any(f => f.MangaDexId == m.MangaDexId))
                     {
                         _logger.Trace("MangaDex ID {0} was already added from another import list, not adding manga {1} again", m.MangaDexId, m.Title);
@@ -180,6 +189,12 @@ namespace NzbDrone.Core.Manga
                     if (m.AniListId.HasValue && mangaToAdd.Any(f => f.AniListId == m.AniListId))
                     {
                         _logger.Trace("AniList ID {0} was already added from another import list, not adding manga {1} again", m.AniListId, m.Title);
+                        continue;
+                    }
+
+                    if (m.MangaBakaId.HasValue && mangaToAdd.Any(f => f.MangaBakaId == m.MangaBakaId))
+                    {
+                        _logger.Trace("MangaBaka ID {0} was already added from another import list, not adding manga {1} again", m.MangaBakaId, m.Title);
                         continue;
                     }
 
@@ -231,6 +246,17 @@ namespace NzbDrone.Core.Manga
             if (newManga.AniListId.HasValue && _mangaService.FindByAniListId(newManga.AniListId.Value) != null)
             {
                 throw new InvalidOperationException($"Manga with AniList ID {newManga.AniListId} already exists");
+            }
+
+            // MangaBaka is the v1.3 default primary source; its entries frequently lack a
+            // MangaDex/MAL/AniList cross-link, so MangaBakaId is the only dedup anchor for
+            // those titles. FindByMangaBakaId exists on IMangaService (the MangaLinksController
+            // collision guard already uses it). Without this guard, widening the controller
+            // PostValidator to accept MangaBakaId would let the same MangaBaka-only manga be
+            // added twice.
+            if (newManga.MangaBakaId.HasValue && _mangaService.FindByMangaBakaId(newManga.MangaBakaId.Value) != null)
+            {
+                throw new InvalidOperationException($"Manga with MangaBaka ID {newManga.MangaBakaId} already exists");
             }
 
             // 2. Resolve primary metadata.
