@@ -198,6 +198,7 @@ def main():
         cmd_id = client.search_manga(ids)
         print(f"    dispatched MangaSearch command id={cmd_id} for mangaIds={ids}",
               flush=True)
+        sleep(5)
 
         # Don't wait for a full drain — fire the next batch once the in-flight
         # command count drops to the threshold (default 2 or fewer).
