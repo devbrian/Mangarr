@@ -2,6 +2,7 @@
 // Please do not change this file!
 interface CssExports {
   'contentBody': string;
+  'contentBodyWrapper': string;
   'innerContentBody': string;
 }
 export const cssExports: CssExports;
