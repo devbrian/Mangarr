@@ -13,6 +13,7 @@ import InlineMarkdown from 'Components/Markdown/InlineMarkdown';
 import ConfirmModal from 'Components/Modal/ConfirmModal';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
+import pageContentBodyStyles from 'Components/Page/PageContentBody.css';
 import { icons, kinds } from 'Helpers/Props';
 import {
   UpdateMechanism,
@@ -117,7 +118,10 @@ function Updates() {
 
   return (
     <PageContent title={translate('Updates')}>
-      <div data-testid="system-updates-page">
+      <div
+        className={pageContentBodyStyles.contentBodyWrapper}
+        data-testid="system-updates-page"
+      >
         <PageContentBody>
           {isPopulated || hasError ? null : <LoadingIndicator />}
 

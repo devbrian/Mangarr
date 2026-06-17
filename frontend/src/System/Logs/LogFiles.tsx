@@ -4,6 +4,7 @@ import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import InlineMarkdown from 'Components/Markdown/InlineMarkdown';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
+import pageContentBodyStyles from 'Components/Page/PageContentBody.css';
 import PageToolbar from 'Components/Page/Toolbar/PageToolbar';
 import PageToolbarButton from 'Components/Page/Toolbar/PageToolbarButton';
 import PageToolbarSection from 'Components/Page/Toolbar/PageToolbarSection';
@@ -68,7 +69,10 @@ function LogFiles({
 
   return (
     <PageContent title={translate('LogFiles')}>
-      <div data-testid="system-logs-page">
+      <div
+        className={pageContentBodyStyles.contentBodyWrapper}
+        data-testid="system-logs-page"
+      >
         <PageToolbar>
           <PageToolbarSection>
             <LogsNavMenu current={currentLogView} />

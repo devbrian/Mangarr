@@ -3,6 +3,21 @@
   flex: 1 0 1px;
 }
 
+/*
+ * Wrapper for pages that put a plain test-selector <div data-testid="*-page">
+ * between PageContent (.content flex column) and PageContentBody (the Scroller).
+ * Without this the Scroller is no longer a height-constrained flex child of the
+ * column, so on desktop it grows to fit its content and the page cannot scroll
+ * (the body extends past the viewport). min-height:0 lets the flex item shrink
+ * below its content so the inner Scroller clips + scrolls.
+ */
+.contentBodyWrapper {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .innerContentBody {
   padding: $pageContentBodyPadding;
 }

@@ -153,6 +153,19 @@ function QueueRow(props: QueueRowProps) {
   const lookedUpManga = useSingleManga(mangaId);
   const manga = hydratedManga ?? lookedUpManga;
 
+  // The hydrated `MangaQueueSubresource` carries only `{ id, title }` (no
+  // `titleSlug` — see typings/MangaQueueItem.ts / backend MangaSubresource.cs),
+  // so `manga` is slug-less on every row that hydrates from the backend payload.
+  // Resolve the slug from the full `['/manga']` record (`lookedUpManga`) — which
+  // DOES carry `titleSlug` — falling back to the subresource only if it ever
+  // gains one. Without this the title link emitted `/manga/` (empty slug segment)
+  // and 404'd against the `/manga/:titleSlug` route.
+  const mangaTitleSlug =
+    lookedUpManga?.titleSlug ??
+    (manga && 'titleSlug' in manga
+      ? (manga as { titleSlug?: string }).titleSlug
+      : undefined);
+
   const { data: lookedUpChapter } = useSingleChapter(
     hydratedChapter == null && chapterId != null ? chapterId : undefined
   );
@@ -272,11 +285,7 @@ function QueueRow(props: QueueRowProps) {
             >
               {manga ? (
                 <MangaTitleLink
-                  titleSlug={
-                    'titleSlug' in manga
-                      ? (manga as { titleSlug?: string }).titleSlug
-                      : undefined
-                  }
+                  titleSlug={mangaTitleSlug}
                   title={manga.title ?? title ?? ''}
                 />
               ) : (

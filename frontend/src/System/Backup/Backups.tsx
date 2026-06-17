@@ -5,6 +5,7 @@ import Alert from 'Components/Alert';
 import LoadingIndicator from 'Components/Loading/LoadingIndicator';
 import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
+import pageContentBodyStyles from 'Components/Page/PageContentBody.css';
 import PageToolbar from 'Components/Page/Toolbar/PageToolbar';
 import PageToolbarButton from 'Components/Page/Toolbar/PageToolbarButton';
 import PageToolbarSection from 'Components/Page/Toolbar/PageToolbarSection';
@@ -80,7 +81,10 @@ function Backups() {
 
   return (
     <PageContent title={translate('Backups')}>
-      <div data-testid="system-backups-page">
+      <div
+        className={pageContentBodyStyles.contentBodyWrapper}
+        data-testid="system-backups-page"
+      >
         <PageToolbar>
           <PageToolbarSection>
             <PageToolbarButton
