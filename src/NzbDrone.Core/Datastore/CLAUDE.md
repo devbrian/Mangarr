@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Database layer — connection management, generic repository, ORM mapping, and **schema migrations** (fresh manga baseline `001_mangarr_baseline.cs` from the Phase 1 reset — the inherited Mangarr 224 TV migrations were replaced per Phase 0 D-14 fresh-schema decision — plus sequential migrations through **`014_v1_3_unique_mangabaka_id.cs`, the current head** (PR #373 — `IX_Manga_MangaBakaId` UNIQUE index)).
+Database layer — connection management, generic repository, ORM mapping, and **schema migrations** (fresh manga baseline `001_mangarr_baseline.cs` from the Phase 1 reset — the inherited Mangarr 224 TV migrations were replaced per Phase 0 D-14 fresh-schema decision — plus sequential migrations through **`015_v1_3_add_user_alternative_titles.cs`, the current head** (quick-260618-eqz — the nullable `UserAlternativeTitles` column; `014_v1_3_unique_mangabaka_id.cs` (PR #373) adds the `IX_Manga_MangaBakaId` UNIQUE index just below it)).
 
 This directory is **media-agnostic** infrastructure and reusable as-is. Migrations specific to manga schema additions/renames will be added on top.
 
@@ -30,17 +30,17 @@ This directory is **media-agnostic** infrastructure and reusable as-is. Migratio
 
 ### `Migration/` — Schema Migrations
 
-Manga baseline `001_mangarr_baseline.cs`; subsequent Phase migrations stack sequentially on top (`002_*.cs` … through `014_v1_3_unique_mangabaka_id.cs`, the current head), implemented with **FluentMigrator**.
+Manga baseline `001_mangarr_baseline.cs`; subsequent Phase migrations stack sequentially on top (`002_*.cs` … through `015_v1_3_add_user_alternative_titles.cs`, the current head), implemented with **FluentMigrator**.
 
 Naming convention: `NNN_short_description_in_snake_case.cs` where `NNN` is sequential.
 
-**Migration 014 (PR #373)** is the head — adds the `IX_Manga_MangaBakaId` UNIQUE index so the DB enforces first-wins on concurrent POSTs with the same MangaBakaId (parity with the baseline `IX_Manga_{MangaDexId,MalId,AniListId}` indexes from issue #213, now that MangaBakaId is a valid standalone add anchor). Because MangaBakaId was populated WITHOUT a uniqueness guarantee from Migration 012, the migration defensively nulls duplicate values (keeping the lowest-Id row per value) BEFORE creating the index, so it can't fail at startup on an existing DB; no-op on a clean DB. Pinned by `MangaRepositoryUniqueConstraintFixture` (duplicate-rejection + null-distinct, full migration chain on real SQLite).
+**Migration 014 (PR #373)** — adds the `IX_Manga_MangaBakaId` UNIQUE index so the DB enforces first-wins on concurrent POSTs with the same MangaBakaId (parity with the baseline `IX_Manga_{MangaDexId,MalId,AniListId}` indexes from issue #213, now that MangaBakaId is a valid standalone add anchor). Because MangaBakaId was populated WITHOUT a uniqueness guarantee from Migration 012, the migration defensively nulls duplicate values (keeping the lowest-Id row per value) BEFORE creating the index, so it can't fail at startup on an existing DB; no-op on a clean DB. Pinned by `MangaRepositoryUniqueConstraintFixture` (duplicate-rejection + null-distinct, full migration chain on real SQLite).
 
 **Migration 010 (Phase 39 RETIRE-03)** — the one-shot on-upgrade orphan-state cleanup for the retired in-process codepath (no longer the head, but the most structurally significant mid-chain migration): it `DELETE`s the orphan `DownloadClients` row (`Implementation = 'InProcessImageDownloadClient'`), `DELETE`s the orphan `Indexers` rows (`Implementation IN ('MangaDexIndexer','ComixIndexer')`), resets the two stale `IndexerSourceStatus` rows scoped to the retired source keys (`'mangadex'`,`'comix.to'`) so live gateway status survives, and `DROP`s the now-empty `ChapterDownloadState` staging table. Pure DELETE+DROP (seeds zero rows — Anti-Pattern C floor); pinned by `Migration010Fixture` (5/5 on SQLite).
 
 ```csharp
-// Next sequential number after the current head (014) — illustrative.
-[Migration(15)]
+// Next sequential number after the current head (015) — illustrative.
+[Migration(16)]
 public class my_change : NzbDroneMigrationBase
 {
     protected override void MainDbUpgrade()
@@ -206,7 +206,7 @@ This directory is **infrastructure** and reusable. The manga-schema migration wo
   `ScanlationGroup`, etc.) — there is no separate "add manga columns to TV tables" step; the TV
   tables never shipped in the manga baseline.
 - Subsequent manga-schema additions append a NEW sequential migration on top of the head
-  (`014_…` currently) per the post-v1.0.0 append-only policy — never edit a released migration.
+  (`015_…` currently) per the post-v1.0.0 append-only policy — never edit a released migration.
 - The `Series → Manga` / `Episodes → Chapters` rename is N/A: `Tv/` was deleted wholesale in
   Phase 15 Plan 15-03, so the baseline was authored manga-shape from the start (no table rename
   migration was ever needed).
