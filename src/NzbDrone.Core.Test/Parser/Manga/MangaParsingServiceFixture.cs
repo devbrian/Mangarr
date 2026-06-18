@@ -208,6 +208,30 @@ namespace NzbDrone.Core.Test.MangaParserTests
         }
 
         [Test]
+        public void GetManga_strategy2_resolves_via_user_alternative_title()
+        {
+            // quick-260618-eqz — FindByAlternativeTitle now spans BOTH the metadata
+            // AlternativeTitles column AND the user-owned UserAlternativeTitles column.
+            // This test documents the user-list path: Strategy 1 (FindByTitle) misses,
+            // and the service-level FindByAlternativeTitle resolves the manga via a title
+            // a user added (which no metadata source supplied).
+            //
+            // Anti-pattern D (sonarr-consistency): the miss mock uses .Returns((Manga)null)
+            // — FindByTitle RETURNS NULL on miss (does not throw), so the mock matches the
+            // real contract.
+            var mangaService = Mocker.GetMock<IMangaService>();
+            mangaService.Setup(s => s.FindByTitle(It.IsAny<string>())).Returns((NzbDrone.Core.Manga.Manga)null);
+            mangaService.Setup(s => s.FindByAlternativeTitle(It.IsAny<string>())).Returns(_manga);
+
+            var result = Subject.GetManga("My Custom User Alias");
+
+            result.Should().Be(_manga);
+            mangaService.Verify(s => s.FindByTitle(It.IsAny<string>()), Times.Once);
+            mangaService.Verify(s => s.FindByAlternativeTitle(It.IsAny<string>()), Times.Once);
+            mangaService.Verify(s => s.FindByTitleInexact(It.IsAny<string>()), Times.Never);
+        }
+
+        [Test]
         public void GetManga_strategy3_falls_through_to_FindByTitleInexact_when_both_higher_strategies_miss()
         {
             // Substring fallback: release title contains the manga's

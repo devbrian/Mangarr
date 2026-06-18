@@ -1,4 +1,3 @@
-using System.Linq;
 using Mangarr.Http.REST;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MangaStats;
@@ -195,6 +194,7 @@ public static class MangaResourceMapper
             Overview = model.Overview,
             Images = model.Images,
             Genres = model.Genres,
+
             // quick-260618-eqz — emit the stored user list on GET / list endpoints.
             UserAlternativeTitles = model.UserAlternativeTitles,
             Path = model.Path,

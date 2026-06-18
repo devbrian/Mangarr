@@ -225,5 +225,46 @@ namespace NzbDrone.Core.Test.MangaTests
             Subject.FindByAlternativeTitle("shingeki no kyojin").Should().BeNull(
                 "ambiguous alt-title resolution must return null so the caller falls through to Strategy 3 (FindByTitleInexact) — Sonarr-canonical posture");
         }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // quick-260618-eqz — FindByAlternativeTitle now also searches the
+        // user-owned UserAlternativeTitles column. A match in EITHER list resolves
+        // the manga; the single-match-only / ambiguous-returns-null guard holds
+        // across the broadened query.
+        // ─────────────────────────────────────────────────────────────────────
+
+        private MangaModel BuildWithUserAltTitles(string title, params string[] userAltTitles)
+        {
+            var manga = BuildManga(title);
+            manga.UserAlternativeTitles = new List<string>(userAltTitles);
+            return manga;
+        }
+
+        [Test]
+        public void FindByAlternativeTitle_resolves_via_user_alt_titles_only()
+        {
+            // The match key lives ONLY in UserAlternativeTitles (pre-normalized, as the
+            // API mapper stores it) — no metadata source supplied it. The broadened query
+            // must still resolve the manga.
+            Subject.Insert(BuildWithUserAltTitles("Attack on Titan", "shingeki no kyojin user"));
+            Subject.Insert(BuildManga("Bleach"));
+
+            var found = Subject.FindByAlternativeTitle("shingeki no kyojin user");
+
+            found.Should().NotBeNull();
+            found.Title.Should().Be("Attack on Titan");
+        }
+
+        [Test]
+        public void FindByAlternativeTitle_returns_null_on_ambiguous_user_alt_title_match()
+        {
+            // Two manga sharing the same user-added alias must return null (single-match-only
+            // semantics hold across the broadened user-column query).
+            Subject.Insert(BuildWithUserAltTitles("Attack on Titan", "shared user alias"));
+            Subject.Insert(BuildWithUserAltTitles("Attack on Titan Doujinshi", "shared user alias"));
+
+            Subject.FindByAlternativeTitle("shared user alias").Should().BeNull(
+                "ambiguous user-alt-title resolution must return null — single-match-only semantics hold across both lists");
+        }
     }
 }
