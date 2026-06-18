@@ -290,17 +290,17 @@ namespace NzbDrone.Core.Test.MangaParserTests
         // guard (correct for extra/special/…) to these reclassified them Regular and —
         // with no chapter number — made ParseChapterTitle return null, regressing real
         // oneshot imports. AlwaysMarker() restores the always-on jargon match.
-        [TestCase("[Multi-Word Spaced Group] Chainsaw Man Oneshot (English)", "Chainsaw Man")]
-        [TestCase("[Goldsleeves] Adachi to Shimamura Oneshot (ENG)", "Adachi to Shimamura")]
-        [TestCase("Berserk Omake (EN)", "Berserk")]
-        public void Numberless_jargon_marker_still_parses_and_sets_type(string releaseTitle, string expectedTitle)
+        [TestCase("[Multi-Word Spaced Group] Chainsaw Man Oneshot (English)", "Chainsaw Man", ChapterType.Oneshot)]
+        [TestCase("[Goldsleeves] Adachi to Shimamura Oneshot (ENG)", "Adachi to Shimamura", ChapterType.Oneshot)]
+        [TestCase("Berserk Omake (EN)", "Berserk", ChapterType.Extra)]
+        public void Numberless_jargon_marker_still_parses_and_sets_type(string releaseTitle, string expectedTitle, ChapterType expectedType)
         {
             var parsed = MangaParser.ParseChapterTitle(releaseTitle);
 
             parsed.Should().NotBeNull("jargon markers (oneshot/omake) are valid numberless releases");
             parsed.MangaTitle.Should().Be(expectedTitle);
             parsed.ChapterNumbers.Should().BeEmpty();
-            parsed.ChapterType.Should().NotBe(ChapterType.Regular);
+            parsed.ChapterType.Should().Be(expectedType);
         }
     }
 }
