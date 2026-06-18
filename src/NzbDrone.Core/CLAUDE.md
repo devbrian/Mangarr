@@ -50,7 +50,7 @@ Listed by **migration status** post-Phase-17.3 (Sonarr → Mangarr conversion).
 
 | Directory | Purpose |
 |-----------|---------|
-| `Datastore/` | DB connection, BasicRepository, **manga baseline `001` + sequential migrations through `014` (`014_v1_3_unique_mangabaka_id` — the `IX_Manga_MangaBakaId` UNIQUE index — is the head)**. See [Datastore/CLAUDE.md](./Datastore/CLAUDE.md) |
+| `Datastore/` | DB connection, BasicRepository, **manga baseline `001` + sequential migrations through `015` (`015_v1_3_add_user_alternative_titles` — the nullable `UserAlternativeTitles` column per quick-260618-eqz — is the head; `014_v1_3_unique_mangabaka_id` adds the `IX_Manga_MangaBakaId` UNIQUE index)**. See [Datastore/CLAUDE.md](./Datastore/CLAUDE.md) |
 | `Messaging/` | EventAggregator, Commands, Events. See [Messaging/CLAUDE.md](./Messaging/CLAUDE.md) |
 | `Notifications/` | 25+ providers (Discord/Slack/Email/Telegram/etc.). See [Notifications/CLAUDE.md](./Notifications/CLAUDE.md) |
 | `Authentication/` | User accounts |
@@ -205,7 +205,7 @@ See [MediaFiles/CLAUDE.md](./MediaFiles/CLAUDE.md).
 | `BasicRepository.cs` | Generic Dapper repo. Methods: `All`, `Get`, `Find`, `Insert`, `InsertMany`, `Update`, `UpdateMany`, `Upsert`, `Delete`, `DeleteMany`, `SetFields`, `Purge`, `GetPaged`, `Single`, `SingleOrDefault`, `HasItems`, `Count` |
 | `IBasicRepository.cs` | Repo interface |
 | `Database.cs`, `DbFactory.cs`, `ConnectionStringFactory.cs` | DB setup |
-| `Migration/` | Manga baseline `001_mangarr_baseline.cs` + sequential migrations through `014_v1_3_unique_mangabaka_id.cs` (the head — adds the `IX_Manga_MangaBakaId` UNIQUE index; `010_v1_3_retire_in_process_cleanup.cs` is the Phase 39 in-process-cleanup one-shot earlier in the chain) |
+| `Migration/` | Manga baseline `001_mangarr_baseline.cs` + sequential migrations through `015_v1_3_add_user_alternative_titles.cs` (the head — adds the nullable `UserAlternativeTitles` column per quick-260618-eqz; `014_v1_3_unique_mangabaka_id.cs` adds the `IX_Manga_MangaBakaId` UNIQUE index; `010_v1_3_retire_in_process_cleanup.cs` is the Phase 39 in-process-cleanup one-shot earlier in the chain) |
 | `Converters/` | Dapper / JSON converters (Quality, Languages, OsPath, etc.) |
 | `Extensions/` | Mapping extensions |
 | `Events/` | DB events |

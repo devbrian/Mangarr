@@ -70,8 +70,11 @@ The inherited Mangarr 224 TV migrations were replaced by a single fresh manga ba
 - `011_v1_3_normalize_manga_profile_ids.cs` — issue #320 one-shot (0-sentinel profile FK → NULL).
 - `012_v1_3_add_mangabaka_metadata_source.cs` + `013_v1_3_add_mangabaka_cross_source_ids.cs` —
   Phase 41 / quick-260608-l2e MangaBaka column adds (`MangaBakaId` + the 5 exotic cross-source ids).
-- `014_v1_3_unique_mangabaka_id.cs` — **the current head** (PR #373; `IX_Manga_MangaBakaId` UNIQUE;
-  see the "Migration 014" subsection above).
+- `014_v1_3_unique_mangabaka_id.cs` — PR #373; `IX_Manga_MangaBakaId` UNIQUE;
+  see the "Migration 014" subsection above.
+- `015_v1_3_add_user_alternative_titles.cs` — **the current head** (quick-260618-eqz; appends the
+  nullable `UserAlternativeTitles` JSON-string column for the user-owned alt-title set — the
+  Sonarr-divergent inverse of metadata `AlternativeTitles`; see DIVERGENCE.md quick-260618-eqz).
 
 No `Series`/`Episode`/`Season` tables exist in the chain — `Tv/` was deleted in Phase 15.
 

@@ -1427,3 +1427,26 @@ Fixes a live re-grab loop: an already-imported chapter (e.g. *My Wife Waited in 
 - DIVERGENCE.md Phase 5 D-04 (quality-model drop that removed the original `CutoffSpecification`/`UpgradeDiskSpecification`) + Phase 6 D-10 (the three-state upgrade gate this reuses).
 
 *Last updated: 2026-06-15 (debug session rss-regrab-existing-chapter — appended the UpgradeDiskSpecification section above: restored the disk-aware decision-side reject gate (Sonarr `UpgradeDiskSpecification`/`CutoffSpecification` peer) lost in the Phase 5 D-04 quality-model drop, fixing an already-imported chapter being re-grabbed on every RSS sync cycle. Consistency-RESTORING. All previous trailers preserved verbatim above per historical-accuracy contract.)*
+
+## User-owned `Manga.UserAlternativeTitles` set (quick task 260618-eqz) (2026-06-18)
+
+Adds a NEW user-curated alternative-title list on `Manga`, SEPARATE from the metadata-sourced `AlternativeTitles` (GH #118). It lets a user rescue a release whose name no metadata source (MangaDex/AniList/MAL/MangaBaka) supplies, so the parser's Strategy-2 lookup resolves and imports it. This is a Sonarr-divergent NEW field (Sonarr has no user-curated alias set — its alias data comes from the community-curated SceneMapping table).
+
+**The guard contract is INVERTED relative to `AlternativeTitles`:** where metadata `AlternativeTitles` is refresh-OWNED (overwritten on every `RefreshMangaCommand`) and user-PUT-preserved, `UserAlternativeTitles` is user-PUT-OWNED and refresh-PRESERVED. `Manga.ApplyChanges` copies it whenever the incoming value is non-null (explicit list overwrites; explicit empty `[]` clears; null preserves). The metadata-source `MapManga` methods must NOT populate it — they leave it null, which is exactly what the inverted guard relies on to detect the refresh path.
+
+| File / Path | Type | Rationale |
+|-------------|------|-----------|
+| `src/NzbDrone.Core/Datastore/Migration/015_v1_3_add_user_alternative_titles.cs` | new | Migration 015 (head) — nullable `UserAlternativeTitles` JSON-string column; post-v1.0 sequential append, 001 baseline untouched. |
+| `src/NzbDrone.Core/Manga/Manga.cs` | edit | `UserAlternativeTitles` field (NOT constructor-initialized — null on metadata-built + default Manga) + inverted `ApplyChanges` guard. |
+| `src/NzbDrone.Core/Manga/MangaRepository.cs` | edit | `FindByAlternativeTitle` WHERE broadened to match EITHER column (SQLite `instr` OR; PostgreSQL `coalesce(strpos,0)` OR for the nullable user column); single-match-only guard preserved. |
+| `src/Mangarr.Api.V5/Manga/MangaResource.cs` | edit | `userAlternativeTitles` round-tripped BOTH directions; ToModel normalizes-on-write + null-vs-empty guard (omitted→preserve, `[]`→clear). |
+| `frontend/src/Manga/Manga.ts` + `frontend/src/Manga/Edit/EditMangaModalContent.tsx` | edit | TS type field + Edit-modal TEXT_TAG chip field riding the existing PUT save path (no new mutation). |
+| `src/NzbDrone.Core/Localization/Core/en.json` | edit | Two i18n keys (`UserAlternativeTitles` + `UserAlternativeTitlesHelpText`). |
+
+**Proof:** `MangaApplyChangesFixture` (refresh-preserve / user-overwrite / empty-clear / list-independence) + `MangaRepositoryFixture` (user-only match + ambiguity-null) + `MangaParsingServiceFixture` (Strategy-2-via-user-list) green; Core Debug build clean; full unit suite green; `yarn build` clean. Live dev-stack UI verification a recommended follow-up. Bulk-editor `userAlternativeTitles` support intentionally deferred (optional follow-up). Sonarr-DIVERGENT (NEW field with no Sonarr peer).
+
+**Cross-references:**
+- `.planning/quick/260618-eqz-add-api-to-add-an-alternative-title-to-a/` — this task's record (CONTEXT + PLAN + SUMMARY).
+- DIVERGENCE.md GH #118 `AlternativeTitles` (the metadata-owned alias set this inverts).
+
+*Last updated: 2026-06-18 (quick task 260618-eqz — appended the user-owned UserAlternativeTitles section above: NEW Sonarr-divergent user-curated alt-title set with an INVERTED ApplyChanges guard (user-PUT-owned, refresh-preserved) relative to the metadata-owned AlternativeTitles; Migration 015 head; parser dual-list lookup; both-directions API round-trip with normalize-on-write; Edit-modal TEXT_TAG field. All previous trailers preserved verbatim above per historical-accuracy contract.)*
