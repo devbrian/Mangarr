@@ -1,7 +1,9 @@
+using System.Linq;
 using Mangarr.Http.REST;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MangaStats;
 using NzbDrone.Core.MediaCover;
+using NzbDrone.Core.Parser.Manga;
 
 namespace Mangarr.Api.V5.Manga;
 
@@ -25,6 +27,15 @@ public class MangaResource : RestResource
     public string? Overview { get; set; }
     public List<MediaCover>? Images { get; set; }
     public List<string>? Genres { get; set; }
+
+    // quick-260618-eqz — USER-OWNED alternative-title set. Unlike the metadata-sourced
+    // Manga.AlternativeTitles (deliberately NOT surfaced on the wire because it is
+    // parser-internal / refresh-owned), userAlternativeTitles IS user-owned and MUST
+    // round-trip BOTH directions: GET returns the stored list, PUT overwrites it. The
+    // delicate null-vs-empty contract lives in ToModel (see CONTEXT.md "API shape" +
+    // "opposite of AlternativeTitles").
+    public List<string>? UserAlternativeTitles { get; set; }
+
     public string? Path { get; set; }
     public string? RootFolderPath { get; set; }
     public bool Monitored { get; set; }
@@ -184,6 +195,8 @@ public static class MangaResourceMapper
             Overview = model.Overview,
             Images = model.Images,
             Genres = model.Genres,
+            // quick-260618-eqz — emit the stored user list on GET / list endpoints.
+            UserAlternativeTitles = model.UserAlternativeTitles,
             Path = model.Path,
             RootFolderPath = model.RootFolderPath,
             Monitored = model.Monitored,
@@ -236,6 +249,31 @@ public static class MangaResourceMapper
             Overview = resource.Overview,
             Images = resource.Images ?? new List<MediaCover>(),
             Genres = resource.Genres ?? new List<string>(),
+
+            // quick-260618-eqz — USER-OWNED alt-title round-trip (the deliberate opposite
+            // of AlternativeTitles, which is intentionally NOT mapped here). The
+            // null-vs-empty distinction is the whole correctness story and is the partner
+            // of the inverted Manga.ApplyChanges guard (Task 1):
+            //   * OMITTED field — the request JSON has no `userAlternativeTitles` key, so
+            //     System.Text.Json leaves the property at its default `null` (the POCO has
+            //     no initializer) → maps to null → ApplyChanges PRESERVES the stored list.
+            //     A normal Edit-modal save of an unrelated field therefore cannot silently
+            //     wipe the user list.
+            //   * EXPLICIT empty array `[]` — deserializes to a non-null empty List<string>
+            //     → maps to a non-null empty list → ApplyChanges OVERWRITES (clears).
+            //   * POPULATED array — normalized at write-time via MangaTitleNormalizer.Normalize
+            //     (same canonicalization metadata titles use, required for the parser's
+            //     exact-quoted-substring match in MangaRepository.FindByAlternativeTitle),
+            //     with null/whitespace/empty-after-normalize entries dropped and duplicates
+            //     removed → non-null list → ApplyChanges OVERWRITES.
+            UserAlternativeTitles = resource.UserAlternativeTitles == null
+                ? null
+                : resource.UserAlternativeTitles
+                    .Select(t => MangaTitleNormalizer.Normalize(t))
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .Distinct()
+                    .ToList(),
+
             Path = resource.Path,
             RootFolderPath = resource.RootFolderPath,
             Monitored = resource.Monitored,
