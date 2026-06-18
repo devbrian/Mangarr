@@ -125,6 +125,11 @@ interface Manga extends ModelBase {
   aniListIds?: number[];
   malIds?: number[];
   genres?: string[];
+  // quick-260618-eqz — user-owned alternative titles edited via the Edit Manga modal.
+  // Optional because the backend column is nullable and older cached records won't carry
+  // it. Mirrors MangaResource.UserAlternativeTitles; rides the existing PUT save path
+  // (SaveMangaPayload extends Partial<Manga>) — no useManga.ts change.
+  userAlternativeTitles?: string[];
   ratings?: Ratings;
   alternateTitles?: AlternateTitle[];
   upgradeAllowedOverride?: boolean;

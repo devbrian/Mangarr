@@ -2272,6 +2272,8 @@
   "UsenetBlackhole": "Usenet Blackhole",
   "UsenetBlackholeNzbFolder": "Nzb Folder",
   "UsenetDisabled": "Usenet Disabled",
+  "UserAlternativeTitles": "Alternative Titles (User)",
+  "UserAlternativeTitlesHelpText": "Add your own alternative titles so releases the metadata sources don't recognize still match and import. Stored separately from titles fetched during metadata refresh.",
   "UserInvokedSearch": "User Invoked Search",
   "UserRejectedExtensions": "Additional Rejected File Extensions",
   "UserRejectedExtensionsHelpText": "Comma separated list of files extensions to fail (Fail Downloads also needs to be enabled per indexer)",

@@ -77,6 +77,9 @@ interface EditableMangaFields {
   customFormatProfileId: number;
   path: string;
   tags: number[];
+  // quick-260618-eqz — free-text user alternative titles (TEXT_TAG chip input).
+  // Rides the existing {...manga, ...pendingChanges} save spread — no save-handler change.
+  userAlternativeTitles: string[];
 }
 
 interface ProfileResource {
@@ -156,6 +159,7 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
       customFormatProfileId: manga.customFormatProfileId ?? 0,
       path: manga.path,
       tags: manga.tags,
+      userAlternativeTitles: manga.userAlternativeTitles ?? [],
     }),
     [manga]
   );
@@ -167,8 +171,14 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
     };
   }, [initial, pendingChanges, saveError]);
 
-  const { monitored, translationProfileId, customFormatProfileId, path, tags } =
-    settings;
+  const {
+    monitored,
+    translationProfileId,
+    customFormatProfileId,
+    path,
+    tags,
+    userAlternativeTitles,
+  } = settings;
 
   const handleInputChange = useCallback(
     ({ name, value }: InputChanged) => {
@@ -345,6 +355,22 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
                   onChange={handleInputChange}
                 />
               </div>
+            </FormGroup>
+
+            {/* quick-260618-eqz — user-owned alternative titles. Free-text
+                TEXT_TAG chip input (comma / Enter to add, chip to remove).
+                Rides the existing {...manga, ...pendingChanges} save spread,
+                so no save-handler change is needed. */}
+            <FormGroup size={sizes.MEDIUM}>
+              <FormLabel>{translate('UserAlternativeTitles')}</FormLabel>
+
+              <FormInputGroup
+                type={inputTypes.TEXT_TAG}
+                name="userAlternativeTitles"
+                {...userAlternativeTitles}
+                helpText={translate('UserAlternativeTitlesHelpText')}
+                onChange={handleInputChange}
+              />
             </FormGroup>
           </Form>
         </div>
