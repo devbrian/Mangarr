@@ -201,5 +201,106 @@ namespace NzbDrone.Core.Test.MangaParserTests
             parsed.ChapterType.Should().Be(ChapterType.Extra);
             parsed.ChapterNumbers.Should().Equal(new[] { 5m });
         }
+
+        // debug session marker-word-title-truncation (2026-06-18): a type-marker word
+        // ("Extra" / "Special") that is the legitimate TRAILING word of the title —
+        // plain-space-preceded, no apostrophe, no following number — previously
+        // truncated MangaTitle ("The Novel's Extra" → "The Novel's"; "A Returner's
+        // Magic Should Be Special" → "A Returner's Magic Should Be") because the bare
+        // `extra\b` / `special\b` alternation fired mid-title. The truncated title
+        // never resolved to the library manga, so every release was rejected as
+        // "Unknown Manga" (same class as extras-academy, but the apostrophe guard did
+        // NOT cover this form). The two-arm fix only treats a type word as a delimiter
+        // when it is dash-separated OR number-followed, so a trailing title type word
+        // is preserved. A bare title with NO chapter number is intentionally NOT a
+        // case here — ParseChapterTitle returns null for any release without a chapter
+        // number or type marker (the validity gate in ParseChapterTitle), so realistic
+        // release forms always carry a chapter token (`- Chapter 42`, `Ch.10`).
+        [TestCase("The Novel's Extra - Chapter 42", "The Novel's Extra")]
+        [TestCase("The Novel's Extra Ch.42", "The Novel's Extra")]
+        [TestCase("A Returner's Magic Should Be Special - Chapter 10", "A Returner's Magic Should Be Special")]
+        [TestCase("A Returner's Magic Should Be Special Ch.10", "A Returner's Magic Should Be Special")]
+        public void MangaTitle_with_trailing_marker_word_is_not_truncated(string releaseTitle, string expectedTitle)
+        {
+            var parsed = MangaParser.ParseChapterTitle(releaseTitle);
+
+            parsed.Should().NotBeNull();
+            parsed.MangaTitle.Should().Be(expectedTitle);
+        }
+
+        // Same fix on the ChapterType detector: a regular chapter of a title whose
+        // last word is a type-marker word must NOT be classified as that type
+        // (latent organizer-naming corruption, same class as extras-academy).
+        [TestCase("The Novel's Extra Ch.42")]
+        [TestCase("The Novel's Extra - Chapter 42")]
+        [TestCase("A Returner's Magic Should Be Special Ch.10")]
+        [TestCase("A Returner's Magic Should Be Special - Chapter 10")]
+        public void ChapterType_is_not_misclassified_by_trailing_marker_word(string releaseTitle)
+        {
+            var parsed = MangaParser.ParseChapterTitle(releaseTitle);
+
+            parsed.Should().NotBeNull();
+            parsed.ChapterType.Should().Be(ChapterType.Regular);
+        }
+
+        // Fix does NOT over-correct: legitimate type markers (dash-separated OR
+        // number-followed) still strip from the title and set the type. Covers all
+        // type words + both delimiter forms so the two-arm split is fully exercised.
+        [TestCase("Some Manga - Extra 5", "Some Manga", ChapterType.Extra)]
+        [TestCase("Some Manga Extra 18", "Some Manga", ChapterType.Extra)]
+        [TestCase("Some Manga - Oneshot", "Some Manga", ChapterType.Oneshot)]
+        [TestCase("Title - Side Story 3", "Title", ChapterType.SideStory)]
+        [TestCase("Title - Prologue", "Title", ChapterType.Prologue)]
+        [TestCase("Some Manga - Special 3", "Some Manga", ChapterType.Special)]
+        [TestCase("Title Special 2", "Title", ChapterType.Special)]
+        [TestCase("Some Manga - Bonus 1", "Some Manga", ChapterType.Bonus)]
+        public void Legitimate_type_marker_still_strips_and_sets_type(string releaseTitle, string expectedTitle, ChapterType expectedType)
+        {
+            var parsed = MangaParser.ParseChapterTitle(releaseTitle);
+
+            parsed.Should().NotBeNull();
+            parsed.MangaTitle.Should().Be(expectedTitle);
+            parsed.ChapterType.Should().Be(expectedType);
+        }
+
+        // Chapter/volume tokens (vol|ch|chapter|…) are never plausible trailing title
+        // words, so they remain dash-optional and strip at end-of-string — the
+        // two-arm split must not regress them.
+        [TestCase("Berserk Vol.5 Ch.42", "Berserk")]
+        [TestCase("Naruto Chapter 100", "Naruto")]
+        [TestCase("One Piece Ch.1050", "One Piece")]
+
+        // PR #378 CodeRabbit review: the compact `c` token must match multi-digit and
+        // decimal forms (c\d+(?:\.\d+)?), consistent with ChapterRegexes. The old `c\d`
+        // left "One Piece c1050" un-stripped.
+        [TestCase("One Piece c1050", "One Piece")]
+        [TestCase("One Piece c14.5", "One Piece")]
+        public void Chapter_volume_tokens_still_strip_dash_optional(string releaseTitle, string expectedTitle)
+        {
+            var parsed = MangaParser.ParseChapterTitle(releaseTitle);
+
+            parsed.Should().NotBeNull();
+            parsed.MangaTitle.Should().Be(expectedTitle);
+        }
+
+        // PR #378 Codex review regression guard: "oneshot" / "omake" are manga jargon,
+        // never a legitimate trailing title word. A bracketed, numberless, dash-less
+        // oneshot ("[Group] Chainsaw Man Oneshot (English)") must still classify as
+        // ChapterType.Oneshot AND strip its title. Applying the strict dash-or-number
+        // guard (correct for extra/special/…) to these reclassified them Regular and —
+        // with no chapter number — made ParseChapterTitle return null, regressing real
+        // oneshot imports. AlwaysMarker() restores the always-on jargon match.
+        [TestCase("[Multi-Word Spaced Group] Chainsaw Man Oneshot (English)", "Chainsaw Man", ChapterType.Oneshot)]
+        [TestCase("[Goldsleeves] Adachi to Shimamura Oneshot (ENG)", "Adachi to Shimamura", ChapterType.Oneshot)]
+        [TestCase("Berserk Omake (EN)", "Berserk", ChapterType.Extra)]
+        public void Numberless_jargon_marker_still_parses_and_sets_type(string releaseTitle, string expectedTitle, ChapterType expectedType)
+        {
+            var parsed = MangaParser.ParseChapterTitle(releaseTitle);
+
+            parsed.Should().NotBeNull("jargon markers (oneshot/omake) are valid numberless releases");
+            parsed.MangaTitle.Should().Be(expectedTitle);
+            parsed.ChapterNumbers.Should().BeEmpty();
+            parsed.ChapterType.Should().Be(expectedType);
+        }
     }
 }
