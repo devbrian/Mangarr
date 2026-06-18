@@ -269,12 +269,38 @@ namespace NzbDrone.Core.Test.MangaParserTests
         [TestCase("Berserk Vol.5 Ch.42", "Berserk")]
         [TestCase("Naruto Chapter 100", "Naruto")]
         [TestCase("One Piece Ch.1050", "One Piece")]
+
+        // PR #378 CodeRabbit review: the compact `c` token must match multi-digit and
+        // decimal forms (c\d+(?:\.\d+)?), consistent with ChapterRegexes. The old `c\d`
+        // left "One Piece c1050" un-stripped.
+        [TestCase("One Piece c1050", "One Piece")]
+        [TestCase("One Piece c14.5", "One Piece")]
         public void Chapter_volume_tokens_still_strip_dash_optional(string releaseTitle, string expectedTitle)
         {
             var parsed = MangaParser.ParseChapterTitle(releaseTitle);
 
             parsed.Should().NotBeNull();
             parsed.MangaTitle.Should().Be(expectedTitle);
+        }
+
+        // PR #378 Codex review regression guard: "oneshot" / "omake" are manga jargon,
+        // never a legitimate trailing title word. A bracketed, numberless, dash-less
+        // oneshot ("[Group] Chainsaw Man Oneshot (English)") must still classify as
+        // ChapterType.Oneshot AND strip its title. Applying the strict dash-or-number
+        // guard (correct for extra/special/…) to these reclassified them Regular and —
+        // with no chapter number — made ParseChapterTitle return null, regressing real
+        // oneshot imports. AlwaysMarker() restores the always-on jargon match.
+        [TestCase("[Multi-Word Spaced Group] Chainsaw Man Oneshot (English)", "Chainsaw Man")]
+        [TestCase("[Goldsleeves] Adachi to Shimamura Oneshot (ENG)", "Adachi to Shimamura")]
+        [TestCase("Berserk Omake (EN)", "Berserk")]
+        public void Numberless_jargon_marker_still_parses_and_sets_type(string releaseTitle, string expectedTitle)
+        {
+            var parsed = MangaParser.ParseChapterTitle(releaseTitle);
+
+            parsed.Should().NotBeNull("jargon markers (oneshot/omake) are valid numberless releases");
+            parsed.MangaTitle.Should().Be(expectedTitle);
+            parsed.ChapterNumbers.Should().BeEmpty();
+            parsed.ChapterType.Should().NotBe(ChapterType.Regular);
         }
     }
 }
