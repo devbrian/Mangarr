@@ -61,15 +61,39 @@ namespace NzbDrone.Core.Parser.Manga
         // `\b` after "extra" and every regular chapter of such a title was tagged
         // ChapterType.Extra, corrupting organizer naming. A possessive after a marker
         // word is never a real type marker.
+        //
+        // Delimiter guard (debug session marker-word-title-truncation, 2026-06-18):
+        // mirrors the MangaTitleRegex ARM-2 split. A type-marker word that is the
+        // legitimate trailing word of the title ("The Novel's Extra Ch.42",
+        // "A Returner's Magic Should Be Special Ch.10") would otherwise classify a
+        // regular chapter as ChapterType.Extra / ChapterType.Special, corrupting
+        // organizer naming (same latent class as extras-academy). A type word is a
+        // REAL type marker only when a real delimiter is present: EITHER it is
+        // dash-separated (`- Extra`) OR it is immediately followed by a number
+        // (`Extra 5`). A plain-space-preceded, numberless type word is the title's
+        // real last word and stays ChapterType.Regular.
+        //
+        // Position matters: the dash test must look at the text BEFORE the word and the
+        // number test at the text AFTER it, so the guard cannot be a single suffix
+        // alternation. TypeMarker() wraps each word alternation into two arms —
+        //   ARM A (dash-prefixed):  (?<=-\s+) \bWORD\b(?!['’‘])
+        //   ARM B (number-suffixed): \bWORD\b(?!['’‘]) (?=\s*\.?\s*\d)
+        // .NET regex supports variable-length lookbehind, so `(?<=-\s+)` matches a dash
+        // followed by any whitespace run immediately before the word; the number
+        // lookahead allows an optional `Ch.`-style dot before the digit.
+        private static Regex TypeMarker(string word) =>
+            new(@"(?<=-\s+)\b(?:" + word + @")\b(?!['’‘])|\b(?:" + word + @")\b(?!['’‘])(?=\s*\.?\s*\d)",
+                RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
         private static readonly (Regex Pattern, ChapterType Type)[] ChapterTypeMarkers = new[]
         {
-            (new Regex(@"\b(?:one[\s\-]?shot)\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Oneshot),
-            (new Regex(@"\bside[\s\-]?story\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.SideStory),
-            (new Regex(@"\bprologue\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Prologue),
-            (new Regex(@"\bepilogue\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Epilogue),
-            (new Regex(@"\b(?:extra|omake)\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Extra),
-            (new Regex(@"\bbonus\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Bonus),
-            (new Regex(@"\bspecial\b(?!['’‘])", RegexOptions.IgnoreCase | RegexOptions.Compiled), ChapterType.Special),
+            (TypeMarker(@"one[\s\-]?shot"), ChapterType.Oneshot),
+            (TypeMarker(@"side[\s\-]?story"), ChapterType.SideStory),
+            (TypeMarker(@"prologue"), ChapterType.Prologue),
+            (TypeMarker(@"epilogue"), ChapterType.Epilogue),
+            (TypeMarker(@"extra|omake"), ChapterType.Extra),
+            (TypeMarker(@"bonus"), ChapterType.Bonus),
+            (TypeMarker(@"special"), ChapterType.Special),
         };
 
         // Acceptance gates per task plan must hold:
@@ -132,11 +156,34 @@ namespace NzbDrone.Core.Parser.Manga
         // to the library manga and rejected every release as "Unknown Manga". A
         // marker word immediately followed by an apostrophe is always a possessive
         // that belongs to the title, never a chapter/type delimiter, so we refuse the
-        // match and let `(?<title>.+?)` keep consuming. Legit markers ("- Extra 5",
-        // "Ch.42", "- Oneshot") are followed by space/digit/dash/end, never an
-        // apostrophe, so they still strip correctly.
+        // match and let `(?<title>.+?)` keep consuming.
+        //
+        // Trailing-marker-word guard (debug session marker-word-title-truncation,
+        // 2026-06-18): the apostrophe guard only covered the POSSESSIVE manifestation.
+        // It did NOT cover a type-marker word that is the legitimate TRAILING word of
+        // the title — "The Novel's Extra", "A Returner's Magic Should Be Special" —
+        // where the marker is plain-space-preceded, end-of-string-followed, with no
+        // number and no apostrophe. The bare `extra\b` / `special\b` still fired and
+        // truncated to "The Novel's" / "A Returner's Magic Should Be", so GetManga
+        // could not resolve the manga and every release was rejected as "Unknown
+        // Manga" (same class as extras-academy). Fix: split the marker alternation
+        // into two arms with different delimiter strictness:
+        //   ARM 1 — chapter/volume tokens (vol|v|volume|ch|chapter|chap|c\d). These
+        //     are NEVER a plausible trailing title word, so they stay dash-optional
+        //     and may sit at end-of-string ("Berserk Vol.5 Ch.42", "Title Ch.42").
+        //   ARM 2 — type-marker words (oneshot|extra|bonus|special|side story|…).
+        //     A type word is only a real delimiter when a REAL delimiter is present:
+        //       2a — it is dash-separated ("Some Manga - Extra 5", "- Oneshot"), OR
+        //       2b — it is immediately followed by a number ("Some Manga Extra 18").
+        //     A type word that is plain-space-preceded AND not number-followed is the
+        //     title's real last word, so the alternation refuses it and `(?<title>.+?)`
+        //     keeps consuming through to `$`. The genuinely ambiguous numberless,
+        //     dash-less form ("Some Manga Oneshot") resolves to the full title — the
+        //     safe default, since a real numberless type release carries a dash
+        //     separator or a leading scanlation bracket. Both arms keep the
+        //     `\b(?!['’‘])` apostrophe guard.
         private static readonly Regex MangaTitleRegex =
-            new(@"^(?:\[[^\]]+\]\s*)?(?<title>.+?)(?:\s+(?:-\s+)?(?:vol|v|volume|ch|chapter|chap|c\d|oneshot|one[\s\-]?shot|extra|bonus|side[\s\-]?story|prologue|epilogue|special|omake)\b(?!['’‘])|$)",
+            new(@"^(?:\[[^\]]+\]\s*)?(?<title>.+?)(?:\s+(?:-\s+)?(?:vol|v|volume|ch|chapter|chap|c\d)\b(?!['’‘])|\s+-\s+(?:oneshot|one[\s\-]?shot|extra|bonus|side[\s\-]?story|prologue|epilogue|special|omake)\b(?!['’‘])|\s+(?:oneshot|one[\s\-]?shot|extra|bonus|side[\s\-]?story|prologue|epilogue|special|omake)\b(?!['’‘])(?=\s*\.?\s*\d)|$)",
                 RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         public static ParsedChapterInfo ParseChapterTitle(string title)
