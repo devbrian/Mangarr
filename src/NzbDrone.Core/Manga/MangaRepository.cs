@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using Dapper;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Messaging.Events;
@@ -97,11 +98,19 @@ namespace NzbDrone.Core.Manga
                 return null;
             }
 
-            // Wrap in JSON-element quotes — the StringListConverter serializes
-            // List<string> as a JSON array (e.g. ["abc","def"]), so each
-            // entry is enclosed in double quotes. Matching '"abc"' (with quotes)
-            // uniquely identifies the entry "abc" within the JSON array.
-            var pattern = "\"" + normalizedTitle + "\"";
+            // Build the search token by serializing through the SAME System.Text.Json
+            // path the StringListConverter uses to WRITE the column (default encoder,
+            // no Encoder override), so the escaping matches byte-for-byte. The
+            // StringListConverter serializes List<string> as a JSON array
+            // (e.g. ["abc","def"]), so each entry is a double-quoted JSON string;
+            // matching the quoted JSON-string form uniquely identifies an entry
+            // within the array. Crucially, the default encoder escapes non-ASCII
+            // (e.g. CJK "鬼滅の刃" -> "鬼滅の刃") in BOTH the stored
+            // column AND this token, so user-added CJK aliases (common for manga)
+            // resolve too — a raw quote-wrap matched only ASCII aliases (Codex
+            // PR #377 P2). For ASCII titles JsonSerializer.Serialize("abc") yields
+            // "abc" — identical to the previous manual wrap, so no behavior change.
+            var pattern = JsonSerializer.Serialize(normalizedTitle);
 
             var builder = Builder().Where($"(instr(\"Manga\".\"AlternativeTitles\", @pattern) > 0 OR instr(\"Manga\".\"UserAlternativeTitles\", @pattern) > 0)", new { pattern });
 

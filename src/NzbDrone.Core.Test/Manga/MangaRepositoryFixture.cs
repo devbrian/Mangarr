@@ -266,5 +266,38 @@ namespace NzbDrone.Core.Test.MangaTests
             Subject.FindByAlternativeTitle("shared user alias").Should().BeNull(
                 "ambiguous user-alt-title resolution must return null — single-match-only semantics hold across both lists");
         }
+
+        [Test]
+        public void FindByAlternativeTitle_returns_null_on_ambiguous_match_across_metadata_and_user_lists()
+        {
+            // The same alias is held by one manga via the metadata-sourced
+            // AlternativeTitles column and by another via the user-owned
+            // UserAlternativeTitles column. Ambiguity is "across EITHER list", so a
+            // cross-source collision must also return null (not nondeterministically
+            // pick one). Locks the broadened-query contract end-to-end.
+            Subject.Insert(BuildWithAltTitles("Attack on Titan", "shared alias"));
+            Subject.Insert(BuildWithUserAltTitles("Attack on Titan Doujinshi", "shared alias"));
+
+            Subject.FindByAlternativeTitle("shared alias").Should().BeNull(
+                "ambiguous resolution across metadata and user alt-title lists must return null");
+        }
+
+        [Test]
+        public void FindByAlternativeTitle_resolves_non_ascii_user_alt_title()
+        {
+            // Regression for Codex PR #377 P2: the StringListConverter writes the
+            // column via System.Text.Json's default encoder, which escapes non-ASCII
+            // (CJK) to \uXXXX. A raw quote-wrapped pattern never matched the escaped
+            // value, so a user-added CJK alias silently failed to resolve releases.
+            // FindByAlternativeTitle now serializes the search token through the same
+            // JSON path, so the escaping matches and the lookup succeeds.
+            Subject.Insert(BuildWithUserAltTitles("Attack on Titan", "進撃の巨人"));
+            Subject.Insert(BuildManga("Bleach"));
+
+            var found = Subject.FindByAlternativeTitle("進撃の巨人");
+
+            found.Should().NotBeNull();
+            found.Title.Should().Be("Attack on Titan");
+        }
     }
 }
