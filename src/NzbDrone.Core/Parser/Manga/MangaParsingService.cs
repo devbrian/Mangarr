@@ -152,7 +152,12 @@ namespace NzbDrone.Core.Parser.Manga
             // _sceneMappingService.FindTvdbId step in ParsingService.GetSeries.
             // The metadata source persists each provider's alt-title set
             // pre-normalized at write-time, so this lookup is a direct
-            // canonical-vs-canonical comparison.
+            // canonical-vs-canonical comparison. quick-260618-eqz — the broadened
+            // FindByAlternativeTitle now resolves via the metadata AlternativeTitles
+            // column OR the user-owned UserAlternativeTitles column, so a release
+            // whose name only the user supplied (no metadata source knows it) still
+            // resolves here. No call-site change — the dual-list coverage comes for
+            // free from the broadened repository query.
             hit = _mangaService.FindByAlternativeTitle(clean);
             if (hit != null)
             {

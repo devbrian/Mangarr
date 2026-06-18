@@ -59,30 +59,39 @@ namespace NzbDrone.Core.Manga
             // GH #118 — Strategy 2 of MangaParsingService.GetManga multi-strategy
             // resolution (Sonarr-canonical mirror of ParsingService.GetSeries).
             //
-            // Matches against the AlternativeTitles JSON column written by the
-            // metadata sources. Entries are pre-normalized at write-time
-            // (MangaTitleNormalizer.Normalize), so an exact substring match
-            // wrapped in JSON-element quotes (e.g. `"shingeki no kyojin"`)
-            // uniquely identifies a stored entry without false positives —
-            // the surrounding quotes prevent matching a value that is a
-            // substring of another normalized entry.
+            // quick-260618-eqz — matches against BOTH the metadata-sourced
+            // AlternativeTitles JSON column AND the user-owned UserAlternativeTitles
+            // JSON column. Entries in BOTH columns are pre-normalized at write-time
+            // (metadata sources via MapManga; user titles via MangaResourceMapper.ToModel
+            // — see Task 3), so an exact substring match wrapped in JSON-element quotes
+            // (e.g. `"shingeki no kyojin"`) uniquely identifies a stored entry without
+            // false positives — the surrounding quotes prevent matching a value that is a
+            // substring of another normalized entry. The columns are expected to hold
+            // pre-normalized entries (mirrors the AlternativeTitles write-time-normalized
+            // note).
             //
             // Inherits the BL-02 null-input guard from FindByTitle for the
             // parser short-path that may pass a malformed/empty title.
             //
             // SQLite uses `instr`; PostgreSQL uses `strpos`. Mirrors the
-            // FindByTitleInexact dual-dialect branch above.
+            // FindByTitleInexact dual-dialect branch above. The broadened WHERE
+            // matches when the pattern appears in EITHER column. PostgreSQL uses
+            // coalesce(strpos(...),0) because UserAlternativeTitles is nullable and
+            // strpos(NULL, …) yields NULL; SQLite instr(NULL, …) already yields NULL
+            // which compares `> 0` as false, so the SQLite branch needs no coalesce —
+            // but the OR is kept explicit on both dialects.
             //
             // Ambiguity safety (gh118 code-review followup): alt-title entries
             // are NOT uniqueness-guaranteed across the library — two manga can
             // legitimately share a romanized synonym (e.g. a doujinshi and its
             // parent series both list the romanized parent title in their
-            // attributes.altTitles). Returning FirstOrDefault would be
+            // attributes.altTitles), or two users could add the same custom
+            // alias to different manga. Returning FirstOrDefault would be
             // nondeterministic — the first-row ordering depends on insert
-            // order. Return null on ambiguous (>1 candidate) matches so the
-            // caller (MangaParsingService.GetManga) falls through to
-            // FindByTitleInexact, matching the Sonarr-canonical posture and
-            // the existing FindByTitleInexact contract.
+            // order. Return null on ambiguous (>1 candidate) matches (across
+            // EITHER list) so the caller (MangaParsingService.GetManga) falls
+            // through to FindByTitleInexact, matching the Sonarr-canonical posture
+            // and the existing FindByTitleInexact contract.
             if (string.IsNullOrWhiteSpace(normalizedTitle))
             {
                 return null;
@@ -94,11 +103,11 @@ namespace NzbDrone.Core.Manga
             // uniquely identifies the entry "abc" within the JSON array.
             var pattern = "\"" + normalizedTitle + "\"";
 
-            var builder = Builder().Where($"instr(\"Manga\".\"AlternativeTitles\", @pattern) > 0", new { pattern });
+            var builder = Builder().Where($"(instr(\"Manga\".\"AlternativeTitles\", @pattern) > 0 OR instr(\"Manga\".\"UserAlternativeTitles\", @pattern) > 0)", new { pattern });
 
             if (_database.DatabaseType == DatabaseType.PostgreSQL)
             {
-                builder = Builder().Where($"(strpos(\"Manga\".\"AlternativeTitles\", @pattern) > 0)", new { pattern });
+                builder = Builder().Where($"(coalesce(strpos(\"Manga\".\"UserAlternativeTitles\", @pattern),0) > 0 OR coalesce(strpos(\"Manga\".\"AlternativeTitles\", @pattern),0) > 0)", new { pattern });
             }
 
             var candidates = Query(builder).Take(2).ToList();

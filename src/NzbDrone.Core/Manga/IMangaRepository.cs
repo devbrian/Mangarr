@@ -20,12 +20,15 @@ namespace NzbDrone.Core.Manga
         Manga FindByTitle(string cleanTitle, int year);
         List<Manga> FindByTitleInexact(string cleanTitle);
 
-        // GH #118 — exact-match lookup against the Manga.AlternativeTitles JSON column.
+        // GH #118 — exact-match lookup against the Manga alt-title JSON columns.
         // Strategy 2 of MangaParsingService.GetManga (Sonarr-canonical multi-strategy
         // mirroring ParsingService.GetSeries). Caller passes the
         // MangaTitleNormalizer-canonicalized form; this repo matches it against the
-        // pre-normalized entries each metadata source wrote into AlternativeTitles.
-        // Returns null on no match (mirrors FindByTitle single-row semantics).
+        // pre-normalized entries each metadata source wrote into AlternativeTitles
+        // AND (quick-260618-eqz) the pre-normalized entries a user added into
+        // UserAlternativeTitles. A match in EITHER column resolves the manga;
+        // ambiguous (>1 candidate across either list) returns null. Returns null on
+        // no match (mirrors FindByTitle single-row semantics). Signature unchanged.
         Manga FindByAlternativeTitle(string normalizedTitle);
         Manga FindByMangaDexId(Guid mangaDexId);
         Manga FindByMalId(int malId);
