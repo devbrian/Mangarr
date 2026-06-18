@@ -85,6 +85,25 @@ namespace NzbDrone.Core.Manga
         // registration at TableMapping.cs (same shape as Manga.Genres).
         public List<string> AlternativeTitles { get; set; }
 
+        // quick-260618-eqz — USER-OWNED alternative-title set, the inverse of the
+        // metadata-sourced AlternativeTitles above. Lets a user rescue a release whose
+        // name no metadata source (MangaDex/AniList/MAL/MangaBaka) supplies, so the
+        // parser's Strategy-2 lookup (MangaRepository.FindByAlternativeTitle) resolves it.
+        //
+        // Backed by Migration 015 (nullable JSON-string column). CRITICAL TRAP: this is
+        // deliberately NOT initialized in the constructor — it must be NULL on every
+        // metadata-built Manga (MapManga never sets it) AND on the constructor-default
+        // Manga, so the inverted ApplyChanges guard can detect the metadata-refresh path
+        // ("did not supply user titles" == null) and PRESERVE the stored list. The user
+        // PUT path (MangaResourceMapper.ToModel) supplies a non-null list (possibly empty)
+        // so it round-trips: a non-null value OVERWRITES, an explicit empty list CLEARS,
+        // and a null PRESERVES. See CONTEXT.md "Refresh durability (CRITICAL)".
+        //
+        // Serialized via the global StringListConverter<List<string>> registration at
+        // TableMapping.cs (same shape as Manga.AlternativeTitles / Genres) — no
+        // TableMapping change needed.
+        public List<string> UserAlternativeTitles { get; set; }
+
         // URL-safe identifier — mirrors Tv/Series.cs:47 TitleSlug. Computed from
         // Title via StringExtensions.ToUrlSlug() in AddMangaService.PrepareForAdd
         // (TV gets it from SkyHook; manga primaries don't expose a slug field, so
@@ -180,6 +199,24 @@ namespace NzbDrone.Core.Manga
             if (other.AlternativeTitles != null && other.AlternativeTitles.Count > 0)
             {
                 AlternativeTitles = other.AlternativeTitles;
+            }
+
+            // quick-260618-eqz — INVERTED guard relative to the AlternativeTitles guard
+            // above. AlternativeTitles is metadata-OWNED, so it copies only on a populated
+            // incoming list (refresh wins, user-PUT-empty preserves). UserAlternativeTitles
+            // is user-OWNED, so it copies whenever the incoming value is NON-NULL — including
+            // an EXPLICIT empty list (which clears). The two PUT/refresh paths supply:
+            //   * User PUT (MangaResourceMapper.ToModel, Task 3): ALWAYS a non-null list
+            //     (possibly empty) → overwrite/clear. An explicit `[]` in the request body
+            //     deserializes to a non-null empty list, so it clears.
+            //   * Metadata refresh (MapManga, which must NOT set the field — leaves it null)
+            //     → preserve the stored user list.
+            // This is the partner mechanism for the inverted-vs-AlternativeTitles contract
+            // (GH #118 AlternativeTitles guard ~L180 is the mirror precedent). See CONTEXT.md
+            // "Refresh durability (CRITICAL)" + "Null-vs-empty guard".
+            if (other.UserAlternativeTitles != null)
+            {
+                UserAlternativeTitles = other.UserAlternativeTitles;
             }
 
             LastInfoSync = DateTime.UtcNow;
