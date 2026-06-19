@@ -504,6 +504,20 @@ namespace NzbDrone.Core.Test.MangaTests
                 Path = TestMangaPath,
             };
             Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(existing);
+
+            // A second, healthy manga AFTER the failing one in the batch — proves the loop
+            // genuinely `continue`s past the relink-retry failure rather than exiting early
+            // (a single-id batch can't distinguish continue from return). PR #379 review.
+            var healthy = new Manga.Manga
+            {
+                Id = 2,
+                Title = "Healthy Manga",
+                MangaBakaId = 777,
+                Status = MangaStatusType.Ongoing,
+                Path = TestMangaPath,
+            };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(2)).Returns(healthy);
+
             Mocker.GetMock<IMangaService>()
                   .Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>()))
                   .Returns<Manga.Manga, bool>((m, _) => m);
@@ -517,7 +531,8 @@ namespace NzbDrone.Core.Test.MangaTests
                 TotalChapterCount = 20,
             };
 
-            // 6127 → 404 (triggers relink); the relinked 531893 → non-404 503 on the retry.
+            // 6127 → 404 (triggers relink); the relinked 531893 → non-404 503 on the retry;
+            // 777 (the second manga) → success.
             var stub = new StubMangaBakaProvider(hit, new Manga.Manga { Id = 1 })
             {
                 NotFoundIds = new HashSet<string> { "6127" },
@@ -528,12 +543,13 @@ namespace NzbDrone.Core.Test.MangaTests
                   .Returns(stub);
 
             // Must NOT throw out of Execute — the batch stays alive (WR-07).
-            Subject.Invoking(s => s.Execute(new RefreshMangaCommand(new List<int> { 1 })))
+            Subject.Invoking(s => s.Execute(new RefreshMangaCommand(new List<int> { 1, 2 })))
                    .Should().NotThrow();
 
             existing.MangaBakaId.Should().Be(531893, "the relink was persisted before the retry failed");
             existing.Status.Should().NotBe(MangaStatusType.Deleted, "a non-404 retry failure is not a removal");
             stub.GetMangaInfoCalls.Should().ContainInOrder("6127", "531893");
+            stub.GetMangaInfoCalls.Should().Contain("777", "the batch must continue to the next manga after the retry failure");
             Mocker.GetMock<ICommandResultReporter>().Verify(r => r.Report(CommandResult.Indeterminate), Times.Once());
             ExceptionVerification.ExpectedWarns(1);
         }
