@@ -22,6 +22,36 @@ namespace NzbDrone.Core.Test.MangaParserTests
             MangaTitleNormalizer.Normalize(input).Should().Be(expected);
         }
 
+        // debug `alt-title-collision-guard` (2026-06-19): junk placeholder titles carry zero
+        // identification value and must never be used as a resolution key (write-time they are
+        // dropped from AlternativeTitles; read-time GetManga refuses to resolve them). EXACT-match
+        // denylist only — legit short aliases ("orv", "trk", "mga") and the garbage-but-not-
+        // -placeholder word "but" (handled by the FindByAlternativeTitle ambiguity guard) are NOT
+        // flagged. Input is normalized defensively so raw titles work too.
+        [TestCase("Unknown Title", true)]
+        [TestCase("unknown title", true)]
+        [TestCase("UNKNOWN TITLE", true)]
+        [TestCase("Title Unknown", true)]
+        [TestCase("No Title", true)]
+        [TestCase("Untitled", true)]
+        [TestCase("unknown", true)]
+        [TestCase("None", true)]
+        [TestCase("TBA", true)]
+        [TestCase("TBD", true)]
+        [TestCase("", true)]
+        [TestCase("   ", true)]
+        [TestCase(null, true)]
+        [TestCase("Attack on Titan", false)]
+        [TestCase("orv", false)]      // legit abbreviation — Omniscient Reader
+        [TestCase("trk", false)]      // legit abbreviation — Tomb Raider King
+        [TestCase("mga", false)]      // legit abbreviation — Martial God Asura
+        [TestCase("but", false)]      // garbage word, NOT a known placeholder (ambiguity guard covers the shared case)
+        [TestCase("Naruto", false)]
+        public void IsJunkPlaceholder_flags_only_known_placeholders(string input, bool expected)
+        {
+            MangaTitleNormalizer.IsJunkPlaceholder(input).Should().Be(expected);
+        }
+
         // Search-query variant: identical pipeline to Normalize EXCEPT stripped
         // punctuation becomes a SPACE so word boundaries survive for an external
         // tokenizing search engine. Regression coverage for debug session

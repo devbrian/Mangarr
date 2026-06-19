@@ -383,5 +383,48 @@ namespace NzbDrone.Core.Test.MangaParserTests
                 "a release that is the library title plus a trailing token may be a distinct " +
                 "sequel/variant work; the substring fallback must not attribute it to the base manga");
         }
+
+        // debug `alt-title-collision-guard` (2026-06-19): a release whose OWN normalized title is
+        // a junk placeholder ("unknown title", "untitled", "tba", …) carries zero identity and
+        // must NEVER resolve — even against maximally-permissive finders. The guard runs before
+        // Strategy 1, so this protects against a junk placeholder that is unique to one manga
+        // (the FindByAlternativeTitle ambiguity guard only covers the >1-owner SHARED case).
+        [TestCase("Unknown Title")]
+        [TestCase("Untitled")]
+        [TestCase("TBA")]
+        public void GetManga_refuses_to_resolve_junk_placeholder_title(string junkTitle)
+        {
+            var manga = ShortTitleManga("Some Manga", MangaTitleNormalizer.Normalize(junkTitle));
+
+            var mangaService = Mocker.GetMock<IMangaService>();
+            mangaService.Setup(s => s.FindByTitle(It.IsAny<string>())).Returns(manga);
+            mangaService.Setup(s => s.FindByAlternativeTitle(It.IsAny<string>())).Returns(manga);
+            mangaService.Setup(s => s.FindByTitleInexact(It.IsAny<string>()))
+                .Returns(new List<NzbDrone.Core.Manga.Manga> { manga });
+
+            Subject.GetManga($"{junkTitle} - Chapter 1 [en]").Should().BeNull(
+                "a junk-placeholder release title must not resolve to any manga");
+        }
+
+        // Row 4 (alt-title equals ANOTHER manga's CleanTitle): a release whose title IS manga A's
+        // CleanTitle resolves to A via Strategy 1 (the canonical owner); Strategy 2 (alt-title) is
+        // never consulted, so a different manga B that merely lists the same string as an alt can
+        // never steal it. Locks in CleanTitle precedence.
+        [Test]
+        public void GetManga_strategy1_cleantitle_wins_and_skips_alt_title_lookup()
+        {
+            var owner = ShortTitleManga("You Like Me Don't You", "you like me dont you");
+
+            var mangaService = Mocker.GetMock<IMangaService>();
+            mangaService.Setup(s => s.FindByTitle("you like me dont you")).Returns(owner);
+
+            var result = Subject.GetManga("You Like Me Don't You - Chapter 3 [en]");
+
+            result.Should().Be(owner);
+            mangaService.Verify(
+                s => s.FindByAlternativeTitle(It.IsAny<string>()),
+                Times.Never,
+                "a CleanTitle (Strategy 1) match must short-circuit before the alt-title lookup");
+        }
     }
 }

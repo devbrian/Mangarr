@@ -181,7 +181,11 @@ namespace NzbDrone.Core.MetadataSource.MyAnimeList
             }
 
             var normalized = MangaTitleNormalizer.Normalize(raw);
-            if (!string.IsNullOrWhiteSpace(normalized))
+
+            // Drop junk placeholders (debug alt-title-collision-guard, 2026-06-19) so they
+            // never enter AlternativeTitles and become a cross-title resolution key;
+            // IsJunkPlaceholder also covers the empty/whitespace case checked previously.
+            if (!MangaTitleNormalizer.IsJunkPlaceholder(normalized))
             {
                 bucket.Add(normalized);
             }

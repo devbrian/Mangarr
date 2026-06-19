@@ -141,6 +141,24 @@ namespace NzbDrone.Core.Parser.Manga
                 return null;
             }
 
+            // debug `alt-title-collision-guard` (2026-06-19): never resolve a release whose
+            // own normalized title is a junk placeholder ("unknown title", "untitled", …).
+            // Such a title carries zero identification value — matching it to a manga that
+            // merely happens to hold the same placeholder as a (unique) alt-title is a
+            // cross-title mis-attribution. The FindByAlternativeTitle ambiguity guard only
+            // covers the SHARED case (>1 owner -> null); this covers a junk placeholder that
+            // is unique to one manga. Write-time filtering (metadata AddNormalized) keeps new
+            // placeholders out of AlternativeTitles, but this read-side guard also protects
+            // rows already stored before a refresh re-cleans them.
+            if (MangaTitleNormalizer.IsJunkPlaceholder(clean))
+            {
+                _logger.Debug(
+                    "MangaParsingService.GetManga: refusing to resolve junk-placeholder title '{0}' (raw='{1}')",
+                    clean,
+                    title);
+                return null;
+            }
+
             // Strategy 1: direct CleanTitle match (existing path).
             var hit = _mangaService.FindByTitle(clean);
             if (hit != null)

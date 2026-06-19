@@ -68,6 +68,31 @@ namespace NzbDrone.Core.Test.MetadataSource.MangaBaka
             result.Item1.AniListId.Should().Be(105398);
         }
 
+        // debug `alt-title-collision-guard` (2026-06-19): junk placeholder titles are dropped at
+        // the write gate (AddNormalized) so they never enter AlternativeTitles and become a
+        // cross-title resolution key. Distinctive titles still flow through.
+        [Test]
+        public void GetMangaInfo_drops_junk_placeholder_alternative_titles()
+        {
+            var resource = new MangaBakaSeriesResource
+            {
+                Data = new MangaBakaSeries
+                {
+                    Id = 3397,
+                    Title = "Real Distinctive Title",
+                    NativeTitle = "Unknown Title",   // junk placeholder — must be dropped
+                    RomanizedTitle = "Untitled",     // junk placeholder — must be dropped
+                },
+            };
+            SetupGetByIdMock(resource);
+
+            var manga = Subject.GetMangaInfo("3397").Item1;
+
+            manga.AlternativeTitles.Should().Contain("real distinctive title");
+            manga.AlternativeTitles.Should().NotContain("unknown title");
+            manga.AlternativeTitles.Should().NotContain("untitled");
+        }
+
         // D-03: source.my_anime_list.id is a RAW INTEGER — read straight into MalId.
         [Test]
         public void GetMangaInfo_reads_mal_id_directly()

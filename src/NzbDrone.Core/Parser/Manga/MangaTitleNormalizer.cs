@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -39,6 +40,54 @@ namespace NzbDrone.Core.Parser.Manga
         // mid-string paren, but the parser strips brackets via its own pipeline).
         private static readonly Regex AltSuffixRegex =
             new(@"\s*[\(\[][^\)\]]*[\)\]]\s*$", RegexOptions.Compiled);
+
+        // Junk / placeholder titles that carry ZERO identification value. A metadata
+        // source occasionally emits one of these as a title or alt-title (a missing-title
+        // sentinel), and two unrelated manga can both pick it up — making it a cross-title
+        // attribution hazard. The FindByAlternativeTitle ambiguity guard (returns null on
+        // >1 match) already neutralizes a SHARED junk alias, but a junk placeholder that is
+        // UNIQUE to one manga would still resolve a stray release to it (debug session
+        // alt-title-collision-guard, 2026-06-19). So we (a) drop these at write-time in the
+        // metadata `AddNormalized` gate so they never enter AlternativeTitles, and (b) refuse
+        // to resolve a release whose own normalized title is one of these in
+        // MangaParsingService.GetManga.
+        //
+        // EXACT-match denylist only — NOT a length/distinctiveness rule — because legit
+        // short aliases exist (e.g. "orv" = Omniscient Reader, "trk" = Tomb Raider King,
+        // "mga" = Martial God Asura) and must keep resolving. Entries are in normalized form
+        // (lowercase, punctuation-stripped, whitespace-collapsed — i.e. post-Normalize). Add
+        // new placeholders here as they surface.
+        private static readonly HashSet<string> JunkPlaceholders = new(System.StringComparer.Ordinal)
+        {
+            "unknown title",
+            "title unknown",
+            "no title",
+            "untitled",
+            "unknown",
+            "none",
+            "tba",
+            "tbd",
+        };
+
+        /// <summary>
+        /// True when <paramref name="normalizedTitle"/> is empty/whitespace OR a known junk
+        /// placeholder ("unknown title", "untitled", …) that must never be used as a
+        /// resolution key. Input is expected in <see cref="Normalize"/> form; the method
+        /// normalizes defensively so callers may pass a raw title too.
+        /// </summary>
+        public static bool IsJunkPlaceholder(string normalizedTitle)
+        {
+            if (string.IsNullOrWhiteSpace(normalizedTitle))
+            {
+                return true;
+            }
+
+            // Defensive: if a caller passes a raw (un-normalized) title, normalize it so the
+            // denylist comparison is apples-to-apples. A value already in normalized form is
+            // idempotent through Normalize.
+            var candidate = Normalize(normalizedTitle);
+            return string.IsNullOrEmpty(candidate) || JunkPlaceholders.Contains(candidate);
+        }
 
         /// <summary>
         /// Canonical comparison form — the single source of truth for SYMMETRIC
