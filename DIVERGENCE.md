@@ -1428,6 +1428,30 @@ Fixes a live re-grab loop: an already-imported chapter (e.g. *My Wife Waited in 
 
 *Last updated: 2026-06-15 (debug session rss-regrab-existing-chapter — appended the UpgradeDiskSpecification section above: restored the disk-aware decision-side reject gate (Sonarr `UpgradeDiskSpecification`/`CutoffSpecification` peer) lost in the Phase 5 D-04 quality-model drop, fixing an already-imported chapter being re-grabbed on every RSS sync cycle. Consistency-RESTORING. All previous trailers preserved verbatim above per historical-accuracy contract.)*
 
+## Chapter-synthesis stray-outlier guard + one-time prune (`manga-removed-from-metadata-source` follow-up) (2026-06-18)
+
+Hardens the Phase 40 `ChapterSynthesisService` (above) against mislabeled gateway releases, and adds a NEW maintenance surface to clean up the phantom rows a pre-fix reconciliation already created. Both are Sonarr-divergent — they extend the NEW-in-Mangarr two-source reconciliation engine that has no Sonarr peer.
+
+**The bug:** `SynthesizeFromDecisions` set `maxWhole` to the raw max whole chapter number across attributed gateway releases, then backfilled the contiguous `[1..maxWhole]` range (bounded only by the 5000 DoS cap). A source (mangaball) that mislabels a few chapters with stray high numbers — e.g. 164/592/694/703/712/726 on *The Heavenly Demon Wants a Quiet Life* (86 real chapters) — dragged `maxWhole` to 726 and spawned ~640 monitored, file-less phantom "Missing" chapters that can never be satisfied. Phase 40's own REVIEW flagged this as IN-03 ("contiguous backfill marks all gap chapters monitored+wanted") and accepted it as Info; this fixes it.
+
+**The forward fix — metadata-anchored density floor.** `ResolveDensityCut(manga, candidateMax, present)` trusts metadata's `[1..baseline]` (`baseline = Manga.TotalChapterCount`) verbatim and requires any post-baseline extension to clear a density floor measured ONLY over the region above the baseline: `density(M) = |present ∩ (B,M]| / (M-B)`, scanned high→low, largest `M ≥ MinPostBaselineDensity (0.5)` wins; if none clears, the cut falls back to the baseline. A contiguous real run scores ~1.0 and fills (metadata undercounts at 10, gateway has a contiguous 11..100 → all 90 filled — the user's explicit "keep this" case); a lone stray scores ~`1/(stray-baseline)` ≈ 0.01 and is cut. `present` pools existing DB whole numbers + the batch's attributed gateway numbers, so coverage accrues across all gateway sources over time. `baseline ≤ 0` (no metadata count) degrades to the full-range density `count/max`. On-grab (`SynthesizeForGrab`) is unchanged — a deliberate single-chapter grab is never density-gated.
+
+**Why anchor on metadata rather than cap by it:** an earlier option (clamp `maxWhole` to `TotalChapterCount`) was rejected because it breaks the legitimate undercount case — metadata frequently reports far fewer chapters than the gateway actually carries, and the user wants those filled. Anchoring keeps metadata as a TRUST floor (always filled) while letting the gateway extend arbitrarily far IF the extension is dense; only sparse outliers are cut.
+
+**The cleanup — `StrayChapterPruneService` (NEW, no Sonarr analog).** The density cut prevents NEW strays but cannot retroactively spot the ALREADY-materialized contiguous backfill (87..726 looks contiguous, so its density is 1.0). The prune uses the orthogonal signal — a file-less synthesized row ABOVE `TotalChapterCount` — with a two-bucket safety split: file-less strays are safe to delete (re-synthesize via the fixed cut if genuinely real); strays carrying a `ChapterFile` are NEVER auto-deleted (a mislabeled release may be REAL content) — they are reported for review and recycle-binned (recoverable, via `IDeleteMediaFiles`) only on an explicit `deleteFiles=true`. `BuildReport` is dry-run-only; `Prune` executes. Surfaced at `GET`/`POST /api/v5/manga/{id}/straychapters` (`StrayChaptersController`).
+
+| File / Path | Type | Rationale |
+|-------------|------|-----------|
+| `src/NzbDrone.Core/Manga/ChapterSynthesisService.cs` (`ResolveDensityCut` + `MinPostBaselineDensity`) | edit | Replaces raw `maxWhole = wholeNumbers.Max()` with the metadata-anchored density cut. |
+| `src/NzbDrone.Core/Manga/IStrayChapterPruneService.cs` + `StrayChapterPruneService.cs` | new | One-time cleanup of pre-fix phantom rows; two-bucket file-less/with-file safety. |
+| `src/Mangarr.Api.V5/Manga/StrayChaptersController.cs` | new | `GET` dry-run manifest + `POST` execute (`?deleteFiles=`); bare `Controller` sharing the `manga` route prefix. |
+
+**Proof:** `ChapterSynthesisServiceFixture` (3 new stray-cut cases incl. the exact 86-chapter/726-stray scenario + contiguous-undercount-fills + keeps-real-extension-drops-strays; 3 existing tests re-anchored with a metadata baseline) + `StrayChapterPruneServiceFixture` (7 cases: bucketing, no-baseline skip, dry-run no-mutation, deleteFiles gate) green — 25 synthesis+prune tests, 145 `MangaTests` green; full solution Debug build clean. Live dev-stack dry-run validation performed before any deletion.
+
+**Cross-references:**
+- DIVERGENCE.md § Phase 40 (above) — the reconciliation engine this hardens; IN-03 is the accepted-Info footgun this closes.
+- `src/NzbDrone.Core/Manga/CLAUDE.md` + `src/Mangarr.Api.V5/Manga/CLAUDE.md` — updated service/controller tables.
+
 ## User-owned `Manga.UserAlternativeTitles` set (quick task 260618-eqz) (2026-06-18)
 
 Adds a NEW user-curated alternative-title list on `Manga`, SEPARATE from the metadata-sourced `AlternativeTitles` (GH #118). It lets a user rescue a release whose name no metadata source (MangaDex/AniList/MAL/MangaBaka) supplies, so the parser's Strategy-2 lookup resolves and imports it. This is a Sonarr-divergent NEW field (Sonarr has no user-curated alias set — its alias data comes from the community-curated SceneMapping table).

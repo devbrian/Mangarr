@@ -101,6 +101,10 @@ namespace NzbDrone.Core.Test.MangaTests
         public void SynthesizeFromDecisions_backfills_full_whole_range_minus_existing()
         {
             // Gateway whole {0,1,2,4,5,12}; existing {1,2} => backfill {0,3,4,5,6,7,8,9,10,11,12}.
+            // Metadata vouches for 12 chapters, so the whole [1..12] range is trusted and the
+            // density floor never trims it (the sparse 4/5/12 gaps fall inside the baseline).
+            _searched.TotalChapterCount = 12;
+
             Mocker.GetMock<IChapterService>()
                 .Setup(s => s.GetChaptersByManga(_searched.Id))
                 .Returns(new List<Chapter>
@@ -155,7 +159,10 @@ namespace NzbDrone.Core.Test.MangaTests
         {
             // A single max-whole attributed release (chapter 10), existing none => backfill the
             // contiguous range {1..10}. Chapter 0 must NOT appear: no chapter-0 release was
-            // attributed, so synthesizing a phantom Chapter 0 is a bug.
+            // attributed, so synthesizing a phantom Chapter 0 is a bug. Metadata vouches for 10
+            // chapters, so the [1..10] range is trusted and the density floor leaves it intact.
+            _searched.TotalChapterCount = 10;
+
             var decisions = new List<MangaDownloadDecision>
             {
                 Decision("The Forgotten Field", new[] { 10m }),
@@ -178,7 +185,10 @@ namespace NzbDrone.Core.Test.MangaTests
         public void SynthesizeFromDecisions_synthesizes_chapter_zero_when_zero_release_attributed()
         {
             // A genuine chapter-0 release IS attributed (gateway {0,3}, existing none) => Chapter 0
-            // is synthesized alongside the {1,2,3} backfill.
+            // is synthesized alongside the {1,2,3} backfill. Metadata vouches for 3 chapters, so
+            // the trusted [1..3] range fills regardless of the (sparse) gateway sample.
+            _searched.TotalChapterCount = 3;
+
             var decisions = new List<MangaDownloadDecision>
             {
                 Decision("The Forgotten Field", new[] { 0m }),
@@ -384,6 +394,105 @@ namespace NzbDrone.Core.Test.MangaTests
             captured.Should().NotBeNull();
             captured.Select(c => c.ChapterNumber).Should().BeEquivalentTo(new[] { 3m });
             captured.Should().NotContain(c => c.ChapterNumber == 0m || c.ChapterNumber == 1m || c.ChapterNumber == 2m);
+        }
+
+        // ---- Density-floor stray cut (manga-removed-from-metadata-source follow-up) ----
+
+        [Test]
+        public void SynthesizeFromDecisions_drops_sparse_stray_numbers_far_above_metadata_count()
+        {
+            // The Heavenly Demon Wants a Quiet Life: metadata count 86, catalog already holds
+            // 1..86, and mangaball reports a handful of MISLABELED stray releases far above the
+            // real count. These must NOT drag the synthesized range up to 726 and spawn ~640
+            // phantom "Missing" chapters. Each stray is a lone number, so its post-baseline
+            // density is ~1/(stray-86) << 0.5 and the cut falls back to the trusted baseline.
+            _searched.TotalChapterCount = 86;
+
+            Mocker.GetMock<IChapterService>()
+                .Setup(s => s.GetChaptersByManga(_searched.Id))
+                .Returns(Enumerable.Range(1, 86)
+                    .Select(n => new Chapter { MangaId = 2, ChapterNumber = n })
+                    .ToList());
+
+            var decisions = new[] { 84m, 85m, 86m, 164m, 592m, 694m, 703m, 712m, 726m }
+                .Select(n => Decision("The Heavenly Demon Wants a Quiet Life", new[] { n }))
+                .ToList();
+
+            // Attribution resolves these to the searched manga.
+            Mocker.GetMock<IMangaService>()
+                .Setup(s => s.FindByTitle(It.IsAny<string>()))
+                .Returns(_searched);
+
+            Subject.SynthesizeFromDecisions(_searched, decisions);
+
+            // Nothing genuinely-absent beyond the trusted [1..86] => no rows reach SyncChapters.
+            Mocker.GetMock<IChapterListService>()
+                .Verify(
+                    s => s.SyncChapters(It.IsAny<Manga.Manga>(),
+                        It.Is<IEnumerable<Chapter>>(list => list.Any()),
+                        It.IsAny<bool>()),
+                    Times.Never);
+        }
+
+        [Test]
+        public void SynthesizeFromDecisions_keeps_contiguous_extension_but_drops_strays()
+        {
+            // Metadata count 86, catalog 1..86. The gateway legitimately runs a few chapters
+            // AHEAD of metadata (87..90 — a dense contiguous extension) AND carries two strays
+            // (164, 592). The contiguous run clears the floor (4/4 = 1.0 at top 90); the strays
+            // do not. Result: 87..90 are synthesized, the strays are dropped.
+            _searched.TotalChapterCount = 86;
+
+            Mocker.GetMock<IChapterService>()
+                .Setup(s => s.GetChaptersByManga(_searched.Id))
+                .Returns(Enumerable.Range(1, 86)
+                    .Select(n => new Chapter { MangaId = 2, ChapterNumber = n })
+                    .ToList());
+
+            var decisions = new[] { 87m, 88m, 89m, 90m, 164m, 592m }
+                .Select(n => Decision("The Forgotten Field", new[] { n }))
+                .ToList();
+
+            IList<Chapter> captured = null;
+            Mocker.GetMock<IChapterListService>()
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
+
+            Subject.SynthesizeFromDecisions(_searched, decisions);
+
+            captured.Should().NotBeNull();
+            captured.Select(c => c.ChapterNumber).Should().BeEquivalentTo(new[] { 87m, 88m, 89m, 90m });
+            captured.Should().NotContain(c => c.ChapterNumber == 164m || c.ChapterNumber == 592m);
+        }
+
+        [Test]
+        public void SynthesizeFromDecisions_fills_when_metadata_undercounts_and_gateway_is_contiguous()
+        {
+            // The legit "metadata says 10, reality is 100" case the user explicitly wants kept:
+            // metadata undercounts (10), catalog 1..10, gateway exposes a CONTIGUOUS 11..20 run.
+            // Post-baseline density at top 20 is 10/10 = 1.0, so the full extension is honored.
+            _searched.TotalChapterCount = 10;
+
+            Mocker.GetMock<IChapterService>()
+                .Setup(s => s.GetChaptersByManga(_searched.Id))
+                .Returns(Enumerable.Range(1, 10)
+                    .Select(n => new Chapter { MangaId = 2, ChapterNumber = n })
+                    .ToList());
+
+            var decisions = Enumerable.Range(11, 10)   // 11..20
+                .Select(n => Decision("The Forgotten Field", new[] { (decimal)n }))
+                .ToList();
+
+            IList<Chapter> captured = null;
+            Mocker.GetMock<IChapterListService>()
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
+
+            Subject.SynthesizeFromDecisions(_searched, decisions);
+
+            captured.Should().NotBeNull();
+            captured.Select(c => c.ChapterNumber).Should().BeEquivalentTo(
+                Enumerable.Range(11, 10).Select(n => (decimal)n));
         }
 
         // ---- On-grab (RECON-04 / D-04) ----
