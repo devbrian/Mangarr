@@ -298,8 +298,8 @@ def main():
     print()
     print(f"  NOTE: the prune endpoint's raw signal would touch {raw_fileless} file-less + "
           f"{raw_withfile} with-file rows —")
-    print(f"        but only the JUNK rows above are confident outliers. The LEGIT-EXT rows are")
-    print(f"        real chapters from stale metadata counts; pruning them would delete real content.")
+    print("        but only the JUNK rows above are confident outliers. The LEGIT-EXT rows are")
+    print("        real chapters from stale metadata counts; pruning them would delete real content.")
     print()
     if n_junk:
         print("  Confident-junk manga (the Heavenly-Demon shape) are safe to prune per-id:")
