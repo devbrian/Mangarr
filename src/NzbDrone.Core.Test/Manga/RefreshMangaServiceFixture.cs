@@ -482,6 +482,63 @@ namespace NzbDrone.Core.Test.MangaTests
         }
 
         [Test]
+        public void Execute_continues_and_reports_indeterminate_when_relink_retry_fails_non_404()
+        {
+            // PR #379 review (Codex P2 / CodeRabbit critical): the stored id 404s, a confident
+            // relink match IS found, but the refetch of the relinked id fails with a NON-404
+            // error (HTTP 503, JSON deser, …). That must NOT escape and abort the batch, and must
+            // NOT flip the manga to deleted — it routes through WR-07 batch tolerance
+            // (rescan + Report(Indeterminate) + continue).
+            var bakaPrimary = new MetadataSourceDefinition { Id = 4, Name = "MangaBaka", IsPrimary = true };
+            Mocker.GetMock<IMetadataSourceFactory>().Setup(f => f.GetPrimary()).Returns(bakaPrimary);
+
+            var existing = new Manga.Manga
+            {
+                Id = 1,
+                Title = "My Succubus Girlfriend",
+                MangaBakaId = 6127,
+                PublicationYear = 2021,
+                PrimaryAuthor = "Some Author",
+                TotalChapterCount = 20,
+                Status = MangaStatusType.Ongoing,
+                Path = TestMangaPath,
+            };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(existing);
+            Mocker.GetMock<IMangaService>()
+                  .Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>()))
+                  .Returns<Manga.Manga, bool>((m, _) => m);
+
+            var hit = new Manga.Manga
+            {
+                Title = "My Succubus Girlfriend",
+                MangaBakaId = 531893,
+                PublicationYear = 2021,
+                PrimaryAuthor = "Some Author",
+                TotalChapterCount = 20,
+            };
+
+            // 6127 → 404 (triggers relink); the relinked 531893 → non-404 503 on the retry.
+            var stub = new StubMangaBakaProvider(hit, new Manga.Manga { Id = 1 })
+            {
+                NotFoundIds = new HashSet<string> { "6127" },
+                ThrowGenericIds = new HashSet<string> { "531893" },
+            };
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            // Must NOT throw out of Execute — the batch stays alive (WR-07).
+            Subject.Invoking(s => s.Execute(new RefreshMangaCommand(new List<int> { 1 })))
+                   .Should().NotThrow();
+
+            existing.MangaBakaId.Should().Be(531893, "the relink was persisted before the retry failed");
+            existing.Status.Should().NotBe(MangaStatusType.Deleted, "a non-404 retry failure is not a removal");
+            stub.GetMangaInfoCalls.Should().ContainInOrder("6127", "531893");
+            Mocker.GetMock<ICommandResultReporter>().Verify(r => r.Report(CommandResult.Indeterminate), Times.Once());
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
         public void Execute_publishes_MangaUpdatedEvent_and_ChapterListUpdatedEvent()
         {
             var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
@@ -1007,6 +1064,13 @@ namespace NzbDrone.Core.Test.MangaTests
                     throw new MangaNotFoundException(sourceId);
                 }
 
+                // Non-404 transient failure (HTTP 503, JSON deser error, …) on a given id —
+                // used to exercise the relink-retry's WR-07 batch-tolerance catch.
+                if (ThrowGenericIds != null && ThrowGenericIds.Contains(sourceId))
+                {
+                    throw new InvalidOperationException($"simulated upstream 503 for {sourceId}");
+                }
+
                 return Tuple.Create(_result, (IEnumerable<Chapter>)(Chapters ?? Enumerable.Empty<Chapter>()));
             }
 
@@ -1014,6 +1078,9 @@ namespace NzbDrone.Core.Test.MangaTests
 
             // Source ids for which GetMangaInfo simulates an upstream 404 (null = none).
             public HashSet<string> NotFoundIds { get; set; }
+
+            // Source ids for which GetMangaInfo throws a NON-404 exception (null = none).
+            public HashSet<string> ThrowGenericIds { get; set; }
         }
 
         // WR-07 helper: throws an arbitrary exception for the first sourceId, then

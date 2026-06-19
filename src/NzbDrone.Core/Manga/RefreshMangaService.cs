@@ -679,6 +679,23 @@ namespace NzbDrone.Core.Manga
                                 existing.Title,
                                 primaryDef.Name);
                         }
+                        catch (Exception retryEx)
+                        {
+                            // WR-07 batch tolerance: a NON-404 failure on the relinked fetch
+                            // (HTTP 503, JSON deser error, chapter-sync exception, …) must NOT
+                            // escape this catch and abort the whole refresh loop — and must NOT
+                            // flip the manga to deleted (it is not a removal). Mirror the sibling
+                            // generic catch below: log, rescan disk, flag Indeterminate, continue.
+                            // The repointed primary id is already persisted, so the next refresh
+                            // retries against the live id.
+                            _logger.Warn(retryEx,
+                                "Refresh of relinked id {0} for manga {1} failed; skipping and continuing",
+                                relinkedId,
+                                existing.Title);
+                            RescanManga(existing, message.IsNewManga, message.Trigger);
+                            _commandResultReporter.Report(CommandResult.Indeterminate);
+                            continue;
+                        }
                     }
 
                     _logger.Warn("Manga {0} not found at primary source — preserving existing data",
