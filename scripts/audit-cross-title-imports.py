@@ -61,8 +61,8 @@ Usage:
     python3 scripts/audit-cross-title-imports.py --detail        # list each flagged file
     python3 scripts/audit-cross-title-imports.py --json report.json
     # Dev stack (DB on the mediaserver): run it there over SSH —
-    #   ssh llm@<redacted-host> 'python3 -' < scripts/audit-cross-title-imports.py
-    # or copy /opt/mangarr/mangarr.db locally and pass --db.
+    #   ssh <user>@<mediaserver> 'python3 -' < scripts/audit-cross-title-imports.py
+    # or copy the mangarr.db locally and pass --db.
 """
 
 import argparse
@@ -161,9 +161,9 @@ def load_titles(cur):
     for mid, title, clean, alt, ualt in cur.execute(
         "SELECT Id, Title, CleanTitle, AlternativeTitles, UserAlternativeTitles FROM Manga"
     ):
-        clean = (clean or "").strip()
+        clean_norm = (clean or "").strip()
         ntitle = normalize(title)
-        primaries = {t for t in (clean, ntitle) if t}
+        primaries = {t for t in (clean_norm, ntitle) if t}
         names = set(primaries)
         for col in (alt, ualt):
             if not col:
@@ -175,7 +175,7 @@ def load_titles(cur):
                         names.add(n)
             except (ValueError, TypeError):
                 pass
-        manga[mid] = {"clean": clean or ntitle, "title": title or f"(id {mid})", "names": names}
+        manga[mid] = {"clean": clean_norm or ntitle, "title": title or f"(id {mid})", "names": names}
         for t in names:
             claim_all[t].add(mid)
         for t in primaries:
@@ -314,7 +314,8 @@ def main():
     print("#" * 70)
     if cross:
         hdr = f"{'CLASS':<7} {'ID':>5} {'WRONG':>6}/{'TOT':<6} {'TITLE':<32} WRONG SOURCES"
-        print(hdr); print("-" * len(hdr))
+        print(hdr)
+        print("-" * len(hdr))
         for r in cross:
             title = r["title"] if len(r["title"]) <= 31 else r["title"][:30] + "…"
             ws = list(r["wrongSources"].items())
@@ -343,7 +344,8 @@ def main():
     print("#" * 70)
     if shared_shown:
         hdr = f"{'SUBCLASS':<16} {'ID':>5} {'FILES':>6} {'SOURCE TITLE':<28} RIVAL / LIKELY-TRUE-OWNER"
-        print(hdr); print("-" * len(hdr))
+        print(hdr)
+        print("-" * len(hdr))
         for r in shared_shown:
             src = r["sourceTitle"] if len(r["sourceTitle"]) <= 27 else r["sourceTitle"][:26] + "…"
             owners = r["likelyOwner"] if r["subclass"] in ("MISFILED-LIKELY", "DUP-TITLE") else r["rivals"]
@@ -409,7 +411,7 @@ def main():
             "crossTitle": cross,
             "sharedTitle": shared_list,
         }
-        Path(args.json).write_text(json.dumps(payload, indent=2))
+        Path(args.json).write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"\nWrote JSON report to {args.json}")
 
 
