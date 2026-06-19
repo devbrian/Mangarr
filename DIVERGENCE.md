@@ -1502,3 +1502,29 @@ Adds a NEW user-curated alternative-title list on `Manga`, SEPARATE from the met
 - DIVERGENCE.md GH #118 `AlternativeTitles` (the metadata-owned alias set this inverts).
 
 *Last updated: 2026-06-18 (quick task 260618-eqz — appended the user-owned UserAlternativeTitles section above: NEW Sonarr-divergent user-curated alt-title set with an INVERTED ApplyChanges guard (user-PUT-owned, refresh-preserved) relative to the metadata-owned AlternativeTitles; Migration 015 head; parser dual-list lookup; both-directions API round-trip with normalize-on-write; Edit-modal TEXT_TAG field. All previous trailers preserved verbatim above per historical-accuracy contract.)*
+
+## User-owned per-manga synthesis ceiling `Manga.MaxChapterNumber` (quick task 260619-o5q) (2026-06-19)
+
+Adds a NEW user-owned manual synthesis ceiling on `Manga`, settable in the Manga Edit modal. When set, the on-search reconciliation backfill (`ChapterSynthesisService.SynthesizeFromDecisions`) may never create a SYNTHETIC chapter row above the cap — only the trusted metadata chapter count (`Manga.TotalChapterCount`) can push the effective synthesis ceiling above it. This is a Sonarr-DIVERGENT NEW field with no TV peer: TheTVDB is authoritative on a series' canonical episode count, so Sonarr never needs a user-supplied ceiling; manga has no such authority, so a handful of mislabeled gateway releases (or an over-reporting metadata source) can spawn hundreds of phantom "Missing" rows. The automatic density-floor guard (`ChapterDensityCut`) is the heuristic peer; `MaxChapterNumber` is the manual, deliberate override for titles whose real chapter count the user knows.
+
+**The contract:** the cap clamps the AUTOMATIC on-search backfill only. `cappedMax = Math.Max(Math.Min(maxWhole, cap), Math.Min(baseline, maxWhole))` — when the metadata baseline is at or below the cap, the ceiling is `min(maxWhole, cap)`; when the baseline exceeds the cap, the ceiling floors at `min(baseline, maxWhole)` so the trusted `[1..baseline]` region survives (metadata-baseline-trust always wins). `SynthesizeForGrab` is intentionally NOT capped (an explicit user grab is deliberate); `ChapterDensityCut.cs` stays cap-agnostic (so `StrayChapterPruneService` does not inherit it). **Refresh-preserved:** `Manga.ApplyChanges` copies it via an INVERTED-null guard (same shape as `UserAlternativeTitles`) — a non-null PUT overwrites/clears, a null refresh (MapManga never sets it) preserves the stored cap. The Edit-modal numeric input uses `0` as the "no cap" sentinel, normalized to NULL in `ApplyChanges`.
+
+| File / Path | Type | Rationale |
+|-------------|------|-----------|
+| `src/NzbDrone.Core/Datastore/Migration/016_v1_3_add_max_chapter_number.cs` | new | Migration 016 (head) — nullable int `MaxChapterNumber` column; post-v1.0 sequential append, 001 baseline untouched. |
+| `src/NzbDrone.Core/Manga/Manga.cs` | edit | `int? MaxChapterNumber` field + inverted-null `ApplyChanges` guard (0 sentinel → null; refresh preserves). |
+| `src/NzbDrone.Core/Manga/ChapterSynthesisService.cs` | edit | Cap clamp in `SynthesizeFromDecisions` after `ResolveDensityCut`, never below the metadata baseline; `SynthesizeForGrab` left uncapped (documented). |
+| `src/Mangarr.Api.V5/Manga/MangaResource.cs` | edit | `MaxChapterNumber` round-tripped both directions (plain scalar — no normalization). |
+| `frontend/src/Manga/Manga.ts` + `frontend/src/Manga/Edit/EditMangaModalContent.tsx` | edit | TS type field + Edit-modal numeric input (0 = no-cap sentinel) riding the existing PUT save spread. |
+| `src/NzbDrone.Core/Localization/Core/en.json` | edit | Two i18n keys (`MaxChapterNumber` + `MaxChapterNumberHelpText`). |
+
+**DIVERGENCE from the original PLAN (260619-o5q Task 3 step 5):** The plan prescribed converting the form's 0 → null on the FRONTEND before the PUT, combined with a backend null-can't-clear guard. That mechanism is internally contradictory — if the wire carries null for "no cap", `ApplyChanges` cannot distinguish a no-cap PUT from a metadata refresh (both null), so it would either clobber the cap on refresh or never let the user clear it. Resolved (deviation Rule 1/3) by keeping the `0` sentinel on the wire (non-null on every PUT) and normalizing 0 → null inside `Manga.ApplyChanges`, mirroring the `UserAlternativeTitles` non-null-PUT / null-refresh contract exactly. Both clearing AND refresh-preservation now work.
+
+**Proof:** 3 new `ChapterSynthesisServiceFixture` tests green — (A) cap clamps gateway extension to 21..50, (B) metadata baseline 80 overrides cap 50 (full 1..80 backfilled), (C) null cap byte-for-byte unchanged. TDD RED confirmed Test A failed pre-implementation (synthesized 21..80); GREEN all 21 fixture tests pass (18 pre-existing + 3 new). Core + API.V5 Debug builds clean (0 warnings); `yarn lint` clean (no errors in edited files). Live dev-stack UI verification a recommended follow-up per the memory rule.
+
+**Cross-references:**
+- `.planning/quick/260619-o5q-add-per-manga-max-chapter-lock-set-in-ed/` — this task's record (PLAN + SUMMARY).
+- DIVERGENCE.md § stray-outlier guard / `ChapterDensityCut` (the automatic heuristic peer this manual cap complements).
+- DIVERGENCE.md quick-260618-eqz `UserAlternativeTitles` (the structural twin: NEW user-owned, refresh-preserved scalar with the same inverted-guard contract).
+
+*Last updated: 2026-06-19 (quick task 260619-o5q — appended the user-owned MaxChapterNumber synthesis-ceiling section above: NEW Sonarr-divergent user cap clamping `ChapterSynthesisService.SynthesizeFromDecisions` after the density cut, never below the trusted `TotalChapterCount` baseline; Migration 016 head; inverted-null ApplyChanges guard (0 sentinel → null, refresh-preserved); both-directions API round-trip; Edit-modal numeric input; `SynthesizeForGrab` + `ChapterDensityCut` left uncapped. All previous trailers preserved verbatim above per historical-accuracy contract.)*
