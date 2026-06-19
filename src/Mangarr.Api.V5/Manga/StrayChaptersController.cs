@@ -32,13 +32,18 @@ public class StrayChaptersController : Controller
             : TypedResults.Ok(report.ToResource());
     }
 
-    // Execute: delete the file-less strays; recycle-bin + delete the with-file strays ONLY when
-    // deleteFiles=true. Returns the same manifest shape with the deletion counts populated.
+    // Execute: delete the confident file-less junk; recycle-bin + delete the with-file strays ONLY
+    // when deleteFiles=true; prune the UNCERTAIN file-less rows (no on-disk evidence anchors the
+    // density cut) ONLY when pruneUncertain=true. Returns the same manifest shape with the deletion
+    // counts populated.
     [HttpPost("{id:int}/straychapters")]
     [Produces("application/json")]
-    public Results<Ok<StrayChapterPruneResource>, NotFound> PruneStrayChapters(int id, [FromQuery] bool deleteFiles = false)
+    public Results<Ok<StrayChapterPruneResource>, NotFound> PruneStrayChapters(
+        int id,
+        [FromQuery] bool deleteFiles = false,
+        [FromQuery] bool pruneUncertain = false)
     {
-        var report = _pruneService.Prune(id, deleteFiles);
+        var report = _pruneService.Prune(id, deleteFiles, pruneUncertain);
         return report == null
             ? TypedResults.NotFound()
             : TypedResults.Ok(report.ToResource());
@@ -52,12 +57,18 @@ public class StrayChapterPruneResource
     public int? MetadataChapterCount { get; set; }
     public bool BaselineKnown { get; set; }
     public bool DryRun { get; set; }
+    public decimal DensityCut { get; set; }
+    public bool DiskEvidenceAboveBaseline { get; set; }
     public int FileLessStrayCount { get; set; }
     public int WithFileStrayCount { get; set; }
+    public int UncertainStrayCount { get; set; }
+    public int LegitExtensionCount { get; set; }
     public int DeletedChapterRowCount { get; set; }
     public int DeletedFileCount { get; set; }
     public List<StrayChapterResource> FileLessStrays { get; set; } = new();
     public List<StrayChapterResource> WithFileStrays { get; set; } = new();
+    public List<StrayChapterResource> UncertainStrays { get; set; } = new();
+    public List<StrayChapterResource> LegitExtension { get; set; } = new();
 }
 
 public class StrayChapterResource
@@ -87,12 +98,18 @@ public static class StrayChapterPruneResourceMapper
         MetadataChapterCount = report.MetadataChapterCount,
         BaselineKnown = report.BaselineKnown,
         DryRun = report.DryRun,
+        DensityCut = report.DensityCut,
+        DiskEvidenceAboveBaseline = report.DiskEvidenceAboveBaseline,
         FileLessStrayCount = report.FileLessStrays.Count,
         WithFileStrayCount = report.WithFileStrays.Count,
+        UncertainStrayCount = report.UncertainStrays.Count,
+        LegitExtensionCount = report.LegitExtension.Count,
         DeletedChapterRowCount = report.DeletedChapterRowCount,
         DeletedFileCount = report.DeletedFileCount,
         FileLessStrays = report.FileLessStrays.Select(ToResource).ToList(),
         WithFileStrays = report.WithFileStrays.Select(ToResource).ToList(),
+        UncertainStrays = report.UncertainStrays.Select(ToResource).ToList(),
+        LegitExtension = report.LegitExtension.Select(ToResource).ToList(),
     };
 
     private static StrayChapterResource ToResource(StrayChapterInfo info) => new()

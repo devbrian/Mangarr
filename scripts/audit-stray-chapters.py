@@ -7,15 +7,20 @@ Read-only. For every manga in the library it calls the dry-run prune endpoint
 remove — without deleting anything. This is the library-wide companion to the
 single-manga StrayChapterPruneService cleanup (PR #380).
 
-What a "stray" is (see StrayChapterPruneService): a synthesized Chapter row whose
-number is ABOVE the manga's metadata chapter count (Manga.TotalChapterCount). These
-are the phantom rows a pre-fix Catalog<->Gateway reconciliation backfilled when a
-source mislabeled a few chapters with stray high numbers. Two buckets:
+What a "stray" is (see StrayChapterPruneService): a synthesized Chapter row whose number is
+ABOVE the manga's metadata chapter count (Manga.TotalChapterCount). The endpoint now classifies
+these server-side with a WITH-FILE-anchored density cut (ChapterDensityCut) — the script just
+surfaces its verdict per manga:
 
-  * file-less strays  -> safe to delete (nothing on disk to lose)
-  * with-file strays  -> a mislabeled release may be REAL content; NEVER auto-deleted,
-                         only recycle-binned on an explicit deleteFiles=true. These are
-                         the rows that need a human look — flagged as REVIEW below.
+  * JUNK       -> confident outliers above the density cut, anchored by on-disk evidence.
+                 fileLessStrays are safe to delete; withFileStrays are recycle-binned only on
+                 an explicit deleteFiles=true (a mislabeled release may be REAL content).
+  * UNCERTAIN  -> file-less rows above the metadata count with NO on-disk evidence to anchor a
+                 cut — could be phantoms OR legitimately-wanted chapters from a stale metadata
+                 count. NEVER auto-pruned; run a gateway search, then prune with
+                 pruneUncertain=true only if the chapters don't exist on any source.
+  * LEGIT-EXT  -> a DENSE real extension past a stale metadata count (e.g. metadata says 10 but
+                 11..100 are on disk). Never pruned — these are real chapters.
 
 Manga with no metadata chapter count (TotalChapterCount null/0) can't be audited —
 a stray can't be told from a real chapter — and are reported as SKIP.
@@ -93,27 +98,9 @@ def human_size(num_bytes):
         size /= 1024.0
 
 
-# Same density floor the forward fix (ChapterSynthesisService.ResolveDensityCut) uses.
+# The density floor the prune endpoint applies server-side (ChapterDensityCut.MinPostBaselineDensity);
+# kept here only as an informational constant in the JSON output.
 DENSITY_FLOOR = 0.5
-
-
-def density_cut(baseline, present):
-    """Mirror of ChapterSynthesisService.ResolveDensityCut over WITH-FILE evidence.
-
-    `present` is the sorted list of chapter numbers that actually exist on disk above
-    `baseline`. Returns the largest number M whose post-baseline density
-    |present in (baseline, M]| / (M - baseline) clears the floor — i.e. the top of the
-    dense, real cluster. Numbers above the returned cut are sparse far-out outliers
-    (the mislabeled-junk shape); numbers at/below it are a legitimate dense extension
-    past a stale metadata count. With no dense evidence the cut falls back to baseline.
-    """
-    above = sorted(n for n in present if n > baseline)
-    for top in reversed(above):                      # high -> low
-        span = top - baseline
-        in_range = sum(1 for n in above if n <= top)
-        if span > 0 and in_range / span >= DENSITY_FLOOR:
-            return top
-    return baseline
 
 
 def audit_one(client, manga):
@@ -138,37 +125,34 @@ def audit_one(client, manga):
         return {**base, "metadataChapterCount": report.get("metadataChapterCount", meta),
                 "status": "SKIP"}
 
+    # The endpoint now does the WITH-FILE-anchored density classification server-side
+    # (StrayChapterPruneService + ChapterDensityCut). The script just surfaces it:
+    #   fileLessStrays  -> CONFIDENT junk (above the cut, anchored by on-disk evidence)
+    #   withFileStrays  -> outliers WITH a file (above the cut) — review before deleting
+    #   uncertainStrays -> file-less, no on-disk anchor — needs a gateway search to decide
+    #   legitExtension  -> dense real chapters past a stale metadata count — leave alone
     baseline = report.get("metadataChapterCount") or 0
+    cut = report.get("densityCut", baseline)
     file_less = report.get("fileLessStrays", [])
     with_file = report.get("withFileStrays", [])
-    fileless_nums = [s.get("chapterNumber") for s in file_less]
+    uncertain = report.get("uncertainStrays", [])
+    legit_extension = report.get("legitExtensionCount", len(report.get("legitExtension", [])))
     withfile_nums = [s.get("chapterNumber") for s in with_file]
     withfile_bytes_by_num = {
         s.get("chapterNumber"): sum(f.get("size", 0) for f in s.get("files", []))
         for s in with_file
     }
 
-    # The legit cluster top is anchored on WHAT ACTUALLY EXISTS ON DISK (with-file rows),
-    # NOT the file-less phantoms — a pre-fix contiguous backfill makes the file-less region
-    # look dense even when it's all junk. Numbers above the cut are the true outliers.
-    cut = density_cut(baseline, withfile_nums)
+    junk_fileless = len(file_less)
+    junk_withfile = len(with_file)
+    junk_bytes = sum(withfile_bytes_by_num.values())
 
-    junk_withfile = [n for n in withfile_nums if n > cut]
-    junk_fileless = [n for n in fileless_nums if n > cut]
-    legit_extension = sum(1 for n in withfile_nums if n <= cut) + \
-        sum(1 for n in fileless_nums if n <= cut)
-    junk_bytes = sum(withfile_bytes_by_num.get(n, 0) for n in junk_withfile)
-
-    has_disk_evidence_above_baseline = len(withfile_nums) > 0
-
-    if junk_withfile or junk_fileless:
-        # Confident junk only when real on-disk evidence anchors the cut. If the cut fell
-        # back to baseline because there is NO with-file evidence above it, the file-less
-        # rows could be legitimately-wanted chapters from a stale metadata count rather than
-        # phantoms — that needs a gateway search to decide, so mark UNCERTAIN, not JUNK.
-        status = "JUNK" if has_disk_evidence_above_baseline else "UNCERTAIN"
+    if junk_fileless or junk_withfile:
+        status = "JUNK"            # confident outliers anchored by on-disk evidence
+    elif uncertain:
+        status = "UNCERTAIN"       # file-less > metadata, no on-disk anchor — gateway check
     elif legit_extension > 0:
-        status = "LEGIT-EXT"   # dense real chapters past a stale metadata count — leave alone
+        status = "LEGIT-EXT"       # dense real chapters past a stale metadata count — leave alone
     else:
         status = "OK"
 
@@ -176,15 +160,17 @@ def audit_one(client, manga):
         "id": mid, "title": title,
         "metadataChapterCount": baseline, "chapterRows": rows,
         "baselineKnown": True,
-        "fileLessStrayCount": report.get("fileLessStrayCount", 0),
-        "withFileStrayCount": report.get("withFileStrayCount", 0),
-        "withFileBytes": sum(withfile_bytes_by_num.values()),
+        "fileLessStrayCount": junk_fileless,
+        "withFileStrayCount": junk_withfile,
+        "uncertainStrayCount": len(uncertain),
+        "withFileBytes": junk_bytes,
         "withFileNumbers": withfile_nums,
         "densityCut": cut,
-        "junkFileLess": len(junk_fileless),
-        "junkWithFile": len(junk_withfile),
+        "diskEvidenceAboveBaseline": report.get("diskEvidenceAboveBaseline", False),
+        "junkFileLess": junk_fileless,
+        "junkWithFile": junk_withfile,
         "junkBytes": junk_bytes,
-        "junkNumbers": sorted(junk_withfile),
+        "junkNumbers": sorted(withfile_nums),
         "legitExtension": legit_extension,
         "status": status,
     }
@@ -256,7 +242,7 @@ def main():
                 more = "…" if len(r["junkNumbers"]) > 8 else ""
                 extra = f"  [junk files: {nums}{more} | {human_size(r['junkBytes'])}]"
             elif r["status"] == "UNCERTAIN":
-                extra = f"  [{r['fileLessStrayCount']} file-less > meta, no on-disk evidence — needs gateway check]"
+                extra = f"  [{r.get('uncertainStrayCount', 0)} file-less > meta, no on-disk evidence — needs gateway check]"
             elif r["status"] == "ERROR":
                 extra = f"  [{r.get('error')}]"
             print(f"{r['status']:<9} {r['id']:>5} {str(meta):>5} {str(rows):>5} {str(cut):>5} "
@@ -277,9 +263,7 @@ def main():
     junk_withfile = sum(r["junkWithFile"] for r in results)
     junk_bytes = sum(r["junkBytes"] for r in results)
     legit_ext_rows = sum(r["legitExtension"] for r in results)
-    uncertain_fileless = sum(r["fileLessStrayCount"] for r in results if r["status"] == "UNCERTAIN")
-    raw_fileless = sum(r["fileLessStrayCount"] for r in results)
-    raw_withfile = sum(r["withFileStrayCount"] for r in results)
+    uncertain_fileless = sum(r.get("uncertainStrayCount", 0) for r in results if r["status"] == "UNCERTAIN")
 
     print("=" * 70)
     print("LIBRARY SUMMARY")
@@ -296,10 +280,9 @@ def main():
     if n_error:
         print(f"  ERROR (request failed)       : {n_error}")
     print()
-    print(f"  NOTE: the prune endpoint's raw signal would touch {raw_fileless} file-less + "
-          f"{raw_withfile} with-file rows —")
-    print("        but only the JUNK rows above are confident outliers. The LEGIT-EXT rows are")
-    print("        real chapters from stale metadata counts; pruning them would delete real content.")
+    print("  NOTE: the prune endpoint now classifies server-side (WITH-FILE-anchored density cut).")
+    print("        JUNK rows are confident outliers; LEGIT-EXT rows are real chapters from stale")
+    print("        metadata counts (never pruned); UNCERTAIN rows need a gateway search to decide.")
     print()
     if n_junk:
         print("  Confident-junk manga (the Heavenly-Demon shape) are safe to prune per-id:")
@@ -324,8 +307,8 @@ def main():
                 "junkFileLessRows": junk_fileless,
                 "junkWithFileRows": junk_withfile,
                 "junkBytes": junk_bytes,
-                "rawFileLessRows": raw_fileless,
-                "rawWithFileRows": raw_withfile,
+                "uncertainRows": uncertain_fileless,
+                "legitExtensionRows": legit_ext_rows,
             },
             "manga": results,
         }

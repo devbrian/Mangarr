@@ -28,13 +28,9 @@ namespace NzbDrone.Core.Manga
         // unbounded backfill. Clamp + Warn.
         private const int MaxWholeCap = 5000;
 
-        // Minimum fraction of the post-metadata-baseline range that must be backed by actual
-        // present chapter numbers for the gateway's claimed top to be honored on-search. A
-        // contiguous real extension scores ~1.0; a sparse smattering of mislabeled stray
-        // numbers scores far below this and is cut back to the dense cluster. Tuned so the
-        // lowest realistic stray (a single number ~2x the real count) lands well under it
-        // while genuine multi-source coverage (even 60-90% dense) clears it comfortably.
-        private const double MinPostBaselineDensity = 0.5;
+        // The post-metadata-baseline density floor now lives on the shared boundary helper
+        // (ChapterDensityCut.MinPostBaselineDensity) so the on-search synthesis cut and the
+        // one-time StrayChapterPruneService cleanup share one source of truth.
 
         private readonly IChapterListService _chapterListService;
         private readonly IChapterService _chapterService;
@@ -164,13 +160,12 @@ namespace NzbDrone.Core.Manga
             return rows.Count;
         }
 
-        // Metadata-anchored density cut. Trust metadata's [1..baseline] verbatim, then scan the
-        // present whole numbers ABOVE the baseline (up to the gateway's claimed max) high→low and
-        // return the largest top whose post-baseline density clears the floor. If no extension
-        // clears it, fall back to the trusted baseline (bounded by what the gateway actually
-        // showed, so we never invent beyond either). baseline 0 (no metadata count) makes the
-        // formula degrade to the full-range density count/max. Exposed as internal for the
-        // one-time stray-chapter prune to reuse the identical boundary.
+        // Metadata-anchored density cut. Delegates the boundary math to the shared
+        // ChapterDensityCut.Resolve so the on-search synthesis floor and the one-time
+        // StrayChapterPruneService cleanup can never drift apart (they use the IDENTICAL
+        // formula over different `present` sets). Trust metadata's [1..baseline] verbatim, then
+        // honor the largest dense extension top; fall back to the trusted baseline (bounded by
+        // the gateway's claimed max) when nothing beyond it is dense enough.
         internal decimal ResolveDensityCut(Manga manga, decimal candidateMax, ISet<decimal> present)
         {
             var baseline = manga.TotalChapterCount.GetValueOrDefault();
@@ -179,36 +174,21 @@ namespace NzbDrone.Core.Manga
                 baseline = 0;
             }
 
-            var candidates = present
-                .Where(n => n > baseline && n <= candidateMax)
-                .OrderByDescending(n => n);
+            var cut = ChapterDensityCut.Resolve(baseline, candidateMax, present);
 
-            foreach (var top in candidates)
+            if (cut < candidateMax)
             {
-                var span = top - baseline;          // > 0 by the Where filter above
-                var inRange = present.Count(n => n > baseline && n <= top);
-                var density = (double)inRange / (double)span;
-
-                if (density >= MinPostBaselineDensity)
-                {
-                    if (top < candidateMax)
-                    {
-                        _logger.Debug(
-                            "Chapter synthesis for manga '{0}' (id={1}) cut gateway max {2} back to {3} "
-                            + "(post-baseline density floor; baseline={4}).",
-                            manga.Title,
-                            manga.Id,
-                            candidateMax,
-                            top,
-                            baseline);
-                    }
-
-                    return top;
-                }
+                _logger.Debug(
+                    "Chapter synthesis for manga '{0}' (id={1}) cut gateway max {2} back to {3} "
+                    + "(post-baseline density floor; baseline={4}).",
+                    manga.Title,
+                    manga.Id,
+                    candidateMax,
+                    cut,
+                    baseline);
             }
 
-            // Nothing beyond the baseline is dense enough — drop the strays entirely.
-            return Math.Min(baseline, candidateMax);
+            return cut;
         }
 
         public IReadOnlyList<Chapter> SynthesizeForGrab(RemoteChapter remoteChapter)
