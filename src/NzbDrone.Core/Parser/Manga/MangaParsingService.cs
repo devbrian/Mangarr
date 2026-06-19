@@ -169,24 +169,53 @@ namespace NzbDrone.Core.Parser.Manga
                 return hit;
             }
 
-            // Strategy 3: substring/fuzzy fallback. Mirrors the
-            // FindByTitleInexact branch at the bottom of Sonarr's GetSeries
-            // (lines 333-338 of the pre-deletion file). Returns the resolved
-            // manga only when EXACTLY ONE candidate matches — ambiguous
-            // resolution returns null, matching Sonarr's posture where the
-            // DownloadDecisionMaker treats null as UnknownManga rather than
-            // arbitrarily picking one. FindByTitleInexact takes the raw
-            // searchTitle (the repo's own LIKE pattern handles partial-
-            // substring containment against each Manga.CleanTitle in the DB).
+            // Strategy 3: substring fallback — GUARDED against cross-title corruption.
+            //
+            // debug `flow-wrong-manga-not-rejected` (2026-06-19): the prior unguarded
+            // form returned the single FindByTitleInexact candidate on ANY infix
+            // containment. FindByTitleInexact is `instr(@releaseClean, Manga.CleanTitle)`
+            // — it matches when a library manga's CleanTitle appears ANYWHERE inside the
+            // release's clean title. A short library CleanTitle is an infix of countless
+            // unrelated longer titles: `flow` ⊂ `thatwhichflowsby` (...which**flows**by),
+            // `anz` ⊂ `girlsundp**anz**er`/`d**anz**aisareta`, etc. With exactly one
+            // library manga matching, GetManga returned that wrong manga as a "confident"
+            // single hit, so MangaSpecification's `subject.Manga.Id == searchCriteria.Manga.Id`
+            // was trivially true and the wrong-manga gateway release was ACCEPTED, grabbed,
+            // and imported (live: 268 "That Which Flows By" chapters imported under "Flow").
+            //
+            // This is the SAME class of bug ChapterSynthesisService.BelongsToSearchedManga
+            // already guards against — its comment: "a fuzzy substring match is exactly the
+            // cross-title corruption we must prevent" (D-06/D-07). We bring this resolver up
+            // to that precision posture: a FindByTitleInexact candidate is accepted ONLY when
+            // its CleanTitle is EXACTLY EQUAL to the normalized release title (Strategy 3
+            // confirms, it never broadens). The earlier prefix-leniency variant was dropped
+            // because a length ratio cannot distinguish edition noise (`My Title HD`) from a
+            // distinct sequel/variant work (`My Succubus Girlfriend NEW`, `Solo Leveling
+            // Ragnarok`) — see IsSafeInexactMatch. Genuine same-title releases resolve via
+            // Strategy 1 / Strategy 2; ambiguous (>1) returns null (Sonarr UnknownManga
+            // posture). Durable cure: stable source-ID targeting (Phase 37 IN-01, roadmapped).
             var inexactCandidates = _mangaService.FindByTitleInexact(searchTitle);
             if (inexactCandidates != null && inexactCandidates.Count == 1)
             {
+                var candidate = inexactCandidates[0];
+                var candidateClean = candidate.CleanTitle ?? MangaTitleNormalizer.Normalize(candidate.Title);
+
+                if (IsSafeInexactMatch(clean, candidateClean))
+                {
+                    _logger.Debug(
+                        "MangaParsingService.GetManga: resolved '{0}' via guarded FindByTitleInexact exact-title confirm on Manga '{1}' (id={2})",
+                        clean,
+                        candidate.Title,
+                        candidate.Id);
+                    return candidate;
+                }
+
                 _logger.Debug(
-                    "MangaParsingService.GetManga: resolved '{0}' via FindByTitleInexact substring match on Manga '{1}' (id={2})",
-                    clean,
-                    inexactCandidates[0].Title,
-                    inexactCandidates[0].Id);
-                return inexactCandidates[0];
+                    "MangaParsingService.GetManga: REJECTED inexact candidate '{0}' (id={1}, clean='{2}') for release '{3}' — substring/prefix only, not an exact-title match (cross-title corruption guard).",
+                    candidate.Title,
+                    candidate.Id,
+                    candidateClean,
+                    clean);
             }
 
             _logger.Debug(
@@ -196,6 +225,42 @@ namespace NzbDrone.Core.Parser.Manga
                 inexactCandidates?.Count ?? 0);
 
             return null;
+        }
+
+        // Guard for Strategy 3 (debug `flow-wrong-manga-not-rejected`). An inexact
+        // FindByTitleInexact candidate is only a SAFE resolution when its CleanTitle is
+        // EXACTLY EQUAL to the normalized release title — i.e. Strategy 3 confirms, it
+        // never broadens.
+        //
+        //   releaseClean   = the normalized release/manga title we are resolving
+        //   candidateClean = the library manga's CleanTitle that FindByTitleInexact matched
+        //
+        // History / why exact-only (debug `flow-wrong-manga-not-rejected`, follow-up
+        // 2026-06-19): the first guard accepted a PREFIX match when the candidate was
+        // >=80% of the release length, to keep "long distinctive title + short trailing
+        // edition token" leniency. But a length ratio cannot tell EDITION NOISE
+        // (`My Title HD`, same manga) from a DISTINCT SEQUEL/VARIANT work
+        // (`My Succubus Girlfriend NEW`, `Solo Leveling Ragnarok`, `My Title Season 2`) —
+        // those distinguishers are short, so they sail over any length floor and the wrong
+        // (base) manga is resolved. In the manga domain that mis-resolution is the common
+        // case, and the parser already strips BRACKETED edition/format noise before this
+        // method runs, so a bare trailing word that survives is far more likely a distinct
+        // work than edition noise. We therefore drop prefix leniency entirely and require
+        // exact equality — the same precision posture ChapterSynthesisService.BelongsToSearchedManga
+        // enforces ("a fuzzy substring match is exactly the cross-title corruption we must
+        // prevent", D-06/D-07). Genuine same-title releases still resolve via Strategy 1
+        // (exact CleanTitle) / Strategy 2 (alt-title). The durable cure for query-text-only
+        // gateway attribution is stable source-ID targeting (Phase 37 IN-01, roadmapped).
+        private static bool IsSafeInexactMatch(string releaseClean, string candidateClean)
+        {
+            if (string.IsNullOrEmpty(releaseClean) || string.IsNullOrEmpty(candidateClean))
+            {
+                return false;
+            }
+
+            // Exact-only: a substring/prefix relationship is never trusted on its own —
+            // it cannot distinguish edition noise from a distinct sequel/variant title.
+            return string.Equals(releaseClean, candidateClean, System.StringComparison.Ordinal);
         }
 
         public RemoteChapter Map(ParsedChapterInfo parsedChapterInfo, NzbDrone.Core.Manga.Manga manga, IList<Chapter> existingChapters)
