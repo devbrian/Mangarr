@@ -73,6 +73,12 @@ public class MangaResource : RestResource
     public int? PublicationYear { get; set; }
     public string? PrimaryAuthor { get; set; }
 
+    // quick-260619-o5q — USER-OWNED manual synthesis ceiling (NULL = no cap). Plain scalar,
+    // round-tripped BOTH directions (GET emits, PUT persists via ApplyChanges). NO
+    // normalization — the value flows verbatim; the 0-sentinel-to-null conversion lives in
+    // Manga.ApplyChanges (the Edit-modal numeric input uses 0 as the "no cap" sentinel).
+    public int? MaxChapterNumber { get; set; }
+
     // Phase 24 v1.1 INSERTED 2026-05-17 — new manga axes per D-03 (AuthorArtistSpec)
     // + D-04 (DemographicSpec). Round-tripped end-to-end via MangaResourceMapper.
     public string? Artist { get; set; }
@@ -219,6 +225,9 @@ public static class MangaResourceMapper
             PrimaryAuthor = model.PrimaryAuthor,
             Artist = model.Artist,
             Demographic = model.Demographic,
+
+            // quick-260619-o5q — emit the stored user cap on GET / list endpoints.
+            MaxChapterNumber = model.MaxChapterNumber,
             AddOptions = model.AddOptions == null ? null : new AddMangaOptionsResource
             {
                 Monitor = model.AddOptions.Monitor,
@@ -296,6 +305,10 @@ public static class MangaResourceMapper
             PrimaryAuthor = resource.PrimaryAuthor,
             Artist = resource.Artist,
             Demographic = resource.Demographic,
+
+            // quick-260619-o5q — round-trip the user cap verbatim. The 0-sentinel-to-null
+            // normalization lives in Manga.ApplyChanges, not here (a plain scalar).
+            MaxChapterNumber = resource.MaxChapterNumber,
             AddOptions = resource.AddOptions == null ? null : new AddMangaOptions
             {
                 // null (monitor omitted from a partial addOptions payload) -> All, preserving the
