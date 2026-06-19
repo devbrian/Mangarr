@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Database layer — connection management, generic repository, ORM mapping, and **schema migrations** (fresh manga baseline `001_mangarr_baseline.cs` from the Phase 1 reset — the inherited Mangarr 224 TV migrations were replaced per Phase 0 D-14 fresh-schema decision — plus sequential migrations through **`015_v1_3_add_user_alternative_titles.cs`, the current head** (quick-260618-eqz — the nullable `UserAlternativeTitles` column; `014_v1_3_unique_mangabaka_id.cs` (PR #373) adds the `IX_Manga_MangaBakaId` UNIQUE index just below it)).
+Database layer — connection management, generic repository, ORM mapping, and **schema migrations** (fresh manga baseline `001_mangarr_baseline.cs` from the Phase 1 reset — the inherited Mangarr 224 TV migrations were replaced per Phase 0 D-14 fresh-schema decision — plus sequential migrations through **`016_v1_3_add_max_chapter_number.cs`, the current head** (quick-260619-o5q — the nullable `MaxChapterNumber` int column for the per-manga synthesis cap; `015_v1_3_add_user_alternative_titles.cs` adds the nullable `UserAlternativeTitles` column just below it; `014_v1_3_unique_mangabaka_id.cs` (PR #373) adds the `IX_Manga_MangaBakaId` UNIQUE index)).
 
 This directory is **media-agnostic** infrastructure and reusable as-is. Migrations specific to manga schema additions/renames will be added on top.
 
@@ -30,7 +30,7 @@ This directory is **media-agnostic** infrastructure and reusable as-is. Migratio
 
 ### `Migration/` — Schema Migrations
 
-Manga baseline `001_mangarr_baseline.cs`; subsequent Phase migrations stack sequentially on top (`002_*.cs` … through `015_v1_3_add_user_alternative_titles.cs`, the current head), implemented with **FluentMigrator**.
+Manga baseline `001_mangarr_baseline.cs`; subsequent Phase migrations stack sequentially on top (`002_*.cs` … through `016_v1_3_add_max_chapter_number.cs`, the current head), implemented with **FluentMigrator**.
 
 Naming convention: `NNN_short_description_in_snake_case.cs` where `NNN` is sequential.
 
@@ -39,8 +39,8 @@ Naming convention: `NNN_short_description_in_snake_case.cs` where `NNN` is seque
 **Migration 010 (Phase 39 RETIRE-03)** — the one-shot on-upgrade orphan-state cleanup for the retired in-process codepath (no longer the head, but the most structurally significant mid-chain migration): it `DELETE`s the orphan `DownloadClients` row (`Implementation = 'InProcessImageDownloadClient'`), `DELETE`s the orphan `Indexers` rows (`Implementation IN ('MangaDexIndexer','ComixIndexer')`), resets the two stale `IndexerSourceStatus` rows scoped to the retired source keys (`'mangadex'`,`'comix.to'`) so live gateway status survives, and `DROP`s the now-empty `ChapterDownloadState` staging table. Pure DELETE+DROP (seeds zero rows — Anti-Pattern C floor); pinned by `Migration010Fixture` (5/5 on SQLite).
 
 ```csharp
-// Next sequential number after the current head (015) — illustrative.
-[Migration(16)]
+// Next sequential number after the current head (016) — illustrative.
+[Migration(17)]
 public class my_change : NzbDroneMigrationBase
 {
     protected override void MainDbUpgrade()
@@ -72,9 +72,14 @@ The inherited Mangarr 224 TV migrations were replaced by a single fresh manga ba
   Phase 41 / quick-260608-l2e MangaBaka column adds (`MangaBakaId` + the 5 exotic cross-source ids).
 - `014_v1_3_unique_mangabaka_id.cs` — PR #373; `IX_Manga_MangaBakaId` UNIQUE;
   see the "Migration 014" subsection above.
-- `015_v1_3_add_user_alternative_titles.cs` — **the current head** (quick-260618-eqz; appends the
+- `015_v1_3_add_user_alternative_titles.cs` — (quick-260618-eqz; appends the
   nullable `UserAlternativeTitles` JSON-string column for the user-owned alt-title set — the
   Sonarr-divergent inverse of metadata `AlternativeTitles`; see DIVERGENCE.md quick-260618-eqz).
+- `016_v1_3_add_max_chapter_number.cs` — **the current head** (quick-260619-o5q; appends the
+  nullable `MaxChapterNumber` int column — the user-owned manual synthesis ceiling that clamps
+  `ChapterSynthesisService.SynthesizeFromDecisions`'s on-search backfill, never below the trusted
+  `TotalChapterCount` baseline; NEW Sonarr-divergent field with no TV peer; see DIVERGENCE.md
+  quick-260619-o5q).
 
 No `Series`/`Episode`/`Season` tables exist in the chain — `Tv/` was deleted in Phase 15.
 

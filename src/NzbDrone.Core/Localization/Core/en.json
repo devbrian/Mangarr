@@ -1321,6 +1321,8 @@
   "MassSearchCancelWarning": "This cannot be cancelled once started without restarting {appName} or disabling all of your indexers.",
   "MatchedToChapters": "Matched to Chapters",
   "MatchedToManga": "Matched to Manga",
+  "MaxChapterNumber": "Max Chapter Number",
+  "MaxChapterNumberHelpText": "The highest chapter number to keep. When you save, chapters above this number — or above the metadata chapter count if that is higher — are deleted, including any downloaded files, and won't be re-created from gateway releases. Leave at 0 for no limit.",
   "MaxFormatScoreLabel": "Maximum Custom Format Score",
   "Maximum": "Maximum",
   "MaximumCustomFormatScore": "Maximum Custom Format Score",

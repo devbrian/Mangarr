@@ -100,6 +100,11 @@ interface Manga extends ModelBase {
   publicationYear?: number;
   primaryAuthor?: string;
   totalChapterCount?: number;
+  // quick-260619-o5q — user-owned manual synthesis ceiling edited via the Edit Manga modal.
+  // Optional because the backend column is nullable and older cached records won't carry it.
+  // Mirrors MangaResource.MaxChapterNumber; rides the existing PUT save spread — no
+  // useManga.ts change. The Edit modal uses 0 as the "no cap" sentinel in the numeric input.
+  maxChapterNumber?: number;
   path: string;
   rootFolderPath?: string;
   translationProfileId?: number;

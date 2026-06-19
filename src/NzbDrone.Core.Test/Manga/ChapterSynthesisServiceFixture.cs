@@ -495,6 +495,105 @@ namespace NzbDrone.Core.Test.MangaTests
                 Enumerable.Range(11, 10).Select(n => (decimal)n));
         }
 
+        // ---- User cap (quick-260619-o5q) ----
+
+        [Test]
+        public void SynthesizeFromDecisions_clamps_gateway_extension_to_user_cap()
+        {
+            // Test A: cap=50, metadata count=20, existing 1..20, gateway whole numbers
+            // contiguous 21..80. WITHOUT a cap the density floor would honor the full 21..80
+            // extension (1.0 density). WITH cap=50 the synthesized rows are exactly 21..50 —
+            // nothing above 50.
+            _searched.TotalChapterCount = 20;
+            _searched.MaxChapterNumber = 50;
+
+            Mocker.GetMock<IChapterService>()
+                .Setup(s => s.GetChaptersByManga(_searched.Id))
+                .Returns(Enumerable.Range(1, 20)
+                    .Select(n => new Chapter { MangaId = 2, ChapterNumber = n })
+                    .ToList());
+
+            var decisions = Enumerable.Range(21, 60)   // 21..80
+                .Select(n => Decision("The Forgotten Field", new[] { (decimal)n }))
+                .ToList();
+
+            IList<Chapter> captured = null;
+            Mocker.GetMock<IChapterListService>()
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
+
+            Subject.SynthesizeFromDecisions(_searched, decisions);
+
+            captured.Should().NotBeNull();
+            captured.Select(c => c.ChapterNumber).Should().BeEquivalentTo(
+                Enumerable.Range(21, 30).Select(n => (decimal)n));   // 21..50
+        }
+
+        [Test]
+        public void SynthesizeFromDecisions_metadata_baseline_overrides_user_cap()
+        {
+            // Test B: cap=50, metadata count=80, existing empty, gateway reports {80}. The
+            // trusted metadata baseline [1..80] is still backfilled in full (1..80) even
+            // though it exceeds the cap of 50 — "only the metadata chapter count can push the
+            // effective ceiling above the cap". Assert rows include 51..80.
+            _searched.TotalChapterCount = 80;
+            _searched.MaxChapterNumber = 50;
+
+            Mocker.GetMock<IChapterService>()
+                .Setup(s => s.GetChaptersByManga(_searched.Id))
+                .Returns(new List<Chapter>());
+
+            var decisions = new List<MangaDownloadDecision>
+            {
+                Decision("The Forgotten Field", new[] { 80m }),
+            };
+
+            IList<Chapter> captured = null;
+            Mocker.GetMock<IChapterListService>()
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
+
+            Subject.SynthesizeFromDecisions(_searched, decisions);
+
+            captured.Should().NotBeNull();
+            captured.Select(c => c.ChapterNumber).Should().BeEquivalentTo(
+                Enumerable.Range(1, 80).Select(n => (decimal)n));   // full [1..80]
+            captured.Select(c => c.ChapterNumber).Should().Contain(
+                Enumerable.Range(51, 30).Select(n => (decimal)n));  // 51..80 survive the cap
+        }
+
+        [Test]
+        public void SynthesizeFromDecisions_null_cap_is_unchanged()
+        {
+            // Test C: cap=null (default), metadata count=10, existing 1..10, gateway
+            // contiguous 11..20. Result is byte-for-byte the no-cap behavior — 11..20
+            // synthesized (mirrors SynthesizeFromDecisions_fills_when_metadata_undercounts_
+            // and_gateway_is_contiguous).
+            _searched.TotalChapterCount = 10;
+            _searched.MaxChapterNumber = null;
+
+            Mocker.GetMock<IChapterService>()
+                .Setup(s => s.GetChaptersByManga(_searched.Id))
+                .Returns(Enumerable.Range(1, 10)
+                    .Select(n => new Chapter { MangaId = 2, ChapterNumber = n })
+                    .ToList());
+
+            var decisions = Enumerable.Range(11, 10)   // 11..20
+                .Select(n => Decision("The Forgotten Field", new[] { (decimal)n }))
+                .ToList();
+
+            IList<Chapter> captured = null;
+            Mocker.GetMock<IChapterListService>()
+                .Setup(s => s.SyncChapters(It.IsAny<Manga.Manga>(), It.IsAny<IEnumerable<Chapter>>(), It.IsAny<bool>()))
+                .Callback<Manga.Manga, IEnumerable<Chapter>, bool>((_, list, _) => captured = list?.ToList());
+
+            Subject.SynthesizeFromDecisions(_searched, decisions);
+
+            captured.Should().NotBeNull();
+            captured.Select(c => c.ChapterNumber).Should().BeEquivalentTo(
+                Enumerable.Range(11, 10).Select(n => (decimal)n));
+        }
+
         // ---- On-grab (RECON-04 / D-04) ----
 
         [Test]

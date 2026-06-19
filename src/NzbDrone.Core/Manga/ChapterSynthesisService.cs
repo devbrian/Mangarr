@@ -119,6 +119,52 @@ namespace NzbDrone.Core.Manga
 
             var maxWhole = ResolveDensityCut(manga, candidateMax, present);
 
+            // quick-260619-o5q — USER CAP CLAMP. When the user set a manual ceiling
+            // (Manga.MaxChapterNumber), clamp the gateway-driven extension to it — but NEVER
+            // trim below the trusted metadata baseline (Manga.TotalChapterCount). Contract:
+            // the cap limits the AUTOMATIC on-search backfill; only the metadata chapter count
+            // can push the effective ceiling above the cap. SynthesizeForGrab is intentionally
+            // NOT capped (an explicit user grab is deliberate). When MaxChapterNumber is null,
+            // maxWhole is untouched (zero behavior change).
+            if (manga.MaxChapterNumber.HasValue)
+            {
+                var baseline = manga.TotalChapterCount.GetValueOrDefault();
+                if (baseline < 0)
+                {
+                    baseline = 0;
+                }
+
+                var cap = manga.MaxChapterNumber.Value;
+                if (cap < 0)
+                {
+                    cap = 0;
+                }
+
+                // When baseline <= cap, the ceiling is min(maxWhole, cap). When baseline > cap,
+                // the ceiling floors at min(baseline, maxWhole) so the trusted [1..baseline]
+                // region survives. Do NOT invent rows up to baseline if maxWhole was already
+                // lower — the Math.Min(baseline, maxWhole) term respects ResolveDensityCut's
+                // metadata-baseline-trust.
+                var cappedMax = Math.Max(
+                    Math.Min(maxWhole, cap),
+                    Math.Min((decimal)baseline, maxWhole));
+
+                if (cappedMax < maxWhole)
+                {
+                    _logger.Debug(
+                        "Chapter synthesis for manga '{0}' (id={1}) clamped ceiling {2} to {3} "
+                        + "(user cap={4}; baseline={5}).",
+                        manga.Title,
+                        manga.Id,
+                        maxWhole,
+                        cappedMax,
+                        cap,
+                        baseline);
+                }
+
+                maxWhole = cappedMax;
+            }
+
             var monitored = ResolveMonitored(manga);
 
             var rows = new List<Chapter>();
@@ -191,6 +237,9 @@ namespace NzbDrone.Core.Manga
             return cut;
         }
 
+        // quick-260619-o5q — SynthesizeForGrab is intentionally NOT clamped by
+        // Manga.MaxChapterNumber: the user cap targets the AUTOMATIC on-search backfill only,
+        // and an explicit user grab is a deliberate action that must always synthesize its row.
         public IReadOnlyList<Chapter> SynthesizeForGrab(RemoteChapter remoteChapter)
         {
             var manga = remoteChapter?.Manga;

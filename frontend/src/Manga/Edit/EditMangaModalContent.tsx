@@ -80,6 +80,10 @@ interface EditableMangaFields {
   // quick-260618-eqz — free-text user alternative titles (TEXT_TAG chip input).
   // Rides the existing {...manga, ...pendingChanges} save spread — no save-handler change.
   userAlternativeTitles: string[];
+  // quick-260619-o5q — manual synthesis ceiling. 0 = "no cap" sentinel (the numeric input
+  // cannot represent null). Sent verbatim on the save spread; Manga.ApplyChanges normalizes
+  // 0 -> null at persist time, so no frontend save-handler conversion is needed.
+  maxChapterNumber: number;
 }
 
 interface ProfileResource {
@@ -160,6 +164,8 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
       path: manga.path,
       tags: manga.tags,
       userAlternativeTitles: manga.userAlternativeTitles ?? [],
+      // quick-260619-o5q — 0 = "no cap" sentinel for the numeric input (null can't be typed).
+      maxChapterNumber: manga.maxChapterNumber ?? 0,
     }),
     [manga]
   );
@@ -178,6 +184,7 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
     path,
     tags,
     userAlternativeTitles,
+    maxChapterNumber,
   } = settings;
 
   const handleInputChange = useCallback(
@@ -369,6 +376,22 @@ function EditMangaForm({ manga, onModalClose }: EditMangaFormProps) {
                 name="userAlternativeTitles"
                 {...userAlternativeTitles}
                 helpText={translate('UserAlternativeTitlesHelpText')}
+                onChange={handleInputChange}
+              />
+            </FormGroup>
+
+            {/* quick-260619-o5q — manual synthesis ceiling. 0 = "no cap" sentinel;
+                Manga.ApplyChanges normalizes 0 -> null at persist time. Rides the existing
+                {...manga, ...pendingChanges} save spread — no save-handler change needed. */}
+            <FormGroup size={sizes.MEDIUM}>
+              <FormLabel>{translate('MaxChapterNumber')}</FormLabel>
+
+              <FormInputGroup
+                type={inputTypes.NUMBER}
+                name="maxChapterNumber"
+                min={0}
+                {...maxChapterNumber}
+                helpText={translate('MaxChapterNumberHelpText')}
                 onChange={handleInputChange}
               />
             </FormGroup>
