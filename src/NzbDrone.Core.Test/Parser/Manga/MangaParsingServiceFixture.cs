@@ -287,5 +287,101 @@ namespace NzbDrone.Core.Test.MangaParserTests
 
             result.Should().BeNull();
         }
+
+        // ---------------------------------------------------------------------
+        // debug `flow-wrong-manga-not-rejected` (2026-06-19) — Strategy 3 must
+        // NOT resolve a short library CleanTitle that appears as a mid-string
+        // INFIX (or a short prefix) of an unrelated longer release title. This
+        // was the live bug: "Flow" (CleanTitle 'flow') imported "That Which
+        // Flows By" chapters because FindByTitleInexact's `instr` substring match
+        // returned Flow as the single candidate, making MangaSpecification's
+        // Id-equality check trivially pass.
+        // ---------------------------------------------------------------------
+
+        private NzbDrone.Core.Manga.Manga ShortTitleManga(string title, string cleanTitle)
+        {
+            return Builder<NzbDrone.Core.Manga.Manga>
+                .CreateNew()
+                .With(m => m.Title = title)
+                .With(m => m.CleanTitle = cleanTitle)
+                .Build();
+        }
+
+        [TestCase("Flow", "flow", "That Which Flows By - Chapter 12 [en]")]      // infix ...which*flows*by
+        [TestCase("Flow", "flow", "The Flower That Wields a Sword - Chapter 3")]  // infix *flow*er
+        [TestCase("Flow", "flow", "Falling Flower, Flowing Water - Chapter 5")]   // infix
+        [TestCase("Flow", "flow", "FLOWAR - Chapter 9")]                          // short prefix, distinctiveness floor rejects
+        [TestCase("Flow", "flow", "Flowers Flow in the Lapis Lazuli Wind - Chapter 1")] // short prefix
+        [TestCase("ANZ", "anz", "Girls und Panzer: Anzio - Chapter 4")]           // infix p*anz*er / *anz*io
+        [TestCase("ANZ", "anz", "Anzuru Koi wa Yasashikute - Chapter 2")]         // short prefix
+        [TestCase("Helmut", "helmut", "Helmut: The Forsaken Child - Chapter 7")]  // prefix but a distinct longer title
+        public void GetManga_rejects_cross_title_substring_collision(string libraryTitle, string libraryClean, string wrongRelease)
+        {
+            var manga = ShortTitleManga(libraryTitle, libraryClean);
+
+            var mangaService = Mocker.GetMock<IMangaService>();
+
+            // Higher strategies miss (the wrong manga is not in the library by exact/alt title).
+            mangaService.Setup(s => s.FindByTitle(It.IsAny<string>())).Returns((NzbDrone.Core.Manga.Manga)null);
+            mangaService.Setup(s => s.FindByAlternativeTitle(It.IsAny<string>())).Returns((NzbDrone.Core.Manga.Manga)null);
+
+            // The repository's `instr` substring match returns the short-titled library manga as the
+            // single inexact candidate — exactly the live failure mode.
+            mangaService.Setup(s => s.FindByTitleInexact(It.IsAny<string>()))
+                .Returns(new List<NzbDrone.Core.Manga.Manga> { manga });
+
+            var result = Subject.GetManga(wrongRelease);
+
+            result.Should().BeNull(
+                "a short library CleanTitle that is only an infix/short-prefix of an unrelated release " +
+                "must not be attributed to that manga (cross-title corruption guard)");
+        }
+
+        [TestCase("Flow", "flow", "Flow - Chapter 31 [en]")]                      // genuine, exact after parse
+        [TestCase("ANZ", "anz", "ANZ - Chapter 12")]                             // genuine, exact
+        [TestCase("Helmut", "helmut", "Helmut - Chapter 5")]                      // genuine, exact
+        public void GetManga_still_resolves_genuine_same_title_releases(string libraryTitle, string libraryClean, string genuineRelease)
+        {
+            var manga = ShortTitleManga(libraryTitle, libraryClean);
+
+            var mangaService = Mocker.GetMock<IMangaService>();
+
+            // Strategy 1 resolves the genuine release: parsed title == library CleanTitle.
+            mangaService.Setup(s => s.FindByTitle(libraryClean)).Returns(manga);
+
+            var result = Subject.GetManga(genuineRelease);
+
+            result.Should().Be(manga, "the genuine same-title release must still resolve via exact match");
+        }
+
+        // debug `flow-wrong-manga-not-rejected` follow-up (2026-06-19): a LONG, distinctive
+        // library title that is a clean PREFIX of the release must still be REJECTED when the
+        // release adds a trailing token, because a length ratio cannot tell edition noise
+        // (`... HD`, same manga) from a distinct sequel/variant work (`... NEW`, `... Ragnarok`,
+        // `... Season 2`). The prior guard accepted these (80%-of-length prefix leniency); the
+        // exact-only guard rejects them. Genuine same-title releases resolve via Strategy 1
+        // (exact CleanTitle) — never via this substring fallback. These releases (the wrong /
+        // distinct manga) are NOT in the library by exact or alt title, so higher strategies miss
+        // and FindByTitleInexact's `instr` returns the base-title manga as the lone candidate.
+        [TestCase("My Succubus Girlfriend", "my succubus girlfriend", "My Succubus Girlfriend NEW - Chapter 5 [en]")] // distinct sequel, short trailing token (user-reported)
+        [TestCase("Solo Leveling", "solo leveling", "Solo Leveling Ragnarok - Chapter 1")]                            // distinct sequel work
+        [TestCase("Tower of God", "tower of god", "Tower of God Remake - Chapter 2")]                                 // distinct remake work (avoid ChapterType words)
+        [TestCase("My Very Distinctive Long Title", "my very distinctive long title", "My Very Distinctive Long Title HD")] // even a tiny edition token is not trusted — exact-only
+        public void GetManga_rejects_distinctive_prefix_with_trailing_token(string libraryTitle, string libraryClean, string distinctRelease)
+        {
+            var manga = ShortTitleManga(libraryTitle, libraryClean);
+
+            var mangaService = Mocker.GetMock<IMangaService>();
+            mangaService.Setup(s => s.FindByTitle(It.IsAny<string>())).Returns((NzbDrone.Core.Manga.Manga)null);
+            mangaService.Setup(s => s.FindByAlternativeTitle(It.IsAny<string>())).Returns((NzbDrone.Core.Manga.Manga)null);
+            mangaService.Setup(s => s.FindByTitleInexact(It.IsAny<string>()))
+                .Returns(new List<NzbDrone.Core.Manga.Manga> { manga });
+
+            var result = Subject.GetManga(distinctRelease);
+
+            result.Should().BeNull(
+                "a release that is the library title plus a trailing token may be a distinct " +
+                "sequel/variant work; the substring fallback must not attribute it to the base manga");
+        }
     }
 }
