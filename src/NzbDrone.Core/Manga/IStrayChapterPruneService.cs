@@ -8,9 +8,12 @@ namespace NzbDrone.Core.Manga
         // Dry-run analysis ONLY — never mutates. Returns null when the manga id is unknown.
         StrayChapterPruneReport BuildReport(int mangaId);
 
-        // Executes the prune. File-less strays are always deleted; with-file strays are
-        // recycle-binned + deleted ONLY when deleteFiles is true. Returns null when unknown.
-        StrayChapterPruneReport Prune(int mangaId, bool deleteFiles);
+        // Executes the prune. Confident file-less junk (above the density cut, anchored by
+        // on-disk evidence) is always deleted; with-file strays are recycle-binned + deleted
+        // ONLY when deleteFiles is true; UNCERTAIN file-less rows (no on-disk evidence anchors
+        // the cut, so they could be legitimately-wanted chapters from a stale metadata count)
+        // are left alone unless pruneUncertain is true. Returns null when the id is unknown.
+        StrayChapterPruneReport Prune(int mangaId, bool deleteFiles, bool pruneUncertain = false);
     }
 
     public sealed class StrayChapterPruneReport
@@ -27,12 +30,35 @@ namespace NzbDrone.Core.Manga
 
         public bool DryRun { get; set; }
 
-        // Strays with no artifact on disk — safe to delete.
+        // The density cut anchored on WITH-FILE evidence above the baseline (ChapterDensityCut).
+        // Rows at/below this are a dense real extension past a stale metadata count (spared);
+        // rows ABOVE it are the sparse outliers (junk candidates). Equals the baseline when no
+        // on-disk evidence anchors a higher cut.
+        public decimal DensityCut { get; set; }
+
+        // Whether any on-disk (with-file) chapter exists above the baseline to anchor the cut.
+        // When false the cut falls back to the baseline and the file-less outliers are only
+        // UNCERTAIN (could be legitimately-wanted, ungrabbed chapters) — not confident junk.
+        public bool DiskEvidenceAboveBaseline { get; set; }
+
+        // Confident file-less junk: above the cut AND anchored by on-disk evidence. Safe to
+        // delete (nothing on disk to lose; a genuinely-real number re-synthesizes via the fixed
+        // density cut on next search). Deleted by Prune unconditionally.
         public List<StrayChapterInfo> FileLessStrays { get; set; } = new();
 
-        // Strays that DO carry a ChapterFile — a mislabeled release may be real content, so these
-        // are reported for review and only deleted (recycle bin) on an explicit deleteFiles opt-in.
+        // Outliers that DO carry a ChapterFile (above the cut) — a mislabeled release may be real
+        // content, so reported for review and only deleted (recycle bin) on an explicit
+        // deleteFiles opt-in.
         public List<StrayChapterInfo> WithFileStrays { get; set; } = new();
+
+        // File-less outliers above the baseline with NO on-disk evidence to anchor the cut.
+        // Could be legitimately-wanted chapters from a stale metadata count OR phantoms — needs a
+        // gateway search to decide, so NEVER auto-deleted (only on an explicit pruneUncertain opt-in).
+        public List<StrayChapterInfo> UncertainStrays { get; set; } = new();
+
+        // Rows at/below the cut: a dense real extension past a stale metadata count. Reported for
+        // visibility but NEVER pruned (pruning them would delete real content).
+        public List<StrayChapterInfo> LegitExtension { get; set; } = new();
 
         // Populated by Prune (0 on a dry-run).
         public int DeletedChapterRowCount { get; set; }

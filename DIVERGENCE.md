@@ -1452,6 +1452,34 @@ Hardens the Phase 40 `ChapterSynthesisService` (above) against mislabeled gatewa
 - DIVERGENCE.md § Phase 40 (above) — the reconciliation engine this hardens; IN-03 is the accepted-Info footgun this closes.
 - `src/NzbDrone.Core/Manga/CLAUDE.md` + `src/Mangarr.Api.V5/Manga/CLAUDE.md` — updated service/controller tables.
 
+### Density-anchored prune classification — fold the audit's smarts into the endpoint (2026-06-19)
+
+**The gap (raised as the follow-up to the section above):** the original `StrayChapterPruneService` used a crude signal — every row whose number exceeds `Manga.TotalChapterCount` is a stray candidate, split only into file-less (delete) vs with-file (review). That over-deletes the **stale-metadata extension** case: when metadata undercounts (says 10) but 11..100 are genuinely real and on disk, the crude signal flags all of 11..100 as strays and would delete the file-less ones among them — real chapters. The companion audit script (`scripts/audit-stray-chapters.py`) had the right logic (a density cut anchored on **with-file** evidence) but kept it client-side, relying on a human to validate each manga. This folds that logic into the endpoint so the service itself distinguishes junk from a legitimate extension.
+
+**The fix — `ChapterDensityCut` shared boundary + four-bucket classification.** Extracted the density-cut math from `ChapterSynthesisService.ResolveDensityCut` into a pure static `ChapterDensityCut.Resolve(baseline, candidateMax, present)` (with `MinPostBaselineDensity = 0.5`) so the on-search synthesis floor and the prune cleanup share ONE source of truth and can never drift. `ResolveDensityCut` now delegates to it (logging preserved). `StrayChapterPruneService.Analyze` anchors the cut on the **with-file** numbers above the baseline (NOT the file-less phantoms — a pre-fix contiguous backfill makes the file-less region look dense even when it is all junk) and classifies every stray into four buckets:
+- **`LegitExtension`** (≤ cut): a dense real extension past a stale metadata count — NEVER pruned. *This is the over-delete bug the anchor fixes.*
+- **`FileLessStrays`** (> cut, on-disk evidence anchors the cut): confident junk — safe delete.
+- **`UncertainStrays`** (file-less > baseline, NO on-disk anchor → cut fell back to baseline): could be phantoms OR legitimately-wanted-but-ungrabbed chapters — NEVER auto-deleted; only on an explicit `pruneUncertain=true` after a gateway search confirms absence.
+- **`WithFileStrays`** (> cut, carry a `ChapterFile`): recycle-binned only on `deleteFiles=true` (unchanged).
+
+The report also exposes `DensityCut` + `DiskEvidenceAboveBaseline`. `Prune` gained a third `pruneUncertain` arg (defaults false); the controller exposes it as `?pruneUncertain=`. The audit script now consumes the endpoint's server-side classification instead of recomputing the cut.
+
+| File | Change | Why |
+|------|--------|-----|
+| `src/NzbDrone.Core/Manga/ChapterDensityCut.cs` | new | Shared pure density-cut boundary — single source of truth for synthesis + prune. |
+| `src/NzbDrone.Core/Manga/ChapterSynthesisService.cs` | edit | `ResolveDensityCut` delegates to `ChapterDensityCut.Resolve`; private `MinPostBaselineDensity` const removed. |
+| `src/NzbDrone.Core/Manga/IStrayChapterPruneService.cs` + `StrayChapterPruneService.cs` | edit | With-file-anchored cut + four-bucket classification; `Prune` gains `pruneUncertain`. |
+| `src/Mangarr.Api.V5/Manga/StrayChaptersController.cs` | edit | Resource carries cut + 4 lists; POST gains `?pruneUncertain=`. |
+| `scripts/audit-stray-chapters.py` | edit | Consumes the endpoint's classification instead of recomputing density client-side. |
+
+**Behavior note:** the motivating *Heavenly-Demon* case is unaffected — a few mislabeled releases were grabbed (on disk above the baseline), so disk evidence anchors the cut and the file-less backfill is still confident `FileLessStrays`. Only the genuinely-ambiguous "file-less, zero disk evidence" case now defers to `UncertainStrays` (was deleted outright before).
+
+**Proof:** `StrayChapterPruneServiceFixture` rewritten (13 cases: uncertain-without-disk-evidence, confident-junk-with-disk-evidence, spares-dense-extension, keeps-cluster-flags-outlier, with-file bucketing, no-baseline skip, dry-run no-mutation, confident/uncertain/legit prune gates, deleteFiles recycle-bin) + `ChapterSynthesisServiceFixture` (18) green; Core + Api.V5 + Core.Test Debug builds clean (0 warnings).
+
+**Cross-references:**
+- DIVERGENCE.md § stray-outlier guard (immediately above) — the cleanup this refines.
+- `src/NzbDrone.Core/Manga/CLAUDE.md` + `src/Mangarr.Api.V5/Manga/CLAUDE.md` — updated service/controller/helper tables.
+
 ## User-owned `Manga.UserAlternativeTitles` set (quick task 260618-eqz) (2026-06-18)
 
 Adds a NEW user-curated alternative-title list on `Manga`, SEPARATE from the metadata-sourced `AlternativeTitles` (GH #118). It lets a user rescue a release whose name no metadata source (MangaDex/AniList/MAL/MangaBaka) supplies, so the parser's Strategy-2 lookup resolves and imports it. This is a Sonarr-divergent NEW field (Sonarr has no user-curated alias set — its alias data comes from the community-curated SceneMapping table).
