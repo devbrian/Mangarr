@@ -131,6 +131,24 @@ namespace NzbDrone.Core.Manga
         // MangaResource and exposed in the single-Manga Edit modal alongside Monitored.
         public MangaMonitorNewItems MonitorNewItems { get; set; }
 
+        // quick-260619-o5q — USER-OWNED manual synthesis ceiling; NULL = no cap. NEW
+        // Sonarr-divergent field (no TV peer — TheTVDB is authoritative on episode count;
+        // manga has no such authority, so the user supplies a manual ceiling). Backed by
+        // Migration 016 (nullable int column). int? (NOT decimal) — the synthesis backfill
+        // loop is whole-number only, so an int cap matches the [1..maxWhole] loop unit.
+        //
+        // When set, ChapterSynthesisService.SynthesizeFromDecisions clamps the on-search
+        // backfill ceiling to this value — but NEVER below the trusted metadata baseline
+        // (Manga.TotalChapterCount), so only the metadata count can push the effective
+        // ceiling above the cap. SynthesizeForGrab is intentionally NOT capped (an explicit
+        // user grab is deliberate).
+        //
+        // UNLIKE the canonical cross-source IDs (immutable post-add, intentionally NOT
+        // copied in ApplyChanges), MaxChapterNumber IS user-mutable and IS copied — BUT it
+        // is NOT metadata-owned, so a metadata refresh must never write it (see the inverted
+        // guard in ApplyChanges below).
+        public int? MaxChapterNumber { get; set; }
+
         // Lifecycle.
         public DateTime Added { get; set; }
         public DateTime? LastInfoSync { get; set; }
@@ -217,6 +235,31 @@ namespace NzbDrone.Core.Manga
             if (other.UserAlternativeTitles != null)
             {
                 UserAlternativeTitles = other.UserAlternativeTitles;
+            }
+
+            // quick-260619-o5q — REFRESH-DURABILITY ANALYSIS (CRITICAL). ApplyChanges is
+            // dual-purpose:
+            //   * User PUT: MangaController.UpdateManga calls existing.ApplyChanges(
+            //     resource.ToModel()) where `other` is the inbound resource. The Edit-modal
+            //     uses 0 as the "no cap" sentinel (the numeric input cannot represent null),
+            //     so the wire carries a NON-NULL value on every save: a real cap (>0) or the
+            //     0 sentinel meaning "clear the cap".
+            //   * Metadata refresh: RefreshMangaService calls existing.ApplyChanges(mangaInfo)
+            //     where `other` is the FRESH MapManga record. MapManga NEVER sets
+            //     MaxChapterNumber, so on refresh `other.MaxChapterNumber` is NULL.
+            //
+            // Therefore the guard is the INVERTED-null mechanism (same shape as
+            // UserAlternativeTitles, NOT a plain copy): copy only when the incoming value is
+            // non-null. A non-null PUT overwrites/clears; a null refresh PRESERVES the stored
+            // user cap. The 0 sentinel is normalized to NULL here (0 == "no cap"), so the
+            // user can clear the cap via the form AND a refresh can never clobber it. A plain
+            // `MaxChapterNumber = other.MaxChapterNumber;` would copy the refresh path's null
+            // and silently wipe the user cap on every RefreshMangaCommand.
+            if (other.MaxChapterNumber.HasValue)
+            {
+                MaxChapterNumber = other.MaxChapterNumber.Value > 0
+                    ? other.MaxChapterNumber
+                    : null;
             }
 
             LastInfoSync = DateTime.UtcNow;
