@@ -77,6 +77,30 @@ namespace NzbDrone.Core.Manga
             _ => null,
         };
 
+        // Inverse of GetPrimarySourceId: OVERWRITE the active primary's id field on `target`
+        // with the value carried by `source` (a confirmed relink hit). Used only by the
+        // repoint-on-404 relink path — there the stale primary id is NON-null, so the fill-null
+        // CarryOverCrossSourceIds cannot correct it. Only the primary axis is touched; the other
+        // cross-source ids stay under the fill-null (never-clobber) carry-over.
+        private static void SetPrimarySourceId(Manga target, IProvideMangaInfo primary, Manga source)
+        {
+            switch (primary)
+            {
+                case MangaBakaMetadataSource _:
+                    target.MangaBakaId = source.MangaBakaId;
+                    break;
+                case MangaDexMetadataSource _:
+                    target.MangaDexId = source.MangaDexId;
+                    break;
+                case AniListMetadataSource _:
+                    target.AniListId = source.AniListId;
+                    break;
+                case MyAnimeListMetadataSource _:
+                    target.MalId = source.MalId;
+                    break;
+            }
+        }
+
         private static MangaCandidate ToCandidate(Manga m)
         {
             // Feed the canonical Title plus any AlternativeTitles into the candidate so the
@@ -223,7 +247,7 @@ namespace NzbDrone.Core.Manga
         // existing row (fill-null, never clobber) and persisted; returns the resolved primary
         // source id. Returns null when the primary cannot search, every search errors, or no
         // hit clears the gate (caller skip-warns and leaves the existing metadata untouched).
-        private string TryRelinkPrimaryId(Manga existing, IProvideMangaInfo primary, MetadataSourceDefinition primaryDef)
+        private string TryRelinkPrimaryId(Manga existing, IProvideMangaInfo primary, MetadataSourceDefinition primaryDef, bool repointStalePrimaryId = false)
         {
             if (primary is not ISearchForNewManga searcher)
             {
@@ -280,6 +304,17 @@ namespace NzbDrone.Core.Manga
             if (best == null)
             {
                 return null;
+            }
+
+            // When the stored primary id 404'd (repointStalePrimaryId), the fill-null carry-over
+            // below CANNOT replace it — the stale id is non-null. Directly repoint the primary id
+            // at the confirmed hit's id first; the OTHER cross-source ids still go through the
+            // fill-null carry-over (only the dead primary axis is corrected). The hit was
+            // pre-filtered above to expose a non-empty primary id, so this always yields a usable
+            // resolvedId below. (Debug session manga-removed-from-metadata-source, 2026-06-18.)
+            if (repointStalePrimaryId)
+            {
+                SetPrimarySourceId(existing, primary, best);
             }
 
             // Carry over whatever cross-source ids the chosen hit exposes (the search-list
@@ -351,6 +386,158 @@ namespace NzbDrone.Core.Manga
             {
                 _logger.Error(e, "Couldn't rescan manga {0}", manga);
             }
+        }
+
+        // Fetch + apply the authoritative record for ONE manga from the active primary, then
+        // sync chapters, publish the refresh events, and rescan disk. Extracted verbatim from
+        // Execute's per-manga loop so the MangaNotFoundException relink-on-404 path can RETRY it
+        // against a freshly-resolved primary id (debug session
+        // manga-removed-from-metadata-source, 2026-06-18). A MangaNotFoundException thrown by
+        // GetMangaInfo propagates straight through to the caller's catch — that catch owns the
+        // relink-then-removed-at-source decision.
+        private void RefreshMangaInfo(Manga existing, string sourceId, IProvideMangaInfo primary, RefreshMangaCommand message)
+        {
+            var tuple = primary.GetMangaInfo(sourceId);
+            var mangaInfo = tuple.Item1;
+
+            // Phase 16.1 Wave 3 (REVERT-03): chapter feed is the Sonarr-canonical
+            // IEnumerable<Chapter> shape. Materialize once for the snapshot/diff
+            // delta computation below + the SyncChapters call.
+            var remoteChapters = tuple.Item2.ToList();
+
+            // Manga.ApplyChanges copies user-mutable fields (Monitored,
+            // RootFolderPath, Tags, AddOptions, MonitorNewItems,
+            // TranslationProfileId, CustomFormatProfileId) per gap-02; on a
+            // metadata-fetch path mangaInfo carries default values for those
+            // fields (the source doesn't know the user's choice), so without
+            // preserving the user's values across the call we silently flip them
+            // back to defaults on every refresh — and MangaEditedService queues
+            // a refresh after every UI single-edit, so without this preservation
+            // every Save round-trip clobbers itself. AddMangaService.PrepareForAdd
+            // uses the same dance at lines 236-248. Phase 9 should restructure
+            // ApplyChanges to drop the user-field copy entirely (TV's
+            // Series.ApplyChanges-from-metadata path doesn't have this problem
+            // because RefreshSeriesService doesn't call ApplyChanges — it manually
+            // copies metadata-only fields).
+            var userMonitored = existing.Monitored;
+            var userRootFolderPath = existing.RootFolderPath;
+            var userTags = existing.Tags;
+            var userAddOptions = existing.AddOptions;
+            var userMonitorNewItems = existing.MonitorNewItems;
+            var userTranslationProfileId = existing.TranslationProfileId;
+            var userCustomFormatProfileId = existing.CustomFormatProfileId;
+
+            // Debug session add-manga-lookup-null-path (2026-05-12): Path MUST
+            // be saved/restored across ApplyChanges. Manga.cs:135 (issue #81
+            // bug-fix) explicitly copies Path = other.Path inside ApplyChanges
+            // so MoveMangaCommand can land the new on-disk path through the
+            // V5 PUT controller. But on the metadata-refresh path here, mangaInfo
+            // (returned by MangaDexMetadataSource) NEVER sets Path — metadata
+            // sources don't know disk paths. Without saving existing.Path across
+            // ApplyChanges, line 229's `new DirectoryInfo(existing.Path).FullName`
+            // throws ArgumentNullException AND the trailing UpdateManga call
+            // writes Path=null which trips the SQLite NOT NULL constraint
+            // (001_mangarr_baseline.cs:510). Mirrors the same dance in
+            // AddMangaService.PrepareForAdd (lines 251 + 262).
+            var userPath = existing.Path;
+
+            existing.ApplyChanges(mangaInfo);
+
+            existing.Monitored = userMonitored;
+            existing.RootFolderPath = userRootFolderPath ?? existing.RootFolderPath;
+            existing.Tags = userTags ?? existing.Tags;
+            existing.AddOptions = userAddOptions ?? existing.AddOptions;
+            existing.MonitorNewItems = userMonitorNewItems;
+            existing.TranslationProfileId = userTranslationProfileId;
+            existing.CustomFormatProfileId = userCustomFormatProfileId;
+            existing.Path = userPath ?? existing.Path;
+
+            // Enrich cross-source links from the authoritative full record. Manga.ApplyChanges
+            // deliberately OMITS the cross-source ids (they are immutable post-add), but the
+            // GetMangaInfo record's `source` block carries the complete set (e.g. MangaBaka's
+            // 7 ids) — richer than the search-list response the relink path may have used. Fill
+            // only the nulls, so a manga added under one source self-heals to the full link set
+            // on refresh under another primary, while never repointing an already-set id.
+            CarryOverCrossSourceIds(existing, mangaInfo);
+
+            // gap-06: mirror RefreshSeriesService.RefreshSeriesInfo
+            // (Tv/RefreshSeriesService.cs:116-124) — normalize Manga.Path to
+            // its full absolute form with actual disk casing on every refresh.
+            // Defends against OS-level renames (Windows casing drift) so the
+            // file-import pipeline can still match canonical paths.
+            try
+            {
+                // Debug session add-manga-lookup-null-path (2026-05-12) defense-in-depth:
+                // even with the userPath save/restore above, legacy/test rows could
+                // carry an empty Path (pre-Phase-15 baseline). Skip normalization
+                // rather than throw + swallow.
+                if (string.IsNullOrWhiteSpace(existing.Path))
+                {
+                    _logger.Warn("Skipping path normalization for manga {0} (Id={1}): Path is null/empty",
+                        existing.Title,
+                        existing.Id);
+                }
+                else
+                {
+                    existing.Path = new DirectoryInfo(existing.Path).FullName;
+                    existing.Path = existing.Path.GetActualCasing();
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.Warn(e, "Couldn't update manga path for " + existing.Path);
+            }
+
+            // gap-11: suppress UpdateManga's event publish so the trailing
+            // PublishEvent below is the SOLE MangaUpdatedEvent per refresh,
+            // emitted AFTER chapter sync completes. Mirrors TV
+            // RefreshSeriesService.RefreshSeriesInfo's UpdateSeries(publishUpdatedEvent:false)
+            // → RefreshEpisodeInfo → PublishEvent(SeriesUpdatedEvent) ordering
+            // (Pitfall 4 invariant: DB write FIRST, event LAST).
+            _mangaService.UpdateManga(existing, publishUpdatedEvent: false);
+
+            // Phase 8 backfill (audit gap: no-sibling/EpisodeRefreshedService.md +
+            // RefreshSeriesService-vs-RefreshMangaService.md gap-10 reclassified):
+            // snapshot the chapter set BEFORE the chapter-sync pass so we can compute
+            // the (added/updated/removed) delta for ChapterInfoRefreshedEvent. Mirrors
+            // RefreshEpisodeService.RefreshEpisodeInfo (Tv/RefreshEpisodeService.cs:131)
+            // which publishes EpisodeInfoRefreshedEvent with the equivalent delta.
+            //
+            // The chapter-sync pass does not return a delta (its public surface predates
+            // this requirement), so we snapshot+diff here. The diff key is ChapterId —
+            // rows whose ID exists in both snapshots count as "updated" (SyncChapters
+            // may have updated mutable fields in place); IDs only present post-sync are
+            // "added"; IDs only present pre-sync are "removed". Per Phase 16.1 Wave 3
+            // locked stale-handling decision SyncChapters does NOT delete stale Chapter
+            // rows, so removed will be empty unless a separate deletion path runs.
+            var beforeIds = _chapterService.GetChaptersByManga(existing.Id)
+                .ToDictionary(c => c.Id);
+
+            // Phase 16.1 Wave 3 (REVERT-03): single SyncChapters call per refresh.
+            // Mirror of Sonarr's RefreshEpisodeService.RefreshEpisodeInfo.
+            _chapterListService.SyncChapters(existing, remoteChapters);
+
+            var afterChapters = _chapterService.GetChaptersByManga(existing.Id);
+            var added = afterChapters.Where(c => !beforeIds.ContainsKey(c.Id)).ToList();
+            var updated = afterChapters.Where(c => beforeIds.ContainsKey(c.Id)).ToList();
+            var removed = beforeIds.Values.Where(c => afterChapters.All(a => a.Id != c.Id)).ToList();
+
+            _eventAggregator.PublishEvent(new ChapterInfoRefreshedEvent(existing, added, updated, removed));
+
+            // Pitfall 4: SINGLE ChapterListUpdatedEvent emit AFTER both passes complete.
+            // Existing consumer contract preserved (one event per refresh; SignalR
+            // fan-out unchanged).
+            _eventAggregator.PublishEvent(new ChapterListUpdatedEvent(existing));
+
+            _eventAggregator.PublishEvent(new MangaUpdatedEvent(existing));
+
+            // gap-12 (refresh-also-scan-disk): synchronously rescan the manga's
+            // root folder so manually-placed CBZ/CBR files get reconciled into
+            // the DB on the SAME user click. Single click does both — mirror of
+            // Tv/RefreshSeriesService.Execute calling RescanSeries(...) per id.
+            // Placed AFTER the MangaUpdatedEvent so subscribers see the metadata
+            // update first, then the file-side update via MangaScannedEvent.
+            RescanManga(existing, message.IsNewManga, message.Trigger);
         }
 
         public void Execute(RefreshMangaCommand message)
@@ -454,150 +641,46 @@ namespace NzbDrone.Core.Manga
 
                 try
                 {
-                    var tuple = primary.GetMangaInfo(sourceId);
-                    var mangaInfo = tuple.Item1;
-
-                    // Phase 16.1 Wave 3 (REVERT-03): chapter feed is the Sonarr-canonical
-                    // IEnumerable<Chapter> shape. Materialize once for the snapshot/diff
-                    // delta computation below + the SyncChapters call.
-                    var remoteChapters = tuple.Item2.ToList();
-
-                    // Manga.ApplyChanges copies user-mutable fields (Monitored,
-                    // RootFolderPath, Tags, AddOptions, MonitorNewItems,
-                    // TranslationProfileId, CustomFormatProfileId) per gap-02; on a
-                    // metadata-fetch path mangaInfo carries default values for those
-                    // fields (the source doesn't know the user's choice), so without
-                    // preserving the user's values across the call we silently flip them
-                    // back to defaults on every refresh — and MangaEditedService queues
-                    // a refresh after every UI single-edit, so without this preservation
-                    // every Save round-trip clobbers itself. AddMangaService.PrepareForAdd
-                    // uses the same dance at lines 236-248. Phase 9 should restructure
-                    // ApplyChanges to drop the user-field copy entirely (TV's
-                    // Series.ApplyChanges-from-metadata path doesn't have this problem
-                    // because RefreshSeriesService doesn't call ApplyChanges — it manually
-                    // copies metadata-only fields).
-                    var userMonitored = existing.Monitored;
-                    var userRootFolderPath = existing.RootFolderPath;
-                    var userTags = existing.Tags;
-                    var userAddOptions = existing.AddOptions;
-                    var userMonitorNewItems = existing.MonitorNewItems;
-                    var userTranslationProfileId = existing.TranslationProfileId;
-                    var userCustomFormatProfileId = existing.CustomFormatProfileId;
-
-                    // Debug session add-manga-lookup-null-path (2026-05-12): Path MUST
-                    // be saved/restored across ApplyChanges. Manga.cs:135 (issue #81
-                    // bug-fix) explicitly copies Path = other.Path inside ApplyChanges
-                    // so MoveMangaCommand can land the new on-disk path through the
-                    // V5 PUT controller. But on the metadata-refresh path here, mangaInfo
-                    // (returned by MangaDexMetadataSource) NEVER sets Path — metadata
-                    // sources don't know disk paths. Without saving existing.Path across
-                    // ApplyChanges, line 229's `new DirectoryInfo(existing.Path).FullName`
-                    // throws ArgumentNullException AND the trailing UpdateManga call
-                    // writes Path=null which trips the SQLite NOT NULL constraint
-                    // (001_mangarr_baseline.cs:510). Mirrors the same dance in
-                    // AddMangaService.PrepareForAdd (lines 251 + 262).
-                    var userPath = existing.Path;
-
-                    existing.ApplyChanges(mangaInfo);
-
-                    existing.Monitored = userMonitored;
-                    existing.RootFolderPath = userRootFolderPath ?? existing.RootFolderPath;
-                    existing.Tags = userTags ?? existing.Tags;
-                    existing.AddOptions = userAddOptions ?? existing.AddOptions;
-                    existing.MonitorNewItems = userMonitorNewItems;
-                    existing.TranslationProfileId = userTranslationProfileId;
-                    existing.CustomFormatProfileId = userCustomFormatProfileId;
-                    existing.Path = userPath ?? existing.Path;
-
-                    // Enrich cross-source links from the authoritative full record. Manga.ApplyChanges
-                    // deliberately OMITS the cross-source ids (they are immutable post-add), but the
-                    // GetMangaInfo record's `source` block carries the complete set (e.g. MangaBaka's
-                    // 7 ids) — richer than the search-list response the relink path may have used. Fill
-                    // only the nulls, so a manga added under one source self-heals to the full link set
-                    // on refresh under another primary, while never repointing an already-set id.
-                    CarryOverCrossSourceIds(existing, mangaInfo);
-
-                    // gap-06: mirror RefreshSeriesService.RefreshSeriesInfo
-                    // (Tv/RefreshSeriesService.cs:116-124) — normalize Manga.Path to
-                    // its full absolute form with actual disk casing on every refresh.
-                    // Defends against OS-level renames (Windows casing drift) so the
-                    // file-import pipeline can still match canonical paths.
-                    try
-                    {
-                        // Debug session add-manga-lookup-null-path (2026-05-12) defense-in-depth:
-                        // even with the userPath save/restore above, legacy/test rows could
-                        // carry an empty Path (pre-Phase-15 baseline). Skip normalization
-                        // rather than throw + swallow.
-                        if (string.IsNullOrWhiteSpace(existing.Path))
-                        {
-                            _logger.Warn("Skipping path normalization for manga {0} (Id={1}): Path is null/empty",
-                                existing.Title,
-                                existing.Id);
-                        }
-                        else
-                        {
-                            existing.Path = new DirectoryInfo(existing.Path).FullName;
-                            existing.Path = existing.Path.GetActualCasing();
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        _logger.Warn(e, "Couldn't update manga path for " + existing.Path);
-                    }
-
-                    // gap-11: suppress UpdateManga's event publish so the trailing
-                    // PublishEvent below is the SOLE MangaUpdatedEvent per refresh,
-                    // emitted AFTER chapter sync completes. Mirrors TV
-                    // RefreshSeriesService.RefreshSeriesInfo's UpdateSeries(publishUpdatedEvent:false)
-                    // → RefreshEpisodeInfo → PublishEvent(SeriesUpdatedEvent) ordering
-                    // (Pitfall 4 invariant: DB write FIRST, event LAST).
-                    _mangaService.UpdateManga(existing, publishUpdatedEvent: false);
-
-                    // Phase 8 backfill (audit gap: no-sibling/EpisodeRefreshedService.md +
-                    // RefreshSeriesService-vs-RefreshMangaService.md gap-10 reclassified):
-                    // snapshot the chapter set BEFORE the chapter-sync pass so we can compute
-                    // the (added/updated/removed) delta for ChapterInfoRefreshedEvent. Mirrors
-                    // RefreshEpisodeService.RefreshEpisodeInfo (Tv/RefreshEpisodeService.cs:131)
-                    // which publishes EpisodeInfoRefreshedEvent with the equivalent delta.
-                    //
-                    // The chapter-sync pass does not return a delta (its public surface predates
-                    // this requirement), so we snapshot+diff here. The diff key is ChapterId —
-                    // rows whose ID exists in both snapshots count as "updated" (SyncChapters
-                    // may have updated mutable fields in place); IDs only present post-sync are
-                    // "added"; IDs only present pre-sync are "removed". Per Phase 16.1 Wave 3
-                    // locked stale-handling decision SyncChapters does NOT delete stale Chapter
-                    // rows, so removed will be empty unless a separate deletion path runs.
-                    var beforeIds = _chapterService.GetChaptersByManga(existing.Id)
-                        .ToDictionary(c => c.Id);
-
-                    // Phase 16.1 Wave 3 (REVERT-03): single SyncChapters call per refresh.
-                    // Mirror of Sonarr's RefreshEpisodeService.RefreshEpisodeInfo.
-                    _chapterListService.SyncChapters(existing, remoteChapters);
-
-                    var afterChapters = _chapterService.GetChaptersByManga(existing.Id);
-                    var added = afterChapters.Where(c => !beforeIds.ContainsKey(c.Id)).ToList();
-                    var updated = afterChapters.Where(c => beforeIds.ContainsKey(c.Id)).ToList();
-                    var removed = beforeIds.Values.Where(c => afterChapters.All(a => a.Id != c.Id)).ToList();
-
-                    _eventAggregator.PublishEvent(new ChapterInfoRefreshedEvent(existing, added, updated, removed));
-
-                    // Pitfall 4: SINGLE ChapterListUpdatedEvent emit AFTER both passes complete.
-                    // Existing consumer contract preserved (one event per refresh; SignalR
-                    // fan-out unchanged).
-                    _eventAggregator.PublishEvent(new ChapterListUpdatedEvent(existing));
-
-                    _eventAggregator.PublishEvent(new MangaUpdatedEvent(existing));
-
-                    // gap-12 (refresh-also-scan-disk): synchronously rescan the manga's
-                    // root folder so manually-placed CBZ/CBR files get reconciled into
-                    // the DB on the SAME user click. Single click does both — mirror of
-                    // Tv/RefreshSeriesService.Execute calling RescanSeries(...) per id.
-                    // Placed AFTER the MangaUpdatedEvent so subscribers see the metadata
-                    // update first, then the file-side update via MangaScannedEvent.
-                    RescanManga(existing, message.IsNewManga, message.Trigger);
+                    RefreshMangaInfo(existing, sourceId, primary, message);
                 }
                 catch (MangaNotFoundException) when (!message.IsNewManga)
                 {
+                    // The stored primary-source id 404'd. Before declaring the manga
+                    // removed-at-source, give it the SAME confident title-search relink the
+                    // empty-id path uses (TryRelinkPrimaryId) — MangaBaka (and similar) periodically
+                    // REBUILD their id space, retiring the id a manga was added under (a hard 404)
+                    // while the title lives on at a NEW id. repointStalePrimaryId:true lets the
+                    // relink OVERWRITE the dead primary id (the default fill-null carry-over cannot,
+                    // since the stale id is non-null). On a confident match we retry the fetch
+                    // against the resolved id and skip the removed-at-source flip entirely.
+                    // Debug session manga-removed-from-metadata-source (2026-06-18).
+                    var relinkedId = TryRelinkPrimaryId(existing, primary, primaryDef, repointStalePrimaryId: true);
+                    if (!string.IsNullOrEmpty(relinkedId) && relinkedId != sourceId)
+                    {
+                        try
+                        {
+                            _logger.Info("Manga {0} primary id {1} not found at {2}; retrying refresh against relinked id {3}",
+                                existing.Title,
+                                sourceId,
+                                primaryDef.Name,
+                                relinkedId);
+                            RefreshMangaInfo(existing, relinkedId, primary, message);
+
+                            // Healed onto the live id — skip the removed-at-source flip below.
+                            continue;
+                        }
+                        catch (MangaNotFoundException)
+                        {
+                            // The relinked id ALSO 404'd — fall through to the removed-at-source
+                            // flip. A bad-match relink cannot strand the manga: the resolver gate
+                            // already cleared the candidate, and the next refresh re-resolves.
+                            _logger.Warn("Relinked id {0} for manga {1} also not found at {2}; marking removed-at-source",
+                                relinkedId,
+                                existing.Title,
+                                primaryDef.Name);
+                        }
+                    }
+
                     _logger.Warn("Manga {0} not found at primary source — preserving existing data",
                         existing.Title);
 

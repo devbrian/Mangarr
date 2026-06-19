@@ -381,6 +381,107 @@ namespace NzbDrone.Core.Test.MangaTests
         }
 
         [Test]
+        public void Execute_relinks_and_heals_when_stored_primary_id_404s()
+        {
+            // Debug session manga-removed-from-metadata-source (2026-06-18): a manga added
+            // under MangaBaka id 6127 that 404s on refresh (MangaBaka rebuilt its id space).
+            // The title lives on at a NEW id (531893). The 404 must trigger a confident
+            // title-search relink onto 531893 and retry the fetch — NOT flip to "deleted".
+            var bakaPrimary = new MetadataSourceDefinition { Id = 4, Name = "MangaBaka", IsPrimary = true };
+            Mocker.GetMock<IMetadataSourceFactory>().Setup(f => f.GetPrimary()).Returns(bakaPrimary);
+
+            var existing = new Manga.Manga
+            {
+                Id = 1,
+                Title = "My Succubus Girlfriend",
+                MangaBakaId = 6127,
+                PublicationYear = 2021,
+                PrimaryAuthor = "Some Author",
+                TotalChapterCount = 20,
+                Status = MangaStatusType.Deleted,
+                Path = TestMangaPath,
+            };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(existing);
+            Mocker.GetMock<IMangaService>()
+                  .Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>()))
+                  .Returns<Manga.Manga, bool>((m, _) => m);
+
+            // The live search hit clears the resolver gate (identical title + matching
+            // year/author/chapter-count) and exposes the NEW MangaBaka id.
+            var hit = new Manga.Manga
+            {
+                Title = "My Succubus Girlfriend",
+                MangaBakaId = 531893,
+                PublicationYear = 2021,
+                PrimaryAuthor = "Some Author",
+                TotalChapterCount = 20,
+            };
+
+            // The refetch against the relinked id returns a live, active record.
+            var refreshed = new Manga.Manga
+            {
+                Id = 1,
+                Title = "My Succubus Girlfriend",
+                MangaBakaId = 531893,
+                Status = MangaStatusType.Ongoing,
+            };
+            var stub = new StubMangaBakaProvider(hit, refreshed)
+            {
+                NotFoundIds = new HashSet<string> { "6127" },
+            };
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            existing.MangaBakaId.Should().Be(531893, "the dead id was repointed at the live one");
+            existing.Status.Should().NotBe(MangaStatusType.Deleted, "the manga healed onto the live id");
+            existing.Status.Should().Be(MangaStatusType.Ongoing);
+            stub.GetMangaInfoCalls.Should().ContainInOrder("6127", "531893");
+            ExceptionVerification.ExpectedWarns(0);
+        }
+
+        [Test]
+        public void Execute_marks_deleted_when_404_and_no_confident_relink_match()
+        {
+            // The stored id 404s AND the title search returns no confident match (e.g. the
+            // title is genuinely gone). The manga must still flip to "deleted" — the relink
+            // self-heal is a best-effort guard, not a way to suppress real removals.
+            var bakaPrimary = new MetadataSourceDefinition { Id = 4, Name = "MangaBaka", IsPrimary = true };
+            Mocker.GetMock<IMetadataSourceFactory>().Setup(f => f.GetPrimary()).Returns(bakaPrimary);
+
+            var existing = new Manga.Manga
+            {
+                Id = 1,
+                Title = "My Eldritch Girlfriend",
+                MangaBakaId = 187047,
+                Path = TestMangaPath,
+            };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(existing);
+            Mocker.GetMock<IMangaService>()
+                  .Setup(m => m.UpdateManga(It.IsAny<Manga.Manga>(), It.IsAny<bool>()))
+                  .Returns<Manga.Manga, bool>((m, _) => m);
+
+            // Search hit has a wildly different title → resolver gate fails → no relink.
+            var hit = new Manga.Manga { Title = "Totally Unrelated Series", MangaBakaId = 999 };
+            var stub = new StubMangaBakaProvider(hit, new Manga.Manga { Id = 1 })
+            {
+                NotFoundIds = new HashSet<string> { "187047" },
+            };
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            existing.Status.Should().Be(MangaStatusType.Deleted, "no confident relink → genuinely removed-at-source");
+            existing.MangaBakaId.Should().Be(187047, "a failed relink never mutates the stored id");
+            stub.GetMangaInfoCalls.Should().NotContain("999", "the unconfident hit is never refetched");
+            ExceptionVerification.ExpectedWarns(1);
+        }
+
+        [Test]
         public void Execute_publishes_MangaUpdatedEvent_and_ChapterListUpdatedEvent()
         {
             var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
@@ -897,10 +998,22 @@ namespace NzbDrone.Core.Test.MangaTests
             public override Tuple<Manga.Manga, IEnumerable<Chapter>> GetMangaInfo(string sourceId)
             {
                 GetMangaInfoCalls.Add(sourceId);
+
+                // Relink-on-404 scenarios: a stored id whose upstream record was retired
+                // throws MangaNotFoundException (the MangaBakaApi.GetById 404 path), while the
+                // relinked live id returns the result normally.
+                if (NotFoundIds != null && NotFoundIds.Contains(sourceId))
+                {
+                    throw new MangaNotFoundException(sourceId);
+                }
+
                 return Tuple.Create(_result, (IEnumerable<Chapter>)(Chapters ?? Enumerable.Empty<Chapter>()));
             }
 
             public IEnumerable<Chapter> Chapters { get; set; }
+
+            // Source ids for which GetMangaInfo simulates an upstream 404 (null = none).
+            public HashSet<string> NotFoundIds { get; set; }
         }
 
         // WR-07 helper: throws an arbitrary exception for the first sourceId, then
