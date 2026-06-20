@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -63,6 +64,14 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         public void Name_should_be_Manga_Gateway()
         {
             Subject.Name.Should().Be("Mangarr Gateway");
+        }
+
+        [Test]
+        public void RateLimit_should_be_1s_not_the_sonarr_2s_default()
+        {
+            // DIVERGENCE: gateway self-throttles via RateLimitPerMinute + 429, so the
+            // Sonarr 2s/indexer client floor is halved to tighten parallel-search cadence.
+            Subject.RateLimit.Should().Be(TimeSpan.FromSeconds(1));
         }
 
         [Test]
