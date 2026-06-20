@@ -96,12 +96,15 @@ namespace NzbDrone.Core.ImportLists.Exclusions
             var manga = message.Manga;
             var mangaDexIdString = manga.MangaDexId?.ToString();
 
-            // Items with NULL MangaDexId AND no MalId/AniListId have nothing to exclude
-            // by — skip rather than store an all-null row that the FindByMangaDexId
-            // finder cannot reach later.
+            // Items with NULL MangaDexId AND no MalId/AniListId/MangaBakaId have nothing
+            // to exclude by — skip rather than store an all-null row that no finder can
+            // reach later. quick-260619-spc: the guard now spans all FOUR identity axes
+            // (MangaDexId/MalId/AniListId/MangaBakaId) so a MangaBaka-only manga (the
+            // v1.3 default-primary anchor) DOES produce a usable exclusion row.
             if (mangaDexIdString.IsNullOrWhiteSpace() &&
                 (manga.MalId ?? 0) == 0 &&
-                (manga.AniListId ?? 0) == 0)
+                (manga.AniListId ?? 0) == 0 &&
+                (manga.MangaBakaId ?? 0) == 0)
             {
                 return;
             }
@@ -132,18 +135,21 @@ namespace NzbDrone.Core.ImportLists.Exclusions
                 }
             }
 
-            if ((manga.MalId ?? 0) != 0 || (manga.AniListId ?? 0) != 0)
+            if ((manga.MalId ?? 0) != 0 || (manga.AniListId ?? 0) != 0 || (manga.MangaBakaId ?? 0) != 0)
             {
                 // Secondary-ID path: scan All() for a row matching the same
-                // non-zero MalId or AniListId — runs INDEPENDENTLY of the
-                // MangaDexId check above so a stale secondary-only exclusion
+                // non-zero MalId, AniListId, or MangaBakaId — runs INDEPENDENTLY of
+                // the MangaDexId check above so a stale secondary-only exclusion
                 // is also caught even when the current delete carries a
-                // MangaDexId. Substrate-only (D-08) means exclusion volume is
-                // bounded by user UI activity, not provider sync; the scan is
-                // cheap until Phase 27 changes that.
+                // MangaDexId. quick-260619-spc widened this to MangaBakaId (the
+                // v1.3 default-primary anchor) so a MangaBaka-only re-delete does
+                // not accumulate duplicate rows. Substrate-only (D-08) means
+                // exclusion volume is bounded by user UI activity, not provider
+                // sync; the scan is cheap until Phase 27 changes that.
                 var existing = _repo.All().FirstOrDefault(x =>
                     ((manga.MalId ?? 0) != 0 && x.MalId == manga.MalId) ||
-                    ((manga.AniListId ?? 0) != 0 && x.AniListId == manga.AniListId));
+                    ((manga.AniListId ?? 0) != 0 && x.AniListId == manga.AniListId) ||
+                    ((manga.MangaBakaId ?? 0) != 0 && x.MangaBakaId == manga.MangaBakaId));
                 if (existing != null)
                 {
                     return;
@@ -155,6 +161,7 @@ namespace NzbDrone.Core.ImportLists.Exclusions
                 MangaDexId = mangaDexIdString,
                 MalId = manga.MalId,
                 AniListId = manga.AniListId,
+                MangaBakaId = manga.MangaBakaId,
                 Title = manga.Title
             });
         }
