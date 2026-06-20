@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using FizzWare.NBuilder;
 using Moq;
 using NUnit.Framework;
+using NzbDrone.Common.TPL;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.Clients;
 using NzbDrone.Core.Exceptions;
@@ -160,6 +161,41 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             Mocker.GetMock<IIndexerStatusService>()
                 .Verify(v => v.RecordFailure(It.IsAny<int>(), It.IsAny<TimeSpan>()), Times.Never());
+        }
+
+        // debug session downloads-post-6s-gap (2026-06-19): the gateway DownloadUrl is the opaque
+        // R6.<base64> handle (HttpUri.Host == ""). The per-host grab throttle must be SKIPPED for it
+        // — otherwise every grab keys to the same empty-string rate-limit bucket and serializes
+        // globally at 1 grab / 2s (3 parallel searches => ~6s/search).
+        [TestCase("R6.eyJzb3VyY2UiOiJtYW5nYWRleCIsImNoIjoiMTExMiJ9")]
+        [TestCase("R6.token")]
+        public async Task Download_report_should_not_rate_limit_opaque_gateway_handle(string downloadHandle)
+        {
+            var mock = WithHttpClient();
+            mock.Setup(s => s.Download(It.IsAny<RemoteChapter>(), It.IsAny<IIndexer>()));
+
+            _remoteChapter.Release.DownloadUrl = downloadHandle;
+
+            await Subject.DownloadReport(_remoteChapter, null);
+
+            Mocker.GetMock<IRateLimitService>()
+                .Verify(v => v.WaitAndPulseAsync(It.IsAny<string>(), It.IsAny<TimeSpan>()), Times.Never());
+        }
+
+        // Sonarr-shape preservation: a release whose DownloadUrl carries a REAL host still gets the
+        // canonical 2s/host grab throttle. Guards against a regression that removes the limit wholesale.
+        [Test]
+        public async Task Download_report_should_rate_limit_real_host_download_url()
+        {
+            var mock = WithHttpClient();
+            mock.Setup(s => s.Download(It.IsAny<RemoteChapter>(), It.IsAny<IIndexer>()));
+
+            _remoteChapter.Release.DownloadUrl = "http://test.site/download1.cbz";
+
+            await Subject.DownloadReport(_remoteChapter, null);
+
+            Mocker.GetMock<IRateLimitService>()
+                .Verify(v => v.WaitAndPulseAsync("test.site", TimeSpan.FromSeconds(2)), Times.Once());
         }
 
         [Test]
