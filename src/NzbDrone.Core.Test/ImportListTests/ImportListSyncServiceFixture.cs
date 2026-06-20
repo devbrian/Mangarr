@@ -279,6 +279,46 @@ namespace NzbDrone.Core.Test.ImportListTests
         }
 
         [Test]
+        public void process_list_items_rejects_via_mangabaka_keyed_exclusion_under_mangabaka_primary()
+        {
+            // quick-260619-spc: under a MangaBaka primary, a resolved candidate carrying
+            // MangaBakaId=555 that matches an existing exclusion {MangaBakaId=555} must be
+            // rejected (not re-added). Pre-fix the sync-path exclusion predicate only
+            // matched the MangaDex/MAL/AniList triplet, never MangaBakaId.
+            var items = new List<ImportListItemInfo>
+            {
+                new ImportListItemInfo { ImportListId = 1, Title = "Solo Leveling", MalId = 121496 }
+            };
+
+            Mocker.GetMock<IFetchAndParseImportList>()
+                  .Setup(f => f.Fetch())
+                  .Returns(new ImportListFetchResult(items, anyFailure: false));
+
+            SetupMangaBakaPrimary(new[]
+            {
+                new Manga.Manga { Title = "Solo Leveling", MangaBakaId = 555, MalId = 121496, MangaDexId = null }
+            });
+
+            Mocker.GetMock<IImportListExclusionService>()
+                  .Setup(s => s.All())
+                  .Returns(new List<ImportListExclusion>
+                  {
+                      new ImportListExclusion { MangaBakaId = 555, Title = "Solo Leveling" }
+                  });
+
+            List<Manga.Manga> captured = null;
+            Mocker.GetMock<IAddMangaService>()
+                  .Setup(s => s.AddManga(It.IsAny<List<Manga.Manga>>(), It.IsAny<bool>()))
+                  .Callback<List<Manga.Manga>, bool>((list, _) => captured = list)
+                  .Returns<List<Manga.Manga>, bool>((list, _) => list);
+
+            Subject.Execute(new ImportListSyncCommand());
+
+            captured.Should().NotBeNull();
+            captured.Should().BeEmpty("a MangaBaka-keyed exclusion must reject the resolved candidate carrying that MangaBakaId");
+        }
+
+        [Test]
         public void process_list_items_rejects_when_mangabaka_match_lacks_mangabaka_id()
         {
             // MangaBaka primary returns a MalId-agreeing candidate that has NO MangaBakaId.

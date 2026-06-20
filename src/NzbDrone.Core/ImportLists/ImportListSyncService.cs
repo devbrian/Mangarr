@@ -582,11 +582,15 @@ namespace NzbDrone.Core.ImportLists
             var aniListId = item.AniListId ?? match.AniListId;
             var mangaDexIdString = match.MangaDexId?.ToString();
 
-            // Exclusion check on the manga-ID triplet — match on ANY populated id.
+            // Exclusion check on the manga-ID quad — match on ANY populated id.
+            // quick-260619-spc: also match match.MangaBakaId so a MangaBaka-keyed
+            // exclusion rejects a candidate resolved under the v1.3 default-primary
+            // (MangaBaka results carry MangaBakaId, never a MangaDexId — D-03a).
             var excluded = listExclusions.Any(s =>
                 (mangaDexIdString != null && s.MangaDexId == mangaDexIdString) ||
                 (malId.HasValue && s.MalId == malId) ||
-                (aniListId.HasValue && s.AniListId == aniListId));
+                (aniListId.HasValue && s.AniListId == aniListId) ||
+                (match.MangaBakaId.HasValue && s.MangaBakaId == match.MangaBakaId));
 
             if (excluded)
             {

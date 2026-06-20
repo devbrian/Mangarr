@@ -11,6 +11,8 @@
 //   - `mangaDexId || '—'`  — string fallback; both `''` and `null` render as
 //     en-dash (Mangarr's API surface for null-MangaDexId rows is empty-string
 //     per useImportListExclusions.ts comment).
+//   - `mangaBakaId ?? '—'`— number fallback via `??` (quick-260619-spc); legal
+//     id `0` must render as `0`, not en-dash. Using `||` would mask `0`.
 //   - `malId ?? '—'`      — number fallback via `??`; legal tag-id `0`
 //     must render as `0`, not en-dash. Using `||` would mask `0`.
 //   - `aniListId ?? '—'`  — number fallback via `??`; same rationale.
@@ -42,6 +44,7 @@ interface ImportListExclusionRowProps {
   mangaDexId: string;
   malId: number | null;
   aniListId: number | null;
+  mangaBakaId: number | null;
   columns: Column[];
   onEditImportListExclusionPress: (id: number) => void;
   onConfirmDeleteImportListExclusionPress?: (id: number) => void;
@@ -53,6 +56,7 @@ function ImportListExclusionRow({
   mangaDexId,
   malId,
   aniListId,
+  mangaBakaId,
   onEditImportListExclusionPress,
   onConfirmDeleteImportListExclusionPress,
 }: ImportListExclusionRowProps) {
@@ -115,6 +119,7 @@ function ImportListExclusionRow({
 
       <TableRowCell>{title}</TableRowCell>
       <TableRowCell>{mangaDexId || '—'}</TableRowCell>
+      <TableRowCell>{mangaBakaId ?? '—'}</TableRowCell>
       <TableRowCell>{malId ?? '—'}</TableRowCell>
       <TableRowCell>{aniListId ?? '—'}</TableRowCell>
 

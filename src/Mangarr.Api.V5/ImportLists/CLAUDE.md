@@ -39,7 +39,7 @@ exclusions are static entities, not ThingiProvider plugins).
 
 | Method | Route | Behavior |
 |--------|-------|----------|
-| GET    | `/api/v5/importlistexclusion`         | Paged list (sort keys: id, title, mangaDexId) |
+| GET    | `/api/v5/importlistexclusion`         | Paged list (sort keys: id, title, mangaDexId, mangaBakaId) |
 | GET    | `/api/v5/importlistexclusion/{id}`    | Get by id |
 | POST   | `/api/v5/importlistexclusion`         | Create (MangaDexId uniqueness checked) |
 | PUT    | `/api/v5/importlistexclusion/{id}`    | Update |
@@ -55,8 +55,8 @@ exclusions are static entities, not ThingiProvider plugins).
 | `ImportListResourceMapper.cs` | Round-trips Resource ↔ Definition. Inherits Settings/Tags/Fields handling from base. |
 | `ImportListBulkResource.cs` | Bulk-payload DTO; nullable fields for partial updates. |
 | `ImportListBulkResourceMapper.cs` | `?? existing` short-circuit on each nullable field. |
-| `ImportListExclusionController.cs` | Verbatim port from ref slice with TvdbId → MangaDexId rule swap. |
-| `ImportListExclusionResource.cs` | Manga-ID triplet: `MangaDexId` (string) + `MalId` (int?) + `AniListId` (int?) + `Title`. Includes static `ImportListExclusionResourceMapper` (model ↔ resource round-trip). |
+| `ImportListExclusionController.cs` | Verbatim port from ref slice with TvdbId → MangaDexId rule swap. Paged-GET sort keys: id, title, mangaDexId, mangaBakaId (quick-260619-spc). |
+| `ImportListExclusionResource.cs` | Manga-ID **quad**: `MangaDexId` (string) + `MalId` (int?) + `AniListId` (int?) + `MangaBakaId` (int?, quick-260619-spc) + `Title`. Includes static `ImportListExclusionResourceMapper` (model ↔ resource round-trip — all 4 ids mapped both directions). MangaBakaId is un-validated (mirrors un-indexed MalId/AniListId). |
 | `ImportListExclusionBulkResource.cs` | `HashSet<int> Ids` payload for bulk-delete. |
 | `ImportListExclusionExistsValidator.cs` | FluentValidation `PropertyValidator` enforcing MangaDexId uniqueness (NULL-tolerant per Migration 003 UNIQUE-with-NULLs semantics). |
 | `CLAUDE.md` | This file. |
@@ -72,7 +72,7 @@ exclusions are static entities, not ThingiProvider plugins).
 
 | Sonarr peer | Mangarr peer | Reason |
 |-------------|--------------|--------|
-| `TvdbId` (int, single) on `ImportListExclusionResource` | `MangaDexId` (string) + `MalId` (int?) + `AniListId` (int?) | Manga has 3 canonical metadata sources, not 1; per Migration 003 |
+| `TvdbId` (int, single) on `ImportListExclusionResource` | `MangaDexId` (string) + `MalId` (int?) + `AniListId` (int?) + `MangaBakaId` (int?) | Manga has multiple canonical metadata sources, not 1; triplet per Migration 003, extended to a quad with the v1.3 default-primary anchor MangaBakaId per Migration 017 (quick-260619-spc) |
 | `QualityProfileId` on `ImportListResource` | `TranslationProfileId` + `CustomFormatProfileId` | Phase 5 D-04 — translation language replaces video-quality model |
 | `SeasonFolder` / `SeriesType` | DROPPED | Manga has no Season; Migration 001 stripped both columns |
 | `SearchForMissingEpisodes` | `SearchForMissingChapters` | Naming peer |

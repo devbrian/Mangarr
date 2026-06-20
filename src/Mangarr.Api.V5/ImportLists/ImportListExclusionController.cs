@@ -17,8 +17,8 @@ namespace Mangarr.Api.V5.ImportLists;
 // `MangaDexId` string-keyed rule (Migration 003 manga-ID triplet shape).
 //
 // Allowed sort keys for the paged GET endpoint (used by FE TablePager): id, title,
-// mangaDexId. The Sonarr ref slice also exposed tvdbId — replaced by mangaDexId
-// here per the triplet swap.
+// mangaDexId, mangaBakaId (quick-260619-spc). The Sonarr ref slice also exposed
+// tvdbId — replaced by mangaDexId here per the triplet swap.
 [V5ApiController]
 public class ImportListExclusionController : RestController<ImportListExclusionResource>
 {
@@ -56,7 +56,8 @@ public class ImportListExclusionController : RestController<ImportListExclusionR
             {
                 "id",
                 "title",
-                "mangaDexId"
+                "mangaDexId",
+                "mangaBakaId"
             },
             "id",
             SortDirection.Descending);

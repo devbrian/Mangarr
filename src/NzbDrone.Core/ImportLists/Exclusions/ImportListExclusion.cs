@@ -14,11 +14,17 @@ namespace NzbDrone.Core.ImportLists.Exclusions
     // (RESEARCH §Q4). Manga.MangaDexId is `Guid?` in the aggregate POCO; the exclusion
     // service stores `manga.MangaDexId?.ToString()` so the FindByMangaDexId finder can
     // string-compare on the indexed column directly.
+    //
+    // quick-260619-spc — the triplet is now a QUAD (MangaDexId/MalId/AniListId/MangaBakaId).
+    // MangaBakaId (int?, Migration 017) is the v1.3 default-primary anchor; it mirrors the
+    // un-indexed secondary members (MalId/AniListId) and carries NO UNIQUE index on the
+    // exclusion table — only MangaDexId is the indexed/validated finder member.
     public class ImportListExclusion : ModelBase
     {
         public string MangaDexId { get; set; }
         public int? MalId { get; set; }
         public int? AniListId { get; set; }
+        public int? MangaBakaId { get; set; }
         public string Title { get; set; }
     }
 }

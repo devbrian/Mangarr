@@ -16,7 +16,7 @@ namespace NzbDrone.Core.Test.ImportListTests
     {
         private static readonly Guid SampleMangaDexId = new Guid("33333333-3333-3333-3333-333333333333");
 
-        private Manga.Manga GivenManga(Guid? mangaDexId = null, int? malId = null, int? aniListId = null, string title = "Test Manga")
+        private Manga.Manga GivenManga(Guid? mangaDexId = null, int? malId = null, int? aniListId = null, int? mangaBakaId = null, string title = "Test Manga")
         {
             return new Manga.Manga
             {
@@ -24,6 +24,7 @@ namespace NzbDrone.Core.Test.ImportListTests
                 MangaDexId = mangaDexId ?? SampleMangaDexId,
                 MalId = malId,
                 AniListId = aniListId,
+                MangaBakaId = mangaBakaId,
                 Title = title
             };
         }
@@ -85,9 +86,9 @@ namespace NzbDrone.Core.Test.ImportListTests
         }
 
         [Test]
-        public void handle_persists_full_triplet_MangaDexId_MalId_AniListId()
+        public void handle_persists_full_quad_MangaDexId_MalId_AniListId_MangaBakaId()
         {
-            var manga = GivenManga(malId: 555, aniListId: 777);
+            var manga = GivenManga(malId: 555, aniListId: 777, mangaBakaId: 900);
             var evt = new MangaDeletedEvent(manga, deleteFiles: false, addImportListExclusion: true);
 
             Mocker.GetMock<IImportListExclusionRepository>()
@@ -104,15 +105,68 @@ namespace NzbDrone.Core.Test.ImportListTests
 
             captured.Should().NotBeNull("Insert was called");
             captured.MangaDexId.Should().Be(SampleMangaDexId.ToString(), "MangaDexId is serialized as the canonical Guid string");
-            captured.MalId.Should().Be(555, "the MAL triplet member persists");
-            captured.AniListId.Should().Be(777, "the AniList triplet member persists");
+            captured.MalId.Should().Be(555, "the MAL quad member persists");
+            captured.AniListId.Should().Be(777, "the AniList quad member persists");
+            captured.MangaBakaId.Should().Be(900, "the MangaBaka quad member (v1.3 default-primary anchor) persists");
             captured.Title.Should().Be("Test Manga");
         }
 
         [Test]
-        public void handle_skips_when_all_three_ids_are_null_or_zero()
+        public void handle_inserts_row_for_mangabaka_only_manga()
         {
-            var manga = new Manga.Manga { Id = 99, MangaDexId = null, MalId = null, AniListId = null, Title = "Nothing-To-Exclude" };
+            // Regression (quick-260619-spc): a manga carrying ONLY a MangaBakaId
+            // (the v1.3 default-primary anchor) — MangaDexId/MalId/AniListId all null —
+            // was previously dropped by the all-null skip guard, so no exclusion row
+            // was ever created and an import list could re-add the deleted title.
+            var manga = new Manga.Manga { Id = 1, MangaDexId = null, MalId = null, AniListId = null, MangaBakaId = 900, Title = "MangaBaka-Only" };
+            var evt = new MangaDeletedEvent(manga, deleteFiles: false, addImportListExclusion: true);
+
+            Mocker.GetMock<IImportListExclusionRepository>()
+                  .Setup(r => r.All())
+                  .Returns(new ImportListExclusion[] { });
+
+            ImportListExclusion captured = null;
+            Mocker.GetMock<IImportListExclusionRepository>()
+                  .Setup(r => r.Insert(It.IsAny<ImportListExclusion>()))
+                  .Callback<ImportListExclusion>(e => captured = e)
+                  .Returns<ImportListExclusion>(e => e);
+
+            Subject.Handle(evt);
+
+            Mocker.GetMock<IImportListExclusionRepository>()
+                  .Verify(r => r.Insert(It.IsAny<ImportListExclusion>()),
+                      Times.Once,
+                      "a MangaBaka-only delete must now create exactly one exclusion row");
+            captured.Should().NotBeNull();
+            captured.MangaBakaId.Should().Be(900, "the MangaBaka-only row keys on MangaBakaId");
+            captured.MangaDexId.Should().BeNull();
+        }
+
+        [Test]
+        public void handle_does_not_duplicate_when_existing_exclusion_matches_mangabaka_id()
+        {
+            // Idempotency: an existing exclusion row already covers this manga's
+            // MangaBakaId (and there is no MangaDexId match), so the handler must
+            // NOT insert a duplicate.
+            var manga = new Manga.Manga { Id = 1, MangaDexId = null, MalId = null, AniListId = null, MangaBakaId = 900, Title = "MangaBaka-Only" };
+            var evt = new MangaDeletedEvent(manga, deleteFiles: false, addImportListExclusion: true);
+
+            Mocker.GetMock<IImportListExclusionRepository>()
+                  .Setup(r => r.All())
+                  .Returns(new[] { new ImportListExclusion { Id = 5, MangaBakaId = 900, Title = "MangaBaka-Only" } });
+
+            Subject.Handle(evt);
+
+            Mocker.GetMock<IImportListExclusionRepository>()
+                  .Verify(r => r.Insert(It.IsAny<ImportListExclusion>()),
+                      Times.Never,
+                      "idempotency: an existing MangaBakaId-keyed exclusion must not be duplicated on re-delete");
+        }
+
+        [Test]
+        public void handle_skips_when_all_four_ids_are_null_or_zero()
+        {
+            var manga = new Manga.Manga { Id = 99, MangaDexId = null, MalId = null, AniListId = null, MangaBakaId = null, Title = "Nothing-To-Exclude" };
             var evt = new MangaDeletedEvent(manga, deleteFiles: false, addImportListExclusion: true);
 
             Subject.Handle(evt);
@@ -120,7 +174,7 @@ namespace NzbDrone.Core.Test.ImportListTests
             Mocker.GetMock<IImportListExclusionRepository>()
                   .Verify(r => r.Insert(It.IsAny<ImportListExclusion>()),
                       Times.Never,
-                      "all-null-triplet row has no key for FindByMangaDexId to reach later — skip rather than store an unreachable exclusion");
+                      "all-null-quad row has no key for any finder to reach later — skip rather than store an unreachable exclusion");
         }
     }
 }

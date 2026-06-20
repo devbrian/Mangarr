@@ -29,6 +29,7 @@ interface EditImportListExclusionModalContentProps {
   mangaDexId?: string;
   malId?: number;
   aniListId?: number;
+  mangaBakaId?: number;
   onModalClose: () => void;
   onDeleteImportListExclusionPress?: () => void;
 }
@@ -39,6 +40,7 @@ function EditImportListExclusionModalContent({
   mangaDexId: existingMangaDexId,
   malId: existingMalId,
   aniListId: existingAniListId,
+  mangaBakaId: existingMangaBakaId,
   onModalClose,
   onDeleteImportListExclusionPress,
 }: EditImportListExclusionModalContentProps) {
@@ -56,9 +58,10 @@ function EditImportListExclusionModalContent({
     mangaDexId: existingMangaDexId,
     malId: existingMalId,
     aniListId: existingAniListId,
+    mangaBakaId: existingMangaBakaId,
   });
 
-  const { title, mangaDexId, malId, aniListId } = item;
+  const { title, mangaDexId, malId, aniListId, mangaBakaId } = item;
   const wasSaving = usePrevious(isSaving);
 
   useEffect(() => {
@@ -114,6 +117,18 @@ function EditImportListExclusionModalContent({
               name="mangaDexId"
               helpText={translate('MangaDexIdExcludeHelpText')}
               {...mangaDexId}
+              onChange={handleInputChange}
+            />
+          </FormGroup>
+
+          <FormGroup>
+            <FormLabel>{translate('MangaBakaId')}</FormLabel>
+
+            <FormInputGroup
+              type={inputTypes.NUMBER}
+              name="mangaBakaId"
+              helpText={translate('MangaBakaIdExcludeHelpText')}
+              {...mangaBakaId}
               onChange={handleInputChange}
             />
           </FormGroup>
