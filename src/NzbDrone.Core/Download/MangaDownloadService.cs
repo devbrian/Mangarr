@@ -144,10 +144,26 @@ namespace NzbDrone.Core.Download
             }
 
             // Limit grabs to 2 per second per host (mirrors TV DownloadService behavior).
+            //
+            // Sonarr divergence (debug session downloads-post-6s-gap, 2026-06-19): only throttle
+            // when there is an ACTUAL host to throttle. In Sonarr DownloadUrl is a real per-indexer
+            // URL, so each indexer host gets its own 2s bucket (grabs across indexers run in
+            // parallel). In Mangarr's gateway architecture DownloadUrl is the opaque R6.<base64>
+            // download handle minted by GatewayParser (never dereferenced — submitted back to the
+            // gateway's cheap `POST /downloads` enqueue), which has no scheme and no //host, so
+            // HttpUri.Host == "". Without this guard, RateLimitService keys EVERY grab — across all
+            // parallel searches — to the same empty-string bucket and serializes them globally at
+            // one grab / 2s (3 parallel searches => ~6s/search). The gateway self-throttles the
+            // actual scraping via its RateLimitPerMinute capability + 429 -> TooManyRequestsException
+            // backpressure (recorded below at RecordFailure), so no client-side pre-throttle of the
+            // submit is warranted when the URL carries no host.
             if (remoteChapter.Release.DownloadUrl.IsNotNullOrWhiteSpace() && !remoteChapter.Release.DownloadUrl.StartsWith("magnet:"))
             {
                 var url = new HttpUri(remoteChapter.Release.DownloadUrl);
-                await _rateLimitService.WaitAndPulseAsync(url.Host, TimeSpan.FromSeconds(2));
+                if (url.Host.IsNotNullOrWhiteSpace())
+                {
+                    await _rateLimitService.WaitAndPulseAsync(url.Host, TimeSpan.FromSeconds(2));
+                }
             }
 
             IIndexer indexer = null;
