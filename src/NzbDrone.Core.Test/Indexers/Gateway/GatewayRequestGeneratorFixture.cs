@@ -192,23 +192,26 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         }
 
         [Test]
-        public void search_chain_emits_bounded_multipage_offset_sequence()
+        public void automatic_search_chain_emits_full_coverage_offset_sequence()
         {
-            // quick task 260620-ing: the single search tier now holds ONE pageable request that
-            // enumerates to a bounded multi-page offset sequence (0, L, 2L, …). With caps.json
-            // (defaultPageSize=50) and no override, L=50 → ceil(1000/50)=20 pages, offsets 0..950.
+            // quick task 260620-ing: AUTOMATIC search (InteractiveSearch=false) emits ONE pageable
+            // request that enumerates to a FULL-COVERAGE offset stride (0, L, 2L, …) bounded only by
+            // the MaxSearchPages runaway guard. With caps.json (defaultPageSize=50) and no override
+            // L=50. The kept FetchReleases engine breaks at the first SHORT page at runtime; here we
+            // only assert the emitted sequence shape.
             var criteria = new MangaSearchCriteria { Manga = MangaWithTitle("Solo Leveling") };
             var requests = Subject.GetSearchRequests(criteria).GetAllTiers().First().ToList();
 
-            requests.Should().HaveCount(20, "ceil(MaxSearchResults=1000 / defaultPageSize=50) = 20 pages");
+            requests.Should().HaveCount(1000, "MaxSearchPages full-coverage runaway guard");
 
-            requests.Select(r => BodyOf(r).Offset)
-                    .Should().Equal(Enumerable.Range(0, 20).Select(p => p * 50),
-                        "offsets advance by the effective limit: 0, 50, 100, …, 950");
+            // offsets advance by the effective limit L=50
+            requests.Take(6).Select(r => BodyOf(r).Offset)
+                    .Should().Equal(0, 50, 100, 150, 200, 250);
 
-            // Every page is a POST /search with X-Api-Key and the SAME query/type/limit as page 0.
+            // Sample the first few pages: each is a POST /search with X-Api-Key and the SAME
+            // query/type/limit as page 0 — only Offset advances.
             var page0 = BodyOf(requests.First());
-            foreach (var request in requests)
+            foreach (var request in requests.Take(5))
             {
                 request.HttpRequest.Method.Should().Be(HttpMethod.Post);
                 request.Url.FullUri.Should().Contain("/search");
@@ -222,17 +225,36 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         }
 
         [Test]
-        public void search_offset_stride_matches_result_limit_override()
+        public void automatic_search_offset_stride_matches_result_limit()
         {
             // The offset stride is keyed to the SAME EffectiveLimit ladder as the page Limit: a 250
-            // override (un-clamped) gives ceil(1000/250)=4 pages with offsets 0, 250, 500, 750.
+            // override (un-clamped — ResultLimit is the per-page pull, NOT clamped to maxPageSize)
+            // strides 0, 250, 500, 750, ….
             Subject.Settings.ResultLimit = 250;
 
             var criteria = new MangaSearchCriteria { Manga = MangaWithTitle("Solo Leveling") };
             var requests = Subject.GetSearchRequests(criteria).GetAllTiers().First().ToList();
 
-            requests.Should().HaveCount(4, "ceil(1000 / 250) = 4 pages");
-            requests.Select(r => BodyOf(r).Offset).Should().Equal(0, 250, 500, 750);
+            requests.Should().HaveCount(1000, "MaxSearchPages full-coverage runaway guard");
+            requests.Take(4).Select(r => BodyOf(r).Offset).Should().Equal(0, 250, 500, 750);
+            BodyOf(requests.First()).Limit.Should().Be(250, "ResultLimit is the per-page pull, un-clamped");
+        }
+
+        [Test]
+        public void interactive_search_chain_emits_single_first_page()
+        {
+            // quick task 260620-ing: the interactive Search tab shows only the FIRST page — exactly
+            // one request at offset 0, never the full-coverage multi-page walk.
+            var criteria = new MangaSearchCriteria
+            {
+                Manga = MangaWithTitle("Solo Leveling"),
+                InteractiveSearch = true
+            };
+            var requests = Subject.GetSearchRequests(criteria).GetAllTiers().First().ToList();
+
+            requests.Should().HaveCount(1, "interactive search is single-page (first page only)");
+            BodyOf(requests.First()).Offset.Should().Be(0);
+            BodyOf(requests.First()).Interactive.Should().BeTrue();
         }
 
         [Test]

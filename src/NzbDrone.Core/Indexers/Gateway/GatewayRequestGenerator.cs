@@ -25,14 +25,22 @@ namespace NzbDrone.Core.Indexers.Gateway
     /// </para>
     /// <para>
     /// Conditional query (Pitfall 4): only params advertised in <c>Capabilities.SupportedSearchParams</c>
-    /// are emitted; <c>query</c> is ALWAYS sent as the safe fallback. SEARCH now walks a bounded,
-    /// lazy offset sequence (<c>0, L, 2L, …</c> where <c>L = EffectiveLimit()</c>) consumed by the kept
-    /// <c>HttpIndexerBase.FetchReleases</c> paging engine — it stops at the first SHORT page (the
-    /// gateway's only end-of-results signal; <c>ReleaseListResponse</c> has no total/hasMore). The
-    /// emitted sequence is capped at <c>ceil(MaxSearchResults / L)</c> pages so an offset-ignoring
-    /// gateway cannot churn an unbounded enumerable (quick task 260620-ing). <c>/recent</c> stays
-    /// single-request, and <c>since</c> is NOT sent on it (engine watermark dedup is authoritative;
-    /// Open Question 1).
+    /// are emitted; <c>query</c> is ALWAYS sent as the safe fallback. SEARCH paging splits on
+    /// <c>Interactive</c> (quick task 260620-ing):
+    /// <list type="bullet">
+    /// <item>AUTOMATIC search (RSS sync / missing / monitored sweeps — <c>Interactive == false</c>)
+    /// walks a lazy FULL-COVERAGE offset sequence (<c>0, L, 2L, …</c> where <c>L = EffectiveLimit()</c>),
+    /// consumed by the kept <c>HttpIndexerBase.FetchReleases</c> engine, stopping at the first SHORT
+    /// page (the gateway's only end-of-results signal; <c>ReleaseListResponse</c> has no total/hasMore).
+    /// <c>GatewayIndexer</c> lifts the engine's per-query accumulation cap so coverage isn't cut at the
+    /// first page; the sequence is bounded by <c>MaxSearchPages</c> as a runaway guard against an
+    /// offset-regressing gateway.</item>
+    /// <item>INTERACTIVE search (the Search tab — <c>Interactive == true</c>) emits a SINGLE page
+    /// (<c>offset 0</c>, up to <c>L</c> rows): the user sees only the first page, never the full
+    /// thousands-of-variants walk.</item>
+    /// </list>
+    /// <c>/recent</c> stays single-request, and <c>since</c> is NOT sent on it (engine watermark dedup
+    /// is authoritative; Open Question 1).
     /// </para>
     /// </summary>
     public class GatewayRequestGenerator : IIndexerRequestGenerator
@@ -42,11 +50,13 @@ namespace NzbDrone.Core.Indexers.Gateway
         public GatewaySettings Settings { get; set; }
         public GatewayCapabilities Capabilities { get; set; }
 
-        // Mirrors HttpIndexerBase.MaxNumResultsPerQuery (the engine's authoritative accumulation cap
-        // at HttpIndexerBase.cs:156). Exists ONLY to bound the EMITTED lazy offset sequence so an
-        // offset-ignoring gateway cannot churn an unbounded enumerable (T-ing-01). The engine's own
-        // cap is the runtime backstop; this caps how many page requests we ever yield.
-        private const int MaxSearchResults = 1000;
+        // Runaway guard on the number of offset pages the AUTOMATIC (non-interactive) search walks.
+        // Full coverage is driven by the engine's first-SHORT-page break (IsFullPage == false), NOT
+        // by this cap — it exists ONLY so an offset-REGRESSING gateway (one that starts ignoring
+        // offset again and returns full pages forever) cannot churn an unbounded enumerable. At the
+        // user's page size (EffectiveLimit, e.g. 9999) full coverage of even a 900-chapter manga is a
+        // handful of pages; this ceiling is far above any real corpus.
+        private const int MaxSearchPages = 1000;
 
         public IndexerPageableRequestChain GetRecentRequests()
         {
@@ -160,17 +170,25 @@ namespace NzbDrone.Core.Indexers.Gateway
             return chain;
         }
 
-        // Bounded, lazy multi-page offset sequence: yields offsets 0, L, 2L, … capped at
-        // ceil(MaxSearchResults / L) pages. LAZY (yield) so the kept FetchReleases engine only
-        // materializes pages it actually fetches and breaks the enumeration at the first short page.
-        // Reusing the single `body` instance is safe because BuildSearchRequest serializes
-        // (body.ToJson()) synchronously before the next yield — the IndexerRequest captures bytes,
-        // not a live reference to `body`.
+        // Lazy offset page sequence, gated on Interactive (quick task 260620-ing):
+        //  • Interactive (Search tab): exactly ONE page (offset 0) — the user sees only the first page
+        //    (up to `limit` rows), never the full multi-page walk.
+        //  • Automatic (RSS/missing/monitored): FULL-COVERAGE stride 0, L, 2L, … — the kept
+        //    FetchReleases engine breaks at the first SHORT page; MaxSearchPages is only a
+        //    runaway guard against an offset-regressing gateway.
+        // LAZY (yield) so the engine only materializes pages it actually fetches. Reusing the single
+        // `body` instance is safe because BuildSearchRequest serializes (body.ToJson()) synchronously
+        // before the next yield — the IndexerRequest captures bytes, not a live reference to `body`.
         private IEnumerable<IndexerRequest> SearchPageRequests(GatewaySearchRequest body, int limit)
         {
-            var maxPages = System.Math.Max(1, (int)System.Math.Ceiling((double)MaxSearchResults / limit));
+            if (body.Interactive)
+            {
+                body.Offset = 0;
+                yield return BuildSearchRequest(body);
+                yield break;
+            }
 
-            for (var page = 0; page < maxPages; page++)
+            for (var page = 0; page < MaxSearchPages; page++)
             {
                 body.Offset = page * limit;
                 yield return BuildSearchRequest(body);

@@ -21,7 +21,12 @@ namespace NzbDrone.Core.Indexers
     public abstract class HttpIndexerBase<TSettings> : IndexerBase<TSettings>
         where TSettings : IIndexerSettings, new()
     {
-        protected const int MaxNumResultsPerQuery = 1000;
+        // Per-query accumulation cap for the paged FetchReleases walk. Virtual (was const) so a
+        // provider whose paging is otherwise bounded can lift it — GatewayIndexer overrides it to
+        // int.MaxValue for FULL-COVERAGE search, where the page walk is bounded instead by the
+        // request generator's MaxSearchPages guard + the first-short-page break (quick task 260620-ing).
+        // All other indexers inherit the canonical 1000.
+        protected virtual int MaxNumResultsPerQuery => 1000;
 
         protected readonly IHttpClient _httpClient;
 

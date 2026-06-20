@@ -54,21 +54,29 @@ namespace NzbDrone.Core.Indexers.Gateway
         // benefit. Halve it to 1s so per-search grab/search cadence tightens.
         public override TimeSpan RateLimit => TimeSpan.FromSeconds(1);
 
-        // DIVERGENCE (quick task 260620-ing): paging is now ON for the SEARCH path. PageSize is
-        // DYNAMIC — it resolves to Settings.ResultLimit → caps DefaultPageSize → 50 via
+        // DIVERGENCE (quick task 260620-ing): paging is ON for the SEARCH path. PageSize is DYNAMIC —
+        // it resolves to Settings.ResultLimit → caps DefaultPageSize → 50 via
         // GatewayRequestGenerator.ResolveEffectiveLimit, the SAME single-source-of-truth ladder the
         // request generator strides offsets with (no diverging fallback). A positive PageSize flips
         // SupportsPaging on so the inherited canonical IsFullPage (PageSize != 0 && page.Count >=
         // PageSize, == page.Count >= EffectiveLimit()) fires and the kept HttpIndexerBase.FetchReleases
-        // engine walks the bounded offset sequence, STOPPING at the first short page — the gateway's
-        // only end-of-results signal (its ReleaseListResponse has no total/hasMore; frozen contract).
-        // Self-correcting against an offset-ignoring gateway: the generator's max-page cap bounds the
-        // emitted requests, the engine's MaxNumResultsPerQuery (1000) backstops accumulation, and the
-        // kept CleanupReleases guid-dedup collapses any duplicate pages — no infinite loop is
-        // constructible. NO IsFullPage override needed (mirrors the MangaDex import-list precedent).
-        // /recent is untouched — GetRecentRequests still emits exactly one request.
+        // engine walks the offset sequence, STOPPING at the first short page — the gateway's only
+        // end-of-results signal (its ReleaseListResponse has no total/hasMore; frozen contract).
+        // ResultLimit is the PER-PAGE pull (NOT clamped to caps MaxPageSize — the gateway owns its own
+        // ceiling): the interactive Search tab shows exactly one such page; automatic search strides by
+        // it for full coverage. NO IsFullPage override needed (mirrors the MangaDex import-list
+        // precedent). /recent is untouched — GetRecentRequests still emits exactly one request.
         public override int PageSize =>
             GatewayRequestGenerator.ResolveEffectiveLimit(Settings, _capsProvider.GetCapabilities(Settings));
+
+        // FULL-COVERAGE automatic search: a single page already exceeds the canonical 1000 at the
+        // user's ResultLimit, so the inherited MaxNumResultsPerQuery=1000 would break the walk after
+        // page 1 and silently truncate discovery. Lift it — the walk is bounded instead by the
+        // generator's MaxSearchPages runaway guard + the first-short-page break, and guid-dedup
+        // collapses any duplicate pages if the gateway ever regresses on offset. The INTERACTIVE path
+        // is unaffected (the generator emits a single page, so the engine fetches one page regardless),
+        // and /recent emits one request. (quick task 260620-ing)
+        protected override int MaxNumResultsPerQuery => int.MaxValue;
 
         public GatewayIndexer(
             IGatewayCapabilitiesProvider capsProvider,

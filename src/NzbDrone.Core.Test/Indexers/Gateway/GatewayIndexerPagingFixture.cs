@@ -18,13 +18,19 @@ using NzbDrone.Core.Test.Framework;
 namespace NzbDrone.Core.Test.Indexers.Gateway
 {
     /// <summary>
-    /// quick task 260620-ing — proves the SEARCH path now WALKS the bounded lazy offset sequence
-    /// through the kept <see cref="HttpIndexerBase{TSettings}.FetchReleases"/> engine (paging ON via
-    /// the dynamic <c>PageSize</c> override) and STOPS at the first short page. Also proves the
-    /// self-correcting bound + guid-dedup defenses against an offset-ignoring gateway (T-ing-01 /
-    /// T-ing-02). SetUp mirrors <see cref="GatewayIndexerFixture"/>; page JSON is generated
-    /// programmatically (no new fixture files) and the HTTP stub branches on the requested
-    /// <c>Offset</c> so the walk is driven deterministically.
+    /// quick task 260620-ing — proves the SEARCH paging behavior:
+    /// <list type="bullet">
+    /// <item>AUTOMATIC search WALKS the full-coverage offset sequence through the kept
+    /// <see cref="HttpIndexerBase{TSettings}.FetchReleases"/> engine (paging ON via the dynamic
+    /// <c>PageSize</c> override + the lifted <c>MaxNumResultsPerQuery</c>) and STOPS at the first
+    /// short page.</item>
+    /// <item>INTERACTIVE search (Search tab) fetches only the FIRST page (one request).</item>
+    /// <item>An offset-REGRESSING gateway is bounded by the generator's <c>MaxSearchPages</c> guard +
+    /// guid-dedup — no infinite loop.</item>
+    /// </list>
+    /// SetUp mirrors <see cref="GatewayIndexerFixture"/>; page JSON is generated programmatically (no
+    /// new fixture files) and the HTTP stub branches on the requested <c>Offset</c> so the walk is
+    /// driven deterministically.
     /// </summary>
     [TestFixture]
     public class GatewayIndexerPagingFixture : CoreTest<GatewayIndexer>
@@ -130,24 +136,49 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         }
 
         [Test]
-        public async Task Fetch_terminates_and_dedupes_under_offset_ignoring_gateway()
+        public async Task Fetch_interactive_search_fetches_only_first_page()
         {
             ((GatewaySettings)Subject.Definition.Settings).ResultLimit = 100;
 
-            // Simulate a gateway that ACCEPTS but IGNORES offset: every page is the SAME full
-            // 100-row stableGuids page. The walk must still TERMINATE (it never sees a short page) at
-            // the generator's max-page cap = ceil(1000/100) = 10, backstopped by the engine's
-            // MaxNumResultsPerQuery, and the kept CleanupReleases guid-dedup collapses the repeats.
-            StubPages(_ => PageJson(0, 100, stableGuids: true));
+            // Even though every offset would return a FULL page (so the engine WOULD keep walking on
+            // the automatic path), an INTERACTIVE search emits a single page — the Search tab shows
+            // only the first page (quick task 260620-ing).
+            StubPages(offset => PageJson(offset, 100, stableGuids: false));
+
+            var criteria = new MangaSearchCriteria
+            {
+                Manga = new NzbDrone.Core.Manga.Manga { Title = "Solo Leveling" },
+                InteractiveSearch = true
+            };
+
+            var releases = await Subject.Fetch(criteria);
+
+            _requestedOffsets.Should().Equal(new[] { 0 }, "interactive search fetches exactly one page (offset 0)");
+            releases.Should().HaveCount(100, "the single first page is returned verbatim");
+        }
+
+        [Test]
+        public async Task Fetch_terminates_under_offset_regressing_gateway()
+        {
+            // Page size 10 keeps the test light; the bound is independent of it.
+            ((GatewaySettings)Subject.Definition.Settings).ResultLimit = 10;
+
+            // Simulate a gateway that ACCEPTS but IGNORES offset (a regression from today's working
+            // behavior): every page is the SAME full 10-row stableGuids page, so the engine never sees
+            // a short page. The walk must still TERMINATE at the generator's MaxSearchPages runaway
+            // guard (1000), and the kept CleanupReleases guid-dedup collapses the repeats — no
+            // infinite loop is constructible even with MaxNumResultsPerQuery lifted for full coverage.
+            StubPages(_ => PageJson(0, 10, stableGuids: true));
 
             var releases = await Subject.Fetch(Criteria());
 
-            _requestedOffsets.Count.Should().Be(10,
-                "ceil(MaxSearchResults=1000 / 100) = 10 — bounded, never an infinite loop");
-            _requestedOffsets.Should().Equal(Enumerable.Range(0, 10).Select(p => p * 100),
-                "offsets advance 0, 100, …, 900 even though the gateway ignores them");
+            _requestedOffsets.Count.Should().Be(1000,
+                "bounded by MaxSearchPages — never an infinite loop even when offset is ignored");
 
-            releases.Should().HaveCount(100, "guid-dedup collapses the 10 identical pages to 100 unique releases");
+            // offsets advance by the page size even though the gateway ignores them
+            _requestedOffsets.Take(4).Should().Equal(0, 10, 20, 30);
+
+            releases.Should().HaveCount(10, "guid-dedup collapses the identical pages to 10 unique releases");
             releases.Select(r => r.Guid).Should().OnlyHaveUniqueItems();
         }
     }
