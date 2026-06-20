@@ -1609,8 +1609,50 @@ The Sonarr `EpisodeFileController` (and its `EpisodeFile/` frontend) ship **no p
 - `frontend/src/ChapterFile/CLAUDE.md` — Files-tab delete + blocklist affordance (supersedes the prior "Future bulk-delete affordance" note).
 - `src/Mangarr.Api.V5/Manga/Chapter/CLAUDE.md` — `ChapterFileController` DELETE surface (now carries the `blocklist` param).
 
+## Search pagination on the GatewayIndexer (quick task 260620-ing) (2026-06-20)
+
+The Phase-37 baseline emitted a SINGLE `offset=0` search request and left paging OFF
+(`GatewayIndexer.PageSize == 0`), so any manga whose result set exceeded one page silently
+dropped the overflow chapters — the stale class-summary "Page-1 only (`Limits.DefaultPageSize`);
+multi-page is a named deferred idea" is now **superseded**. The gateway SEARCH path WALKS the
+overflow: `BuildSearchChain` emits a **bounded, lazy offset sequence** (`0, L, 2L, …`,
+`L = EffectiveLimit()`) inside ONE `chain.Add(IEnumerable<IndexerRequest>)`, and `GatewayIndexer`
+overrides `PageSize` to the SAME effective limit so the inherited canonical `HttpIndexerBase`
+paging engine (`FetchReleases` + `IsFullPage`) drives and STOPS the walk at the first short page —
+the gateway's only end-of-results signal (`ReleaseListResponse` has no total/hasMore; frozen
+contract). This MIRRORS the in-repo MangaDex import-list precedent (single `chain.Add` offset loop
++ `PageSize` override + inherited `IsFullPage`); it is **NOT** a hand-rolled loop.
+
+**Divergence:** the ONE intentional shape divergence from the MangaDex precedent is a **DYNAMIC**
+`PageSize` (`Settings.ResultLimit → caps DefaultPageSize → 50`) instead of a constant — both the
+generator's offset stride and the indexer's `PageSize` derive from the single helper
+`GatewayRequestGenerator.ResolveEffectiveLimit`, so the engine's `IsFullPage` threshold can never
+diverge from the emitted page size. Self-correcting against an offset-ignoring gateway: the
+generator's max-page cap (`ceil(MaxSearchResults/L)`, `MaxSearchResults = 1000` mirroring
+`HttpIndexerBase.MaxNumResultsPerQuery`) bounds the EMITTED enumerable, the engine's
+`MaxNumResultsPerQuery` backstops accumulation, and the kept `CleanupReleases` guid-dedup collapses
+duplicate pages — no infinite loop is constructible. `/recent` is untouched (still single-request).
+0 new packages, 0 migrations, 0 contract changes (`offset` already exists on the frozen
+`SearchRequest`).
+
+| File / Path | Type | Rationale |
+|-------------|------|-----------|
+| `src/NzbDrone.Core/Indexers/Gateway/GatewayRequestGenerator.cs` | extend | `ResolveEffectiveLimit` static single-source-of-truth (private `EffectiveLimit()` delegates); `MaxSearchResults` cap const; `BuildSearchChain` rework into a bounded lazy `SearchPageRequests` offset iterator + extracted `BuildSearchRequest`; updated class-summary comment. `/recent` (`GetRecentRequests`) untouched. |
+| `src/NzbDrone.Core/Indexers/Gateway/GatewayIndexer.cs` | extend | `public override int PageSize => GatewayRequestGenerator.ResolveEffectiveLimit(Settings, _capsProvider.GetCapabilities(Settings))` — turns the kept paging engine ON for search; DIVERGENCE comment block. No `IsFullPage` override. |
+| `src/NzbDrone.Core.Test/Indexers/Gateway/GatewayRequestGeneratorFixture.cs` | extend | 3 new tests: bounded multi-page offset sequence (`0..950`, 20 pages), override stride (`0,250,500,750`), recent stays single-request. Existing offset-0 `.First().First()` assertions stay green. |
+| `src/NzbDrone.Core.Test/Indexers/Gateway/GatewayIndexerPagingFixture.cs` | new | Paging-walk fixture: multi full pages → short-page stop (offsets `[0,100]`, 130 unique); offset-ignoring gateway → bounded termination at exactly 10 calls + guid-dedup to 100 unique. Programmatic page JSON (no new fixture files). |
+
+**Proof:** all 107 `~Gateway` fixtures GREEN (102 prior + 3 generator + 2 paging) on `Mangarr.Core.Test`; `Mangarr.Core.Test` Debug build clean (0 warnings). sonarr-consistency-audit: the paging shape mirrors the canonical MangaDex import-list precedent; the only divergence (dynamic vs constant `PageSize`) is documented here and the tests assert the canonical behavior, not a divergent shape. Live-gateway functional-offset probe (does the real gateway page vs. accept-and-ignore offset) was NOT run (blocked on dev-host SSH) — neutralized by the bounded max-page cap + engine cap + guid-dedup design (proven by `Fetch_terminates_and_dedupes_under_offset_ignoring_gateway`).
+
+**Cross-references:**
+- `.planning/quick/260620-ing-search-manga-indexer-result-limit-follow/` — this task's record (PLAN + CONTEXT + SUMMARY).
+- `src/NzbDrone.Core/ImportLists/MangaDex/MangaDexImportListRequestGenerator.cs` + `MangaDexImportList.cs` — the in-repo paging precedent this mirrors.
+- `src/NzbDrone.Core/Indexers/HttpIndexerBase.cs` (`FetchReleases` / `IsFullPage` / `MaxNumResultsPerQuery`) — the kept engine (read-only).
+- `src/NzbDrone.Core/Indexers/CLAUDE.md` § Gateway — multi-page search note.
+
 *Last updated: 2026-06-19 (quick task 260619-o5q — appended the user-owned MaxChapterNumber synthesis-ceiling section above: NEW Sonarr-divergent user cap clamping `ChapterSynthesisService.SynthesizeFromDecisions` after the density cut, never below the trusted `TotalChapterCount` baseline; Migration 016 head; inverted-null ApplyChanges guard (0 sentinel → null, refresh-preserved); both-directions API round-trip; Edit-modal numeric input; `SynthesizeForGrab` + `ChapterDensityCut` left uncapped. All previous trailers preserved verbatim above per historical-accuracy contract.)*
 *Last updated: 2026-06-19 (quick task 260619-o5q PART 2 — appended the cap-driven CLEANUP sub-entry above: NEW `MaxChapterCapEnforcementService : IHandle<MangaEditedEvent>` deletes existing chapters + ChapterFiles above the effective ceiling `max(cap, TotalChapterCount)` on the user-edit path only (never on refresh/MangaUpdatedEvent), reusing StrayChapterPruneService deletion primitives via RecycleBin-respecting IDeleteMediaFiles; symmetric with the synthesis clamp; en.json help text rewritten to warn about deletion. All previous trailers preserved verbatim above per historical-accuracy contract.)*
 *Last updated: 2026-06-19 (quick task 260619-spc — appended the ImportListExclusion MangaBakaId quad section above: the manga-ID triplet (MangaDexId/MalId/AniListId, Phase 26 D-13) becomes a quad keyed on the v1.3 default-primary anchor MangaBakaId; Migration 017 head (additive nullable, zero seed, no index by sibling parity); delete-event handler skip-guard widened + idempotency scan extended + Insert payload; sync-path exclusion predicate ORs match.MangaBakaId; V5 resource/mappers + sort key + Settings UI column/input + 2 i18n keys. All previous trailers preserved verbatim above per historical-accuracy contract.)*
 *Last updated: 2026-06-20 (debug session downloads-post-6s-gap — appended the host-less gateway grab-throttle section above: `MangaDownloadService.DownloadReport` guards the carried-over Sonarr per-host grab throttle with `if (url.Host.IsNotNullOrWhiteSpace())` so the opaque host-less gateway `DownloadUrl` handle no longer keys every grab to the empty-string rate-limit bucket (which serialized ALL grabs globally at 1/2s ⇒ ~6s/search with 3 parallel searches); real-host download URLs keep the canonical 2s/host throttle. 2 regression tests + live dev-stack A/B (POST /downloads gaps 2.000s → 0.001s, grabs still succeed). All previous trailers preserved verbatim above per historical-accuracy contract.)*
 *Last updated: 2026-06-20 (feat chapter-file delete+blocklist — appended the "Blocklist-on-delete affordance on the Manga Details Files tab" section above: NEW per-row delete button on `MangaDetailsFiles` whose confirm modal carries a "Blocklist Release" checkbox; `ChapterFileController.DeleteChapterFile` gains `?blocklist=true` and builds a `MangaBlocklist` from the most-recent Grabbed `ChapterHistory` identity triple via `Block(manual: true)` before deleting the file (no Grabbed row ⇒ delete proceeds, blocklist skipped+warn). Live-verified deleting a bad Chapter 367 scan: file 404, hasFile False, blocklist 0→1, on-disk CBZ gone, 0 errors. All previous trailers preserved verbatim above per historical-accuracy contract.)*
+*Last updated: 2026-06-20 (quick task 260620-ing — appended the "Search pagination on the GatewayIndexer" section above: the Phase-37 single-page baseline ("Page-1 only … deferred idea") is superseded; SEARCH now walks a bounded lazy offset sequence (`0, L, 2L, …` capped at `ceil(1000/L)`) through the kept `HttpIndexerBase.FetchReleases` paging engine via a dynamic `PageSize => ResolveEffectiveLimit(...)` mirroring the MangaDex import-list precedent (NOT a hand-rolled loop); stops at the first short page; `/recent` stays single-request; self-correcting against an offset-ignoring gateway via max-page cap + engine cap + guid dedup. 0 new packages / 0 migrations / 0 contract changes. 3 new generator tests + 2 new paging-walk tests; 107 ~Gateway fixtures green. All previous trailers preserved verbatim above per historical-accuracy contract.)*

@@ -53,7 +53,7 @@
 | `Torrentleech/` | Torrent | Private tracker |
 | `Fanzub/` | Usenet | Anime-specific |
 | `Exceptions/` | — | Indexer-specific exceptions |
-| `Gateway/` | Manga gateway | `GatewayIndexer` — the sole `IIndexer` (Phase 37; external manga gateway client) |
+| `Gateway/` | Manga gateway | `GatewayIndexer` — the sole `IIndexer` (Phase 37; external manga gateway client). **SEARCH is multi-page since quick task 260620-ing:** bounded offset pagination (`0, L, 2L, …`) walked by the kept `HttpIndexerBase` paging engine via a dynamic `PageSize => GatewayRequestGenerator.ResolveEffectiveLimit(...)` (single source of truth, mirrors the MangaDex import-list precedent), stopping at the first short page; `/recent` remains single-request. See `DIVERGENCE.md`. |
 | `Http/` | Settings interface only | Holds the SURVIVING `IHttpAggregatorSettings` per-`SourceKey` settings interface (`HttpAggregatorSettingsBase.cs`); the `IHttpAggregator` page-fetch marker + `HttpAggregatorBase<TSettings>` were deleted in Phase 39 Plan 39-04 |
 
 ### `Http/` — surviving settings interface (post-Phase-39)

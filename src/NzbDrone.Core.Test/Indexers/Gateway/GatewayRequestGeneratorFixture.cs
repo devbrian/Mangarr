@@ -192,6 +192,57 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         }
 
         [Test]
+        public void search_chain_emits_bounded_multipage_offset_sequence()
+        {
+            // quick task 260620-ing: the single search tier now holds ONE pageable request that
+            // enumerates to a bounded multi-page offset sequence (0, L, 2L, …). With caps.json
+            // (defaultPageSize=50) and no override, L=50 → ceil(1000/50)=20 pages, offsets 0..950.
+            var criteria = new MangaSearchCriteria { Manga = MangaWithTitle("Solo Leveling") };
+            var requests = Subject.GetSearchRequests(criteria).GetAllTiers().First().ToList();
+
+            requests.Should().HaveCount(20, "ceil(MaxSearchResults=1000 / defaultPageSize=50) = 20 pages");
+
+            requests.Select(r => BodyOf(r).Offset)
+                    .Should().Equal(Enumerable.Range(0, 20).Select(p => p * 50),
+                        "offsets advance by the effective limit: 0, 50, 100, …, 950");
+
+            // Every page is a POST /search with X-Api-Key and the SAME query/type/limit as page 0.
+            var page0 = BodyOf(requests.First());
+            foreach (var request in requests)
+            {
+                request.HttpRequest.Method.Should().Be(HttpMethod.Post);
+                request.Url.FullUri.Should().Contain("/search");
+                request.HttpRequest.Headers["X-Api-Key"].Should().Be("test-api-key");
+
+                var body = BodyOf(request);
+                body.Query.Should().Be(page0.Query);
+                body.Type.Should().Be(page0.Type);
+                body.Limit.Should().Be(page0.Limit);
+            }
+        }
+
+        [Test]
+        public void search_offset_stride_matches_result_limit_override()
+        {
+            // The offset stride is keyed to the SAME EffectiveLimit ladder as the page Limit: a 250
+            // override (un-clamped) gives ceil(1000/250)=4 pages with offsets 0, 250, 500, 750.
+            Subject.Settings.ResultLimit = 250;
+
+            var criteria = new MangaSearchCriteria { Manga = MangaWithTitle("Solo Leveling") };
+            var requests = Subject.GetSearchRequests(criteria).GetAllTiers().First().ToList();
+
+            requests.Should().HaveCount(4, "ceil(1000 / 250) = 4 pages");
+            requests.Select(r => BodyOf(r).Offset).Should().Equal(0, 250, 500, 750);
+        }
+
+        [Test]
+        public void recent_chain_emits_single_request()
+        {
+            // /recent is NOT paged — exactly one request regardless of the search paging change.
+            Subject.GetRecentRequests().GetAllTiers().First().ToList().Count.Should().Be(1);
+        }
+
+        [Test]
         public void empty_effective_recent_sources_yields_no_request()
         {
             // WR-06: with an EMPTY selection AND no recent-capable caps source, EffectiveSources
