@@ -241,6 +241,23 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         }
 
         [Test]
+        public void automatic_search_offset_never_overflows_with_huge_result_limit()
+        {
+            // ResultLimit is un-clamped (the gateway owns its ceiling); a near-int.MaxValue value must
+            // not wrap the offset negative — the stride stops before int overflow (CodeRabbit, PR #391).
+            Subject.Settings.ResultLimit = int.MaxValue;
+
+            var criteria = new MangaSearchCriteria { Manga = MangaWithTitle("Solo Leveling") };
+            var offsets = Subject.GetSearchRequests(criteria).GetAllTiers().First()
+                                 .Select(r => BodyOf(r).Offset).ToList();
+
+            offsets.Should().OnlyContain(o => o >= 0, "offsets never wrap negative");
+
+            // page 0 → 0; page 1 → int.MaxValue (still fits); page 2 → 2*int.MaxValue > int.MaxValue → stop.
+            offsets.Should().Equal(0, int.MaxValue);
+        }
+
+        [Test]
         public void interactive_search_chain_emits_single_first_page()
         {
             // quick task 260620-ing: the interactive Search tab shows only the FIRST page — exactly

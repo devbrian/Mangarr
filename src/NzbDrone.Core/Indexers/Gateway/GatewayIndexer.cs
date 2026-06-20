@@ -44,6 +44,12 @@ namespace NzbDrone.Core.Indexers.Gateway
         private readonly IGatewayCapabilitiesProvider _capsProvider;
         private readonly IIndexerSourceStatusService _sourceStatusService;
 
+        // Effective page size, resolved ONCE per fetch in GetRequestGenerator() and reused by the
+        // PageSize getter so the kept engine's IsFullPage threshold is fixed for the whole walk
+        // (CodeRabbit, PR #391 — avoids re-resolving caps on every page check + a mutable mid-walk
+        // threshold). Falls back to a live resolve if PageSize is read before any GetRequestGenerator().
+        private int? _effectivePageSize;
+
         public override string Name => "Mangarr Gateway";
         public override DownloadProtocol Protocol => DownloadProtocol.Http;
 
@@ -67,7 +73,7 @@ namespace NzbDrone.Core.Indexers.Gateway
         // it for full coverage. NO IsFullPage override needed (mirrors the MangaDex import-list
         // precedent). /recent is untouched — GetRecentRequests still emits exactly one request.
         public override int PageSize =>
-            GatewayRequestGenerator.ResolveEffectiveLimit(Settings, _capsProvider.GetCapabilities(Settings));
+            _effectivePageSize ?? GatewayRequestGenerator.ResolveEffectiveLimit(Settings, _capsProvider.GetCapabilities(Settings));
 
         // FULL-COVERAGE automatic search: a single page already exceeds the canonical 1000 at the
         // user's ResultLimit, so the inherited MaxNumResultsPerQuery=1000 would break the walk after
@@ -94,14 +100,21 @@ namespace NzbDrone.Core.Indexers.Gateway
         }
 
         public override IIndexerRequestGenerator GetRequestGenerator()
-            => new GatewayRequestGenerator
+        {
+            // Background read uses the 12h cache (NOT forceRefresh) for the conditional-query
+            // SupportedSearchParams filter; the Test() + dropdown bypass the cache (D-01).
+            var capabilities = _capsProvider.GetCapabilities(Settings);
+
+            // Resolve the effective page size ONCE for this fetch (drives PageSize/IsFullPage) from
+            // the SAME caps object the generator strides offsets with — no diverging threshold.
+            _effectivePageSize = GatewayRequestGenerator.ResolveEffectiveLimit(Settings, capabilities);
+
+            return new GatewayRequestGenerator
             {
                 Settings = Settings,
-
-                // Background read uses the 12h cache (NOT forceRefresh) for the conditional-query
-                // SupportedSearchParams filter; the Test() + dropdown bypass the cache (D-01).
-                Capabilities = _capsProvider.GetCapabilities(Settings)
+                Capabilities = capabilities
             };
+        }
 
         // The parser needs the source-status service for warnings[] → RecordFailure (D-03a);
         // it does NOT come "for free" from a base class (HttpIndexerBase has no SourceKey path).

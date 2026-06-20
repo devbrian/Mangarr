@@ -190,7 +190,17 @@ namespace NzbDrone.Core.Indexers.Gateway
 
             for (var page = 0; page < MaxSearchPages; page++)
             {
-                body.Offset = page * limit;
+                // Overflow guard (CodeRabbit, PR #391): ResultLimit is intentionally un-clamped
+                // (the gateway owns its ceiling), so a pathological near-int.MaxValue limit could
+                // wrap `page * limit` negative. Compute in long and stop before Offset (int) would
+                // overflow — the gateway has no more pages that far out anyway.
+                var offset = (long)page * limit;
+                if (offset > int.MaxValue)
+                {
+                    yield break;
+                }
+
+                body.Offset = (int)offset;
                 yield return BuildSearchRequest(body);
             }
         }
