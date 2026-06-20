@@ -20,7 +20,8 @@ handlers (`chapterfile` resource name → `['/chapterFile']` cache key).
 |------|---------|
 | `ChapterFile.ts` | `ChapterFile` interface (extends `ModelBase`). Mirrors `ChapterFileResource.cs` field-for-field: `mangaId`, `chapterId`, `relativePath?`, `path?`, `size`, `dateAdded`, `translatedLanguage?` (BCP-47), `scanlationGroup?`. **(issue #84)** |
 | `useChapterFile.ts` | React Query hooks: `useChapterFilesByManga(mangaId)` (GET `/api/v5/ChapterFile?mangaId=`), `useDeleteChapterFile(id)` (DELETE `/api/v5/ChapterFile/{id}`), `useDeleteChapterFiles()` (DELETE `/api/v5/ChapterFile/bulk` with body `{ chapterFileIds }`). All bound to the Plan 07-02 SignalR cache key contract: list reads land at `['/chapterFile']`. **(issue #84)** |
-| `ChapterFileRow.tsx` | Thin presentational row for the Manga Details > Files tab table. Renders path, size, translated-language badge (delegated to `Chapter/LanguageBadge` — accent flip when the file's language matches the user's #1-ranked language on the default Translation Profile), scanlation group, and date added. **(issue #84)** |
+| `ChapterFileRow.tsx` (+ `.css` / `.css.d.ts`) | Row for the Manga Details > Files tab table. Renders path, size, translated-language badge (delegated to `Chapter/LanguageBadge` — accent flip when the file's language matches the user's #1-ranked language on the default Translation Profile), scanlation group, date added, and an **actions cell with a delete `IconButton`** (`icons.DELETE`). The row owns the delete mutation (`useDeleteChapterFile(id, blocklist)`) + the blocklist-checkbox state and opens `ChapterFileDeleteModal`. **(issue #84; delete affordance 2026-06-20)** |
+| `ChapterFileDeleteModal.tsx` | Presentational confirm modal for the per-row delete — file-name confirmation message + a "Blocklist Release" checkbox (`?blocklist=true`). Shape mirrors `Activity/Queue/RemoveQueueItemModal.tsx`. No `EpisodeFile/` Sonarr peer — manga-only affordance. **(2026-06-20)** |
 
 ## Patterns / Conventions
 
@@ -65,9 +66,14 @@ interface + cell composition that previously lived in
 `Manga/Details/MangaDetailsFiles.tsx` (lines 28-38 / 168-180 of the
 pre-issue-#84 file) is now extracted into this peer dir.
 
-The bare GET-by-mangaId + delete hooks ship in this initial cut (load-bearing
-on day one via `MangaDetailsFiles`). Future ChapterFile-specific UI
-(bulk-delete affordance on the Files tab; per-row metadata-edit modal; the
+The GET-by-mangaId + single-delete hooks ship load-bearing on day one via
+`MangaDetailsFiles`. The **per-row single-delete affordance shipped 2026-06-20**
+(`ChapterFileRow` delete button → `ChapterFileDeleteModal` confirm with a
+"Blocklist Release" checkbox; `useDeleteChapterFile(id, blocklist)` →
+`DELETE /api/v5/ChapterFile/{id}?blocklist=true`; the backend blocklists the
+release from the chapter's most-recent Grabbed history row — see
+`DIVERGENCE.md` "Blocklist-on-delete affordance"). Still-future ChapterFile-specific
+UI (bulk-delete affordance on the Files tab; per-row metadata-edit modal; the
 InteractiveImport ChapterFile selection flow that Plan 17.3-13b stubbed
 inline at `InteractiveImport/Interactive/InteractiveImportModalContent.tsx:285,601`)
 should consume this peer dir rather than re-introducing inline shapes.
