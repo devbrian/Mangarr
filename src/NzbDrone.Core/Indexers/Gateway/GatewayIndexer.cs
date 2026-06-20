@@ -47,6 +47,13 @@ namespace NzbDrone.Core.Indexers.Gateway
         public override string Name => "Mangarr Gateway";
         public override DownloadProtocol Protocol => DownloadProtocol.Http;
 
+        // DIVERGENCE: Sonarr's HttpIndexerBase default is 2s/indexer to avoid hammering a
+        // real indexer's API. The Mangarr gateway is a single local/LAN service that
+        // self-throttles via GatewayCapabilities.RateLimitPerMinute + 429 backpressure, so
+        // the 2s client-side floor only slows parallel manga searches with no upstream
+        // benefit. Halve it to 1s so per-search grab/search cadence tightens.
+        public override TimeSpan RateLimit => TimeSpan.FromSeconds(1);
+
         public GatewayIndexer(
             IGatewayCapabilitiesProvider capsProvider,
             IIndexerSourceStatusService sourceStatusService,
