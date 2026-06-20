@@ -60,6 +60,12 @@ const COLUMNS: Column[] = [
     isVisible: true,
     isSortable: true,
   },
+  {
+    name: 'actions',
+    label: () => '',
+    isVisible: true,
+    isSortable: false,
+  },
 ];
 
 function getSortValue(file: ChapterFile, sortKey: string): unknown {

@@ -386,6 +386,8 @@
   "DeleteAutoTagHelpText": "Are you sure you want to delete the auto tag '{name}'?",
   "DeleteBackup": "Delete Backup",
   "DeleteBackupMessageText": "Are you sure you want to delete the backup '{name}'?",
+  "DeleteChapterFile": "Delete Chapter File",
+  "DeleteChapterFileMessageText": "Are you sure you want to delete '{path}'?",
   "DeleteCondition": "Delete Condition",
   "DeleteConditionMessageText": "Are you sure you want to delete the condition '{name}'?",
   "DeleteCustomFormat": "Delete Custom Format",

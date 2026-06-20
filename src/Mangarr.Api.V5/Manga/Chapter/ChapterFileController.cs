@@ -6,8 +6,10 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NLog;
+using NzbDrone.Core.Blocklisting.Manga;
 using NzbDrone.Core.Datastore.Events;
 using NzbDrone.Core.Exceptions;
+using NzbDrone.Core.History.Manga;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.Events;
@@ -65,18 +67,24 @@ public class ChapterFileController : RestControllerWithSignalR<ChapterFileResour
     private readonly IChapterFileService _chapterFileService;
     private readonly IDeleteMediaFiles _mediaFileDeletionService;
     private readonly IMangaService _mangaService;
+    private readonly IChapterHistoryService _chapterHistoryService;
+    private readonly IMangaBlocklistService _blocklistService;
     private readonly Logger _logger;
 
     public ChapterFileController(IBroadcastSignalRMessage signalRBroadcaster,
                                  IChapterFileService chapterFileService,
                                  IDeleteMediaFiles mediaFileDeletionService,
                                  IMangaService mangaService,
+                                 IChapterHistoryService chapterHistoryService,
+                                 IMangaBlocklistService blocklistService,
                                  Logger logger)
         : base(signalRBroadcaster)
     {
         _chapterFileService = chapterFileService;
         _mediaFileDeletionService = mediaFileDeletionService;
         _mangaService = mangaService;
+        _chapterHistoryService = chapterHistoryService;
+        _blocklistService = blocklistService;
         _logger = logger;
     }
 
@@ -117,7 +125,7 @@ public class ChapterFileController : RestControllerWithSignalR<ChapterFileResour
     }
 
     [RestDeleteById]
-    public Results<NoContent, NotFound> DeleteChapterFile(int id)
+    public Results<NoContent, NotFound> DeleteChapterFile(int id, bool blocklist = false)
     {
         var chapterFile = _chapterFileService.Get(id);
 
@@ -128,12 +136,63 @@ public class ChapterFileController : RestControllerWithSignalR<ChapterFileResour
 
         var manga = _mangaService.GetManga(chapterFile.MangaId);
 
+        // Mangarr divergence: the Manga Details > Files tab delete confirm exposes a
+        // "Blocklist Release" checkbox (the `?blocklist=true` query param). When set, blocklist
+        // the release that produced this file BEFORE deleting it so a subsequent Automatic Search
+        // / RSS pass rejects that exact release (BlocklistSpecification matches on the
+        // (SourceTitle, SourceKey, ReleaseGuid) identity triple — see MangaBlocklistService).
+        // Mirrors MangaQueueController.Blocklist's identity-triple construction, sourced from the
+        // grab ChapterHistory row rather than the live TrackedDownload (the download is long gone
+        // by the time a file is deleted). No `Sonarr` analog — EpisodeFileController has no
+        // blocklist-on-delete affordance; this is a manga-side addition.
+        if (blocklist)
+        {
+            BlocklistReleaseForChapterFile(chapterFile);
+        }
+
         // T-13-05 mitigation: paths come from ChapterFile model lookup (DB-stored normalized
         // paths via the relative-path + manga.Path Combine in DeleteChapterFile), NOT from
         // arbitrary user input — same shape as the TV peer's DeleteEpisodeFile.
         _mediaFileDeletionService.DeleteChapterFile(manga, chapterFile);
 
         return TypedResults.NoContent();
+    }
+
+    private void BlocklistReleaseForChapterFile(ChapterFile chapterFile)
+    {
+        // The release identity lives on the most-recent Grabbed history row for this chapter
+        // (the import event drops the grab's SourceKey/ReleaseGuid). If no grab row exists
+        // (e.g. a file imported via library scan with no prior grab), there is nothing to
+        // blocklist — delete still proceeds; log so the user-checked intent is traceable.
+        var grab = _chapterHistoryService.FindByChapterId(chapterFile.ChapterId)
+                                         .Where(h => h.EventType == ChapterHistoryEventType.Grabbed)
+                                         .OrderByDescending(h => h.Date)
+                                         .FirstOrDefault();
+
+        if (grab == null)
+        {
+            _logger.Warn("Blocklist-on-delete requested for chapter file {0} (chapter {1}) but no Grabbed history row exists; skipping blocklist", chapterFile.Id, chapterFile.ChapterId);
+            return;
+        }
+
+        var entry = new MangaBlocklist
+        {
+            MangaId = chapterFile.MangaId,
+            ChapterIds = new List<int> { chapterFile.ChapterId },
+            SourceTitle = grab.SourceTitle,
+            SourceKey = grab.SourceKey,
+            ReleaseGuid = grab.ReleaseGuid,
+            Date = DateTime.UtcNow,
+            Reason = "Deleted chapter file",
+            Source = "Manual"
+        };
+
+        // manual: true — the caller owns any re-search (a file delete deliberately does NOT
+        // auto-search for a replacement; the user can run an Automatic/Interactive search), so
+        // AutoRetryOrchestrator must not fire its failure-budget retry off this insert.
+        _blocklistService.Block(entry, manual: true);
+
+        _logger.Info("Blocklisted release '{0}' (source {1}) on delete of chapter file {2}", grab.SourceTitle, grab.SourceKey, chapterFile.Id);
     }
 
     [HttpDelete("bulk")]
