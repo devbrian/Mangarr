@@ -123,7 +123,7 @@ GET    /api/v5/manga/rename/bulk?mangaIds={ids}                     Bulk rename 
 GET    /api/v5/ChapterFile/{id}                                     Get one chapter file
 GET    /api/v5/ChapterFile?mangaId={id}                             List by parent manga (delegates to IChapterFileService.GetFilesByManga)
 GET    /api/v5/ChapterFile?chapterFileIds={ids}                     List by ids (delegates to IChapterFileService.Get(IEnumerable<int>))
-DELETE /api/v5/ChapterFile/{id}                                     Delete one (RestDeleteById; recycles via IDeleteMediaFiles.DeleteChapterFile per Pitfall 4 ordering invariant)
+DELETE /api/v5/ChapterFile/{id}                                     Delete one (RestDeleteById; recycles via IDeleteMediaFiles.DeleteChapterFile per Pitfall 4 ordering invariant). Optional ?blocklist=true also blocklists the release that produced the file (built from the chapter's most-recent Grabbed ChapterHistory identity triple via IMangaBlocklistService.Block(manual:true), inserted BEFORE the delete) — manga-only affordance, no EpisodeFileController peer; see DIVERGENCE.md "Blocklist-on-delete affordance".
 DELETE /api/v5/ChapterFile/bulk                                     Bulk delete (body: { chapterFileIds: [...] } via ChapterFileListResource)
 ```
 

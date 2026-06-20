@@ -69,17 +69,28 @@ interface ChapterFileIds {
  * `chapterFileId` flips on delete; SignalR also handles this via the
  * `chapterfile` handler but the immediate invalidation gives instant UI
  * feedback for the user-initiated action).
+ *
+ * When `blocklist` is true the backend (`ChapterFileController.DeleteChapterFile`,
+ * `?blocklist=true`) also blocklists the release that produced this file — its
+ * (SourceTitle, SourceKey, ReleaseGuid) triple is read off the chapter's most-recent
+ * Grabbed history row so a later Automatic Search / RSS pass rejects that exact
+ * release. `blocklist` is read at hook-render time (the Files-tab row owns the
+ * checkbox state and re-renders on toggle, so `mutate()` always submits the latest
+ * value); the blocklist cache is invalidated on success so the Activity > Blocklist
+ * page reflects the new row.
  */
-export const useDeleteChapterFile = (id: number) => {
+export const useDeleteChapterFile = (id: number, blocklist = false) => {
   const queryClient = useQueryClient();
 
   const { mutate, error, isPending } = useApiMutation<unknown, void>({
     path: `/chapterFile/${id}`,
     method: 'DELETE',
+    queryParams: blocklist ? { blocklist: true } : undefined,
     mutationOptions: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['/chapterFile'] });
         queryClient.invalidateQueries({ queryKey: ['/chapter'] });
+        queryClient.invalidateQueries({ queryKey: ['/manga/blocklist'] });
       },
     },
   });
