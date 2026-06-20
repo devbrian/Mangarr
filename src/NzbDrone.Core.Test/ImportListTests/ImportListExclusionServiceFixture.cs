@@ -123,7 +123,7 @@ namespace NzbDrone.Core.Test.ImportListTests
 
             Mocker.GetMock<IImportListExclusionRepository>()
                   .Setup(r => r.All())
-                  .Returns(new[] { });
+                  .Returns(new ImportListExclusion[] { });
 
             ImportListExclusion captured = null;
             Mocker.GetMock<IImportListExclusionRepository>()
