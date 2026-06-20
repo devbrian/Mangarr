@@ -25,9 +25,14 @@ namespace NzbDrone.Core.Indexers.Gateway
     /// </para>
     /// <para>
     /// Conditional query (Pitfall 4): only params advertised in <c>Capabilities.SupportedSearchParams</c>
-    /// are emitted; <c>query</c> is ALWAYS sent as the safe fallback. Page-1 only
-    /// (<c>Limits.DefaultPageSize</c>); multi-page is a named deferred idea. <c>since</c> is NOT sent
-    /// on <c>/recent</c> (engine watermark dedup is authoritative; Open Question 1).
+    /// are emitted; <c>query</c> is ALWAYS sent as the safe fallback. SEARCH now walks a bounded,
+    /// lazy offset sequence (<c>0, L, 2L, …</c> where <c>L = EffectiveLimit()</c>) consumed by the kept
+    /// <c>HttpIndexerBase.FetchReleases</c> paging engine — it stops at the first SHORT page (the
+    /// gateway's only end-of-results signal; <c>ReleaseListResponse</c> has no total/hasMore). The
+    /// emitted sequence is capped at <c>ceil(MaxSearchResults / L)</c> pages so an offset-ignoring
+    /// gateway cannot churn an unbounded enumerable (quick task 260620-ing). <c>/recent</c> stays
+    /// single-request, and <c>since</c> is NOT sent on it (engine watermark dedup is authoritative;
+    /// Open Question 1).
     /// </para>
     /// </summary>
     public class GatewayRequestGenerator : IIndexerRequestGenerator
@@ -36,6 +41,12 @@ namespace NzbDrone.Core.Indexers.Gateway
         // field by design — D-03 skip-only is request-side structural.
         public GatewaySettings Settings { get; set; }
         public GatewayCapabilities Capabilities { get; set; }
+
+        // Mirrors HttpIndexerBase.MaxNumResultsPerQuery (the engine's authoritative accumulation cap
+        // at HttpIndexerBase.cs:156). Exists ONLY to bound the EMITTED lazy offset sequence so an
+        // offset-ignoring gateway cannot churn an unbounded enumerable (T-ing-01). The engine's own
+        // cap is the runtime backstop; this caps how many page requests we ever yield.
+        private const int MaxSearchResults = 1000;
 
         public IndexerPageableRequestChain GetRecentRequests()
         {
@@ -101,6 +112,8 @@ namespace NzbDrone.Core.Indexers.Gateway
                 return chain;
             }
 
+            var limit = EffectiveLimit();
+
             var body = new GatewaySearchRequest
             {
                 Type = type,
@@ -111,7 +124,7 @@ namespace NzbDrone.Core.Indexers.Gateway
                 Languages = MappedLanguages().ToList(),
                 Sources = sources.ToList(),
                 Interactive = criteria?.InteractiveSearch ?? false,
-                Limit = EffectiveLimit(),
+                Limit = limit,
                 Offset = 0
             };
 
@@ -137,6 +150,37 @@ namespace NzbDrone.Core.Indexers.Gateway
                 body.Languages = null;
             }
 
+            // ONE chain.Add of a LAZY IEnumerable<IndexerRequest> so all offset pages live in a
+            // SINGLE IndexerPageableRequest the engine's inner foreach can break out of on the first
+            // short page (load-bearing — mirrors the MangaDex import-list precedent; multiple
+            // chain.Add calls would each be a 1-request pageable and defeat the !IsFullPage break).
+            // The offset-0 page is byte-identical to the prior single request, so the existing
+            // GatewayRequestGeneratorFixture .First().First() assertions stay green.
+            chain.Add(SearchPageRequests(body, limit));
+            return chain;
+        }
+
+        // Bounded, lazy multi-page offset sequence: yields offsets 0, L, 2L, … capped at
+        // ceil(MaxSearchResults / L) pages. LAZY (yield) so the kept FetchReleases engine only
+        // materializes pages it actually fetches and breaks the enumeration at the first short page.
+        // Reusing the single `body` instance is safe because BuildSearchRequest serializes
+        // (body.ToJson()) synchronously before the next yield — the IndexerRequest captures bytes,
+        // not a live reference to `body`.
+        private IEnumerable<IndexerRequest> SearchPageRequests(GatewaySearchRequest body, int limit)
+        {
+            var maxPages = System.Math.Max(1, (int)System.Math.Ceiling((double)MaxSearchResults / limit));
+
+            for (var page = 0; page < maxPages; page++)
+            {
+                body.Offset = page * limit;
+                yield return BuildSearchRequest(body);
+            }
+        }
+
+        // Per-offset request construction — identical wire shape to the old single request
+        // (POST …/search, body JSON, ContentType, X-Api-Key), just called once per offset.
+        private IndexerRequest BuildSearchRequest(GatewaySearchRequest body)
+        {
             var url = new HttpRequestBuilder(Settings.BaseUrl).Resource("search").Build().Url.FullUri;
             var request = new IndexerRequest(url, HttpAccept.Json);
             request.HttpRequest.Method = HttpMethod.Post;
@@ -144,8 +188,7 @@ namespace NzbDrone.Core.Indexers.Gateway
             request.HttpRequest.Headers.ContentType = "application/json";
             request.HttpRequest.Headers["X-Api-Key"] = Settings.ApiKey; // never logged
 
-            chain.Add(new[] { request });
-            return chain;
+            return request;
         }
 
         // EffectiveSources = Settings.EnabledSources ∩ (caps sources matching the capability predicate).
@@ -176,19 +219,25 @@ namespace NzbDrone.Core.Indexers.Gateway
         private bool SupportsParam(string param)
             => Capabilities?.SupportedSearchParams?.Contains(param) ?? false;
 
-        // Per-search result count: a user-provided Settings.ResultLimit override wins (passed through
-        // verbatim — the gateway is authoritative on its own MaxPageSize ceiling, so we do NOT clamp);
-        // otherwise the caps-advertised DefaultPageSize, falling back to 50.
-        private int EffectiveLimit()
+        // SINGLE SOURCE OF TRUTH for the per-search effective page size (quick task 260620-ing). The
+        // generator's offset stride (SearchPageRequests) AND the indexer's PageSize override both call
+        // this so the engine's IsFullPage threshold can never diverge from the emitted page size.
+        // Ladder: a user-provided Settings.ResultLimit override wins (passed through verbatim — the
+        // gateway is authoritative on its own MaxPageSize ceiling, so we do NOT clamp); otherwise the
+        // caps-advertised DefaultPageSize, falling back to 50.
+        public static int ResolveEffectiveLimit(GatewaySettings settings, GatewayCapabilities capabilities)
         {
-            if (Settings?.ResultLimit is int limit && limit > 0)
+            if (settings?.ResultLimit is int limit && limit > 0)
             {
                 return limit;
             }
 
-            var size = Capabilities?.Limits?.DefaultPageSize ?? 0;
+            var size = capabilities?.Limits?.DefaultPageSize ?? 0;
             return size > 0 ? size : 50;
         }
+
+        // One-line delegate so the ladder lives in EXACTLY one place (ResolveEffectiveLimit).
+        private int EffectiveLimit() => ResolveEffectiveLimit(Settings, Capabilities);
 
         // Settings.MultiLanguages (int Language ids) → BCP-47 two-letter codes (Open Question 2 —
         // send as-is and let the gateway filter). Unknown ids are dropped silently.

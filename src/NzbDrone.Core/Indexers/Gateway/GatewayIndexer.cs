@@ -54,6 +54,22 @@ namespace NzbDrone.Core.Indexers.Gateway
         // benefit. Halve it to 1s so per-search grab/search cadence tightens.
         public override TimeSpan RateLimit => TimeSpan.FromSeconds(1);
 
+        // DIVERGENCE (quick task 260620-ing): paging is now ON for the SEARCH path. PageSize is
+        // DYNAMIC — it resolves to Settings.ResultLimit → caps DefaultPageSize → 50 via
+        // GatewayRequestGenerator.ResolveEffectiveLimit, the SAME single-source-of-truth ladder the
+        // request generator strides offsets with (no diverging fallback). A positive PageSize flips
+        // SupportsPaging on so the inherited canonical IsFullPage (PageSize != 0 && page.Count >=
+        // PageSize, == page.Count >= EffectiveLimit()) fires and the kept HttpIndexerBase.FetchReleases
+        // engine walks the bounded offset sequence, STOPPING at the first short page — the gateway's
+        // only end-of-results signal (its ReleaseListResponse has no total/hasMore; frozen contract).
+        // Self-correcting against an offset-ignoring gateway: the generator's max-page cap bounds the
+        // emitted requests, the engine's MaxNumResultsPerQuery (1000) backstops accumulation, and the
+        // kept CleanupReleases guid-dedup collapses any duplicate pages — no infinite loop is
+        // constructible. NO IsFullPage override needed (mirrors the MangaDex import-list precedent).
+        // /recent is untouched — GetRecentRequests still emits exactly one request.
+        public override int PageSize =>
+            GatewayRequestGenerator.ResolveEffectiveLimit(Settings, _capsProvider.GetCapabilities(Settings));
+
         public GatewayIndexer(
             IGatewayCapabilitiesProvider capsProvider,
             IIndexerSourceStatusService sourceStatusService,
