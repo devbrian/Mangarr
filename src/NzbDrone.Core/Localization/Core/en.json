@@ -1264,6 +1264,8 @@
   "ManageIndexers": "Manage Indexers",
   "ManageLists": "Manage Lists",
   "Manga": "Manga",
+  "MangaBakaId": "MangaBaka ID",
+  "MangaBakaIdExcludeHelpText": "The MangaBaka ID of the manga to exclude (optional)",
   "MangaBakaMetadataSourceRateOverride": "Rate Override",
   "MangaBakaMetadataSourceRateOverrideHelpText": "Override the default per-source rate (seconds between requests). Leave blank for MangaBaka's published 30 req/min search / 120 req/min lookup budget.",
   "MangaBakaMetadataSourceSourceKey": "Rate-limit Source Key",

@@ -78,6 +78,13 @@ const COLUMNS: Column[] = [
     'data-testid': 'settings-importlist-exclusion-mangadexid-header',
   },
   {
+    name: 'mangaBakaId',
+    label: () => translate('MangaBakaId'),
+    isVisible: true,
+    isSortable: true,
+    'data-testid': 'settings-importlist-exclusion-mangabakaid-header',
+  },
+  {
     name: 'malId',
     label: () => translate('MalId'),
     isVisible: true,
@@ -337,6 +344,7 @@ function ImportListExclusionsContent() {
                     id={item.id}
                     title={item.title}
                     mangaDexId={item.mangaDexId}
+                    mangaBakaId={item.mangaBakaId}
                     malId={item.malId}
                     aniListId={item.aniListId}
                     columns={COLUMNS}
@@ -348,7 +356,7 @@ function ImportListExclusionsContent() {
               })}
 
               <TableRow>
-                <TableRowCell colSpan={5}>
+                <TableRowCell colSpan={6}>
                   <SpinnerButton
                     kind={kinds.DANGER}
                     isSpinning={isBulkDeleting}
@@ -388,6 +396,7 @@ function ImportListExclusionsContent() {
           id={editingExclusion?.id}
           title={editingExclusion?.title}
           mangaDexId={editingExclusion?.mangaDexId}
+          mangaBakaId={editingExclusion?.mangaBakaId ?? undefined}
           malId={editingExclusion?.malId ?? undefined}
           aniListId={editingExclusion?.aniListId ?? undefined}
           isOpen={isEditImportListExclusionModalOpen}

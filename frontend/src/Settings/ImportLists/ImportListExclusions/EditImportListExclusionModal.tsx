@@ -10,6 +10,7 @@ interface EditImportListExclusionModalProps {
   mangaDexId?: string;
   malId?: number;
   aniListId?: number;
+  mangaBakaId?: number;
   isOpen: boolean;
   onModalClose: () => void;
   onDeleteImportListExclusionPress?: () => void;

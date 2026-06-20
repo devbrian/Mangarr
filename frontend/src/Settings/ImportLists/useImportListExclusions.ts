@@ -20,6 +20,7 @@ export interface ImportListExclusion extends ModelBase {
   mangaDexId: string;
   malId: number | null;
   aniListId: number | null;
+  mangaBakaId: number | null;
   title: string;
 }
 
@@ -29,6 +30,7 @@ const NEW_IMPORT_LIST_EXCLUSION: Omit<ImportListExclusion, 'id'> = {
   mangaDexId: '',
   malId: null,
   aniListId: null,
+  mangaBakaId: null,
   title: '',
 };
 
@@ -76,6 +78,7 @@ interface ManageImportListExclusionOptions {
   mangaDexId?: string;
   malId?: number | null;
   aniListId?: number | null;
+  mangaBakaId?: number | null;
 }
 
 export const useManageImportListExclusion = ({
@@ -84,6 +87,7 @@ export const useManageImportListExclusion = ({
   mangaDexId,
   malId,
   aniListId,
+  mangaBakaId,
 }: ManageImportListExclusionOptions) => {
   const queryClient = useQueryClient();
 
@@ -95,11 +99,12 @@ export const useManageImportListExclusion = ({
         mangaDexId: mangaDexId ?? '',
         malId: malId ?? null,
         aniListId: aniListId ?? null,
+        mangaBakaId: mangaBakaId ?? null,
       } as ImportListExclusion;
     }
 
     return { id: 0, ...NEW_IMPORT_LIST_EXCLUSION } as ImportListExclusion;
-  }, [id, title, mangaDexId, malId, aniListId]);
+  }, [id, title, mangaDexId, malId, aniListId, mangaBakaId]);
 
   const { pendingChanges, setPendingChange } =
     usePendingChangesStore<ImportListExclusion>({});
