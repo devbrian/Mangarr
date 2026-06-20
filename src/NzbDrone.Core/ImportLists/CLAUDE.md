@@ -36,9 +36,9 @@ Phase 26 (Plan 26-04) ships the **substrate backend only** per D-08 — contract
 | `TolerantEnumConverter.cs` | JSON enum parser — verbatim port; gracefully handles unknown enum values |
 | `ListSyncLevelType.cs` | Library-cleanup level enum — `{ Disabled, LogOnly, KeepAndUnmonitor, KeepAndTag }` |
 | `Exceptions/ImportListException.cs` | Provider error wrapper carrying the `ImportListResponse` |
-| `Exclusions/ImportListExclusion.cs` | D-13 repo #3 entity — manga-ID triplet exclusion row (`MangaDexId` string / `MalId` int? / `AniListId` int? / `Title`) |
+| `Exclusions/ImportListExclusion.cs` | D-13 repo #3 entity — manga-ID **quad** exclusion row (`MangaDexId` string / `MalId` int? / `AniListId` int? / `MangaBakaId` int? / `Title`). MangaBakaId added quick-260619-spc (Migration 017) so exclusions key on the v1.3 default-primary anchor; no UNIQUE index (sibling parity with MalId/AniListId). |
 | `Exclusions/ImportListExclusionRepository.cs` | D-13 repo #3 — `BasicRepository<ImportListExclusion>` + `FindByMangaDexId(string)` |
-| `Exclusions/ImportListExclusionService.cs` | D-12 event-driven auto-add — `IHandle<MangaDeletedEvent>` |
+| `Exclusions/ImportListExclusionService.cs` | D-12 event-driven auto-add — `IHandle<MangaDeletedEvent>`. quick-260619-spc: all-null skip guard + idempotency `All()` scan + Insert payload all widened to the 4th axis (MangaBakaId), so a MangaBaka-only delete creates a usable exclusion row. |
 | `ImportListItems/ImportListItemRepository.cs` | Per-list-cache repo — `GetAllForLists(List<int>)` |
 | `ImportListItems/ImportListItemService.cs` | Per-list-cache service — `SyncMangaForList`, `IHandleAsync<ProviderDeletedEvent<IMangaImportList>>` cascade cleanup |
 
@@ -69,17 +69,18 @@ Do NOT collapse to a single repo — the three base-class inheritance chains dri
 
 ## Manga Adaptation Notes
 
-### TVDB / IMDB / TMDB → MangaDexId / MalId / AniListId
+### TVDB / IMDB / TMDB → MangaDexId / MalId / AniListId / MangaBakaId
 
-The Sonarr reference uses a `TvdbId` (with optional `ImdbId` / `TmdbId`) as the canonical cross-source ID. Mangarr replaces this with the manga-ID triplet:
+The Sonarr reference uses a `TvdbId` (with optional `ImdbId` / `TmdbId`) as the canonical cross-source ID. Mangarr replaces this with the manga-ID **quad** (triplet since Phase 26 D-13; 4th member MangaBakaId added quick-260619-spc):
 
 | Sonarr field | Mangarr peer | Type | Notes |
 |--------------|--------------|------|-------|
-| `TvdbId` (int) | `MangaDexId` (string) | required-ish | Persisted as the canonical Guid string serialization to match Migration 003's `.AsString().Nullable()` column. `Manga.MangaDexId` is `Guid?` on the aggregate POCO; exclusion rows store `manga.MangaDexId?.ToString()`. |
+| `TvdbId` (int) | `MangaDexId` (string) | required-ish | Persisted as the canonical Guid string serialization to match Migration 003's `.AsString().Nullable()` column. `Manga.MangaDexId` is `Guid?` on the aggregate POCO; exclusion rows store `manga.MangaDexId?.ToString()`. Only member with a UNIQUE-with-NULLs index. |
 | `ImdbId` (string) | (dropped) | — | No manga peer; SkyHook deleted in Phase 15. |
 | `TmdbId` (int) | (dropped) | — | No manga peer. |
-| n/a | `MalId` (int?) | nullable | MyAnimeList ID; AniList-only lists may carry this. |
-| n/a | `AniListId` (int?) | nullable | AniList GraphQL ID. |
+| n/a | `MalId` (int?) | nullable | MyAnimeList ID; AniList-only lists may carry this. No index. |
+| n/a | `AniListId` (int?) | nullable | AniList GraphQL ID. No index. |
+| n/a | `MangaBakaId` (int?) | nullable | MangaBaka ID — the v1.3 default-primary anchor (Migration 017, quick-260619-spc). No index (sibling parity with MalId/AniListId). The sync-path exclusion match (`StageViaPrimaryResolution`) ORs in `match.MangaBakaId` so a MangaBaka-keyed exclusion rejects a resolved candidate under the MangaBaka primary. |
 
 `CleanupListItems` dedup key swapped from `(Title, TvdbId, ImdbId)` to `(Title, MangaDexId, MalId, AniListId)`.
 
