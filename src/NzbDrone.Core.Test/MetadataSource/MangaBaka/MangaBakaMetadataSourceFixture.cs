@@ -425,6 +425,56 @@ namespace NzbDrone.Core.Test.MetadataSource.MangaBaka
             Subject.Test().IsValid.Should().BeTrue();
         }
 
+        // List Sync regression: StageViaPrimaryResolution fires one Search per item back-to-back.
+        // RateLimitKey alone does NOT throttle — HttpClient only engages the RateLimitService when
+        // req.RateLimit != TimeSpan.Zero. Assert Search stamps a non-zero spacing interval so the
+        // per-item burst stays within MangaBaka's 429 budget.
+        [Test]
+        public void Search_sets_rate_limit_so_per_item_burst_is_spaced()
+        {
+            HttpRequest captured = null;
+            Mocker.GetMock<IHttpClient>()
+                  .Setup(c => c.Get<MangaBakaSearchResource>(It.IsAny<HttpRequest>()))
+                  .Returns<HttpRequest>(req =>
+                  {
+                      captured = req;
+                      var headers = new HttpHeader { ContentType = "application/json" };
+                      var body = JsonConvert.SerializeObject(new MangaBakaSearchResource { Data = new List<MangaBakaSeries>() });
+                      var raw = new HttpResponse(req, headers, body, HttpStatusCode.OK);
+                      return new HttpResponse<MangaBakaSearchResource>(raw);
+                  });
+
+            Subject.SearchForNewManga("anything");
+
+            captured.Should().NotBeNull();
+            captured.RateLimit.Should().BeGreaterThan(TimeSpan.Zero);
+            captured.RateLimitKey.Should().Be("mangabaka");
+        }
+
+        // GetById (refresh / by-id lookup) must also engage the limiter so a refresh-all sweep
+        // does not exhaust the shared "mangabaka" budget.
+        [Test]
+        public void GetById_sets_rate_limit_so_lookup_burst_is_spaced()
+        {
+            HttpRequest captured = null;
+            Mocker.GetMock<IHttpClient>()
+                  .Setup(c => c.Get<MangaBakaSeriesResource>(It.IsAny<HttpRequest>()))
+                  .Returns<HttpRequest>(req =>
+                  {
+                      captured = req;
+                      var headers = new HttpHeader { ContentType = "application/json" };
+                      var body = JsonConvert.SerializeObject(new MangaBakaSeriesResource { Data = new MangaBakaSeries { Id = 1, Title = "X" } });
+                      var raw = new HttpResponse(req, headers, body, HttpStatusCode.OK);
+                      return new HttpResponse<MangaBakaSeriesResource>(raw);
+                  });
+
+            Subject.GetMangaInfo("1");
+
+            captured.Should().NotBeNull();
+            captured.RateLimit.Should().BeGreaterThan(TimeSpan.Zero);
+            captured.RateLimitKey.Should().Be("mangabaka");
+        }
+
         // ---- Helpers ----
 
         private void SetupGetByIdMock(MangaBakaSeriesResource resource)

@@ -28,6 +28,21 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
     {
         private const string DefaultBase = "https://api.mangabaka.org";
 
+        // Per-request spacing enforced via the shared RateLimitService (keyed on SourceKey).
+        // Setting RateLimitKey alone does NOT throttle — HttpClient only invokes the limiter when
+        // request.RateLimit != TimeSpan.Zero (HttpClient.cs). Without this, List Sync's
+        // StageViaPrimaryResolution fires one Search per item back-to-back with zero spacing and
+        // trips MangaBaka's 429 budget.
+        //
+        // Intervals sit a safety margin UNDER the documented budget (30 req/min search,
+        // 120 req/min lookup). 2s search (== 30/min, exactly the documented ceiling) was observed
+        // live to still trip the 429 at the ~30s mark of a real List Sync — MangaBaka's enforced
+        // limit is at or just below the documented one. 3s (== 20/min) cleared it; the lookup
+        // budget is far looser, so 0.5s (== 120/min) is left at the documented ceiling (no 429 was
+        // ever observed on the by-id path).
+        private static readonly TimeSpan SearchRateLimit = TimeSpan.FromSeconds(3);
+        private static readonly TimeSpan LookupRateLimit = TimeSpan.FromSeconds(0.5);
+
         private readonly IHttpClient _httpClient;
         private readonly Func<string> _userAgent;
         private readonly string _sourceKey;
@@ -50,7 +65,7 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
             var req = new HttpRequestBuilder($"{_baseUrl}/v1/series/search")
                 .AddQueryParam("q", query)
                 .Build();
-            ApplyHeaders(req);
+            ApplyHeaders(req, SearchRateLimit);
 
             var resp = _httpClient.Get<MangaBakaSearchResource>(req);
             return resp.Resource?.Data ?? new List<MangaBakaSeries>();
@@ -66,7 +81,7 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
             var req = new HttpRequestBuilder($"{_baseUrl}/v1/series/{id}")
                 .Build();
             req.SuppressHttpError = true;       // we handle the 404 explicitly below
-            ApplyHeaders(req);
+            ApplyHeaders(req, LookupRateLimit);
 
             var resp = _httpClient.Get<MangaBakaSeriesResource>(req);
             if (resp.HasHttpError)
@@ -84,13 +99,14 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
 
         /// <summary>
         /// Stamp every outbound request with the SourceKey rate-limit budget tag
-        /// ("mangabaka" — isolated from MangaDex's "mangadex" budget per D-10), the honest
-        /// UA (resolved via the injected <see cref="Func{String}"/>), and a JSON Accept
-        /// header. Copied verbatim from <c>MangaDexApi.ApplyHeaders</c>.
+        /// ("mangabaka" — isolated from MangaDex's "mangadex" budget per D-10), the per-request
+        /// spacing interval that actually engages the RateLimitService, the honest UA (resolved
+        /// via the injected <see cref="Func{String}"/>), and a JSON Accept header.
         /// </summary>
-        private void ApplyHeaders(HttpRequest req)
+        private void ApplyHeaders(HttpRequest req, TimeSpan rateLimit)
         {
             req.RateLimitKey = _sourceKey;
+            req.RateLimit = rateLimit;
             req.Headers["User-Agent"] = _userAgent();
             req.Headers["Accept"] = "application/json";
         }
