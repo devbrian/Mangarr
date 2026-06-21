@@ -122,5 +122,98 @@ namespace NzbDrone.Core.Test.IndexerSearch
             Mocker.GetMock<IChapterSynthesisService>()
                   .Verify(s => s.SynthesizeFromDecisions(It.IsAny<Core.Manga.Manga>(), It.IsAny<List<MangaDownloadDecision>>()), Times.Never);
         }
+
+        // ---------------- debug `per-manga-search-2-runs` (2026-06-21): same-tick re-decision ----------------
+        // When synthesis writes new Chapter rows, the search re-runs the decision pass against the
+        // now-updated catalog so the freshly-synthesized chapters grab in THIS search instead of
+        // requiring a second per-manga search. Mirrors MangaRssSyncService's same-tick re-grab.
+
+        // Re-decision fires once: two GetSearchDecision passes, synthesis runs exactly once, and the
+        // SECOND (post-synthesis) decision list is what is returned to the grab pipeline.
+        [Test]
+        public async Task MangaSearch_should_re_decide_against_updated_catalog_when_synthesis_created_rows()
+        {
+            var firstPass = new List<MangaDownloadDecision>
+            {
+                new MangaDownloadDecision(new RemoteChapter { Release = new ReleaseInfo { Title = "Chapter 1" } })
+            };
+            var secondPass = new List<MangaDownloadDecision>
+            {
+                new MangaDownloadDecision(new RemoteChapter { Release = new ReleaseInfo { Title = "Chapter 1" } }),
+                new MangaDownloadDecision(new RemoteChapter { Release = new ReleaseInfo { Title = "Chapter 2" } })
+            };
+
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                  .SetupSequence(d => d.GetSearchDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<MangaSearchCriteriaBase>()))
+                  .Returns(firstPass)
+                  .Returns(secondPass);
+
+            Mocker.GetMock<IChapterSynthesisService>()
+                  .Setup(s => s.SynthesizeFromDecisions(_manga, It.IsAny<List<MangaDownloadDecision>>()))
+                  .Returns(1);
+
+            Mocker.GetMock<IChapterService>()
+                  .Setup(c => c.GetChaptersByManga(_manga.Id))
+                  .Returns(new List<Core.Manga.Chapter>
+                  {
+                      new Core.Manga.Chapter { Id = 2, MangaId = _manga.Id, ChapterNumber = 2m, Monitored = true, ChapterFileId = null }
+                  });
+
+            var result = await Subject.MangaSearch(BuildMangaCriteria());
+
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                  .Verify(d => d.GetSearchDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<MangaSearchCriteriaBase>()), Times.Exactly(2));
+            Mocker.GetMock<IChapterSynthesisService>()
+                  .Verify(s => s.SynthesizeFromDecisions(_manga, It.IsAny<List<MangaDownloadDecision>>()), Times.Once);
+
+            result.Should().BeEquivalentTo(secondPass);
+        }
+
+        // Steady state (synthesis wrote nothing) — exactly one decision pass; the chapter catalog
+        // is never re-read. Guards against re-deciding on every search.
+        [Test]
+        public async Task MangaSearch_should_NOT_re_decide_when_synthesis_created_nothing()
+        {
+            // SynthesizeFromDecisions is not set up -> Moq returns default(int) == 0.
+            await Subject.MangaSearch(BuildMangaCriteria());
+
+            Mocker.GetMock<IMakeMangaDownloadDecision>()
+                  .Verify(d => d.GetSearchDecision(It.IsAny<List<ReleaseInfo>>(), It.IsAny<MangaSearchCriteriaBase>()), Times.Once);
+            Mocker.GetMock<IChapterService>()
+                  .Verify(c => c.GetChaptersByManga(It.IsAny<int>()), Times.Never);
+        }
+
+        // Automatic-search refresh predicate: with MonitoredChaptersOnly=true only the monitored,
+        // file-less rows enter the refreshed requested set (mirrors what MangaSearchService.Execute
+        // and a manual 2nd search compute). Already-filed + unmonitored rows are excluded so
+        // ChapterRequestedSpecification does not widen onto chapters that must not re-grab.
+        [Test]
+        public async Task MangaSearch_should_refresh_requested_chapters_to_monitored_fileless_for_automatic_search()
+        {
+            var criteria = new MangaSearchCriteria
+            {
+                Manga = _manga,
+                Chapters = new List<Core.Manga.Chapter>(),
+                MonitoredChaptersOnly = true,
+                UserInvokedSearch = false,
+                InteractiveSearch = false
+            };
+
+            var synthesized = new Core.Manga.Chapter { Id = 55, MangaId = _manga.Id, ChapterNumber = 3m, Monitored = true, ChapterFileId = null };
+            var alreadyFiled = new Core.Manga.Chapter { Id = 56, MangaId = _manga.Id, ChapterNumber = 1m, Monitored = true, ChapterFileId = 999 };
+            var unmonitored = new Core.Manga.Chapter { Id = 57, MangaId = _manga.Id, ChapterNumber = 2m, Monitored = false, ChapterFileId = null };
+
+            Mocker.GetMock<IChapterSynthesisService>()
+                  .Setup(s => s.SynthesizeFromDecisions(_manga, It.IsAny<List<MangaDownloadDecision>>()))
+                  .Returns(1);
+            Mocker.GetMock<IChapterService>()
+                  .Setup(c => c.GetChaptersByManga(_manga.Id))
+                  .Returns(new List<Core.Manga.Chapter> { synthesized, alreadyFiled, unmonitored });
+
+            await Subject.MangaSearch(criteria);
+
+            criteria.Chapters.Should().ContainSingle();
+            criteria.Chapters.Should().OnlyContain(c => c.Id == 55);
+        }
     }
 }

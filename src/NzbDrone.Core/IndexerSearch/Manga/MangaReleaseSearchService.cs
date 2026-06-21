@@ -31,16 +31,19 @@ namespace NzbDrone.Core.IndexerSearch.Manga
         private readonly IIndexerFactory _indexerFactory;
         private readonly IMakeMangaDownloadDecision _decisionMaker;
         private readonly IChapterSynthesisService _chapterSynthesisService;
+        private readonly IChapterService _chapterService;
         private readonly Logger _logger;
 
         public MangaReleaseSearchService(IIndexerFactory indexerFactory,
                                          IMakeMangaDownloadDecision decisionMaker,
                                          IChapterSynthesisService chapterSynthesisService,
+                                         IChapterService chapterService,
                                          Logger logger)
         {
             _indexerFactory = indexerFactory;
             _decisionMaker = decisionMaker;
             _chapterSynthesisService = chapterSynthesisService;
+            _chapterService = chapterService;
             _logger = logger;
         }
 
@@ -60,9 +63,10 @@ namespace NzbDrone.Core.IndexerSearch.Manga
             //
             // Best-effort (CodeRabbit PR #328): synthesis is a side-effect — a throw must NOT
             // abort the search or swallow the decisions the user/RSS-sync is waiting for.
+            var synthesizedCount = 0;
             try
             {
-                _chapterSynthesisService.SynthesizeFromDecisions(criteria.Manga, decisions);
+                synthesizedCount = _chapterSynthesisService.SynthesizeFromDecisions(criteria.Manga, decisions);
             }
             catch (Exception ex)
             {
@@ -70,6 +74,47 @@ namespace NzbDrone.Core.IndexerSearch.Manga
                     "Chapter synthesis failed for manga search '{0}' (id={1}); returning decisions unchanged.",
                     criteria.Manga?.Title,
                     criteria.Manga?.Id);
+            }
+
+            // debug `per-manga-search-2-runs` (2026-06-21): SAME-TICK RE-DECISION so the chapters
+            // synthesis just created GRAB in THIS search instead of requiring a second per-manga
+            // search. Mirrors MangaRssSyncService's same-tick re-grab (Phase 40 RSS self-heal).
+            //
+            // The first GetSearchDecision above ran BEFORE the new Chapter rows existed, so a
+            // release for a brand-new chapter mapped to an EMPTY RemoteChapter.Chapters
+            // (MangaParsingService.Map's DB fallback found nothing) and was rejected by
+            // ChapterRequestedSpecification (not in criteria.Chapters) / MonitoredChapterSpecification
+            // (empty chapters). Synthesis then created those rows but the returned decision list
+            // still reflected the pre-synthesis catalog — so the user had to search a 2nd time.
+            //
+            // Refresh criteria.Chapters to the now-current set and re-run the decision pass against
+            // the SAME reports. The refresh is keyed off the same MonitoredChaptersOnly flag each
+            // caller set when it built criteria.Chapters, so it reproduces EXACTLY what a manual 2nd
+            // search would compute: the automatic search (MangaSearchService, MonitoredChaptersOnly=true)
+            // re-derives Monitored && no-file; the interactive controller (MangaReleaseController,
+            // MonitoredChaptersOnly=false) re-derives the full chapter list. Map's DB fallback then
+            // resolves the freshly-synthesized rows so they qualify and flow to the grab pipeline.
+            //
+            // Count-gated: steady state (catalog already complete -> synthesizedCount == 0) pays for
+            // exactly one decision pass. Synthesis only ADDS monitored rows (SyncChapters never
+            // deletes / never flips Monitored on update), so a release approved on the first pass can
+            // never be downgraded by the second.
+            if (synthesizedCount > 0 && criteria.Manga != null)
+            {
+                var allChapters = _chapterService.GetChaptersByManga(criteria.Manga.Id)
+                                  ?? new List<Chapter>();
+
+                criteria.Chapters = criteria.MonitoredChaptersOnly
+                    ? allChapters.Where(c => c.Monitored && c.ChapterFileId == null).ToList()
+                    : allChapters.ToList();
+
+                _logger.Debug(
+                    "Synthesized {0} new chapter row(s) during manga search '{1}' (id={2}); re-evaluating reports against the updated catalog.",
+                    synthesizedCount,
+                    criteria.Manga.Title,
+                    criteria.Manga.Id);
+
+                decisions = _decisionMaker.GetSearchDecision(reports, criteria).ToList();
             }
 
             return decisions;
