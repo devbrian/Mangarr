@@ -9,8 +9,9 @@
 //     ratings.value).
 //   * "Already in library" check matches manga by mangaDexId / aniListId /
 //     malId (not tvdbId).
-//   * External link points to MangaDex / AniList / MAL when the corresponding
-//     ID is set; falls back to MangaDex search when none.
+//   * External link points to MangaBaka (v1.3 default primary) / MangaDex /
+//     AniList / MAL when the corresponding ID is set, in that priority order;
+//     renders no link when none is present.
 //   * No Network label, no HeartRating block (UI-SPEC §AddManga visual
 //     hierarchy lists cover, title, status pill, year+chapter count — no
 //     ratings primary anchor for v1).
@@ -92,6 +93,12 @@ function AddNewMangaSearchResult({ manga }: AddNewMangaSearchResultProps) {
   }, []);
 
   const externalLink = useMemo(() => {
+    if (mangaBakaId != null) {
+      return {
+        url: `https://mangabaka.org/${mangaBakaId}`,
+        label: 'MangaBaka',
+      };
+    }
     if (mangaDexId) {
       return {
         url: `https://mangadex.org/title/${mangaDexId}`,
@@ -111,7 +118,7 @@ function AddNewMangaSearchResult({ manga }: AddNewMangaSearchResultProps) {
       };
     }
     return null;
-  }, [mangaDexId, aniListId, malId]);
+  }, [mangaBakaId, mangaDexId, aniListId, malId]);
 
   const linkProps = isExistingManga
     ? {
