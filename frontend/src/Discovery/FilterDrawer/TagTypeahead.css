@@ -1,0 +1,84 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modeRow {
+  display: flex;
+  align-items: center;
+}
+
+.segmented {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--borderColor);
+  border-radius: 4px;
+}
+
+.segment {
+  padding: 3px 14px;
+  border: 0;
+  background-color: var(--inputBackgroundColor);
+  color: var(--textColor);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.segment:hover {
+  background-color: var(--defaultHoverBackgroundColor);
+}
+
+.segmentActive {
+  background-color: var(--primaryColor);
+  color: #fff;
+}
+
+.suggestions {
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  border: 1px solid var(--borderColor);
+  border-radius: 4px;
+  list-style: none;
+}
+
+.suggestion {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  width: 100%;
+  border: 0;
+  background-color: transparent;
+  color: var(--textColor);
+  text-align: left;
+  cursor: pointer;
+}
+
+.suggestion:hover {
+  background-color: var(--cardAlternateBackgroundColor);
+}
+
+.suggestionMain {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+}
+
+.suggestionIcon {
+  margin-right: 6px;
+  color: var(--successColor);
+}
+
+.namePath {
+  margin: 0 10px;
+  color: var(--disabledColor);
+  font-size: 11px;
+}
+
+.seriesCount {
+  flex: 0 0 auto;
+  color: var(--disabledColor);
+  font-size: 11px;
+}

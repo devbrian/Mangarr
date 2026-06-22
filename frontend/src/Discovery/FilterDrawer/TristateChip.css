@@ -1,0 +1,41 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 3px 10px;
+  border: 1px solid var(--borderColor);
+  border-radius: 12px;
+  background-color: var(--inputBackgroundColor);
+  color: var(--textColor);
+  font-size: 12px;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--inputFocusBorderColor);
+}
+
+.icon {
+  margin-right: 5px;
+}
+
+.label {
+  white-space: nowrap;
+}
+
+.include {
+  border-color: var(--successColor);
+  background-color: var(--successColor);
+  color: #fff;
+}
+
+.exclude {
+  border-color: var(--dangerColor);
+  background-color: var(--dangerColor);
+  color: #fff;
+}
+
+.exclude .label {
+  text-decoration: line-through;
+}
