@@ -67,6 +67,74 @@ namespace NzbDrone.Core.Test.MetadataSource.MangaBaka
             resource.Data.Source.MangaUpdates.Id.Should().Be("6z1uqw7");
         }
 
+        // Phase 42 (D-12 / DISC-03): the series record must round-trip the `state` field (so the
+        // merged/deleted skip is not a silent no-op) and the `rating` int. A future drop of either
+        // [JsonProperty] fails HERE (T-42-01-DTO).
+        [Test]
+        public void series_record_round_trips_state_and_rating()
+        {
+            const string json = @"{ ""id"": 42, ""title"": ""Test Manga"", ""state"": ""merged"", ""rating"": 78 }";
+
+            var series = Common.Serializer.Json.Deserialize<MangaBakaSeries>(json);
+
+            series.Should().NotBeNull();
+            series.State.Should().Be("merged");
+            series.Rating.Should().Be(78);
+        }
+
+        // PITFALL 2 analog regression: the live `rating` is a FRACTIONAL number, not an integer.
+        // A future `int?` retyping would throw a JsonReaderException right here (fails the whole
+        // response) rather than silently at runtime.
+        [Test]
+        public void series_record_round_trips_fractional_rating()
+        {
+            const string json = @"{ ""id"": 42, ""title"": ""Test Manga"", ""rating"": 86.2083333333333 }";
+
+            var series = Common.Serializer.Json.Deserialize<MangaBakaSeries>(json);
+
+            series.Should().NotBeNull();
+            series.Rating.Should().Be(86.2083333333333m);
+        }
+
+        // DISC-03: the slim genre option list round-trips { label, value } from { data[] }.
+        [Test]
+        public void genre_list_envelope_round_trips_slim_options()
+        {
+            const string json = @"{ ""data"": [ { ""label"": ""Boys' Love"", ""value"": ""boys_love"" }, { ""label"": ""Action"", ""value"": ""action"" } ] }";
+
+            var resource = Common.Serializer.Json.Deserialize<MangaBakaGenreListResource>(json);
+
+            resource.Should().NotBeNull();
+            resource.Data.Should().HaveCount(2);
+            resource.Data.Should().Contain(g => g.Label == "Boys' Love" && g.Value == "boys_love");
+        }
+
+        // DISC-03 / D-10: the slim tag DTO binds the integer id + name_path + series_count and
+        // DROPS the long blurb — even when the wire payload carries it, the slim DTO ignores it
+        // (Newtonsoft A1) and exposes only the modelled fields.
+        [Test]
+        public void tag_list_envelope_drops_description_and_keeps_slim_fields()
+        {
+            const string json = @"{ ""data"": [ { ""id"": 363, ""name"": ""Isekai"", ""name_path"": ""Genre > Isekai"", ""series_count"": 1234, ""content_rating"": ""safe"", ""description"": ""A long unused blurb"", ""is_spoiler"": false, ""parent_id"": 12, ""level"": 2 } ] }";
+
+            var resource = Common.Serializer.Json.Deserialize<MangaBakaTagListResource>(json);
+
+            resource.Should().NotBeNull();
+            resource.Data.Should().HaveCount(1);
+
+            var tag = resource.Data[0];
+            tag.Id.Should().Be(363);
+            tag.Name.Should().Be("Isekai");
+            tag.NamePath.Should().Be("Genre > Isekai");
+            tag.SeriesCount.Should().Be(1234);
+            tag.ContentRating.Should().Be("safe");
+
+            // The slim DTO has no description member — the wire `description` key is silently
+            // dropped, and the only public string properties are the modelled slim ones.
+            typeof(MangaBakaTag).GetProperty("Description").Should().BeNull(
+                "the slim tag DTO deliberately omits description (DISC-03)");
+        }
+
         [Test]
         public void search_envelope_deserializes_real_payload()
         {

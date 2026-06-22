@@ -73,11 +73,14 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka.Resource
         [JsonProperty("state")]
         public string State { get; set; }
 
-        // 0–100 popularity/quality score (card display + sort). int? — null when MangaBaka ships no
-        // score. NOT coerced from a string (the record ships it as a JSON number, unlike
-        // total_chapters which is a string per PITFALL 2).
+        // 0–100 popularity/quality score (card display + sort). PITFALL 2 analog: the live wire
+        // value is a FRACTIONAL number (e.g. 86.2083333333333 in series_by_id_3397.json), NOT an
+        // integer — typing this `int?` makes Newtonsoft throw a JsonReaderException that fails the
+        // ENTIRE response (search 500s, by-id silently empties). Modelled `decimal?` to round-trip
+        // the fraction faithfully; consumers truncate/round at the display boundary (card score).
+        // null when MangaBaka ships no score.
         [JsonProperty("rating")]
-        public int? Rating { get; set; }
+        public decimal? Rating { get; set; }
 
         [JsonProperty("type")]
         public string Type { get; set; }

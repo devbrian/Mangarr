@@ -5,6 +5,7 @@ using System.Linq;
 using FluentValidation.Results;
 using NLog;
 using NzbDrone.Common.Http;
+using NzbDrone.Core.Discovery;
 using NzbDrone.Core.MediaCover;
 using NzbDrone.Core.MetadataSource.MangaBaka.Resource;
 using NzbDrone.Core.Parser.Manga;
@@ -78,6 +79,18 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
         // own ctor. Build the wrapper on first access — Settings is populated by then.
         private MangaBakaApi Api =>
             _api ??= new MangaBakaApi(_httpClient, Settings.BaseUrl, ResolveUserAgent, SourceKey);
+
+        // ---- Discovery browse surface (Phase 42) ----
+        // Public pass-throughs to the lazy Api wrapper. MangaBakaApi is NOT DI-registered — it can
+        // ONLY be reached through this provider (it needs the provider's configured
+        // Settings.BaseUrl/SourceKey/UA). DiscoveryService (42-02) resolves THIS provider via
+        // IEnumerable<IMetadataSource>.OfType<MangaBakaMetadataSource>() and calls these seams.
+        public MangaBakaSearchResource Browse(DiscoveryFilter filter, int page, int limit)
+            => Api.Browse(filter, page, limit);
+
+        public List<MangaBakaGenre> GetGenres() => Api.GetGenres();
+
+        public List<MangaBakaTag> GetTags() => Api.GetTags();
 
         public override Tuple<NzbDrone.Core.Manga.Manga, IEnumerable<NzbDrone.Core.Manga.Chapter>>
             GetMangaInfo(string sourceId)
