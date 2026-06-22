@@ -85,12 +85,15 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka
         // ONLY be reached through this provider (it needs the provider's configured
         // Settings.BaseUrl/SourceKey/UA). DiscoveryService (42-02) resolves THIS provider via
         // IEnumerable<IMetadataSource>.OfType<MangaBakaMetadataSource>() and calls these seams.
-        public MangaBakaSearchResource Browse(DiscoveryFilter filter, int page, int limit)
+        // virtual so DiscoveryService's eligibility loop + cache can be unit-tested against a
+        // mocked provider (DiscoveryServiceFixture) — MangaBakaApi is non-DI and cannot be mocked
+        // directly, so this provider seam is the mock point.
+        public virtual MangaBakaSearchResource Browse(DiscoveryFilter filter, int page, int limit)
             => Api.Browse(filter, page, limit);
 
-        public List<MangaBakaGenre> GetGenres() => Api.GetGenres();
+        public virtual List<MangaBakaGenre> GetGenres() => Api.GetGenres();
 
-        public List<MangaBakaTag> GetTags() => Api.GetTags();
+        public virtual List<MangaBakaTag> GetTags() => Api.GetTags();
 
         public override Tuple<NzbDrone.Core.Manga.Manga, IEnumerable<NzbDrone.Core.Manga.Chapter>>
             GetMangaInfo(string sourceId)
