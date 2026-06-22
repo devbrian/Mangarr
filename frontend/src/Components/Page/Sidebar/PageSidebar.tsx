@@ -86,6 +86,13 @@ export const links: SidebarItem[] = [
   },
 
   {
+    iconName: icons.SEARCH,
+    title: () => translate('Discovery'),
+    to: '/discovery',
+    dataTestId: 'nav-discovery',
+  },
+
+  {
     iconName: icons.CALENDAR,
     title: () => translate('Calendar'),
     to: '/calendar',

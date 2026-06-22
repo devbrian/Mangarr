@@ -16,7 +16,7 @@ import {
   DiscoverySearchRequest,
   DiscoverySearchResponse,
   DiscoveryTag,
-} from 'Discovery/Discovery';
+} from 'Discovery/DiscoveryModels';
 import useApiMutation from 'Helpers/Hooks/useApiMutation';
 import useApiQuery from 'Helpers/Hooks/useApiQuery';
 

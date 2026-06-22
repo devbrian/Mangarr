@@ -6,7 +6,7 @@
 // 'add_manga_options' / 'manga_options' — grep in 42-05-SUMMARY).
 // Persists the user's last-used filter selections + the Top-X count (D-09);
 // search RESULTS are NOT persisted (they live in volatile React Query state).
-import { DiscoveryOptions } from 'Discovery/Discovery';
+import { DiscoveryOptions } from 'Discovery/DiscoveryModels';
 import { createOptionsStore } from 'Helpers/Hooks/useOptionsStore';
 
 const { useOptions, useOption, setOption, setOptions, getOptions } =

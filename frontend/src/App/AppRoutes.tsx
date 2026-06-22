@@ -25,6 +25,7 @@ import ImportMangaPage from 'AddManga/ImportManga/ImportMangaPage';
 import CalendarPage from 'Calendar/CalendarPage';
 import NotFound from 'Components/NotFound';
 import Switch from 'Components/Router/Switch';
+import Discovery from 'Discovery/Discovery';
 import MangaDetailsPage from 'Manga/Details/MangaDetailsPage';
 import MangaIndex from 'Manga/Index/MangaIndex';
 import CustomFormatSettingsPage from 'Settings/CustomFormats/CustomFormatSettingsPage';
@@ -111,6 +112,14 @@ function AppRoutes() {
           nested <Switch> for /add/import (selector) vs /add/import/:rootFolderId
           (per-folder scan). Wanted/Missing modal path (InteractiveImportContent +
           InteractiveImportModal) UNTOUCHED per CONTEXT.md domain. */}
+
+      {/*
+        Discovery (Phase 42 Plan 42-05 — NEW-in-Mangarr filtered bulk-add from
+        the MangaBaka browse surface; no Sonarr analog. Single top-level route,
+        declared before /calendar to mirror the sidebar order.)
+      */}
+
+      <Route path="/discovery" component={Discovery} />
 
       {/*
         Calendar
