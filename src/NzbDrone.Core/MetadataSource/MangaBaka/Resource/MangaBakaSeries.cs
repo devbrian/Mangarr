@@ -64,6 +64,21 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka.Resource
         [JsonProperty("status")]
         public string Status { get; set; }
 
+        // Record lifecycle state — "active" / "merged" / "deleted". MangaBaka periodically merges
+        // duplicate records into a canonical one (or soft-deletes), leaving the old id resolving to
+        // a non-"active" stub. D-12: Discovery (42-02) SKIPS non-"active" records during the
+        // eligibility loop. Modelled here so that skip is not a silent no-op — without this field
+        // the state never deserializes and every record looks "active". The round-trip is pinned by
+        // MangaBakaDeserializationFixture so a future field drop fails the build (T-42-01-DTO).
+        [JsonProperty("state")]
+        public string State { get; set; }
+
+        // 0–100 popularity/quality score (card display + sort). int? — null when MangaBaka ships no
+        // score. NOT coerced from a string (the record ships it as a JSON number, unlike
+        // total_chapters which is a string per PITFALL 2).
+        [JsonProperty("rating")]
+        public int? Rating { get; set; }
+
         [JsonProperty("type")]
         public string Type { get; set; }
 
