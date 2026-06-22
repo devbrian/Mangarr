@@ -21,6 +21,7 @@ import {
   useDiscoveryOption,
   useDiscoveryOptions,
 } from 'Discovery/discoveryOptionsStore';
+import FilterDrawer from 'Discovery/FilterDrawer/FilterDrawer';
 import { useDiscoverySearch } from 'Discovery/useDiscovery';
 import { icons, kinds } from 'Helpers/Props';
 import translate from 'Utilities/String/translate';
@@ -45,6 +46,10 @@ function Discovery() {
 
   const handleToggleFilterDrawer = useCallback(() => {
     setIsFilterDrawerOpen((open) => !open);
+  }, []);
+
+  const handleCloseFilterDrawer = useCallback(() => {
+    setIsFilterDrawerOpen(false);
   }, []);
 
   const handleSearchPress = useCallback(() => {
@@ -125,6 +130,11 @@ function Discovery() {
           </div>
         ) : null}
       </PageContentBody>
+
+      <FilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={handleCloseFilterDrawer}
+      />
     </PageContent>
   );
 }
