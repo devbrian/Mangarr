@@ -37,10 +37,81 @@ export type DiscoveryOptions = DiscoveryFilterState & {
   topX: number;
 };
 
-// POST /discovery/search body — the active filter + the requested count.
-export type DiscoverySearchRequest = DiscoveryFilterState & {
-  topX: number;
-};
+// POST /discovery/search body — the wire contract the 42-04 controller
+// (DiscoverySearchRequestResource) deserializes. NOT the store shape: the
+// tristate maps are split into include/exclude string arrays, the tag selections
+// into integer tag/tagNot id arrays, and topX maps to `x`. Sending the raw store
+// shape (a TristateMap `{}` into a `List<string>`) fails JSON binding → 400.
+export interface DiscoverySearchRequest {
+  type: string[];
+  typeNot: string[];
+  genre: string[];
+  genreNot: string[];
+  tag: number[];
+  tagNot: number[];
+  tagMode: 'and' | 'or';
+  status: string[];
+  statusNot: string[];
+  contentRating: string[];
+  includeAdult: boolean;
+  yearLower?: number;
+  yearUpper?: number;
+  ratingLower?: number;
+  ratingUpper?: number;
+  sortBy: string;
+  x: number;
+}
+
+function splitTristate(map: TristateMap): {
+  include: string[];
+  exclude: string[];
+} {
+  const include: string[] = [];
+  const exclude: string[] = [];
+
+  Object.entries(map).forEach(([key, mode]) => {
+    if (mode === 'include') {
+      include.push(key);
+    } else if (mode === 'exclude') {
+      exclude.push(key);
+    }
+  });
+
+  return { include, exclude };
+}
+
+// Map the persisted store shape to the controller's wire contract.
+// ContentRating has no exclude on the wire (the backend whitelists only the
+// include list — MangaBaka's content_rating has no _not pair); exclude chips on
+// ContentRating are intentionally not forwarded.
+export function toDiscoverySearchRequest(
+  options: DiscoveryOptions
+): DiscoverySearchRequest {
+  const type = splitTristate(options.type);
+  const genre = splitTristate(options.genre);
+  const status = splitTristate(options.status);
+  const contentRating = splitTristate(options.contentRating);
+
+  return {
+    type: type.include,
+    typeNot: type.exclude,
+    genre: genre.include,
+    genreNot: genre.exclude,
+    tag: options.tags.filter((t) => t.mode === 'include').map((t) => t.id),
+    tagNot: options.tags.filter((t) => t.mode === 'exclude').map((t) => t.id),
+    tagMode: options.tagMode,
+    status: status.include,
+    statusNot: status.exclude,
+    contentRating: contentRating.include,
+    includeAdult: options.includeAdult,
+    yearLower: options.yearLower,
+    yearUpper: options.yearUpper,
+    ratingLower: options.ratingLower,
+    ratingUpper: options.ratingUpper,
+    sortBy: options.sortBy,
+    x: options.topX,
+  };
+}
 
 export interface DiscoveryResult {
   mangaBakaId: number;

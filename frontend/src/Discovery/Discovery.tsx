@@ -22,7 +22,10 @@ import PageContent from 'Components/Page/PageContent';
 import PageContentBody from 'Components/Page/PageContentBody';
 import AddTopXModal from 'Discovery/AddTopX/AddTopXModal';
 import DiscoveryCard from 'Discovery/DiscoveryCard';
-import { DiscoveryResult } from 'Discovery/DiscoveryModels';
+import {
+  DiscoveryResult,
+  toDiscoverySearchRequest,
+} from 'Discovery/DiscoveryModels';
 import {
   setDiscoveryOption,
   useDiscoveryOption,
@@ -92,7 +95,7 @@ function Discovery() {
   }, []);
 
   const handleSearchPress = useCallback(() => {
-    search({ ...options, topX });
+    search(toDiscoverySearchRequest({ ...options, topX }));
   }, [search, options, topX]);
 
   const handleAddPress = useCallback(() => {
