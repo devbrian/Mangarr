@@ -9,17 +9,14 @@ namespace NzbDrone.Automation.Test.Tests.Settings.ImportLists;
 // Phase 26 Plan 26-06 Task 1 (D-10 bucket A) — page-render smoke for
 // /settings/importlists.
 //
-// Bucket A: NO TestImportList registration. Phase 26 substrate ships zero
-// production IMangaImportList implementations (D-08); the Add picker is empty
-// in production until Phase 27 lands MangaDex / AniList / MAL providers.
-// This fixture verifies that the empty-state render is clean: the page mounts,
-// the Add card opens an empty picker modal, no error banners fire, and the
-// inherited /api/v5/importlist GET returns the canonical empty payload (200 + []).
+// The configured-list table is empty (no import lists added in the baseline
+// seed), but Phase 27 landed the production IMangaImportList providers
+// (MangaDex / AniList / MAL), so the Add picker now enumerates >= 1 schema card.
+// This fixture verifies the render is clean: the page mounts, the Add card opens
+// the picker modal with the production providers, and no error banners fire.
 //
 // Analog: src/NzbDrone.Automation.Test/Tests/Settings/SettingsIndexersFixture.cs
-// (page-load smoke). Comix disabled in OneTimeSetUp per the cross-fixture
-// Pitfall 10 contract (un-cassetted Comix indexer would escape to the live
-// network on PuppeteerSharp warm-up if the Add picker enumerated its schema).
+// (page-load smoke).
 //
 // Pattern κ enforcement (Phase 18 D-18): zero `series-*` / `episode-*` /
 // `season-*` / `add-series-*` testids. The `add-importlist-*` /
@@ -55,13 +52,18 @@ public class ImportListsPageRenderFixture : AutomationTest
             new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 
         // 4. State assertion (not just rendering — per
-        //    `feedback_verify_ui_state_not_just_rendering`): the picker
-        //    must contain ZERO `add-importlist-*` schema cards. Phase 27
-        //    will land real providers and this assertion will flip to >= 1.
+        //    `feedback_verify_ui_state_not_just_rendering`): Phase 27 landed the
+        //    production import-list providers (MangaDex / AniList / MAL), so the
+        //    Add picker now contains >= 1 `add-importlist-*` schema card. (Before
+        //    Phase 27 the substrate shipped zero providers and this asserted 0 —
+        //    the assertion was always specified to "flip to >= 1" once providers
+        //    landed; this updates the stale Phase-26 expectation.)
         var schemaItems = Page.Locator("[data-testid^='add-importlist-']:not([data-testid='add-importlist-modal'])");
-        await Assertions.Expect(schemaItems).ToHaveCountAsync(
+        await Assertions.Expect(schemaItems.First).ToBeVisibleAsync(
+            new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
+        (await schemaItems.CountAsync()).Should().BeGreaterThan(
             0,
-            new LocatorAssertionsToHaveCountOptions { Timeout = 5_000 });
+            "Phase 27 landed production import-list providers; the Add picker is no longer empty");
 
         // 5. Assert no error banner fires (the empty-schema render path must
         //    not surface an Alert kind=DANGER). The AddImportListModalContent

@@ -221,11 +221,12 @@ public class ImportListExclusionCrudFixture : AutomationTest
             await Assertions.Expect(row).ToBeVisibleAsync(
                 new LocatorAssertionsToBeVisibleOptions { Timeout = 15_000 });
 
-            // Walk to td[3] (malId cell — 0-indexed 4th cell, 1-indexed 4th in
-            // nth-child). nth-child is 1-indexed: TableSelectCell=1, title=2,
-            // mangaDexId=3, malId=4, aniListId=5.
-            var malIdCell = row.Locator("td:nth-child(4)");
-            var aniListIdCell = row.Locator("td:nth-child(5)");
+            // nth-child is 1-indexed and tracks ImportListExclusionRow.tsx column
+            // order: TableSelectCell=1, title=2, mangaDexId=3, mangaBakaId=4,
+            // malId=5, aniListId=6. (The mangaBakaId column was added by
+            // quick-260619-spc; malId/aniListId shifted right one cell.)
+            var malIdCell = row.Locator("td:nth-child(5)");
+            var aniListIdCell = row.Locator("td:nth-child(6)");
 
             var malIdText = (await malIdCell.TextContentAsync())?.Trim();
             var aniListIdText = (await aniListIdCell.TextContentAsync())?.Trim();
