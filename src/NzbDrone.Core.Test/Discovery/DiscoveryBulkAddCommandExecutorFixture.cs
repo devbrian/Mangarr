@@ -7,6 +7,7 @@ using NUnit.Framework;
 using NzbDrone.Core.Discovery;
 using NzbDrone.Core.Manga;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.Discovery
 {
@@ -31,6 +32,19 @@ namespace NzbDrone.Core.Test.Discovery
                 Tags = new List<int> { 7 },
                 SearchForMissingChapters = true
             };
+        }
+
+        [SetUp]
+        public void Setup()
+        {
+            // Mirror ImportListSyncServiceFixture: AddManga always returns its input list.
+            // The real AddManga(List<Manga>, bool) never returns null, so leaving the Moq
+            // default (null) would NRE inside Execute's added.Count and log a spurious Error
+            // that ExceptionVerification (TearDown) fails on — masked by `dotnet test --filter`
+            // but caught by the audit-new-fixtures gate.
+            Mocker.GetMock<IAddMangaService>()
+                  .Setup(s => s.AddManga(It.IsAny<List<Manga.Manga>>(), It.IsAny<bool>()))
+                  .Returns<List<Manga.Manga>, bool>((list, _) => list);
         }
 
         [Test]
@@ -75,6 +89,10 @@ namespace NzbDrone.Core.Test.Discovery
             Action exec = () => Subject.Execute(BuildCommand(101, 102, 103));
 
             exec.Should().NotThrow();
+
+            // The executor isolates the failure by logging an Error (T-42-03-ISO) instead of
+            // rethrowing; declare it so ExceptionVerification (TearDown) does not fail the test.
+            ExceptionVerification.ExpectedErrors(1);
         }
     }
 }
