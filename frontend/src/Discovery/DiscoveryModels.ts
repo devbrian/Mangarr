@@ -122,6 +122,8 @@ export interface DiscoveryResult {
   type?: string;
   contentRating?: string;
   genres: string[];
+  description?: string;
+  tags: string[];
   score?: number;
 }
 

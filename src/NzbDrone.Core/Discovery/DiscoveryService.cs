@@ -41,6 +41,9 @@ namespace NzbDrone.Core.Discovery
         private const int Limit = 100;
         private const int MaxPage = 100;
 
+        // Cap on tag names surfaced per card (weight-ordered) — bounds the search payload.
+        private const int MaxCardTags = 40;
+
         private readonly IMetadataSourceFactory _metadataSourceFactory;
         private readonly IMangaService _mangaService;
         private readonly IImportListExclusionService _importListExclusionService;
@@ -235,6 +238,15 @@ namespace NzbDrone.Core.Discovery
                 || string.Equals(state, "deleted", StringComparison.OrdinalIgnoreCase);
         }
 
+        // tags_v2 weight ranking — most-relevant tags first; unknown weights sort last.
+        private static int WeightRank(string weight) => weight?.ToLowerInvariant() switch
+        {
+            "defining" => 0,
+            "core" => 1,
+            "incidental" => 2,
+            _ => 3
+        };
+
         private static DiscoveryResultItem Map(MangaBakaSeries row)
         {
             return new DiscoveryResultItem
@@ -247,6 +259,13 @@ namespace NzbDrone.Core.Discovery
                 Type = row.Type,
                 ContentRating = row.ContentRating,
                 Genres = row.Genres ?? new List<string>(),
+                Description = row.Description,
+                Tags = (row.TagsV2 ?? new List<MangaBakaSeriesTag>())
+                    .Where(t => !string.IsNullOrWhiteSpace(t.Name))
+                    .OrderBy(t => WeightRank(t.Weight))
+                    .Select(t => t.Name)
+                    .Take(MaxCardTags)
+                    .ToList(),
                 Score = row.Rating
             };
         }

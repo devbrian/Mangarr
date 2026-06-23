@@ -41,6 +41,10 @@ public class DiscoveryResultResource
     public string? ContentRating { get; set; }
     public List<string> Genres { get; set; } = [];
 
+    // Synopsis (title popover) + weight-ordered tag names (cover tags popover).
+    public string? Description { get; set; }
+    public List<string> Tags { get; set; } = [];
+
     // 0-100 score (decimal? — the MangaBaka wire value is fractional; the card UI rounds
     // at display per Plan 42-01/42-02's decimal? typing).
     public decimal? Score { get; set; }
@@ -76,6 +80,8 @@ public static class DiscoveryResourceMapper
         Type = model.Type,
         ContentRating = model.ContentRating,
         Genres = model.Genres ?? [],
+        Description = model.Description,
+        Tags = model.Tags ?? [],
         Score = model.Score
     };
 

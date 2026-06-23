@@ -59,6 +59,12 @@ namespace NzbDrone.Core.Discovery
         public string ContentRating { get; set; }
         public List<string> Genres { get; set; } = new List<string>();
 
+        // Synopsis shown in the title click-to-open popover.
+        public string Description { get; set; }
+
+        // Tag names (weight-ordered, capped) shown in the cover tags click-to-open popover.
+        public List<string> Tags { get; set; } = new List<string>();
+
         // 0–100 popularity/quality score (decimal? — the MangaBaka wire value is fractional;
         // the card UI truncates/rounds at the display boundary per Plan 42-01's decimal? typing).
         public decimal? Score { get; set; }

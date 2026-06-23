@@ -63,19 +63,112 @@
   font-size: 11px;
 }
 
+/* Cover badges sit over arbitrary cover art — use a near-solid dark pill so the
+   coloured text stays legible (the translucent .18 fills washed out). */
 .badgeType {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: rgba(17, 20, 26, 0.85);
+  color: #9ec5f5;
+}
+
+.badgeScore {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: rgba(17, 20, 26, 0.85);
+  color: #f9be03;
+}
+
+/* Per-status colours (body, over the solid card bg — translucent fills read fine). */
+.statusReleasing {
+  background-color: rgba(39, 194, 76, 0.18);
+  color: #8ce6a3;
+}
+
+.statusCompleted {
   background-color: rgba(93, 156, 236, 0.18);
   color: #9ec5f5;
 }
 
-.badgeStatus {
-  background-color: rgba(255, 144, 43, 0.16);
+.statusHiatus {
+  background-color: rgba(255, 144, 43, 0.18);
   color: #ffb870;
 }
 
-.badgeScore {
-  background-color: rgba(249, 190, 3, 0.16);
-  color: #f9be03;
+.statusCancelled {
+  background-color: rgba(240, 80, 80, 0.18);
+  color: #f3a0a0;
+}
+
+.statusUpcoming {
+  background-color: rgba(177, 130, 255, 0.18);
+  color: #cbb3ff;
+}
+
+.statusUnknown {
+  background-color: rgba(144, 146, 147, 0.2);
+  color: #b8babb;
+}
+
+.coverTags {
+  position: absolute;
+  bottom: 7px;
+  left: 7px;
+}
+
+.tagsButton {
+  display: inline-flex;
+}
+
+.tagsButtonInner {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background-color: rgba(17, 20, 26, 0.85);
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.tagsButtonInner:hover {
+  background-color: rgba(0, 0, 0, 0.92);
+}
+
+.tagsCount {
+  font-weight: 600;
+}
+
+.tagsPopover {
+  display: flex;
+  flex-wrap: wrap;
+  overflow: auto;
+  max-width: 320px;
+  max-height: 260px;
+  gap: 5px;
+}
+
+.tagPill {
+  padding: 2px 8px;
+  border: 1px solid var(--borderColor);
+  border-radius: 10px;
+  background-color: var(--cardBackgroundColor);
+  color: var(--textColor);
+  font-size: 12px;
+}
+
+.titlePopoverAnchor {
+  display: block;
+  cursor: pointer;
+}
+
+.descriptionPopover {
+  overflow: auto;
+  max-width: 360px;
+  max-height: 320px;
+  font-size: 12.5px;
+  line-height: 1.5;
 }
 
 .excludeButton {

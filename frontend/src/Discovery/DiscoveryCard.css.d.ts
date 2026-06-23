@@ -3,19 +3,32 @@
 interface CssExports {
   'badge': string;
   'badgeScore': string;
-  'badgeStatus': string;
   'badgeType': string;
   'body': string;
   'card': string;
   'coverBadges': string;
   'coverScore': string;
+  'coverTags': string;
+  'descriptionPopover': string;
   'excludeButton': string;
   'genreLine': string;
   'meta': string;
   'poster': string;
   'posterContainer': string;
   'posterPlaceholder': string;
+  'statusCancelled': string;
+  'statusCompleted': string;
+  'statusHiatus': string;
+  'statusReleasing': string;
+  'statusUnknown': string;
+  'statusUpcoming': string;
+  'tagPill': string;
+  'tagsButton': string;
+  'tagsButtonInner': string;
+  'tagsCount': string;
+  'tagsPopover': string;
   'title': string;
+  'titlePopoverAnchor': string;
 }
 export const cssExports: CssExports;
 export default cssExports;

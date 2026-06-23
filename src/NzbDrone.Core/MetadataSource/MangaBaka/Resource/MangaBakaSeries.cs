@@ -97,6 +97,11 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka.Resource
         [JsonProperty("genres")]
         public List<string> Genres { get; set; }
 
+        // Rich tag objects (the v2 tag taxonomy — NOT the flat "tags" string array). The
+        // Discovery card surfaces tag NAMES (ordered by weight) in a click-to-open popover.
+        [JsonProperty("tags_v2")]
+        public List<MangaBakaSeriesTag> TagsV2 { get; set; }
+
         // PITFALL 2: STRING per MangaBaka API (never int?) — parse via decimal.TryParse +
         // Math.Truncate at consumption (Plan 41-03), never coerced by Newtonsoft.
         [JsonProperty("total_chapters")]
@@ -111,6 +116,21 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka.Resource
 
         [JsonProperty("source")]
         public MangaBakaSource Source { get; set; }
+    }
+
+    /// <summary>
+    /// One entry of the <c>tags_v2[]</c> taxonomy. Only <see cref="Name"/> + <see cref="Weight"/>
+    /// are consumed — the card popover lists the names, weight-ordered (defining &gt; core &gt;
+    /// incidental) so the most relevant tags surface first.
+    /// </summary>
+    public class MangaBakaSeriesTag
+    {
+        [JsonProperty("name")]
+        public string Name { get; set; }
+
+        // "defining" | "core" | "incidental" (others possible) — relevance hint.
+        [JsonProperty("weight")]
+        public string Weight { get; set; }
     }
 
     /// <summary>
