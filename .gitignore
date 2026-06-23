@@ -168,8 +168,10 @@ src/.idea/
 .idea/
 # Added by code-review-graph
 .code-review-graph/
-# Claude
-.claude/settings.local.json
+# Claude / GSD internal dev artifacts (kept out of the public repo — may contain
+# dev-stack creds, internal notes, and personal workflow details)
+.claude/
+.planning/
 src/.claude/settings.local.json
 # Claude Code transient agent worktrees (residual filesystem leftover from
 # `git worktree remove --force` on Windows; .git/worktrees entry is cleaned up
