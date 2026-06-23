@@ -20,84 +20,37 @@
 //   * Monitor dropdown ships the 5 manga values per Phase 6 D-03 + UI-SPEC
 //     §Form / monitor labels (NOT the 11 Sonarr-side entries).
 //
+// Phase 42 Plan 42-07: the <Form> body + profile-fallback plumbing was factored
+// into the shared <AddMangaFormBody> (reused by the count-only bulk-add modal).
+// This component keeps the single-add ModalContent shell — poster/overview +
+// the footer SearchOnAdd toggle + the "Add {title}" SpinnerButton — and reads
+// the SAME addMangaOptionsStore for the submit payload + root-folder gate.
+//
 // Phase 8 cleanup: collapse with AddNewSeriesModalContent when AddSeries/ deletes.
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { AddMangaResult } from 'AddManga/AddManga';
 import {
-  AddMangaOptions,
   setAddMangaOption,
   useAddMangaOptions,
 } from 'AddManga/addMangaOptionsStore';
-import MangaMonitoringOptionsPopoverContent from 'AddManga/MangaMonitoringOptionsPopoverContent';
 import { useAppDimension } from 'App/appStore';
 import CheckInput from 'Components/Form/CheckInput';
-import Form from 'Components/Form/Form';
-import FormGroup from 'Components/Form/FormGroup';
-import FormInputGroup from 'Components/Form/FormInputGroup';
-import FormLabel from 'Components/Form/FormLabel';
-import { EnhancedSelectInputValue } from 'Components/Form/Select/EnhancedSelectInput';
-import Icon from 'Components/Icon';
 import SpinnerButton from 'Components/Link/SpinnerButton';
 import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
-import Popover from 'Components/Tooltip/Popover';
-import { getValidationFailures } from 'Helpers/Hooks/useApiMutation';
-import useApiQuery from 'Helpers/Hooks/useApiQuery';
-import { icons, inputTypes, kinds, tooltipPositions } from 'Helpers/Props';
+import { kinds } from 'Helpers/Props';
 import MangaPoster from 'Manga/MangaPoster';
-import selectSettings from 'Store/Selectors/selectSettings';
-import { useIsWindows } from 'System/Status/useSystemStatus';
-import { InputChanged } from 'typings/inputs';
+import { CheckInputChanged } from 'typings/inputs';
 import translate from 'Utilities/String/translate';
+import AddMangaFormBody from './AddMangaFormBody';
 import { useAddManga } from './useAddManga';
 import styles from './AddNewMangaModalContent.css';
 
 export interface AddNewMangaModalContentProps {
   manga: AddMangaResult;
   onModalClose: () => void;
-}
-
-// 5-value MangaMonitor enum (Phase 6 D-03) — UI-SPEC §Form / monitor labels.
-const monitorValues: EnhancedSelectInputValue<string>[] = [
-  {
-    key: 'all',
-    get value() {
-      return translate('MonitorAllChapters');
-    },
-  },
-  {
-    key: 'future',
-    get value() {
-      return translate('MonitorFutureChapters');
-    },
-  },
-  {
-    key: 'missing',
-    get value() {
-      return translate('MonitorMissingChapters');
-    },
-  },
-  {
-    key: 'latest',
-    get value() {
-      return translate('MonitorLatestChapter');
-    },
-  },
-  {
-    key: 'none',
-    get value() {
-      return translate('MonitorNone');
-    },
-  },
-];
-
-interface ProfileResource {
-  id: number;
-  name?: string;
-  // Backend-computed from Config.Default{Translation,CustomFormat}ProfileId (quick-260608-gmm).
-  isDefault?: boolean;
 }
 
 function AddNewMangaModalContent({
@@ -107,92 +60,8 @@ function AddNewMangaModalContent({
   const { title, year, overview, images } = manga;
   const options = useAddMangaOptions();
   const isSmallScreen = useAppDimension('isSmallScreen');
-  // isWindows reused for the RootFolderSelectInput rendering (it formats path
-  // separators differently on Windows hosts).
-  const isWindows = useIsWindows();
 
   const { isAdding, addError, addManga } = useAddManga();
-
-  // Fetch the TranslationProfile + CustomFormatProfile lists from Phase 5
-  // V5 endpoints. Defer enabling until the modal is open (it always is when
-  // this component renders); no debounce needed.
-  const { data: translationProfilesData } = useApiQuery<ProfileResource[]>({
-    path: '/translationprofile',
-  });
-  const { data: customFormatProfilesData } = useApiQuery<ProfileResource[]>({
-    path: '/customformatprofile',
-  });
-
-  const translationProfileValues = useMemo<
-    EnhancedSelectInputValue<number>[]
-  >(() => {
-    return (translationProfilesData ?? []).map((profile) => ({
-      key: profile.id,
-      value: profile.name ?? `Translation Profile ${profile.id}`,
-    }));
-  }, [translationProfilesData]);
-
-  const customFormatProfileValues = useMemo<
-    EnhancedSelectInputValue<number>[]
-  >(() => {
-    return (customFormatProfilesData ?? []).map((profile) => ({
-      key: profile.id,
-      value: profile.name ?? `Custom Format Profile ${profile.id}`,
-    }));
-  }, [customFormatProfilesData]);
-
-  // Pre-select the default profile (the one flagged isDefault, else the first) whenever the
-  // stored selection is unset (0) or points at a profile that no longer exists. The persisted
-  // addMangaOptionsStore seeds both ids at 0 ("fall back to Config default"), and
-  // EnhancedSelectInput does NOT write a default back — so without this the Custom Format select
-  // rendered blank and POST /manga sent customFormatProfileId 0 (orphan FK -> no CF scoring)
-  // unless the user picked one by hand. Mirrors the AddNewManga "re-bind to a real profile id once
-  // the query resolves" contract (AddNewManga/CLAUDE.md §Profile fall-back sentinel). quick-260608-gmm.
-  useEffect(() => {
-    if (!translationProfilesData?.length) {
-      return;
-    }
-    const valid = translationProfilesData.some(
-      (p) => p.id === options.translationProfileId
-    );
-    if (!valid) {
-      const fallback =
-        translationProfilesData.find((p) => p.isDefault) ??
-        translationProfilesData[0];
-      setAddMangaOption('translationProfileId', fallback.id);
-    }
-  }, [translationProfilesData, options.translationProfileId]);
-
-  useEffect(() => {
-    if (!customFormatProfilesData?.length) {
-      return;
-    }
-    const valid = customFormatProfilesData.some(
-      (p) => p.id === options.customFormatProfileId
-    );
-    if (!valid) {
-      const fallback =
-        customFormatProfilesData.find((p) => p.isDefault) ??
-        customFormatProfilesData[0];
-      setAddMangaOption('customFormatProfileId', fallback.id);
-    }
-  }, [customFormatProfilesData, options.customFormatProfileId]);
-
-  const { settings, validationErrors, validationWarnings } = useMemo(() => {
-    return {
-      ...selectSettings(options, {}),
-      ...getValidationFailures(addError),
-    };
-  }, [options, addError]);
-
-  const {
-    monitor,
-    rootFolderPath,
-    translationProfileId,
-    customFormatProfileId,
-    searchForMissingChapters,
-    tags,
-  } = settings;
 
   // Bug fix pr-smoke-add-manga-timeout (2026-05-14): RootFolderSelectInput
   // replaces the zustand store's default `rootFolderPath: ''` with the first
@@ -202,12 +71,15 @@ function AddNewMangaModalContent({
   // backend PathValidator rejects the bare title with HTTP 400 — the modal then
   // correctly stays open, but the add never lands. Gate the submit on a
   // populated root folder; mirrors how Sonarr's AddNewSeries gated submit on a
-  // chosen root folder.
-  const isRootFolderMissing = !rootFolderPath.value;
+  // chosen root folder. Read straight from the shared store (the form body
+  // writes through the same store).
+  const isRootFolderMissing = !options.rootFolderPath;
 
-  const handleInputChange = useCallback(
-    ({ name, value }: InputChanged<string | number | boolean | number[]>) => {
-      setAddMangaOption(name as keyof AddMangaOptions, value);
+  const handleSearchToggleChange = useCallback(
+    ({ value }: CheckInputChanged) => {
+      // searchForMissingChapters is the only field the footer toggle owns; the
+      // form body owns the rest. Both write through addMangaOptionsStore.
+      setAddMangaOption('searchForMissingChapters', value);
     },
     []
   );
@@ -217,11 +89,7 @@ function AddNewMangaModalContent({
     // never POST while the root folder is still unpopulated (see
     // isRootFolderMissing above). The SpinnerButton is also disabled in this
     // state, but guarding the handler too closes any window where a press lands
-    // before the disabled state has rendered. This branch should be
-    // unreachable: `isDisabled={isRootFolderMissing}` is enforced both by the
-    // native `<button disabled>` attribute and by Link.onClick's own
-    // `if (isDisabled) return`. The console.error is a free regression tripwire
-    // — if it ever fires, the button-gating above has silently broken.
+    // before the disabled state has rendered.
     if (isRootFolderMissing) {
       console.error(
         'AddNewMangaModalContent: handleAddMangaPress invoked with an empty rootFolderPath — the Add-button isDisabled gating has regressed.'
@@ -232,10 +100,6 @@ function AddNewMangaModalContent({
     // Bug fix new-manga-default-monitored (2026-05-08): send `monitored: true`
     // explicitly + nest the per-Chapter Monitor cascade fields under `addOptions`
     // so they survive backend MangaResource → Manga.AddOptions deserialization.
-    // Without these, the backend MangaScannedHandler bypasses
-    // SetChapterMonitoredStatus entirely and Manga.Monitored persists as false.
-    // Backend MangaController.AddManga also defaults Monitored=true unless
-    // AddOptions.Monitor=None — sending true from the UI is defense in depth.
     addManga({
       title: manga.title,
       titleSlug: manga.titleSlug,
@@ -243,29 +107,19 @@ function AddNewMangaModalContent({
       mangaDexId: manga.mangaDexId,
       aniListId: manga.aniListId,
       malId: manga.malId,
-      rootFolderPath: rootFolderPath.value,
-      monitored: monitor.value !== 'none',
-      monitor: monitor.value,
+      rootFolderPath: options.rootFolderPath,
+      monitored: options.monitor !== 'none',
+      monitor: options.monitor,
       addOptions: {
-        monitor: monitor.value,
-        searchForMissingChapters: searchForMissingChapters.value,
+        monitor: options.monitor,
+        searchForMissingChapters: options.searchForMissingChapters,
       },
-      translationProfileId: translationProfileId.value,
-      customFormatProfileId: customFormatProfileId.value,
-      tags: tags.value,
-      searchForMissingChapters: searchForMissingChapters.value,
+      translationProfileId: options.translationProfileId,
+      customFormatProfileId: options.customFormatProfileId,
+      tags: options.tags,
+      searchForMissingChapters: options.searchForMissingChapters,
     });
-  }, [
-    manga,
-    isRootFolderMissing,
-    rootFolderPath,
-    monitor,
-    translationProfileId,
-    customFormatProfileId,
-    tags,
-    searchForMissingChapters,
-    addManga,
-  ]);
+  }, [manga, isRootFolderMissing, options, addManga]);
 
   return (
     <ModalContent onModalClose={onModalClose}>
@@ -295,90 +149,7 @@ function AddNewMangaModalContent({
               <div className={styles.overview}>{overview}</div>
             ) : null}
 
-            <Form
-              validationErrors={validationErrors}
-              validationWarnings={validationWarnings}
-            >
-              <FormGroup>
-                <FormLabel>{translate('RootFolder')}</FormLabel>
-
-                <FormInputGroup
-                  type={inputTypes.ROOT_FOLDER_SELECT}
-                  name="rootFolderPath"
-                  valueOptions={{
-                    mangaFolder: title,
-                    isWindows,
-                  }}
-                  selectedValueOptions={{
-                    mangaFolder: title,
-                    isWindows,
-                  }}
-                  helpText={translate('AddNewMangaRootFolderHelpText', {
-                    folder: title,
-                  })}
-                  onChange={handleInputChange}
-                  {...rootFolderPath}
-                />
-              </FormGroup>
-
-              <FormGroup>
-                <FormLabel>
-                  {translate('Monitor')}
-
-                  <Popover
-                    anchor={
-                      <Icon className={styles.labelIcon} name={icons.INFO} />
-                    }
-                    title={translate('MonitoringOptions')}
-                    body={<MangaMonitoringOptionsPopoverContent />}
-                    position={tooltipPositions.RIGHT}
-                  />
-                </FormLabel>
-
-                <FormInputGroup
-                  type={inputTypes.SELECT}
-                  name="monitor"
-                  values={monitorValues}
-                  onChange={handleInputChange}
-                  {...monitor}
-                />
-              </FormGroup>
-
-              <FormGroup>
-                <FormLabel>{translate('TranslationProfile')}</FormLabel>
-
-                <FormInputGroup
-                  type={inputTypes.SELECT}
-                  name="translationProfileId"
-                  values={translationProfileValues}
-                  onChange={handleInputChange}
-                  {...translationProfileId}
-                />
-              </FormGroup>
-
-              <FormGroup>
-                <FormLabel>{translate('CustomFormatProfile')}</FormLabel>
-
-                <FormInputGroup
-                  type={inputTypes.SELECT}
-                  name="customFormatProfileId"
-                  values={customFormatProfileValues}
-                  onChange={handleInputChange}
-                  {...customFormatProfileId}
-                />
-              </FormGroup>
-
-              <FormGroup>
-                <FormLabel>{translate('Tags')}</FormLabel>
-
-                <FormInputGroup
-                  type={inputTypes.TAG}
-                  name="tags"
-                  onChange={handleInputChange}
-                  {...tags}
-                />
-              </FormGroup>
-            </Form>
+            <AddMangaFormBody addError={addError} rootFolderName={title} />
           </div>
         </div>
       </ModalBody>
@@ -394,8 +165,8 @@ function AddNewMangaModalContent({
               containerClassName={styles.searchInputContainer}
               className={styles.searchInput}
               name="searchForMissingChapters"
-              onChange={handleInputChange}
-              {...searchForMissingChapters}
+              value={options.searchForMissingChapters}
+              onChange={handleSearchToggleChange}
             />
           </label>
         </div>
