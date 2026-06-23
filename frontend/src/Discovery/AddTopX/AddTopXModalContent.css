@@ -1,3 +1,9 @@
+.summaryDetail {
+  margin-top: 3px;
+  color: var(--helpTextColor);
+  font-size: 12px;
+}
+
 .searchLabelContainer {
   display: flex;
   justify-content: flex-end;

@@ -11,6 +11,7 @@
 // state; the grid keeps a local `removedIds` set so added/excluded rows drop
 // optimistically (D-08) WITHOUT touching ['/manga'] (the results are
 // Discovery-local, so there is no SignalR double-removal conflict).
+import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Alert from 'Components/Alert';
 import NumberInput, { NumberInputChanged } from 'Components/Form/NumberInput';
@@ -25,6 +26,8 @@ import DiscoveryCard from 'Discovery/DiscoveryCard';
 import {
   DiscoveryResult,
   toDiscoverySearchRequest,
+  TristateMap,
+  TristateMode,
 } from 'Discovery/DiscoveryModels';
 import {
   setDiscoveryOption,
@@ -48,6 +51,14 @@ interface UndoState {
 }
 
 const UNDO_TOAST_SECONDS = 8;
+
+// Prettify a raw API filter token for the active-filter preview:
+// "boys_love" -> "Boys Love", "manhwa" -> "Manhwa".
+function prettifyFilterLabel(value: string): string {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 function Discovery() {
   const options = useDiscoveryOptions();
@@ -81,6 +92,48 @@ function Discovery() {
     () => visibleResults.map((r) => r.mangaBakaId),
     [visibleResults]
   );
+
+  // Active-filter preview (sketch 001): a compact read-only summary of the
+  // current filter selections, shown in the toolbar when the drawer is closed.
+  // Included types render as solid badges; genres/status/content-rating/tags
+  // render as read-only include/exclude chips.
+  const activeFilters = useMemo(() => {
+    const items: {
+      key: string;
+      label: string;
+      mode: TristateMode;
+      isType: boolean;
+    }[] = [];
+
+    Object.entries(options.type).forEach(([value, mode]) =>
+      items.push({ key: `type-${value}`, label: value, mode, isType: true })
+    );
+
+    const addTristate = (group: TristateMap, prefix: string) =>
+      Object.entries(group).forEach(([value, mode]) =>
+        items.push({
+          key: `${prefix}-${value}`,
+          label: value,
+          mode,
+          isType: false,
+        })
+      );
+
+    addTristate(options.genre, 'genre');
+    addTristate(options.status, 'status');
+    addTristate(options.contentRating, 'rating');
+
+    options.tags.forEach((tag) =>
+      items.push({
+        key: `tag-${tag.id}`,
+        label: tag.name,
+        mode: tag.mode,
+        isType: false,
+      })
+    );
+
+    return items;
+  }, [options]);
 
   const handleTopXChange = useCallback(({ value }: NumberInputChanged) => {
     setDiscoveryOption('topX', value ?? 20);
@@ -200,9 +253,50 @@ function Discovery() {
               <Icon name={icons.FILTER} size={15} />
               {translate('Filters')}
             </Button>
+
+            {activeFilters.length ? (
+              <div
+                className={styles.activeFilters}
+                data-testid="discovery-active-filters"
+              >
+                {activeFilters.map((filter) =>
+                  filter.isType && filter.mode === 'include' ? (
+                    <span key={filter.key} className={styles.previewBadge}>
+                      {prettifyFilterLabel(filter.label)}
+                    </span>
+                  ) : (
+                    <span
+                      key={filter.key}
+                      className={classNames(
+                        styles.previewChip,
+                        filter.mode === 'include'
+                          ? styles.previewChipInclude
+                          : styles.previewChipExclude
+                      )}
+                    >
+                      {prettifyFilterLabel(filter.label)}
+                    </span>
+                  )
+                )}
+              </div>
+            ) : null}
           </div>
 
           <div className={styles.toolbarRight}>
+            {data ? (
+              <span
+                className={styles.resultCount}
+                data-testid="discovery-result-count"
+              >
+                {translate('DiscoveryResultCount', {
+                  eligible: data.found,
+                  total: data.totalMatch,
+                  inLibrary: data.hiddenInLibrary,
+                  excluded: data.hiddenExcluded,
+                })}
+              </span>
+            ) : null}
+
             <span className={styles.topLabel}>
               {translate('DiscoveryTopX')}
             </span>

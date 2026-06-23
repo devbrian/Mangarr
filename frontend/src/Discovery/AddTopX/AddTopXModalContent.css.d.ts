@@ -7,6 +7,7 @@ interface CssExports {
   'searchInputContainer': string;
   'searchLabel': string;
   'searchLabelContainer': string;
+  'summaryDetail': string;
 }
 export const cssExports: CssExports;
 export default cssExports;

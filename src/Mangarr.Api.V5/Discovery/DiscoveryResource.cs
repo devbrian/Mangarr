@@ -22,6 +22,12 @@ public class DiscoverySearchResponseResource
 
     // Count of eligible rows the loop accumulated.
     public int Found { get; set; }
+
+    // Toolbar summary figures (sketch 001): total matching the filter + the in-library / excluded
+    // rows skipped while paging.
+    public int TotalMatch { get; set; }
+    public int HiddenInLibrary { get; set; }
+    public int HiddenExcluded { get; set; }
 }
 
 public class DiscoveryResultResource
@@ -78,7 +84,10 @@ public static class DiscoveryResourceMapper
         Results = model.Results?.Select(r => r.ToResource()).ToList() ?? [],
         PoolExhausted = model.PoolExhausted,
         Requested = model.Requested,
-        Found = model.Found
+        Found = model.Found,
+        TotalMatch = model.TotalMatch,
+        HiddenInLibrary = model.HiddenInLibrary,
+        HiddenExcluded = model.HiddenExcluded
     };
 
     public static DiscoveryGenreResource ToResource(this MangaBakaGenre model) => new()

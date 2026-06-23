@@ -104,9 +104,20 @@ namespace NzbDrone.Core.Discovery
             var poolExhausted = false;
             var page = 1;
 
+            // Toolbar summary figures (sketch 001): total matching the filter (captured once from
+            // the first page's pagination) + the in-library/excluded rows skipped while paging.
+            var totalMatch = 0;
+            var hiddenInLibrary = 0;
+            var hiddenExcluded = 0;
+
             for (; page <= MaxPage; page++)
             {
                 var resource = mangaBaka.Browse(browseFilter, page, Limit);
+
+                if (page == 1)
+                {
+                    totalMatch = resource?.Pagination?.Total ?? 0;
+                }
 
                 // Empty/absent page → the pool is dry (there is no `next` field on the MangaBaka
                 // envelope; an empty Data array is the definitive end-of-pool signal).
@@ -125,8 +136,16 @@ namespace NzbDrone.Core.Discovery
                         continue;
                     }
 
-                    if (inLibrary.Contains(row.Id) || excluded.Contains(row.Id))
+                    // Count the two hidden classes separately for the toolbar summary.
+                    if (inLibrary.Contains(row.Id))
                     {
+                        hiddenInLibrary++;
+                        continue;
+                    }
+
+                    if (excluded.Contains(row.Id))
+                    {
+                        hiddenExcluded++;
                         continue;
                     }
 
@@ -160,7 +179,10 @@ namespace NzbDrone.Core.Discovery
                 Results = eligible.Take(x).ToList(),
                 PoolExhausted = poolExhausted,
                 Requested = x,
-                Found = eligible.Count
+                Found = eligible.Count,
+                TotalMatch = totalMatch,
+                HiddenInLibrary = hiddenInLibrary,
+                HiddenExcluded = hiddenExcluded
             };
         }
 

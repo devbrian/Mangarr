@@ -14,6 +14,7 @@ import {
   useAddMangaOptions,
 } from 'AddManga/addMangaOptionsStore';
 import AddMangaFormBody from 'AddManga/AddNewManga/AddMangaFormBody';
+import Alert from 'Components/Alert';
 import CheckInput from 'Components/Form/CheckInput';
 import SpinnerButton from 'Components/Link/SpinnerButton';
 import ModalBody from 'Components/Modal/ModalBody';
@@ -92,7 +93,14 @@ function AddTopXModalContent({
         <div data-testid="add-top-x-modal">
           <AddMangaFormBody
             addError={addError}
-            countSummary={translate('DiscoveryBulkAddSummary', { count })}
+            countSummary={
+              <Alert kind={kinds.INFO}>
+                <div>{translate('DiscoveryBulkAddSummary', { count })}</div>
+                <div className={styles.summaryDetail}>
+                  {translate('DiscoveryBulkAddSummaryDetail', { count })}
+                </div>
+              </Alert>
+            }
           />
         </div>
       </ModalBody>

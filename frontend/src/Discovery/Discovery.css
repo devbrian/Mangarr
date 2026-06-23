@@ -35,8 +35,70 @@
 .grid {
   display: grid;
   margin-top: 10px;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 15px;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 16px;
+}
+
+.activeFilters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.previewBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background-color: rgba(93, 156, 236, 0.18);
+  color: #9ec5f5;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.previewChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 3px 10px;
+  border: 1px solid var(--borderColor);
+  border-radius: 14px;
+  background-color: var(--cardBackgroundColor);
+  color: var(--textColor);
+  font-size: 12px;
+}
+
+.previewChipInclude {
+  border-color: #27c24c;
+  background-color: rgba(39, 194, 76, 0.16);
+  color: #8ce6a3;
+}
+
+.previewChipInclude::before {
+  color: #27c24c;
+  content: '✓';
+}
+
+.previewChipExclude {
+  border-color: #f05050;
+  background-color: rgba(240, 80, 80, 0.15);
+  color: #f3a0a0;
+  text-decoration: line-through;
+}
+
+.previewChipExclude::before {
+  color: #f05050;
+  content: '✕';
+  text-decoration: none;
+}
+
+.resultCount {
+  color: var(--helpTextColor);
+  white-space: nowrap;
+  font-size: 12.5px;
 }
 
 .emptyState {

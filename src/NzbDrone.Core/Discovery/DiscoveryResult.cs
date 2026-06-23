@@ -29,6 +29,18 @@ namespace NzbDrone.Core.Discovery
         // Count of eligible rows collected (may exceed Requested before the Take(x) trim, but is
         // reported here as the true eligible count the loop accumulated).
         public int Found { get; set; }
+
+        // Total rows on MangaBaka matching the filter (the first page's pagination total) — the
+        // "764 total match" figure in the toolbar summary (sketch 001).
+        public int TotalMatch { get; set; }
+
+        // Rows skipped while paging because they are already in the library — the
+        // "hiding N in library" figure.
+        public int HiddenInLibrary { get; set; }
+
+        // Rows skipped while paging because they are on the global ImportListExclusion list —
+        // the "M excluded" figure.
+        public int HiddenExcluded { get; set; }
     }
 
     /// <summary>

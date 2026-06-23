@@ -130,6 +130,10 @@ export interface DiscoverySearchResponse {
   poolExhausted: boolean;
   requested: number;
   found: number;
+  // Toolbar summary figures (sketch 001).
+  totalMatch: number;
+  hiddenInLibrary: number;
+  hiddenExcluded: number;
 }
 
 export interface DiscoveryGenre {

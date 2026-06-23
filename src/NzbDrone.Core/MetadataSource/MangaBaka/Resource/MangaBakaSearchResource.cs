@@ -36,7 +36,10 @@ namespace NzbDrone.Core.MetadataSource.MangaBaka.Resource
         [JsonProperty("limit")]
         public int? Limit { get; set; }
 
-        [JsonProperty("total")]
+        // The MangaBaka envelope reports the total matching the filter as "count"
+        // (e.g. 202528), NOT "total" — the Discovery toolbar's "N total match"
+        // figure + the loop's computed-exhaustion guard read this.
+        [JsonProperty("count")]
         public int? Total { get; set; }
     }
 }
