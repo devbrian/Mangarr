@@ -19,6 +19,11 @@ public class DiscoveryBulkAddResourceValidator : AbstractValidator<DiscoveryBulk
         RuleFor(r => r.MangaBakaIds).NotEmpty()
             .WithMessage("mangaBakaIds must contain at least one id.");
 
+        // A 0/negative MangaBakaId is never a real catalog id; reject it at the boundary
+        // instead of queueing a doomed background add attempt (PR #396 review follow-up).
+        RuleForEach(r => r.MangaBakaIds).GreaterThan(0)
+            .WithMessage("mangaBakaIds must contain only positive ids.");
+
         RuleFor(r => r.RootFolderPath).NotEmpty()
             .WithMessage("rootFolderPath is required.");
 

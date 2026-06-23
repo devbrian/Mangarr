@@ -209,11 +209,43 @@ namespace NzbDrone.Api.Test.Discovery
         }
 
         [Test]
-        public void BulkAdd_returns_BadRequest_when_profile_ids_not_positive()
+        public void BulkAdd_returns_BadRequest_when_translation_profile_id_not_positive()
         {
             // PR #396 review #3: profile ids resolve by id downstream; 0/negative is never valid.
             var resource = ValidBulkAddResource(new[] { 1 });
             resource.TranslationProfileId = 0;
+
+            var result = Subject.BulkAdd(resource);
+
+            result.Result.Should().BeOfType<BadRequest>();
+
+            Mocker.GetMock<IManageCommandQueue>()
+                .Verify(q => q.Push(It.IsAny<DiscoveryBulkAddCommand>(), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()),
+                    Times.Never);
+        }
+
+        [Test]
+        public void BulkAdd_returns_BadRequest_when_custom_format_profile_id_not_positive()
+        {
+            // Sibling to the TranslationProfileId case — pin BOTH profile-id rules.
+            var resource = ValidBulkAddResource(new[] { 1 });
+            resource.CustomFormatProfileId = 0;
+
+            var result = Subject.BulkAdd(resource);
+
+            result.Result.Should().BeOfType<BadRequest>();
+
+            Mocker.GetMock<IManageCommandQueue>()
+                .Verify(q => q.Push(It.IsAny<DiscoveryBulkAddCommand>(), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()),
+                    Times.Never);
+        }
+
+        [Test]
+        public void BulkAdd_returns_BadRequest_when_an_id_is_not_positive()
+        {
+            // PR #396 review follow-up: a 0/negative MangaBakaId is not a real catalog id;
+            // reject it at the boundary instead of queueing a doomed background add.
+            var resource = ValidBulkAddResource(new[] { 1, 0, 3 });
 
             var result = Subject.BulkAdd(resource);
 
