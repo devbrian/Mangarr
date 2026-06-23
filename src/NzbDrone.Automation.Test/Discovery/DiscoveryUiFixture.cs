@@ -296,10 +296,16 @@ public class DiscoveryUiFixture : AutomationTest
         await chip.ClickAsync(); // exclude -> neutral
         await Assertions.Expect(chip).ToHaveAttributeAsync("data-state", "neutral");
 
-        // Select the saved preset (the EnhancedSelectInput dropdown renders the
-        // preset name as a clickable option) and apply it.
+        // Select the saved preset and apply it. The reused Sonarr EnhancedSelectInput
+        // renders its dropdown options into #portal-root and emits NO per-option
+        // data-testid (the same constraint that forces the testid onto the select's
+        // wrapper div), so the option is targeted by its test-owned name SCOPED to the
+        // portal — not a page-global GetByText (which would also match the collapsed
+        // select's displayed value once one is chosen). CodeRabbit PR #398.
         await Page.GetByTestId("discovery-preset-select").ClickAsync();
-        await Page.GetByText(presetName, new() { Exact = true }).ClickAsync();
+        await Page.Locator("#portal-root")
+            .GetByText(presetName, new() { Exact = true })
+            .ClickAsync();
         await Page.GetByTestId("discovery-preset-apply").ClickAsync();
 
         // STATE assertion: applying the snapshot restored the chip's include state.

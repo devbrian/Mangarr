@@ -60,7 +60,11 @@ function PresetsRow() {
     const preset = presets.find((p) => p.id === selectedPresetId);
 
     if (preset) {
-      setDiscoveryOptions(preset.filters);
+      // Deep-clone so the live store never shares nested object refs (type/genre/
+      // tags maps) with the stored preset — the mirror of addPreset's clone-on-save.
+      // Without it, a future in-place drawer mutation would back-corrupt the saved
+      // preset (CodeRabbit PR #398).
+      setDiscoveryOptions(structuredClone(preset.filters));
     }
   }, [presets, selectedPresetId]);
 
