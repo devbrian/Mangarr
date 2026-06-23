@@ -72,8 +72,11 @@ const CONTENT_RATING_OPTIONS: FilterOption[] = [
 const SORT_OPTIONS = [
   { key: 'score_desc', value: 'Score (High to Low)' },
   { key: 'score_asc', value: 'Score (Low to High)' },
-  { key: 'popularity_desc', value: 'Popularity (High to Low)' },
-  { key: 'popularity_asc', value: 'Popularity (Low to High)' },
+  // MangaBaka popularity is a RANK (1 = most popular), so "most popular first"
+  // is popularity_asc and "least popular first" is popularity_desc — inverse of
+  // the value-based sorts (score/chapters/year). Labels map to the right token.
+  { key: 'popularity_asc', value: 'Popularity (High to Low)' },
+  { key: 'popularity_desc', value: 'Popularity (Low to High)' },
   { key: 'name_asc', value: 'Name (A to Z)' },
   { key: 'name_desc', value: 'Name (Z to A)' },
   { key: 'published_year_desc', value: 'Year (Newest)' },

@@ -42,7 +42,7 @@ namespace NzbDrone.Core.Discovery
         private const int MaxPage = 100;
 
         // Cap on tag names surfaced per card (weight-ordered) — bounds the search payload.
-        private const int MaxCardTags = 40;
+        private const int MaxCardTags = 100;
 
         private readonly IMetadataSourceFactory _metadataSourceFactory;
         private readonly IMangaService _mangaService;
