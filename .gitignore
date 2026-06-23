@@ -182,3 +182,5 @@ _metadata_source_check/
 .machine-local/
 # Playwright MCP scratch output (UI snapshots / console logs from live dev-stack verification)
 .playwright-mcp/
+
+docker-compose.yml
