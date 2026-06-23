@@ -206,16 +206,25 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
 
   // quick-260623-imh — map the metadata-sourced `alternativeTitles` (string[], read-only on
   // the wire) into the AlternateTitle[] shape the existing Popover/MangaAlternateTitles
-  // consumes. Dedupe against the primary title is PRESERVED (now a string compare). The
-  // legacy `alternateTitles` field is never populated by the backend, so this is what lights
-  // up the previously-dead hover icon.
-  const alternateTitles = useMemo(
-    () =>
-      (manga?.alternativeTitles ?? [])
-        .filter((t) => t !== manga?.title)
-        .map((title) => ({ title })),
-    [manga]
-  );
+  // consumes. The legacy `alternateTitles` field is never populated by the backend, so this
+  // is what lights up the previously-dead hover icon.
+  //
+  // The stored values are NORMALIZED parser-match keys (lowercased, punctuation-stripped via
+  // MangaTitleNormalizer) — not display strings. Per the quick-260623-imh decision we apply a
+  // cheap title-case fallback for display only: capitalize the first letter of each ASCII word
+  // (`the beginning after the end` -> `The Beginning After The End`). CJK has no ASCII word
+  // boundary so it is left intact. This cannot restore stripped punctuation or proper
+  // romanization casing — a polished display field is a deliberate non-goal here. Dedupe
+  // against the primary title is case-insensitive so the title's own normalized alias is hidden.
+  const alternateTitles = useMemo(() => {
+    const titleCase = (raw: string) =>
+      raw.replace(/\b\w/g, (c) => c.toUpperCase());
+    const primaryLower = manga?.title?.toLowerCase();
+
+    return (manga?.alternativeTitles ?? [])
+      .filter((t) => t.toLowerCase() !== primaryLower)
+      .map((title) => ({ title: titleCase(title) }));
+  }, [manga]);
 
   if (!manga) {
     return null;
