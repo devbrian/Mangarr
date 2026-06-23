@@ -14,46 +14,22 @@ function MoreInfo() {
           {translate('HomePage')}
         </DescriptionListItemTitle>
         <DescriptionListItemDescription>
-          <Link to="https://sonarr.tv/">sonarr.tv</Link>
+          <Link to="https://mangarr.github.io/">mangarr.github.io</Link>
         </DescriptionListItemDescription>
 
         <DescriptionListItemTitle>{translate('Wiki')}</DescriptionListItemTitle>
         <DescriptionListItemDescription>
-          <Link to="https://wiki.servarr.com/sonarr">
-            wiki.servarr.com/sonarr
+          <Link to="https://mangarr.github.io/wiki">
+            mangarr.github.io/wiki
           </Link>
-        </DescriptionListItemDescription>
-
-        <DescriptionListItemTitle>
-          {translate('Forums')}
-        </DescriptionListItemTitle>
-        <DescriptionListItemDescription>
-          <Link to="https://forums.sonarr.tv/">forums.sonarr.tv</Link>
-        </DescriptionListItemDescription>
-
-        <DescriptionListItemTitle>
-          {translate('Twitter')}
-        </DescriptionListItemTitle>
-        <DescriptionListItemDescription>
-          <Link to="https://twitter.com/sonarrtv">@sonarrtv</Link>
         </DescriptionListItemDescription>
 
         <DescriptionListItemTitle>
           {translate('Discord')}
         </DescriptionListItemTitle>
         <DescriptionListItemDescription>
-          <Link to="https://discord.sonarr.tv/">discord.sonarr.tv</Link>
-        </DescriptionListItemDescription>
-
-        <DescriptionListItemTitle>{translate('IRC')}</DescriptionListItemTitle>
-        <DescriptionListItemDescription>
-          <Link to="irc://irc.libera.chat/#sonarr">
-            {translate('IRCLinkText')}
-          </Link>
-        </DescriptionListItemDescription>
-        <DescriptionListItemDescription>
-          <Link to="https://web.libera.chat/?channels=#sonarr">
-            {translate('LiberaWebchat')}
+          <Link to="https://mangarr.github.io/discord">
+            mangarr.github.io/discord
           </Link>
         </DescriptionListItemDescription>
 
@@ -76,9 +52,6 @@ function MoreInfo() {
         <DescriptionListItemTitle>
           {translate('FeatureRequests')}
         </DescriptionListItemTitle>
-        <DescriptionListItemDescription>
-          <Link to="https://forums.sonarr.tv/">forums.sonarr.tv</Link>
-        </DescriptionListItemDescription>
         <DescriptionListItemDescription>
           <Link to="https://github.com/Mangarr/Mangarr/issues">
             github.com/Mangarr/Mangarr/issues
