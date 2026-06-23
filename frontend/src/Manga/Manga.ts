@@ -135,6 +135,10 @@ interface Manga extends ModelBase {
   // it. Mirrors MangaResource.UserAlternativeTitles; rides the existing PUT save path
   // (SaveMangaPayload extends Partial<Manga>) — no useManga.ts change.
   userAlternativeTitles?: string[];
+  // quick-260623-imh — metadata-sourced alt titles, READ-ONLY (refresh-owned). Mirrors
+  // MangaResource.AlternativeTitles; feeds the details-page alternate-titles hover Popover.
+  // Distinct from `alternateTitles` below (still consumed by the global header-search).
+  alternativeTitles?: string[];
   ratings?: Ratings;
   alternateTitles?: AlternateTitle[];
   upgradeAllowedOverride?: boolean;

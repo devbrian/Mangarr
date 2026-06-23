@@ -204,9 +204,16 @@ function MangaDetails({ mangaId }: MangaDetailsProps) {
     toggleMangaMonitored({ monitored: !manga?.monitored });
   }, [toggleMangaMonitored, manga]);
 
+  // quick-260623-imh — map the metadata-sourced `alternativeTitles` (string[], read-only on
+  // the wire) into the AlternateTitle[] shape the existing Popover/MangaAlternateTitles
+  // consumes. Dedupe against the primary title is PRESERVED (now a string compare). The
+  // legacy `alternateTitles` field is never populated by the backend, so this is what lights
+  // up the previously-dead hover icon.
   const alternateTitles = useMemo(
     () =>
-      (manga?.alternateTitles ?? []).filter((t) => t.title !== manga?.title),
+      (manga?.alternativeTitles ?? [])
+        .filter((t) => t !== manga?.title)
+        .map((title) => ({ title })),
     [manga]
   );
 
