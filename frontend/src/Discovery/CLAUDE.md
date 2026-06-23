@@ -44,7 +44,7 @@ The Discovery automation fixture ([src/NzbDrone.Automation.Test/Discovery/Discov
 | `discovery-page` / `discovery-empty-state` / `discovery-grid` | Toolbar / empty state / results grid |
 | `discovery-filters-button` / `discovery-filter-drawer` | Filters toggle / right-drawer |
 | `discovery-chip-{value}` (carries `data-state`) | Tristate chip (Type/Genre/Status/ContentRating) |
-| `discovery-tag-search` / `discovery-tag-suggestions` / `discovery-tagmode-and|or` | Tag typeahead |
+| `discovery-tag-search` / `discovery-tag-suggestions` / `discovery-tagmode-and\|or` | Tag typeahead |
 | `discovery-include-adult` | Include-adult toggle |
 | `discovery-topx-input` / `discovery-search-button` / `discovery-add-button` | Top-X / Search / Add |
 | `discovery-card-{id}` / `discovery-card-exclude-{id}` | Result card / Exclude ✕ |
