@@ -33,6 +33,7 @@ import { useDiscoveryGenres } from 'Discovery/useDiscovery';
 import { icons } from 'Helpers/Props';
 import { CheckInputChanged, EnhancedSelectInputChanged } from 'typings/inputs';
 import translate from 'Utilities/String/translate';
+import PresetsRow from './PresetsRow';
 import TagTypeahead from './TagTypeahead';
 import TristateChip, { TristateChipState } from './TristateChip';
 import styles from './FilterDrawer.css';
@@ -336,6 +337,8 @@ function FilterDrawer({ isOpen, onClose }: FilterDrawerProps) {
         </div>
 
         <div className={styles.body}>
+          <PresetsRow />
+
           <TristateSection
             label={translate('DiscoveryType')}
             options={TYPE_OPTIONS}
@@ -399,6 +402,7 @@ function FilterDrawer({ isOpen, onClose }: FilterDrawerProps) {
                 min={1679}
                 max={2262}
                 placeholder={translate('DiscoveryRangeFrom')}
+                data-testid="discovery-year-lower"
                 onChange={handleYearLowerChange}
               />
 

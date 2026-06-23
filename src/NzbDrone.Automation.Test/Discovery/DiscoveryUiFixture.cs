@@ -209,4 +209,119 @@ public class DiscoveryUiFixture : AutomationTest
             .Expect(Page.GetByTestId(new Regex(@"^discovery-card-\d+$")))
             .ToHaveCountAsync(cardsBefore);
     }
+
+    /// <summary>
+    /// Quick task 260623-kar — deterministic, OFFLINE proof of two FilterDrawer
+    /// enhancements (no MangaBaka call; the Type chips + presets are purely local
+    /// store + localStorage state):
+    /// <list type="number">
+    ///   <item><description>
+    ///   NumberInput clamp-on-blur-only: typing "1" into the min=1679 year-lower
+    ///   field keeps "1" WHILE focused (no per-keystroke snap to min) and clamps to
+    ///   "1679" only on blur.
+    ///   </description></item>
+    ///   <item><description>
+    ///   Named saved presets: cycling the Type `manga` chip to include, saving a
+    ///   preset, resetting the chip to neutral, then applying the preset restores
+    ///   the chip's include <c>data-state</c>; deleting the preset collapses the
+    ///   select back to its empty state.
+    ///   </description></item>
+    /// </list>
+    /// State-not-rendering: asserts on the input's value, the chip's
+    /// <c>data-state</c>, and the select's option count — not bare visibility.
+    /// Self-cleans: clears the discovery localStorage keys up-front (the fixture's
+    /// Page + localStorage are SHARED across tests), deletes its preset, resets the
+    /// chip to neutral, clears the year field, and closes the drawer.
+    /// </summary>
+    [Test]
+    public async Task discovery_numberinput_clamp_and_filter_presets()
+    {
+        const string presetName = "kar-e2e-preset";
+
+        // Guarantee a clean slate: wipe the persisted discovery_options /
+        // discovery_filter_presets keys, then reload so the in-memory zustand
+        // stores re-initialise from empty localStorage (manga chip neutral, no
+        // presets) regardless of what a sibling test left behind.
+        await Page.GotoAsync($"{RootUri}/discovery");
+        await Page.EvaluateAsync(
+            "() => Object.keys(window.localStorage)"
+            + ".filter((k) => k.includes('discovery'))"
+            + ".forEach((k) => window.localStorage.removeItem(k))");
+        await Page.ReloadAsync();
+        await Assertions.Expect(Page).ToHaveURLAsync(new Regex(@"/discovery$"));
+
+        // Open the Filters right-drawer.
+        await Page.GetByTestId("discovery-filters-button").ClickAsync();
+        var drawer = Page.GetByTestId("discovery-filter-drawer");
+        await Assertions.Expect(drawer).ToBeVisibleAsync();
+
+        // ---- (1) NumberInput clamp-on-blur-only proof (Task 1) ----
+        var yearInput = Page.GetByTestId("discovery-year-lower");
+        await yearInput.FillAsync("1");
+
+        // WHILE focused the sub-min prefix must NOT snap to min (the bug fix).
+        await Assertions.Expect(yearInput).ToBeFocusedAsync();
+        (await yearInput.InputValueAsync()).Should().Be(
+            "1",
+            "a sub-min prefix must stay as typed while the field has focus");
+
+        // Blur (Tab) still clamps the out-of-range value to min (preserved behavior).
+        await yearInput.PressAsync("Tab");
+        await Assertions.Expect(yearInput).ToHaveValueAsync("1679");
+
+        // Reset the year field so the preset snapshot + sibling tests stay clean.
+        await yearInput.FillAsync("");
+        await yearInput.PressAsync("Tab");
+        await Assertions.Expect(yearInput).ToHaveValueAsync("");
+
+        // ---- (2) Preset save -> apply -> delete proof (Task 2) ----
+        var chip = Page.GetByTestId("discovery-chip-manga");
+        (await chip.GetAttributeAsync("data-state")).Should().Be(
+            "neutral",
+            "the cleared slate starts the manga Type chip neutral");
+
+        // Cycle to include and capture it as a named preset.
+        await chip.ClickAsync();
+        await Assertions.Expect(chip).ToHaveAttributeAsync("data-state", "include");
+
+        // No presets yet: the empty state shows and no select is rendered.
+        await Assertions.Expect(Page.GetByTestId("discovery-preset-empty")).ToBeVisibleAsync();
+        await Assertions.Expect(Page.GetByTestId("discovery-preset-select")).ToHaveCountAsync(0);
+
+        await Page.GetByTestId("discovery-preset-name-input").FillAsync(presetName);
+        await Page.GetByTestId("discovery-preset-save").ClickAsync();
+
+        // Reset the chip to neutral so Apply has a real change to restore.
+        await chip.ClickAsync(); // include -> exclude
+        await chip.ClickAsync(); // exclude -> neutral
+        await Assertions.Expect(chip).ToHaveAttributeAsync("data-state", "neutral");
+
+        // Select the saved preset and apply it. The reused Sonarr EnhancedSelectInput
+        // renders its dropdown options into #portal-root and emits NO per-option
+        // data-testid (the same constraint that forces the testid onto the select's
+        // wrapper div), so the option is targeted by its test-owned name SCOPED to the
+        // portal — not a page-global GetByText (which would also match the collapsed
+        // select's displayed value once one is chosen). CodeRabbit PR #398.
+        await Page.GetByTestId("discovery-preset-select").ClickAsync();
+        await Page.Locator("#portal-root")
+            .GetByText(presetName, new() { Exact = true })
+            .ClickAsync();
+        await Page.GetByTestId("discovery-preset-apply").ClickAsync();
+
+        // STATE assertion: applying the snapshot restored the chip's include state.
+        await Assertions.Expect(chip).ToHaveAttributeAsync("data-state", "include");
+
+        // Delete the preset: the select collapses back to the empty state.
+        await Page.GetByTestId("discovery-preset-delete").ClickAsync();
+        await Assertions.Expect(Page.GetByTestId("discovery-preset-select")).ToHaveCountAsync(0);
+        await Assertions.Expect(Page.GetByTestId("discovery-preset-empty")).ToBeVisibleAsync();
+
+        // ---- cleanup: chip back to neutral, close the drawer ----
+        await chip.ClickAsync(); // include -> exclude
+        await chip.ClickAsync(); // exclude -> neutral
+        await Assertions.Expect(chip).ToHaveAttributeAsync("data-state", "neutral");
+
+        await Page.GetByTestId("discovery-filter-drawer-close").ClickAsync();
+        await Assertions.Expect(drawer).ToHaveCountAsync(0);
+    }
 }

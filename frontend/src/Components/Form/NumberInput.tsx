@@ -7,7 +7,8 @@ function parseValue(
   value: string | null | undefined,
   isFloat: boolean,
   min: number | undefined,
-  max: number | undefined
+  max: number | undefined,
+  clamp = true
 ) {
   if (value == null || value === '') {
     return null;
@@ -15,10 +16,16 @@ function parseValue(
 
   let newValue = isFloat ? parseFloat(value) : parseInt(value);
 
-  if (min != null && newValue != null && newValue < min) {
-    newValue = min;
-  } else if (max != null && newValue != null && newValue > max) {
-    newValue = max;
+  // Clamp to min/max only when requested (handleBlur). While typing (handleChange
+  // passes clamp=false) the value parses but is NOT snapped to range, so a user can
+  // type a multi-digit value whose prefix is transiently below `min` (e.g. typing
+  // "1" toward "1679" in a min=1679 field) without each keystroke jumping to min.
+  if (clamp) {
+    if (min != null && newValue != null && newValue < min) {
+      newValue = min;
+    } else if (max != null && newValue != null && newValue > max) {
+      newValue = max;
+    }
   }
 
   return newValue;
@@ -54,7 +61,7 @@ function NumberInput({
 
   const handleChange = useCallback(
     ({ name, value: newValue }: InputChanged<string>) => {
-      const parsedValue = parseValue(newValue, isFloat, min, max);
+      const parsedValue = parseValue(newValue, isFloat, min, max, false);
 
       setValue(parsedValue == null ? '' : parsedValue.toString());
 

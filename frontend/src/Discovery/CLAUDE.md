@@ -16,6 +16,8 @@ Route: `/discovery` (registered in [App/AppRoutes.tsx](../App/AppRoutes.tsx); si
 | `DiscoveryModels.ts` | TypeScript DTOs (filter, result item, genre/tag option, bulk-add payload). **Renamed from `Discovery.ts`** (a bare `Discovery.ts` would shadow the feature dir on case-insensitive imports). |
 | `useDiscovery.ts` | React Query hooks: `useDiscoverySearch` (POST `/discovery/search`), `useDiscoveryBulkAdd` (fire-and-forget POST `/discovery/bulk-add`), `useDiscoveryGenres`/`useDiscoveryTags` (cached option lists), `useDiscoveryExclude` (POST `/importlistexclusion`, returns the created id) + `deleteDiscoveryExclusion(id)` (DELETE by runtime id via `fetchJson`). |
 | `discoveryOptionsStore.ts` | Zustand persisted filter + X state via `createOptionsStore('discovery_options')` (DISC-09). Mirrors `addMangaOptionsStore` / `mangaOptionsStore`. |
+| `discoveryPresetsStore.ts` | Zustand persisted **named saved filter presets** via `createPersist('discovery_filter_presets')` — ADDITIVE over `discoveryOptionsStore` (its own distinct localStorage key; the live `discovery_options` working filters are untouched). A preset snapshots `DiscoveryFilterState` (which already excludes `topX`). This is the bespoke-drawer divergence (Phase 42), NOT Sonarr's `Components/Filter` saved-filter FilterBuilder. |
+| `FilterDrawer/PresetsRow.tsx` | Compact presets row rendered at the top of the drawer body: save current selection under a name, apply a saved preset (writes through `setDiscoveryOptions`, `topX` preserved), delete. Reuses `EnhancedSelectInput` / `TextInput` / `Button`. |
 | `DiscoveryCard.tsx` | Poster-grid result card: cover (or placeholder), JSX-escaped title (no `dangerouslySetInnerHTML` — T-42-07-XSS), year/score/type badges, hover Exclude ✕. |
 | `FilterDrawer/FilterDrawer.tsx` | The bespoke right-drawer query-builder. Type/Genre/Status/ContentRating tristate sections, tag typeahead, year/score ranges, sort select, Include-adult toggle. |
 | `FilterDrawer/TristateChip.tsx` | The include/exclude/off chip — neutral `+` → include (green ✓) → exclude (red ✕) → neutral. Parent owns the transition; the chip renders the current visual + carries `data-state`. |
@@ -50,6 +52,11 @@ The Discovery automation fixture ([src/NzbDrone.Automation.Test/Discovery/Discov
 | `discovery-card-{id}` / `discovery-card-exclude-{id}` | Result card / Exclude ✕ |
 | `discovery-pool-exhausted` / `discovery-undo-toast` / `discovery-undo-button` | Pool-exhausted banner / Undo toast |
 | `add-top-x-modal` / `add-top-x-modal-add-button` | Count-only Add modal / submit |
+| `discovery-year-lower` | Year-range "From" `NumberInput` (drives the clamp-on-blur-only proof) |
+| `discovery-presets-row` | Saved-presets row container (top of the drawer body) |
+| `discovery-preset-select` / `discovery-preset-apply` / `discovery-preset-delete` | Saved-preset picker (`EnhancedSelectInput` wrapper) / Apply / Delete |
+| `discovery-preset-name-input` / `discovery-preset-save` | New-preset name `TextInput` / Save |
+| `discovery-preset-empty` | Empty-state line shown when no presets are saved |
 
 ## Cross-References
 
