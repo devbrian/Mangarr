@@ -27,12 +27,19 @@ public class MangaResource : RestResource
     public List<MediaCover>? Images { get; set; }
     public List<string>? Genres { get; set; }
 
-    // quick-260618-eqz — USER-OWNED alternative-title set. Unlike the metadata-sourced
-    // Manga.AlternativeTitles (deliberately NOT surfaced on the wire because it is
-    // parser-internal / refresh-owned), userAlternativeTitles IS user-owned and MUST
-    // round-trip BOTH directions: GET returns the stored list, PUT overwrites it. The
-    // delicate null-vs-empty contract lives in ToModel (see CONTEXT.md "API shape" +
-    // "opposite of AlternativeTitles").
+    // quick-260623-imh — METADATA-SOURCED alternative-title set, surfaced READ-ONLY on the
+    // wire (reverses the prior "deliberately NOT surfaced" decision per CONTEXT.md). GET emits
+    // the metadata-owned set (populated by RefreshMangaService/MapManga from
+    // MangaBaka/MangaDex/AniList/MAL); PUT does NOT round-trip it — ToModel intentionally OMITS
+    // the assignment because the field is refresh-owned, the exact INVERSE of the user-owned
+    // UserAlternativeTitles below (which DOES round-trip). This drives the details-page
+    // alternate-titles hover Popover.
+    public List<string>? AlternativeTitles { get; set; }
+
+    // quick-260618-eqz — USER-OWNED alternative-title set. The INVERSE of the metadata-sourced
+    // AlternativeTitles above: userAlternativeTitles IS user-owned and MUST round-trip BOTH
+    // directions: GET returns the stored list, PUT overwrites it. The delicate null-vs-empty
+    // contract lives in ToModel (see CONTEXT.md "API shape" + "opposite of AlternativeTitles").
     public List<string>? UserAlternativeTitles { get; set; }
 
     public string? Path { get; set; }
@@ -201,6 +208,10 @@ public static class MangaResourceMapper
             Images = model.Images,
             Genres = model.Genres,
 
+            // quick-260623-imh — emit the metadata-sourced alt-title set READ-ONLY on GET /
+            // list endpoints (NOT round-tripped in ToModel below — refresh-owned).
+            AlternativeTitles = model.AlternativeTitles,
+
             // quick-260618-eqz — emit the stored user list on GET / list endpoints.
             UserAlternativeTitles = model.UserAlternativeTitles,
             Path = model.Path,
@@ -258,6 +269,13 @@ public static class MangaResourceMapper
             Overview = resource.Overview,
             Images = resource.Images ?? new List<MediaCover>(),
             Genres = resource.Genres ?? new List<string>(),
+
+            // quick-260623-imh — AlternativeTitles is INTENTIONALLY NOT mapped here: it is
+            // metadata/refresh-owned (populated by RefreshMangaService/MapManga), so a crafted
+            // PUT must NOT overwrite the stored set. Read-only on the wire (ToResource emits it;
+            // ToModel omits it) — the inverse of the user-owned UserAlternativeTitles below.
+            // Mirrors the AlternativeTitles-not-mapped contract on Manga.ApplyChanges
+            // (T-imh-01 mass-assignment mitigation; MangaResourceMapperFixture pins it).
 
             // quick-260618-eqz — USER-OWNED alt-title round-trip (the deliberate opposite
             // of AlternativeTitles, which is intentionally NOT mapped here). The
