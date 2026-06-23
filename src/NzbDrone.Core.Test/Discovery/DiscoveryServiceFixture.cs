@@ -20,9 +20,11 @@ namespace NzbDrone.Core.Test.Discovery
     //
     // The MangaBaka provider seam (Browse/GetGenres/GetTags) is mocked — MangaBakaApi is non-DI and
     // cannot be reached for a mock, so the public provider pass-throughs (made virtual in 42-02) are
-    // the mock point. The DI bag is an IEnumerable<IMetadataSource> containing only the mock so
-    // DiscoveryService's OfType<MangaBakaMetadataSource>().Single() resolves it. A REAL CacheManager
-    // backs the cache so the 2nd GetTags() genuinely hits the in-memory cache.
+    // the mock point. DiscoveryService resolves the CONFIGURED provider via IMetadataSourceFactory
+    // (All() -> the MangaBaka definition -> GetInstance() -> the configured instance) — NOT the raw
+    // DI template (whose null Definition NREs on Settings/Api). The factory mock returns the mocked
+    // provider for that resolution. A REAL CacheManager backs the cache so the 2nd GetTags()
+    // genuinely hits the in-memory cache.
     [TestFixture]
     public class DiscoveryServiceFixture : CoreTest
     {
@@ -36,6 +38,22 @@ namespace NzbDrone.Core.Test.Discovery
             _mangaBaka = new Mock<MangaBakaMetadataSource>(new Mock<IHttpClient>().Object, TestLogger);
             _cacheManager = new CacheManager();
 
+            // The factory resolves the CONFIGURED MangaBaka instance: All() surfaces its definition,
+            // GetInstance() returns the (mocked) provider. This exercises DiscoveryService's real
+            // resolution path instead of the template-from-DI-enumerable that NRE'd in production.
+            var mangaBakaDefinition = new MetadataSourceDefinition
+            {
+                Implementation = nameof(MangaBakaMetadataSource)
+            };
+
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.All())
+                  .Returns(new List<MetadataSourceDefinition> { mangaBakaDefinition });
+
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(_mangaBaka.Object);
+
             Mocker.GetMock<IMangaService>()
                   .Setup(s => s.GetAllManga())
                   .Returns(new List<Manga.Manga>());
@@ -45,7 +63,7 @@ namespace NzbDrone.Core.Test.Discovery
                   .Returns(new List<ImportListExclusion>());
 
             _subject = new DiscoveryService(
-                new List<IMetadataSource> { _mangaBaka.Object },
+                Mocker.GetMock<IMetadataSourceFactory>().Object,
                 Mocker.GetMock<IMangaService>().Object,
                 Mocker.GetMock<IImportListExclusionService>().Object,
                 _cacheManager,

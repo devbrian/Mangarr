@@ -17,13 +17,15 @@ namespace NzbDrone.Core.Discovery
     /// (boundary cases pinned by <c>DiscoveryServiceFixture</c>).
     ///
     /// <para>
-    /// MangaBaka resolution (verified Plan 42-01/42-02): <see cref="MangaBakaApi"/> is NOT
-    /// DI-registered — it is constructed lazily inside <see cref="MangaBakaMetadataSource"/>. So we
-    /// reach the browse surface through the provider's public <c>Browse</c>/<c>GetGenres</c>/
-    /// <c>GetTags</c> pass-throughs, resolving the provider from the DryIoc-registered
-    /// <see cref="IEnumerable{IMetadataSource}"/> via <c>OfType&lt;MangaBakaMetadataSource&gt;().Single()</c>.
-    /// We resolve MangaBaka SPECIFICALLY (not the active-primary resolver) because only MangaBaka's search
-    /// supports attribute filters — Discovery browses MangaBaka regardless of the active primary.
+    /// MangaBaka resolution: <see cref="MangaBakaApi"/> is NOT DI-registered — it is constructed
+    /// lazily inside <see cref="MangaBakaMetadataSource"/> from the provider's <c>Settings</c>
+    /// (<c>Definition.Settings</c>). So we reach the browse surface through the provider's public
+    /// <c>Browse</c>/<c>GetGenres</c>/<c>GetTags</c> pass-throughs — but we MUST resolve the
+    /// CONFIGURED instance via <see cref="IMetadataSourceFactory"/>'s <c>GetInstance</c> (which
+    /// populates <c>Definition</c>), NOT the raw DI <c>IEnumerable&lt;IMetadataSource&gt;</c> template (whose
+    /// <c>Definition</c> is null, so <c>Settings</c>/<c>Api</c> NRE). We resolve MangaBaka
+    /// SPECIFICALLY (not the active-primary resolver) because only MangaBaka's search supports
+    /// attribute filters — Discovery browses MangaBaka regardless of the active primary.
     /// </para>
     ///
     /// <para>
@@ -39,32 +41,43 @@ namespace NzbDrone.Core.Discovery
         private const int Limit = 100;
         private const int MaxPage = 100;
 
+        private readonly IMetadataSourceFactory _metadataSourceFactory;
         private readonly IMangaService _mangaService;
         private readonly IImportListExclusionService _importListExclusionService;
         private readonly Logger _logger;
 
-        private readonly MangaBakaMetadataSource _mangaBaka;
         private readonly ICached<List<MangaBakaGenre>> _genreCache;
         private readonly ICached<List<MangaBakaTag>> _tagCache;
 
         public DiscoveryService(
-            IEnumerable<IMetadataSource> metadataSources,
+            IMetadataSourceFactory metadataSourceFactory,
             IMangaService mangaService,
             IImportListExclusionService importListExclusionService,
             ICacheManager cacheManager,
             Logger logger)
         {
+            _metadataSourceFactory = metadataSourceFactory;
             _mangaService = mangaService;
             _importListExclusionService = importListExclusionService;
             _logger = logger;
 
-            // MangaBaka-specific (NOT the active primary) — Discovery always browses MangaBaka because only
-            // its search supports attribute filters. Single() is intentional: exactly one MangaBaka
-            // provider is registered; a 0/2 count is a wiring bug we want to surface loudly.
-            _mangaBaka = metadataSources.OfType<MangaBakaMetadataSource>().Single();
-
             _genreCache = cacheManager.GetCache<List<MangaBakaGenre>>(GetType(), "genres");
             _tagCache = cacheManager.GetCache<List<MangaBakaTag>>(GetType(), "tags");
+        }
+
+        // Resolve the CONFIGURED MangaBaka provider (Definition + Settings populated) via the
+        // factory. The raw DI IEnumerable<IMetadataSource> yields the ThingiProvider TEMPLATE whose
+        // Definition is null — accessing its Settings/Api NREs (the 500 the live E2E caught). We
+        // resolve MangaBaka SPECIFICALLY (not the active primary) because only its search supports
+        // attribute filters; a missing row is a wiring bug we surface loudly.
+        private MangaBakaMetadataSource ResolveMangaBaka()
+        {
+            var definition = _metadataSourceFactory.All()
+                .FirstOrDefault(d => d.Implementation == nameof(MangaBakaMetadataSource))
+                ?? throw new InvalidOperationException(
+                    "MangaBaka metadata source is not configured — Discovery requires it.");
+
+            return (MangaBakaMetadataSource)_metadataSourceFactory.GetInstance(definition);
         }
 
         public DiscoveryResult Search(DiscoveryFilter filter, int x)
@@ -85,13 +98,15 @@ namespace NzbDrone.Core.Discovery
             // content_rating=safe&suggestive. The original caller filter is never mutated.
             var browseFilter = ApplyAdultDefault(filter);
 
+            var mangaBaka = ResolveMangaBaka();
+
             var eligible = new List<DiscoveryResultItem>();
             var poolExhausted = false;
             var page = 1;
 
             for (; page <= MaxPage; page++)
             {
-                var resource = _mangaBaka.Browse(browseFilter, page, Limit);
+                var resource = mangaBaka.Browse(browseFilter, page, Limit);
 
                 // Empty/absent page → the pool is dry (there is no `next` field on the MangaBaka
                 // envelope; an empty Data array is the definitive end-of-pool signal).
@@ -152,12 +167,12 @@ namespace NzbDrone.Core.Discovery
         public List<MangaBakaGenre> GetGenres()
         {
             // D-03: 12h TTL get-or-add. The 2nd call within the window hits cache, not the provider.
-            return _genreCache.Get("genres", () => _mangaBaka.GetGenres(), TimeSpan.FromHours(12));
+            return _genreCache.Get("genres", () => ResolveMangaBaka().GetGenres(), TimeSpan.FromHours(12));
         }
 
         public List<MangaBakaTag> GetTags()
         {
-            return _tagCache.Get("tags", () => _mangaBaka.GetTags(), TimeSpan.FromHours(12));
+            return _tagCache.Get("tags", () => ResolveMangaBaka().GetTags(), TimeSpan.FromHours(12));
         }
 
         // Clone the caller's filter, injecting the safe-by-default content_rating when adult is not
