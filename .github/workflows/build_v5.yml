@@ -497,18 +497,10 @@ jobs:
         with:
           python-version: '3.x'
 
-      # gh171 — fast-fail self-test of derive_resource() before the live drift
-      # audit runs. A regex/derivation regression surfaces as a clean PASS/FAIL
-      # diff against 10 inline cases (all 3 derivation paths + multi-word fallback)
-      # instead of as confusing drift output on the main audit. Cheap, runs in <1s.
-      - name: Self-test audit-inventory-endpoints.py derive_resource()
-        shell: bash
-        run: python scripts/audit-inventory-endpoints.py --self-test
-
-      - name: Audit four-axis inventory coverage
-        shell: bash
-        run: bash scripts/audit-ui-inventory.sh
-
+      # The four-axis inventory coverage gate (audit-ui-inventory.sh) and the
+      # audit-inventory-endpoints.py self-test were removed when the .planning/ dev
+      # artifacts (which held INVENTORY.md) were taken out of the public repo. The
+      # state-not-rendering audit below is .planning-independent and stays.
       - name: Audit state-not-rendering anti-pattern
         shell: bash
         run: bash scripts/audit-test-assertions.sh
@@ -555,109 +547,6 @@ jobs:
           integration_tests: true
           binary_artifact: ${{ matrix.binary_artifact }}
           binary_path: ${{ matrix.binary_path }}
-
-  # GH #252 — orphan-process leak validation (windows-latest). The three leak
-  # classes (testhost.exe DLL-lock, Mangarr.Console.exe port-bind, Puppeteer/
-  # Playwright Chromium) are WINDOWS-specific (the DLL-lock + Get-Process /
-  # kill-orphan-chromium.ps1 surfaces only exist there), so unlike the other
-  # automation jobs this one MUST run on a Windows runner. It builds the backend
-  # Debug + frontend locally (phase-smoke-gate.sh invokes scripts/test.sh +
-  # audit-new-fixtures.sh which compile from source), provisions Playwright, then
-  # runs scripts/validate-no-orphan-leaks.sh which exercises phase-smoke-gate.sh
-  # back-to-back and asserts every leak class returns to baseline between runs.
-  # Iteration count is reduced to 2 here for CI wall-clock budget (the local
-  # operator runs 5 per the issue's acceptance criterion 1); the property under
-  # test — return-to-baseline after EACH run — is proven at any iteration count.
-  validate_orphan_leaks:
-    if: (github.event_name == 'schedule' && github.event.schedule == '0 8 * * *') || github.event_name == 'workflow_dispatch'
-    runs-on: windows-latest
-    timeout-minutes: 60
-    permissions:
-      contents: read                     # least privilege: only checks out + builds + runs scripts
-    steps:
-      - name: Check out
-        uses: Wandalen/wretry.action@v3.8.0
-        with:
-          action: actions/checkout@v6
-          attempt_limit: 3
-          attempt_delay: 60000
-          # GH #289: fetch full history + origin/* refs so audit-new-fixtures.sh
-          # (via phase-smoke-gate → validate-no-orphan-leaks) can resolve the
-          # merge-base against origin/Mangarr-v0 on the workflow_dispatch leg from
-          # a non-Mangarr-v0 branch. Without this, the shallow single-branch clone
-          # has no Mangarr-v0 ref and the gate FATAL-exits 2.
-          with: |
-            fetch-depth: 0
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-
-      - name: Volta
-        uses: volta-cli/action@v4
-
-      - name: Read Playwright version
-        id: pw
-        shell: bash
-        run: |
-          PW_VERSION=$(grep -oP 'Microsoft\.Playwright" Version="\K[^"]+' src/NzbDrone.Automation.Test/Mangarr.Automation.Test.csproj | head -1)
-          echo "version=$PW_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.LOCALAPPDATA }}/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-
-
-      - name: Yarn install + build frontend
-        shell: bash
-        run: |
-          yarn install
-          yarn build
-
-      - name: Build backend (Debug) + test tree
-        shell: bash
-        run: |
-          dotnet build src/Mangarr.sln --configuration Debug
-
-      - name: Provision Playwright browsers
-        shell: pwsh
-        run: |
-          if (Test-Path _tests/net10.0/playwright.ps1) {
-            ./_tests/net10.0/playwright.ps1 install --with-deps chromium
-          } else {
-            Write-Error "_tests/net10.0/playwright.ps1 not found after build"
-            exit 1
-          }
-
-      - name: Resolve latest phase number
-        id: phase
-        shell: bash
-        run: |
-          # Pick the highest-numbered .planning/phases/<N>-* dir as the smoke-gate
-          # target. Emit each leading numeric token on its own line (echo adds the
-          # newline, so no backslash-escape is needed), version-sort, take the last.
-          chosen=$(
-            for d in .planning/phases/*/; do
-              name=$(basename "$d")
-              num=${name%%-*}
-              case "$num" in
-                ''|*[!0-9.]*) continue ;;
-              esac
-              echo "$num"
-            done | sort -V | tail -1
-          )
-          if [ -z "$chosen" ]; then
-            echo "FATAL: no .planning/phases/<N>-* directory found" >&2
-            exit 1
-          fi
-          echo "number=$chosen" >> "$GITHUB_OUTPUT"
-          echo "Resolved latest phase: $chosen"
-
-      - name: Validate no orphan-process leaks (2 iterations)
-        shell: bash
-        run: bash scripts/validate-no-orphan-leaks.sh "${{ steps.phase.outputs.number }}" 2 30
 
   deploy:
     # Sonarr divergence: Phase 21 D-06 — trigger on v* tag push to Mangarr-v0; was inherited Sonarr-era *-final branch-name guards.
