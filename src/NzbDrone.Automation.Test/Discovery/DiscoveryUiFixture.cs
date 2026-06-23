@@ -92,13 +92,30 @@ public class DiscoveryUiFixture : AutomationTest
 
         await chip.ClickAsync();
         await Assertions.Expect(chip).ToHaveAttributeAsync("data-state", "neutral");
+
+        // (5) Close the drawer via its backdrop (the open drawer's full-bleed
+        // overlay covers the toolbar, so the Filters toggle button is NOT
+        // clickable while open — only the backdrop / X link close it). The
+        // fixture's Page is created once in [OneTimeSetUp] and SHARED across the
+        // fixture's tests (DB is wiped per-fixture, D-05; the page is not), so
+        // leaving the drawer open would block the sibling test's interactions.
+        // Also gives the drawer its close-cycle coverage.
+        await drawer.GetByLabel("Close").ClickAsync();
+        await Assertions.Expect(drawer).ToHaveCountAsync(0);
     }
 
     [Test]
     public async Task discovery_search_grid_add_modal_and_exclude_undo()
     {
-        await Page.GetByTestId("nav-discovery").ClickAsync();
+        // Land on /discovery via a fresh load so this test is self-isolating: the
+        // fixture's Page is created once in [OneTimeSetUp] and SHARED across the
+        // fixture's tests, so a client-side nav from a sibling test's leftover
+        // state (e.g. an open FilterDrawer overlay) could block interactions. A
+        // full GotoAsync remounts the page with the drawer closed. (Nav-via-sidebar
+        // is covered by discovery_nav_drawer_and_empty_state.)
+        await Page.GotoAsync($"{RootUri}/discovery");
         await Assertions.Expect(Page).ToHaveURLAsync(new Regex(@"/discovery$"));
+        await Assertions.Expect(Page.GetByTestId("discovery-search-button")).ToBeVisibleAsync();
 
         // Arm the live search response listener BEFORE pressing Search so the
         // in-flight POST is not missed. A broad (no-filter) browse keeps the
