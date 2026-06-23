@@ -19,6 +19,8 @@ import {
 } from 'Discovery/DiscoveryModels';
 import useApiMutation from 'Helpers/Hooks/useApiMutation';
 import useApiQuery from 'Helpers/Hooks/useApiQuery';
+import fetchJson from 'Utilities/Fetch/fetchJson';
+import getQueryPath from 'Utilities/Fetch/getQueryPath';
 
 const DEFAULT_GENRES: DiscoveryGenre[] = [];
 const DEFAULT_TAGS: DiscoveryTag[] = [];
@@ -68,5 +70,40 @@ export const useDiscoveryBulkAdd = () => {
   return useApiMutation<unknown, DiscoveryBulkAddPayload>({
     path: '/discovery/bulk-add',
     method: 'POST',
+  });
+};
+
+// Per-card Exclude (D-05) — writes the GLOBAL ImportListExclusion via the
+// existing CRUD surface (no new backend). The POST returns the created resource
+// (carrying its `id`) so the Undo can DELETE it by id.
+export interface DiscoveryExclusionRequest {
+  mangaBakaId: number;
+  title: string;
+}
+
+export interface DiscoveryExclusionResource {
+  id: number;
+  mangaBakaId?: number;
+  title?: string;
+}
+
+export const useDiscoveryExclude = () => {
+  return useApiMutation<DiscoveryExclusionResource, DiscoveryExclusionRequest>({
+    path: '/importlistexclusion',
+    method: 'POST',
+  });
+};
+
+// Undo an exclude — DELETE /importlistexclusion/{id}. The id is only known at
+// runtime (from the POST response), so this goes through fetchJson directly
+// rather than useApiMutation (whose path is fixed at hook-creation time).
+export const deleteDiscoveryExclusion = (id: number) => {
+  return fetchJson<unknown, undefined>({
+    path: getQueryPath(`/importlistexclusion/${id}`),
+    method: 'DELETE',
+    headers: {
+      'X-Api-Key': window.Mangarr.apiKey,
+      'X-Mangarr-Client': 'Mangarr',
+    },
   });
 };

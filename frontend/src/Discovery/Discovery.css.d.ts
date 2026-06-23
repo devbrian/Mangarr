@@ -9,6 +9,9 @@ interface CssExports {
   'toolbarRight': string;
   'topInput': string;
   'topLabel': string;
+  'undoButton': string;
+  'undoText': string;
+  'undoToast': string;
 }
 export const cssExports: CssExports;
 export default cssExports;
