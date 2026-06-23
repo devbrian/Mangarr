@@ -12,20 +12,14 @@ Mangarr is in active development. v1.0 is the first public release; pre-v1.0 sch
 
 - Add manga titles from MangaDex / AniList / MyAnimeList
 - Monitor / unmonitor manga and individual chapters
-- Configurable chapter sources (MangaDex, comix.to in v1)
-- In-process downloader (no external client required)
-- CBZ + folder-of-images output formats
+- Configurable chapter sources (MangarrGateway)
+- CBZ output format + ComixInfo.xml injection
 - Custom Formats + TranslationProfile-based release ranking
 - Komga + Kavita rescan notifications on import
 - REST API + SignalR real-time push (`/api/v5/...`)
+- Discovery page to bulk-add manga
+- Mangabaka metadata source
 
-## Prior Art Acknowledgement
-
-Three dormant prior-art "Mangarr" GitHub repositories exist; this project is independent and not derived from any of them:
-
-- [`donderjoekel/Mangarr`](https://github.com/donderjoekel/Mangarr) — archived 2025-04-30
-- [`hyminix/Mangarr`](https://github.com/hyminix/Mangarr)
-- [`tnrd-org/Mangarr`](https://github.com/tnrd-org/Mangarr)
 
 These projects share only the name. This Mangarr is a downstream fork of Sonarr v5 — see [DIVERGENCE.md](./DIVERGENCE.md) for divergence details.
 
@@ -68,11 +62,6 @@ App listens at **http://localhost:8989**.
 
 API key auto-generated on first run; check `<data-dir>/config.xml` or General Settings.
 
-### Comix indexer (optional)
-
-The Comix (`comix.to`) indexer is included by default. It uses an embedded headless Chromium browser to handle comix.to's anti-bot signing — **no manual setup is required**. Chromium is bundled into the official Mangarr Docker image at `/opt/mangarr-chromium` (~150MB image-size addition; lazy-spawn at runtime — Chromium only starts after the first Comix request, idle-teardown after 10 minutes).
-
-For development outside Docker, run `dotnet run --project tools/ChromiumPrefetch/ChromiumPrefetch.csproj -- --output-dir ~/.cache/mangarr-chromium` once and set `PUPPETEER_CACHE_DIR=~/.cache/mangarr-chromium` before launching Mangarr.
 
 ## License
 
