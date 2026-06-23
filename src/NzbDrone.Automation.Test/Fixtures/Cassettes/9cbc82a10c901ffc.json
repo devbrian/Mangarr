@@ -1,0 +1,33 @@
+{
+  "Request": {
+    "Method": "GET",
+    "Url": "https://api.mangabaka.org/v1/genres"
+  },
+  "Response": {
+    "Status": 200,
+    "Body": "{\u0022status\u0022:200,\u0022data\u0022:[{\u0022label\u0022:\u0022Action\u0022,\u0022value\u0022:\u0022action\u0022},{\u0022label\u0022:\u0022Adult\u0022,\u0022value\u0022:\u0022adult\u0022},{\u0022label\u0022:\u0022Adventure\u0022,\u0022value\u0022:\u0022adventure\u0022},{\u0022label\u0022:\u0022Avant Garde\u0022,\u0022value\u0022:\u0022avant_garde\u0022},{\u0022label\u0022:\u0022Award Winning\u0022,\u0022value\u0022:\u0022award_winning\u0022},{\u0022label\u0022:\u0022Boys Love\u0022,\u0022value\u0022:\u0022boys_love\u0022},{\u0022label\u0022:\u0022Comedy\u0022,\u0022value\u0022:\u0022comedy\u0022},{\u0022label\u0022:\u0022Doujinshi\u0022,\u0022value\u0022:\u0022doujinshi\u0022},{\u0022label\u0022:\u0022Drama\u0022,\u0022value\u0022:\u0022drama\u0022},{\u0022label\u0022:\u0022Ecchi\u0022,\u0022value\u0022:\u0022ecchi\u0022},{\u0022label\u0022:\u0022Erotica\u0022,\u0022value\u0022:\u0022erotica\u0022},{\u0022label\u0022:\u0022Fantasy\u0022,\u0022value\u0022:\u0022fantasy\u0022},{\u0022label\u0022:\u0022Gender Bender\u0022,\u0022value\u0022:\u0022gender_bender\u0022},{\u0022label\u0022:\u0022Girls Love\u0022,\u0022value\u0022:\u0022girls_love\u0022},{\u0022label\u0022:\u0022Gourmet\u0022,\u0022value\u0022:\u0022gourmet\u0022},{\u0022label\u0022:\u0022Harem\u0022,\u0022value\u0022:\u0022harem\u0022},{\u0022label\u0022:\u0022Hentai\u0022,\u0022value\u0022:\u0022hentai\u0022},{\u0022label\u0022:\u0022Historical\u0022,\u0022value\u0022:\u0022historical\u0022},{\u0022label\u0022:\u0022Horror\u0022,\u0022value\u0022:\u0022horror\u0022},{\u0022label\u0022:\u0022Josei\u0022,\u0022value\u0022:\u0022josei\u0022},{\u0022label\u0022:\u0022Lolicon\u0022,\u0022value\u0022:\u0022lolicon\u0022},{\u0022label\u0022:\u0022Mahou Shoujo\u0022,\u0022value\u0022:\u0022mahou_shoujo\u0022},{\u0022label\u0022:\u0022Martial Arts\u0022,\u0022value\u0022:\u0022martial_arts\u0022},{\u0022label\u0022:\u0022Mature\u0022,\u0022value\u0022:\u0022mature\u0022},{\u0022label\u0022:\u0022Mecha\u0022,\u0022value\u0022:\u0022mecha\u0022},{\u0022label\u0022:\u0022Music\u0022,\u0022value\u0022:\u0022music\u0022},{\u0022label\u0022:\u0022Mystery\u0022,\u0022value\u0022:\u0022mystery\u0022},{\u0022label\u0022:\u0022Psychological\u0022,\u0022value\u0022:\u0022psychological\u0022},{\u0022label\u0022:\u0022Romance\u0022,\u0022value\u0022:\u0022romance\u0022},{\u0022label\u0022:\u0022School Life\u0022,\u0022value\u0022:\u0022school_life\u0022},{\u0022label\u0022:\u0022Sci-Fi\u0022,\u0022value\u0022:\u0022sci-fi\u0022},{\u0022label\u0022:\u0022Seinen\u0022,\u0022value\u0022:\u0022seinen\u0022},{\u0022label\u0022:\u0022Shotacon\u0022,\u0022value\u0022:\u0022shotacon\u0022},{\u0022label\u0022:\u0022Shoujo\u0022,\u0022value\u0022:\u0022shoujo\u0022},{\u0022label\u0022:\u0022Shoujo Ai\u0022,\u0022value\u0022:\u0022shoujo_ai\u0022},{\u0022label\u0022:\u0022Shounen\u0022,\u0022value\u0022:\u0022shounen\u0022},{\u0022label\u0022:\u0022Shounen Ai\u0022,\u0022value\u0022:\u0022shounen_ai\u0022},{\u0022label\u0022:\u0022Slice of Life\u0022,\u0022value\u0022:\u0022slice_of_life\u0022},{\u0022label\u0022:\u0022Smut\u0022,\u0022value\u0022:\u0022smut\u0022},{\u0022label\u0022:\u0022Sports\u0022,\u0022value\u0022:\u0022sports\u0022},{\u0022label\u0022:\u0022Supernatural\u0022,\u0022value\u0022:\u0022supernatural\u0022},{\u0022label\u0022:\u0022Suspense\u0022,\u0022value\u0022:\u0022suspense\u0022},{\u0022label\u0022:\u0022Thriller\u0022,\u0022value\u0022:\u0022thriller\u0022},{\u0022label\u0022:\u0022Tragedy\u0022,\u0022value\u0022:\u0022tragedy\u0022},{\u0022label\u0022:\u0022Yaoi\u0022,\u0022value\u0022:\u0022yaoi\u0022},{\u0022label\u0022:\u0022Yuri\u0022,\u0022value\u0022:\u0022yuri\u0022}]}",
+    "BodyIsBase64": false,
+    "Headers": {
+      "Content-Type": "application/json",
+      "Date": "Tue, 23 Jun 2026 02:18:51 GMT",
+      "Cache-Control": "public",
+      "Server": "cloudflare",
+      "Vary": "Accept-Encoding",
+      "x-api-stability": "stable",
+      "x-api-version": "v1",
+      "X-Request-ID": "07f80114-d204-4464-9f97-b9c7156b4076",
+      "cf-cache-status": "DYNAMIC",
+      "Strict-Transport-Security": "max-age=15552000; includeSubDomains; preload",
+      "speculation-rules": "\u0022/cdn-cgi/speculation\u0022",
+      "report-to": "{\u0022group\u0022:\u0022cf-nel\u0022,\u0022max_age\u0022:604800,\u0022endpoints\u0022:[{\u0022url\u0022:\u0022https://a.nel.cloudflare.com/report/v4?s=jYHddxiVs%2FXiOmRNFdBlamiCh0pPgJTTxDQN8SKZQO%2F86uaDAsttOftZvB%2BXZxTqGSPNgSupEIceJHxm35QAoJu4%2FsrP%2B8APTKZusRTsX3SwLbJU02PuC%2BcGSPW%2FB8QKd5Q1Xw%3D%3D\u0022}]}",
+      "nel": "{\u0022report_to\u0022:\u0022cf-nel\u0022,\u0022success_fraction\u0022:0.0,\u0022max_age\u0022:604800}",
+      "Expect-CT": "max-age=86400, enforce",
+      "Referrer-Policy": "same-origin",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "SAMEORIGIN",
+      "X-XSS-Protection": "1; mode=block",
+      "cf-ray": "a1000127dc0a6201-ORD",
+      "Alt-Svc": "h3=\u0022:443\u0022"
+    }
+  }
+}

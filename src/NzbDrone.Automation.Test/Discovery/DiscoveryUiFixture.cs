@@ -183,10 +183,14 @@ public class DiscoveryUiFixture : AutomationTest
         await Page.Keyboard.PressAsync("Escape");
         await Assertions.Expect(addModal).ToHaveCountAsync(0);
 
-        // (6) Per-card Exclude drops the card and surfaces an Undo toast.
+        // (6) Per-card Exclude drops the card and surfaces an Undo toast. The
+        // Exclude ✕ is a hover-reveal button (DiscoveryCard.css:
+        // .excludeButton { visibility: hidden } -> visible on .card:hover), so
+        // hover the card first to make it clickable.
         var cardsBefore = await Page.GetByTestId(new Regex(@"^discovery-card-\d+$")).CountAsync();
         cardsBefore.Should().BeGreaterThan(0, "the grid rendered at least one result card");
 
+        await Page.GetByTestId(new Regex(@"^discovery-card-\d+$")).First.HoverAsync();
         var firstExclude = Page.GetByTestId(new Regex(@"^discovery-card-exclude-\d+$")).First;
         await firstExclude.ClickAsync();
 
