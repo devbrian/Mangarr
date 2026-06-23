@@ -122,15 +122,22 @@ namespace NzbDrone.Api.Test.Discovery
                 .Verify(s => s.Search(It.IsAny<DiscoveryFilter>(), It.IsAny<int>()), Times.Never);
         }
 
+        // A fully-populated, validator-passing bulk-add payload (non-empty ids, root folder,
+        // positive profile ids) — the happy-path baseline the validation tests mutate.
+        private static DiscoveryBulkAddResource ValidBulkAddResource(IEnumerable<int> ids) =>
+            new()
+            {
+                MangaBakaIds = ids.ToList(),
+                RootFolderPath = "/manga",
+                TranslationProfileId = 1,
+                CustomFormatProfileId = 1,
+                SearchForMissingChapters = true,
+            };
+
         [Test]
         public void BulkAdd_enqueues_command_once_and_returns_202_Accepted()
         {
-            var resource = new DiscoveryBulkAddResource
-            {
-                MangaBakaIds = new List<int> { 1, 2, 3 },
-                RootFolderPath = "/manga",
-                SearchForMissingChapters = true,
-            };
+            var resource = ValidBulkAddResource(new[] { 1, 2, 3 });
 
             var result = Subject.BulkAdd(resource);
 
@@ -145,7 +152,7 @@ namespace NzbDrone.Api.Test.Discovery
                     Times.Once);
 
             // 202 fire-and-forget (D-07).
-            result.Should().BeOfType<Accepted>();
+            result.Result.Should().BeOfType<Accepted>();
         }
 
         [Test]
@@ -153,10 +160,7 @@ namespace NzbDrone.Api.Test.Discovery
         {
             // T-42-04-DOS: a 150-id bulk-add must be trimmed to 100 (the grid's max X) before
             // the refresh storm is enqueued.
-            var resource = new DiscoveryBulkAddResource
-            {
-                MangaBakaIds = Enumerable.Range(1, 150).ToList(),
-            };
+            var resource = ValidBulkAddResource(Enumerable.Range(1, 150));
 
             DiscoveryBulkAddCommand captured = null;
             Mocker.GetMock<IManageCommandQueue>()
@@ -169,6 +173,55 @@ namespace NzbDrone.Api.Test.Discovery
             captured.Should().NotBeNull();
             captured.MangaBakaIds.Should().HaveCount(100);
             captured.MangaBakaIds.Should().Equal(Enumerable.Range(1, 100));
+        }
+
+        [Test]
+        public void BulkAdd_returns_BadRequest_and_does_not_enqueue_when_ids_empty()
+        {
+            // PR #396 review #3: an empty id list is an invalid command — reject at the
+            // boundary (400) instead of accepting a no-op with 202.
+            var resource = ValidBulkAddResource(Enumerable.Empty<int>());
+
+            var result = Subject.BulkAdd(resource);
+
+            result.Result.Should().BeOfType<BadRequest>();
+
+            Mocker.GetMock<IManageCommandQueue>()
+                .Verify(q => q.Push(It.IsAny<DiscoveryBulkAddCommand>(), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()),
+                    Times.Never);
+        }
+
+        [Test]
+        public void BulkAdd_returns_BadRequest_and_does_not_enqueue_when_root_folder_missing()
+        {
+            // PR #396 review #3: a missing root folder would fail later in background
+            // execution — reject the payload shape up front.
+            var resource = ValidBulkAddResource(new[] { 1 });
+            resource.RootFolderPath = null;
+
+            var result = Subject.BulkAdd(resource);
+
+            result.Result.Should().BeOfType<BadRequest>();
+
+            Mocker.GetMock<IManageCommandQueue>()
+                .Verify(q => q.Push(It.IsAny<DiscoveryBulkAddCommand>(), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()),
+                    Times.Never);
+        }
+
+        [Test]
+        public void BulkAdd_returns_BadRequest_when_profile_ids_not_positive()
+        {
+            // PR #396 review #3: profile ids resolve by id downstream; 0/negative is never valid.
+            var resource = ValidBulkAddResource(new[] { 1 });
+            resource.TranslationProfileId = 0;
+
+            var result = Subject.BulkAdd(resource);
+
+            result.Result.Should().BeOfType<BadRequest>();
+
+            Mocker.GetMock<IManageCommandQueue>()
+                .Verify(q => q.Push(It.IsAny<DiscoveryBulkAddCommand>(), It.IsAny<CommandPriority>(), It.IsAny<CommandTrigger>()),
+                    Times.Never);
         }
     }
 }

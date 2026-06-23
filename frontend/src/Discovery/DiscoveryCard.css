@@ -187,13 +187,20 @@
   color: #fff;
 }
 
-.card:hover .excludeButton {
+.card:hover .excludeButton,
+.card:focus-within .excludeButton {
   visibility: visible;
 }
 
 .excludeButton:hover {
   border-color: var(--dangerColor);
   background-color: var(--dangerColor);
+}
+
+.excludeButton:focus-visible {
+  visibility: visible;
+  outline: 2px solid var(--linkColor);
+  outline-offset: 2px;
 }
 
 .body {

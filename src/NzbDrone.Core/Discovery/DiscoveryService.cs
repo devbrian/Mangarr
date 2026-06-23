@@ -75,12 +75,26 @@ namespace NzbDrone.Core.Discovery
         // attribute filters; a missing row is a wiring bug we surface loudly.
         private MangaBakaMetadataSource ResolveMangaBaka()
         {
-            var definition = _metadataSourceFactory.All()
-                .FirstOrDefault(d => d.Implementation == nameof(MangaBakaMetadataSource))
-                ?? throw new InvalidOperationException(
-                    "MangaBaka metadata source is not configured — Discovery requires it.");
+            // Exactly one MangaBaka provider must be registered. FirstOrDefault would
+            // silently pick one of two duplicates (masking a DI wiring bug); a 0/2 count
+            // is a wiring error we surface loudly (the comment intent the loop relied on).
+            var definitions = _metadataSourceFactory.All()
+                .Where(d => d.Implementation == nameof(MangaBakaMetadataSource))
+                .ToList();
 
-            return (MangaBakaMetadataSource)_metadataSourceFactory.GetInstance(definition);
+            if (definitions.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "MangaBaka metadata source is not configured — Discovery requires it.");
+            }
+
+            if (definitions.Count > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Expected exactly one MangaBaka metadata source but found {definitions.Count} — Discovery requires a single registration.");
+            }
+
+            return (MangaBakaMetadataSource)_metadataSourceFactory.GetInstance(definitions[0]);
         }
 
         public DiscoveryResult Search(DiscoveryFilter filter, int x)

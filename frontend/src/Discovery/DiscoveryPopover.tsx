@@ -71,6 +71,9 @@ function DiscoveryPopover({
         ref={refs.setReference}
         {...getReferenceProps()}
         className={className}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isOpen}
       >
         {anchor}
       </span>

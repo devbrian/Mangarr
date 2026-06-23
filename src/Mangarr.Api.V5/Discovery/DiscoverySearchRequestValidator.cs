@@ -77,8 +77,10 @@ public class DiscoverySearchRequestValidator : AbstractValidator<DiscoverySearch
             .When(r => !string.IsNullOrWhiteSpace(r.SortBy))
             .WithMessage("Unknown sort_by value.");
 
-        RuleFor(r => r.TagMode).Must(v => TagModeWhitelist.Contains(v))
-            .When(r => !string.IsNullOrWhiteSpace(r.TagMode))
+        // TagMode is always sent (wire default "and"); a blank/whitespace value is a
+        // tampered request, not an omission, so reject it instead of skipping the rule.
+        RuleFor(r => r.TagMode)
+            .Must(v => !string.IsNullOrWhiteSpace(v) && TagModeWhitelist.Contains(v))
             .WithMessage("tag_mode must be 'and' or 'or'.");
 
         // Range bounds — year 1679-2262, score 0-100; only when the field is set.
@@ -86,5 +88,13 @@ public class DiscoverySearchRequestValidator : AbstractValidator<DiscoverySearch
         RuleFor(r => r.YearUpper!.Value).InclusiveBetween(1679, 2262).When(r => r.YearUpper.HasValue);
         RuleFor(r => r.RatingLower!.Value).InclusiveBetween(0, 100).When(r => r.RatingLower.HasValue);
         RuleFor(r => r.RatingUpper!.Value).InclusiveBetween(0, 100).When(r => r.RatingUpper.HasValue);
+
+        // Pair consistency — reject reversed windows (lower > upper) for both ranges.
+        RuleFor(r => r).Must(r => r.YearLower!.Value <= r.YearUpper!.Value)
+            .When(r => r.YearLower.HasValue && r.YearUpper.HasValue)
+            .WithMessage("year_lower must be <= year_upper.");
+        RuleFor(r => r).Must(r => r.RatingLower!.Value <= r.RatingUpper!.Value)
+            .When(r => r.RatingLower.HasValue && r.RatingUpper.HasValue)
+            .WithMessage("rating_lower must be <= rating_upper.");
     }
 }

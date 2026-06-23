@@ -82,8 +82,9 @@ function splitTristate(map: TristateMap): {
 
 // Map the persisted store shape to the controller's wire contract.
 // ContentRating has no exclude on the wire (the backend whitelists only the
-// include list — MangaBaka's content_rating has no _not pair); exclude chips on
-// ContentRating are intentionally not forwarded.
+// include list — MangaBaka's content_rating has no _not pair). The FilterDrawer
+// ContentRating section is include-only (PR #396 review #8), so an exclude state is
+// unreachable there; the split below still drops any stray exclude defensively.
 export function toDiscoverySearchRequest(
   options: DiscoveryOptions
 ): DiscoverySearchRequest {

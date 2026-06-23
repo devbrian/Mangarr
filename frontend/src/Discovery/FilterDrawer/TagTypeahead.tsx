@@ -150,7 +150,11 @@ function TagTypeahead({
   return (
     <div className={styles.container}>
       <div className={styles.modeRow}>
-        <div className={styles.segmented} role="group">
+        <div
+          className={styles.segmented}
+          role="group"
+          aria-label={translate('DiscoveryTagMode')}
+        >
           <button
             type="button"
             className={classNames(
@@ -158,6 +162,7 @@ function TagTypeahead({
               tagMode === 'and' && styles.segmentActive
             )}
             data-testid="discovery-tagmode-and"
+            aria-pressed={tagMode === 'and'}
             onClick={handleAndPress}
           >
             {translate('DiscoveryTagModeAnd')}
@@ -169,6 +174,7 @@ function TagTypeahead({
               tagMode === 'or' && styles.segmentActive
             )}
             data-testid="discovery-tagmode-or"
+            aria-pressed={tagMode === 'or'}
             onClick={handleOrPress}
           >
             {translate('DiscoveryTagModeOr')}

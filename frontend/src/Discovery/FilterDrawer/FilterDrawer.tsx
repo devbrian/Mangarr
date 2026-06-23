@@ -97,6 +97,20 @@ function cycleNext(current: TristateChipState): TristateMode | undefined {
   return undefined;
 }
 
+// Include-only cycle (neutral -> include -> off): used by the ContentRating section.
+// MangaBaka's content_rating attribute has no `_not` pair, so an exclude chip would be
+// silently dropped on the wire (PR #396 review #8). Skipping the exclude state keeps the
+// chip honest — it can only reach states the backend actually honors.
+function cycleNextIncludeOnly(
+  current: TristateChipState
+): TristateMode | undefined {
+  if (current === 'neutral') {
+    return 'include';
+  }
+
+  return undefined;
+}
+
 interface TristateOptionProps {
   option: FilterOption;
   state: TristateChipState;
@@ -126,6 +140,9 @@ interface TristateSectionProps {
   options: FilterOption[];
   map: TristateMap;
   onChange: (map: TristateMap) => void;
+  // When true, chips cycle neutral -> include -> off (no exclude state). Used by
+  // ContentRating, whose exclude has no MangaBaka wire mapping (review #8).
+  includeOnly?: boolean;
 }
 
 function TristateSection({
@@ -133,11 +150,14 @@ function TristateSection({
   options,
   map,
   onChange,
+  includeOnly = false,
 }: TristateSectionProps) {
   const handleCycle = useCallback(
     (value: string, current: TristateChipState) => {
       const next = { ...map };
-      const mode = cycleNext(current);
+      const mode = includeOnly
+        ? cycleNextIncludeOnly(current)
+        : cycleNext(current);
 
       if (mode) {
         next[value] = mode;
@@ -147,7 +167,7 @@ function TristateSection({
 
       onChange(next);
     },
-    [map, onChange]
+    [map, onChange, includeOnly]
   );
 
   return (
@@ -308,6 +328,7 @@ function FilterDrawer({ isOpen, onClose }: FilterDrawerProps) {
           <Link
             className={styles.closeButton}
             aria-label={translate('Close')}
+            data-testid="discovery-filter-drawer-close"
             onPress={onClose}
           >
             <Icon name={icons.CLOSE} size={18} />
@@ -340,6 +361,7 @@ function FilterDrawer({ isOpen, onClose }: FilterDrawerProps) {
             label={translate('DiscoveryContentRating')}
             options={CONTENT_RATING_OPTIONS}
             map={options.contentRating}
+            includeOnly={true}
             onChange={handleContentRatingChange}
           />
 

@@ -12,7 +12,13 @@
 // optimistically (D-08) WITHOUT touching ['/manga'] (the results are
 // Discovery-local, so there is no SignalR double-removal conflict).
 import classNames from 'classnames';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import Alert from 'Components/Alert';
 import NumberInput, { NumberInputChanged } from 'Components/Form/NumberInput';
 import Icon from 'Components/Icon';
@@ -70,6 +76,11 @@ function Discovery() {
   // (D-05) since the last Search. Reset whenever a new search lands.
   const [removedIds, setRemovedIds] = useState<Set<number>>(new Set());
   const [undoState, setUndoState] = useState<UndoState | null>(null);
+  // Exclude POSTs whose Undo fired BEFORE the POST returned its exclusionId. The
+  // in-flight excludeAsync().then() checks this set and DELETEs the row as soon as
+  // the id arrives — without it, an Undo-before-POST-success leaves a persistent
+  // exclusion (the DELETE in handleUndo can't fire on a null id). PR #396 review #1.
+  const pendingUndoIdsRef = useRef<Set<number>>(new Set());
 
   const { mutate: search, data, isPending } = useDiscoverySearch();
   const { mutateAsync: excludeAsync } = useDiscoveryExclude();
@@ -181,6 +192,16 @@ function Discovery() {
       setUndoState({ mangaBakaId, exclusionId: null, title });
       excludeAsync({ mangaBakaId, title })
         .then((created) => {
+          // Undo fired while this POST was still in flight — the row is already
+          // re-inserted, so DELETE the just-created exclusion now that we have its id.
+          if (pendingUndoIdsRef.current.has(mangaBakaId)) {
+            pendingUndoIdsRef.current.delete(mangaBakaId);
+            deleteDiscoveryExclusion(created.id).catch(() => {
+              // Swallow — best-effort cleanup; the row is already re-inserted.
+            });
+            return;
+          }
+
           setUndoState((prev) =>
             prev && prev.mangaBakaId === mangaBakaId
               ? { ...prev, exclusionId: created.id }
@@ -188,8 +209,10 @@ function Discovery() {
           );
         })
         .catch(() => {
-          // The exclude POST failed — re-insert the card and drop the toast so
+          // The exclude POST failed — no row was written, so drop any pending-undo
+          // intent (nothing to DELETE) and re-insert the card + drop the toast so
           // the grid reflects reality (the global exclusion was NOT written).
+          pendingUndoIdsRef.current.delete(mangaBakaId);
           setRemovedIds((prev) => {
             const next = new Set(prev);
             next.delete(mangaBakaId);
@@ -211,12 +234,16 @@ function Discovery() {
     const { mangaBakaId, exclusionId } = undoState;
 
     // DELETE the exclusion row (if the POST already returned its id) + re-insert
-    // the card.
+    // the card. If the POST has NOT returned yet (exclusionId == null), record the
+    // intent so the in-flight excludeAsync().then() DELETEs the row once its id
+    // arrives — otherwise the exclusion would persist (PR #396 review #1).
     if (exclusionId != null) {
       deleteDiscoveryExclusion(exclusionId).catch(() => {
         // Swallow — the row may already be gone; the grid re-insert below is the
         // user-visible effect that matters.
       });
+    } else {
+      pendingUndoIdsRef.current.add(mangaBakaId);
     }
 
     setRemovedIds((prev) => {

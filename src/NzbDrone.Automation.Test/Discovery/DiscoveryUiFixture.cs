@@ -100,7 +100,7 @@ public class DiscoveryUiFixture : AutomationTest
         // fixture's tests (DB is wiped per-fixture, D-05; the page is not), so
         // leaving the drawer open would block the sibling test's interactions.
         // Also gives the drawer its close-cycle coverage.
-        await drawer.GetByLabel("Close").ClickAsync();
+        await Page.GetByTestId("discovery-filter-drawer-close").ClickAsync();
         await Assertions.Expect(drawer).ToHaveCountAsync(0);
     }
 

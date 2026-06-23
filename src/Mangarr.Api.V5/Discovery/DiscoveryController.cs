@@ -26,14 +26,17 @@ public class DiscoveryController : Controller
     private readonly IDiscoveryService _discoveryService;
     private readonly IManageCommandQueue _commandQueueManager;
     private readonly DiscoverySearchRequestValidator _searchRequestValidator;
+    private readonly DiscoveryBulkAddResourceValidator _bulkAddValidator;
 
     public DiscoveryController(IDiscoveryService discoveryService,
                               IManageCommandQueue commandQueueManager,
-                              DiscoverySearchRequestValidator searchRequestValidator)
+                              DiscoverySearchRequestValidator searchRequestValidator,
+                              DiscoveryBulkAddResourceValidator bulkAddValidator)
     {
         _discoveryService = discoveryService;
         _commandQueueManager = commandQueueManager;
         _searchRequestValidator = searchRequestValidator;
+        _bulkAddValidator = bulkAddValidator;
     }
 
     [HttpGet("genres")]
@@ -51,6 +54,12 @@ public class DiscoveryController : Controller
     [HttpPost("search")]
     public Results<Ok<DiscoverySearchResponseResource>, BadRequest> Search([FromBody] DiscoverySearchRequestResource resource)
     {
+        // A null/empty body binds resource to null; 400 before ToFilter() NREs.
+        if (resource is null)
+        {
+            return TypedResults.BadRequest();
+        }
+
         // T-42-04-TAMPER: clamp X + whitelist enums + bound ranges BEFORE the filter
         // reaches MangaBakaApi.Browse. 400 on any violation.
         var validationResult = _searchRequestValidator.Validate(resource);
@@ -66,8 +75,23 @@ public class DiscoveryController : Controller
     }
 
     [HttpPost("bulk-add")]
-    public Accepted BulkAdd([FromBody] DiscoveryBulkAddResource resource)
+    public Results<Accepted, BadRequest> BulkAdd([FromBody] DiscoveryBulkAddResource resource)
     {
+        // A null/empty body, an empty id list, a missing root folder, or an invalid
+        // monitor/profile id is rejected at the boundary (400) — invalid commands must
+        // NOT be accepted with 202 only to fail later in background execution.
+        if (resource is null)
+        {
+            return TypedResults.BadRequest();
+        }
+
+        var validationResult = _bulkAddValidator.Validate(resource);
+
+        if (!validationResult.IsValid)
+        {
+            return TypedResults.BadRequest();
+        }
+
         // T-42-04-DOS: clamp the id list to 100 (the grid's max X) before enqueue; the
         // downstream refresh fan-out self-paces via the MangaBaka LookupRateLimit.
         _commandQueueManager.Push(new DiscoveryBulkAddCommand
