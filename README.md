@@ -1,5 +1,7 @@
 # Mangarr
 
+📖 **[Documentation & Wiki](https://mangarr.github.io/)** · 💬 **[Join the Discord](https://mangarr.github.io/discord)**
+
 A manga / manhwa / manhua library manager and downloader. Mangarr monitors manga reader and aggregator websites for new chapters of your favorite titles, automatically downloads, sorts, and organizes them. It can also be configured to automatically upgrade quality when better scans become available.
 
 Mangarr is a fork of [Sonarr](https://github.com/Sonarr/Sonarr), adapting Sonarr's mature TV-show management infrastructure to manga management.
