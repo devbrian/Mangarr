@@ -171,6 +171,7 @@ src/.idea/
 # Claude / GSD internal dev artifacts (kept out of the public repo — may contain
 # dev-stack creds, internal notes, and personal workflow details)
 .claude/
+.planning
 .planning/
 src/.claude/settings.local.json
 # Claude Code transient agent worktrees (residual filesystem leftover from
