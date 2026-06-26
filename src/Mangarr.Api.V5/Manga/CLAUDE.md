@@ -4,7 +4,6 @@
 
 v1 developer REST endpoints for the manga domain. Phase 2 shipped the core CRUD (`Manga` + `Lookup` + `Links`); Phase 6 added the pipeline surface (`History`, `Blocklist`, `Queue`, `Release`, `Wanted/Missing`). UI lives in Phase 7. All endpoints carry `[V5ApiController]` (admin X-Api-Key requirement per RESEARCH §Security Domain V4).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Api.V5\Manga`
 
 ## Statistics (issue #335)
 

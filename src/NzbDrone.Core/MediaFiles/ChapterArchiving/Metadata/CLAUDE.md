@@ -4,7 +4,6 @@
 
 Phase 4 metadata-writer plugin contract (D-14). Pluggable sibling to `IChapterArchiver` so v2 plug-ins can stack additional reader-metadata sidecars (Mihon-format, Calibre OPF, etc.) without touching the downloader, archiver, or import layers.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MediaFiles\ChapterArchiving\Metadata`
 
 ## Key Files
 

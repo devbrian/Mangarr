@@ -6,7 +6,6 @@ Manga + Chapter domain models, services, repositories, and events. The leaf-most
 
 This directory was the **manga-side parallel** of the Sonarr `src/NzbDrone.Core/Tv/` directory during Phases 2-7 (both coexisted to preserve `v5-develop` upstream-merge ability). **Phase 15 Plan 15-03 deleted `Tv/`**; `Manga/` is now the sole canonical domain home.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Manga`
 
 ## Key Files
 

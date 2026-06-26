@@ -4,7 +4,6 @@
 
 Phase 6 D-11 + D-19 manga sibling of `src/NzbDrone.Core/Blocklisting/` (TV `Blocklist` family). Ships the `MangaBlocklist` parallel-table substrate that wires `BlocklistSpecification` (Phase 5 D-19 STUB-replacement target) and powers the auto-blocklist + auto-retry orchestration in Plan 06-08.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Blocklisting\Manga`
 
 ## Key Files
 

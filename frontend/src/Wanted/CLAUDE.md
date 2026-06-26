@@ -49,7 +49,7 @@ Bulk actions (footer):
 These pages are **conceptually identical** for manga: just rename the data type.
 
 - `Missing` → "missing chapters" — chapters that should exist but no file
-- `CutoffUnmet` → "below cutoff chapters" — files exist but quality profile isn't satisfied
+- `CutoffUnmet` → "below cutoff chapters" — files exist but translation profile cutoff isn't satisfied
 
 ### Key Considerations
 - Manga has chapter scheduling that's less precise than TV airing — backend logic for "should exist by now" needs adaptation:

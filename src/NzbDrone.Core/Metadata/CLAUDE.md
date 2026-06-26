@@ -7,7 +7,6 @@ metadata writers. Sibling to `MediaFiles/ChapterArchiving/Metadata/` (legacy Pha
 `IMetadataWriter` plugin contract; preserved as the internal delegation target for
 the Option 4b wrap).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Metadata`
 
 ## Key Files
 

@@ -4,7 +4,6 @@
 
 Phase 6 PIPELINE-04 manga sibling of `src/NzbDrone.Core/MediaFiles/EpisodeImport/`. Ships the manga import pipeline: `LocalChapter` POCO → `MangaImportDecisionMaker` (auto-discovered specs) → `ImportApprovedChapters` orchestrator that produces a `ChapterFile` row + emits `ChapterImportedEvent` for downstream rescan notifications (Komga / Kavita — Plans 06-10/11).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MediaFiles\MangaImport`
 
 ## Key Files
 

@@ -3,7 +3,6 @@
 ## Purpose
 v1 SECONDARY metadata source (D-16). Uses MAL v2 official API with client-ID-only auth per D-24 (NO OAuth). User pastes a free client ID from https://myanimelist.net/apiconfig.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MetadataSource\MyAnimeList`
 
 ## Key Files
 | File | Purpose |

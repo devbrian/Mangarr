@@ -14,7 +14,6 @@ TV consumers compiling during the cutover. Plan 17.3-13 (D-09/D-10) atomic
 stub-dir delete retired the Series/ subtree; this directory is now the
 single canonical home for manga frontend types + hooks + components.
 
-**Absolute Path:** `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Manga\`
 
 ## Key Files
 

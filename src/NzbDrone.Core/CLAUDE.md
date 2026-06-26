@@ -6,7 +6,6 @@ The **core business logic layer** of the application — the largest project by 
 
 Almost every change request that isn't strictly a UI tweak or API DTO change touches code in this project.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\`
 
 ## Top-Level Subdirectories (Quick Reference)
 

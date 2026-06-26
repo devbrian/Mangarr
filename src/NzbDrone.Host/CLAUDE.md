@@ -8,7 +8,6 @@ Application host and bootstrap layer. Owns:
 - Endpoint registration (controllers + SignalR hub)
 - Application-mode dispatch (interactive console, Windows Service, utility commands)
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Host\`
 
 ## Files (~12 cs files)
 
@@ -143,7 +142,7 @@ Uses a named mutex (`Mangarr-Mutex`). If a second instance starts with `--termin
 
 ## Manga Adaptation Notes
 
-This project is mostly **infrastructure** and reusable as-is. The Phase 15 hard-fork rebrand is complete — the single-instance mutex, assemblies (`Mangarr.*.dll`), and data dir are all Mangarr-named. `BrowserService` opens `http://localhost:8989`. The source-tree directory keeps the `NzbDrone.Host/` name as a fork-heritage breadcrumb (Phase 15 D-06).
+This project is mostly **infrastructure** and reusable as-is. The Phase 15 hard-fork rebrand is complete — the single-instance mutex, assemblies (`Mangarr.*.dll`), and data dir are all Mangarr-named. `BrowserService` opens the configured localhost URL (`http://localhost:{Port}`, port from config.xml). The source-tree directory keeps the `NzbDrone.Host/` name as a fork-heritage breadcrumb (Phase 15 D-06).
 
 ## Cross-References
 

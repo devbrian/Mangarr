@@ -13,7 +13,6 @@ peer. This directory is the canonical home for the manga detail page.
 The Chapters tab is **flat** — no season grouping (PROJECT.md "Volumes /
 Seasons" Out-of-Scope, UI-SPEC §Anti-pattern 5).
 
-**Absolute Path:** `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Manga\Details\`
 
 ## Key Files
 

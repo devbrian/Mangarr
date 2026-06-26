@@ -2,9 +2,8 @@
 
 ## Purpose
 
-**Manual release search** — user clicks "Search" on a series/season/episode, sees all releases the configured indexers return, and manually picks one to download. Bypasses the automated DecisionEngine ranking (though rejection reasons are still shown).
+**Manual release search** — user clicks "Search" on a manga or chapter, sees all releases the gateway returns, and manually picks one to download. Bypasses the automated DecisionEngine ranking (though rejection reasons are still shown).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\InteractiveSearch\`
 
 ## Files
 
@@ -33,19 +32,19 @@ The TV-shape `OverrideMatchModal.tsx` + `OverrideMatchModalContent.tsx` fallback
 ## Flow
 
 ```
-User opens series/episode detail → clicks "Interactive Search" toolbar button
+User opens manga or chapter detail → clicks "Interactive Search" toolbar button
         ↓
 Modal opens with InteractiveSearch component
         ↓
-useReleases() → GET /api/v5/manga/release { kind, chapterId | mangaId }
-        ↓ Backend runs the same indexer search the auto pipeline uses,
+useReleases(payload: InteractiveSearchPayload) → POST /api/v5/manga/release { kind, chapterId | mangaId }
+        ↓ Backend runs the same gateway search the auto pipeline uses,
         ↓ but returns ALL results (with rejections) — does not auto-grab.
         ↓
-List<ReleaseResource> with: title, indexer, age, size, seeders, peers,
-quality, languages, customFormats, customFormatScore, mappedSeriesId,
-mappedEpisodeIds, rejections, releaseGroup, sceneSource, sceneMapping
+List<ReleaseResource> with: title, indexer, source, translatedLanguage,
+scanlationGroup, votes, customFormats, customFormatScore, mappedMangaId,
+mappedChapterIds, rejections
         ↓
-User reviews, sorts (default: by quality + custom format), filters out rejected
+User reviews, sorts (default: by translated language + custom format), filters out rejected
         ↓
 User clicks "Grab" on a row → POST /api/v5/manga/release { guid, indexerId } (useGrabMangaRelease)
         ↓
@@ -54,7 +53,7 @@ Backend submits to download client just like auto pipeline
 
 ## Override Match
 
-If the parser mismatched the release (e.g., picked the wrong series), the user can use **Override Match** to manually point the release at the correct series/episode + force-grab.
+If the parser mismatched the release (e.g., picked the wrong manga), the user can use **Override Match** to manually point the release at the correct manga/chapter + force-grab.
 
 ## Manga Adaptation Notes
 

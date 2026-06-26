@@ -9,7 +9,6 @@ User-configurable **profiles** that control which releases are accepted, when to
 - **Delay profiles** (`Delay/`) — how long to wait for a preferred release before grabbing the available one
 - **Release profiles** (`Releases/`) — preferred / required / ignored term lists
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Profiles\`
 
 ## Subdirectories
 

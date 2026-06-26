@@ -4,7 +4,6 @@
 
 Phase 6 D-20 manga sibling of `src/NzbDrone.Core/Queue/` (the TV `Queue` family that was **deleted in the Phase 15 fork**). Ships the `MangaQueueService` static-list projection that fans the `IHandle<TrackedDownloadRefreshedEvent>` lifecycle into a manga-shaped `List<MangaQueueItem>` filtered to `DownloadProtocol.Http` entries, and emits `MangaQueueUpdatedEvent` on every refresh. Wires the Phase 5 `QueueDuplicateSpecification` STUB (D-20) so the decision engine can ask "is this chapter already in flight?" instead of accepting every release. As of the Phase 15 fork this is the **sole** `IHandle<TrackedDownloadRefreshedEvent>` projection (HEAD-verified Phase 36 Plan 02 — no TV `QueueService.cs`/`Queue.cs` on disk, no TV `QueueController` in V5).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Queue\Manga`
 
 ## Key Files
 

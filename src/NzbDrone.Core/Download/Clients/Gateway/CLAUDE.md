@@ -9,7 +9,6 @@ status to `DownloadItemStatus`, and resolves `OutputPath`/`OutputRootFolders` th
 `IRemotePathMappingService`. The Phase-36 monitoring loop drives the grab → poll → import lifecycle
 unchanged.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Download\Clients\Gateway`
 
 ## Key Files
 

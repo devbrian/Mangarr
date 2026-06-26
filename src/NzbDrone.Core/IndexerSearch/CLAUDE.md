@@ -8,7 +8,6 @@ and the `Definitions/` manga `SearchCriteria` hierarchy. The Sonarr TV command/s
 (`SeriesSearchCommand`, `EpisodeSearchService`, `ReleaseSearchService`, etc.) was deleted in the
 Phase 15 `Tv/` cutover — there are **no top-level `.cs` files left in this directory**.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\IndexerSearch\`
 
 ## Subdirectories (verified at HEAD)
 

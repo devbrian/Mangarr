@@ -4,7 +4,6 @@
 
 The REST surface for the **Discovery** filtered-bulk-add browse vertical (Phase 42). A bare `[V5ApiController("discovery")]` wrapping `IDiscoveryService` ([NzbDrone.Core/Discovery](../../NzbDrone.Core/Discovery/CLAUDE.md)) + `IManageCommandQueue`, exposing four admin-authenticated endpoints the Discovery frontend ([frontend/src/Discovery](../../../frontend/src/Discovery/CLAUDE.md)) consumes.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Api.V5\Discovery\`
 
 ## Key Files
 

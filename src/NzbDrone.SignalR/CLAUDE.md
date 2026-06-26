@@ -4,7 +4,6 @@
 
 Real-time push channel from backend to frontend using SignalR. Pushes commands, entity changes, queue updates, health, and system messages so the UI stays live without polling.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.SignalR\`
 
 ## Files (only 3)
 
@@ -48,7 +47,12 @@ public class MessageHub : Hub
 
 ## Message Types Sent to UI
 
-Resource names are auto-derived from each `*Resource.ResourceName` (lowercase, `resource` suffix stripped). The `SignalRListener.tsx` frontend handler currently dispatches on: `manga`, `chapter`, `chapterfile`, `calendar`, `command`, `connection`, `downloadclient`, `health`, `importlist`, `indexer`, `metadata`, `rootfolder`, `tag`, `version`.
+Message names come from **two** sources:
+
+- **Auto-derived** from each `*Resource.ResourceName` (lowercase, `resource` suffix stripped) for resource-backed broadcasts: `manga`, `chapter`, `chapterfile`, `calendar`, `command`, `connection`, `downloadclient`, `health`, `importlist`, `indexer`, `metadata`, `rootfolder`, `tag`.
+- **Explicit / manual topics** that are NOT `*Resource.ResourceName`-derived: `version` is a hand-built broadcast (`MessageHub.cs` `Name = "version"`, sent on connect), and the queue topics `manga/queue` / `manga/queue/status` derive from the `[V5ApiController("manga/queue")]` / `[V5ApiController("manga/queue/status")]` route literal, not a resource name.
+
+The `SignalRListener.tsx` frontend handler dispatches on all of the above.
 
 | Message name | Triggered By |
 |--------------|--------------|

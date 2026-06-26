@@ -4,7 +4,6 @@
 
 The **file pipeline** — disk scanning, importing completed downloads, moving/renaming on import, and lifecycle management of `ChapterFile` entities. The bridge between "downloaded data on disk" and "linked file on a monitored Chapter." Handles **CBZ/CBR/image-folder** payloads (the TV `EpisodeFile`/video machinery was deleted with `Tv/` in Phase 15).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MediaFiles\`
 
 ## Top-Level Files (verified at HEAD)
 

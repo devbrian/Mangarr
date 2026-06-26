@@ -13,7 +13,6 @@ self-healing pipeline.
 > completion poll. The retired `ProcessMangaCompletedCommand` `TaskManager.defaultTasks` 1-min row
 > was stripped.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Download\Manga`
 
 ## Key Files (verified at HEAD)
 

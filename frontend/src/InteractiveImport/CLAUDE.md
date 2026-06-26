@@ -7,7 +7,6 @@
 - Files exist outside the watched download folder
 - User wants to bulk-import an existing library
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\InteractiveImport\`
 
 **File count**: ~48 files.
 

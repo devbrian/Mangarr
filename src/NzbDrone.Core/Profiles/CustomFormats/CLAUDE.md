@@ -3,7 +3,6 @@
 ## Purpose
 Custom-Format scoring profile entity (CustomFormatProfile) — the INNER scoring layer of Phase 5's two-layer release-preference model. Carries `MinFormatScore` / `MaxFormatScore` thresholds + a per-profile per-CF score override list (`FormatItems`).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Profiles\CustomFormats`
 
 ## Key Files
 | File | Purpose |

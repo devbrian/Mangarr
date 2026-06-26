@@ -6,7 +6,6 @@ Komga manga-reader notification provider — fires a per-library rescan on `Chap
 
 It is a **manga-only sibling** of `Notifications/Kavita/` (the only other live notifier). Its shape derives from the Sonarr media-server notifiers (Emby/Jellyfin `MediaBrowser/`, Plex `Plex/Server/`) — same `INotification` plugin shape, same `MediaServerUpdateQueue<T,U>` debounce reuse, manga-shaped event hook — but those TV providers are NOT in the live tree (reference-preserved per the policy; see Cross-References).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Notifications\Komga\`
 
 ## Key Files
 

@@ -7,7 +7,6 @@ V5 REST surface for the **ImportList substrate** (Phase 26 IL-05). Wraps the
 in V5-canonical `ProviderControllerBase` + `RestController` controllers consumed by
 the Settings → ImportLists FE page.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Api.V5\ImportLists\`
 
 ## Endpoint Surface
 

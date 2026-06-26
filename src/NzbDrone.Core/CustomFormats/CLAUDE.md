@@ -6,7 +6,6 @@
 
 The pattern is the **same Specification pattern** used by DecisionEngine — but scoped to a format (not the entire grab decision).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\CustomFormats\`
 
 ## Top-Level Files
 
@@ -16,7 +15,7 @@ The pattern is the **same Specification pattern** used by DecisionEngine — but
 | `CustomFormatRepository.cs` | DB persistence (`ICustomFormatRepository` declared in-file) |
 | `CustomFormatService.cs` | CRUD (`ICustomFormatService` declared in-file) |
 | `CustomFormatCalculationService.cs` | Score a release/file against all custom formats |
-| `CustomFormatInput.cs` / `MangaCustomFormatInput.cs` | Scoring-input DTO + manga-shaped subclass (carries `ScanlationGroup`, `TranslatedLanguage`, `SourceKey`, `ChapterInfo`) |
+| `CustomFormatInput.cs` / `MangaCustomFormatInput.cs` | Scoring-input DTO + manga-shaped subclass (adds `ChapterInfo`, `Manga`, `Release`, `SourceKey`; `ScanlationGroup` + `TranslatedLanguage` ride on `Release`) |
 | `MediaType.cs` | `AppliesTo` discriminator enum — `All = 0` (reusable specs) / `Manga = 2` (manga-only specs) |
 | `SpecificationMatchesGroup.cs` | Group container for spec matching with AND/OR semantics |
 | `Events/` | `CustomFormatAddedEvent`, `CustomFormatUpdatedEvent`, `CustomFormatDeletedEvent` |

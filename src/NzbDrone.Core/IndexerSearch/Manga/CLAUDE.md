@@ -4,7 +4,6 @@
 
 Phase 6 D-06/D-07/D-08/D-09 manga sibling of `src/NzbDrone.Core/IndexerSearch/` (TV `EpisodeSearch` / `SeriesSearch` / `MissingEpisodeSearch` / RSS-sync family). Ships the four manga search command POCOs + four `IExecute<TCommand>` services that drive Interactive Search (PIPELINE-01), Add-Manga search (D-06), scheduled RSS poll (PIPELINE-02), and Wanted/Missing sweep (WANTED-02). Decisions are produced by Phase 5 `MangaDownloadDecisionMaker`; the grab + import path is owned by Plan 06-07/08.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\IndexerSearch\Manga`
 
 ## Key Files
 

@@ -4,7 +4,6 @@
 
 All user-configurable settings UI. Each subdirectory is one settings page (or section). 273+ files — the largest feature module after `Components/`.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Settings\`
 
 ## Top-Level Files
 

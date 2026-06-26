@@ -6,7 +6,6 @@ Database layer — connection management, generic repository, ORM mapping, and *
 
 This directory is **media-agnostic** infrastructure and reusable as-is. Migrations specific to manga schema additions/renames will be added on top.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Datastore\`
 
 ## Top-Level Files
 

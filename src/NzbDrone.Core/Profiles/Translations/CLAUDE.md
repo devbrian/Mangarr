@@ -3,7 +3,6 @@
 ## Purpose
 Manga translation-language preference entity (TranslationProfile) — the OUTER gate of Phase 5's two-layer release-preference model (Phase 0 cf-only-walkthrough.md verdict signed off 2026-05-01).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Profiles\Translations`
 
 ## Key Files
 | File | Purpose |

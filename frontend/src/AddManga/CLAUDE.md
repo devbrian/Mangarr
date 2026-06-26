@@ -7,7 +7,6 @@ sibling of `frontend/src/AddSeries/`. Mirrors AddSeries' search-grid + side-pane
 shape verbatim per Phase 7 D-04; only the form-field set diverges (5-value
 `MangaMonitor`, TranslationProfile/CustomFormatProfile, SearchOnAdd).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\AddManga\`
 
 ## Key Files
 

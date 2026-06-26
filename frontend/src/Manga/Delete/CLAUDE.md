@@ -4,7 +4,6 @@
 
 Single-manga Delete confirmation modal — wired into the Delete toolbar button on `MangaDetails.tsx`. Previously deferred under Phase 15 Plan 15-12 as a `{isDeleteModalOpen ? null : null}` stub; shipped here as the second of the two deferred per-manga modal sub-trees (the first was `Manga/Edit/`, shipped in PR #27 — `fix(manga-edit-button-no-op)`).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Manga\Delete\`
 
 ## Key Files
 

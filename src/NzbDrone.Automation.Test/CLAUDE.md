@@ -6,7 +6,6 @@ End-to-end UI integration tests for Mangarr. Every test boots a real backend ins
 
 **Phase 18 (2026-05-13) replaced the inherited Selenium-WebDriver harness with Playwright .NET.** Sonarr upstream is still on Selenium 3.141.0 (see [DIVERGENCE.md](../../DIVERGENCE.md)).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Automation.Test`
 
 ## Key Files
 

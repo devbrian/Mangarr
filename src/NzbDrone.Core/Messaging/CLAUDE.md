@@ -9,7 +9,6 @@ The **event + command** infrastructure. Two related but distinct mechanisms:
 
 This is **infrastructure** and reusable as-is for Mangarr.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Messaging\`
 
 ## Layout
 

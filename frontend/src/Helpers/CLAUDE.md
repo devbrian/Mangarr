@@ -34,8 +34,8 @@ Wrapper around React Query's `useQuery` for API GET requests:
 import { useApiQuery } from 'Helpers/Hooks/useApiQuery';
 
 const { data, isLoading, isFetched, error } = useApiQuery<Manga[]>({
-  queryKey: ['/manga'],
-  staleTime: 5 * 60 * 1000,  // 5 minutes
+  path: '/manga',
+  queryOptions: { staleTime: 5 * 60 * 1000 },  // 5 minutes
 });
 ```
 
@@ -54,7 +54,7 @@ import { useApiMutation } from 'Helpers/Hooks/useApiMutation';
 
 const { mutate, isPending, error } = useApiMutation<Manga>({
   method: 'PUT',
-  queryKey: ['/manga', id],
+  path: `/manga/${id}`,
 });
 
 // Execute mutation

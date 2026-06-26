@@ -225,7 +225,6 @@ yarn watch                                                  # Webpack watch mode
 ## Purpose
 [Brief description of what this directory contains]
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\[path]`
 
 ## Key Files
 | File | Purpose |

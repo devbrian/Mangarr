@@ -11,7 +11,6 @@ HTTP infrastructure layer — sits between the `Mangarr.Api.V5` controllers and 
 - Frontend serving (mappers for `index.html`, login, static assets, covers, manifest)
 - Validation utilities + dynamic schema generation for plugin forms
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Http\`
 
 **File count**: ~70 .cs files across 10 namespaces.
 
@@ -116,6 +115,7 @@ public class MangaResource : RestResource
 {
     public string Title { get; set; }
     public string Path { get; set; }
+    public int TranslationProfileId { get; set; }
     // … maps to/from Manga domain model via static extension methods
 }
 ```

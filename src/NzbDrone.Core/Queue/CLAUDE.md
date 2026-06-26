@@ -6,7 +6,6 @@ Live in-flight queue projection — the read-model that the UI Activity panel an
 
 The TV `QueueService.cs` / `Queue.cs` / `ObsoleteQueueService.cs` family was **DELETED in the Phase 15 fork** (V3 API + TV `Tv/` cutover). `MangaQueueService` (under `Queue/Manga/`) is now the **sole** `IHandle<TrackedDownloadRefreshedEvent>` projection — HEAD-verified Phase 36 Plan 02 (no TV `QueueService.cs`/`Queue.cs` on disk; only `MangaQueueService` subscribes; no TV `QueueController` in `Mangarr.Api.V5`). There is no second queue and no double-counting risk; the original Phase 6 `Protocol == DownloadProtocol.Http` split (described below) is now a harmless heritage guard rather than a live co-existence requirement.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Queue\`
 
 ## Top-Level Files
 

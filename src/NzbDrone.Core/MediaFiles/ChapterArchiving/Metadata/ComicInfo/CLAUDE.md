@@ -15,7 +15,6 @@ ComicInfo.xml emission for manga chapters. Two write surfaces coexist:
 Both surfaces reuse the pure `ComicInfoXmlBuilder` + `AgeRatingMapper` verbatim (both MUST
 survive Phase 39).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MediaFiles\ChapterArchiving\Metadata\ComicInfo`
 
 ## Key Files
 

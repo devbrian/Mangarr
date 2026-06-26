@@ -6,7 +6,6 @@ The **scheduled-task substrate**. Registers periodic commands (RSS sync, refresh
 
 This is **infrastructure** — media-agnostic. The directory survives the Phase 14 `Tv/` cutover unchanged.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Jobs\`
 
 ## Key Files
 

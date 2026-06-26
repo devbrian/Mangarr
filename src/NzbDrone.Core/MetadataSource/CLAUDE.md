@@ -6,13 +6,12 @@ External metadata provider integrations — fetch manga/chapter info from third-
 
 Sonarr's sole TV metadata source (TheTVDB via the Mangarr-hosted **SkyHook** proxy) was **deleted in Phase 15** — `SkyHook/`, `IProvideSeriesInfo`, `ISearchForNewSeries`, `SkyHookProxy` no longer exist. The manga peers are the four providers below; **MangaBaka** is the v1.3 default primary (Phase 41).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MetadataSource\`
 
 ## Top-Level Files
 
 | File | Purpose |
 |------|---------|
-| `IProvideMangaInfo.cs` | Interface — `GetMangaInfo(string sourceId)` → `(Manga, List<Chapter>)` (D-14) |
+| `IProvideMangaInfo.cs` | Interface — `GetMangaInfo(string sourceId)` → `(Manga, IEnumerable<Chapter>)` (D-14) |
 | `ISearchForNewManga.cs` | Interface — search by title or by cross-source ID (D-14) |
 | `IMetadataSource.cs` | Composite interface; required for ThingiProvider auto-discovery (Pitfall 4) |
 | `MetadataSourceBase.cs` | Abstract base implementing the IProvider members |
@@ -41,7 +40,7 @@ Migration 005 deprecated AniList/MAL as default candidates; Migration 012/013 ad
 ISearchForNewManga.SearchForNewManga("title")  → List<Manga>  (UI add list)
    ↓ user picks one → AddMangaService persists
 RefreshMangaService.RefreshMangaInfo(mangaId)
-   ↓ IProvideMangaInfo.GetMangaInfo(sourceId) → (Manga, List<Chapter>)
+   ↓ IProvideMangaInfo.GetMangaInfo(sourceId) → (Manga, IEnumerable<Chapter>)
    ↓ reconcile fetched chapters with DB (insert new / update changed / delete removed)
 ```
 

@@ -4,7 +4,6 @@
 
 v1 REST CRUD for `IMetadataSource` ThingiProvider definitions + the bespoke `SetPrimary` endpoint per D-15. Per CONTEXT Claude's Discretion: "Phase 7 wires up the React Settings → Metadata Sources page" — Phase 2 ships only the developer surface.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Api.V5\MetadataSource`
 
 ## Key Files
 

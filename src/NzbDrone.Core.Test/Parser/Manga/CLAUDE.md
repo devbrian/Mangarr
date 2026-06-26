@@ -4,7 +4,6 @@
 
 Manga parser test fixtures + the 500-title corpus that gates Phase 2 completion. Every Phase 2 parser deliverable is verified here before downstream plans (`02-02`..`02-10`) are allowed to flip from RED to GREEN.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core.Test\Parser\Manga`
 
 ## Key Files
 

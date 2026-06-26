@@ -4,7 +4,6 @@
 
 The **release-title parsing engine** — converts raw release titles (and filenames) into structured metadata. The Sonarr→Mangarr migration of this engine SHIPPED in Phase 2/6: the TV/anime parser (`Parser.cs`, `ParsingService.cs`, `QualityParser.cs`, `LanguageParser.cs`) was removed and the manga parser now lives under `Parser/Manga/`. The notes below preserve the TV-parser shape for migration provenance, but the live engine at HEAD is the manga one.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Parser\`
 
 ## Files (live at HEAD)
 

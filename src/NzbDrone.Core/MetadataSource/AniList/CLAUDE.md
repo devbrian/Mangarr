@@ -6,7 +6,6 @@ v1 SECONDARY metadata source (D-16). NEW file per D-25 — kept separate from th
 in Phase 26/27 as `AniListImportList*.cs`; the original Phase-2-era `AniListAPI.cs` stub the
 D-25 note referenced no longer exists at HEAD).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MetadataSource\AniList`
 
 ## Key Files
 | File | Purpose |

@@ -18,7 +18,6 @@ The architecture is largely **media-agnostic**: a torrent client doesn't care if
 > rows (`ProcessMangaCompletedCommand` 1-min poll + `HousekeepInProcessDownloadsCommand`
 > 24-h sweep) were stripped. See `DIVERGENCE.md` Phase 39 section.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Download\`
 
 ## Top-Level Files (verified at HEAD)
 

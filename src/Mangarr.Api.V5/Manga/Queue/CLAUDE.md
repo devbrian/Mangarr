@@ -13,7 +13,6 @@ Sonarr divergence: originally added as the NEW manga sibling of `src/Sonarr.Api.
 Phase 15 completed the hard-fork rename (`src/Sonarr.Api.V5/` → `src/Mangarr.Api.V5/`) and
 collapsed the TV Queue peers per D-13-16; only the four manga controllers remain at HEAD.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Api.V5\Manga\Queue`
 
 ## Key Files
 

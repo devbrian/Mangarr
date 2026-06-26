@@ -4,7 +4,6 @@
 
 Console application entry point. This is the **main executable** that starts the application.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Console\`
 
 ## Key Files
 

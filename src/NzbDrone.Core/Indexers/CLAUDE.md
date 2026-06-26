@@ -4,7 +4,6 @@
 
 **Indexer plugins** — services that fetch lists of releases from external sites, for both periodic RSS sync ("what's new") and on-demand search. Indexers follow the **ThingiProvider** plugin pattern.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Indexers\`
 
 > **Phase 39 (Plan 39-03/04) — in-process site-scraper indexers RETIRED.** Mangarr no longer
 > runs in-process manga aggregator scrapers. `Indexers/Gateway/GatewayIndexer.cs` (Phase 37) is

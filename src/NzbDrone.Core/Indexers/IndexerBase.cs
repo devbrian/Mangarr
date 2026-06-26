@@ -81,7 +81,7 @@ namespace NzbDrone.Core.Indexers
         // Sonarr divergence: Phase 15 Plan 15-10 cascade absorption — TV-shape Fetch overloads
         // (SeasonSearchCriteria / Single|Daily|Anime|SpecialEpisodeSearchCriteria, etc.)
         // stripped per Plan 15-10 IndexerSearch/Definitions DELETE. Manga overloads now
-        // canonical (GatewayIndexer overrides concretely).
+        // canonical (HttpIndexerBase implements these abstracts concretely; GatewayIndexer inherits).
         public abstract Task<IList<ReleaseInfo>> Fetch(MangaSearchCriteria searchCriteria);
         public abstract Task<IList<ReleaseInfo>> Fetch(ChapterSearchCriteria searchCriteria);
 

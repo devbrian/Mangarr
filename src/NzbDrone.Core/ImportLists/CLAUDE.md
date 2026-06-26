@@ -8,7 +8,6 @@ Phase 26 (Plan 26-04) shipped the **substrate backend** per D-08 — contract, a
 
 **Heritage:** Sonarr-fork shape preserved verbatim (RESTORE + AUTHOR pattern per v1.1 SUMMARY #2). Reference slice at `.planning/reference/sonarr-vertical-slices/import-lists/` retains the upstream Sonarr files for line-by-line port traceability.
 
-**Absolute Path:** `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\ImportLists\`
 
 ## Key Files
 

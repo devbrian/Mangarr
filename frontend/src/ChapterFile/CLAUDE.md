@@ -12,7 +12,6 @@ Mirrors the V5 backend `ChapterFileResource` (Phase 13 Plan 13-07) and
 consumes the URL-shaped React Query cache contract from Plan 07-02 SignalR
 handlers (`chapterfile` resource name → `['/chapterFile']` cache key).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\ChapterFile\`
 
 ## Key Files
 

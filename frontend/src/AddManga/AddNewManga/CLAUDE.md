@@ -9,7 +9,6 @@ side-panel-modal shape verbatim per Phase 7 D-04; only the form-field set
 diverges (5-value `MangaMonitor`, TranslationProfile, CustomFormatProfile,
 SearchOnAdd toggle).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\AddManga\AddNewManga\`
 
 ## Key Files
 

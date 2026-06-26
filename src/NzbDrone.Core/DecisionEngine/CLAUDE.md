@@ -13,7 +13,6 @@ set — lives under [`Manga/`](./Manga/CLAUDE.md). The Sonarr TV orchestrator (`
 `DownloadDecision`, `IDownloadDecisionEngineSpecification`) and its `Specifications/` catalog (`Monitored*`,
 `Quality*`, `Upgradable`, `SeasonPack*`, `Anime*`, etc.) were deleted in the Phase 15 `Tv/` cutover.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\DecisionEngine\`
 
 ## Top-Level Files (shared infra — verified at HEAD)
 

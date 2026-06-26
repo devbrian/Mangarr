@@ -4,7 +4,6 @@
 
 React-based web UI served by the backend at `http://localhost:8989`. Built with TypeScript; uses **three** state stores (Redux + Zustand + TanStack React Query) and SignalR for real-time push.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\`
 
 ## Technology Stack
 
@@ -137,8 +136,8 @@ App.tsx (provider chain, top → bottom)
 import { useApiQuery } from 'Helpers/Hooks/useApiQuery';
 
 const { data, isLoading, isFetched, error } = useApiQuery<Manga[]>({
-  queryKey: ['/manga'],
-  staleTime: 5 * 60 * 1000,
+  path: '/manga',
+  queryOptions: { staleTime: 5 * 60 * 1000 },
 });
 ```
 
@@ -147,7 +146,7 @@ import { useApiMutation } from 'Helpers/Hooks/useApiMutation';
 
 const { mutate, isPending } = useApiMutation<Manga>({
   method: 'PUT',
-  queryKey: ['/manga', id],
+  path: `/manga/${id}`,
 });
 mutate({ ...manga, monitored: true });
 ```

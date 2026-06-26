@@ -4,7 +4,6 @@
 
 Foundational utility library — used across **all** NzbDrone projects. Contains zero references to other NzbDrone projects, making it the bottom of the dependency graph.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Common\`
 
 **File count**: ~178 .cs files across 20 namespaces.
 

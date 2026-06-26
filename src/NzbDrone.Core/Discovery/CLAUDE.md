@@ -4,7 +4,6 @@
 
 The core business logic for the **Discovery** filtered-bulk-add browse vertical (Phase 42): the eligibility auto-paging loop over the MangaBaka attribute API, the filter model, the cached genre/tag option lists, and the fire-and-forget bulk-add command. NEW-in-Mangarr; no Sonarr peer (see [DIVERGENCE.md](../../../DIVERGENCE.md) Phase 42).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Discovery\`
 
 ## Key Files
 

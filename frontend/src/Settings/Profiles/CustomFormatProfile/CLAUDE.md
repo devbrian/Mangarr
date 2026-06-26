@@ -4,7 +4,6 @@
 
 CustomFormatProfile editor sub-tree — wires the Phase 5 D-07 `CustomFormatProfile` entity (`/api/v5/customformatprofile`) into the Settings → Custom Format Profiles top-level page (Phase 7 D-05 topology rework — NEW route `/settings/customformatprofiles`).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Settings\Profiles\CustomFormatProfile\`
 
 ## Mangarr Inheritance
 

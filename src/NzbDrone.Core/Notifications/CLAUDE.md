@@ -6,7 +6,6 @@ Notification provider plugins — fire alerts to users on events like episode gr
 
 **Komga and Kavita are the ONLY live notification providers** (both manga-reader rescan triggers — see their subdirectory CLAUDE.md files). Sonarr's other notifiers (Discord, Slack, Email, Telegram, etc.) are NOT in the live tree — they are reference-preserved fork heritage under `.planning/reference/sonarr-vertical-slices/notifications-extra/` per the Reference Preservation Policy. The contract surface (`INotification` / `NotificationBase`) was trimmed to manga-shape in Phase 15 W-1/W-2.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Notifications\`
 
 ## Top-Level Files
 
