@@ -8,7 +8,6 @@ Application host and bootstrap layer. Owns:
 - Endpoint registration (controllers + SignalR hub)
 - Application-mode dispatch (interactive console, Windows Service, utility commands)
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Host\`
 
 ## Files (~12 cs files)
 
@@ -50,7 +49,7 @@ Startup.ConfigureServices(IServiceCollection services)
      │
      ▼
 Startup.Configure(IApplicationBuilder app)
-     │  - UseSonarrErrorPipeline (global JSON exception handler)
+     │  - MangarrErrorPipeline middleware (global JSON exception handler)
      │  - UseUrlBase / UseLogging / UseCacheHeaders / UseStartingUp
      │  - UseAuthentication / UseAuthorization
      │  - Map controllers + SignalR hub
@@ -73,16 +72,16 @@ The container is **DryIoc** (configured via Microsoft.Extensions.DependencyInjec
 ```csharp
 public void ConfigureServices(IServiceCollection services)
 {
-    // Auto-register all classes by interface convention from NzbDrone.* assemblies
-    services.AddNzbDroneServices();
+    // Most services auto-register by interface convention via DryIoc assembly
+    // scanning (NzbDrone.Common/Composition/); only overrides are explicit here.
 
     // ASP.NET Core
     services.AddControllers();
     services.AddSignalR();
 
     // Auth
-    services.AddSonarrAuthentication();
-    services.AddSonarrAuthorization();
+    services.AddAppAuthentication();
+    services.AddAuthorization();
 
     // …
 }
@@ -93,7 +92,7 @@ public void ConfigureServices(IServiceCollection services)
 ```csharp
 public void Configure(IApplicationBuilder app)
 {
-    app.UseSonarrErrorPipeline();    // Catch + JSON-format exceptions
+    app.UseMiddleware<MangarrErrorPipeline>();    // Catch + JSON-format exceptions
     app.UseStartingUp();              // Block requests during startup
     app.UseUrlBase();                 // Reverse-proxy URL base
     app.UseLogging();                 // Request/response logging
@@ -113,7 +112,7 @@ public void Configure(IApplicationBuilder app)
     });
 
     // Frontend mappers (serve index.html, login, static, etc.)
-    app.UseSonarrFrontend();
+    app.UseMangarrFrontend();
 }
 ```
 
@@ -143,10 +142,7 @@ Uses a named mutex (`Mangarr-Mutex`). If a second instance starts with `--termin
 
 ## Manga Adaptation Notes
 
-This project is mostly **infrastructure** and reusable as-is. Items to revisit:
-- The mutex name `Mangarr-Mutex` — change to `Mangarr-Mutex` when rebranding (otherwise Mangarr installs would conflict).
-- `BrowserService` opens `http://localhost:8989` — same path, no change needed.
-- Default API path prefix and project naming are still `Mangarr.*` — these will rename in a future migration step.
+This project is mostly **infrastructure** and reusable as-is. The Phase 15 hard-fork rebrand is complete — the single-instance mutex, assemblies (`Mangarr.*.dll`), and data dir are all Mangarr-named. `BrowserService` opens the configured localhost URL (`http://localhost:{Port}`, port from config.xml). The source-tree directory keeps the `NzbDrone.Host/` name as a fork-heritage breadcrumb (Phase 15 D-06).
 
 ## Cross-References
 

@@ -6,7 +6,6 @@ Kavita manga-reader notification provider — fires a per-library OR scan-all re
 
 This directory is a **manga-only sibling** of `Notifications/Komga/` (the other manga reader Mangarr ships in v1) and `Notifications/MediaBrowser/` (Emby/Jellyfin) / `Notifications/Plex/Server/` (Plex Media Server) — same `INotification` plugin shape, same `MediaServerUpdateQueue<T,U>` debounce reuse, manga-shaped event hook.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Notifications\Kavita\`
 
 ## Key Files
 

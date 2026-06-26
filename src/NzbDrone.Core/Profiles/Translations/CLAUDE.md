@@ -3,7 +3,6 @@
 ## Purpose
 Manga translation-language preference entity (TranslationProfile) — the OUTER gate of Phase 5's two-layer release-preference model (Phase 0 cf-only-walkthrough.md verdict signed off 2026-05-01).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Profiles\Translations`
 
 ## Key Files
 | File | Purpose |
@@ -15,11 +14,11 @@ Manga translation-language preference entity (TranslationProfile) — the OUTER 
 | `TranslationProfileUpdatedEvent.cs` | Published on Update for cache invalidation |
 
 ## Patterns / Conventions
-- Sibling to `Profiles/Qualities/` — mirrors QualityProfile{,Service,Repository,InUseException} shape verbatim (per 05-PATTERNS.md exact-match analogs)
+- Sibling to `Profiles/CustomFormats/` — the two halves of the Phase 5 D-07 split. The shape was ported verbatim from Sonarr's QualityProfile{,Service,Repository,InUseException} (per 05-PATTERNS.md exact-match analogs); that Sonarr `Profiles/Qualities/` vertical was dropped in Phase 5 D-04 and no longer exists on disk.
 - Languages persists as JSON column via `StringListConverter<List<string>>` already registered at `TableMapping.cs:233` (Phase 5 PATTERNS-MAP Adaptation Hotspot 8 — no new converter needed)
 - Default-on-first-run seeder per pattern S4: `if (All().Any()) return;` then `Add(new TranslationProfile { Name="English Only", Languages=["en"], AllowLanguagesNotInProfile=false })` and seed `Config.DefaultTranslationProfileId` (per Phase 5 D-11 first-run-UX dependency + Pitfall 8 mitigation)
 - AllowLanguagesNotInProfile defaults to FALSE per Phase 5 D-02 (strict mode — vast majority of users have one language; user direction 2026-05-03)
-- Delete guard per Pitfall 8: raises TranslationProfileInUseException if profile is assigned to any Manga OR is the global default (mirror of `QualityProfileService.Delete` line 65-74). Manga lookup uses `IMangaService.GetAllManga()` (Mangarr's analog is `ISeriesService.GetAllSeries()`).
+- Delete guard per Pitfall 8: raises TranslationProfileInUseException if profile is assigned to any Manga OR is the global default (Phase 5 port of the since-deleted Sonarr `QualityProfileService.Delete` guard). Manga lookup uses `IMangaService.GetAllManga()`.
 - BCP-47 validation in V5 controller uses `NzbDrone.Core.Parser.IsoLanguages.Find(code) != null` rather than the planned `IsBcp47Valid` (which does not exist in this codebase). `Find` accepts 2-letter, 3-letter, and 2-letter-COUNTRY shapes (e.g., `en`, `eng`, `pt-br`).
 
 ## Manga Adaptation Notes
@@ -37,5 +36,5 @@ When `Tv/` deletes in Phase 8, this directory collapses into the canonical `Prof
 - [Phase 5 CONTEXT](../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md) — D-01, D-02, D-03, D-04, D-11
 - [Phase 5 RESEARCH](../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-RESEARCH.md) — Pitfall 8 (FK orphan via REST DELETE)
 - [Phase 5 PATTERNS-MAP](../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-PATTERNS.md) — Adaptation Hotspot 8 (StringListConverter<List<string>> already registered)
-- [QualityProfile pattern source](../Qualities/QualityProfile.cs)
+- [CustomFormatProfile sibling](../CustomFormats/) — the other half of the Phase 5 D-07 split (Sonarr's QualityProfile pattern source was dropped Phase 5 D-04)
 - [DIVERGENCE.md](../../../../DIVERGENCE.md) — Phase 5 D-01 entry (added in Wave 4 plan 05-07)

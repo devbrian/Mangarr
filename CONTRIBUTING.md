@@ -13,7 +13,7 @@ Setup guides, [FAQ](https://wiki.servarr.com/sonarr/faq), the more information w
 - Visual Studio 2019 or higher (https://www.visualstudio.com/vs/). The community version is free and works (https://www.visualstudio.com/downloads/).
 - HTML/Javascript editor of choice (VS Code/Sublime Text/Webstorm/Atom/etc)
 - [Git](https://git-scm.com/downloads)
-- [NodeJS](https://nodejs.org/en/download/) (Node 10.X.X or higher)
+- [NodeJS](https://nodejs.org/en/download/) (Node 20.x or higher)
 - [Yarn](https://yarnpkg.com/)
 
 ### Getting started
@@ -29,7 +29,7 @@ Setup guides, [FAQ](https://wiki.servarr.com/sonarr/faq), the more information w
 ### Contributing Code
 
 - If you're adding a new, already requested feature, please comment on [Github Issues](https://github.com/Mangarr/Mangarr/issues "Github Issues") so work is not duplicated (If you want to add something not already on there, please talk to us first)
-- Rebase from Mangarr's `v5-develop` branch, don't merge
+- Rebase from Mangarr's `Mangarr-v0` integration branch, don't merge
 - Make meaningful commits, or squash them
 - Feel free to make a pull request before work is complete, this will let us see where its at and make comments/suggest improvements
 - Reach out to us on our [forums](https://forums.sonarr.tv/), [subreddit](https://www.reddit.com/r/sonarr/), [discord](https://discord.gg/Ex7FmFK), or [IRC](https://web.libera.chat/?channels=#sonarr) if you have any questions
@@ -40,7 +40,7 @@ Setup guides, [FAQ](https://wiki.servarr.com/sonarr/faq), the more information w
 
 ### Pull Requesting
 
-- Only make pull requests to the default branch (currently `v5-develop`), never `main`, if you make a PR to main we'll comment on it and close it
+- Only make pull requests to the integration branch (currently `Mangarr-v0`), never `main`, if you make a PR to main we'll comment on it and close it
 - You're probably going to get some comments or questions from us, they will be to ensure consistency and maintainability
 - We'll try to respond to pull requests as soon as possible, if its been a day or two, please reach out to us, we may have missed it
 - Each PR should come from its own [feature branch](http://martinfowler.com/bliki/FeatureBranch.html) not develop in your fork, it should have a meaningful branch name (what is being added/fixed)

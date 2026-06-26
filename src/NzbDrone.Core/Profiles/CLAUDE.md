@@ -2,26 +2,23 @@
 
 ## Purpose
 
-User-configurable **profiles** that control which releases are accepted, when to wait for better, and what terms to prefer. Three profile types live here:
+User-configurable **profiles** that control which releases are accepted, when to wait for better, and what terms to prefer. Four profile types live here (Sonarr's `Qualities/` quality-profile vertical was dropped in Phase 5 D-04 — the manga peer is `TranslationProfile` (ordinal language preference) + `CustomFormatProfile` (CF scoring)):
 
-- **Quality profiles** — which qualities are allowed, cutoff (target), upgradability, custom-format minimums
-- **Delay profiles** — how long to wait for a preferred protocol/quality before grabbing the available one
-- **Release profiles** — preferred / required / ignored term lists
+- **Translation profiles** (`Translations/`) — ordered translation-language preference (the manga quality peer)
+- **Custom Format profiles** (`CustomFormats/`) — min/max CF score thresholds + per-CF score overrides
+- **Delay profiles** (`Delay/`) — how long to wait for a preferred release before grabbing the available one
+- **Release profiles** (`Releases/`) — preferred / required / ignored term lists
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Profiles\`
 
 ## Subdirectories
 
-### `Qualities/` — Quality Profiles
+### `Translations/` — Translation Profiles (manga quality peer)
 
-| File | Purpose |
-|------|---------|
-| `QualityProfile.cs` | The profile entity. Has `Id`, `Name`, `Cutoff`, `Items` (ordered list of allowed qualities/groups), `MinFormatScore`, `CutoffFormatScore`, `MinUpgradeFormatScore`, `FormatItems` |
-| `QualityProfileItem.cs` | Embedded — a quality (or group of qualities) and its enabled/disabled flag |
-| `QualityProfileQualityItem.cs` | Embedded — individual quality reference |
-| `QualityProfileFormatItem.cs` | Embedded — custom format reference + score |
-| `QualityProfileService.cs` | CRUD + default-profile creation |
-| `QualityProfileRepository.cs` | Dapper repo |
+The ordinal language-preference gate. See [Translations/CLAUDE.md](./Translations/CLAUDE.md). Entity: `TranslationProfile.cs` (Name + `Languages : List<string>` BCP-47 ordered + `AllowLanguagesNotInProfile`) + Service/Repository/InUseException/UpdatedEvent.
+
+### `CustomFormats/` — Custom Format Profiles
+
+The CF-scoring layer. See [CustomFormats/CLAUDE.md](./CustomFormats/CLAUDE.md). Entity: `CustomFormatProfile.cs` (Name + `MinFormatScore` + nullable `MaxFormatScore` + `FormatItems`) + Service/Repository/InUseException/UpdatedEvent.
 
 ### `Delay/` — Delay Profiles
 
@@ -39,32 +36,14 @@ User-configurable **profiles** that control which releases are accepted, when to
 | `ReleaseProfileService.cs` | CRUD |
 | `ReleaseProfileRepository.cs` | Dapper repo |
 
-## Quality Profile Anatomy
-
-```csharp
-public class QualityProfile : ModelBase
-{
-    public string Name { get; set; }
-    public int Cutoff { get; set; }                                 // target quality ID
-    public int MinFormatScore { get; set; }                         // minimum custom format score
-    public int CutoffFormatScore { get; set; }                      // score to consider "met"
-    public int MinUpgradeFormatScore { get; set; }                  // minimum gain to upgrade
-    public List<QualityProfileQualityItem> Items { get; set; }      // allowed qualities (ordered)
-    public List<ProfileFormatItem> FormatItems { get; set; }        // custom format scores
-    public bool UpgradeAllowed { get; set; }
-    public Language Language { get; set; }
-    public List<int> Tags { get; set; }
-}
-```
-
 ## Delay Profile Logic
 
-- Indexer protocol returns a release
-- Compute "is this release `qualityProfile.Cutoff`-met or above"
+- Indexer returns a release
+- Compute whether this release meets the translation/CF cutoff or above
 - If yes, grab immediately
 - Otherwise, hold (in `PendingReleases`) for `HttpDelay` minutes (Phase 26 Plan 26-03: `UsenetDelay`/`TorrentDelay` columns dropped — `Http` is the only live protocol post Phase 15 D-18)
 - After delay, re-evaluate; grab the best available
-- `BypassIfHighestQuality` — skip delay if release is the maximum-allowed quality
+- `BypassIfHighestQuality` — skip delay if release is the maximum-allowed tier
 - `BypassIfAboveCustomFormatScore` — skip delay if score exceeds threshold
 
 ## Release Profile Term Logic
@@ -78,31 +57,22 @@ Used by `RequiredTermsSpecification`, `IgnoredTermsSpecification` and similar. (
 
 ## Default Profiles
 
-A new install gets default Quality, Delay, and Release profiles seeded via `QualityProfileService.OnApplicationStartedHandler`. The Mangarr team should override these defaults for manga.
+A new install gets default Translation, Custom Format, Delay, and Release profiles seeded via each service's `IHandle<ApplicationStartedEvent>` handler (`TranslationProfileService` / `CustomFormatProfileService` / etc.).
 
 ## Manga Adaptation Notes
 
-### Quality Profile
-Architecture transfers cleanly. The **`Items` list** changes content (manga quality tiers vs TV resolutions). Quality enum lives in `../Qualities/Quality.cs` and is the right place to start.
+The TV quality-profile vertical is gone (Phase 5 D-04). Release preference is now a two-layer model:
 
-Recommended manga quality tiers (ordered):
-1. `Raw` — untranslated source
-2. `Sample` — preview pages
-3. `Translated_LQ` — low-quality scanlation
-4. `Translated_HQ` — high-quality scanlation
-5. `Official_HQ` — official translation, high res
-6. `Official_PRO` — publisher-direct (e.g., Manga Plus)
+- **TranslationProfile** (outer gate) — ordered BCP-47 language list; index = preference rank; `AllowLanguagesNotInProfile` fallback control. See [Translations/CLAUDE.md](./Translations/CLAUDE.md).
+- **CustomFormatProfile** (inner scoring) — min/max CF score thresholds + per-CF `FormatItems` overrides. See [CustomFormats/CLAUDE.md](./CustomFormats/CLAUDE.md).
 
-### Delay Profile
-Reusable as-is. The protocols (`Usenet`/`Torrent`) extend naturally if a `Direct` (image scraper) protocol is added.
-
-### Release Profile
-Reusable as-is. Term lists for manga: prefer "Color", "v2", "HD"; ignore "Sample", "Preview", "Raw"; etc.
+Delay and Release profiles are reused from Sonarr largely as-is (manga term lists prefer "Color", "v2", "HD"; ignore "Sample", "Preview", "Raw").
 
 ## Cross-References
 
 - [../CLAUDE.md](../CLAUDE.md) — NzbDrone.Core overview
-- [../Qualities/](../Qualities/) — Quality enum / definitions consumed here
+- [./Translations/CLAUDE.md](./Translations/CLAUDE.md) — TranslationProfile (manga quality peer)
+- [./CustomFormats/CLAUDE.md](./CustomFormats/CLAUDE.md) — CustomFormatProfile (CF scoring)
 - [../DecisionEngine/CLAUDE.md](../DecisionEngine/CLAUDE.md) — Profiles consumed by specs
-- [../CustomFormats/CLAUDE.md](../CustomFormats/CLAUDE.md) — Format scores attached to profiles
-- [../Tags/](../Tags/) — Tags used to scope profiles to specific series
+- [../CustomFormats/CLAUDE.md](../CustomFormats/CLAUDE.md) — Custom format rules scored by CustomFormatProfile
+- [../Tags/](../Tags/) — Tags used to scope profiles to specific manga

@@ -4,7 +4,6 @@
 
 CustomFormatProfile editor sub-tree — wires the Phase 5 D-07 `CustomFormatProfile` entity (`/api/v5/customformatprofile`) into the Settings → Custom Format Profiles top-level page (Phase 7 D-05 topology rework — NEW route `/settings/customformatprofiles`).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Settings\Profiles\CustomFormatProfile\`
 
 ## Mangarr Inheritance
 
@@ -22,7 +21,7 @@ This sub-tree is the manga sibling of the QualityProfile editor. Every file port
 | `CustomFormatProfile.css` + `.css.d.ts` | Single-card styling | `QualityProfile.css` + `.css.d.ts` |
 | `EditCustomFormatProfileModal.tsx` | Modal scaffold wrapper | `EditQualityProfileModal.tsx` |
 | `EditCustomFormatProfileModalContent.tsx` | Form: name + isDefault + upgradeAllowed + min/max score + formatItems list (format + score) + Save/Delete | `EditQualityProfileModalContent.tsx` |
-| `CLAUDE.md` | This documentation | — |
+| `useCustomFormatProfiles.ts` | Read-side data hook powering select + filter consumers | `useQualityProfiles.ts` |
 
 ## API Wiring
 

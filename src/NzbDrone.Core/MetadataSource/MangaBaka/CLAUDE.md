@@ -10,7 +10,6 @@ MangaDex is **KEPT** (D-01) — its `DefaultIsPrimary` is simultaneously flipped
 
 Honest UA per Phase 1 D-13/D-14. **`UserAgentOverride` is NOT exposed in UI** — `MangaBakaMetadataSourceSettings.UserAgentOverride` exists for the `IHttpAggregatorSettings` interface contract but carries NO `[FieldDefinition]`, so there is no UI surface to spoof the honest `Mangarr/{version}` UA. This realizes the **T-CONFIG-DRIFT-01** mitigation by absence.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MetadataSource\MangaBaka`
 
 ## Key Files
 

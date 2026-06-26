@@ -4,10 +4,6 @@
 
 System administration UI — status, scheduled tasks, backups, updates, logs. Mostly **media-agnostic** infrastructure that is reusable as-is for Mangarr.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\System\`
-
-**File count**: ~52 files.
-
 ## Pages (one subdirectory per route)
 
 ### `Status/` — `/system/status`
@@ -74,12 +70,7 @@ Background task management:
 
 ## Manga Adaptation Notes
 
-This module is **fully reusable** for Mangarr. The only change needed is **branding** in the About section:
-- "Mangarr Version" → "Mangarr Version"
-- Footer "Powered by Mangarr" → "Powered by Mangarr"
-- Update links to docs / GitHub repo
-
-The data shapes (system status, health checks, log entries, backups) are entity-agnostic.
+Entity-agnostic infrastructure, reused as-is. Branding (About version string, footer, docs/GitHub links) was flipped to Mangarr in the Phase 15 rebrand.
 
 ## Cross-References
 

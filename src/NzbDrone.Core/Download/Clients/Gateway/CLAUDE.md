@@ -9,7 +9,6 @@ status to `DownloadItemStatus`, and resolves `OutputPath`/`OutputRootFolders` th
 `IRemotePathMappingService`. The Phase-36 monitoring loop drives the grab → poll → import lifecycle
 unchanged.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Download\Clients\Gateway`
 
 ## Key Files
 
@@ -28,8 +27,8 @@ unchanged.
   sonarr-consistency-audit diff target).
 - **Mangarr-shape ctor** — the client takes `IGatewayDownloadProxy` + the five base services
   (`IConfigService`, `IDiskProvider`, `IRemotePathMappingService`, `Logger`,
-  `ILocalizationService`), copied from `InProcessImageDownloadClient` (NOT SAB's
-  `UsenetClientBase(httpClient, …)`). The client gets **no** `IHttpClient`.
+  `ILocalizationService`), the manga-shape ctor pattern the now-retired `InProcessImageDownloadClient`
+  established (NOT SAB's `UsenetClientBase(httpClient, …)`). The client gets **no** `IHttpClient`.
 - **Status table (`MapStatus`)** — `queued`/`resolving` → Queued; `downloading`/`archiving` →
   Downloading; `completed` → Completed; `failed` → Failed; `warning` → Warning; `paused` → Paused;
   unknown → Warning.
@@ -59,15 +58,14 @@ sonarr-consistency-audit reads these.
 
 The client is **auto-discovered** by the ThingiProvider reflection scan but **NOT
 migration-seeded** — it has no auto-enabled `DefaultDefinitions` and no seed row in
-`001_mangarr_baseline.cs`. The user adds it via **Settings → Download Clients** (no double-grab
-during Phase-38 coexistence with the in-process client). Phase 39 retires the in-process client,
-after which the gateway client is the sole download path.
+`001_mangarr_baseline.cs`. The user adds it via **Settings → Download Clients**. Phase 39 retired the
+in-process client, so the gateway client is now the **sole** download path.
 
 ## Cross-References
 
 - [src/NzbDrone.Core/Indexers/Gateway/GatewaySettings.cs](../../../Indexers/Gateway/GatewaySettings.cs) — Phase-37 connectivity-field shape (duplicated, not shared)
 - [src/NzbDrone.Core/Indexers/Gateway/GatewayParser.cs](../../../Indexers/Gateway/GatewayParser.cs) — line 80, `DownloadUrl = downloadHandle` (the R6 handoff)
-- [src/NzbDrone.Core/Download/Clients/InProcess/InProcessImageDownloadClient.cs](../InProcess/InProcessImageDownloadClient.cs) — manga-shape ctor + `DownloadProtocol.Http` precedent
+- _(historical)_ `Download/Clients/InProcess/InProcessImageDownloadClient.cs` — established the manga-shape ctor + `DownloadProtocol.Http` precedent; **deleted in Phase 39** (Plans 39-01/02)
 - [src/NzbDrone.Core/Download/DownloadClientBase.cs](../../DownloadClientBase.cs) — `Test()`/`TestFolder`/`RetryStrategy` + injected services
 - [.planning/spikes/manga-gateway.openapi.yaml](../../../../../.planning/spikes/manga-gateway.openapi.yaml) — the frozen download contract
 - [.planning/phases/38-gatewaydownloadclient-comicinfo-injector/38-01-PLAN.md](../../../../../.planning/phases/38-gatewaydownloadclient-comicinfo-injector/38-01-PLAN.md) — this plan

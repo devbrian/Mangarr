@@ -4,7 +4,6 @@
 
 Phase 6 PIPELINE-04 manga sibling of `src/NzbDrone.Core/MediaFiles/EpisodeImport/`. Ships the manga import pipeline: `LocalChapter` POCO → `MangaImportDecisionMaker` (auto-discovered specs) → `ImportApprovedChapters` orchestrator that produces a `ChapterFile` row + emits `ChapterImportedEvent` for downstream rescan notifications (Komga / Kavita — Plans 06-10/11).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MediaFiles\MangaImport`
 
 ## Key Files
 
@@ -54,14 +53,14 @@ _diskProvider.MoveFile(lc.Path, destinationPath);
 // 3. ChapterFile DB COMMIT
 chapterFile = _chapterFileService.Add(chapterFile);
 
+// 3.5. ImageSharp probe (UpdateChapterInfoService) + ComicInfoCbzInjector — see MediaFiles/CLAUDE.md
 // 4. Wire Chapter.ChapterFileId FK
 lc.Chapter.ChapterFileId = chapterFile.Id;
 _chapterService.UpdateChapter(lc.Chapter);
 
-// 5. Lifecycle hook — delete Phase 4 ChapterDownloadState row
-_stateRepo.DeleteByChapterId(lc.Chapter.Id);
-
-// 6. Pitfall 4 GUARD — PublishEvent is the LAST line
+// 5. Pitfall 4 GUARD — PublishEvent is the LAST line
+//    (the former Phase-4 ChapterDownloadState row delete was removed in Phase 39 RETIRE-01 —
+//     the in-process downloader no longer creates state rows, so there is nothing to delete)
 _eventAggregator.PublishEvent(new ChapterImportedEvent { ... });
 ```
 
@@ -108,7 +107,7 @@ A single batch can contain duplicate decisions for the same `Chapter.Id` (e.g., 
 | `ImportDecision` | `MangaImportDecision` |
 | `ImportResult` | `MangaImportResult` |
 | `ImportDecisionMaker` | `MangaImportDecisionMaker` (drops `IDetectSample` + `IAggregationService` + `ITrackedDownloadService`) |
-| `ImportApprovedEpisodes` | `ImportApprovedChapters` (drops `IUpgradeMediaFiles`, `IExtraService`, `IExistingExtraFiles`; adds Phase 4 `ChapterDownloadState` lifecycle hook) |
+| `ImportApprovedEpisodes` | `ImportApprovedChapters` (drops `IUpgradeMediaFiles`, `IExtraService`, `IExistingExtraFiles`; adds the step-3.5 ImageSharp probe + ComicInfoCbzInjector. The Phase-4 `ChapterDownloadState` lifecycle hook was removed in Phase 39 RETIRE-01) |
 | `IMediaFileService.Add(EpisodeFile)` | `IChapterFileService.Add(ChapterFile)` (Plan 06-01) |
 | `ISeriesPathBuilder.BuildPath` | `IBuildMangaPaths.BuildChapterPath` (Plan 06-01) |
 | `_historyService.FindByEpisodeId` | `_chapterHistoryService.FindByChapterId` (BL-01 fix; Plan 06-03) |

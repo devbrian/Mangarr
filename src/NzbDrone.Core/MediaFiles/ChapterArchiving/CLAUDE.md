@@ -16,7 +16,6 @@ ComicInfo-metadata + chapter-archive support surface for the manga import pipeli
 > consume), which writes/injects ComicInfo.xml into the gateway-delivered CBZ on import. See `DIVERGENCE.md`
 > Phase 39 section.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MediaFiles\ChapterArchiving`
 
 ## Key Files (surviving post-Phase-39)
 

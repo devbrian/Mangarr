@@ -18,78 +18,57 @@ The architecture is largely **media-agnostic**: a torrent client doesn't care if
 > rows (`ProcessMangaCompletedCommand` 1-min poll + `HousekeepInProcessDownloadsCommand`
 > 24-h sweep) were stripped. See `DIVERGENCE.md` Phase 39 section.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Download\`
 
-## Top-Level Files
+## Top-Level Files (verified at HEAD)
 
 | File | Purpose |
 |------|---------|
 | `IDownloadClient.cs` / `DownloadClientBase.cs` | Provider interface + base |
-| `DownloadClientItem.cs` | Status of a single in-flight download |
-| `IDownloadClientFactory.cs` / `DownloadClientFactory.cs` | ThingiProvider factory |
+| `DownloadClientFactory.cs` / `DownloadClientRepository.cs` | ThingiProvider factory + persistence (fresh-DB auto-seed override deleted in Phase 39 — Sonarr-canonical empty list) |
 | `DownloadClientProvider.cs` | Picks which configured client to use for a release |
-| `DownloadService.cs` | Main entry — submit a `RemoteChapter` (manga) / `RemoteEpisode` (reference-preserved TV) to a download client |
-| `CompletedDownloadService.cs` | Detect completed downloads, hand to importer |
-| `FailedDownloadService.cs` | Detect failed downloads, blocklist + notify |
-| `IgnoredDownloadService.cs` | Skip (ignore) downloads matching certain criteria |
-| `DownloadEventHub.cs` | Translates download client events into domain events |
-| `RedownloadFailedDownloadService.cs` | Auto-retry failed grabs |
-| `UsenetClientItem.cs` / `TorrentClientItem.cs` | Specialized item types (reference-preserved TV fork heritage) |
-| `DownloadProtocol.cs` (under `Indexers/`) | enum `Unknown = 0` / `Http = 3` — Phase 15 D-18 deleted `Usenet = 1` + `Torrent = 2` (TV download clients removed per D-14; the gap is left rather than renumbered for persisted-int compatibility). The manga `GatewayDownloadClient.Protocol` is `DownloadProtocol.Http` (Phase 1 D-04) |
-| `DownloadFailedReason.cs` | enum |
+| `DownloadClientItem.cs` / `DownloadClientInfo.cs` / `DownloadClientDefinition.cs` / `DownloadClientType.cs` / `DownloadItemStatus.cs` | In-flight item DTO + status enums + persisted definition |
+| `DownloadClientStatus.cs` / `DownloadClientStatusRepository.cs` / `DownloadClientStatusService.cs` | Per-client health/escalation state |
+| `IMangaDownloadService.cs` / `MangaDownloadService.cs` | Main entry — submit a `RemoteChapter` to the download client + emit `ChapterGrabbedEvent` (the manga peer of Sonarr's `DownloadService`) |
+| `ProvideImportItemService.cs` | Resolve the import item for a tracked download |
+| `NzbValidationService.cs` / `InvalidNzbException.cs` | Reference-preserved NZB validation (heritage; no live manga consumer) |
+| `ProcessedDecisionResult.cs` / `DownloadsProcessedEvent.cs` / `DownloadCanBeRemovedEvent.cs` | Pipeline result + lifecycle events |
+| `DownloadProtocol.cs` (under `Indexers/`) | enum `Unknown = 0` / `Http = 3` — Phase 15 D-18 deleted `Usenet = 1` + `Torrent = 2` (TV download clients removed per D-14; the gap is left rather than renumbered for persisted-int compatibility). `GatewayDownloadClient.Protocol` is `DownloadProtocol.Http` (Phase 1 D-04) |
 
 ## Subdirectories
 
-### `Clients/`
-Concrete download client integrations. Each typically has:
-- `<Client>.cs` — provider class
-- `<Client>Settings.cs` — settings + validator
-- Optionally request/response DTOs
+### `Clients/` (verified at HEAD)
+The Sonarr Usenet/Torrent client directories (qBittorrent, Transmission, Sabnzbd, NzbGet,
+Blackhole, etc.) were **deleted** (never carried into the manga baseline; protocol enum values
+removed Phase 15 D-18). What survives:
 
-| Client | Protocol | Type |
-|--------|----------|------|
-| `qBittorrent/` | Torrent | API-based |
-| `Transmission/` | Torrent | RPC |
-| `Deluge/` | Torrent | JSON-RPC |
-| `rTorrent/` | Torrent | XML-RPC |
-| `Vuze/` | Torrent | (similar to Transmission) |
-| `Flood/` | Torrent | API |
-| `Hadouken/` | Torrent | API |
-| `UTorrent/` | Torrent | API |
-| `Aria2/` | Both | XML-RPC |
-| `Sabnzbd/` | Usenet | API |
-| `NzbGet/` | Usenet | API |
-| `DownloadStation/` | Both | Synology |
-| `FreeboxDownload/` | Both | Freebox |
-| `Pneumatic/` | Usenet | Folder watch |
-| `UsenetBlackhole/` | Usenet | Folder watch |
-| `TorrentBlackhole/` | Torrent | Folder watch |
+| Entry | Purpose |
+|-------|---------|
+| `Gateway/` | `GatewayDownloadClient` — the **sole** download client (Phase 38; external gateway). See [Clients/Gateway/CLAUDE.md](./Clients/Gateway/CLAUDE.md). |
+| `DownloadClientSettingsBase.cs` | Shared settings base (memberwise equality) |
+| `DownloadClientException.cs` / `DownloadClientAuthenticationException.cs` / `DownloadClientUnavailableException.cs` | Shared client exceptions |
+
+(No `Clients/InProcess/` — the in-process image downloader was retired in Phase 39 Plans 39-01/02.)
 
 ### `History/`
-Per-download grab history (separate from generic episode history). Tracks the indexer + outcome of each grab attempt.
+`History/Manga/` — per-download grab history (manga sibling; the TV `History/` body was deleted).
 
-### `TrackedDownloads/`
+### `Extensions/`
+`XmlExtensions.cs` — shared XML helper.
+
+### `TrackedDownloads/` (verified at HEAD — manga-only; TV `TrackedDownloadService`/`TrackedDownloadAlreadyImportedService` deleted)
 | File | Purpose |
 |------|---------|
-| `TrackedDownloadService.cs` | In-memory cache of active downloads polled from clients |
-| `TrackedDownload.cs` | Snapshot DTO |
-| `TrackedDownloadAlreadyImportedService.cs` | Detect already-imported items |
+| `TrackedDownload.cs` | Snapshot DTO (carries the `RemoteChapter` slot) |
+| `TrackedDownloadRefreshedEvent.cs` / `TrackedDownloadsRemovedEvent.cs` / `TrackedDownloadStatusMessage.cs` | Registry-refresh events + status message |
+| `IMangaDownloadPageProgressSource.cs` | Page-progress lookup the matcher joins on |
 | `MangaTrackedDownloadService.cs` | Stateless per-item matcher (`TrackDownload` builds a `TrackedDownload` from the DownloadId history join + page-progress lookup) — Phase 36 manga sibling |
 | `MangaDownloadMonitoringService.cs` | The poll heart + registry owner (`List<TrackedDownload>` merged across polls per #301). `IExecute<RefreshMonitoredMangaDownloadsCommand>` + `IHandle<ChapterGrabbedEvent/ChapterImportedEvent>` (5s debounce) + **`IHandle<MangaAddedEvent/MangaUpdatedEvent/MangaBulkEditedEvent/MangaDeletedEvent>` — the issue #278 edit-family cache reconcile** (mirror of Sonarr `TrackedDownloadService` Series-edit handlers; swaps the affected rows' `RemoteChapter.Manga` snapshot in place and republishes `TrackedDownloadRefreshedEvent`, immediate where poll-rebuild was eventual). The single-item trigger is `MangaUpdatedEvent` (not `MangaEditedEvent`) so the `MoveMangaService.RevertPath` rollback + `MangaLinksController` + refresh-pulse paths are covered (CodeRabbit PR #317). **`StopTracking(downloadId)` (debug `auto-retry-one-release-exhaust`, 2026-06-08) — Sonarr `ITrackedDownloadService.StopTracking` peer: evicts a row from the registry + republishes `TrackedDownloadRefreshedEvent` so the queue projection drops it synchronously. Called by `MangaDownloadProcessingService.RemoveFailedDownloads()` (the ported `DownloadEventHub` failed-removal), so a terminally-Failed download leaves the queue before the auto-retry re-search runs — otherwise `QueueDuplicateSpecification` rejects every replacement `chapterAlreadyQueued`.** Phase 36 manga sibling. |
 
-### `Aggregation/`
-Aggregates parsed-from-client info with parsed-from-title info (e.g., resolves `RemoteEpisode` from a download client item).
-
 ### `Pending/`
-Releases awaiting delay-profile timeout / preferred-protocol cooldown:
-| File | Purpose |
-|------|---------|
-| `PendingReleaseService.cs` | Add / process pending |
-| `PendingRelease.cs` | DB entity |
-| `PendingReleasesController.cs` (under `Mangarr.Api.V5`) | UI access |
-
-### `Extensions/`
-Shared utilities (`MagnetLink.cs`, `TorrentBitfield.cs`, etc.).
+Releases awaiting delay-profile timeout / cooldown. `Pending/Manga/` holds the manga sibling
+(`MangaPendingReleaseService` + repo + entity — see [Pending/Manga/CLAUDE.md](./Pending/Manga/CLAUDE.md));
+`PendingReleaseReason.cs` + `PendingReleasesUpdatedEvent.cs` are shared at the `Pending/` root. The TV
+`PendingReleaseService` was deleted with `Tv/`.
 
 ### `Manga/` (Phase 6 sibling — gateway-monitoring survivors)
 Manga-side download-monitoring orchestration + auto-retry orchestrator. See [Manga/CLAUDE.md](./Manga/CLAUDE.md).

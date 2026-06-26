@@ -6,7 +6,6 @@ Pure-function manga release-title parser + DB-mapping service. Sibling to the ex
 
 The parser is the leaf-most computation layer Phase 2 ships — every later phase (Phase 3 indexers, Phase 4 archive layer, Phase 5 Decision Engine + Custom Formats) consumes the DTOs produced here.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Parser\Manga`
 
 ## Key Files
 

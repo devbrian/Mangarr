@@ -4,60 +4,35 @@
 
 Notification provider plugins — fire alerts to users on events like episode grabbed, episode imported, health degraded, etc. Uses the **ThingiProvider** plugin pattern.
 
-This directory is **media-agnostic** — only message text references "episodes/series" and will need updating to "chapters/manga." The 25+ notification providers (Discord, Slack, Email, Telegram, etc.) all work identically for manga.
+**Komga and Kavita are the ONLY live notification providers** (both manga-reader rescan triggers — see their subdirectory CLAUDE.md files). Sonarr's other notifiers (Discord, Slack, Email, Telegram, etc.) are NOT in the live tree — they are reference-preserved fork heritage under `.planning/reference/sonarr-vertical-slices/notifications-extra/` per the Reference Preservation Policy. The contract surface (`INotification` / `NotificationBase`) was trimmed to manga-shape in Phase 15 W-1/W-2.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Notifications\`
 
 ## Top-Level Files
 
 | File | Purpose |
 |------|---------|
-| `INotification.cs` / `NotificationBase.cs` | Provider base |
-| `INotificationFactory.cs` / `NotificationFactory.cs` | ThingiProvider factory |
-| `INotificationRepository.cs` / `NotificationRepository.cs` | DB persistence |
+| `INotification.cs` / `NotificationBase.cs` | Provider base (interface + abstract base) |
+| `NotificationFactory.cs` | ThingiProvider factory (`INotificationFactory` declared in-file) |
+| `NotificationRepository.cs` | DB persistence (`INotificationRepository` declared in-file) |
 | `NotificationDefinition.cs` | Persisted config (link to Settings JSON) |
+| `NotificationSettingsBase.cs` | Base for provider settings |
 | `NotificationService.cs` | Orchestrator — listens to events, fans out to providers |
-| `NotificationStatusService.cs` | Track health of each notification provider |
-| `GrabMessage.cs` | Message DTO sent on grab events |
-| `EpisodeDownloadMessage.cs` | Sent on import |
-| `EpisodeDeleteMessage.cs` | Sent on delete |
-| `SeriesAddMessage.cs`, `SeriesDeleteMessage.cs` | Series-level events |
-| `HealthCheck/HealthMessage.cs` | Health change |
-| `ImportFailureMessage.cs`, `ManualInteractionRequiredMessage.cs` | Failures |
+| `NotificationStatus.cs` / `NotificationStatusRepository.cs` / `NotificationStatusService.cs` | Track health of each notification provider |
+| `MediaServerUpdateQueue.cs` | Shared debounce queue (Komga/Kavita rescan coalescing) |
+| `MetadataLinkType.cs` / `NotificationMetadataLink.cs` | Metadata-link DTOs |
+| `ApplicationUpdateMessage.cs` | DTO for `OnApplicationUpdate` |
+| `ChapterImportMessage.cs` | DTO for `OnChapterImport` (Phase 6 D-18) |
+| `ChapterFileDeleteMessage.cs` | DTO for `OnChapterFileDelete` / `…ForUpgrade` |
+| `MangaAddMessage.cs` / `MangaDeleteMessage.cs` | DTOs for `OnMangaAdd` / `OnMangaDelete` (Phase 8 Plan 99-08) |
 
-## Provider Subdirectories (25+)
+## Provider Subdirectories
+
+Only the two live manga-reader providers ship in the tree; the 25+ Sonarr notifiers are reference-preserved heritage (see Purpose above), NOT live subdirectories here.
 
 | Folder | Service |
 |--------|---------|
-| `Apprise/` | Apprise gateway |
-| `Boxcar/` | Boxcar push |
-| `CustomScript/` | Run a user-supplied script |
-| `Discord/` | Discord webhook |
-| `Email/` | SMTP email |
-| `Emby/` | Emby media server |
-| `Gotify/` | Gotify push |
-| `Join/` | Join (joaoapps) |
-| `Jellyfin/` (sometimes under Emby) | Jellyfin |
-| `Mailgun/` | Mailgun email API |
-| `MediaBrowser/` (Emby) | Emby/Jellyfin notification |
-| `Notifiarr/` | Notifiarr passthrough |
-| `Ntfy/` | ntfy.sh |
-| `Plex/` | Plex Media Server (refresh library) |
-| `Prowl/` | Prowl iOS push |
-| `PushBullet/` | PushBullet |
-| `Pushcut/` | Pushcut iOS |
-| `Pushover/` | Pushover push |
-| `Synology/` | DSM notification |
-| `Telegram/` | Telegram bot |
-| `SendGrid/` | SendGrid email |
-| `Signal/` | Signal Messenger |
-| `Simplepush/` | Simplepush |
-| `Slack/` | Slack webhook |
-| `Trakt/` | Trakt scrobble |
-| `Twitter/` | Twitter (X) |
-| `Webhook/` | Generic JSON webhook |
-| `Xbmc/` (Kodi) | Kodi |
-| `Subsonic/` (?) | (not always present) |
+| `Komga/` | Komga manga-reader library rescan (`OnChapterImport`) |
+| `Kavita/` | Kavita manga-reader library rescan (`OnChapterImport`) |
 
 ## Event Hooks (NotificationBase)
 
@@ -104,9 +79,9 @@ Each provider overrides only the hooks it cares about; the `Supports*` flags ref
 
 ## Triggering Notifications
 
-`NotificationService` is the orchestrator. It implements `IHandle<EpisodeGrabbedEvent>`, `IHandle<EpisodeImportedEvent>`, etc., and on each event:
+`NotificationService` is the orchestrator. It implements `IHandle<ChapterImportedEvent>` (and the manga lifecycle events), and on each event:
 1. Loads enabled `NotificationDefinition` rows
-2. Filters by tags (per-series tag matching)
+2. Filters by tags (per-manga tag matching)
 3. Calls the appropriate `On*` method on each
 
 ## Manga Adaptation Notes

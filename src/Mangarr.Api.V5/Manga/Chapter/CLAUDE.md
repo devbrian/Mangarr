@@ -12,7 +12,7 @@ other manga endpoint (`/api/v5/manga`, `/api/v5/manga/lookup`, `/api/v5/manga/li
 `/api/v5/config/manga-naming`, `/api/v5/manga/queue`, `/api/v5/manga/history`,
 `/api/v5/manga/blocklist`, `/api/v5/manga/release`, `/api/v5/manga/wanted/missing`).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Sonarr.Api.V5\Manga\Chapter`
+**Absolute Path**: `src/Mangarr.Api.V5/Manga/Chapter`
 
 ## Key Files
 
@@ -167,8 +167,6 @@ is camelCase (matches the actual auto-derived HTTP route `/api/v5/ChapterFile`).
 ## Cross-References
 
 - [V5 API root](../../CLAUDE.md)
-- [Episodes (Sonarr analog)](../../Episodes/) — verbatim shape source for
-  `EpisodeController.cs` + `EpisodeResource.cs` + `EpisodesMonitoredResource.cs`
 - [Manga V5 root](../CLAUDE.md) — Phase 2 + Phase 6 sibling endpoints
 - [`IChapterService`](../../../NzbDrone.Core/Manga/IChapterService.cs) — Plan 07-01
   Task 1 added the `SetChaptersMonitored(IEnumerable<int>, bool)` bulk overload

@@ -4,7 +4,6 @@
 
 Phase 6 D-21 manga sibling of `src/NzbDrone.Core/History/` (TV `EpisodeHistory` family). Ships the `ChapterHistory` parallel-table substrate that closes BL-01 (cross-domain ID-collision class of bug) and powers the auto-retry orchestrator (Plan 06-08), grab→import correlation in the import pipeline (Plan 06-07), and the V5 history controller listing (Plan 06-09).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\History\Manga`
 
 ## Key Files
 

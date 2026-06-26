@@ -4,7 +4,6 @@
 
 v1 developer REST endpoints for the manga domain. Phase 2 shipped the core CRUD (`Manga` + `Lookup` + `Links`); Phase 6 added the pipeline surface (`History`, `Blocklist`, `Queue`, `Release`, `Wanted/Missing`). UI lives in Phase 7. All endpoints carry `[V5ApiController]` (admin X-Api-Key requirement per RESEARCH §Security Domain V4).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Api.V5\Manga`
 
 ## Statistics (issue #335)
 
@@ -91,7 +90,7 @@ Coverage: `NzbDrone.Core.Test/MangaStatsTests/MangaStatisticsRepositoryFixture.c
 - **`includeSubresources[]` query** drives optional Manga / Chapter hydration via service-layer `Get` calls at the controller layer (Plan 06-03 / 06-09 D-21 decision: repositories do NOT JOIN — controllers hydrate when asked).
 - **Resource POCOs flatten entity → wire shape**: `MangaQueueResource` does not leak `RemoteChapter` (in-process EF reference); subresource POCOs (`MangaSubresource`, `ChapterSubresource`) carry only id + display fields.
 - **`ICached<RemoteChapter>` round-trip between GET search and POST grab** (`MangaReleaseController`): keyed on `(IndexerId, Guid)` with 30-min TTL; mirrors TV `ReleaseController._remoteEpisodeCache`.
-- **Wire-level RemoteEpisode shim for the manga grab path**: `MangaReleaseController.DownloadRelease` constructs `RemoteEpisode { Series = { Id = mangaId }, Episodes = [{ Id = chapterId }], Release = ... }` and calls `IDownloadService.DownloadReport` — Phase 4 D-10's `Protocol == DownloadProtocol.Http` early-return guard routes the manga release into `InProcessImageDownloadClient`. Phase 8 collapse drops the shim when the unified `IDownloadService` lands.
+- **Wire-level RemoteEpisode shim for the manga grab path**: `MangaReleaseController.DownloadRelease` constructs `RemoteEpisode { Series = { Id = mangaId }, Episodes = [{ Id = chapterId }], Release = ... }` and calls `IMangaDownloadService.DownloadReport` (via the still-current `ToRemoteEpisodeShim()` bridge). **NOTE (Phase 39):** the original `InProcessImageDownloadClient` grab target was RETIRED in Phase 39 — `GatewayDownloadClient` is now the sole download client, so the Phase 4 D-10 `Protocol == DownloadProtocol.Http` in-process early-return no longer routes anywhere in-process. The historical narrative below describes the Phase 6 wiring before that retirement.
 - **D-04 IsSynthetic-treated-identically pattern** at the REST layer: `MangaMissingController` does NOT add a `WHERE IsSynthetic = false` filter — synthetic rows (Phase 2 D-17 metadata-only-count fallback) are surfaced alongside real rows. A future `excludeSynthetic` query param could opt-in to the filter; v1 default is INCLUDE.
 - **HISTORY-03 retry shape**: POST `/failed/{id}/retry` pushes a single-element `ChapterSearchCommand` (Plan 06-06) for the failed chapter; the decision engine skips the now-blocklisted release (Plan 06-04 D-19 + Pitfall 5 normalization) and grabs next-best. This is the user's manual escape hatch after the D-13 `MaxAutoRetriesPerChapter` budget exhausts.
 - **Singular cross-source IDs** (`Guid?`, `int?`) on `MangaResource` reflect the manga 1:1-across-sources model.

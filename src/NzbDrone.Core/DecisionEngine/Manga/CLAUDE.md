@@ -3,7 +3,6 @@
 ## Purpose
 Parallel manga decision-engine pipeline per Phase 5 D-05 — sibling to the TV `DecisionEngine/` orchestrator. Contains `IMangaDecisionEngineSpecification`, `MangaDownloadDecisionMaker`, `MangaDownloadDecisionComparer`, `MangaDownloadDecision` DTO, plus the 15-spec auto-discovered set under `Specifications/` (Phase 5 D-06 shipped 11; Phase 8 backfilled DeletedChapterFile + Manga + SingleChapterSearchMatch; debug `rss-regrab-existing-chapter` added UpgradeDisk).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\DecisionEngine\Manga`
 
 ## Key Files
 | File | Purpose |

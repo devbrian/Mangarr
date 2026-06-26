@@ -6,7 +6,6 @@ AutoTagging subsystem — rule-based automatic tagging of `Manga` entities by ma
 
 **Restored in Phase 24** from `git show 6f857ba0e^:src/NzbDrone.Core/AutoTagging/` after Phase 15 Plan 15-10 DELETED the subtree ("TV-only feature; v1.x manga rebuild option"). The Sonarr-canonical `AutoTaggingService.GetTagChanges` algorithm + `SpecificationMatchesGroup.DidMatch` body + NEGATE handling on `AutoTagSpecificationBase` ship verbatim with mechanical `Series → Manga` substitution (Pitfall 3 anti-rewrite gate enforced by `SpecificationMatchesGroupFixture.source_file_contains_verbatim_didmatch_expression`).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\AutoTagging`
 
 ## Key Files
 

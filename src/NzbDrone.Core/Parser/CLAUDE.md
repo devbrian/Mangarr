@@ -4,7 +4,6 @@
 
 The **release-title parsing engine** — converts raw release titles (and filenames) into structured metadata. The Sonarr→Mangarr migration of this engine SHIPPED in Phase 2/6: the TV/anime parser (`Parser.cs`, `ParsingService.cs`, `QualityParser.cs`, `LanguageParser.cs`) was removed and the manga parser now lives under `Parser/Manga/`. The notes below preserve the TV-parser shape for migration provenance, but the live engine at HEAD is the manga one.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Parser\`
 
 ## Files (live at HEAD)
 
@@ -23,14 +22,11 @@ The **release-title parsing engine** — converts raw release titles (and filena
 > The TV files below (`Parser.cs`, `ParsingService.cs`, `IParsingService.cs`, `QualityParser.cs`, `LanguageParser.cs`) were DELETED in the Sonarr→Mangarr migration; the API/struct/pipeline snippets that follow are preserved as migration provenance, not as a description of HEAD.
 
 ### Subdirectories
-- `Model/` — DTOs produced/consumed by the parser:
-  - `ReleaseInfo.cs` — Indexer-supplied release (from RSS/search)
-  - `RemoteEpisode.cs` — `ReleaseInfo` + matched `Series` + `List<Episode>`
-  - `ParsedEpisodeInfo.cs` — Output of regex pass: titles, season/episode numbers, language, quality, release group, etc.
-  - `ParsedSeriesInfo.cs` — Lighter title-only parse
-  - `ParsedTrackInfo.cs`, `ParsedMovieInfo.cs` (if present, vestigial)
-  - `TorrentInfo.cs` — Specialized info for torrent releases
-  - `RemoteSeries.cs` — Series-only resolution wrapper
+- `Model/` — shared DTOs at HEAD (the TV `RemoteEpisode` / `ParsedEpisodeInfo` / `ParsedSeriesInfo` / `RemoteSeries` were deleted with `Tv/`; the manga `ParsedChapterInfo` / `RemoteChapter` live under `Parser/Manga/Model/`):
+  - `ReleaseInfo.cs` — indexer-supplied release (from RSS/search); carries the manga axes `TranslatedLanguage` / `ScanlationGroup`
+  - `GrabbedReleaseInfo.cs` — grabbed-release correlation DTO
+  - `IndexerFlags.cs` / `ReleaseType.cs` — release-flag + type enums
+  - `TorrentInfo.cs` — specialized info for torrent releases (reference-preserved heritage)
 
 ## Parser.cs — Public API
 

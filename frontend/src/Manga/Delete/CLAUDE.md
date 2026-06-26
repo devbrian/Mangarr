@@ -4,7 +4,6 @@
 
 Single-manga Delete confirmation modal — wired into the Delete toolbar button on `MangaDetails.tsx`. Previously deferred under Phase 15 Plan 15-12 as a `{isDeleteModalOpen ? null : null}` stub; shipped here as the second of the two deferred per-manga modal sub-trees (the first was `Manga/Edit/`, shipped in PR #27 — `fix(manga-edit-button-no-op)`).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Manga\Delete\`
 
 ## Key Files
 
@@ -33,7 +32,7 @@ atomic stub-dir delete (D-09/D-10).
 
 - [../Edit/](../Edit/) — sibling per-manga modal shipped in PR #27 (`fix(manga-edit-button-no-op)`) — closest structural reference.
 - [../Index/Select/Delete/](../Index/Select/Delete/) — bulk Delete modal sibling (multi-select form-shape source).
-- [../useManga.ts](../useManga.ts) — `useDeleteManga` hook (lines 523-553).
+- [../useManga.ts](../useManga.ts) — `useDeleteManga` hook (~line 509).
 - [../Details/MangaDetails.tsx](../Details/MangaDetails.tsx) — call-site (Delete toolbar button + modal mount).
 - [../Details/MangaDetailsPage.tsx](../Details/MangaDetailsPage.tsx) — owner of the redirect-on-vanish effect that handles post-delete navigation.
 - [manga-delete-button-no-op.md](../../../../.planning/debug/resolved/manga-delete-button-no-op.md) — debug session that produced this fix (moved to `debug/resolved/`).

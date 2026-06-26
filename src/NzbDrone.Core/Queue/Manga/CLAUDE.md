@@ -4,7 +4,6 @@
 
 Phase 6 D-20 manga sibling of `src/NzbDrone.Core/Queue/` (the TV `Queue` family that was **deleted in the Phase 15 fork**). Ships the `MangaQueueService` static-list projection that fans the `IHandle<TrackedDownloadRefreshedEvent>` lifecycle into a manga-shaped `List<MangaQueueItem>` filtered to `DownloadProtocol.Http` entries, and emits `MangaQueueUpdatedEvent` on every refresh. Wires the Phase 5 `QueueDuplicateSpecification` STUB (D-20) so the decision engine can ask "is this chapter already in flight?" instead of accepting every release. As of the Phase 15 fork this is the **sole** `IHandle<TrackedDownloadRefreshedEvent>` projection (HEAD-verified Phase 36 Plan 02 — no TV `QueueService.cs`/`Queue.cs` on disk, no TV `QueueController` in V5).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Queue\Manga`
 
 ## Key Files
 
@@ -84,7 +83,7 @@ private IEnumerable<MangaQueueItem> MapQueueItems(TrackedDownload trackedDownloa
 
 ### TrackedDownload.RemoteChapter slot (Phase 6 additive)
 
-`TrackedDownload` gained an optional `RemoteChapter` slot in this plan parallel to the pre-existing `RemoteEpisode`. Phase 4's `InProcessImageDownloadClient` populates it on the manga-protocol path so the projection has a real row to map. Phase 8 collapse: when `Tv/` deletes, the surviving slot carries the unified DTO.
+`TrackedDownload` gained an optional `RemoteChapter` slot in this plan parallel to the pre-existing `RemoteEpisode`. It is populated on the manga-protocol path by the Phase-36 monitoring loop / `GatewayDownloadClient` (the Phase-4 `InProcessImageDownloadClient` that originally populated it was retired in Phase 39), so the projection has a real row to map.
 
 ## Manga Adaptation Notes
 
@@ -112,6 +111,6 @@ The TV `Queue` family (`Queue.cs` / `QueueService.cs` / `IQueueService` / `Queue
 - [Queue/](../CLAUDE.md) — parent Queue dir (TV Queue family deleted in Phase 15; shared helpers + enums remain)
 - [DecisionEngine/Manga/Specifications/QueueDuplicateSpecification.cs](../../DecisionEngine/Manga/Specifications/QueueDuplicateSpecification.cs) — D-20 STUB consumer
 - [Download/TrackedDownloads/TrackedDownload.cs](../../Download/TrackedDownloads/TrackedDownload.cs) — RemoteChapter slot
-- [Download/Clients/InProcess/](../../Download/Clients/InProcess/CLAUDE.md) — Phase 4 in-process client populates `TrackedDownload.RemoteChapter`
+- [Download/Clients/Gateway/](../../Download/Clients/Gateway/CLAUDE.md) — the sole download client; the Phase-36 monitoring loop populates `TrackedDownload.RemoteChapter` (the Phase-4 `Download/Clients/InProcess/` client was deleted in Phase 39)
 - [.planning/phases/06-pipeline-wanted-history-blocklist-reader-notify/06-CONTEXT.md](../../../../.planning/phases/06-pipeline-wanted-history-blocklist-reader-notify/06-CONTEXT.md) — D-20 decision; Q-3 RESEARCH lock
 - [DIVERGENCE.md](../../../../DIVERGENCE.md) — `MangaQueueService` + `QueueDuplicateSpecification` STUB body replacement entries

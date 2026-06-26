@@ -2,9 +2,8 @@
 
 ## Purpose
 
-**Manual release search** — user clicks "Search" on a series/season/episode, sees all releases the configured indexers return, and manually picks one to download. Bypasses the automated DecisionEngine ranking (though rejection reasons are still shown).
+**Manual release search** — user clicks "Search" on a manga or chapter, sees all releases the gateway returns, and manually picks one to download. Bypasses the automated DecisionEngine ranking (though rejection reasons are still shown).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\InteractiveSearch\`
 
 ## Files
 
@@ -16,7 +15,7 @@
 | `InteractiveSearchPayload.ts` | Manga-only discriminated union: `ChapterSearchPayload` (`{ kind: 'chapter', chapterId }`) + `MangaSearchPayload` (`{ kind: 'manga', mangaId }`). The TV-shape `EpisodeSearchPayload` / `SeasonSearchPayload` variants were retired in issue #263. `searchPayload.kind` is the single routing discriminator (the redundant `InteractiveSearchType` prop + file were deleted in issue #263). |
 | `Peers.tsx` | Seeders/peers display |
 | `releaseOptionsStore.ts` | Zustand: search options |
-| `useReleases.ts` | API hook (`useReleases({ seriesId, seasonNumber?, episodeId? })`). **Phase 7 Plan 07-05** added `getReleasePath()` discriminator: chapter / manga payloads route to `/api/v5/manga/release` (Phase 6 endpoint), TV variants stay on `/release`. |
+| `useReleases.ts` | Search hook (`useReleases(payload: InteractiveSearchPayload)` → GET `/api/v5/manga/release`, Phase 6 `MangaReleaseController`; the manga-only union means both chapter and manga kinds query the same endpoint; the TV `/release` path was retired in issue #263). Also exports `useGrabMangaRelease()`, which POSTs the manga-shape grab body to the same endpoint. |
 
 ## Subdirectory: OverrideMatch/
 
@@ -33,28 +32,28 @@ The TV-shape `OverrideMatchModal.tsx` + `OverrideMatchModalContent.tsx` fallback
 ## Flow
 
 ```
-User opens series/episode detail → clicks "Interactive Search" toolbar button
+User opens manga or chapter detail → clicks "Interactive Search" toolbar button
         ↓
 Modal opens with InteractiveSearch component
         ↓
-useReleases() → POST /api/v5/release { seriesId, episodeId? }
-        ↓ Backend runs the same indexer search the auto pipeline uses,
+useReleases(payload: InteractiveSearchPayload) → GET /api/v5/manga/release { kind, chapterId | mangaId }
+        ↓ Backend runs the same gateway search the auto pipeline uses,
         ↓ but returns ALL results (with rejections) — does not auto-grab.
         ↓
-List<ReleaseResource> with: title, indexer, age, size, seeders, peers,
-quality, languages, customFormats, customFormatScore, mappedSeriesId,
-mappedEpisodeIds, rejections, releaseGroup, sceneSource, sceneMapping
+List<ReleaseResource> with: title, indexer, source, translatedLanguage,
+scanlationGroup, votes, customFormats, customFormatScore, mappedMangaId,
+mappedChapterIds, rejections
         ↓
-User reviews, sorts (default: by quality + custom format), filters out rejected
+User reviews, sorts (default: by translated language + custom format), filters out rejected
         ↓
-User clicks "Grab" on a row → POST /api/v5/release { guid, indexerId }
+User clicks "Grab" on a row → POST /api/v5/manga/release { guid, indexerId } (useGrabMangaRelease)
         ↓
 Backend submits to download client just like auto pipeline
 ```
 
 ## Override Match
 
-If the parser mismatched the release (e.g., picked the wrong series), the user can use **Override Match** to manually point the release at the correct series/episode + force-grab.
+If the parser mismatched the release (e.g., picked the wrong manga), the user can use **Override Match** to manually point the release at the correct manga/chapter + force-grab.
 
 ## Manga Adaptation Notes
 
@@ -62,13 +61,12 @@ Phase 7 Plan 07-05 extends this directory in place rather than parallel-forking
 (D-01 — InteractiveSearch is shared+extended infra, not a media-type-shaped page
 dir). Volumes are NOT adapted (PROJECT.md Volumes/Seasons Out-of-Scope).
 
-Adapted in Plan 07-05:
-- `InteractiveSearchPayload.ts` — added `ChapterSearchPayload` (`{ chapterId }`)
-  + `MangaSearchPayload` (`{ mangaId }`) variants. TV `EpisodeSearchPayload` /
-  `SeasonSearchPayload` preserved verbatim.
-- `InteractiveSearchType.ts` — added `'chapter'` + `'manga'` literals.
-- `useReleases.ts` — added `getReleasePath(payload)` discriminator routing
-  chapter/manga payloads to `/api/v5/manga/release` (Phase 6 endpoint).
+Current shape (Phase 7 Plan 07-05, then narrowed to manga-only in issue #263):
+- `InteractiveSearchPayload.ts` — `ChapterSearchPayload` (`{ kind: 'chapter', chapterId }`)
+  + `MangaSearchPayload` (`{ kind: 'manga', mangaId }}`); `payload.kind` is the sole
+  discriminator. The TV `EpisodeSearchPayload` / `SeasonSearchPayload` variants and the
+  separate `InteractiveSearchType.ts` file were both deleted in issue #263.
+- `useReleases.ts` — routes every payload to `/api/v5/manga/release` (Phase 6 endpoint).
 - `<InteractiveSearch searchPayload={{ kind: 'chapter', chapterId }} />` is the
   caller pattern from `Chapter/ChapterDetailsModal.tsx` / `Manga/Details/MangaDetails.tsx`
   Search tab (the `type` prop was retired in issue #263).

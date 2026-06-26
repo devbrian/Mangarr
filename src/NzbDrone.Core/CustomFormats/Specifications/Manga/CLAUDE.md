@@ -1,9 +1,8 @@
 # CustomFormats/Specifications/Manga
 
 ## Purpose
-4 NEW manga-specific Custom Format spec classes per Phase 5 D-09. Auto-discovered via DryIoc by virtue of implementing `ICustomFormatSpecification` (no manual DI registration). Distinct from Mangarr's TV CF specs (Resolution, Source, ReleaseType, Language) which are hidden from manga CF authoring UI via `AppliesTo == MediaType.Series`.
+4 NEW manga-specific Custom Format spec classes per Phase 5 D-09. Auto-discovered via DryIoc by virtue of implementing `ICustomFormatSpecification` (no manual DI registration). They declare `AppliesTo => MediaType.Manga`; the reusable Sonarr-heritage specs that survived the fork trim (`ReleaseTitle`, `ReleaseGroup`, `IndexerFlag`, `Size`) declare `MediaType.All`. The `MediaType` enum has only `All = 0` and `Manga = 2` — the TV-only value and the TV CF specs (Resolution / Source / ReleaseType / Language) were removed during the manga fork.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\CustomFormats\Specifications\Manga`
 
 ## Key Files
 | File | Purpose |

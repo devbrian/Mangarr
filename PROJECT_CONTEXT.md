@@ -26,7 +26,7 @@ The application is a self-hosted background service exposing a web UI at port 89
 | Frontend | React 18.3 + TypeScript 5.7 | SPA, served by backend |
 | Database | SQLite (default) / PostgreSQL | One DB for main + one for logs |
 | ORM | Dapper | Hand-rolled mapping; raw SQL for queries |
-| Schema migrations | FluentMigrator | Sequential `001_mangarr_baseline.cs` → `007_…` (pre-v1 dev-migration policy: edit baseline in place pre-v1.0.0) |
+| Schema migrations | FluentMigrator | Sequential `001_mangarr_baseline.cs` → `017_…` (post-v1.0.0 policy: append a new sequential migration; the pre-v1 edit-baseline-in-place rule no longer applies) |
 | State Management | Redux 4 + Zustand 5 + TanStack React Query 5.61 | Tri-store architecture |
 | Real-time | SignalR 10 | `/signalr/messages` hub |
 | Build | MSBuild + Webpack 5 | Yarn 1.22 (classic, pinned via `package.json` `packageManager`) |
@@ -57,13 +57,13 @@ Mangarr/
 │   │   ├── Manga/                    # CRITICAL: Manga / Chapter domain (Sonarr Tv/ deleted Phase 15 Plan 15-03; no Season peer)
 │   │   ├── Parser/                   # CRITICAL: Title regex; manga peers under Parser/Manga/
 │   │   ├── DecisionEngine/           # Manga decision specs under DecisionEngine/Manga/
-│   │   ├── Indexers/                 # MangaDex / Comix aggregator sources
+│   │   ├── Indexers/                 # GatewayIndexer (sole IIndexer; in-process MangaDex/Comix scrapers retired Phase 39)
 │   │   ├── IndexerSearch/            # SearchCriteria classes
-│   │   ├── Download/                 # Download client integrations + lifecycle
+│   │   ├── Download/                 # GatewayDownloadClient (sole client; in-process image downloader retired Phase 39) + lifecycle
 │   │   ├── MediaFiles/               # Disk scan, file import, organize, delete; ChapterFile.cs
-│   │   ├── MetadataSource/           # MangaDex metadata source (SkyHook/TVDB deleted Phase 15)
+│   │   ├── MetadataSource/           # MangaBaka / MangaDex / AniList / MAL (SkyHook/TVDB deleted Phase 15)
 │   │   ├── Datastore/                # DB connection, BasicRepository<T>, Migration/
-│   │   ├── Notifications/            # 25+ notification providers
+│   │   ├── Notifications/            # Komga + Kavita live (rest reference-preserved per .planning/reference/)
 │   │   ├── CustomFormats/            # User-defined release scoring rules
 │   │   ├── Profiles/                 # Quality / Delay / Release profiles
 │   │   ├── Qualities/                # Quality enum + definitions
@@ -119,7 +119,7 @@ Mangarr/
 │   ├── Libraries/                    # Vendored DLLs
 │   └── *.Test/                       # NUnit projects
 ├── frontend/                         # See frontend/CLAUDE.md
-│   ├── src/                          # 34 top-level dirs
+│   ├── src/                          # 35 top-level dirs
 │   └── build/webpack.config.js
 ├── _output/                          # Build artifacts (UI bundled here)
 ├── _tests/                           # Test artifacts
@@ -167,7 +167,7 @@ Mangarr/
 │   └─────────┘ └─────────┘ └──────────┘ └────────────────┘  │
 │   ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌────────────────┐  │
 │   │Profiles │Qualities │CustomFormats│Notifications   │  │
-│   │QP/Delay │Definitions│Specs        │25+ providers   │  │
+│   │QP/Delay │Definitions│Specs        │Komga + Kavita  │  │
 │   └─────────┘ └─────────┘ └──────────┘ └────────────────┘  │
 └──────────────────────┬─────────────────────────────────────┘
                        │
@@ -189,7 +189,7 @@ This is the central pipeline that transforms an indexer feed into an organized l
 
 ```
 1. Trigger
-   ├─ RssSyncService scheduled (recurring)        Indexers/RssSyncService.cs
+   ├─ MangaRssSyncService scheduled (recurring)    IndexerSearch/Manga/MangaRssSyncService.cs
    └─ User-initiated chapter search command        IndexerSearch/Manga/ChapterSearchCommand.cs
 
 2. Indexer.Fetch() / Search()                     Indexers/IndexerBase.cs
@@ -223,7 +223,7 @@ This is the central pipeline that transforms an indexer feed into an organized l
 6. Sort approved decisions                         DecisionEngine/Manga/MangaDownloadDecisionComparer.cs
    (by translation profile, custom format score, age, size)
 
-7. DownloadService.DownloadReport(decision)         Download/DownloadService.cs
+7. MangaDownloadService.DownloadReport(decision)    Download/MangaDownloadService.cs
    → IDownloadClient.Download(remoteChapter)
 
 8. Track download                                  Download/TrackedDownloads/TrackedDownloadService.cs
@@ -476,7 +476,7 @@ Webpack builds to `_output/UI/` (not `frontend/dist/`). The C# `Mangarr.Http.Fro
 ### Migration system:
 - **Engine**: FluentMigrator
 - **Path**: `src/NzbDrone.Core/Datastore/Migration/`
-- **Naming**: Sequential `NNN_description.cs` (currently `001_mangarr_baseline.cs` through `007_…`; pre-v1 dev-migration policy edits the baseline in place pre-v1.0.0)
+- **Naming**: Sequential `NNN_description.cs` (currently `001_mangarr_baseline.cs` through `017_…`; post-v1.0.0 policy appends a new sequential migration — the pre-v1 edit-baseline-in-place rule no longer applies)
 - **Style**: Each file is a class extending `NzbDroneMigrationBase`, with `protected override void MainDbUpgrade()`
 - Migrations run automatically on startup before service registration completes.
 

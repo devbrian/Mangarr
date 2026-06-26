@@ -6,7 +6,6 @@ Database layer — connection management, generic repository, ORM mapping, and *
 
 This directory is **media-agnostic** infrastructure and reusable as-is. Migrations specific to manga schema additions/renames will be added on top.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Datastore\`
 
 ## Top-Level Files
 
@@ -15,16 +14,14 @@ This directory is **media-agnostic** infrastructure and reusable as-is. Migratio
 | `ModelBase.cs` | Tiny abstract base — just `{ public int Id { get; set; } }` |
 | `IEmbeddedDocument.cs` | Marker interface — class is serialized as JSON column inside parent table |
 | `IBasicRepository.cs` / `BasicRepository.cs` | Generic CRUD repository over Dapper |
-| `Database.cs` / `IDatabase.cs` | Connection wrapper |
+| `Database.cs` | Connection wrapper |
 | `DbFactory.cs` | Factory for the main DB connection |
 | `LogDatabase.cs` | Separate DB connection for log table (so logs don't lock main) |
 | `ConnectionStringFactory.cs` | Build SQLite or Postgres connection string from config |
-| `IConnectionStringFactory.cs` | Interface |
 | `MainDatabase.cs` | Main DB connection wrapper |
-| `MappingExtensions.cs` | Dapper-specific extensions |
 | `PagingSpec.cs` | Server-side pagination spec |
-| `LazyLoaded.cs` | Generic lazy-load wrapper for navigation properties |
-| `MarrDataMapper.cs` (vestigial) | Earlier ORM bits |
+| `LazyLoaded.cs` / `LazyLoadedConverterFactory.cs` | Generic lazy-load wrapper for navigation properties |
+| `SqlBuilder.cs` / `WhereBuilder*.cs` / `TableMapper.cs` / `TableMapping.cs` / `ExpressionVisitor.cs` | SQL generation + entity↔table mapping |
 
 ## Subdirectories
 
@@ -55,8 +52,7 @@ public class my_change : NzbDroneMigrationBase
 Migrations run **automatically on startup**, before service registration completes. They operate against both SQLite and Postgres (FluentMigrator abstracts dialect).
 
 #### Migration Subdirectories
-- `Framework/` — Custom FluentMigrator extensions (`NzbDroneMigrationBase`, table builders, etc.)
-- `Resources/` — Embedded SQL or data files used by migrations
+- `Framework/` — Custom FluentMigrator extensions (`NzbDroneMigrationBase`, table builders, etc.). (No `Resources/` subdir exists.)
 
 #### The Migration Chain (sequential — manga baseline + post-v1.0 appends)
 The inherited Mangarr 224 TV migrations were replaced by a single fresh manga baseline

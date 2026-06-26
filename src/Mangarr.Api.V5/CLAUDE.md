@@ -2,227 +2,91 @@
 
 ## Purpose
 
-REST API controllers for **API version 5** — the **current primary API** consumed by the React frontend and external integrations (e.g., Plex/Kodi/scripts).
+REST API controllers for **API version 5** — the **sole REST surface** consumed by the React frontend and external integrations. (The Sonarr-era V3 API was wholesale-deleted in Phase 15 Plan 15-06.)
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Api.V5\`
-
-**File count**: ~149 .cs files (44 controllers across 30 modules).
+**Absolute Path**: `src/Mangarr.Api.V5/`
 
 ## URL Prefix
 
-All endpoints are prefixed with **`/api/v5`** (configured by the `[V5ApiController]` attribute and route conventions in `NzbDrone.Host`).
+All endpoints are prefixed with **`/api/v5`** (configured by the `[V5ApiController]` attribute + route conventions in `NzbDrone.Host`). Routes derive from the attribute string OR, when bare, from the controller's `*Resource` class name (ASP.NET Core case-insensitive routing).
 
-## Controller Inventory (44 controllers)
+## Controller Inventory (61 controllers)
 
-### Core Resources (Series / Episodes / Files / Calendar / Wanted)
+Counts verified by `find src/Mangarr.Api.V5 -name '*Controller.cs'`. Domain entities are **Manga / Chapter / ChapterFile** — there are no Series/Episode/Season/Calendar/Quality controllers (those Sonarr peers were deleted in the Phase 15 hard-fork; see DIVERGENCE.md).
 
-| Module | Controllers | Notes |
-|--------|------------|-------|
-| `Series/` | `SeriesController`, `SeriesLookupController`, `SeriesImportController`, `SeriesEditorController`, `SeriesFolderController` | CRUD, search/lookup, bulk edit, import-from-folder. **→ Manga** |
-| `Episodes/` | `EpisodeController`, `RenameEpisodeController` | Episode listing per series, rename preview. **→ Chapter** |
-| `EpisodeFiles/` | `EpisodeFileController` | File CRUD + bulk delete. **→ ChapterFile** |
-| `Calendar/` | `CalendarController`, `CalendarFeedController` | Upcoming + iCal feed. **→ Manga release schedule** |
-| `Wanted/` | `MissingController`, `CutoffController` | Missing episodes, episodes below cutoff. **→ Missing/Cutoff Chapters** |
+### Manga domain (`Manga/`)
+| Module | Controllers | Sub-doc |
+|--------|-------------|---------|
+| `Manga/` | `MangaController`, `MangaLookupController`, `MangaEditorController`, `MangaFolderController`, `MangaLinksController`, `StrayChaptersController` | [Manga/CLAUDE.md](./Manga/CLAUDE.md) |
+| `Manga/Chapter/` | `ChapterController`, `ChapterFileController`, `RenameChapterController` | [Manga/Chapter/CLAUDE.md](./Manga/Chapter/CLAUDE.md) |
+| `Manga/Queue/` | `MangaQueueController`, `MangaQueueActionController`, `MangaQueueDetailsController`, `MangaQueueStatusController` | [Manga/Queue/CLAUDE.md](./Manga/Queue/CLAUDE.md) |
+| `Manga/History/` | `ChapterHistoryController` | — |
+| `Manga/Blocklist/` | `MangaBlocklistController` | — |
+| `Manga/Release/` | `MangaReleaseController` | — |
+| `Manga/Wanted/` | `MangaMissingController`, `MangaCutoffController` | — |
 
-### Configuration
-
+### Configuration & profiles
 | Module | Controllers |
 |--------|-------------|
-| `Profiles/` | (resources only — provider config controllers under Settings) |
-| `Qualities/` | `QualityDefinitionController` |
-| `CustomFormats/` | (resource files only) |
-| `Tags/` | `TagController`, `TagDetailsController` — Phase 24 Plan 24-04 re-added `IHandle<AutoTagsUpdatedEvent>` sibling to existing `IHandle<TagsUpdatedEvent>` (AT-08; Phase 15 Plan 15-10 strip reversed). |
-| `AutoTagging/` | **NEW Phase 24 Plan 24-04** — `AutoTaggingController` (CRUD + INLINED `[HttpGet("schema")]` per Open Q #3 — NO separate `AutoTaggingSpecificationController.cs` file; Sonarr V5 canonical at pinned SHA `dfb157382b20a2d4eb5f5828a6c1e276c0d6b160` has no separate schema controller) + `AutoTaggingResource` + `AutoTaggingResourceMapper` + `AutoTaggingSpecificationResource` (a.k.a. SchemaResource) + `AutoTaggingSpecificationResourceMapper`. 5 files; route `/api/v5/autotagging` (lowercase canonical; ASP.NET Core case-insensitive routing also serves FE `/autoTagging` camelCase). |
+| `Config/` | `DownloadClientConfigController`, `ImportListConfigController`, `MangaNamingConfigController` |
+| `Profiles/` | `TranslationProfileController`, `CustomFormatProfileController`, `DelayProfileController`, `ReleaseProfileController` |
+| `CustomFormats/` | `CustomFormatController` |
+| `CustomFilters/` | `CustomFilterController` |
+| `AutoTagging/` | `AutoTaggingController` (Phase 24 Plan 24-04; route `/api/v5/autotagging`, schema inlined — no separate spec controller) |
+| `Tags/` | `TagController`, `TagDetailsController` |
 | `RootFolders/` | `RootFolderController` |
 | `RemotePathMappings/` | `RemotePathMappingController` |
 
-### Settings Subsection
-| File | Purpose |
-|------|---------|
-| `SettingsController.cs` | Cross-cutting settings |
-| `GeneralSettingsController.cs` | General settings |
-| `IndexerSettingsController.cs` | Indexer global options |
-| `MediaManagementSettingsController.cs` | File-management settings |
-| `NamingSettingsController.cs` | File naming patterns |
-| `UiSettingsController.cs` | UI preferences |
-| `UpdateSettingsController.cs` | Update channel / branch |
+### Settings (`Settings/`)
+`SettingsController`, `GeneralSettingsController`, `IndexerSettingsController`, `MediaManagementSettingsController`, `UiSettingsController`, `UpdateSettingsController`.
 
-### Download Pipeline
-
+### Download / indexer / metadata pipeline
 | Module | Controllers | Notes |
 |--------|-------------|-------|
-| `Indexers/` | `IndexerController` | Indexer plugin CRUD |
-| `DownloadClient/` | `DownloadClientController` | Download client CRUD (backed by `IDownloadClient`) — route `/api/v5/downloadclient` |
-| `Connections/` | `ConnectionController` | Notification CRUD (backed by `INotification`) — route `/api/v5/connection`. Upstream Sonarr v5 renamed `Notification` → `Connection` at the API surface (commits `06c606253` "Add v5 Connection endpoints" + `6d49b41dd` "Use react-query for Connections" on `v5-develop`); Mangarr inherited verbatim. Frontend hook `useConnections.ts` uses `PATH='/connection'`. |
-| `Blocklist/` | `BlocklistController` | Blocked releases |
-| `Queue/` | `QueueController`, `QueueActionController`, `QueueDetailsController`, `QueueStatusController` | Active downloads |
-| `History/` | `HistoryController` | Grab/import history |
-| `Release/` | `ReleaseController`, `ReleasePushController` | Available releases + manual push |
+| `Indexers/` | `IndexerController`, `IndexerFlagController` | Indexer plugin CRUD (sole `IIndexer` = `GatewayIndexer`) |
+| `DownloadClient/` | `DownloadClientController` | route `/api/v5/downloadclient` (sole client = `GatewayDownloadClient`) |
+| `Connections/` | `ConnectionController` | Notification CRUD — Sonarr v5 renamed `Notification`→`Connection`; route `/api/v5/connection`. FE `useConnections.ts` uses `PATH='/connection'`. |
+| `ImportLists/` | `ImportListController`, `ImportListExclusionController` | [ImportLists/CLAUDE.md](./ImportLists/CLAUDE.md) |
+| `Metadata/` | `MetadataController` | ComicInfo metadata writer (Phase 30 Plan 30-04); route `/api/v5/metadata` |
+| `MetadataSource/` | `MetadataSourceController` | MangaDex/AniList/MAL/MangaBaka source CRUD + SetPrimary — [MetadataSource/CLAUDE.md](./MetadataSource/CLAUDE.md) |
+| `Discovery/` | `DiscoveryController` | Filtered bulk-add browse (Phase 42) — [Discovery/CLAUDE.md](./Discovery/CLAUDE.md) |
 | `ManualImport/` | `ManualImportController` | Manual import workflow |
 
-### System & Operations
-
+### System & operations
 | Module | Controllers |
 |--------|-------------|
 | `Commands/` | `CommandController` |
-| `System/` | `SystemController` |
+| `System/` | `SystemController`, `System/Backup/BackupController`, `System/Tasks/TaskController` |
 | `Health/` | `HealthController` |
 | `Logs/` | `LogController`, `LogFileController`, `UpdateLogFileController` |
 | `Update/` | `UpdateController` |
 | `DiskSpace/` | `DiskSpaceController` |
 | `FileSystem/` | `FileSystemController` |
-| `Parse/` | `ParseController` (utility for testing parser) |
 | `Localization/` | `LocalizationController`, `LanguageController` |
-| `CustomFilters/` | `CustomFilterController` |
-| `ImportLists/` | `ImportListExclusionController` |
-| `Metadata/` | `MetadataController` — **NEW Phase 30 Plan 30-04 (II2-02)** — `ProviderControllerBase<MetadataResource, MetadataBulkResource, IMetadata, MetadataDefinition>` subclass routed at `/api/v5/metadata`. 8 active CRUD/schema/test endpoints inherited + 2 `[NonAction]` bulk overrides throwing NotImplementedException (single-instance UX per D-04 — bulk has no use case while ComicInfo is the only v1.2 provider). Authored from `ConnectionController.cs:11` template per PATTERNS.md §Plan 30-04 (closer match than ImportListController because Metadata has no FK validators). Closes the long-standing Settings/Metadata 404 since Phase 15 deleted V3. |
-| `Provider/` | (provider-base resource — used by indexer/dlclient/etc. lookup) |
-| `SeasonPass/` | `SeasonPassController` (bulk season operations — possibly N/A for manga) |
 
-## Endpoints — Common Examples
+## Resource / mapper / validator pattern
 
-### SeriesController
-```
-GET    /api/v5/series                 List all
-GET    /api/v5/series/{id}            Get one
-POST   /api/v5/series                 Add new
-PUT    /api/v5/series/{id}            Update
-DELETE /api/v5/series/{id}            Delete (?deleteFiles=, ?addImportListExclusion=)
-GET    /api/v5/series/lookup?term=X   Metadata search
-PUT    /api/v5/series/editor          Bulk edit
-DELETE /api/v5/series/editor          Bulk delete
-```
+Each controller has a `*Resource` (DTO) extending `RestResource` (provides `int Id`), a static `*ResourceMapper` with `ToResource()` / `ToModel()` extension methods, and (where validated) a `*Validator` using FluentValidation. Provider controllers (Indexer/DownloadClient/Connection/ImportList/MetadataSource/Metadata) extend `ProviderControllerBase` for the standard 10-endpoint ThingiProvider CRUD + schema + test + bulk surface.
 
-### EpisodeController
-```
-GET /api/v5/episode?seriesId=123      List episodes for a series
-GET /api/v5/episode/{id}              Single episode
-PUT /api/v5/episode/{id}              Update (mainly toggle monitored)
-PUT /api/v5/episode/monitor           Bulk toggle monitored: { episodeIds:[…], monitored:true }
-```
-
-### CommandController
-```
-GET    /api/v5/command                List commands (running + recent)
-GET    /api/v5/command/{id}           Single command status
-POST   /api/v5/command                Execute new command — body { name:"RefreshSeries", … }
-DELETE /api/v5/command/{id}           Cancel
-```
-
-## Resource Pattern
-
-Each controller has a corresponding `*Resource` (DTO) class:
-
-```csharp
-public class SeriesResource : RestResource     // RestResource provides Id
-{
-    public string Title { get; set; }
-    public string Path { get; set; }
-    public List<SeasonResource> Seasons { get; set; }
-    public SeriesStatisticsResource Statistics { get; set; }
-    // …
-}
-```
-
-Plus a static mapper:
-
-```csharp
-// SeriesResource.cs (or SeriesResourceMapper.cs)
-public static class SeriesResourceMapper
-{
-    public static SeriesResource ToResource(this Series model) => new()
-    {
-        Id    = model.Id,
-        Title = model.Title,
-        Path  = model.Path,
-        // …
-    };
-
-    public static Series ToModel(this SeriesResource resource) => new()
-    {
-        Id    = resource.Id,
-        Title = resource.Title,
-        // …
-    };
-}
-```
-
-Resource validation lives in `*ResourceValidator.cs` files and uses `ResourceValidator<T>` (FluentValidation).
-
-## Common Commands (POST /api/v5/command)
+## Common commands (POST /api/v5/command)
 
 | Command | Purpose |
 |---------|---------|
-| `RefreshSeries` | Re-fetch metadata from MetadataSource |
-| `RescanSeries` | Re-scan disk for files |
-| `SeriesSearch` | Search all monitored eps in a series |
-| `EpisodeSearch` | Search a single episode |
-| `SeasonSearch` | Search a whole season |
-| `MissingEpisodeSearch` | Search all monitored missing eps |
-| `CutoffUnmetEpisodeSearch` | Search all eps below cutoff |
-| `RssSync` | Run RSS sync now |
-| `RenameFiles` | Rename files for selected eps |
-| `Backup` | Trigger manual backup |
-| `ApplicationUpdate` | Trigger self-update |
-| `MessagingCleanup`, `Housekeeping`, `CheckHealth` | Maintenance |
+| `RefreshManga` | Re-fetch metadata from the primary MetadataSource |
+| `RescanManga` | Re-scan disk for chapter files |
+| `MangaSearch` / `ChapterSearch` | Search a manga / a single chapter |
+| `MissingChapterSearch` / `CutoffUnmetChapterSearch` | Search monitored missing / below-cutoff chapters |
+| `ImportListSync` | Run import-list sync now |
+| `RenameFiles` | Rename chapter files |
+| `Backup`, `ApplicationUpdate`, `Housekeeping`, `CheckHealth` | Maintenance |
 
 ## Authentication
 
-All endpoints require auth (unless explicitly opted out) via:
-- `X-Api-Key` header
-- `?apikey=…` query
-- Cookie session (for the UI)
-
-API key is in General Settings; resettable.
-
-## Manga Adaptation Plan
-
-### Conceptual Renames (when migration moves to Mangarr)
-| Mangarr Controller | Mangarr Controller |
-|-------------------|--------------------|
-| `SeriesController` | `MangaController` |
-| `SeriesLookupController` | `MangaLookupController` |
-| `SeriesImportController` | `MangaImportController` |
-| `SeriesEditorController` | `MangaEditorController` |
-| `EpisodeController` | `ChapterController` |
-| `EpisodeFileController` | `ChapterFileController` |
-| `RenameEpisodeController` | `RenameChapterController` |
-| `MissingController` | `MangaMissingController` |
-| `CutoffController` | `MangaCutoffController` |
-| `SeasonPassController` | `VolumePassController` (or remove if N/A) |
-
-### New Endpoints to Add
-- `/api/v5/manga` — Manga CRUD
-- `/api/v5/manga/lookup` — MangaDex/AniList search
-- `/api/v5/chapter` — Chapter management
-- `/api/v5/volume` — Volume (if implemented)
-
-### Strategy Note
-
-For backward compatibility with any external integrations that consume `/api/v5/series`, consider keeping aliased routes during the transition (e.g. add `[Route("api/v5/manga")]` AND keep `[Route("api/v5/series")]` on the same controller temporarily).
-
-## Phase 6 Manga V5 Sibling Controllers
-
-Phase 6 Plan 06-09 ships 5 manga-side V5 controllers under `/api/v5/manga/` that close the v1 PIPELINE/HISTORY/BLOCK/WANTED requirements. Each is a parallel sibling to a TV V5 controller; **Phase 8 cleanup** will collapse the sibling pairs when `Tv/` deletes (and `Mangarr.Api.V3/` is dropped).
-
-| Sibling | TV Analog | Phase 6 Requirements |
-|---------|-----------|----------------------|
-| `Manga/History/ChapterHistoryController.cs` at `/api/v5/manga/history` | `History/HistoryController.cs` | HISTORY-01..03 — paged GET with `eventType / chapterId / downloadId / mangaIds[] / languages[] / includeSubresources[]` filters; POST `/failed/{id}/retry` pushes `ChapterSearchCommand` (HISTORY-03 manual retry escape hatch after auto-retry budget exhausts) |
-| `Manga/Blocklist/MangaBlocklistController.cs` at `/api/v5/manga/blocklist` | `Blocklist/BlocklistController.cs` | BLOCK-01..02 — paged GET with `mangaIds[] / includeManga` filters; `[RestDeleteById]` single-row delete; `[HttpDelete("bulk")]` bulk delete via `MangaBlocklistBulkResource { Ids: List<int> }`; carries D-11 release-identity triple `(SourceKey, ReleaseGuid, SourceTitle)` |
-| `Manga/Queue/MangaQueueController.cs` at `/api/v5/manga/queue` | `Queue/QueueController.cs` | PIPELINE-03 — `RestControllerWithSignalR<MangaQueueResource, MangaQueueItem>` + `IHandle<MangaQueueUpdatedEvent>`; GET returns full projection (no DB paging — static-list from `TrackedDownloadRefreshedEvent`); SignalR resource name = `mangaqueue` |
-| `Manga/Release/MangaReleaseController.cs` at `/api/v5/manga/release` | `Release/ReleaseController.cs` | PIPELINE-01 — Interactive Search modal; GET `?chapterId=` runs `IMangaSearchForReleases.ChapterSearch`; POST grabs the cached RemoteChapter via a thin `RemoteEpisode` shim (`Series = { Id = manga.Id }`, `Episodes = [{ Id = chapter.Id }]`); Phase 4 D-10 `Protocol == DownloadProtocol.Http` early-return routes into `InProcessImageDownloadClient`. ICached<RemoteChapter> 30-min TTL mirrors TV's `_remoteEpisodeCache` |
-| `Manga/Wanted/MangaMissingController.cs` at `/api/v5/manga/wanted/missing` | `Wanted/MissingController.cs` | WANTED-01..03 — paged GET with `monitored=true & mangaIds[] & languages[] & ageRating & includeSubresources[]=Manga` filters; backed by new `IChapterService.ChaptersWithoutFiles(PagingSpec)` paged overload; D-04 GUARD: NO `IsSynthetic` filter (synthetic rows surface alongside real rows by default). Renamed 2026-05-06 from `MissingChaptersController` for naming consistency with the rest of the manga V5 namespace (`Manga` prefix as anti-collision strategy, matching `MangaCutoffController`/`MangaQueueController`/etc.). After canonical-resource-reuse follow-up (2026-05-06): returns canonical `ChapterResource` (NO custom paged-row resource class — mirrors TV `MissingController` reusing `EpisodeResource`; replaces deleted `MissingChapterResource` POCO + `bool includeManga` flag with TV-mirroring `MangaMissingSubresource` enum-array). |
-| `Manga/Wanted/MangaCutoffController.cs` at `/api/v5/manga/wanted/cutoff` | `Wanted/CutoffController.cs` | Plan 12-12 F-CUTOFF closure — paged GET with `monitored=true & mangaIds[] & includeSubresources[]=Manga` filters; backed by `IChapterCutoffService.ChaptersWhereCutoffUnmet`. Drops TV's languages/ageRating filters (cutoff is profile-driven). After F-CUTOFF-SIGNALR follow-up + canonical-resource-reuse follow-up (both 2026-05-06): extends `RestControllerWithSignalR<,>` + 3 IHandle subscriptions; returns canonical `ChapterResource` (NO custom paged-row resource class — mirrors TV `CutoffController` reusing `EpisodeResource`; replaces deleted `MangaCutoffResource` POCO + `bool includeManga` flag with TV-mirroring `MangaCutoffSubresource` enum-array). |
-| `Manga/Subresources/MangaSubresource.cs + ChapterSubresource.cs` | (none — new pattern) | Shared minimal-shape POCOs reused across all Phase 6 controller payloads (avoids leaking full `MangaResource` shape on every nested hydration). Phase 8 cleanup: collapse with the `Series` subresource pattern. |
-
-**Required upstream substrate added by Plan 06-09 (Rule 2 + Rule 3 deviations):**
-- `MangaQueueItem` now inherits `ModelBase` (Rule 2 — needed for `RestControllerWithSignalR<TResource, TModel>` generic constraint; mirrors TV `Queue` precedent)
-- `IChapterService.ChaptersWithoutFiles(PagingSpec)` paged overload added (Rule 3 — Plan 06-01 only shipped the non-paged `AllMissingMonitoredChapters()` variant; the paged variant pre-pends `c => c.ChapterFileId == null` onto `FilterExpressions`)
+All endpoints require auth (unless explicitly opted out) via `X-Api-Key` header, `?apikey=…` query, or cookie session (UI). API key lives in General Settings; resettable.
 
 ## Cross-References
 
 - [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) — Architecture
-- [Mangarr.Api.V3/CLAUDE.md](../Mangarr.Api.V3/CLAUDE.md) — Legacy V3 API
-- [Mangarr.Http/CLAUDE.md](../Mangarr.Http/CLAUDE.md) — Base infrastructure
+- [Mangarr.Http/CLAUDE.md](../Mangarr.Http/CLAUDE.md) — REST base / auth / middleware
 - [NzbDrone.Core/CLAUDE.md](../NzbDrone.Core/CLAUDE.md) — Domain logic
 - [frontend/CLAUDE.md](../../frontend/CLAUDE.md) — Frontend consuming this API

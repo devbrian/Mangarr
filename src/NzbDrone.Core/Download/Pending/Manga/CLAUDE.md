@@ -6,7 +6,6 @@ Manga sibling of `Download/Pending/` — holds `MangaDownloadDecision`s that nee
 (delay profile, queue cooldown, indexer unavailability, RSS-sync fallback). On wake, the
 service re-evaluates pending releases and grabs the highest-priority candidate.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Download\Pending\Manga`
 
 ## Key Files
 

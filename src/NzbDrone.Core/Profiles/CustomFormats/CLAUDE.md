@@ -3,7 +3,6 @@
 ## Purpose
 Custom-Format scoring profile entity (CustomFormatProfile) — the INNER scoring layer of Phase 5's two-layer release-preference model. Carries `MinFormatScore` / `MaxFormatScore` thresholds + a per-profile per-CF score override list (`FormatItems`).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Profiles\CustomFormats`
 
 ## Key Files
 | File | Purpose |
@@ -15,11 +14,11 @@ Custom-Format scoring profile entity (CustomFormatProfile) — the INNER scoring
 | `CustomFormatProfileUpdatedEvent.cs` | Published on Update for cache invalidation |
 
 ## Patterns / Conventions
-- Sibling to `Profiles/Qualities/` AND to `Profiles/Translations/` — Phase 5 D-07 orthogonal-concerns split (language preference on TranslationProfile, CF scoring on CustomFormatProfile)
+- Sibling to `Profiles/Translations/` — Phase 5 D-07 orthogonal-concerns split (language preference on TranslationProfile, CF scoring on CustomFormatProfile). (Sonarr's `Profiles/Qualities/` quality-profile vertical — the original pattern source — was dropped in Phase 5 D-04 and no longer exists on disk.)
 - FormatItems persists as JSON column via `EmbeddedDocumentConverter<List<ProfileFormatItem>>` already registered at `TableMapping.cs:213`
 - Default-on-first-run seeder per pattern S4 + Open Question 2: `Add({Name="Default", MinFormatScore=0, MaxFormatScore=null, FormatItems=ICustomFormatService.All().Select(f => new ProfileFormatItem{Score=0, Format=f})})` then seed `Config.DefaultCustomFormatProfileId`
-- `Handle(CustomFormatAddedEvent)` auto-inserts new CF at score=0 into every profile (mirrors `QualityProfileService.cs:159-173`)
-- `Handle(CustomFormatDeletedEvent)` auto-removes the CF from every profile (mirrors `QualityProfileService.cs:175-191`)
+- `Handle(CustomFormatAddedEvent)` auto-inserts new CF at score=0 into every profile (Phase 5 port of the since-deleted Sonarr `QualityProfileService` add-handler pattern)
+- `Handle(CustomFormatDeletedEvent)` auto-removes the CF from every profile (same since-deleted Sonarr pattern source)
 - Delete guard per Pitfall 8: raises CustomFormatProfileInUseException if profile is assigned to any Manga OR is the global default
 
 ## Manga Adaptation Notes
@@ -39,6 +38,5 @@ When `Tv/` deletes in Phase 8, this directory collapses into the canonical `Prof
 - [Phase 5 CONTEXT](../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-CONTEXT.md) — D-07, D-11
 - [Phase 5 RESEARCH](../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-RESEARCH.md) — Open Question 2 (FormatItems shipping), Pitfall 8 (FK orphan)
 - [Phase 5 PATTERNS-MAP](../../../.planning/phases/05-decision-engine-translationprofile-custom-formats-naming/05-PATTERNS.md) — Adaptation Hotspots 4 + 9
-- [QualityProfile pattern source](../Qualities/QualityProfile.cs)
-- [TranslationProfile sibling](../Translations/) (Wave 1 plan 05-02)
+- [TranslationProfile sibling](../Translations/) (Wave 1 plan 05-02) — the other half of the Phase 5 D-07 split (Sonarr's QualityProfile pattern source was dropped Phase 5 D-04)
 - [DIVERGENCE.md](../../../../DIVERGENCE.md) — Phase 5 D-07 entry (added in Wave 4 plan 05-07)

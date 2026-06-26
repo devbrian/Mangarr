@@ -6,7 +6,6 @@ The **core business logic layer** of the application — the largest project by 
 
 Almost every change request that isn't strictly a UI tweak or API DTO change touches code in this project.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\`
 
 ## Top-Level Subdirectories (Quick Reference)
 
@@ -28,31 +27,29 @@ Listed by **migration status** post-Phase-17.3 (Sonarr → Mangarr conversion).
 | `Indexers/` | Indexer plugins | **Done** — in-process MangaDex + Comix indexers (Phase 3) RETIRED in Phase 39 (Plan 39-03); `GatewayIndexer` (Phase 37, under `Indexers/Gateway/`) is now the sole `IIndexer`, driving the external manga gateway with zero embedded browser. See [Indexers/CLAUDE.md](./Indexers/CLAUDE.md). |
 | `IndexerSearch/` | SearchCriteria classes | Manga peers under [IndexerSearch/Manga/CLAUDE.md](./IndexerSearch/Manga/CLAUDE.md). |
 | `MediaFiles/` | Disk scan, file import, organize, rename (CBZ/CBR + image folders) | Phase 15 renamed `EpisodeFile.cs` → `ChapterFile.cs`; Phase 17.3 Plan 17.3-05 D-06 deleted `SeasonPackUpgradeType.cs` vertical. See [MediaFiles/CLAUDE.md](./MediaFiles/CLAUDE.md), [MediaFiles/MangaImport/CLAUDE.md](./MediaFiles/MangaImport/CLAUDE.md), [MediaFiles/ChapterArchiving/CLAUDE.md](./MediaFiles/ChapterArchiving/CLAUDE.md). |
-| `DecisionEngine/` | ~32 specifications | Manga peers under [DecisionEngine/Manga/CLAUDE.md](./DecisionEngine/Manga/CLAUDE.md); [DecisionEngine/CLAUDE.md](./DecisionEngine/CLAUDE.md) covers shared infra. |
+| `DecisionEngine/` | 15 manga decision specs | Top level holds shared rejection infra only; the 15 specs live under [DecisionEngine/Manga/CLAUDE.md](./DecisionEngine/Manga/CLAUDE.md) (`Manga/Specifications/`). [DecisionEngine/CLAUDE.md](./DecisionEngine/CLAUDE.md) covers shared infra. |
 | `CustomFormats/` | User-defined release scoring | Reusable pattern; manga specs under [CustomFormats/Specifications/Manga/CLAUDE.md](./CustomFormats/Specifications/Manga/CLAUDE.md). |
-| `ImportLists/` | External lists (manga-shape substrate) | Phase 26 Plan 26-04 shipped the substrate backend (IL-02/03/06; IMangaImportList contract + 2 base classes + 3 D-13 separate Dapper repos + sync command/service + IHandle&lt;MangaDeletedEvent&gt; auto-add); zero production providers ship per D-08 — Phase 27 plugs in MangaDex / AniList / MyAnimeList plugins additively. See [ImportLists/CLAUDE.md](./ImportLists/CLAUDE.md). |
+| `ImportLists/` | External lists (manga-shape substrate) | Phase 26 Plan 26-04 shipped the substrate backend (IMangaImportList contract + base classes + D-13 separate Dapper repos + sync command/service + IHandle&lt;MangaDeletedEvent&gt; auto-add); Phase 27 plugged in the concrete providers — `AniList/`, `MangaDex/`, `MyAnimeList/`, `MyAnimeListStack/`. See [ImportLists/CLAUDE.md](./ImportLists/CLAUDE.md). |
 | `Organizer/` | Filename/folder builder | Manga peers under [Organizer/Manga/CLAUDE.md](./Organizer/Manga/CLAUDE.md). |
 
 ### MEDIUM — Minor Adaptation
 
 | Directory | Purpose | Notes |
 |-----------|---------|-------|
-| `Download/` | Download client integrations + lifecycle | The in-process `InProcessImageDownloadClient` vertical (Phase 4/6) was RETIRED in Phase 39 (Plans 39-01/02); `GatewayDownloadClient` (Phase 38, under `Download/Clients/Gateway/`) is now the sole download client. The Sonarr Usenet/Torrent client infrastructure is reference-preserved. See [Download/CLAUDE.md](./Download/CLAUDE.md). |
+| `Download/` | Download client integrations + lifecycle | The in-process `InProcessImageDownloadClient` vertical (Phase 4/6) was RETIRED in Phase 39 (Plans 39-01/02); `GatewayDownloadClient` (Phase 38, under `Download/Clients/Gateway/`) is now the sole download client. Live `Download/Clients/` holds only `Gateway/` + exception base .cs — the Sonarr Usenet/Torrent clients (qBittorrent/Transmission/SABnzbd) were removed from the tree during the fork and survive only in the `.planning/reference/sonarr-vertical-slices/` archive. See [Download/CLAUDE.md](./Download/CLAUDE.md). |
 | `History/` | Grab/import history | Entity references change. |
 | `AutoTagging/` | Rule-based auto-tagging | **Phase 24 RESTORE-REBUILD** — Phase 15 Plan 15-10 DELETED the subtree; Phase 24 restored from `git show 6f857ba0e^` with mechanical Series→Manga + 11-spec manga-shape catalog (8 Sonarr ports - 1 OriginalLanguage drop + 1 QualityProfile split + 3 manga-NEW: AuthorArtist/Demographic/ContentRating). See [AutoTagging/CLAUDE.md](./AutoTagging/CLAUDE.md). |
 | `Languages/` | Language enum + parsing | Add scanlation-aware terms. |
 | `HealthCheck/` | System health checks | Some checks are series-aware. |
-| `Extras/` | Subtitle/metadata sidecar files | Manga sidecars (info.json, cover) differ. |
-| `DataAugmentation/` | Scene-mapping data | TV-specific now. |
 | `CustomFilters/` | Server-side saved filter | Filter targets change. |
 
 ### LOW / NONE — Reusable As-Is
 
 | Directory | Purpose |
 |-----------|---------|
-| `Datastore/` | DB connection, BasicRepository, **manga baseline `001` + sequential migrations through `015` (`015_v1_3_add_user_alternative_titles` — the nullable `UserAlternativeTitles` column per quick-260618-eqz — is the head; `014_v1_3_unique_mangabaka_id` adds the `IX_Manga_MangaBakaId` UNIQUE index)**. See [Datastore/CLAUDE.md](./Datastore/CLAUDE.md) |
+| `Datastore/` | DB connection, BasicRepository, **manga baseline `001` + sequential migrations through `017` (`017_v1_3_add_importlist_exclusion_mangabaka_id` is the head; `016_v1_3_add_max_chapter_number` adds `Manga.MaxChapterNumber`; `015_v1_3_add_user_alternative_titles` adds `UserAlternativeTitles`; `014_v1_3_unique_mangabaka_id` adds the `IX_Manga_MangaBakaId` UNIQUE index)**. See [Datastore/CLAUDE.md](./Datastore/CLAUDE.md) |
 | `Messaging/` | EventAggregator, Commands, Events. See [Messaging/CLAUDE.md](./Messaging/CLAUDE.md) |
-| `Notifications/` | 25+ providers (Discord/Slack/Email/Telegram/etc.). See [Notifications/CLAUDE.md](./Notifications/CLAUDE.md) |
+| `Notifications/` | Komga + Kavita are the only LIVE providers; the 25+ Sonarr notifiers (Discord/Slack/Email/Telegram/etc.) are reference-preserved heritage, not wired. See [Notifications/CLAUDE.md](./Notifications/CLAUDE.md) |
 | `Authentication/` | User accounts |
 | `Configuration/` | ConfigService key/value |
 | `Tags/` | Tag entity |
@@ -97,8 +94,8 @@ for the full Manga directory contents.
 | `Manga/MangaEditedService.cs` | Apply post-edit side effects |
 | `Manga/MangaRepository.cs` / `ChapterRepository.cs` | Dapper-based repos |
 | `Manga/MangaAddedHandler.cs` / `MangaScannedHandler.cs` | IHandle event handlers |
-| `Manga/MangaPathBuilder.cs` | Compute manga folder path from naming config |
-| `Manga/MangaTitleNormalizer.cs` | Normalize titles for matching |
+| `Organizer/Manga/MangaPathBuilder.cs` | Compute manga folder path from naming config (lives under `Organizer/Manga/`, not `Manga/`) |
+| `Parser/Manga/MangaTitleNormalizer.cs` | Normalize titles for matching (lives under `Parser/Manga/`, not `Manga/`) |
 | `Manga/Commands/` | Manga-related commands (RefreshMangaCommand, etc.) |
 | `Manga/Events/` | Manga events (MangaAddedEvent, MangaDeletedEvent, etc.) |
 
@@ -108,43 +105,51 @@ Plan 17.3-11 D-11; v1.x GH follow-up issue tracks the dedicated
 
 ## Parser (`Parser/`)
 
+The TV parser (`Parser.cs`, `ParsingService.cs`, `QualityParser.cs`,
+`LanguageParser.cs`) was DELETED in the Phase 2/6 migration; the live engine
+at HEAD is the manga one under `Parser/Manga/`. See [Parser/CLAUDE.md](./Parser/CLAUDE.md).
+
 | File | Purpose |
 |------|---------|
-| `Parser.cs` | **~71 KB** — central regex-based title parser. Static class. |
-| `ParsingService.cs` | Maps `ParsedEpisodeInfo` → `RemoteEpisode` (resolves Series/Episodes from DB) |
-| `QualityParser.cs` | Extract quality from title |
-| `LanguageParser.cs` | Extract language(s) |
-| `ReleaseGroupParser.cs` | Extract release group / scanlation group |
-| `Model/ReleaseInfo.cs` | DTO from indexer feed |
-| `Model/RemoteEpisode.cs` | ReleaseInfo + matched Series + Episodes |
-| `Model/ParsedEpisodeInfo.cs` | Output of regex parse |
+| `Manga/MangaParser.cs` | Central manga regex parser (chapter/volume numbers, scanlation groups, ranges). Replaced the deleted TV `Parser.cs`. |
+| `Manga/MangaParsingService.cs` | Maps the manga parse result → `RemoteChapter` (resolves Manga + Chapters via `IMangaService` / `IChapterService`). Replaced the deleted TV `ParsingService.cs`. |
+| `Manga/MangaLanguageParser.cs` | BCP-47 language extraction. Replaced the deleted TV `LanguageParser.cs`. |
+| `Manga/MangaScanlationGroupParser.cs` | `^[Group]` scanlation-group extraction. |
+| `Manga/MangaTitleNormalizer.cs` | Manga title normalization. |
+| `Manga/Model/ParsedChapterInfo.cs` | Output of the manga regex parse. |
+| `Manga/Model/RemoteChapter.cs` | ReleaseInfo + matched Manga + Chapters. |
+| `ReleaseGroupParser.cs` | Shared release-group / scene-tag helper (still present at HEAD). |
+| `Model/ReleaseInfo.cs` | DTO from indexer feed. |
 
-`Parser.cs` public API (Sonarr-shape kept verbatim per Phase 4 + Phase 6
-manga regex addition; manga-specific peers under `Parser/Manga/`):
-`ParsePath`, `SimplifyTitle`, `ParseTitle`, `ParseSeriesName`,
-`CleanSeriesTitle` (extension), `NormalizeEpisodeTitle`, `NormalizeTitle`,
-`NormalizeImdbId`, `RemoveFileExtension`, `HasMultipleLanguages`.
+`Parser/Model/` holds only shared release DTOs at HEAD (`ReleaseInfo.cs`,
+`GrabbedReleaseInfo.cs`, `IndexerFlags.cs`, `ReleaseType.cs`, `TorrentInfo.cs`);
+the TV `RemoteEpisode` / `ParsedEpisodeInfo` were deleted with `Tv/`.
 
 ## Decision Engine (`DecisionEngine/`)
 
+At HEAD the top level holds only **shared decision/rejection infra**. The
+orchestrator (`MangaDownloadDecisionMaker`), comparer (`MangaDownloadDecisionComparer`),
+DTO (`MangaDownloadDecision`), spec interface (`IMangaDecisionEngineSpecification`),
+and the 15-spec set all live under `DecisionEngine/Manga/`. The Sonarr TV
+orchestrator + `Specifications/` catalog were deleted in the Phase 15 `Tv/` cutover.
+
 | File | Purpose |
 |------|---------|
-| `DownloadDecisionMaker.cs` | Orchestrator. `GetRssDecision` and `GetSearchDecision` run all specs |
-| `DownloadDecision.cs` | Result (Approved + Rejections) |
 | `DownloadSpecDecision.cs` | Single-spec result (Accept/Reject + reason) |
-| `DownloadDecisionComparer.cs` | Sort comparer for ranking approved decisions |
-| `Rejection.cs` | Captured rejection (reason + type) |
-| `Specifications/` | ~32 specification classes |
-| `Specifications/Search/` | Search-specific specs |
-| `Specifications/RssSync/` | RSS-only specs |
+| `DownloadRejection.cs` / `Rejection.cs` | Captured rejection (reason + type) |
+| `DownloadRejectionReason.cs` / `RejectionType.cs` / `UpgradeableRejectReason.cs` | Typed reason + rejection-type enums |
+| `SpecificationPriority.cs` | Spec run-order enum |
+| `Manga/MangaDownloadDecisionMaker.cs` | Orchestrator — runs all manga specs |
+| `Manga/MangaDownloadDecisionComparer.cs` | Sort comparer for ranking approved decisions |
+| `Manga/Specifications/` | 15 manga specification classes |
 
-**Key spec examples**: `MonitoredEpisodeSpecification`, `QualityAllowedByProfileSpecification`, `UpgradableSpecification`, `BlocklistSpecification`, `CutoffSpecification`, `AcceptableSizeSpecification`, `TorrentSeedingSpecification`, `CustomFormatAllowedByProfileSpecification`, `AnimeVersionUpgradeSpecification`.
+**Manga spec examples** (under `Manga/Specifications/`): `MonitoredChapterSpecification`, `MonitoredMangaSpecification`, `LanguageInTranslationProfileSpecification`, `BlocklistSpecification`, `AcceptableSizeSpecification`, `UpgradeDiskSpecification`, `CustomFormatMinimumScoreSpecification`, `ChapterRequestedSpecification`.
 
 See [DecisionEngine/CLAUDE.md](./DecisionEngine/CLAUDE.md) for complete spec list and pattern.
 
 ## Indexers (`Indexers/`)
 
-**Phase 39 (Plan 39-03) retired the in-process site-scraper indexers.** `Indexers/Gateway/GatewayIndexer.cs` (Phase 37) is now the sole `IIndexer` — Mangarr fans search/recent requests out to the external manga gateway and never runs an embedded browser. The in-process `MangaDexIndexer` + `ComixIndexer` dirs (and the `ComixPlaywrightSigner`/`IComixSigner` anti-bot signer stack) were deleted; `IndexerFactory.SeededIndexerImplementations` seeds only `GatewayIndexer`. The Sonarr Usenet/Torrent indexer infrastructure (`Newznab/`, `Torznab/`, `Nyaa/`, etc.) is reference-preserved fork heritage, not a manga source.
+**Phase 39 (Plan 39-03) retired the in-process site-scraper indexers.** `Indexers/Gateway/GatewayIndexer.cs` (Phase 37) is now the sole `IIndexer` — Mangarr fans search/recent requests out to the external manga gateway and never runs an embedded browser. The in-process `MangaDexIndexer` + `ComixIndexer` dirs (and the `ComixPlaywrightSigner`/`IComixSigner` anti-bot signer stack) were deleted; `IndexerFactory.SeededIndexerImplementations` seeds only `GatewayIndexer`. Live `Indexers/` holds only `Exceptions/`, `Gateway/`, `Http/` (plus the base/factory .cs) — the Sonarr Usenet/Torrent indexer infrastructure (Newznab/Torznab/Nyaa) was removed from the tree during the fork and survives only in the `.planning/reference/sonarr-vertical-slices/` archive, not as a manga source.
 
 | Subdirectory | Purpose |
 |-------------|---------|
@@ -164,10 +169,9 @@ See [Indexers/CLAUDE.md](./Indexers/CLAUDE.md).
 |-------------|---------|
 | `IDownloadClient.cs` / `DownloadClientBase.cs` | Provider base |
 | `Clients/Gateway/` | `GatewayDownloadClient` — the sole download client (external gateway; Phase 38) |
-| `Clients/` (Usenet/Torrent) | qBittorrent, Transmission, SABnzbd, etc. — reference-preserved fork heritage |
+| `Clients/` (live) | Holds only `Gateway/` + exception base .cs. The Sonarr Usenet/Torrent clients (qBittorrent/Transmission/SABnzbd) were removed from the tree during the fork; they survive only in the `.planning/reference/sonarr-vertical-slices/` archive. |
 | `Manga/` | Manga monitoring/import handoff survivors (`MangaCompletedDownloadService`, `AutoRetryOrchestrator`, etc.). See [Download/Manga/CLAUDE.md](./Download/Manga/CLAUDE.md). |
-| `CompletedDownloadService.cs` | Detect & process completion |
-| `DownloadService.cs` | Submit a release to a client |
+| `MangaDownloadService.cs` | Submit a release to a client (`DownloadReport(...)`; implements `IMangaDownloadService`) |
 | `DownloadClientProvider.cs` | Pick which client to use |
 | `TrackedDownloads/` | Track in-flight downloads |
 | `History/` | Per-download history |
@@ -205,7 +209,7 @@ See [MediaFiles/CLAUDE.md](./MediaFiles/CLAUDE.md).
 | `BasicRepository.cs` | Generic Dapper repo. Methods: `All`, `Get`, `Find`, `Insert`, `InsertMany`, `Update`, `UpdateMany`, `Upsert`, `Delete`, `DeleteMany`, `SetFields`, `Purge`, `GetPaged`, `Single`, `SingleOrDefault`, `HasItems`, `Count` |
 | `IBasicRepository.cs` | Repo interface |
 | `Database.cs`, `DbFactory.cs`, `ConnectionStringFactory.cs` | DB setup |
-| `Migration/` | Manga baseline `001_mangarr_baseline.cs` + sequential migrations through `015_v1_3_add_user_alternative_titles.cs` (the head — adds the nullable `UserAlternativeTitles` column per quick-260618-eqz; `014_v1_3_unique_mangabaka_id.cs` adds the `IX_Manga_MangaBakaId` UNIQUE index; `010_v1_3_retire_in_process_cleanup.cs` is the Phase 39 in-process-cleanup one-shot earlier in the chain) |
+| `Migration/` | Manga baseline `001_mangarr_baseline.cs` + sequential migrations through `017_v1_3_add_importlist_exclusion_mangabaka_id.cs` (the head; `016_v1_3_add_max_chapter_number.cs` adds `Manga.MaxChapterNumber`; `015_v1_3_add_user_alternative_titles.cs` adds the nullable `UserAlternativeTitles` column; `014_v1_3_unique_mangabaka_id.cs` adds the `IX_Manga_MangaBakaId` UNIQUE index; `010_v1_3_retire_in_process_cleanup.cs` is the Phase 39 in-process-cleanup one-shot earlier in the chain) |
 | `Converters/` | Dapper / JSON converters (Quality, Languages, OsPath, etc.) |
 | `Extensions/` | Mapping extensions |
 | `Events/` | DB events |
@@ -226,15 +230,15 @@ See [Messaging/CLAUDE.md](./Messaging/CLAUDE.md).
 
 | Directory | Purpose |
 |-----------|---------|
-| `Notifications/` | 25+ providers; see [Notifications/CLAUDE.md](./Notifications/CLAUDE.md) |
+| `Notifications/` | Komga + Kavita live; 25+ Sonarr notifiers reference-preserved heritage. See [Notifications/CLAUDE.md](./Notifications/CLAUDE.md) |
 | `CustomFormats/` | Spec-based release scoring; see [CustomFormats/CLAUDE.md](./CustomFormats/CLAUDE.md) |
-| `Profiles/Qualities/` | Quality profile entity + items |
-| `Profiles/Delay/` | Wait-N-hours-for-better-quality |
+| `Profiles/Translations/` | TranslationProfile entity + items (the manga quality peer) |
+| `Profiles/CustomFormats/` | CustomFormatProfile entity + items |
+| `Profiles/Delay/` | Wait-N-hours-for-better-release |
 | `Profiles/Releases/` | Preferred / required / ignored terms |
-| `Qualities/` | Quality enum, QualityDefinition |
 | `Languages/` | Language enum, IsoLanguages, LanguageParser |
-| `MetadataSource/MangaDex/`, `MetadataSource/AniList/`, `MetadataSource/MyAnimeList/` | Manga metadata source ports (Sonarr `MetadataSource/SkyHook/` deleted in Phase 15) |
-| `ImportLists/AniList/`, `ImportLists/Custom/` | List sources (full vertical reference-preserved under `.planning/reference/sonarr-vertical-slices/import-lists/`) |
+| `MetadataSource/MangaBaka/`, `MetadataSource/MangaDex/`, `MetadataSource/AniList/`, `MetadataSource/MyAnimeList/` | Manga metadata source ports (Sonarr `MetadataSource/SkyHook/` deleted in Phase 15) |
+| `ImportLists/AniList/`, `ImportLists/MangaDex/`, `ImportLists/MyAnimeList/`, `ImportLists/MyAnimeListStack/` | Manga import-list providers (Phase 27) |
 | `HealthCheck/Checks/` | Individual `XCheck.cs` classes |
 | `Housekeeping/Housekeepers/` | One class per cleanup task |
 | `Update/` | Self-update from cloud |
@@ -248,19 +252,19 @@ See [Messaging/CLAUDE.md](./Messaging/CLAUDE.md).
 ```csharp
 // Domain services (manga peers post-Phase-15)
 IMangaService, IChapterService, IChapterFileService
-IParsingService          // Map ReleaseInfo → RemoteChapter
+IMangaParsingService     // Map ReleaseInfo → RemoteChapter
 
 // Plugin providers
 IIndexer                 // Fetch / Search releases
 IDownloadClient          // Submit + monitor downloads
 INotification            // Send notifications
-IImportList              // Pull external lists
-IProvideMangaInfo        // Metadata source (MangaDex / AniList / MAL)
+IMangaImportList         // Pull external lists
+IProvideMangaInfo        // Metadata source (MangaBaka / MangaDex / AniList / MAL)
 ISearchForNewManga
 
 // Decision engine
-IDownloadDecisionEngineSpecification     // single decision rule
-IMakeDownloadDecision                    // orchestrator
+IMangaDecisionEngineSpecification        // single decision rule
+IMakeMangaDownloadDecision               // orchestrator
 
 // Custom format specs
 ICustomFormatSpecification               // per-format rule
@@ -281,15 +285,15 @@ IExecute<TCommand>                       // Command handler
 ```
 Indexer.Fetch() / Search()
     ↓ List<ReleaseInfo>
-Parser.ParseTitle() → ParsedChapterInfo
+MangaParser.ParseTitle() → ParsedChapterInfo
     ↓
-ParsingService.Map() → RemoteChapter (links Manga + Chapters)
+MangaParsingService.Map() → RemoteChapter (links Manga + Chapters)
     ↓
-DownloadDecisionMaker runs all Specifications
-    ↓ List<DownloadDecision> (Approved / Rejected)
-DownloadDecisionComparer ranks approved
+MangaDownloadDecisionMaker runs all Specifications
+    ↓ List<MangaDownloadDecision> (Approved / Rejected)
+MangaDownloadDecisionComparer ranks approved
     ↓
-DownloadService.DownloadReport() → IDownloadClient.Download()
+MangaDownloadService.DownloadReport() → IDownloadClient.Download()
     ↓
 TrackedDownloadService monitors
     ↓
@@ -319,7 +323,7 @@ _eventAggregator.PublishEvent(new MangaAddedEvent(manga));
 
 ### Specification Pattern
 ```csharp
-public class MySpecification : IDownloadDecisionEngineSpecification
+public class MySpecification : IMangaDecisionEngineSpecification
 {
     public DownloadSpecDecision IsSatisfiedBy(RemoteChapter subject, SearchCriteriaBase searchCriteria)
     {
@@ -342,7 +346,7 @@ public class MyIndexer : HttpIndexerBase<MyIndexerSettings>
 
 ## Adding a New Specification (DecisionEngine)
 
-1. Create class in `DecisionEngine/Specifications/MyNewSpecification.cs` implementing `IDownloadDecisionEngineSpecification`.
+1. Create class in `DecisionEngine/Manga/Specifications/MyNewSpecification.cs` implementing `IMangaDecisionEngineSpecification`.
 2. Set `Priority` (Default / Low / High) and `Type` (`RejectionType.Permanent` or `Temporary`).
 3. Auto-discovered — no DI registration needed.
 4. Add unit test in `NzbDrone.Core.Test/DecisionEngineTests/`.
@@ -359,14 +363,14 @@ public class MyIndexer : HttpIndexerBase<MyIndexerSettings>
 
 Add a migration when changing schema:
 
-**Pre-v1 dev-migration policy:** During v0.x dev, schema changes edit
-`001_mangarr_baseline.cs` in place (per `.planning/memory/project_dev_migration_policy.md`).
-Fresh DB required to pick up schema changes. Once v1.0.0 tag ships, this
-flips to sequential migration files:
+**Post-v1.0.0 append policy:** v1.0.0 has shipped, so the pre-v1 edit-`001`-in-place
+rule no longer applies — schema changes APPEND a new sequential migration file
+(the baseline `001_mangarr_baseline.cs` is frozen; the head is now
+`017_v1_3_add_importlist_exclusion_mangabaka_id.cs`). Add the next number:
 
 ```csharp
-// NzbDrone.Core/Datastore/Migration/002_my_new_change.cs (illustrative example, post-v1.0.0 only)
-[Migration(2)]
+// NzbDrone.Core/Datastore/Migration/018_my_new_change.cs
+[Migration(18)]
 public class my_new_change : NzbDroneMigrationBase
 {
     protected override void MainDbUpgrade()
@@ -392,7 +396,7 @@ Migrations run automatically on startup.
 - Decision engine architecture (specifications)
 - Download client integration (the in-process image downloader was RETIRED Phase 39 Plans 39-01/02; `GatewayDownloadClient` at `Download/Clients/Gateway/` is the sole download client — external gateway delivers finished CBZs)
 - Event messaging system
-- Database abstraction & migration pipeline (pre-v1 dev-migration policy: edit `001_mangarr_baseline.cs` in place)
+- Database abstraction & migration pipeline (post-v1.0.0 append policy: baseline `001` frozen, append the next sequential migration; head is `017`)
 - Custom format system (architecture, not values)
 - Notification system (Komga + Kavita live; rest reference-preserved)
 - HealthCheck framework

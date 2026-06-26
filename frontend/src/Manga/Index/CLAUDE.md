@@ -12,7 +12,6 @@ EditMangaModalContent); Plan 17.3-13 atomic stub-dir delete retired the
 `Series/Index/` peer. This directory is now the single canonical home for
 the manga library page.
 
-**Absolute Path:** `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Manga\Index`
 
 ## File Tree
 

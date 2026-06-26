@@ -6,7 +6,6 @@ v1 SECONDARY metadata source (D-16). NEW file per D-25 — kept separate from th
 in Phase 26/27 as `AniListImportList*.cs`; the original Phase-2-era `AniListAPI.cs` stub the
 D-25 note referenced no longer exists at HEAD).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MetadataSource\AniList`
 
 ## Key Files
 | File | Purpose |
@@ -45,4 +44,4 @@ D-25 note referenced no longer exists at HEAD).
 - Scaffold: [`../CLAUDE.md`](../CLAUDE.md)
 - Anime ImportList (untouched per D-25): [`../../ImportLists/AniList/`](../../ImportLists/AniList/)
 - API docs: https://docs.anilist.co/guide/graphql/queries/media
-- Rate-limit reference: [`../../Indexers/Http/CLAUDE.md`](../../Indexers/Http/CLAUDE.md)
+- Rate-limit reference: [`../../Indexers/CLAUDE.md`](../../Indexers/CLAUDE.md) (the surviving `IHttpAggregatorSettings` rate-budget section)

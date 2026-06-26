@@ -5,9 +5,7 @@
 Two views into "what's missing or upgradable":
 
 - **Missing** — episodes that should exist (monitored + aired) but have no file
-- **CutoffUnmet** — episodes that have a file, but the file is below the quality profile's cutoff (i.e., upgradable)
-
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Wanted\`
+- **CutoffUnmet** — chapters that have a file, but the file is below the translation profile's cutoff (i.e., upgradable)
 
 ## Subdirectories
 
@@ -27,7 +25,7 @@ Two views into "what's missing or upgradable":
 | `CutoffUnmet.tsx` | Page (accepts `mediaType?: 'series' \| 'manga'` prop — Phase 7 D-10 / Plan 12-08) |
 | `MangaCutoffUnmet.tsx` | Plan 12-08 thin wrapper rendering `<CutoffUnmet mediaType="manga" />` |
 | `CutoffUnmetRow.tsx` | Row |
-| `CutoffUnmetFilterModal.tsx` | Filter modal (Phase 12 REVIEW MED-03 follow-up — mirrors `MissingFilterModal.tsx` shape; consumes `FILTER_BUILDER` export from `useCutoffUnmet.tsx` and dispatches `setCutoffUnmetOption('selectedFilterKey', ...)` against `cutoffUnmetOptionsStore`; `customFilterType="wanted.cutoffUnmet"` matches the existing `WANTED_CUTOFF_UNMET` entity key in `Episode/episodeEntities.ts`) |
+| `CutoffUnmetFilterModal.tsx` | Filter modal (mirrors `MissingFilterModal.tsx`; consumes `FILTER_BUILDER` from `useCutoffUnmet.tsx` and dispatches `setCutoffUnmetOption('selectedFilterKey', ...)` against `cutoffUnmetOptionsStore`) |
 | `cutoffUnmetOptionsStore.ts` | Zustand |
 | `useCutoffUnmet.tsx` | Hook (accepts `mediaType` arg switching `/wanted/cutoff` ↔ `/manga/wanted/cutoff`; exports `FILTERS` + `FILTER_BUILDER`) |
 
@@ -51,7 +49,7 @@ Bulk actions (footer):
 These pages are **conceptually identical** for manga: just rename the data type.
 
 - `Missing` → "missing chapters" — chapters that should exist but no file
-- `CutoffUnmet` → "below cutoff chapters" — files exist but quality profile isn't satisfied
+- `CutoffUnmet` → "below cutoff chapters" — files exist but translation profile cutoff isn't satisfied
 
 ### Key Considerations
 - Manga has chapter scheduling that's less precise than TV airing — backend logic for "should exist by now" needs adaptation:

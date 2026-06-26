@@ -3,7 +3,6 @@
 ## Purpose
 Manga naming engine — token resolution, path builder, reader-compat presets, V5 controller. Sibling to TV `Organizer/` until Phase 8 collapse.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Organizer\Manga`
 
 ## Key Files
 | File | Purpose |

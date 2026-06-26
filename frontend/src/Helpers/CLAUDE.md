@@ -2,9 +2,7 @@
 
 ## Purpose
 
-Custom React hooks and utility functions used throughout the frontend.
-
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Helpers\`
+Custom React hooks and shared prop-type constants used throughout the frontend.
 
 ## Directory Structure
 
@@ -12,13 +10,19 @@ Custom React hooks and utility functions used throughout the frontend.
 Helpers/
 ├── Hooks/                   # Custom React hooks
 │   ├── useApiQuery.ts       # React Query wrapper for GET
+│   ├── usePagedApiQuery.ts  # React Query wrapper for server-side paged GET
 │   ├── useApiMutation.ts    # React Query wrapper for mutations
-│   ├── useOptionsStore.ts   # Zustand store factory
-│   ├── useCommands.ts       # Command execution
-│   └── various hooks...
-└── Props/                   # Prop type utilities
-    └── icons.ts             # Icon name constants
+│   ├── useOptionsStore.ts   # Zustand store factory (createOptionsStore)
+│   ├── usePending{Changes,Fields,Items}Store.ts  # Edit-buffer Zustand stores
+│   └── … (useDebounce, useMeasure, useKeyboardShortcuts, useTheme, …)
+├── Props/                   # Prop-type constant modules (icons, kinds, sizes,
+│   │                        #   align, sortDirections, inputTypes, filter*Types…)
+│   └── index.js             # Barrel re-export
+├── createPersist.ts         # localStorage persist helper for Zustand
+└── DragType.ts              # react-dnd item types
 ```
+
+Command execution lives in `Commands/useCommands.ts` (sibling dir), not here.
 
 ## Key Hooks
 
@@ -29,9 +33,9 @@ Wrapper around React Query's `useQuery` for API GET requests:
 ```typescript
 import { useApiQuery } from 'Helpers/Hooks/useApiQuery';
 
-const { data, isLoading, isFetched, error } = useApiQuery<Series[]>({
-  queryKey: ['/series'],
-  staleTime: 5 * 60 * 1000,  // 5 minutes
+const { data, isLoading, isFetched, error } = useApiQuery<Manga[]>({
+  path: '/manga',
+  queryOptions: { staleTime: 5 * 60 * 1000 },  // 5 minutes
 });
 ```
 
@@ -48,13 +52,13 @@ Wrapper for API mutations (POST, PUT, DELETE):
 ```typescript
 import { useApiMutation } from 'Helpers/Hooks/useApiMutation';
 
-const { mutate, isPending, error } = useApiMutation<Series>({
+const { mutate, isPending, error } = useApiMutation<Manga>({
   method: 'PUT',
-  queryKey: ['/series', id],
+  path: `/manga/${id}`,
 });
 
 // Execute mutation
-mutate({ ...series, monitored: true });
+mutate({ ...manga, monitored: true });
 ```
 
 Features:
@@ -83,12 +87,12 @@ Execute backend commands and track progress:
 import { useExecuteCommand, useCommandExecuting } from 'Commands/useCommands';
 
 const executeCommand = useExecuteCommand();
-const isSearching = useCommandExecuting(CommandNames.SeriesSearch);
+const isSearching = useCommandExecuting(CommandNames.MangaSearch);
 
 // Execute
 executeCommand({
-  name: CommandNames.SeriesSearch,
-  seriesId: 123,
+  name: CommandNames.MangaSearch,
+  mangaId: 123,
 });
 ```
 
@@ -101,7 +105,7 @@ Update React Query cache after mutation:
 ```typescript
 import { addOrUpdateQueryClientItem } from 'Helpers/Hooks/useApiMutation';
 
-addOrUpdateQueryClientItem(queryClient, ['/series'], updatedSeries);
+addOrUpdateQueryClientItem(queryClient, ['/manga'], updatedManga);
 ```
 
 ### getValidationFailures

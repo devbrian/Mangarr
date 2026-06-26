@@ -9,7 +9,6 @@ is the canonical home for chapter frontend types + hooks + components. Mirrors
 the V5 backend `ChapterResource` (Phase 7 Plan 07-01) and consumes the
 URL-shaped React Query cache contract from Plan 07-02 SignalR handlers.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Chapter\`
 
 ## Key Files
 

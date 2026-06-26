@@ -9,34 +9,39 @@ The **event + command** infrastructure. Two related but distinct mechanisms:
 
 This is **infrastructure** and reusable as-is for Mangarr.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Messaging\`
 
-## Subdirectories
+## Layout
+
+### Root files
+
+| File | Purpose |
+|------|---------|
+| `EventHandleOrderAttribute.cs` | Decorates an `IHandle<T>` to pin its position in the fan-out order. |
+| `IProcessMessage.cs` | Marker contract for the message bus. |
 
 ### `Events/`
 
 | File | Purpose |
 |------|---------|
-| `IEventAggregator.cs` | The publish-only interface. Single method: `void PublishEvent<TEvent>(TEvent @event) where TEvent : class, IEvent;` |
+| `IEventAggregator.cs` | The publish-only interface (`void PublishEvent<TEvent>(...)`) + the `IEvent` marker. |
 | `EventAggregator.cs` | Implementation. Resolves all `IHandle<TEvent>` instances and dispatches. |
-| `IHandle.cs` | Subscriber contract: `void Handle(TEvent message);` |
-| `IHandleAsync.cs` | Async fan-out variant |
-| `IEvent.cs` | Marker interface; all events implement it |
-| `ApplicationStartedEvent.cs`, `ApplicationShutdownRequestedEvent.cs` | Lifecycle events |
-| `ModelEvent<TModel>.cs` | Generic event published by `BasicRepository` on insert/update/delete |
+| `IHandle.cs` | Subscriber contracts: `IHandle<TEvent>` (`Handle`) + the async `IHandleAsync<TEvent>` fan-out variant. |
+| `CommandExecutedEvent.cs` | Published when a command finishes. |
+
+Lifecycle events (`ApplicationStartedEvent`, `ApplicationShutdownRequestedEvent`) live in `Lifecycle/`; `ModelEvent<TModel>` (published by `BasicRepository` on insert/update/delete) lives in `Datastore/Events/`.
 
 ### `Commands/`
 
 | File | Purpose |
 |------|---------|
-| `Command.cs` | Base class. `Name`, `LastExecutionTime`, `Status`, `Progress`, etc. |
+| `Command.cs` / `CommandModel.cs` | Base class + persisted row. `Name`, `LastExecutionTime`, `Status`, `Progress`, etc. |
 | `ICommandQueueManager.cs` / `CommandQueueManager.cs` | Queue + persistence |
 | `IExecute.cs` | Executor contract: `void Execute(TCommand message);` |
-| `CommandFactory.cs` | Build commands from JSON (REST → controller → factory) |
+| `CommandExecutor.cs` | Resolves + runs the `IExecute<TCommand>` for a queued command. |
+| `CommandRepository.cs` | Dapper persistence for restartability. |
+| `CommandQueue.cs` | In-memory priority queue. |
 | `CommandResult.cs`, `CommandStatus.cs`, `CommandPriority.cs`, `CommandTrigger.cs` | DTOs |
-| `Tracking/CommandQueue.cs` | In-memory queue, persistence layer for restartability |
-| `Events/CommandExecutedEvent.cs` | When command finishes |
-| `MessageAggregator.cs` (vestigial) | Older bus |
+| `UnknownCommand.cs` / `UnknownCommandExecutor.cs` | Silent fallback when no `IExecute<T>` is registered (see Anti-pattern D). |
 
 ## Event Pattern
 
@@ -89,7 +94,7 @@ Commands are persisted (so they survive restart), executed in priority order, an
 
 ### Anti-pattern C — `TaskManager.defaultTasks` vs migration seed
 
-Scheduled commands (e.g. `RefreshMangaCommand` 12h cadence, `MangaRssSyncCommand`, `MissingChapterSearchCommand`, `ProcessMangaCompletedCommand`) MUST be registered in `Jobs/TaskManager.defaultTasks` at runtime, NOT seeded via Migration 001 `Insert.IntoTable("ScheduledTasks")`. The structural fixture [`TaskManagerDefaultTasksFixture`](../../NzbDrone.Core.Test/JobTests/TaskManagerDefaultTasksFixture.cs) enforces both halves: (a) per-command `_taskManagerSource.Should().Contain("typeof(NewMangaCommand).FullName", ...)` assertions; (b) `Migration_001_contains_zero_Insert_IntoTable_calls` floor.
+Scheduled commands (e.g. `RefreshMangaCommand` 12h cadence, `MangaRssSyncCommand`, `MissingChapterSearchCommand`) MUST be registered in `Jobs/TaskManager.defaultTasks` at runtime, NOT seeded via Migration 001 `Insert.IntoTable("ScheduledTasks")`. The structural fixture [`TaskManagerDefaultTasksFixture`](../../NzbDrone.Core.Test/JobTests/TaskManagerDefaultTasksFixture.cs) enforces both halves: (a) per-command `_taskManagerSource.Should().Contain("typeof(NewMangaCommand).FullName", ...)` assertions; (b) `Migration_001_contains_zero_Insert_IntoTable_calls` floor.
 
 The bug class was first surfaced in Phase 6 — Plan 06-06 wired `MangaRssSyncCommand` + `MissingChapterSearchCommand` runtime registrations after they had been silently shipped without cadence; Plan 06-08 wired `ProcessMangaCompletedCommand`. The `sonarr-consistency-audit` skill ([.claude/skills/sonarr-consistency-audit/SKILL.md](../../../.claude/skills/sonarr-consistency-audit/SKILL.md)) was authored to catch this exact pattern in future phases. Phase 11 swept the full inventory (16 registrations as of 2026-05-06) and verified zero gaps. See [Jobs/CLAUDE.md](../Jobs/CLAUDE.md) for the registration template + sister-fixture-row mandate.
 
@@ -101,37 +106,31 @@ The bug class was first surfaced in Phase 6 — Plan 06-06 wired `MangaRssSyncCo
 
 ## Common Events (Observed in Code)
 
+The Sonarr `Tv/Events/` family (`SeriesAddedEvent`, `EpisodeImportedEvent`, etc.) was deleted in Phase 15; the live manga peers under `Manga/Events/` + `MediaFiles/.../Events/` are:
+
 | Event | Triggered By |
 |-------|--------------|
-| `SeriesAddedEvent` | Series added |
-| `SeriesUpdatedEvent` | Series edited |
-| `SeriesDeletedEvent` | Series removed |
-| `SeriesRefreshStartingEvent` | Before metadata fetch |
-| `SeriesScannedEvent` | After disk scan |
-| `EpisodeFileAddedEvent` | New file linked |
-| `EpisodeFileDeletedEvent` | File removed |
-| `EpisodeImportedEvent` | Successful import |
-| `EpisodeGrabbedEvent` | Release sent to download client |
-| `DownloadCompletedEvent` | Download finished |
-| `DownloadFailedEvent` | Download failed |
+| `MangaAddedEvent` / `MangaAddCompletedEvent` | Manga added |
+| `MangaUpdatedEvent` / `MangaEditedEvent` / `MangaBulkEditedEvent` | Manga edited |
+| `MangaDeletedEvent` | Manga removed |
+| `MangaRefreshStartingEvent` / `MangaRefreshCompleteEvent` | Around metadata fetch |
+| `MangaScannedEvent` | After disk scan |
+| `ChapterImportedEvent` | Successful import |
+| `ChapterGrabbedEvent` | Release sent to download client |
+| `ChapterDownloadFailedEvent` | Download failed |
 | `RssSyncCompleteEvent` | After RSS run |
 | `HealthCheckCompletedEvent` | After health check run |
-| `ApplicationStartedEvent` / `ApplicationShutdownRequestedEvent` | Lifecycle |
+| `ApplicationStartedEvent` / `ApplicationShutdownRequestedEvent` | Lifecycle (in `Lifecycle/`) |
 
 ## Common Commands
 
 (See [Mangarr.Api.V5/CLAUDE.md](../../Mangarr.Api.V5/CLAUDE.md) for the user-callable list.)
 
-`RefreshSeries`, `RescanSeries`, `EpisodeSearch`, `SeasonSearch`, `SeriesSearch`, `RssSync`, `RenameFiles`, `Backup`, `ApplicationUpdate`, `Housekeeping`, `MessagingCleanup`, `CheckHealth`, etc.
+`RefreshManga`, `RescanManga`, `MangaSearch`, `MissingChapterSearch`, `MangaRssSync`, `RenameFiles`, `Backup`, `ApplicationUpdate`, `Housekeeping`, `MessagingCleanup`, `CheckHealth`, etc. (the Sonarr `RefreshSeries`/`EpisodeSearch`/`SeasonSearch` commands were dropped with the Phase 15 `Tv/` cutover).
 
 ## Manga Adaptation Notes
 
-This is **infrastructure** — no architectural changes needed. The events that mention "Series" / "Episode" will be renamed in lockstep with the Tv/ migration:
-- `SeriesAddedEvent` → `MangaAddedEvent`
-- `EpisodeImportedEvent` → `ChapterImportedEvent`
-- etc.
-
-All subscribers (`IHandle<X>`) update accordingly.
+This is **infrastructure** — no architectural changes were needed. The Sonarr "Series" / "Episode" events were renamed in lockstep with the Phase 15 `Tv/` cutover (`SeriesAddedEvent` → `MangaAddedEvent`, `EpisodeImportedEvent` → `ChapterImportedEvent`, etc.); all subscribers (`IHandle<X>`) moved with them.
 
 ## Cross-References
 

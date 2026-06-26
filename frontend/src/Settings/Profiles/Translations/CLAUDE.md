@@ -4,7 +4,6 @@
 
 TranslationProfile editor sub-tree — wires the Phase 5 `TranslationProfile` entity (`/api/v5/translationprofile`) into the Settings → Translation Profiles page (Phase 7 D-05 topology rework).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Settings\Profiles\Translations\`
 
 ## Mangarr Inheritance
 

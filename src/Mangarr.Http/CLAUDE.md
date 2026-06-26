@@ -2,16 +2,15 @@
 
 ## Purpose
 
-HTTP infrastructure layer — sits between API controllers (`Mangarr.Api.V5`/`V3`) and the host. Provides:
+HTTP infrastructure layer — sits between the `Mangarr.Api.V5` controllers and the host. Provides:
 
 - REST controller / resource base classes
 - Authentication handlers (cookie / API key / basic / OAuth)
 - Middleware pipeline pieces (UrlBase, Logging, Cache, Version, Buffering, IfModified)
-- Global error handling (`SonarrErrorPipeline`)
+- Global error handling (`MangarrErrorPipeline`)
 - Frontend serving (mappers for `index.html`, login, static assets, covers, manifest)
 - Validation utilities + dynamic schema generation for plugin forms
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\Mangarr.Http\`
 
 **File count**: ~70 .cs files across 10 namespaces.
 
@@ -51,7 +50,7 @@ HTTP infrastructure layer — sits between API controllers (`Mangarr.Api.V5`/`V3
 ### Error Handling (`ErrorManagement/`)
 | File | Purpose |
 |------|---------|
-| `SonarrErrorPipeline.cs` | Global try/catch → maps exceptions to JSON error responses |
+| `MangarrErrorPipeline.cs` | Global try/catch → maps exceptions to JSON error responses |
 | `ApiException.cs` | Base API exception (carries HTTP status + JSON body) |
 
 ### Frontend (`Frontend/`)
@@ -60,7 +59,7 @@ HTTP infrastructure layer — sits between API controllers (`Mangarr.Api.V5`/`V3
 | `Mappers/IndexHtmlMapper.cs` | Serves `index.html` for SPA routes |
 | `Mappers/LoginHtmlMapper.cs` | Serves login page |
 | `Mappers/StaticResourceMapper.cs` | Serves JS / CSS bundle output |
-| `Mappers/MediaCoverMapper.cs` | Serves cached series posters / fanart |
+| `Mappers/MediaCoverMapper.cs` | Serves cached manga covers |
 | `Mappers/ManifestMapper.cs` | PWA `manifest.json` |
 | `Mappers/CacheBreakerProvider.cs` | Asset versioning |
 | Other mappers | favicon, robots.txt, backup files, log files |
@@ -88,19 +87,19 @@ Every API controller inherits from `RestController<TResource>` (or `RestControll
 
 ```csharp
 [V5ApiController]
-public class SeriesController : RestControllerWithSignalR<SeriesResource, Series>
+public class MangaController : RestControllerWithSignalR<MangaResource, Manga>
 {
     [RestGetById]
-    public override SeriesResource GetResourceById(int id) { /* … */ }
+    public override MangaResource GetResourceById(int id) { /* … */ }
 
     [RestGet]
-    public List<SeriesResource> GetAll() { /* … */ }
+    public List<MangaResource> GetAll() { /* … */ }
 
     [RestPostById]
-    public override ActionResult<SeriesResource> Create(SeriesResource resource) { /* … */ }
+    public override ActionResult<MangaResource> Create(MangaResource resource) { /* … */ }
 
     [RestPutById]
-    public override ActionResult<SeriesResource> Update(SeriesResource resource) { /* … */ }
+    public override ActionResult<MangaResource> Update(MangaResource resource) { /* … */ }
 
     [RestDeleteById]
     public override void DeleteResource(int id) { /* … */ }
@@ -112,12 +111,12 @@ public class SeriesController : RestControllerWithSignalR<SeriesResource, Series
 API DTOs inherit `RestResource`:
 
 ```csharp
-public class SeriesResource : RestResource
+public class MangaResource : RestResource
 {
     public string Title { get; set; }
     public string Path { get; set; }
-    public List<SeasonResource> Seasons { get; set; }
-    // … maps to/from Series domain model via static extension methods
+    public int TranslationProfileId { get; set; }
+    // … maps to/from Manga domain model via static extension methods
 }
 ```
 
@@ -126,13 +125,13 @@ Mapping convention is **static extension methods** named `ToResource()` and `ToM
 ## Validation
 
 ```csharp
-public class SeriesResourceValidator : ResourceValidator<SeriesResource>
+public class MangaResourceValidator : ResourceValidator<MangaResource>
 {
-    public SeriesResourceValidator()
+    public MangaResourceValidator()
     {
-        RuleFor(s => s.Title).NotEmpty();
-        RuleFor(s => s.Path).IsValidPath();
-        RuleFor(s => s.QualityProfileId).GreaterThan(0);
+        RuleFor(m => m.Title).NotEmpty();
+        RuleFor(m => m.Path).IsValidPath();
+        RuleFor(m => m.TranslationProfileId).GreaterThan(0);
     }
 }
 ```
@@ -150,7 +149,7 @@ Auth method (None / Forms / Basic) and required scope (Disabled / Local / Enable
 
 ## Error Pipeline
 
-`SonarrErrorPipeline.UseSonarrErrorPipeline()` wraps the request and:
+`MangarrErrorPipeline` wraps the request and:
 - Maps `ApiException` → its HTTP status + body
 - Maps `ValidationException` → 400 with field errors
 - Maps `ModelNotFoundException` → 404
@@ -163,6 +162,5 @@ This project is **infrastructure-only** and reusable as-is. The only Mangarr-spe
 ## Cross-References
 
 - [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) — Architecture
-- [Mangarr.Api.V5/CLAUDE.md](../Mangarr.Api.V5/CLAUDE.md) — Controllers using these bases
-- [Mangarr.Api.V3/CLAUDE.md](../Mangarr.Api.V3/CLAUDE.md) — Legacy controllers
+- [Mangarr.Api.V5/CLAUDE.md](../Mangarr.Api.V5/CLAUDE.md) — Controllers using these bases (sole REST surface; V3 deleted Phase 15)
 - [NzbDrone.Host/CLAUDE.md](../NzbDrone.Host/CLAUDE.md) — Hosts this middleware

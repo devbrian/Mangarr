@@ -4,7 +4,6 @@
 
 React-based web UI served by the backend at `http://localhost:8989`. Built with TypeScript; uses **three** state stores (Redux + Zustand + TanStack React Query) and SignalR for real-time push.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\`
 
 ## Technology Stack
 
@@ -35,7 +34,9 @@ frontend/
 │   ├── App/                             # Root, providers, routing
 │   ├── Manga/                           # Manga library (canonical; Sonarr Series/ stub-dir deleted in Plan 17.3-13)
 │   ├── Chapter/                         # Chapter cells/hooks (canonical; Sonarr Episode/ stub-dir deleted in Plan 17.3-13)
+│   ├── ChapterFile/                     # ChapterFile row / delete-modal / hook
 │   ├── AddManga/                        # Add-manga flow (canonical; Sonarr AddSeries/ stub-dir deleted in Plan 17.3-13)
+│   ├── Discovery/                       # Discover / browse popular titles (/discovery)
 │   ├── Components/                      # Shared UI library (313 files)
 │   ├── Store/                           # Redux store
 │   ├── Helpers/                         # Custom hooks, utilities
@@ -44,6 +45,7 @@ frontend/
 │   ├── Wanted/                          # Missing / CutoffUnmet
 │   ├── InteractiveSearch/               # Manual release search
 │   ├── InteractiveImport/               # Manual file import
+│   ├── Calendar/                        # Release calendar (/calendar)
 │   ├── Organize/                        # File organize preview
 │   ├── Parse/                           # Title-parse utility
 │   ├── System/                          # Status / Tasks / Logs / Backup / Updates / Events
@@ -97,6 +99,7 @@ App.tsx (provider chain, top → bottom)
 | `/` | `MangaIndex` | Manga list (home) |
 | `/add/manga` | `AddNewManga` | Add new |
 | `/add/import` | `ImportMangaPage` | Import existing folder |
+| `/discovery` | `Discovery` | Discover / browse popular titles |
 | `/manga/:titleSlug` | (manga details) | Manga detail |
 | `/calendar` | `CalendarPage` | Calendar |
 | `/manga/activity/queue` | `MangaQueue` | Active downloads |
@@ -133,8 +136,8 @@ App.tsx (provider chain, top → bottom)
 import { useApiQuery } from 'Helpers/Hooks/useApiQuery';
 
 const { data, isLoading, isFetched, error } = useApiQuery<Manga[]>({
-  queryKey: ['/manga'],
-  staleTime: 5 * 60 * 1000,
+  path: '/manga',
+  queryOptions: { staleTime: 5 * 60 * 1000 },
 });
 ```
 
@@ -143,7 +146,7 @@ import { useApiMutation } from 'Helpers/Hooks/useApiMutation';
 
 const { mutate, isPending } = useApiMutation<Manga>({
   method: 'PUT',
-  queryKey: ['/manga', id],
+  path: `/manga/${id}`,
 });
 mutate({ ...manga, monitored: true });
 ```
@@ -196,7 +199,7 @@ FeatureName/
 
 ### CSS Modules
 ```typescript
-import styles from './SeriesIndex.module.css';
+import styles from './MangaIndex.css';
 <div className={styles.container}>…</div>
 ```
 
@@ -247,7 +250,9 @@ Listed by approximate priority. Detailed migration notes are in each module's `C
 | [src/App/CLAUDE.md](./src/App/CLAUDE.md) | Root + routing + providers |
 | [src/Manga/CLAUDE.md](./src/Manga/CLAUDE.md) | Manga library + Index/Details (canonical; Series/ stub deleted Plan 17.3-13) |
 | [src/Chapter/CLAUDE.md](./src/Chapter/CLAUDE.md) | Chapter cells / hooks / status (canonical; Episode/ stub deleted Plan 17.3-13) |
+| [src/ChapterFile/CLAUDE.md](./src/ChapterFile/CLAUDE.md) | ChapterFile row / delete-modal / hook |
 | [src/AddManga/CLAUDE.md](./src/AddManga/CLAUDE.md) | Add-manga flow (canonical; AddSeries/ stub deleted Plan 17.3-13) |
+| [src/Discovery/CLAUDE.md](./src/Discovery/CLAUDE.md) | Discover / browse popular titles (/discovery) |
 | [src/Components/CLAUDE.md](./src/Components/CLAUDE.md) | Shared UI library |
 | [src/Store/CLAUDE.md](./src/Store/CLAUDE.md) | Redux store |
 | [src/Helpers/CLAUDE.md](./src/Helpers/CLAUDE.md) | Custom hooks |

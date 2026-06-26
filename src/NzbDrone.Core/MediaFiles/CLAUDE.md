@@ -2,178 +2,50 @@
 
 ## Purpose
 
-The **file pipeline** — disk scanning, importing completed downloads, moving/renaming on import, and lifecycle management of `EpisodeFile` entities. The bridge between "downloaded data on disk" and "linked file on a monitored Episode."
+The **file pipeline** — disk scanning, importing completed downloads, moving/renaming on import, and lifecycle management of `ChapterFile` entities. The bridge between "downloaded data on disk" and "linked file on a monitored Chapter." Handles **CBZ/CBR/image-folder** payloads (the TV `EpisodeFile`/video machinery was deleted with `Tv/` in Phase 15).
 
-For Mangarr: this is where **CBZ/CBR/image-folder** handling will diverge most from Mangarr's video-file handling.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\MediaFiles\`
-
-## Top-Level Files
+## Top-Level Files (verified at HEAD)
 
 | File | Purpose |
 |------|---------|
-| `EpisodeFile.cs` | The physical-file entity (`ModelBase`). 14 properties: SeriesId, SeasonNumber, Path, RelativePath, Size, DateAdded, SceneName, ReleaseGroup, ReleaseHash, OriginalFilePath, Quality, Languages, IndexerFlags, ReleaseType. Plus `LazyLoaded<List<Episode>>` and `LazyLoaded<Series>`. |
-| `MediaFile.cs` (if present) | Abstract base |
-| `IMediaFileService.cs` / `MediaFileService.cs` | High-level CRUD |
-| `EpisodeFileRepository.cs` | Dapper repo |
-| `DiskScanService.cs` | Library scan — discover new/orphaned files |
-| `RenameEpisodeFileService.cs` | Rename existing files based on naming config |
-| `EpisodeFileMovingService.cs` | Move files into series folder layout (used at import) |
-| `MediaFileDeletionService.cs` | Safe-delete (move to recycle bin if configured) |
-| `MoveEpisodeFiles.cs` | Bulk-move command |
-| `MediaFileTableCleanupService.cs` | Remove DB rows for missing files |
-| `MediaFileExtensions.cs` | File extension allow/deny lists for video |
-| `RecycleBinProvider.cs` | Recycle bin abstraction |
-| `UpgradeMediaFileService.cs` | Replace existing file with upgrade |
-| `OtherExtras/` | Subtitle, NFO files |
-| `IDownloadedEpisodesImportService.cs` / `DownloadedEpisodesImportService.cs` | Top-level import entrypoint |
+| `ChapterFile.cs` | The physical-file entity (`ModelBase`; renamed from `EpisodeFile.cs` in Phase 15). Carries `ScanlationGroup` (Phase 16.1 D-04 release-group axis) + `TranslatedLanguage` (BCP-47 string) + `MediaInfo` (`ChapterMediaInfo`). |
+| `IChapterFileService.cs` / `ChapterFileService.cs` / `IChapterFileRepository.cs` / `ChapterFileRepository.cs` | High-level CRUD + Dapper repo. `ChapterFileService` is `IExecute<DeleteMangaFilesCommand>` (Plan 11-06). |
+| `MangaDiskScanService.cs` / `IMangaDiskScanService.cs` | Library scan (`IExecute<RescanMangaCommand>`) — discover new/orphaned CBZs. |
+| `RenameChapterFileService.cs` / `RenameChapterFilePreview.cs` / `RenamedChapterFile.cs` | Rename existing files based on naming config |
+| `ChapterFileMovingService.cs` / `ChapterFileMoveResult.cs` | Move/copy on import |
+| `MangaFileTableCleanupService.cs` / `IMangaFileTableCleanupService.cs` | Remove DB rows for missing files |
+| `MangaFileExtensions.cs` / `MediaFileExtensions.cs` / `FileExtensions.cs` | Manga archive extension lists (cbz/cbr/zip/cb7) + shared helpers |
+| `RecycleBinProvider.cs` / `RecycleBinException.cs` | Recycle-bin abstraction (media-agnostic, reused as-is) |
+| `UpgradeChapterFileService.cs` / `IUpgradeChapterFiles.cs` | Recycle the previous CBZ on a successful upgrade (Plan 09-07; Pitfall-4 ordering lock) |
+| `UpdateChapterFileService.cs` | Update file metadata |
+| `MediaFileAttributeService.cs` | Set file attributes/permissions on import |
+| `ImportChapterScriptService.cs` / `ScriptImport*.cs` | Custom-script import path |
+| `DeletedChapterFile.cs` / `DeleteMediaFileReason.cs` / `FileDateType.cs` / `RootFolderNotFoundException.cs` / `SameFilenameException.cs` | Supporting POCOs/enums/exceptions |
+| `IDeleteMediaFiles.cs` | Safe-delete contract |
 
 ## Subdirectories
 
-### `EpisodeImport/` — The Import Pipeline
-The most complex sub-area. Imports completed downloads into the library.
+### `MangaImport/` — the import pipeline
+The manga import pipeline (`MangaImportDecisionMaker` + auto-discovered specs + `ImportApprovedChapters` + `Manual/` flow). See [MangaImport/CLAUDE.md](./MangaImport/CLAUDE.md).
 
-| File / Subdir | Purpose |
-|---------------|---------|
-| `IMakeImportDecision.cs` / `ImportDecisionMaker.cs` | Top-level orchestrator, runs Specifications |
-| `ImportDecision.cs` | Per-file approve/reject result |
-| `ImportApprovedEpisodes.cs` | Move/copy approved imports into place, create EpisodeFile rows |
-| `ImportMode.cs` | enum `Auto` / `Move` / `Copy` |
-| `Aggregators/` | Aggregate metadata from multiple sources (file path, parsed title, mediainfo) |
-| `Specifications/` | Import specs (separate hierarchy from DecisionEngine specs) |
-| `Manual/` | Manual import (user-initiated) flow |
-
-### Import Specifications (`EpisodeImport/Specifications/`)
-| Spec | Purpose |
-|------|---------|
-| `NotSampleSpecification` | Reject files that look like samples |
-| `MatchesFolderSpecification` | File parsed correctly relative to its folder |
-| `UpgradeSpecification` | Is the new file an upgrade over existing? |
-| `ImportNotForDownloadClientItemSpecification` | Match item to a tracked download |
-| `MultiEpisodeFileSpecification` | Don't import a multi-ep file when single is better |
-| `FreeSpaceSpecification` | Disk has space for the move |
-| `NotInUseSpecification` | File is not locked by another process |
-| `NotUnpackingSpecification` | File is not actively being extracted |
-| `AlreadyImportedSpecification` | Don't re-import |
-| `GrabbedReleaseQualitySpecification` | New file matches grabbed quality |
+### `ChapterArchiving/`
+ComicInfo-metadata injection surface for the manga import pipeline (the in-process archiver strategy set was retired in Phase 39; the gateway delivers finished CBZs). See [ChapterArchiving/CLAUDE.md](./ChapterArchiving/CLAUDE.md).
 
 ### `MediaInfo/`
+Probes a CBZ for page-image metadata (the TV `VideoFileInfoReader` is reference-preserved heritage, not the manga path).
+
 | File | Purpose |
 |------|---------|
-| `IMediaInfoService.cs` / `VideoFileInfoReader.cs` | Probe video for codec/resolution/bitrate/runtime |
-| `MediaInfoModel.cs` | DTO of probed metadata |
-| `MediaInfoFormatter.cs` | Format mediainfo for filename tokens |
-| `UpdateMediaInfoService.cs` | Refresh mediainfo for existing files |
-| `ChapterMediaInfo.cs` | **Phase 30 Plan 30-05 (II2-03)** — Manga peer of `MediaInfoModel`. POCO with nullable `PageCount` / `Color` / `DpiHorizontal` + non-nullable `SchemaRevision`. Round-tripped via `EmbeddedDocumentConverter<ChapterMediaInfo>` Dapper TypeHandler. JSON-serialized into the `ChapterFiles.MediaInfo` TEXT column added by Migration 004. |
-| `IUpdateChapterInfo.cs` / `UpdateChapterInfoService.cs` | **Phase 30 Plan 30-05 (II2-03)** — Manga peer of `IUpdateMediaInfo` / `UpdateMediaInfoService`. SixLabors.ImageSharp 3.1.12 probe per CONTEXT.md D-06. **D-05: probe-on-import only — explicitly NO `IHandle<...>` backfill daemon contract.** Sampling = first + middle + last page (D-07). Color detection via 100-pixel fixed-seed RNG (RESEARCH §5.3). DPI extraction accepts PixelsPerInch / PixelsPerMeter / PixelsPerCentimeter; filters out the ImageSharp default 96 fallback per R-4. D-09 non-fatal: outer `try/catch` logs `Warn` + returns null on any probe failure. |
+| `ChapterMediaInfo.cs` | **Phase 30 Plan 30-05 (II2-03)** — manga peer of `MediaInfoModel`. POCO with nullable `PageCount` / `Color` / `DpiHorizontal` + non-nullable `SchemaRevision`. Round-tripped via `EmbeddedDocumentConverter<ChapterMediaInfo>` Dapper TypeHandler. JSON-serialized into the `ChapterFiles.MediaInfo` TEXT column added by Migration 004. |
+| `IUpdateChapterInfo.cs` / `UpdateChapterInfoService.cs` | **Phase 30 Plan 30-05 (II2-03)** — manga peer of `IUpdateMediaInfo` / `UpdateMediaInfoService`. SixLabors.ImageSharp 3.1.12 probe per CONTEXT.md D-06. **D-05: probe-on-import only — explicitly NO `IHandle<...>` backfill daemon.** Sampling = first + middle + last page (D-07). Color detection via 100-pixel fixed-seed RNG (RESEARCH §5.3). DPI extraction accepts PixelsPerInch / PixelsPerMeter / PixelsPerCentimeter; filters the ImageSharp default 96 fallback per R-4. D-09 non-fatal: outer `try/catch` logs `Warn` + returns null on any probe failure. |
 
 #### Pitfall 4 — step 3.5 inline probe invocation (Phase 30 Plan 30-05 Task 4)
 
-`ImportApprovedChapters.cs` calls `_updateChapterInfoService.Update(chapterFile, lc.Manga)` at **step 3.5** of the per-decision success path — **AFTER** step 3 `_chapterFileService.Add(chapterFile)` (DB commit) and step 2 `_diskProvider.MoveFile` (filesystem move), but **BEFORE** step 6 `_eventAggregator.PublishEvent(new ChapterImportedEvent {...})`. Notification fan-out (Komga / Kavita rescan handlers) fires on `ChapterImportedEvent`; if it published before `MediaInfo` populated, the rescan would see a fresh-but-incomplete row (probe runs later, fan-out already done). The invocation is wrapped in its own `try/catch` so any probe failure that escapes `UpdateChapterInfoService`'s internal handler still leaves the import success path intact (D-09 non-fatal).
+`ImportApprovedChapters.cs` calls `_updateChapterInfoService.Update(chapterFile, lc.Manga)` at **step 3.5** of the per-decision success path — **AFTER** step 3 `_chapterFileService.Add(chapterFile)` (DB commit) and step 2 `_diskProvider.MoveFile` (filesystem move), but **BEFORE** the `ChapterImportedEvent` publish. Notification fan-out (Komga / Kavita rescan handlers) fires on `ChapterImportedEvent`; if it published before `MediaInfo` populated, the rescan would see a fresh-but-incomplete row. The invocation is wrapped in its own `try/catch` so any probe failure leaves the import success path intact (D-09 non-fatal).
 
-Cross-reference: `src/NzbDrone.Core/Metadata/CLAUDE.md` (Plan 30-04) — the V5 Metadata ThingiProvider substrate that the ComicInfo writer routes through; companion atomic-pair with Plan 30-05's Migration 004 seed row per D-11.
-
-### `TorrentInfo/`
-| File | Purpose |
-|------|---------|
-| `TorrentFileInfoReader.cs` | Parse `.torrent` file (file list, info hash) |
-| `BEncode*` | bencode parser |
-
-### `Commands/`
-- `RescanSeriesCommand` — refresh disk scan
-- `RenameFilesCommand` — apply rename
-- `RetagSeriesCommand` — re-write tag metadata
-- `RescanFolders`, `RescanRootFolder`, etc.
-
-### `Events/`
-| Event | Triggered By |
-|-------|--------------|
-| `EpisodeFileAddedEvent` | New file linked to episode |
-| `EpisodeFileDeletedEvent` | File removed |
-| `EpisodeImportedEvent` | Successful import |
-| `EpisodeFolderCreatedEvent` | New series folder created |
-| `MediaCoversUpdatedEvent` | Posters/banners refreshed |
-
-## Disk Scan Flow
-
-```
-RescanSeriesCommand for series X
-        ↓
-DiskScanService.Scan(series)
-        ├─ Get all video files in series.Path
-        ├─ For each file: try to parse + map to Episode
-        ├─ Compare to existing EpisodeFile rows
-        ├─ Create new EpisodeFile rows for new files
-        ├─ Mark missing files (DB row, no disk file) as deleted
-        └─ Run MediaFileTableCleanupService
-```
-
-## Import Flow (Completed Download)
-
-```
-CompletedDownloadService detects completion
-        ↓
-DownloadedEpisodesImportService.ProcessRootFolder(...)
-        ↓
-ImportDecisionMaker.GetImportDecisions(files, series)
-        ├─ For each file: parse, aggregate metadata
-        └─ Run Specifications → ImportDecision
-        ↓
-ImportApprovedEpisodes.Import(decisions)
-        ├─ For each approved decision:
-        │   ├─ EpisodeFileMovingService.MoveEpisodeFile (or copy)
-        │   ├─ Create / update EpisodeFile row
-        │   ├─ Link Episode.EpisodeFileId
-        │   └─ Optionally delete previous (UpgradeMediaFileService)
-        ↓
-EpisodeFileAddedEvent + EpisodeImportedEvent
-        ↓
-Notifications + SignalR
-```
-
-## Naming & Path Building
-
-Filenames built from `Organizer/FileNameBuilder.cs` based on `NamingConfig`. Tokens like:
-- `{Series Title}` → "My Show"
-- `{season:00}` → "01"
-- `{episode:00}` → "02"
-- `{Quality Title}` → "1080p"
-- `{Release Group}` → "GROUP"
-- `{Original Title}` → original release name
-
-Series folder path comes from `Tv/SeriesPathBuilder.cs`.
-
-## Manga Adaptation Plan
-
-### Concepts to Adapt
-
-| Mangarr | Mangarr | Notes |
-|--------|---------|-------|
-| `EpisodeFile` | `ChapterFile` | Different metadata: PageCount, ScanlationGroup, FileFormat (CBZ/CBR/Folder/PDF) |
-| `MediaInfo` (codec, resolution, runtime) | `ChapterInfo` (page count, image format, average DPI) | Different probe |
-| Video file extensions (mkv, mp4, avi…) | Manga formats (cbz, cbr, cb7, zip, rar, pdf, folder of jpg/png/webp) | New `MediaFileExtensions` list |
-| Sample file detection | Sample/preview detection (single-page placeholders, "0001 - sample") | New rule |
-| Multi-episode file | Multi-chapter file (e.g., `c001-005.cbz`) | New parsing |
-| `DiskScanService` | Mostly reusable | Update file-extension list |
-| `EpisodeFileMovingService` | Mostly reusable | Just operates on whatever path |
-| `FileNameBuilder` | Update token list | New tokens: `{Chapter Number}`, `{Volume}`, `{Scanlation Group}`, `{Manga Title}` |
-
-### MediaInfo Replacement
-Video probing (codec, audio tracks) is irrelevant for manga. Replace `VideoFileInfoReader` with a `MangaFileInfoReader` that:
-- Counts pages in the CBZ/CBR/folder
-- Detects image format(s) (jpg/png/webp)
-- Optionally measures average DPI
-- Detects color vs B&W
-
-### New File Types
-Add a `MangaFileFormat` enum and field on `ChapterFile`:
-- `Cbz`, `Cbr`, `Cb7`, `Zip`, `Rar`, `Folder`, `Pdf`, `Epub`, `Mobi`
-
-### Import Pipeline
-The pipeline architecture transfers cleanly. Replace specs:
-- `NotSampleSpecification` → adapt to manga (or keep as-is if you want)
-- Keep `FreeSpaceSpecification`, `NotInUseSpecification`, `AlreadyImportedSpecification`, `UpgradeSpecification`
-- Add `MinimumPageCountSpecification` (reject extras / sample chapters with too few pages)
+### `Commands/` / `Events/`
+Manga-shape rescan/rename/delete commands + `ChapterFile`/import lifecycle events (the TV `EpisodeFile*`/`RescanSeries`/`RetagSeries` peers were deleted with `Tv/`). `TorrentInfo/` is reference-preserved heritage.
 
 ## Phase 6 Manga Siblings
 
@@ -184,7 +56,7 @@ Phase 6 ships the manga import pipeline + supporting events as parallel siblings
 | [`MediaFiles/MangaImport/`](./MangaImport/CLAUDE.md) | Plan 06-07 | Manga import pipeline. `MangaImportDecisionMaker` (auto-discovery via `IEnumerable<IMangaImportDecisionEngineSpecification>`) + 6 specs (`ChapterFileExists`, `NotEmptyArchive`, `MatchesGrab`, `FreeSpace`, `Upgrade` with D-10 three-state, `AlreadyImported` with BL-01 fix) + `ImportApprovedChapters` orchestrator. **PITFALL 4 ORDERING INVARIANT**: `ChapterImportedEvent` published as the LAST line of the success path — Komga/Kavita rescan handlers race-fire on this event so DB commit + filesystem move must complete first. POCOs: `LocalChapter`, `MangaImportSpecDecision`, `MangaImportResult`, `MangaImportDecision`. Phase 8 cleanup: collapse with `EpisodeImport/`. |
 | `MediaFiles/MangaImport/ChapterImportedEvent.cs` | Plan 06-02 | Manga sibling of `MediaFiles/Events/EpisodeImportedEvent.cs`. Carries `Manga + Chapter + ChapterFile + DownloadClientItem + NewDownload + SourcePath`. Pitfall 4 GUARD: published AFTER ChapterFile DB commit + filesystem move complete (Plan 06-07 `ImportApprovedChapters` enforces). Phase 8 cleanup: collapse with `EpisodeImportedEvent`. |
 | `MediaFiles/MangaImport/ChapterImportFailedEvent.cs` | Plan 06-02 | Carries `Manga + Chapter + SourcePath + FailureReason + DownloadClientItem`. Covers IMPORT-stage failures (post-archive, pre-DB-commit) — distinct from Phase 4 `ChapterDownloadFailedEvent` (download-stage). Phase 8 cleanup: collapse with hypothetical `EpisodeImportFailedEvent` if/when `Tv/` deletes. |
-| `MediaFiles/ChapterArchiving/ChapterGrabbedEvent.cs` | Plan 06-01 | Carries `RemoteChapter + DownloadId + DownloadClient`. Role-match analog: `Download/EpisodeGrabbedEvent.cs`. Emitted by Phase 4 `InProcessImageDownloadClient` after grab; consumed by Plan 06-03 `ChapterHistoryService.Handle`. Phase 8 cleanup: collapse with `EpisodeGrabbedEvent`. |
+| `MediaFiles/ChapterArchiving/ChapterGrabbedEvent.cs` | Plan 06-01 | Carries `RemoteChapter + DownloadId + DownloadClient`. Emitted by `MangaDownloadService` on grab (the Phase-4 `InProcessImageDownloadClient` that originally emitted it was retired in Phase 39); consumed by Plan 06-03 `ChapterHistoryService.Handle` + the Phase-36 monitoring loop. |
 | `MediaFiles/ChapterArchiving/ChapterDownloadFailedEvent.cs` un-sealed + extended | Plan 06-01 | Un-sealed; gained optional `SourceTitle / Source / DownloadClient / Release : ReleaseInfo` init-only properties + `Reason / Message` aliases. Existing 4-arg ctor preserved. Plans 06-03/04/08 require. |
 | `ChapterFile.cs` + `ChapterFileService` + `ChapterFileRepository` + `ChapterFileAddedEvent` + `ChapterFileDeletedEvent` | Plan 06-01 | Parallel sibling to `EpisodeFile` + `MediaFileService` + `MediaFileRepository` + `EpisodeFileAddedEvent` + `EpisodeFileDeletedEvent`. `ChapterFileService` `IHandleAsync<MangaDeletedEvent>` cascade-deletes mirror `MediaFileService` `IHandleAsync<SeriesDeletedEvent>`. Phase 8 cleanup: collapse with `EpisodeFile`. |
 | `ChapterFileService.cs:Execute(DeleteMangaFilesCommand)` — `IExecute<DeleteMangaFilesCommand>` handler | [Plan 11-06](../../../.planning/phases/11-commands-and-execute-sweep/11-06-SUMMARY.md) | Manga-side analog of `MediaFileDeletionService.IExecute<DeleteSeriesFilesCommand>` (TV peer body lines 102-175). Closes Risk 1 (silent `UnknownCommandExecutor` fallback for manga bulk-delete-files commands — class shipped Phase 8 cluster-02 Plan 02-01 without handler; gap caught by Phase 11 Axis-1 sweep). 5 NEW ctor deps (`IMangaService`, `IRootFolderService`, `IDiskProvider`, `IRecycleBinProvider`, `ICommandResultReporter`). **Pitfall 4 ordering** — recycle FIRST, DB row delete SECOND (the inverse leaks files on disk if `_recycleBinProvider.DeleteFile` throws); `MockSequence` test in `ChapterFileServiceDeleteMangaFilesFixture` (6 NUnit tests) enforces. Per-mangaId try/catch isolation; `CommandResult.Indeterminate` reported on each guard-clause continue. DryIoc auto-discovers via `Bootstrap.AutoAddServices` (no manual `Container.Register`). Phase 14 cleanup: collapse with `MediaFileDeletionService.Execute(DeleteSeriesFilesCommand)`. |

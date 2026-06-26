@@ -46,10 +46,11 @@ namespace NzbDrone.Core.Indexers
             _httpClient = httpClient;
         }
 
-        // Phase 3 F-01 fix — virtual hooks so HttpAggregatorBase descendants can tee
-        // failure/success recording into the per-SourceKey IIndexerSourceStatusService (D-17)
-        // without each subclass having to wire it manually. Default impls preserve Sonarr's
-        // canonical per-ProviderId behavior verbatim. Phase 8 collapses with Tv/.
+        // Phase 3 F-01 fix — virtual hooks so a per-SourceKey indexer could tee
+        // failure/success recording into IIndexerSourceStatusService (D-17) without wiring it
+        // per-subclass. The HttpAggregatorBase descendants that overrode them were retired in
+        // Phase 39; nothing overrides them now, so these serve Sonarr's canonical
+        // per-ProviderId default verbatim.
         protected virtual void RecordSuccess()
             => _indexerStatusService.RecordSuccess(Definition.Id);
 
