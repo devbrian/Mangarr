@@ -15,7 +15,7 @@
 | `InteractiveSearchPayload.ts` | Manga-only discriminated union: `ChapterSearchPayload` (`{ kind: 'chapter', chapterId }`) + `MangaSearchPayload` (`{ kind: 'manga', mangaId }`). The TV-shape `EpisodeSearchPayload` / `SeasonSearchPayload` variants were retired in issue #263. `searchPayload.kind` is the single routing discriminator (the redundant `InteractiveSearchType` prop + file were deleted in issue #263). |
 | `Peers.tsx` | Seeders/peers display |
 | `releaseOptionsStore.ts` | Zustand: search options |
-| `useReleases.ts` | API hook (`useReleases(payload: InteractiveSearchPayload)`). The manga-only union means both flavors POST to `/api/v5/manga/release` (Phase 6 `MangaReleaseController`); the TV `/release` path was retired in issue #263. Also exports `useGrabMangaRelease()` (manga-shape grab body). |
+| `useReleases.ts` | Search hook (`useReleases(payload: InteractiveSearchPayload)` → GET `/api/v5/manga/release`, Phase 6 `MangaReleaseController`; the manga-only union means both chapter and manga kinds query the same endpoint; the TV `/release` path was retired in issue #263). Also exports `useGrabMangaRelease()`, which POSTs the manga-shape grab body to the same endpoint. |
 
 ## Subdirectory: OverrideMatch/
 
@@ -36,7 +36,7 @@ User opens manga or chapter detail → clicks "Interactive Search" toolbar butto
         ↓
 Modal opens with InteractiveSearch component
         ↓
-useReleases(payload: InteractiveSearchPayload) → POST /api/v5/manga/release { kind, chapterId | mangaId }
+useReleases(payload: InteractiveSearchPayload) → GET /api/v5/manga/release { kind, chapterId | mangaId }
         ↓ Backend runs the same gateway search the auto pipeline uses,
         ↓ but returns ALL results (with rejections) — does not auto-grab.
         ↓
