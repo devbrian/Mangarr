@@ -27,7 +27,7 @@ Implements requirement IL-09 (per-user follows-list importer for MangaDex).
 
 - **OAuth shape — password grant** (D-08): No browser redirect. User supplies `clientId` / `clientSecret` / `username` / `password` via Settings form; clicks "Test & Connect" which fires `RequestAction("startOAuth")`; the server-side handler POSTs `grant_type=password` to Keycloak; the resulting `access_token` / `refresh_token` round-trip back onto Settings JSON.
 - **Refresh-token rotation null-coalesce** (Trakt.cs:151 verbatim): `Settings.RefreshToken = response.RefreshToken ?? Settings.RefreshToken;` future-proofs against Keycloak enabling rotation in a future MangaDex API version (current behavior: refresh_token does NOT rotate; the null-coalesce keeps the current token if the response omits it).
-- **SourceKey = `"mangadex"` SHARED** (Pitfall 10 HARD RULE): Every outbound HTTP request carries `RateLimitKey = "mangadex"`, SHARED with `MangaDexMetadataSource` (Phase 2) + `MangaDexIndexer` (Phase 3) + in-process image downloader (Phase 4). Single 40 req/min budget per `MangaDexIndexerSettings.RateSeconds = 1.5`. NO sub-bucket like `"mangadex-importlist"` — would silently double the effective burst.
+- **SourceKey = `"mangadex"` SHARED** (Pitfall 10 HARD RULE): Every outbound HTTP request carries `RateLimitKey = "mangadex"`, SHARED with `MangaDexMetadataSource` (Phase 2, still live). The former `MangaDexIndexer` (Phase 3) + in-process image downloader (Phase 4) ALSO shared this key, but both were RETIRED in Phase 39 — so today the only other live `"mangadex"` caller is the metadata source. Single ~40 req/min budget. NO sub-bucket like `"mangadex-importlist"` — would silently double the effective burst.
 - **D-01 Sonarr-canonical plaintext token storage**: AccessToken / RefreshToken / Expires / AuthUser stored as plain `string` / `DateTime` columns on the Settings JSON column. Zero crypto-at-rest infrastructure (no IDataProtectionProvider, no DPAPI, no EncryptedSettings BLOB). UI hides the fields via `Hidden = HiddenType.Hidden` only (Sonarr-canonical TraktSettings.cs:27-37); V5 controller `ProviderControllerBase` strips Hidden fields from outbound schema JSON.
 - **D-05 + Pitfall 9 mitigation (inherited from base)**: `OAuthAwareImportListBase.RefreshTokenIfNecessary()` wraps `RefreshToken()` in a per-`Definition.Id` `SemaphoreSlim`. Concurrent `Fetch()` calls collapse to a single live refresh (peer-flow defense).
 - **Reactive 401-retry on Fetch**: When the proactive 5-minute lookahead misses (e.g., MangaDex revokes the token outside the window), the overridden `Fetch()` catches `HttpException` with `HttpStatusCode.Unauthorized`, force-expires `Settings.Expires`, calls `RefreshTokenIfNecessary()`, and retries `base.Fetch()` once.
@@ -44,9 +44,9 @@ Implements requirement IL-09 (per-user follows-list importer for MangaDex).
 - **Substrate parent**: `src/NzbDrone.Core/ImportLists/OAuthAwareImportListBase.cs` (Plan 27-01 — Trakt-canonical refresh template + D-05 semaphore registry)
 - **Settings interface contract**: `src/NzbDrone.Core/ImportLists/IOAuthImportListSettings.cs` (Plan 27-01)
 - **Sibling MangaDex callers (Pitfall 10 — shared SourceKey)**:
-  - `src/NzbDrone.Core/MetadataSource/MangaDex/MangaDexMetadataSource.cs` (Phase 2)
-  - `src/NzbDrone.Core/Indexers/MangaDex/MangaDexIndexer.cs` (Phase 3)
-  - `src/NzbDrone.Core/Download/Clients/InProcess/` image downloader (Phase 4)
+  - `src/NzbDrone.Core/MetadataSource/MangaDex/MangaDexMetadataSource.cs` (Phase 2 — the only other live `"mangadex"` caller)
+  - ~~`Indexers/MangaDex/MangaDexIndexer.cs` (Phase 3)~~ — RETIRED Phase 39 (only `Indexers/Gateway/` remains)
+  - ~~`Download/Clients/InProcess/` image downloader (Phase 4)~~ — RETIRED Phase 39 (only `Download/Clients/Gateway/` remains)
 - **Pattern source (verbatim shape)**: `.planning/reference/sonarr-vertical-slices/notifications-extra/Trakt/Trakt.cs` + `TraktSettings.cs` + `TraktProxy.cs`
 - **Plan**: `.planning/phases/27-3-importlist-provider-plugins-v1-1-inserted-2026-05-17/27-02-PLAN.md`
 - **Unit fixture**: `src/NzbDrone.Core.Test/ImportListTests/MangaDex/MangaDexImportListFixture.cs` (4 tests)

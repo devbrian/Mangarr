@@ -17,8 +17,8 @@
 |------|---------|
 | `InteractiveImportModal.tsx` | Modal entry point |
 | `InteractiveImport.ts` | Type definitions |
-| `ImportMode.ts` | enum: `move` / `copy` / `auto` |
-| `ReleaseType.ts` | enum: `singleEpisode` / `multiEpisode` / `seasonPack` |
+| `ImportMode.ts` | enum: `auto` / `move` / `copy` / `chooseImportMode` |
+| `ReleaseType.ts` | enum: `unknown` / `singleEpisode` / `multiEpisode` / `seasonPack` (still TV-shape values in source) |
 | `interactiveImportFoldersStore.ts` | Zustand: recently used folders |
 | `interactiveImportOptionsStore.ts` | Zustand: import options |
 | `useInteractiveImport.ts` | Mutation hook |
@@ -27,6 +27,7 @@
 | File | Purpose |
 |------|---------|
 | `InteractiveImportModalContent.tsx` | Main table with all rows |
+| `InteractiveImportContent.tsx` | Inner content wrapper |
 | `InteractiveImportRow.tsx` | One file row |
 | `InteractiveImportRowCellPlaceholder.tsx` | Placeholder/loading cells |
 
@@ -39,7 +40,7 @@
 | `Manga/` | `SelectMangaModal`, `SelectMangaModalContent` | Pick or correct manga — Plan 25-04 Task 2 renamed `Series/` → `Manga/` per Pitfall 13. **Shipped Phase 30 Plan 30-03 (2026-05-23+)** — Sonarr v5-develop `SelectSeriesModal` port with title autocomplete picker over `useManga()` library entries (columns title/year/mangaDexId; `imdbId` dropped; `malId` deferred to v1.3+). Testid family: `select-manga-modal-*`. |
 | `Season/` | (deleted Plan 25-04 Task 3 — manga has no season per DOMAIN-02; SelectSeasonModal stub + per-row season cell + season-modal trigger removed) | n/a |
 | `Language/` | `SelectLanguageModal`, `SelectLanguageModalContent` | Set language(s) |
-| `Quality/` | `SelectQualityModal`, `SelectQualityModalContent` | Set quality |
+| `Quality/` | `SelectQualityModal` | Set quality |
 | `ReleaseGroup/` | `SelectReleaseGroupModal`, `SelectReleaseGroupModalContent` | Set release group |
 | `IndexerFlags/` | `SelectIndexerFlagsModal`, `SelectIndexerFlagsModalContent` | Toggle flags |
 | `ReleaseType/` | `SelectReleaseTypeModal`, `SelectReleaseTypeModalContent` | Choose release type |
@@ -56,22 +57,12 @@ Display table; each cell editable via per-cell modal
         ↓ User selects "Move" or "Copy" import mode
         ↓ User clicks "Import"
 POST /api/v5/manualimport with selected rows → backend imports
-        ↓ EpisodeFile rows created, files moved/copied, events fire
+        ↓ ChapterFile rows created, files moved/copied, events fire
 ```
 
-## Manga Adaptation Notes
-
-This module needs updates per the Series→Manga, Episode→Chapter, Season→Volume rename:
-
-| Mangarr | Manga |
-|--------|-------|
-| `Series/SelectSeriesModal` | `Manga/SelectMangaModal` (Plan 25-04 Task 2 — landed 2026-05-18) |
-| `Episode/SelectEpisodeModal` | `Chapter/SelectChapterModal` (Plan 25-04 Task 1 — landed 2026-05-18) |
-| `Season/SelectSeasonModal` | (deleted Plan 25-04 Task 3 — no manga peer per DOMAIN-02) |
-| Quality/Language/ReleaseGroup | Reusable; adjust enums |
-| `ReleaseType` | New types: `singleChapter`/`multiChapter`/`volumePack` |
-
-The table-with-editable-cells pattern is reusable. The per-cell modals just need updated entity types.
+(The flow's `series` / `seasonNumber` / `episodes` field names are the inherited
+Sonarr `ManualImportResource` wire shape — the per-cell modals above are the
+landed manga peers.)
 
 ## Automation Test Surface (Phase 30+)
 

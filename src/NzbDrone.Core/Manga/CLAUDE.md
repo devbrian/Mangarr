@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Manga + Chapter domain models, services, repositories, and events. The leaf-most data substrate Phase 2 ships; Phase 3 indexers, Phase 4 archiver, Phase 5 decision engine, Phase 6 pipeline, and Phase 7 UI all consume these surfaces.
+Manga + Chapter domain models, services, repositories, and events. The leaf-most data substrate Phase 2 shipped; indexers, decision engine, pipeline, and UI all consume these surfaces.
 
-This directory is the **manga-side parallel** of `src/NzbDrone.Core/Tv/`. Both coexist throughout Phases 2-7 to preserve `v5-develop` upstream-merge ability. Phase 8 cutover deletes `Tv/` and renames `Manga/` to its canonical position.
+This directory was the **manga-side parallel** of the Sonarr `src/NzbDrone.Core/Tv/` directory during Phases 2-7 (both coexisted to preserve `v5-develop` upstream-merge ability). **Phase 15 Plan 15-03 deleted `Tv/`**; `Manga/` is now the sole canonical domain home.
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Manga`
 
@@ -104,8 +104,7 @@ Phase 16.1 reverted Phase 16's `ChapterRelease` sibling table in favor of routin
 
 ## Manga Adaptation Notes
 
-- **Phase 2 deliverable: storage substrate complete.** No pipeline, no archiver, no downloader (Phase 3+ territory).
-- **Phase 8 cutover** will: rename `Manga/` → top-level (this directory becomes the canonical domain), delete `Tv/`. Until then, both directories coexist. (Phase 15 cutover delivered most of this work; the residual TV→Manga rename for the directory itself remains.)
+- **Cutover complete:** Phase 15 Plan 15-03 deleted `Tv/`; `Manga/` is the canonical domain home (no longer a parallel directory).
 - **No `Volume` table**: `Chapter.VolumeNumber` is display-only metadata per PROJECT.md "Volumes / Seasons" Out-of-Scope row.
 - **Synthesized chapter rows (HISTORICAL — superseded by Phase 16 + Phase 16.1):** Pre-Phase-16, `Chapter.IsSynthetic` flag distinguished placeholder rows from real-feed rows (Phase 2 D-17). Phase 16 STRUCT-03 removed the flag. Phase 16 D-04 then re-derived synthetic-ness from `chapter.Releases.Count == 0`. Phase 16.1 reverts D-04 (Sonarr-canonical: synthetic-ness is `monitored && ChapterFileId == null`, mirrors `Episode.Monitored && EpisodeFileId == 0`). Net effect: `IsSynthetic` is gone in all forms; the canonical Wanted/Missing predicate matches Sonarr exactly.
 

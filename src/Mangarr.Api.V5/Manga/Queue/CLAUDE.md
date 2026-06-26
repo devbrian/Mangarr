@@ -183,8 +183,8 @@ expects. Phase 15 D-15-XX type unification will introduce a unified
 ## Test fixture location
 
 Per the same Plan 10-05 Rule 3 deviation, queue-controller fixtures live under
-`NzbDrone.Api.Test` (NOT `NzbDrone.Core.Test`) because `Sonarr.Core.Test` does not
-project-reference `Sonarr.Api.V5`; `Sonarr.Api.Test` does. Phase 13 fixtures:
+`NzbDrone.Api.Test` (NOT `NzbDrone.Core.Test`) because the Core test project does not
+project-reference `Mangarr.Api.V5`; the Api test project does. Phase 13 fixtures:
 
 - `src/NzbDrone.Api.Test/Manga/Queue/MangaQueueDetailsControllerFixture.cs` (Plan 13-08; 4 tests)
 - `src/NzbDrone.Api.Test/Manga/Queue/MangaQueueStatusControllerFixture.cs` (Plan 13-09; 4 tests)

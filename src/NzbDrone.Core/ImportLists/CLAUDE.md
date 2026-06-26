@@ -2,9 +2,9 @@
 
 ## Purpose
 
-**Import lists** automatically add new manga to the library by ingesting from external lists (MangaDex follows, AniList lists, MyAnimeList lists, custom JSON feeds, etc.). Uses the **ThingiProvider** plugin pattern — providers are auto-discovered via reflection scan of `NzbDrone.Core` types implementing `IMangaImportList`.
+**Import lists** automatically add new manga to the library by ingesting from external lists (MangaDex follows, AniList lists, MyAnimeList lists, public MyAnimeList Interest-Stacks). Uses the **ThingiProvider** plugin pattern — providers are auto-discovered via reflection scan of `NzbDrone.Core` types implementing `IMangaImportList`.
 
-Phase 26 (Plan 26-04) ships the **substrate backend only** per D-08 — contract, abstract base classes, the 3-repo persistence layer, the sync orchestrator, and the `MangaDeletedEvent` event-driven exclusion handler. **Phase 26 ships ZERO production providers** — the Settings → ImportLists Add picker is empty in production until Phase 27 plugs in the first MangaDex / AniList / MyAnimeList plugin additively against this seam.
+Phase 26 (Plan 26-04) shipped the **substrate backend** per D-08 — contract, abstract base classes, the 3-repo persistence layer, the sync orchestrator, and the `MangaDeletedEvent` event-driven exclusion handler — with ZERO concrete providers (the Add picker was empty until Phase 27). **Phase 27 plugged in the four concrete providers** that ship today: `MangaDex/`, `AniList/`, `MyAnimeList/` (OAuth), and `MyAnimeListStack/` (public scrape, quick task 260608-vf9).
 
 **Heritage:** Sonarr-fork shape preserved verbatim (RESTORE + AUTHOR pattern per v1.1 SUMMARY #2). Reference slice at `.planning/reference/sonarr-vertical-slices/import-lists/` retains the upstream Sonarr files for line-by-line port traceability.
 
@@ -46,7 +46,7 @@ Phase 26 (Plan 26-04) ships the **substrate backend only** per D-08 — contract
 
 ### ThingiProvider auto-discovery (no manual DI)
 
-Production reflection scans `NzbDrone.Core` for types implementing `IMangaImportList` and binds them into the `IEnumerable<IMangaImportList>` ctor parameter of `ImportListFactory`. Phase 26 ships **zero** concrete providers — the scan returns 0 implementations. Phase 27 lands the first plugin against this seam.
+Production reflection scans `NzbDrone.Core` for types implementing `IMangaImportList` and binds them into the `IEnumerable<IMangaImportList>` ctor parameter of `ImportListFactory`. Phase 26 shipped the seam with zero concrete providers; Phase 27 landed the four production plugins (`MangaDexImportList`, `AniListImportList`, `MalImportList`, `MyAnimeListStackImportList`) the scan now discovers.
 
 The test-only `TestImportList` fake lives in `NzbDrone.Core.Test/ImportListTests/Fakes/` so production reflection-scan does NOT see it (D-09 / Pitfall 2). The bucket A SC#6 anti-prod-leak gate (`ImportListFactoryFixture.factory_returns_zero_providers_on_empty_di_bag`) is the static enforcement.
 
@@ -93,6 +93,8 @@ The reference enum carries `{ Program, Plex, Trakt, Simkl, Other, Advanced }`. M
 | Provider dir | Type | Auth | Notes |
 |--------------|------|------|-------|
 | `MangaDex/` | `MangaDexImportList` (OAuth) | password grant | Phase 27 Plan 27-02 — `/user/follows/manga`. See [MangaDex/CLAUDE.md](./MangaDex/CLAUDE.md). |
+| `AniList/` | `AniListImportList` (OAuth) | pin paste-back (1-year JWT) | Phase 27 Plan 27-03 — `MediaListCollection` GraphQL, single `MediaListStatus` per list (D-10). See [AniList/CLAUDE.md](./AniList/CLAUDE.md). |
+| `MyAnimeList/` | `MalImportList` (OAuth) | PKCE paste-the-callback-URL | Phase 27 Plan 27-04 — `/v2/users/@me/mangalist`, single `MalListStatus` per list (D-10). See [MyAnimeList/CLAUDE.md](./MyAnimeList/CLAUDE.md). |
 | `MyAnimeListStack/` | `MyAnimeListStackImportList` (HTTP scrape) | none (public) | Quick task 260608-vf9 — scrapes a public MyAnimeList Interest-Stack page (`/stacks/{id}`) → `ImportListItemInfo` with `MalId`. `Test()` rejects an Anime stack. Adds `ImportListType.MyAnimeListStack`. See [MyAnimeListStack/CLAUDE.md](./MyAnimeListStack/CLAUDE.md). |
 
 ### Sonarr OAuth Settings POCO pattern (Phase 27 territory)

@@ -4,7 +4,7 @@
 
 Komga manga-reader notification provider — fires a per-library rescan on `ChapterImportedEvent`. Komga is the most popular self-hosted manga reader; this provider lets a Mangarr import flow propagate to a user's Komga library without manual intervention (NOTIFY-01 + NOTIFY-03).
 
-This directory is a **manga-only sibling** of `Notifications/MediaBrowser/` (Emby/Jellyfin) and `Notifications/Plex/` (Plex Media Server) — same `INotification` plugin shape, same `MediaServerUpdateQueue<T,U>` debounce reuse, manga-shaped event hook.
+It is a **manga-only sibling** of `Notifications/Kavita/` (the only other live notifier). Its shape derives from the Sonarr media-server notifiers (Emby/Jellyfin `MediaBrowser/`, Plex `Plex/Server/`) — same `INotification` plugin shape, same `MediaServerUpdateQueue<T,U>` debounce reuse, manga-shaped event hook — but those TV providers are NOT in the live tree (reference-preserved per the policy; see Cross-References).
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Core\Notifications\Komga\`
 
@@ -48,8 +48,8 @@ If a Mihon/Tachidesk/Suwayomi notification provider ships in v2, it slots in as 
 
 ## Cross-References
 
-- `src/NzbDrone.Core/Notifications/MediaBrowser/` — TV analog (Emby/Jellyfin) — provider/service/proxy/settings shape
-- `src/NzbDrone.Core/Notifications/Plex/Server/` — TV analog (Plex Media Server) — debounce + per-Settings.Host cache identifier pattern
+- `src/NzbDrone.Core/Notifications/Kavita/` — the only other live notifier (manga-reader sibling; OPTIONAL LibraryId, JWT auth)
+- Sonarr `Notifications/MediaBrowser/` (Emby/Jellyfin) + `Notifications/Plex/Server/` — shape antecedents (debounce + per-Settings cache identifier pattern); NOT in the live tree at HEAD — reference-preserved under `.planning/reference/sonarr-vertical-slices/notifications-extra/` (Komga + Kavita are the only live notifiers)
 - `src/NzbDrone.Core/Notifications/MediaServerUpdateQueue.cs` — shared debounce queue (Series-coupled overload + info-only overload)
 - `src/NzbDrone.Core/Notifications/NotificationBase.cs` — `OnChapterImport` virtual + `SupportsOnChapterImport` reflection helper (added in Plan 06-02)
 - `src/NzbDrone.Core/Notifications/NotificationService.cs` — `Handle(ChapterImportedEvent)` fans out via `INotificationFactory.OnChapterImportEnabled()`

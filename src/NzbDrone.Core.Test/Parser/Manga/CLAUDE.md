@@ -16,6 +16,7 @@ Manga parser test fixtures + the 500-title corpus that gates Phase 2 completion.
 | `MangaTitleNormalizerFixture.cs` | `[TestCase]` rows for D-05 canonicalization (NFKD fullwidth, diacritics, punctuation, alt-title parenthetical drop, CJK preservation). |
 | `MangaLanguageParserFixture.cs` | `[TestCase]` rows for D-04 + LANG-01 BCP-47 extraction from `[EN]`, `(Spanish)`, `[ja]` markers. |
 | `MangaScanlationGroupParserFixture.cs` | `[TestCase]` rows for D-04 `^[Group]` extraction. |
+| `MangaParserRegressionFixture.cs` | Targeted `[TestCase]` regressions (e.g. code-review BL-03/BL-04) — the corpus gate only asserts ≥95% non-null parse rate, so per-entry mis-classification regressions need explicit rows here. |
 
 ## Patterns / Conventions
 

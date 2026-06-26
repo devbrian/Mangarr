@@ -8,8 +8,6 @@ The "Activity" section of the app — three views into download lifecycle:
 - **History** — completed grabs and imports (success and failure)
 - **Blocklist** — releases that failed and shouldn't be retried
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Activity\`
-
 ## Subdirectories
 
 ### Queue/ (~20 files)

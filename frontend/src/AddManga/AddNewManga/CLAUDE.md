@@ -18,7 +18,8 @@ SearchOnAdd toggle).
 | `AddNewManga.tsx` | Page component — wraps `PageContent` shell, debounced (500ms) lookup, render results grid OR empty/error state. |
 | `AddNewMangaSearchResult.tsx` | One result card — cover thumbnail + title + status pill + author + chapter count + external link to MangaDex/AniList/MAL. Click-through opens `AddNewMangaModal`. |
 | `AddNewMangaModal.tsx` | Thin `Modal` wrapper that renders `AddNewMangaModalContent`. |
-| `AddNewMangaModalContent.tsx` | Side-panel form: Root Folder (`/api/v5/rootfolder`), Monitor (5-value `MangaMonitor`), Translation Profile (`/api/v5/translationprofile`), Custom Format Profile (`/api/v5/customformatprofile`), Tags, SearchOnAdd toggle (`Start search for missing chapters`). |
+| `AddNewMangaModalContent.tsx` | Side-panel modal content: result header + Root Folder picker, then delegates the `<Form>` field body to `AddMangaFormBody`. |
+| `AddMangaFormBody.tsx` | Factored Add-Manga `<Form>` body (Phase 42 Plan 42-07) — Root Folder (`/api/v5/rootfolder`), Monitor (5-value `MangaMonitor`), Translation Profile (`/api/v5/translationprofile`), Custom Format Profile (`/api/v5/customformatprofile`), Tags, SearchOnAdd toggle. Shared by the single-add modal here and the bulk-add `Discovery/AddTopX` modal. |
 | `useAddManga.ts` | `useLookupManga(query)` (GET /api/v5/manga/lookup?term=) + `useAddManga()` (POST /api/v5/manga). Both honor the React Query key contract from Plan 07-02 (`['/manga']`). |
 | `*.css` / `*.css.d.ts` | Verbatim CSS Module copies of the AddSeries CSS files; class names are scoped automatically. |
 
@@ -59,30 +60,6 @@ Per Phase 7 D-04 + Phase 6 D-03 + Phase 6 D-06.
 | `searchForMissingEpisodes` | `searchForMissingChapters` | (form) | Phase 6 D-06 SearchOnAdd |
 | `searchForCutoffUnmetEpisodes` | dropped | n/a | manga has no cutoff yet |
 | `tags` | `tags` | `/api/v5/tag` | unchanged |
-
-## i18n Keys Referenced (Plan 11 lands en.json values)
-
-This plan uses these translation keys; en.json values land in Plan 11 (Phase 7
-copy bundle). Until then, `translate()` falls back to the key string.
-
-- `AddNewManga` (page title)
-- `AddNewMangaError` (lookup error heading)
-- `AddNewMangaRootFolderHelpText` (Root Folder helper, with `{folder}` placeholder)
-- `AddNewMangaSearchForMissingChapters` (toggle label)
-- `AddMangaWithTitle` (submit button, with `{title}` placeholder)
-- `MangaSearchPreEmpty` / `MangaSearchPreEmptyHint` (empty state)
-- `MangaSearchNoMatchesFound` / `MangaSearchNoMatchesFoundHint` (no-results state)
-- `MonitorAllChapters` / `MonitorFutureChapters` / `MonitorMissingChapters` /
-  `MonitorLatestChapter` / `MonitorNone` (monitor dropdown labels)
-- `MonitorAllChaptersDescription` / `MonitorFutureChaptersDescription` /
-  `MonitorMissingChaptersDescription` / `MonitorLatestChapterDescription` /
-  `MonitorNoneDescription` (monitor popover descriptions)
-- `TranslationProfile` / `CustomFormatProfile` (form labels)
-- `MangaInImportListExclusions` / `ViewMangaOnSource` / `CountChapters` /
-  `Ongoing` / `Hiatus` / `Cancelled` / `Completed` (search-result chips)
-
-Inherited (Mangarr already ships these keys): `RootFolder`, `Monitor`,
-`MonitoringOptions`, `Tags`, `AlreadyInYourLibrary`.
 
 ## Patterns / Conventions
 

@@ -71,6 +71,6 @@ Phase 11 swept the full inventory (16 registrations as of 2026-05-06 — see [11
 ## Cross-References
 
 - [Messaging/CLAUDE.md](../Messaging/CLAUDE.md) — Command/IExecute contract; Anti-pattern C + D documentation
-- [Datastore/Migration/CLAUDE.md](../Datastore/Migration/CLAUDE.md) — Migration 001 `ScheduledTasks` table create + zero-seed floor
+- [Datastore/CLAUDE.md](../Datastore/CLAUDE.md) — Migration 001 `ScheduledTasks` table create + zero-seed floor
 - [TaskManagerDefaultTasksFixture.cs](../../NzbDrone.Core.Test/JobTests/TaskManagerDefaultTasksFixture.cs) — Anti-pattern C structural gate
 - [.planning/phases/11-commands-and-execute-sweep/11-COMMANDS-AND-EXECUTE-FINDINGS.md](../../../.planning/phases/11-commands-and-execute-sweep/11-COMMANDS-AND-EXECUTE-FINDINGS.md) — full Axis-1 (class+handler) + Axis-2 (cadence) inventory

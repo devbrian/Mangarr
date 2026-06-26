@@ -6,7 +6,7 @@ Foundational utility library — used across **all** NzbDrone projects. Contains
 
 **Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\src\NzbDrone.Common\`
 
-**File count**: ~179 .cs files across 23 namespaces.
+**File count**: ~178 .cs files across 20 namespaces.
 
 ## Major Namespaces
 
@@ -96,9 +96,8 @@ Vendored fluent argument-validation library: `Ensure.That(x).IsNotNull()`, etc. 
 | Namespace | Contents |
 |-----------|---------|
 | `Crypto/` | `HashProvider`, `HashConverter` |
-| `Exceptions/` | `NzbDroneException` (base), `SonarrStartupException` |
-| `OAuth/` | OAuth 1.0a request signing (used by Twitter etc.) |
-| `Cloud/` | `SonarrCloudRequestBuilder` (talks to Services.Mangarr.tv) |
+| `Exceptions/` | `NzbDroneException` (base), `MangarrStartupException` |
+| `OAuth/` | OAuth 1.0a request signing |
 | `Options/` | Strongly-typed CLI option groups |
 | `Globalization/` | `AdditionalDiacriticsProvider` |
 | `Expansive/` | String template expansion (e.g. `${var}`) |
@@ -159,9 +158,7 @@ IRateLimitService      // Per-key throttling
 
 ## Manga Adaptation Notes
 
-This project is **media-agnostic** — all classes are utilities. **No migration changes needed.** The only Mangarr-specific bits:
-- `Cloud/SonarrCloudRequestBuilder.cs` — talks to `services.sonarr.tv`. If Mangarr ever has its own cloud (for metadata/updates), this would be replaced or generalized.
-- `Exceptions/SonarrStartupException.cs` — purely a name; rename when project rebrands.
+This project is **media-agnostic** — all classes are utilities. **No migration changes needed.** The Sonarr-era `Cloud/SonarrCloudRequestBuilder.cs` (services.sonarr.tv client) was removed during the fork; `Exceptions/MangarrStartupException.cs` carries the rebranded name.
 
 ## Cross-References
 

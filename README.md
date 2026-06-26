@@ -8,7 +8,7 @@ Mangarr is a fork of [Sonarr](https://github.com/Sonarr/Sonarr), adapting Sonarr
 
 ## Status
 
-Mangarr is in active development. v1.0 is the first public release; pre-v1.0 schema-mutability semantics apply per [`.planning/decisions/dev-migration-policy.md`](./.planning/decisions/dev-migration-policy.md) (the schema baseline migration `001_mangarr_baseline.cs` is mutable in place until the v1.0.0 tag).
+Mangarr is in active development. v1.0 has shipped (the first public release); per the post-v1.0.0 policy in [`.planning/decisions/dev-migration-policy.md`](./.planning/decisions/dev-migration-policy.md), the schema baseline migration `001_mangarr_baseline.cs` is now frozen and schema changes append a new sequential migration.
 
 ## Features (v1)
 

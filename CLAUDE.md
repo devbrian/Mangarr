@@ -53,7 +53,7 @@ This project is a **fork/migration of [Sonarr](https://github.com/Sonarr/Sonarr)
 | **MediaFiles** (CBZ/CBR vs video) | HIGH | Phase 6 renamed `EpisodeFile.cs` → `ChapterFile.cs`; manga import pipeline at `MediaFiles/MangaImport/` |
 | **DecisionEngine specifications** | HIGH | Phase 4/5 fork: TV-aware top-level `DecisionEngine/Specifications/` removed; manga decision specs at `DecisionEngine/Manga/Specifications/` (engine at `DecisionEngine/Manga/`) |
 | **Frontend Manga/Chapter pages** | HIGH | Phase 7 shipped `Manga/` + `Chapter/`; Phase 15 Plan 15-12 + Phase 17.3 Plan 17.3-13 deleted Series/Episode/EpisodeFile/Season stub-dirs |
-| **API V5 controllers** | HIGH | Phase 2/6/12 fork: `MangaController`, `ChapterController`, `ChapterFileController`, `MangaQueueController`, `MangaHistoryController`, `MangaBlocklistController`, `MangaMissingController`, `MangaCutoffController` shipped |
+| **API V5 controllers** | HIGH | Phase 2/6/12 fork: `MangaController`, `ChapterController`, `ChapterFileController`, `MangaQueueController`, `ChapterHistoryController`, `MangaBlocklistController`, `MangaMissingController`, `MangaCutoffController` shipped |
 | **CustomFormats / Profiles** | MEDIUM | Phase 5 shipped `CustomFormatProfile` + `TranslationProfile` |
 | **Notifications, Authentication, Tags, Backup, Update, Health** | LOW / NONE | Reusable as-is; Komga + Kavita notifiers shipped Phase 6 (rest reference-preserved per `.planning/reference/sonarr-vertical-slices/`) |
 
@@ -104,7 +104,7 @@ App listens at **http://localhost:8989**.
 ```
 Mangarr/
 ├── src/                              # Backend C# source
-│   ├── NzbDrone.Common/              # Shared utilities (179 files, no NzbDrone deps)
+│   ├── NzbDrone.Common/              # Shared utilities (178 files, no NzbDrone deps)
 │   ├── NzbDrone.Core/                # Business logic — LARGEST project
 │   ├── NzbDrone.Host/                # ASP.NET Core host + bootstrap
 │   ├── NzbDrone.Console/             # Console executable entry point
@@ -113,14 +113,14 @@ Mangarr/
 │   ├── NzbDrone.Mono/                # Linux/Mac platform code
 │   ├── NzbDrone.Windows/             # Windows platform code
 │   ├── Mangarr.Http/                  # REST base / middleware / auth
-│   ├── Mangarr.Api.V5/                # REST API v5 (sole REST surface; ~59 controllers)
+│   ├── Mangarr.Api.V5/                # REST API v5 (sole REST surface; ~61 controllers)
 │   ├── Mangarr.RuntimePatches/        # Runtime monkey-patches
 │   ├── ServiceHelpers/               # Service install helpers
 │   ├── Libraries/                    # Vendored binaries
 │   ├── *.Test/ projects              # NUnit test projects
 │   └── Mangarr.sln                    # Solution file
 ├── frontend/                         # React + TypeScript UI
-│   ├── src/                          # 34 top-level dirs (see frontend/CLAUDE.md)
+│   ├── src/                          # 35 top-level dirs (see frontend/CLAUDE.md)
 │   └── build/webpack.config.js       # Webpack config
 ├── _output/                          # Build output (UI assets bundled in)
 ├── _tests/                           # Test output
@@ -190,7 +190,7 @@ yarn watch                                                  # Webpack watch mode
 ## Development Notes
 
 - **Solution file**: `src/Mangarr.sln`
-- **Database migrations**: Auto-applied on startup. Add new migration in `src/NzbDrone.Core/Datastore/Migration/`. Migrations are sequential and post-baseline (`001_mangarr_baseline.cs` → `014_v1_3_unique_mangabaka_id.cs` currently — Migration 014 is the head, the PR #373 one-shot that adds the `IX_Manga_MangaBakaId` UNIQUE index, defensively nulling any pre-existing duplicates first, to close the concurrent-POST dedup race for the v1.3 default-primary's anchor ID); per the post-v1.0.0 policy, schema changes append a new sequential migration (the pre-v1 edit-`001`-in-place rule no longer applies).
+- **Database migrations**: Auto-applied on startup. Add new migration in `src/NzbDrone.Core/Datastore/Migration/`. Migrations are sequential and post-baseline (`001_mangarr_baseline.cs` → `017_v1_3_add_importlist_exclusion_mangabaka_id.cs` currently — Migration 017 is the head); per the post-v1.0.0 policy, schema changes append a new sequential migration (the pre-v1 edit-`001`-in-place rule no longer applies).
 - **Default data dir**: `C:\ProgramData\Mangarr` (Win) / `~/.config/Mangarr` (Linux/Mac). Logs in `<data>/logs/`.
 - **Default port**: 8989 (override with `--port=NNNN`).
 - **API key**: Auto-generated on first run; check `<data>/config.xml` or General settings.

@@ -45,4 +45,4 @@ D-25 note referenced no longer exists at HEAD).
 - Scaffold: [`../CLAUDE.md`](../CLAUDE.md)
 - Anime ImportList (untouched per D-25): [`../../ImportLists/AniList/`](../../ImportLists/AniList/)
 - API docs: https://docs.anilist.co/guide/graphql/queries/media
-- Rate-limit reference: [`../../Indexers/Http/CLAUDE.md`](../../Indexers/Http/CLAUDE.md)
+- Rate-limit reference: [`../../Indexers/CLAUDE.md`](../../Indexers/CLAUDE.md) (the surviving `IHttpAggregatorSettings` rate-budget section)

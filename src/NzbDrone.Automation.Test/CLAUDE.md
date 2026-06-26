@@ -35,8 +35,8 @@ End-to-end UI integration tests for Mangarr. Every test boots a real backend ins
 ### Category attributes
 
 Every `[Test]` carries `[Category("AutomationTest")]`. Tagging:
-- `[Category("PRSmoke")]` — included in the per-PR smoke job (target ~10–20 total tests across all clusters; D-14). Use for top-nav route loads, the AddManga happy path, the SearchAndGrab happy path, one Settings save/load round-trip.
-- `[Category("LiveService")]` — runs nightly only against real services (D-10). Use for upstream-contract probes (`api.mangadex.org`, `comix.to` runtime signer, AniList GraphQL, MAL).
+- `[Category("PRSmoke")]` — included in the per-PR smoke job (target ~10–20 total tests across all clusters; D-14). Use for top-nav route loads, the AddManga happy path, one Settings save/load round-trip. (The old in-process SearchAndGrab smoke was deleted in Phase 39 with the in-process indexers — see "Offline-safe-by-construction" below.)
+- `[Category("LiveService")]` — runs nightly only against real services (D-10). Use for upstream-contract probes (`api.mangadex.org`, AniList GraphQL, MAL). The comix.to runtime-signer probe was retired in Phase 39 with the in-process comix scraper.
 
 Tests with neither tag are part of the full nightly offline-cassette suite.
 

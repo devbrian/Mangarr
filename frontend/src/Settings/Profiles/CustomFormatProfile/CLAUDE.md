@@ -22,7 +22,7 @@ This sub-tree is the manga sibling of the QualityProfile editor. Every file port
 | `CustomFormatProfile.css` + `.css.d.ts` | Single-card styling | `QualityProfile.css` + `.css.d.ts` |
 | `EditCustomFormatProfileModal.tsx` | Modal scaffold wrapper | `EditQualityProfileModal.tsx` |
 | `EditCustomFormatProfileModalContent.tsx` | Form: name + isDefault + upgradeAllowed + min/max score + formatItems list (format + score) + Save/Delete | `EditQualityProfileModalContent.tsx` |
-| `CLAUDE.md` | This documentation | — |
+| `useCustomFormatProfiles.ts` | Read-side data hook powering select + filter consumers | `useQualityProfiles.ts` |
 
 ## API Wiring
 

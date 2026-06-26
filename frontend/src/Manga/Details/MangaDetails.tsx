@@ -17,10 +17,10 @@
 //     in the metadata strip. TranslationProfileName lookup is inlined here
 //     until Plan 07 ships `Settings/Profiles/Translations/TranslationProfileName.tsx`.
 //   * Hero toolbar: Refresh / Search Manga / Edit / Delete / History
-//     (UI-SPEC §Manga Detail). Edit + Delete + History modals reuse the
-//     existing Sonarr Series modals via seriesId={mangaId} bridge — same
-//     pattern Plan 07-04 documented in MangaIndex (the modals are
-//     media-type-agnostic at the JSX level until Phase 8 collapses).
+//     (UI-SPEC §Manga Detail). Edit + Delete modals are dedicated manga
+//     peers under Manga/Edit/ + Manga/Delete/ (see import block below); the
+//     Plan 07-04 seriesId={mangaId} Sonarr-Series-modal bridge was retired
+//     when those Series modals were deleted in Phase 17.3 Plan 17.3-13.
 //   * Files / History / Search tabs render minimal placeholder content for
 //     v1; full content is deferred to Plans 07-08 (Files), 07-09 (History
 //     wrapper), and the existing InteractiveSearch component (Search tab).

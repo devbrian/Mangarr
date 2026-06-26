@@ -48,16 +48,16 @@ public class MessageHub : Hub
 
 ## Message Types Sent to UI
 
+Resource names are auto-derived from each `*Resource.ResourceName` (lowercase, `resource` suffix stripped). The `SignalRListener.tsx` frontend handler currently dispatches on: `manga`, `chapter`, `chapterfile`, `calendar`, `command`, `connection`, `downloadclient`, `health`, `importlist`, `indexer`, `metadata`, `rootfolder`, `tag`, `version`.
+
 | Message name | Triggered By |
 |--------------|--------------|
-| `series` | Series added / updated / deleted |
-| `episode` | Episode status change (monitored toggle, file linked) |
-| `episodefile` | EpisodeFile imported / deleted / renamed |
+| `manga` | Manga added / updated / deleted (+ chapter-list / cover / chapter-file changes — see `MangaController` IHandle list) |
+| `chapter` | Chapter status change (monitored toggle) |
+| `chapterfile` | ChapterFile imported / deleted / renamed |
 | `command` | Command queued / started / finished / failed |
-| `queue` | Queue item added / updated / removed |
-| `history` | History entry added |
+| `manga/queue`, `manga/queue/status` | Queue item / counter changes (see `Manga/Queue/CLAUDE.md`) |
 | `health` | Health check status change |
-| `system` | System status (e.g. update available, restart pending) |
 | `tag` | Tag created / updated / deleted |
 | `rootfolder` | Root folder added / removed |
 | `version` | Sent on connect with backend version |
@@ -82,7 +82,7 @@ const connection = new HubConnectionBuilder()
   .withUrl(`${urlBase}/signalr/messages?access_token=${apiKey}`)
   .build();
 
-connection.on('series', (msg) => { /* dispatch update */ });
+connection.on('manga', (msg) => { /* dispatch update */ });
 connection.start();
 ```
 
@@ -90,7 +90,7 @@ See [frontend/src/Components/SignalRListener.tsx](../../frontend/src/Components/
 
 ## Manga Adaptation Notes
 
-- Message names (`series`, `episode`, `episodefile`, …) map to entities. Once Tv/ entities are renamed in Core, the SignalR message names should change to `manga`, `chapter`, `chapterfile`. Both backend `SignalRMessageBroadcaster.BroadcastMessage` callers and frontend `connection.on(...)` handlers must change in lockstep.
+- This project is media-agnostic infrastructure (the `MessageHub` / `SignalRMessage` envelope is entity-neutral). The entity rename landed in Phase 15: message names are now `manga` / `chapter` / `chapterfile`, auto-derived from each `*Resource.ResourceName` — no `series`/`episode` names remain. Backend broadcasters and frontend `connection.on(...)` handlers stay in lockstep via the auto-derived name.
 
 ## Cross-References
 

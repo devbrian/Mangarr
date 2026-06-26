@@ -4,8 +4,6 @@
 
 The **Discovery** browse vertical — a filtered, remote-catalog "discover + bulk-add the top N" page over the MangaBaka attribute API. The user sets attribute filters in a right-drawer, presses **Search**, gets a poster grid of titles NOT already in the library, and either bulk-adds the top N or excludes individual titles. NEW-in-Mangarr; no Sonarr peer (see [DIVERGENCE.md](../../../DIVERGENCE.md) Phase 42).
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Discovery\`
-
 Route: `/discovery` (registered in [App/AppRoutes.tsx](../App/AppRoutes.tsx); sidebar nav entry `nav-discovery` sits between Manga and Calendar in [Components/Page/Sidebar/PageSidebar.tsx](../Components/Page/Sidebar/PageSidebar.tsx)).
 
 ## Key Files
@@ -19,6 +17,7 @@ Route: `/discovery` (registered in [App/AppRoutes.tsx](../App/AppRoutes.tsx); si
 | `discoveryPresetsStore.ts` | Zustand persisted **named saved filter presets** via `createPersist('discovery_filter_presets')` — ADDITIVE over `discoveryOptionsStore` (its own distinct localStorage key; the live `discovery_options` working filters are untouched). A preset snapshots `DiscoveryFilterState` (which already excludes `topX`). This is the bespoke-drawer divergence (Phase 42), NOT Sonarr's `Components/Filter` saved-filter FilterBuilder. |
 | `FilterDrawer/PresetsRow.tsx` | Compact presets row rendered at the top of the drawer body: save current selection under a name, apply a saved preset (writes through `setDiscoveryOptions`, `topX` preserved), delete. Reuses `EnhancedSelectInput` / `TextInput` / `Button`. |
 | `DiscoveryCard.tsx` | Poster-grid result card: cover (or placeholder), JSX-escaped title (no `dangerouslySetInnerHTML` — T-42-07-XSS), year/score/type badges, hover Exclude ✕. |
+| `DiscoveryPopover.tsx` | Click-to-open description popover for card title + Tags pill (floating-ui click trigger; reuses `Components/Tooltip` Popover CSS). |
 | `FilterDrawer/FilterDrawer.tsx` | The bespoke right-drawer query-builder. Type/Genre/Status/ContentRating tristate sections, tag typeahead, year/score ranges, sort select, Include-adult toggle. |
 | `FilterDrawer/TristateChip.tsx` | The include/exclude/off chip — neutral `+` → include (green ✓) → exclude (red ✕) → neutral. Parent owns the transition; the chip renders the current visual + carries `data-state`. |
 | `FilterDrawer/TagTypeahead.tsx` | Fuse.js client typeahead over the cached slim tag list + AND/OR `tag_mode` segmented toggle. Binds to integer tag ids (`tag`/`tag_not`), DISC-10. |

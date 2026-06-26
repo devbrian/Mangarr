@@ -2,118 +2,33 @@
 
 ## Purpose
 
-Redux store configuration and state management infrastructure for global application state.
-
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\Store\`
+Redux store config + the **factory-driven** Settings/provider/collection action layer. Redux here is the *legacy + global* tier of the hybrid store (Zustand + React Query handle the rest — see root `frontend/CLAUDE.md`).
 
 ## Directory Structure
 
 ```
 Store/
-├── createAppStore.js        # Store factory
-├── Actions/                 # Redux actions
-│   ├── actionTypes.js       # Action type constants
-│   ├── baseActions.js       # Common action creators
-│   ├── settingsActions.js   # Settings actions
-│   ├── customFilterActions.js
-│   ├── captchaActions.js
-│   └── Creators/            # Action creator factories
-├── Middleware/              # Redux middleware
-├── Selectors/               # Memoized selectors
-│   ├── createClientSideCollectionSelector.js
-│   ├── createSettingsSectionSelector.js
-│   └── selectSettings.js
-└── Migrators/               # State migration utilities
+├── createAppStore.js        # Store factory (createStore + middleware)
+├── thunks.ts                # Thunk registry
+├── scrollPositions.ts
+├── Actions/
+│   ├── actionTypes.js · baseActions.js · settingsActions.js
+│   ├── customFilterActions.js · captchaActions.js · createReducers.js · index.js
+│   ├── Settings/            # Per-section slices (customFormats, downloadClients,
+│   │                        #   importLists, translationProfiles, delayProfiles, …)
+│   └── Creators/            # Action-creator FACTORIES (the core value of this dir):
+│                            #   createFetchHandler, createSaveHandler,
+│                            #   createServerSideCollectionHandlers,
+│                            #   createBulkEditItemHandler, createTestProviderHandler, …
+│                            #   + Creators/Reducers/ reducer factories
+├── Middleware/              # createPersistState, createSentryMiddleware, middlewares
+├── Selectors/               # createClientSideCollectionSelector.js,
+│                            #   createSettingsSectionSelector.ts, selectSettings.ts,
+│                            #   createSeriesClientSideCollectionItemsSelector.js (Sonarr carry-over)
+└── Migrators/               # migrate.js, migrateAddMangaDefaults.js (Phase 17.3 D-12 rename)
 ```
 
-## Store Configuration
-
-```javascript
-// createAppStore.js
-import { createStore, applyMiddleware } from 'redux';
-import thunk from 'redux-thunk';
-
-const store = createStore(
-  rootReducer,
-  applyMiddleware(thunk, ...middlewares)
-);
-```
-
-## State Shape
-
-```typescript
-interface RootState {
-  settings: SettingsState;
-  customFilters: CustomFilter[];
-  commands: Command[];
-  app: AppState;
-  // ... other slices
-}
-```
-
-## Actions Pattern
-
-```javascript
-// Action types
-export const SET_SETTING_VALUE = 'SET_SETTING_VALUE';
-export const SAVE_SETTINGS = 'SAVE_SETTINGS';
-
-// Action creators
-export const setSettingValue = (section, name, value) => ({
-  type: SET_SETTING_VALUE,
-  payload: { section, name, value }
-});
-
-// Thunk actions
-export const saveSettings = (section) => (dispatch, getState) => {
-  dispatch({ type: SAVE_SETTINGS_PENDING });
-  // API call...
-};
-```
-
-## Selectors
-
-```javascript
-// Memoized selectors for performance
-import { createSelector } from 'reselect';
-
-export const selectSettings = createSelector(
-  (state) => state.settings,
-  (settings) => settings.ui
-);
-
-// Client-side collection with filtering/sorting
-export const createClientSideCollectionSelector = () =>
-  createSelector(
-    selectItems,
-    selectFilter,
-    selectSort,
-    (items, filter, sort) => {
-      // Filter and sort logic
-    }
-  );
-```
-
-## Usage
-
-```typescript
-import { useSelector, useDispatch } from 'react-redux';
-import { setSettingValue } from 'Store/Actions/settingsActions';
-
-// Read state
-const settings = useSelector(state => state.settings);
-
-// Dispatch actions
-const dispatch = useDispatch();
-dispatch(setSettingValue('ui', 'theme', 'dark'));
-```
-
-## Note on State Management
-
-This project uses a **hybrid approach**:
-- **Redux**: Global settings, commands, filters
-- **Zustand**: Feature-specific view options (see `seriesOptionsStore.ts`)
-- **React Query**: API data fetching and caching
+Per-feature Zustand view-state stores (`Manga/mangaOptionsStore.ts`, `Activity/Queue/queueOptionsStore.ts`, …) live in their feature modules, NOT here.
 
 ## Cross-References
 

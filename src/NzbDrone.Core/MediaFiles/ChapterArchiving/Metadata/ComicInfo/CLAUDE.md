@@ -89,4 +89,4 @@ DryIoc auto-discovers `ComicInfoCbzInjector` by convention (no manual registrati
 - [../CLAUDE.md](../CLAUDE.md) — Metadata writer plugin contract overview
 - [../../../MangaImport/CLAUDE.md](../../../MangaImport/CLAUDE.md) — `ImportApprovedChapters` step-3.5 wire site + Pitfall 4 ordering invariant
 - [ComicInfoXmlBuilder.cs](./ComicInfoXmlBuilder.cs) — the pure builder reused verbatim
-- [../../Cbz/CbzChapterArchiver.cs](../../Cbz/CbzChapterArchiver.cs) — the `ZipArchive` write idiom analog (Create mode; the injector diverges to Update mode)
+- _(historical)_ `../../Cbz/CbzChapterArchiver.cs` — the Create-mode `ZipArchive` write idiom the injector diverged from (Update mode); **the archiver was deleted in Phase 39** along with the in-process downloader

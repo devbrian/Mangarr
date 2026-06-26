@@ -25,10 +25,9 @@ All user-configurable settings UI. Each subdirectory is one settings page (or se
 |--------|------|-------|
 | `General/` | General host/port/proxy/auth/SSL/log/backup config | `/settings/general` |
 | `MediaManagement/` | File handling, naming, root folders | `/settings/mediamanagement` |
-| `Profiles/` | **Phase 7 D-05** — page repurposed to render `TranslationProfiles` editor; nav label renamed to "Translation Profiles". `Profiles/Quality/`, `Profiles/Delay/`, `Profiles/Release/` sub-trees retained on disk per Pitfall 8 (Phase 8 deletes Quality only). | `/settings/profiles` |
-| `Profiles/Translations/` | **NEW (Phase 7 D-05)** — TranslationProfile editor wiring `/api/v5/translationprofile` (Phase 5 Plan 05-02). | (rendered inside `/settings/profiles`) |
-| `Profiles/CustomFormatProfile/` | **NEW (Phase 7 D-05)** — CustomFormatProfile editor wiring `/api/v5/customformatprofile` (Phase 5 Plan 05-03). | `/settings/customformatprofiles` |
-| `Quality/` | Quality definitions (size limits) — **HIDDEN from left-nav (Phase 7 D-05)**; route + component preserved (Phase 8 deletes). | `/settings/quality` |
+| `Profiles/` | Page renders the `TranslationProfiles` editor (nav label "Translation Profiles"). The `Profiles/{Quality,Delay,Release}/` legacy sub-trees remain on disk, unlinked from the nav. | `/settings/profiles` |
+| `Profiles/Translations/` | TranslationProfile editor wiring `/api/v5/translationprofile`. | (rendered inside `/settings/profiles`) |
+| `Profiles/CustomFormatProfile/` | CustomFormatProfile editor wiring `/api/v5/customformatprofile`. | `/settings/customformatprofiles` |
 | `CustomFormats/` | Custom format CRUD + specifications | `/settings/customformats` |
 | `Indexers/` | Indexers + global options | `/settings/indexers` |
 | `DownloadClients/` | Download clients + remote path mappings | `/settings/downloadclients` |
@@ -39,16 +38,11 @@ All user-configurable settings UI. Each subdirectory is one settings page (or se
 | `Tags/` | Tags + auto-tagging | `/settings/tags` — **Phase 24 Plan 24-04 closure**: `Settings/Tags/AutoTagging/` was already shipped at the FE layer pre-Phase-24 but the Redux thunks at `Store/Actions/Settings/autoTaggings.js` 404'd because no V5 controller answered. Phase 24-04 shipped the V5 controllers + TagController `IHandle<AutoTagsUpdatedEvent>` re-wire — the surface is now live with NO FE code changes (Redux thunk path resolution alone). Rule-creation modal + 11-spec dropdown + RemoveTagsAutomatically toggle all functional. |
 | `UI/` | Theme, language, time format | `/settings/ui` |
 
-## Phase 7 D-05 Topology Rework
+## Profiles topology (Phase 7 D-05 → Phase 15 D-12)
 
-Per `.planning/phases/07-api-v5-frontend-manga-shell/07-CONTEXT.md` Decision D-05 (executed in Plan 07-07):
-
-- `Settings.tsx` left-nav row labeled `Profiles` is **renamed** to `Translation Profiles` (i18n key swap; route `/settings/profiles` preserved).
-- A **new** left-nav row `Custom Format Profiles` is inserted immediately after the renamed row, routing to `/settings/customformatprofiles`.
-- The `Quality` left-nav row is **hidden** via `{false && (...)}` — the route and `Settings/Profiles/Quality/` sub-tree code remain on disk (Pitfall 8 negative gate). Phase 8 cleanup deletes the Quality sub-tree.
-- `Settings/Profiles/Profiles.tsx` page content swapped from `<QualityProfiles /> + <DelayProfiles /> + <ReleaseProfiles />` to render `<TranslationProfiles />` only. Quality/Delay/Release imports retained as commented-out lines for grep-fidelity per Pitfall 8.
-
-**Pitfall 8 negative gate:** `Settings/Profiles/{Quality,Delay,Release}/` sub-trees remain on disk; only the Quality nav-row is hidden. Phase 8 deletes Quality only.
+- The `/settings/profiles` page (`Settings/Profiles/Profiles.tsx`) renders `<TranslationProfiles />` only; nav label is "Translation Profiles".
+- A separate "Custom Format Profiles" nav row routes to `/settings/customformatprofiles`.
+- The old top-level `Quality` settings page is gone: the `/settings/quality` route and the top-level `frontend/src/Quality/` sub-tree were **deleted in Phase 15 D-12** (see the divergence comments in `Settings.tsx`). The `Settings/Profiles/{Quality,Delay,Release}/` sub-trees still exist on disk but are unlinked from the nav.
 
 ## Provider Settings Pattern
 
@@ -92,8 +86,7 @@ Settings pages are largely **architecture-stable** — provider plugin model mea
 
 | Page | Manga Adaptation |
 |------|------------------|
-| `Quality/` | Replace TV resolution definitions with manga quality tiers. UI structure unchanged. |
-| `Profiles/` | Quality items list adapts; rest is identical |
+| `Profiles/` | TranslationProfile (ordered BCP-47 language list) replaces TV quality items |
 | `CustomFormats/` | Specs adapt (page count, scanlation group, etc.) |
 | `Indexers/` | Just list the new manga indexers (auto from backend) |
 | `Metadata/` | Metadata writers (NFO, banner.jpg) — adapt to manga-specific files |

@@ -27,7 +27,7 @@ public static class ConsoleApp
         // 1. Initialize logging (NzbDroneLogger)
         // 2. Parse command-line StartupContext
         // 3. Call Bootstrap.Start(args)  (from NzbDrone.Host)
-        // 4. Catch & log SonarrStartupException, SocketException, IOException, RemoteAccessException
+        // 4. Catch & log MangarrStartupException, SocketException, IOException, RemoteAccessException
         // 5. Set process exit code
     }
 }

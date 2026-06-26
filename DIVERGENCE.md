@@ -349,6 +349,8 @@ via Pattern κ static audit returning 0 violations on Series/Episode/Season inte
 
 ### Default-seeded indexers + download client on fresh DB (zero-config first-run UX)
 
+> **SUPERSEDED by Phase 39 (see the "Retire in-process codepath" section below).** All three seeded providers (`MangaDexIndexer`, `ComixIndexer`, `InProcessImageDownloadClient`) were deleted, and the `IndexerFactory`/`DownloadClientFactory` fresh-DB auto-seed overrides were removed — Mangarr now ships the Sonarr-canonical empty download-client list and `GatewayIndexer`/`GatewayDownloadClient` are the sole providers. The historical record below is preserved for provenance only; it no longer describes current behavior.
+
 Sonarr does NOT auto-seed indexers, download clients, or notifications — users opt in
 by manually adding each one. Mangarr DIVERGES for v1: a fresh DB ships with three
 pre-seeded provider rows so a user can add a manga and trigger a search/download

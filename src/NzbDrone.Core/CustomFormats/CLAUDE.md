@@ -13,29 +13,29 @@ The pattern is the **same Specification pattern** used by DecisionEngine — but
 | File | Purpose |
 |------|---------|
 | `CustomFormat.cs` | Aggregate: name, includeCustomFormatWhenRenaming, list of specifications |
-| `ICustomFormatRepository.cs` / `CustomFormatRepository.cs` | DB persistence |
-| `ICustomFormatService.cs` / `CustomFormatService.cs` | CRUD |
+| `CustomFormatRepository.cs` | DB persistence (`ICustomFormatRepository` declared in-file) |
+| `CustomFormatService.cs` | CRUD (`ICustomFormatService` declared in-file) |
 | `CustomFormatCalculationService.cs` | Score a release/file against all custom formats |
-| `ParsedCustomFormatScore.cs` | Result DTO |
+| `CustomFormatInput.cs` / `MangaCustomFormatInput.cs` | Scoring-input DTO + manga-shaped subclass (carries `ScanlationGroup`, `TranslatedLanguage`, `SourceKey`, `ChapterInfo`) |
+| `MediaType.cs` | `AppliesTo` discriminator enum — `All = 0` (reusable specs) / `Manga = 2` (manga-only specs) |
 | `SpecificationMatchesGroup.cs` | Group container for spec matching with AND/OR semantics |
-| `ICustomFormatSpecification.cs` | Specification interface |
 | `Events/` | `CustomFormatAddedEvent`, `CustomFormatUpdatedEvent`, `CustomFormatDeletedEvent` |
+
+(`ICustomFormatSpecification.cs` lives under `Specifications/`, not at top level.)
 
 ## Subdirectory: `Specifications/`
 
-The available **format-condition primitives** users compose:
+The available **format-condition primitives** users compose. The TV-specific specs (Resolution / Source / QualityModifier / Language / ReleaseType) were trimmed during the manga fork — Migration `006_v1_2_scrub_dead_language_specification_from_custom_formats` scrubbed the last dead language spec. What remains:
 
-| Specification | Matches |
-|---------------|---------|
-| `ReleaseTitleSpecification` | Regex on release title |
-| `ReleaseGroupSpecification` | Regex on release group |
-| `IndexerFlagSpecification` | Indexer flag (e.g. Internal) |
-| `ResolutionSpecification` | Resolution (e.g., 1080p) |
-| `SourceSpecification` | Source (e.g., WebRip, BluRay) |
-| `SizeSpecification` | File size in range |
-| `QualityModifierSpecification` | Real / Repack / Proper / etc. |
-| `MultipleLanguageSpecification` | Multiple languages |
-| `SubtitleLanguageSpecification` (?) | Subtitle language present |
+| Specification | `AppliesTo` | Matches |
+|---------------|-------------|---------|
+| `ReleaseTitleSpecification` | All | Regex on release title |
+| `ReleaseGroupSpecification` | All | Regex on release group |
+| `IndexerFlagSpecification` | All | Indexer flag (e.g. Internal) |
+| `SizeSpecification` | All | File size in range |
+| `Manga/` subdir (4 specs) | Manga | `TranslatedLanguageSpecification`, `ScanlationGroupSpecification`, `SourceKeySpecification`, `ChapterTypeSpecification` — see [Specifications/Manga/CLAUDE.md](./Specifications/Manga/CLAUDE.md) |
+
+Shared base classes: `CustomFormatSpecificationBase`, `RegexSpecificationBase`, `ICustomFormatSpecification`.
 
 ## How Scoring Works
 
@@ -71,11 +71,7 @@ The custom-format **architecture is fully reusable**. Specifications need adapta
 | `ReleaseGroupSpecification` | Maps to "Scanlation Group" |
 | `IndexerFlagSpecification` | Reusable |
 
-New manga-specific specs to add:
-- `ColorVsBwSpecification` — color manga distinguishing from B&W
-- `PageCountSpecification` — minimum/maximum page count
-- `OfficialVsFanTranslationSpecification` — official/scanlation/fan
-- `MagazineSpecification` — preferred magazine source (Shounen Jump, etc.)
+The manga-specific specs that actually shipped (Phase 5 D-09, under `Specifications/Manga/`): `TranslatedLanguageSpecification`, `ScanlationGroupSpecification`, `SourceKeySpecification`, `ChapterTypeSpecification`.
 
 ## Cross-References
 

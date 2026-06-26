@@ -4,9 +4,7 @@
 
 TypeScript interface definitions mirroring the backend REST API resources (DTOs). These are the **frontend's view** of the backend — every API response is typed via one of these.
 
-**Absolute Path**: `C:\Users\jones\Desktop\Mangarr\Mangarr\frontend\src\typings\`
-
-## Top-Level Types (40+ files)
+## Top-Level Types (~33 files + `Settings/` + `Helpers/` subfolders)
 
 ### System / Activity
 | File | Backend `*Resource` Equivalent |
@@ -30,7 +28,6 @@ TypeScript interface definitions mirroring the backend REST API resources (DTOs)
 | `CustomFormat.ts` / `CustomFormatSpecification.ts` | Custom format types |
 | `DownloadClient.ts` | Download client config |
 | `ImportList.ts` | Import list config |
-| `Indexer.ts` | Indexer config |
 | `Provider.ts` | Generic provider base type |
 | `RootFolder.ts` | Root folder type |
 
