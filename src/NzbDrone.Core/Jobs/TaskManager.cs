@@ -175,13 +175,13 @@ namespace NzbDrone.Core.Jobs
                         TypeName = typeof(MangaRssSyncCommand).FullName
                     },
 
-                    // Phase 6 D-09 — daily Wanted/Missing sweep. Walks monitored Mangas
+                    // Phase 6 D-09 — weekly Wanted/Missing sweep. Walks monitored Mangas
                     // with monitored unmet chapters; groups by MangaId; pushes one
                     // MangaSearchCommand per Manga. Registered at runtime via
                     // TaskManager.defaultTasks per sonarr-consistency-audit anti-pattern C.
                     new ScheduledTask
                     {
-                        Interval = 24 * 60,
+                        Interval = 7 * 24 * 60,
                         TypeName = typeof(MissingChapterSearchCommand).FullName
                     },
 
