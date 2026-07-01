@@ -11,8 +11,17 @@
 #      PUID + PGID (defaults 1000:1000). Both branches idempotent — survives
 #      container restart with the same env vars.
 #   2. Apply the operator-supplied UMASK to inherited file modes.
-#   3. Chown /config (Mangarr config + DB volume) and /data (manga library
-#      volume) to abc:abc so the longrun can read/write them as a non-root user.
+#   3. Chown /config (Mangarr config + DB volume) recursively so the longrun can
+#      read/write it as a non-root user. /data (manga library + download volumes)
+#      is chowned NON-recursively — only the mount-root dirs — so new subfolders
+#      can be created; the existing contents are intentionally NOT descended.
+#
+# Why /data is not `chown -R`: /data/media is a bind-mounted library that can hold
+# hundreds of thousands of files. A recursive chown over it stalls container boot
+# for many minutes on every recreate (observed: ~400k files -> 15+ min, I/O-bound)
+# and is pure redundant work — both Mangarr and the manga-gateway run as the same
+# PUID and every file is already created under that uid. Only the mount roots are
+# touched so folder creation still works; the deep descent was removed.
 #
 # Synchronous chown only; NO unbounded poll loops (per CLAUDE.md user-memory
 # feedback_bash_until_loop_pitfall.md — orphans to PID 1).
@@ -27,8 +36,13 @@ useradd -u "${PUID:-1000}" -g abc -d /config -s /usr/sbin/nologin abc 2>/dev/nul
 # 2. UMASK propagation
 umask "${UMASK:-002}"
 
-# 3. Volume ownership flip (/config + /data per Lock #8)
+# 3. Volume ownership flip (Lock #8)
+#    /config: recursive (small — config.xml + mangarr.db + logs).
+#    /data + immediate mount roots: NON-recursive only (see header — avoids the
+#    ~400k-file library descent that stalled boot). `|| true` so a not-yet-created
+#    bind target never trips `set -e`.
 mkdir -p /config /data
-chown -R abc:abc /config /data
+chown -R abc:abc /config
+chown abc:abc /data /data/media /data/manga 2>/dev/null || true
 
-echo "[init-mangarr-config] PUID=${PUID:-1000} PGID=${PGID:-1000} UMASK=${UMASK:-002} applied; /config + /data owned by abc:abc"
+echo "[init-mangarr-config] PUID=${PUID:-1000} PGID=${PGID:-1000} UMASK=${UMASK:-002} applied; /config recursive, /data roots only (library not descended)"
