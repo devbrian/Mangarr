@@ -73,23 +73,38 @@ namespace NzbDrone.Core.Manga
         // provider's on-disk series-level WriteMangaMetadata(manga). Stax (the only current
         // consumer) writes stax.json = { mangabakaId } into the manga folder; disabled
         // providers are excluded by IMetadataFactory.Enabled() and CBZ-internal providers
-        // (ComicInfo) leave WriteMangaMetadata a no-op (MetadataBase default). The whole
-        // enumeration is wrapped in a catch-and-continue so a metadata-writer failure can
-        // NEVER abort the surrounding refresh batch (WR-07 batch tolerance) — StaxMetadata
-        // already self-guards its own disk write internally per D-02/D-03, but the factory
-        // enumeration is defended here too.
+        // (ComicInfo) leave WriteMangaMetadata a no-op (MetadataBase default). A
+        // metadata-writer failure can NEVER abort the surrounding refresh batch (WR-07 batch
+        // tolerance) — StaxMetadata already self-guards its own disk write internally per
+        // D-02/D-03, and the enumeration is defended here too.
         private void WriteMangaMetadataFiles(Manga manga)
         {
+            List<IMetadata> providers;
+
             try
             {
-                foreach (var provider in _metadataFactory.Enabled())
-                {
-                    provider.WriteMangaMetadata(manga);
-                }
+                providers = _metadataFactory.Enabled();
             }
             catch (Exception e)
             {
-                _logger.Warn(e, "Couldn't write series-level metadata files for manga {0}", manga.Title);
+                _logger.Warn(e, "Couldn't enumerate enabled metadata providers for manga {0}", manga.Title);
+                return;
+            }
+
+            // CodeRabbit #406: the try/catch is PER PROVIDER so one writer's failure cannot
+            // skip the remaining enabled providers for this manga — honoring the documented
+            // "each provider is individually defended" invariant. Latent with a single provider
+            // today (Stax) but correct as more series-level writers ship.
+            foreach (var provider in providers)
+            {
+                try
+                {
+                    provider.WriteMangaMetadata(manga);
+                }
+                catch (Exception e)
+                {
+                    _logger.Warn(e, "Couldn't write series-level metadata for manga {0} via {1}", manga.Title, provider.Definition?.Name ?? provider.GetType().Name);
+                }
             }
         }
 

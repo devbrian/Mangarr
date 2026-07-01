@@ -64,30 +64,33 @@ namespace NzbDrone.Core.Metadata.Stax
             var payload = new StaxPayload { MangaBakaId = manga.MangaBakaId.Value };
             var json = Json.ToJson(payload);
 
-            // D-02 self-heal compare: if a stax.json already exists and its stored mangabakaId
-            // matches the manga's current MangaBakaId, do nothing (no write). Otherwise (missing,
-            // stale, or unparseable) fall through and (over)write.
-            if (_diskProvider.FileExists(path))
-            {
-                var existing = _diskProvider.ReadAllText(path);
-                if (Json.TryDeserialize<StaxPayload>(existing, out var parsed)
-                    && parsed != null
-                    && parsed.MangaBakaId == manga.MangaBakaId.Value)
-                {
-                    _logger.Trace("stax.json unchanged for manga {0} (mangabakaId {1})", manga.Title, manga.MangaBakaId.Value);
-                    return;
-                }
-            }
-
             try
             {
+                // D-02 self-heal compare: if a stax.json already exists and its stored mangabakaId
+                // matches the manga's current MangaBakaId, do nothing (no write). Otherwise (missing,
+                // stale, or unparseable) fall through and (over)write.
+                //
+                // CodeRabbit #406: the exist-check + READ sit inside this try too, so a disk error
+                // on the read path (permission denial, TOCTOU delete between FileExists and
+                // ReadAllText, transient AV lock) is caught — WR-07: a single bad stax op must
+                // never abort the surrounding refresh batch, matching the write path's guard.
+                if (_diskProvider.FileExists(path))
+                {
+                    var existing = _diskProvider.ReadAllText(path);
+                    if (Json.TryDeserialize<StaxPayload>(existing, out var parsed)
+                        && parsed != null
+                        && parsed.MangaBakaId == manga.MangaBakaId.Value)
+                    {
+                        _logger.Trace("stax.json unchanged for manga {0} (mangabakaId {1})", manga.Title, manga.MangaBakaId.Value);
+                        return;
+                    }
+                }
+
                 _diskProvider.WriteAllText(path, json);
                 _logger.Debug("Wrote stax.json for manga {0} (mangabakaId {1})", manga.Title, manga.MangaBakaId.Value);
             }
             catch (Exception e)
             {
-                // WR-07 batch tolerance: a single bad stax write must not abort the surrounding
-                // refresh batch (mirrors the RescanManga catch-and-continue invariant).
                 _logger.Warn(e, "Couldn't write stax.json for manga {0}", manga.Title);
             }
         }

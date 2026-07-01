@@ -1,3 +1,4 @@
+using System;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
@@ -6,6 +7,7 @@ using NzbDrone.Common.Serializer;
 using NzbDrone.Core.MediaFiles.ChapterArchiving;
 using NzbDrone.Core.Metadata.Stax;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.Metadata
 {
@@ -128,6 +130,25 @@ namespace NzbDrone.Core.Test.Metadata
 
             Json.TryDeserialize<StaxAssertionPayload>(written, out var parsed).Should().BeTrue();
             parsed.MangaBakaId.Should().Be(42);
+        }
+
+        [Test]
+        public void swallows_disk_error_on_self_heal_read_path()
+        {
+            // CodeRabbit #406: the exist-check + ReadAllText are inside the SUT's try/catch, so a
+            // disk error on the READ path (permission denial, TOCTOU delete, AV lock) must NOT
+            // propagate out of WriteMangaMetadata — WR-07 batch tolerance.
+            Mocker.GetMock<IDiskProvider>()
+                  .Setup(d => d.FileExists(It.IsAny<string>()))
+                  .Returns(true);
+            Mocker.GetMock<IDiskProvider>()
+                  .Setup(d => d.ReadAllText(It.IsAny<string>()))
+                  .Throws(new UnauthorizedAccessException("simulated read denial"));
+
+            Action act = () => Subject.WriteMangaMetadata(GivenManga(42));
+
+            act.Should().NotThrow();
+            ExceptionVerification.ExpectedWarns(1);
         }
 
         [Test]
