@@ -73,6 +73,15 @@ namespace NzbDrone.Core.Metadata
 
         public abstract Task WriteAsync(ChapterArchiveRequest request, ArchiveOutputContext ctx, CancellationToken ct);
 
+        // Default no-op for the on-disk series-level write path (quick-260701-e71).
+        // Intentionally empty: CBZ-internal writers (ComicInfo) leave it as the no-op —
+        // they emit their sidecar INSIDE the CBZ via WriteAsync, not next to the manga
+        // folder. Only on-disk series-level writers (Stax) override this. Mirrors how this
+        // base already provides virtual defaults for Message / RequestAction / Test.
+        public virtual void WriteMangaMetadata(NzbDrone.Core.Manga.Manga manga)
+        {
+        }
+
         public override string ToString()
         {
             return GetType().Name;

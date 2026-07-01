@@ -40,5 +40,19 @@ namespace NzbDrone.Core.Metadata
         /// <see cref="ArchiveOutputContext.OpenSidecar"/> seam.
         /// </summary>
         Task WriteAsync(ChapterArchiveRequest request, ArchiveOutputContext ctx, CancellationToken ct);
+
+        /// <summary>
+        /// On-disk <b>series-level</b> writer, keyed by <see cref="Manga.Manga"/> (distinct from
+        /// the CBZ-internal <see cref="WriteAsync"/> lifecycle above). Implementations emit a
+        /// standalone sidecar next to the manga's on-disk folder — invoked by
+        /// <c>RefreshMangaService</c> once per successful refresh (which covers both add and
+        /// refresh). CBZ-internal writers leave this as the <see cref="MetadataBase{TSettings}"/>
+        /// no-op default; only on-disk series-level writers override it.
+        ///
+        /// This reintroduces the Sonarr-canonical <i>series-level</i> metadata write shape that
+        /// R-14 (Phase 30) deliberately deferred (Mangarr's only prior provider, ComicInfo, is
+        /// CBZ-internal). See DIVERGENCE.md quick-260701-e71.
+        /// </summary>
+        void WriteMangaMetadata(NzbDrone.Core.Manga.Manga manga);
     }
 }
