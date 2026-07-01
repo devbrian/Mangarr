@@ -13,6 +13,7 @@ using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Metadata;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
 using NzbDrone.Core.MetadataSource.MangaBaka;
@@ -55,6 +56,15 @@ namespace NzbDrone.Core.Test.MangaTests
             Mocker.GetMock<IMetadataSourceFactory>()
                   .Setup(f => f.GetPrimary())
                   .Returns(_primaryDef);
+
+            // quick-260701-e71: RefreshMangaService now writes series-level metadata files
+            // (Stax stax.json) after a successful refresh by enumerating
+            // IMetadataFactory.Enabled(). Default to an empty list so these tests exercise
+            // the no-provider path — an unmocked Enabled() returns null, and the hook's
+            // catch-and-continue would then log an undeclared Warn that fails teardown.
+            Mocker.GetMock<IMetadataFactory>()
+                  .Setup(f => f.Enabled())
+                  .Returns(new List<IMetadata>());
 
             // CrossSourceIdResolver is a concrete class — inject a real instance so the
             // auto-relink path (RefreshMangaService.TryRelinkPrimaryId) exercises the
@@ -102,6 +112,30 @@ namespace NzbDrone.Core.Test.MangaTests
 
             stub.GetMangaInfoCalls.Should().HaveCount(1);
             stub.GetMangaInfoCalls[0].Should().Be(manga.MangaDexId.Value.ToString());
+        }
+
+        [Test]
+        public void Execute_writes_series_metadata_via_enabled_provider_after_successful_refresh()
+        {
+            // CodeRabbit #406: positive-path coverage for the WriteMangaMetadataFiles hook —
+            // a successful refresh must invoke each enabled IMetadata provider exactly once
+            // with the refreshed manga (the Stax stax.json write path).
+            var manga = new Manga.Manga { Id = 1, Title = "M", MangaDexId = Guid.NewGuid(), Path = TestMangaPath };
+            Mocker.GetMock<IMangaService>().Setup(m => m.GetManga(1)).Returns(manga);
+
+            var stub = new StubMangaDexProvider(manga);
+            Mocker.GetMock<IMetadataSourceFactory>()
+                  .Setup(f => f.GetInstance(It.IsAny<MetadataSourceDefinition>()))
+                  .Returns(stub);
+
+            var writer = new Mock<IMetadata>();
+            Mocker.GetMock<IMetadataFactory>()
+                  .Setup(f => f.Enabled())
+                  .Returns(new List<IMetadata> { writer.Object });
+
+            Subject.Execute(new RefreshMangaCommand(new List<int> { 1 }));
+
+            writer.Verify(w => w.WriteMangaMetadata(manga), Times.Once());
         }
 
         [Test]
