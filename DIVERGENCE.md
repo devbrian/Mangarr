@@ -1722,3 +1722,33 @@ Reusing `FilterModal`/`FilterBuilder` would fight the grain, so Discovery diverg
 - DIVERGENCE.md Phase 41 — MangaBaka Metadata Provider (the `MangaBakaApi` + `mangabaka` rate bucket this browse surface extends).
 
 *Last updated: 2026-06-22 (Plan 42-08 — appended the Phase 42 section above for the NEW-in-Mangarr Discovery filtered-bulk-add vertical: the bespoke tristate include/exclude/off right-drawer + remote-API tag typeahead (a deliberate domain-forced divergence from Sonarr's local-collection `FilterModal`/`FilterBuilder`; leaf sub-components reused, container diverges), the bare admin-authed `DiscoveryController` (4 endpoints, fire-and-forget bulk-add), the `DiscoveryService` eligibility auto-paging loop, and the `MangaBakaApi.Browse` extension on the shared `mangabaka` rate bucket. No Sonarr analog — Sonarr has no remote-catalog discover-and-bulk-add surface. All previous trailers preserved verbatim above per historical-accuracy contract.)*
+
+---
+
+## quick-260701-e71 — Stax series-level Metadata output + on-disk IMetadata.WriteMangaMetadata shape (2026-07-01)
+
+**What/why:** Stax is a new opt-in **series-level** Metadata output that writes a `stax.json` = `{ mangabakaId }` file into each manga's on-disk folder on **Refresh Manga** and on **first add** (both funnel through `RefreshMangaService` — `MangaAddedHandler` pushes a `RefreshMangaCommand`). It is enabled in Settings → Metadata (default OFF / opt-in).
+
+This reintroduces the **Sonarr-canonical series-level on-disk metadata write shape** that R-14 (Phase 30) deliberately deferred. Mangarr's only prior `IMetadata` provider, `ComicInfoMetadata`, is **CBZ-internal** (it writes `ComicInfo.xml` INTO the CBZ via `ArchiveOutputContext.OpenSidecar`), so the substrate carried no series-level, on-disk, `Manga`-keyed write method. The new optional `IMetadata.WriteMangaMetadata(Manga)` method carries a **default no-op** in `MetadataBase`, so ComicInfo (and any future CBZ-only writer) is unaffected — the series-level (on-disk) and CBZ-internal lifecycles now coexist on the one `IMetadata` contract.
+
+**Self-heal / skip semantics (locked with the user):**
+- **D-02 self-heal:** `stax.json` missing → create; exists but the stored `mangabakaId` differs from the manga's current `MangaBakaId` (or is unparseable) → overwrite; exists and matches → no write.
+- **D-03 skip:** `manga.MangaBakaId == null` (or `manga.Path` null/empty) → write nothing, no error; it self-heals on a later refresh once an id resolves.
+
+| File / Path | Type | Rationale |
+|-------------|------|-----------|
+| `src/NzbDrone.Core/Metadata/IMetadata.cs` | edit | Added optional `void WriteMangaMetadata(Manga manga)` — the on-disk series-level write contract. |
+| `src/NzbDrone.Core/Metadata/MetadataBase.cs` | edit | Added a `public virtual void WriteMangaMetadata(Manga) { }` default no-op so CBZ-internal writers (ComicInfo) are unaffected. |
+| `src/NzbDrone.Core/Metadata/Stax/StaxMetadata.cs` | new | `StaxMetadata : MetadataBase<StaxMetadataSettings>` — `Name=Stax`, `FormatKey=stax`, `AppliesTo`=false, `WriteAsync`=`Task.CompletedTask`; overrides `WriteMangaMetadata` with the D-02/D-03 self-heal write via injected `IDiskProvider` + `Logger`. DryIoc auto-discovered (no manual DI). |
+| `src/NzbDrone.Core/Metadata/Stax/StaxMetadataSettings.cs` | new | `IProviderConfig`, zero `[FieldDefinition]`, always-valid `Validate()` — mirrors `ComicInfoMetadataSettings` (enable-only UX). |
+| `src/NzbDrone.Core/Manga/RefreshMangaService.cs` | edit | Injected `IMetadataFactory`; added `WriteMangaMetadataFiles(manga)` (enumerates `_metadataFactory.Enabled()`, catch-and-continue per WR-07); called once in `RefreshMangaInfo` after `RescanManga` on the success path. |
+| `src/NzbDrone.Core.Test/Metadata/StaxMetadataFixture.cs` | new | Provider-level self-heal + skip coverage against a mocked `IDiskProvider` (7 cases). |
+
+**No DB migration** (D-01): `MetadataFactory.InitializeProviders` already auto-seeds a **disabled** `MetadataDefinition` row on `ApplicationStartedEvent` for every discovered `IMetadata` with no existing row, so `StaxMetadata` gets its disabled row for free. **No frontend change**: Settings → Metadata is schema-driven; the auto-discovered provider renders automatically (zero `[FieldDefinition]` → enable-only toggle).
+
+**Cross-references:**
+- `.planning/quick/260701-e71-add-stax-series-level-metadata-output-wr/260701-e71-SUMMARY.md` — the quick-task record.
+- `src/NzbDrone.Core/Metadata/CLAUDE.md` — Key Files rows + the `WriteMangaMetadata` pattern note + the updated R-14 "DONE for series-level shape" divergence note.
+- DIVERGENCE.md Phase 30 Plan 30-04 — the R-14 `IMetadata` manga-shape divergence this entry closes (for the series-level shape).
+
+*Last updated: 2026-07-01 (quick-260701-e71 — appended the Stax section above for the NEW series-level on-disk Metadata output: the optional `IMetadata.WriteMangaMetadata(Manga)` method + `MetadataBase` no-op default (ComicInfo/CBZ-internal writers unaffected), the `StaxMetadata`/`StaxMetadataSettings` provider pair writing `stax.json` = `{ mangabakaId }` with D-02 self-heal + D-03 skip-when-no-id, and the single `RefreshMangaService` hook covering add + refresh. No DB migration (auto-seeded disabled row) + no frontend change (schema-driven Settings → Metadata). Reintroduces the Sonarr-canonical series-level shape R-14/Phase 30 deferred. All previous trailers preserved verbatim above per historical-accuracy contract.)*
