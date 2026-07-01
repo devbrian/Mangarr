@@ -41,7 +41,7 @@ umask "${UMASK:-002}"
 #    /data + immediate mount roots: NON-recursive only (see header — avoids the
 #    ~400k-file library descent that stalled boot). `|| true` so a not-yet-created
 #    bind target never trips `set -e`.
-mkdir -p /config /data
+mkdir -p /config /data /data/media /data/manga
 chown -R abc:abc /config
 chown abc:abc /data /data/media /data/manga 2>/dev/null || true
 
