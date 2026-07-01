@@ -13,6 +13,7 @@ using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Metadata;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
 using NzbDrone.Core.MetadataSource.MangaBaka;
@@ -55,6 +56,15 @@ namespace NzbDrone.Core.Test.MangaTests
             Mocker.GetMock<IMetadataSourceFactory>()
                   .Setup(f => f.GetPrimary())
                   .Returns(_primaryDef);
+
+            // quick-260701-e71: RefreshMangaService now writes series-level metadata files
+            // (Stax stax.json) after a successful refresh by enumerating
+            // IMetadataFactory.Enabled(). Default to an empty list so these tests exercise
+            // the no-provider path — an unmocked Enabled() returns null, and the hook's
+            // catch-and-continue would then log an undeclared Warn that fails teardown.
+            Mocker.GetMock<IMetadataFactory>()
+                  .Setup(f => f.Enabled())
+                  .Returns(new List<IMetadata>());
 
             // CrossSourceIdResolver is a concrete class — inject a real instance so the
             // auto-relink path (RefreshMangaService.TryRelinkPrimaryId) exercises the
