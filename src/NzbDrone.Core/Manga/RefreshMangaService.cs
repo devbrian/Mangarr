@@ -95,7 +95,11 @@ namespace NzbDrone.Core.Manga
             // skip the remaining enabled providers for this manga — honoring the documented
             // "each provider is individually defended" invariant. Latent with a single provider
             // today (Stax) but correct as more series-level writers ship.
-            foreach (var provider in providers)
+            //
+            // CodeRabbit #406: guard against a null return from Enabled() (the catch above only
+            // covers a THROW, not a null result) so the loop can't NRE out of this method and
+            // trigger a false "refresh failed"/Indeterminate for an otherwise-successful refresh.
+            foreach (var provider in providers ?? Enumerable.Empty<IMetadata>())
             {
                 try
                 {
