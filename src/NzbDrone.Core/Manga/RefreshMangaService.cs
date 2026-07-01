@@ -11,6 +11,7 @@ using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.Events;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Metadata;
 using NzbDrone.Core.MetadataSource;
 using NzbDrone.Core.MetadataSource.AniList;
 using NzbDrone.Core.MetadataSource.MangaBaka;
@@ -36,6 +37,7 @@ namespace NzbDrone.Core.Manga
         private readonly IMangaDiskScanService _diskScanService;
         private readonly IConfigService _configService;
         private readonly CrossSourceIdResolver _resolver;
+        private readonly IMetadataFactory _metadataFactory;
         private readonly IEventAggregator _eventAggregator;
         private readonly ICommandResultReporter _commandResultReporter;
         private readonly Logger _logger;
@@ -48,6 +50,7 @@ namespace NzbDrone.Core.Manga
                                    IMangaDiskScanService diskScanService,
                                    IConfigService configService,
                                    CrossSourceIdResolver resolver,
+                                   IMetadataFactory metadataFactory,
                                    IEventAggregator eventAggregator,
                                    ICommandResultReporter commandResultReporter,
                                    Logger logger)
@@ -60,9 +63,34 @@ namespace NzbDrone.Core.Manga
             _diskScanService = diskScanService;
             _configService = configService;
             _resolver = resolver;
+            _metadataFactory = metadataFactory;
             _eventAggregator = eventAggregator;
             _commandResultReporter = commandResultReporter;
             _logger = logger;
+        }
+
+        // quick-260701-e71 — after a successful refresh, invoke every ENABLED IMetadata
+        // provider's on-disk series-level WriteMangaMetadata(manga). Stax (the only current
+        // consumer) writes stax.json = { mangabakaId } into the manga folder; disabled
+        // providers are excluded by IMetadataFactory.Enabled() and CBZ-internal providers
+        // (ComicInfo) leave WriteMangaMetadata a no-op (MetadataBase default). The whole
+        // enumeration is wrapped in a catch-and-continue so a metadata-writer failure can
+        // NEVER abort the surrounding refresh batch (WR-07 batch tolerance) — StaxMetadata
+        // already self-guards its own disk write internally per D-02/D-03, but the factory
+        // enumeration is defended here too.
+        private void WriteMangaMetadataFiles(Manga manga)
+        {
+            try
+            {
+                foreach (var provider in _metadataFactory.Enabled())
+                {
+                    provider.WriteMangaMetadata(manga);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.Warn(e, "Couldn't write series-level metadata files for manga {0}", manga.Title);
+            }
         }
 
         // The cross-source ID matching the active primary. Mirrors the add-time switch
@@ -538,6 +566,19 @@ namespace NzbDrone.Core.Manga
             // Placed AFTER the MangaUpdatedEvent so subscribers see the metadata
             // update first, then the file-side update via MangaScannedEvent.
             RescanManga(existing, message.IsNewManga, message.Trigger);
+
+            // quick-260701-e71 — write series-level on-disk metadata (Stax stax.json) for
+            // enabled providers. SINGLE call site, placed AFTER RescanManga on the success
+            // path so it runs on EVERY successful refresh (new + existing) exactly once. At
+            // this point existing.Path is normalized to its absolute/actual-casing form and
+            // persisted, and cross-source ids (including MangaBakaId) have been carried over
+            // from the authoritative record via CarryOverCrossSourceIds — so MangaBakaId is at
+            // its freshest. This covers BOTH add and refresh (MangaAddedHandler funnels adds
+            // through RefreshMangaCommand). D-02 self-heal + D-03 skip-when-no-id are handled
+            // inside the provider. Deliberately NOT called from the catch/relink paths — a
+            // removed-at-source or errored manga should not get a fresh stax write here; the
+            // next clean refresh handles it.
+            WriteMangaMetadataFiles(existing);
         }
 
         public void Execute(RefreshMangaCommand message)
