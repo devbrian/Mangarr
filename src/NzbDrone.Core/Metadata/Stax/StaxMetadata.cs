@@ -66,6 +66,15 @@ namespace NzbDrone.Core.Metadata.Stax
 
             try
             {
+                // Ensure the manga folder exists before writing. On ADD (the primary reason this
+                // provider exists — "create stax.json when a series is first added") the manga's
+                // folder does NOT yet exist on disk: nothing has been downloaded, and Mangarr
+                // creates the series folder lazily on first import. Without this, WriteAllText
+                // threw DirectoryNotFoundException, the catch swallowed it, and stax.json only
+                // appeared on a LATER refresh once chapters had been imported and the folder
+                // existed. EnsureFolder is idempotent (no-op when the folder already exists).
+                _diskProvider.EnsureFolder(manga.Path);
+
                 // D-02 self-heal compare: if a stax.json already exists and its stored mangabakaId
                 // matches the manga's current MangaBakaId, do nothing (no write). Otherwise (missing,
                 // stale, or unparseable) fall through and (over)write.

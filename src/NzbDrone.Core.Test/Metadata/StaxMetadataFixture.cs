@@ -69,6 +69,24 @@ namespace NzbDrone.Core.Test.Metadata
         }
 
         [Test]
+        public void ensures_manga_folder_exists_before_writing_on_add()
+        {
+            // Regression: on ADD the manga folder does not exist yet (nothing downloaded), so
+            // WriteAllText threw DirectoryNotFoundException and stax.json only appeared on a
+            // later refresh once the folder existed. EnsureFolder must run before the write.
+            Mocker.GetMock<IDiskProvider>()
+                  .Setup(d => d.FileExists(It.IsAny<string>()))
+                  .Returns(false);
+
+            Subject.WriteMangaMetadata(GivenManga(42));
+
+            Mocker.GetMock<IDiskProvider>()
+                  .Verify(d => d.EnsureFolder(MangaPath), Times.Once());
+            Mocker.GetMock<IDiskProvider>()
+                  .Verify(d => d.WriteAllText(It.IsAny<string>(), It.IsAny<string>()), Times.Once());
+        }
+
+        [Test]
         public void skips_write_when_existing_content_matches()
         {
             Mocker.GetMock<IDiskProvider>()
@@ -157,6 +175,8 @@ namespace NzbDrone.Core.Test.Metadata
             Subject.WriteMangaMetadata(GivenManga(null));
 
             Mocker.GetMock<IDiskProvider>()
+                  .Verify(d => d.EnsureFolder(It.IsAny<string>()), Times.Never());
+            Mocker.GetMock<IDiskProvider>()
                   .Verify(d => d.FileExists(It.IsAny<string>()), Times.Never());
             Mocker.GetMock<IDiskProvider>()
                   .Verify(d => d.ReadAllText(It.IsAny<string>()), Times.Never());
@@ -169,6 +189,8 @@ namespace NzbDrone.Core.Test.Metadata
         {
             Subject.WriteMangaMetadata(GivenManga(42, path: string.Empty));
 
+            Mocker.GetMock<IDiskProvider>()
+                  .Verify(d => d.EnsureFolder(It.IsAny<string>()), Times.Never());
             Mocker.GetMock<IDiskProvider>()
                   .Verify(d => d.FileExists(It.IsAny<string>()), Times.Never());
             Mocker.GetMock<IDiskProvider>()
