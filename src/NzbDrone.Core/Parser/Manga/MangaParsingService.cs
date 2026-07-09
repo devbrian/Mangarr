@@ -159,22 +159,30 @@ namespace NzbDrone.Core.Parser.Manga
                 return null;
             }
 
-            // Strategy 0: exact CleanTitle match on the RAW input title, BEFORE trusting the
-            // parser's re-extracted MangaTitle. A caller may hand GetManga an ALREADY-EXTRACTED
-            // manga title that legitimately embeds a "Chapter N: subtitle" arc discriminator —
-            // MangaDex arc names like "Re:ZERO ...-, Chapter 2: A Week at the Mansion" (debug
-            // session rezero-chapter-31-rejected, 2026-07-09). MangaDownloadDecisionMaker:171
-            // does exactly this: it runs ParseChapterTitle on the full release, then passes the
-            // extracted arc MangaTitle here. Re-parsing that bare arc name at line 115 truncates
-            // it at the embedded "Chapter" token (a bare arc name carries only ONE chapter-word
-            // token, so the release-title 2-token embedded-arc branch in MangaParser cannot fire),
-            // collapsing the arc back to the base series "rezero starting life in another world"
-            // and mis-resolving arc-2 to arc-1 via AlternativeTitles. An exact CleanTitle match on
-            // the UN-parsed input short-circuits that re-truncation: if the caller already handed
-            // us a resolvable manga name, use it verbatim. A full release title (chapter/group/lang
-            // noise appended) never exact-matches a CleanTitle, and when the raw and parsed titles
-            // normalize identically (the normal, non-truncating path) this is skipped entirely — so
-            // it is a true no-op everywhere except the embedded-arc re-parse case.
+            // Strategy 1: direct CleanTitle match (existing path).
+            var hit = _mangaService.FindByTitle(clean);
+            if (hit != null)
+            {
+                return hit;
+            }
+
+            // Strategy 1b: exact CleanTitle match on the RAW (un-re-parsed) input title, tried
+            // ONLY after Strategy 1 misses so the common path never pays for this extra lookup
+            // (PR #408 CodeRabbit review — GetManga runs per release, and a full release title
+            // essentially never exact-matches a CleanTitle, so running it up front was a
+            // guaranteed-miss query on the hot path). It exists solely to rescue the embedded-arc
+            // re-parse case: a caller may hand GetManga an ALREADY-EXTRACTED manga title that
+            // legitimately embeds a "Chapter N: subtitle" arc discriminator — MangaDex arc names
+            // like "Re:ZERO ...-, Chapter 2: A Week at the Mansion" (debug session
+            // rezero-chapter-31-rejected, 2026-07-09). MangaDownloadDecisionMaker:171 does exactly
+            // this: it runs ParseChapterTitle on the full release, then passes the extracted arc
+            // MangaTitle here. Re-parsing that bare arc name at line 115 truncates it at the
+            // embedded "Chapter" token (a bare arc name carries only ONE chapter-word token, so the
+            // release-title 2-token embedded-arc branch in MangaParser cannot fire), collapsing the
+            // arc back to the base series and mis-resolving arc-2 to arc-1 via AlternativeTitles.
+            // Strategy 1 still misses on that truncated `clean`, so 1b still fires here and resolves
+            // the arc via the raw exact match. The rawClean != clean guard keeps this a no-op
+            // whenever the raw and parsed titles normalize identically (the normal path).
             var rawClean = MangaTitleNormalizer.Normalize(title);
             if (!string.IsNullOrWhiteSpace(rawClean)
                 && !string.Equals(rawClean, clean, System.StringComparison.Ordinal)
@@ -190,13 +198,6 @@ namespace NzbDrone.Core.Parser.Manga
                         rawHit.Id);
                     return rawHit;
                 }
-            }
-
-            // Strategy 1: direct CleanTitle match (existing path).
-            var hit = _mangaService.FindByTitle(clean);
-            if (hit != null)
-            {
-                return hit;
             }
 
             // Strategy 2: alt-title match. Mangarr's analog of Sonarr's

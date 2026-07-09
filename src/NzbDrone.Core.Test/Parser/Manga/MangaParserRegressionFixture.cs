@@ -337,6 +337,36 @@ namespace NzbDrone.Core.Test.MangaParserTests
             parsed.MangaTitle.Should().Be("One Piece");
         }
 
+        // PR #408 CodeRabbit review: the arc's embedded number and the real chapter can be
+        // matched by DIFFERENT regexes. Here the arc embeds a DECIMAL ("Chapter 2.5"), which the
+        // decimal regex matches before the integer regex ever sees the real "Chapter 31" — the
+        // old "first winning regex, last match" logic locked onto 2.5. Scanning the number from
+        // the last chapter-word token fixes it.
+        [Test]
+        public void Embedded_arc_with_decimal_arc_number_still_uses_last_chapter()
+        {
+            var parsed = MangaParser.ParseChapterTitle(
+                "Some Manga, Chapter 2.5: A Half Arc - Chapter 31 (en) [Title]");
+
+            parsed.Should().NotBeNull();
+            parsed.ChapterNumbers.Should().Equal(new[] { 31m });
+            parsed.MangaTitle.Should().Be("Some Manga, Chapter 2.5: A Half Arc");
+        }
+
+        // PR #408 CodeRabbit review: a plural arc label ("Chapters 1-3: …") must also trigger the
+        // recompute so the arc name survives and the real trailing chapter wins. The broadened
+        // ChapterWordBoundaryRegex `s?` counts the plural token.
+        [Test]
+        public void Embedded_arc_with_plural_arc_label_uses_last_chapter()
+        {
+            var parsed = MangaParser.ParseChapterTitle(
+                "Some Manga, Chapters 1-3: The Opening - Chapter 31 (en) [Title]");
+
+            parsed.Should().NotBeNull();
+            parsed.ChapterNumbers.Should().Equal(new[] { 31m });
+            parsed.MangaTitle.Should().Be("Some Manga, Chapters 1-3: The Opening");
+        }
+
         // Guard against over-triggering the recompute: a normal single-chapter title (the
         // overwhelming majority) is untouched — one chapter-word token, no arc embedding.
         [TestCase("Naruto - Chapter 700 (en)", "Naruto", 700.0)]
