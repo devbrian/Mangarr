@@ -166,6 +166,40 @@ namespace NzbDrone.Core.Parser.Manga
                 return hit;
             }
 
+            // Strategy 1b: exact CleanTitle match on the RAW (un-re-parsed) input title, tried
+            // ONLY after Strategy 1 misses so the common path never pays for this extra lookup
+            // (PR #408 CodeRabbit review — GetManga runs per release, and a full release title
+            // essentially never exact-matches a CleanTitle, so running it up front was a
+            // guaranteed-miss query on the hot path). It exists solely to rescue the embedded-arc
+            // re-parse case: a caller may hand GetManga an ALREADY-EXTRACTED manga title that
+            // legitimately embeds a "Chapter N: subtitle" arc discriminator — MangaDex arc names
+            // like "Re:ZERO ...-, Chapter 2: A Week at the Mansion" (debug session
+            // rezero-chapter-31-rejected, 2026-07-09). MangaDownloadDecisionMaker:171 does exactly
+            // this: it runs ParseChapterTitle on the full release, then passes the extracted arc
+            // MangaTitle here. Re-parsing that bare arc name at line 115 truncates it at the
+            // embedded "Chapter" token (a bare arc name carries only ONE chapter-word token, so the
+            // release-title 2-token embedded-arc branch in MangaParser cannot fire), collapsing the
+            // arc back to the base series and mis-resolving arc-2 to arc-1 via AlternativeTitles.
+            // Strategy 1 still misses on that truncated `clean`, so 1b still fires here and resolves
+            // the arc via the raw exact match. The rawClean != clean guard keeps this a no-op
+            // whenever the raw and parsed titles normalize identically (the normal path).
+            var rawClean = MangaTitleNormalizer.Normalize(title);
+            if (!string.IsNullOrWhiteSpace(rawClean)
+                && !string.Equals(rawClean, clean, System.StringComparison.Ordinal)
+                && !MangaTitleNormalizer.IsJunkPlaceholder(rawClean))
+            {
+                var rawHit = _mangaService.FindByTitle(rawClean);
+                if (rawHit != null)
+                {
+                    _logger.Debug(
+                        "MangaParsingService.GetManga: resolved '{0}' via exact CleanTitle match on the RAW input title (embedded-arc re-parse bypass) -> Manga '{1}' (id={2})",
+                        rawClean,
+                        rawHit.Title,
+                        rawHit.Id);
+                    return rawHit;
+                }
+            }
+
             // Strategy 2: alt-title match. Mangarr's analog of Sonarr's
             // _sceneMappingService.FindTvdbId step in ParsingService.GetSeries.
             // The metadata source persists each provider's alt-title set

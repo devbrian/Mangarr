@@ -283,6 +283,103 @@ namespace NzbDrone.Core.Test.MangaParserTests
             parsed.MangaTitle.Should().Be(expectedTitle);
         }
 
+        // debug session rezero-chapter-31-rejected (2026-07-09): a MangaDex arc name that
+        // itself embeds a "Chapter N" token (e.g. the manga "Re:ZERO -Starting Life in
+        // Another World-, Chapter 2: A Week at the Mansion") ships releases whose title
+        // carries TWO chapter-word tokens. The parser previously took the FIRST match, so it
+        // extracted chapter 2 (the arc name's, not the release's) AND truncated the manga
+        // title at that first "Chapter" — breaking both chapter matching
+        // (SingleChapterSearchMatchSpecification "Wrong chapter") and manga resolution
+        // (GetManga → UnknownManga). The LAST chapter-word token is the real chapter, and the
+        // manga title runs up to it.
+        [Test]
+        public void Embedded_arc_chapter_token_uses_last_chapter_number()
+        {
+            var parsed = MangaParser.ParseChapterTitle(
+                "Re:ZERO -Starting Life in Another World-, Chapter 2: A Week at the Mansion - Chapter 31 (en) [The Hours Between]");
+
+            parsed.Should().NotBeNull();
+            parsed.ChapterNumbers.Should().Equal(new[] { 31m });
+        }
+
+        [Test]
+        public void Embedded_arc_chapter_token_keeps_full_manga_title()
+        {
+            var parsed = MangaParser.ParseChapterTitle(
+                "Re:ZERO -Starting Life in Another World-, Chapter 2: A Week at the Mansion - Chapter 31 (en) [The Hours Between]");
+
+            parsed.Should().NotBeNull();
+            parsed.MangaTitle.Should().Be("Re:ZERO -Starting Life in Another World-, Chapter 2: A Week at the Mansion");
+        }
+
+        // The gateway's parser-canonical reconstruction ("{MangaTitle} - Chapter {N} [lang]")
+        // must round-trip for the embedded-arc case too (GatewayParser.BuildTitle WR-04 guard).
+        [Test]
+        public void Embedded_arc_reconstructed_title_round_trips()
+        {
+            var parsed = MangaParser.ParseChapterTitle(
+                "Re:ZERO -Starting Life in Another World-, Chapter 2: A Week at the Mansion - Chapter 31 [en]");
+
+            parsed.Should().NotBeNull();
+            parsed.ChapterNumbers.Should().Equal(new[] { 31m });
+            parsed.MangaTitle.Should().Be("Re:ZERO -Starting Life in Another World-, Chapter 2: A Week at the Mansion");
+        }
+
+        // Bonus fall-out of last-match: a chapter-looking token inside the LEADING
+        // scanlation-group bracket no longer hijacks the chapter number.
+        [Test]
+        public void Chapter_token_inside_group_bracket_is_not_used_as_chapter_number()
+        {
+            var parsed = MangaParser.ParseChapterTitle("[Chapter 5 Scans] One Piece - Chapter 1050 [en]");
+
+            parsed.Should().NotBeNull();
+            parsed.ChapterNumbers.Should().Equal(new[] { 1050m });
+            parsed.MangaTitle.Should().Be("One Piece");
+        }
+
+        // PR #408 CodeRabbit review: the arc's embedded number and the real chapter can be
+        // matched by DIFFERENT regexes. Here the arc embeds a DECIMAL ("Chapter 2.5"), which the
+        // decimal regex matches before the integer regex ever sees the real "Chapter 31" — the
+        // old "first winning regex, last match" logic locked onto 2.5. Scanning the number from
+        // the last chapter-word token fixes it.
+        [Test]
+        public void Embedded_arc_with_decimal_arc_number_still_uses_last_chapter()
+        {
+            var parsed = MangaParser.ParseChapterTitle(
+                "Some Manga, Chapter 2.5: A Half Arc - Chapter 31 (en) [Title]");
+
+            parsed.Should().NotBeNull();
+            parsed.ChapterNumbers.Should().Equal(new[] { 31m });
+            parsed.MangaTitle.Should().Be("Some Manga, Chapter 2.5: A Half Arc");
+        }
+
+        // PR #408 CodeRabbit review: a plural arc label ("Chapters 1-3: …") must also trigger the
+        // recompute so the arc name survives and the real trailing chapter wins. The broadened
+        // ChapterWordBoundaryRegex `s?` counts the plural token.
+        [Test]
+        public void Embedded_arc_with_plural_arc_label_uses_last_chapter()
+        {
+            var parsed = MangaParser.ParseChapterTitle(
+                "Some Manga, Chapters 1-3: The Opening - Chapter 31 (en) [Title]");
+
+            parsed.Should().NotBeNull();
+            parsed.ChapterNumbers.Should().Equal(new[] { 31m });
+            parsed.MangaTitle.Should().Be("Some Manga, Chapters 1-3: The Opening");
+        }
+
+        // Guard against over-triggering the recompute: a normal single-chapter title (the
+        // overwhelming majority) is untouched — one chapter-word token, no arc embedding.
+        [TestCase("Naruto - Chapter 700 (en)", "Naruto", 700.0)]
+        [TestCase("One Piece Ch.1050 [en]", "One Piece", 1050.0)]
+        public void Single_chapter_token_title_is_unaffected(string releaseTitle, string expectedTitle, double expectedChapter)
+        {
+            var parsed = MangaParser.ParseChapterTitle(releaseTitle);
+
+            parsed.Should().NotBeNull();
+            parsed.MangaTitle.Should().Be(expectedTitle);
+            parsed.ChapterNumbers.Should().Equal(new[] { (decimal)expectedChapter });
+        }
+
         // PR #378 Codex review regression guard: "oneshot" / "omake" are manga jargon,
         // never a legitimate trailing title word. A bracketed, numberless, dash-less
         // oneshot ("[Group] Chainsaw Man Oneshot (English)") must still classify as
