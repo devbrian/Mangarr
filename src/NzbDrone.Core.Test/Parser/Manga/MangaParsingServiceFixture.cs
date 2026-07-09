@@ -426,5 +426,50 @@ namespace NzbDrone.Core.Test.MangaParserTests
                 Times.Never,
                 "a CleanTitle (Strategy 1) match must short-circuit before the alt-title lookup");
         }
+
+        // debug `rezero-chapter-31-rejected` (2026-07-09): MangaDownloadDecisionMaker extracts the
+        // manga title from a release, then hands it to GetManga, which RE-PARSES it. A MangaDex arc
+        // name legitimately embeds a "Chapter N: subtitle" token ("Re:ZERO ...-, Chapter 2: A Week
+        // at the Mansion"); a bare arc name carries only ONE chapter-word token, so the release-title
+        // 2-token embedded-arc branch cannot fire and the single-token MangaTitleRegex truncates it
+        // back to the base "rezero starting life in another world" — which then mis-resolves arc-2 to
+        // arc-1 via AlternativeTitles (live: chapter 31 rejected "wrong manga"). Strategy 0 (exact
+        // CleanTitle match on the RAW input) must resolve the arc directly and short-circuit before
+        // that truncating re-parse can reach the alt-title path.
+        [Test]
+        public void GetManga_resolves_embedded_arc_chapter_title_via_raw_exact_match()
+        {
+            const string arcTitle = "Re:ZERO -Starting Life in Another World-, Chapter 2: A Week at the Mansion";
+            const string arcClean = "rezero starting life in another world chapter 2 a week at the mansion";
+            const string truncatedClean = "rezero starting life in another world";
+
+            var arc2 = ShortTitleManga(arcTitle, arcClean);
+            var arc1 = ShortTitleManga(
+                "Re:ZERO -Starting Life in Another World-, Chapter 1: A Day in the Capital",
+                "rezero starting life in another world chapter 1 a day in the capital");
+
+            var mangaService = Mocker.GetMock<IMangaService>();
+
+            // Raw input normalizes to the FULL arc CleanTitle -> Strategy 0 exact match resolves arc-2.
+            mangaService.Setup(s => s.FindByTitle(arcClean)).Returns(arc2);
+
+            // The internal re-parse truncates to the base title; without Strategy 0 the code would
+            // miss on FindByTitle(truncated) and then mis-resolve to arc-1 via FindByAlternativeTitle
+            // (the live bug). The fix must never let us reach that path.
+            mangaService.Setup(s => s.FindByTitle(truncatedClean)).Returns((NzbDrone.Core.Manga.Manga)null);
+            mangaService.Setup(s => s.FindByAlternativeTitle(truncatedClean)).Returns(arc1);
+
+            var result = Subject.GetManga(arcTitle);
+
+            result.Should().Be(
+                arc2,
+                "the embedded-arc title must resolve to its OWN arc via the raw-title exact match, " +
+                "not collapse to the base series and steal arc-1");
+            mangaService.Verify(
+                s => s.FindByAlternativeTitle(It.IsAny<string>()),
+                Times.Never,
+                "Strategy 0's raw-title exact match must short-circuit before the truncating re-parse " +
+                "reaches the alt-title lookup");
+        }
     }
 }

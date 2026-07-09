@@ -396,11 +396,15 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
         }
 
         [Test]
-        public void embedded_chapter_marker_in_manga_title_falls_back_to_verbatim()
+        public void embedded_chapter_marker_in_manga_title_reconstructs_and_round_trips()
         {
-            // WR-04 sharpest case: a mangaTitle with an embedded " - Chapter " makes the reconstructed
-            // "X - Chapter Y - Chapter 7" misparse to the WRONG chapter. This MUST fall back to verbatim.
-            const string verbatim = "The Real Wire Title Ch 7";
+            // debug session rezero-chapter-31-rejected (2026-07-09): a mangaTitle that itself embeds a
+            // chapter token ("Solo Leveling - Chapter 9000", or the real MangaDex arc name
+            // "Re:ZERO ...-, Chapter 2: A Week at the Mansion") reconstructs to
+            // "X - Chapter Y - Chapter 7 [en]". MangaParser now anchors on the LAST chapter token, so
+            // the reconstruction round-trips to (mangaTitle, chapter) correctly and is KEPT — it no
+            // longer misparses to the WRONG chapter, so the WR-04 verbatim fallback is not triggered.
+            const string embeddedMangaTitle = "Solo Leveling - Chapter 9000";
 
             var response = new GatewaySearchResponse
             {
@@ -409,11 +413,11 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
                     new GatewayRelease
                     {
                         Guid = "comix.to:embedded-chapter:1",
-                        Title = verbatim,
+                        Title = "The Real Wire Title Ch 7",
                         SourceKey = "comix.to",
                         DownloadHandle = "R6.token",
                         PublishDate = DateTime.UtcNow,
-                        MangaTitle = "Solo Leveling - Chapter 9000",
+                        MangaTitle = embeddedMangaTitle,
                         ChapterNumber = 7m,
                         Language = "en"
                     }
@@ -422,9 +426,15 @@ namespace NzbDrone.Core.Test.Indexers.Gateway
 
             var release = Subject.ParseResponse(MakeResponse(response.ToJson())).Single();
 
-            // The reconstruction "Solo Leveling - Chapter 9000 - Chapter 7 [en]" cannot round-trip to
-            // (mangaTitle == "Solo Leveling - Chapter 9000", chapter == 7) → verbatim wins.
-            release.Title.Should().Be(verbatim);
+            // Reconstruction is KEPT (not verbatim) and round-trips to the EXACT identity.
+            release.Title.Should().Be("Solo Leveling - Chapter 9000 - Chapter 7 [en]");
+
+            var parsed = MangaParser.ParseChapterTitle(release.Title);
+            parsed.Should().NotBeNull("a kept reconstruction must be parseable");
+            parsed.MangaTitle.Should().Be(embeddedMangaTitle,
+                "a kept reconstruction must round-trip to the EXACT mangaTitle (never a different manga)");
+            parsed.ChapterNumbers.Should().Contain(7m,
+                "a kept reconstruction must round-trip to the EXACT chapter (never the arc-name's embedded chapter)");
         }
 
         [Test]

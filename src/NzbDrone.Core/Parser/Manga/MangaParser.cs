@@ -208,6 +208,25 @@ namespace NzbDrone.Core.Parser.Manga
             new(@"^(?:\[[^\]]+\]\s*)?(?<title>.+?)(?:\s+(?:-\s+)?(?:vol|v|volume|ch|chapter|chap|c\d+(?:\.\d+)?|oneshot|one[\s\-]?shot|omake)\b(?!['’‘])|\s+-\s+(?:extra|bonus|side[\s\-]?story|prologue|epilogue|special)\b(?!['’‘])|\s+(?:extra|bonus|side[\s\-]?story|prologue|epilogue|special)\b(?!['’‘])(?=\s*\.?\s*\d)|$)",
                 RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+        // Embedded-arc-chapter guard (debug session rezero-chapter-31-rejected, 2026-07-09):
+        // MangaDex splits some series into arcs whose OWN title embeds a chapter token —
+        // e.g. the manga "Re:ZERO -Starting Life in Another World-, Chapter 2: A Week at the
+        // Mansion". A release for chapter 31 of that arc reads
+        // "…, Chapter 2: A Week at the Mansion - Chapter 31 (en) [The Hours Between]" and
+        // carries TWO chapter-word tokens. The first ("Chapter 2") belongs to the arc NAME,
+        // not the release. ChapterWordBoundaryRegex locates every chapter-word token so the
+        // parser can (a) count them (>1 ⇒ embedded-arc case) and (b) recompute the manga
+        // title up to the LAST one. The number extraction itself uses the LAST match of the
+        // winning ChapterRegex for the same reason.
+        private static readonly Regex ChapterWordBoundaryRegex =
+            new(@"\b(?:ch|chapter|chap)\.?\s*\d", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        // Leading scanlation-group bracket strip — mirrors the optional
+        // (?:\[[^\]]+\]\s*)? prefix of MangaTitleRegex so the embedded-arc title recompute
+        // drops a leading ^[Group] the same way.
+        private static readonly Regex LeadingGroupRegex =
+            new(@"^\[[^\]]+\]\s*", RegexOptions.Compiled);
+
         public static ParsedChapterInfo ParseChapterTitle(string title)
         {
             if (string.IsNullOrWhiteSpace(title))
@@ -252,15 +271,22 @@ namespace NzbDrone.Core.Parser.Manga
                 }
             }
 
-            // 2. Try every chapter-regex; first hit wins.
+            // 2. Try every chapter-regex; first regex to yield a number wins. Within that
+            //    regex we take the LAST match, not the first: a manga/arc name precedes the
+            //    real chapter designation, so when a title carries several chapter tokens
+            //    (e.g. a MangaDex arc name that embeds "Chapter 2: …" ahead of the real
+            //    "- Chapter 31") the LAST token is the actual chapter.
+            //    (debug session rezero-chapter-31-rejected)
             var chapterNumbers = Array.Empty<decimal>();
             foreach (var rx in ChapterRegexes)
             {
-                var match = rx.Match(title);
-                if (!match.Success)
+                var matches = rx.Matches(title);
+                if (matches.Count == 0)
                 {
                     continue;
                 }
+
+                var match = matches[^1];
 
                 if (match.Groups["start"].Success && match.Groups["end"].Success)
                 {
@@ -348,6 +374,29 @@ namespace NzbDrone.Core.Parser.Manga
                 if (string.IsNullOrWhiteSpace(mangaTitle))
                 {
                     mangaTitle = null;
+                }
+            }
+
+            // 4a. Embedded-arc-chapter title fix (debug session rezero-chapter-31-rejected):
+            //     the lazy MangaTitleRegex above stops at the FIRST chapter-word token, so an
+            //     arc name that embeds one ("…, Chapter 2: A Week at the Mansion") is truncated
+            //     ("Re:ZERO -Starting Life in Another World-,"), which breaks manga resolution
+            //     downstream. When the title carries MORE THAN ONE chapter-word token the real
+            //     manga title runs to the LAST one; recompute it from that boundary (leading
+            //     ^[Group] stripped for parity with MangaTitleRegex). The single-token case
+            //     (the overwhelming majority of titles) is left completely untouched.
+            var chapterWordMatches = ChapterWordBoundaryRegex.Matches(title);
+            if (chapterWordMatches.Count > 1)
+            {
+                var candidate = LeadingGroupRegex
+                    .Replace(title[..chapterWordMatches[^1].Index], string.Empty)
+                    .Trim()
+                    .TrimEnd('-', '_', '.', ',', ' ')
+                    .Trim();
+
+                if (!string.IsNullOrWhiteSpace(candidate))
+                {
+                    mangaTitle = candidate;
                 }
             }
 
