@@ -80,6 +80,14 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo
                 Element("Manga",           "YesAndRightToLeft"),                      // canonical manga reading direction
                 Element("ScanInformation", release?.ScanlationGroup),                 // v2.0 — Pitfall 3 fallback (Kavita-safe)
                 Element("Translator",      release?.ScanlationGroup),                 // v2.1 — preferred (Komga 1.10+)
+
+                // Originating gateway source (comix / kagane / mangadex). ComicInfo has no
+                // dedicated source-site field, so record it in the free-text <Notes> element
+                // (surfaced by Komga/Kavita). Omitted when null — every non-gateway import and
+                // the golden-XML fixtures pass release.Source == null, so they are unaffected.
+                Element(
+                    "Notes",
+                    string.IsNullOrEmpty(release?.Source) ? null : $"Gateway source: {release.Source}"),
                 Element(
                     "Tags",
                     manga?.Genres != null && manga.Genres.Count > 0

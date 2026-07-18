@@ -222,14 +222,18 @@ function HistoryRow(props: HistoryRowProps) {
           // The per-release source (mangadot / mangafire / …) lives in the
           // leading segment of the release guid (source:mangaId:ch:lang:relId).
           // The top-level `sourceKey` field is NOT used here — since Phase 39
-          // it holds the constant indexer name ("Mangarr Gateway"). Blank for
-          // imported events (no guid) and legacy rows persisted pre-guid-fix.
+          // it holds the constant indexer name ("Mangarr Gateway"). Imported
+          // events carry no guid, so fall back to the persisted `data.source`
+          // (the real gateway source resolved at download time). Blank only for
+          // legacy rows persisted before either field existed.
+          const importedSource = data && 'source' in data ? data.source : null;
+
           return (
             <TableRowCell
               key={name}
               data-testid={`manga-history-row-${id}-source`}
             >
-              {parseSourceFromGuid(releaseGuid)}
+              {parseSourceFromGuid(releaseGuid) || importedSource || ''}
             </TableRowCell>
           );
         }

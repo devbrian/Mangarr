@@ -166,6 +166,25 @@ namespace NzbDrone.Core.Test.MediaFiles.ChapterArchiving.Metadata
         }
 
         [Test]
+        public void Notes_omitted_when_no_gateway_source()
+        {
+            // Default MakeRequest sets no Release.Source (every non-gateway import) — <Notes> is dropped.
+            var doc = ComicInfoXmlBuilder.Build(MakeRequest());
+
+            doc.Root!.Element("Notes").Should().BeNull();
+        }
+
+        [Test]
+        public void Notes_records_gateway_source_when_present()
+        {
+            var req = MakeRequest();
+            req.Release.Source = "comix";
+            var doc = ComicInfoXmlBuilder.Build(req);
+
+            doc.Root!.Element("Notes")!.Value.Should().Be("Gateway source: comix");
+        }
+
+        [Test]
         public void Empty_Genres_omits_Genre_and_Tags()
         {
             var req = MakeRequest();

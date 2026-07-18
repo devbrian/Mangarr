@@ -34,6 +34,9 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo
         /// resolved group/language provenance (D-C2).</param>
         /// <param name="manga">The resolved manga aggregate (<c>lc.Manga</c>).</param>
         /// <param name="chapter">The resolved chapter aggregate (<c>lc.Chapter</c>).</param>
-        void Inject(ChapterFile chapterFile, NzbDrone.Core.Manga.Manga manga, Chapter chapter);
+        /// <param name="gatewaySource">The originating gateway source (comix / kagane / mangadex)
+        /// from the completed download, recorded in ComicInfo <c>&lt;Notes&gt;</c>. Null for
+        /// non-gateway imports (disk-scan / manual) — the element is then omitted.</param>
+        void Inject(ChapterFile chapterFile, NzbDrone.Core.Manga.Manga manga, Chapter chapter, string gatewaySource = null);
     }
 }

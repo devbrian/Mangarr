@@ -1725,6 +1725,20 @@ Reusing `FilterModal`/`FilterBuilder` would fight the grain, so Discovery diverg
 
 ---
 
+## gateway-source-provenance — persist real gateway source into ChapterHistory + ComicInfo (2026-07-18)
+
+The originating gateway source (comix / kagane / mangadex) the gateway actually served a download from was only visible in the gateway's own logs. It lives on the completed `DownloadJob.sourceKey` but was dropped; grab-time `ReleaseInfo.Source` is unreliable (null for DEFERRED/synthesis releases). Live-verified on the dev stack: history imported event → `source="comix"`, CBZ ComicInfo → `<Notes>Gateway source: comix</Notes>`.
+
+| File / Path | Type | Rationale |
+|-------------|------|-----------|
+| `src/NzbDrone.Core/Download/DownloadClientItem.cs` | extend | Added nullable `MangaSourceKey` — the gateway-served source. Only `GatewayDownloadClient` sets it; null for every other client. The honest carrier from `GetItems()` → import event → history + ComicInfo. |
+| `src/NzbDrone.Core/Download/Clients/Gateway/GatewayDownloadClient.cs` | edit | `GetItems()` copies the completed `GatewayJob.SourceKey` onto `DownloadClientItem.MangaSourceKey`. |
+| `src/NzbDrone.Core/History/Manga/ChapterHistoryService.cs` | edit | Imported event `Data` now persists `source` (from the download item's `MangaSourceKey`). |
+| `src/NzbDrone.Core/MediaFiles/ChapterArchiving/Metadata/ComicInfo/ComicInfoXmlBuilder.cs` | edit | Emits `<Notes>Gateway source: X</Notes>` when `Release.Source` is set; omitted otherwise (golden fixtures unaffected). |
+| `src/NzbDrone.Core/MediaFiles/ChapterArchiving/Metadata/ComicInfo/{IComicInfoCbzInjector,ComicInfoCbzInjector}.cs` | edit | `Inject(...)` gained an optional `gatewaySource` param threaded onto the reconstructed `ReleaseInfo.Source`. |
+| `src/NzbDrone.Core/MediaFiles/MangaImport/ImportApprovedChapters.cs` | edit | Passes `downloadClientItem?.MangaSourceKey` into the injector. |
+| `src/NzbDrone.Core/Download/Manga/MangaCompletedDownloadService.cs` | edit (convergence) | `Import()` now passes `trackedDownload.DownloadItem` (was `null`) into the importer, mirroring Sonarr's `CompletedDownloadService`. Also fixes the pre-existing blank `downloadClient` on imported history rows. |
+
 ## quick-260701-e71 — Stax series-level Metadata output + on-disk IMetadata.WriteMangaMetadata shape (2026-07-01)
 
 **What/why:** Stax is a new opt-in **series-level** Metadata output that writes a `stax.json` = `{ mangabakaId }` file into each manga's on-disk folder on **Refresh Manga** and on **first add** (both funnel through `RefreshMangaService` — `MangaAddedHandler` pushes a `RefreshMangaCommand`). It is enabled in Settings → Metadata (default OFF / opt-in).

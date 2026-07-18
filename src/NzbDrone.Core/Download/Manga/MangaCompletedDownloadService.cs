@@ -239,10 +239,16 @@ namespace NzbDrone.Core.Download.Manga
             // move/recycle failures. Honoring them before reporting success mirrors the retired
             // in-process ProcessMangaCompletedDownloads (if results.All(Imported); deleted Phase 39
             // RETIRE-01) and Sonarr's CompletedDownloadService.VerifyImport.
+            // Pass the tracked DownloadClientItem (NOT null) so the import pipeline can carry its
+            // provenance onto ChapterImportedEvent: the DownloadClient type AND the gateway
+            // MangaSourceKey (comix / kagane / mangadex — set by GatewayDownloadClient.GetItems
+            // from DownloadJob.sourceKey). Without it the Imported history row lands with a blank
+            // downloadClient + source, and ComicInfo gets no <Notes> source. Mirrors Sonarr's
+            // CompletedDownloadService, which threads trackedDownload.DownloadItem into the importer.
             var results = _importer.Import(
                 new List<MangaImportDecision> { decision },
                 newDownload: true,
-                downloadClientItem: null);
+                downloadClientItem: trackedDownload.DownloadItem);
 
             if (!results.Any() || !results.All(r => r.Result == MangaImportResultType.Imported))
             {

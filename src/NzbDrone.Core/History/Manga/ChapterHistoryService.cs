@@ -23,7 +23,7 @@ namespace NzbDrone.Core.History.Manga
     // Per-EventType Data column key set per RESEARCH §Q-4 lock:
     //   Grabbed         → Indexer, Size, Age, PublishedDate, DownloadClient, CustomFormatScore, Protocol
     //   DownloadFailed  → DownloadClient, Message, Source, Indexer
-    //   Imported        → ChapterFileId, DroppedPath, ImportedPath, Size, DownloadClient, CustomFormatScore
+    //   Imported        → ChapterFileId, DroppedPath, ImportedPath, Size, DownloadClient, CustomFormatScore, source
     //   ImportFailed    → DroppedPath, FailureReason, RejectionType
     //   Ignored         → DownloadClient, Message, Indexer
     //
@@ -192,6 +192,12 @@ namespace NzbDrone.Core.History.Manga
 
             history.Data.Add("DroppedPath", message.SourcePath ?? string.Empty);
             history.Data.Add("DownloadClient", message.DownloadClientItem?.DownloadClientInfo?.Type ?? string.Empty);
+
+            // The originating gateway source (comix / kagane / mangadex) the download was actually
+            // served from — carried on the completed DownloadClientItem (GatewayDownloadClient sets
+            // it from DownloadJob.sourceKey; null for other clients). Persist it so the source is
+            // visible in History without digging through gateway logs.
+            history.Data.Add("source", message.DownloadClientItem?.MangaSourceKey ?? string.Empty);
 
             _repository.Insert(history);
         }

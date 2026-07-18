@@ -53,11 +53,11 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo
             _logger = logger;
         }
 
-        public void Inject(ChapterFile chapterFile, NzbDrone.Core.Manga.Manga manga, Chapter chapter)
+        public void Inject(ChapterFile chapterFile, NzbDrone.Core.Manga.Manga manga, Chapter chapter, string gatewaySource = null)
         {
             try
             {
-                Upsert(chapterFile, manga, chapter);
+                Upsert(chapterFile, manga, chapter, gatewaySource);
             }
             catch (Exception ex)
             {
@@ -69,11 +69,11 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo
                 // Second attempt — if THIS throws, the exception propagates (fatal, D-B1). The
                 // injector deliberately does NOT swallow a persisted failure and does NOT publish
                 // any event; the caller's existing per-decision catch publishes ChapterImportFailedEvent.
-                Upsert(chapterFile, manga, chapter);
+                Upsert(chapterFile, manga, chapter, gatewaySource);
             }
         }
 
-        private void Upsert(ChapterFile chapterFile, NzbDrone.Core.Manga.Manga manga, Chapter chapter)
+        private void Upsert(ChapterFile chapterFile, NzbDrone.Core.Manga.Manga manga, Chapter chapter, string gatewaySource)
         {
             // D-A2 — open the FINISHED CBZ with Update (not Create); do NOT re-compress pages.
             using var zip = ZipFile.Open(chapterFile.Path, ZipArchiveMode.Update);
@@ -87,6 +87,10 @@ namespace NzbDrone.Core.MediaFiles.ChapterArchiving.Metadata.ComicInfo
             {
                 TranslatedLanguage = chapterFile.TranslatedLanguage,
                 ScanlationGroup = chapterFile.ScanlationGroup,
+
+                // The completed download's originating gateway source (comix / kagane / mangadex);
+                // ComicInfoXmlBuilder records it in <Notes>. Null for non-gateway imports.
+                Source = gatewaySource,
             };
 
             var request = new ChapterArchiveRequest

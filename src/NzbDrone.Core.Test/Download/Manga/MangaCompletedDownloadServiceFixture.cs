@@ -119,7 +119,7 @@ namespace NzbDrone.Core.Test.Download.Manga
             imported.Should().BeTrue("WR-05: a genuine import reports true");
 
             Mocker.GetMock<IImportApprovedChapters>()
-                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), true, null, It.IsAny<bool>()), Times.Once);
+                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), true, _trackedDownload.DownloadItem, It.IsAny<bool>()), Times.Once);
         }
 
         [Test]
@@ -238,7 +238,7 @@ namespace NzbDrone.Core.Test.Download.Manga
 
             // The import path WAS taken (not short-circuited) — the importer was invoked.
             Mocker.GetMock<IImportApprovedChapters>()
-                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), true, null, It.IsAny<bool>()), Times.Once);
+                .Verify(i => i.Import(It.IsAny<List<MangaImportDecision>>(), true, td.DownloadItem, It.IsAny<bool>()), Times.Once);
         }
 
         [Test]

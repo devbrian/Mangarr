@@ -24,6 +24,12 @@ namespace NzbDrone.Core.Download
         public bool CanMoveFiles { get; set; }
         public bool CanBeRemoved { get; set; }
 
+        // Mangarr divergence: the originating gateway source (comix / kagane / mangadex) the
+        // gateway actually served this download from. Only the GatewayDownloadClient sets it
+        // (from the completed DownloadJob.sourceKey); null for every other client. Persisted into
+        // ChapterHistory + ComicInfo at import so the real source is visible without gateway logs.
+        public string MangaSourceKey { get; set; }
+
         public DownloadClientItem Clone()
         {
             return MemberwiseClone() as DownloadClientItem;

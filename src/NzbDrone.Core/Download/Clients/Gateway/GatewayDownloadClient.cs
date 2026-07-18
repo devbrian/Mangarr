@@ -138,7 +138,14 @@ namespace NzbDrone.Core.Download.Clients.Gateway
 
                     OutputPath = outputPath,
                     CanMoveFiles = true,
-                    CanBeRemoved = status == DownloadItemStatus.Completed || status == DownloadItemStatus.Failed
+                    CanBeRemoved = status == DownloadItemStatus.Completed || status == DownloadItemStatus.Failed,
+
+                    // The REAL source the gateway resolved+served this job from (comix / kagane /
+                    // mangadex). For a DEFERRED/synthesis release the grab-time Release.Source is
+                    // often null (the source is only chosen at resolve time), so this completed-job
+                    // sourceKey is the authoritative provenance — threaded to ChapterHistory +
+                    // ComicInfo at import so the source is visible without gateway logs.
+                    MangaSourceKey = job.SourceKey
                 };
             }
         }
