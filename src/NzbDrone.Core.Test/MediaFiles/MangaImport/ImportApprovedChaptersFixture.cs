@@ -417,11 +417,16 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
         [Test]
         public void should_invoke_comicinfo_injector_once_per_approved_decision()
         {
+            // Assert the gateway source is threaded through EXACTLY (not It.IsAny<string>(),
+            // which would also pass if ImportApprovedChapters silently dropped MangaSourceKey).
+            _downloadClientItem.MangaSourceKey = "comix";
+
             Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
 
-            // D-A — invoked once per approved decision with the persisted ChapterFile + lc aggregates.
+            // D-A — invoked once per approved decision with the persisted ChapterFile + lc aggregates,
+            // carrying the download item's gateway source into the injector.
             Mocker.GetMock<IComicInfoCbzInjector>()
-                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), _manga, _chapter, It.IsAny<string>()), Times.Once);
+                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), _manga, _chapter, "comix"), Times.Once);
         }
 
         [Test]
