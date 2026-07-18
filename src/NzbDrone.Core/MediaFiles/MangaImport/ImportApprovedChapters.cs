@@ -298,7 +298,7 @@ namespace NzbDrone.Core.MediaFiles.MangaImport
                     {
                         try
                         {
-                            _comicInfoCbzInjector.Inject(chapterFile, lc.Manga, lc.Chapter);
+                            _comicInfoCbzInjector.Inject(chapterFile, lc.Manga, lc.Chapter, downloadClientItem?.MangaSourceKey);
                         }
                         catch (Exception injectEx)
                         {

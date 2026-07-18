@@ -421,7 +421,7 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
 
             // D-A — invoked once per approved decision with the persisted ChapterFile + lc aggregates.
             Mocker.GetMock<IComicInfoCbzInjector>()
-                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), _manga, _chapter), Times.Once);
+                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), _manga, _chapter, It.IsAny<string>()), Times.Once);
         }
 
         [Test]
@@ -440,7 +440,7 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
             Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
 
             Mocker.GetMock<IComicInfoCbzInjector>()
-                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>()), Times.Never);
+                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>(), It.IsAny<string>()), Times.Never);
             Mocker.GetMock<IEventAggregator>()
                 .Verify(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()), Times.Once);
         }
@@ -461,7 +461,7 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
                 });
 
             Mocker.GetMock<IComicInfoCbzInjector>().InSequence(sequence)
-                .Setup(i => i.Inject(It.IsAny<ChapterFile>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>()));
+                .Setup(i => i.Inject(It.IsAny<ChapterFile>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>(), It.IsAny<string>()));
 
             Mocker.GetMock<IEventAggregator>().InSequence(sequence)
                 .Setup(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()));
@@ -469,7 +469,7 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
             Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
 
             Mocker.GetMock<IComicInfoCbzInjector>()
-                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>()), Times.Once);
+                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>(), It.IsAny<string>()), Times.Once);
             Mocker.GetMock<IEventAggregator>()
                 .Verify(e => e.PublishEvent(It.IsAny<ChapterImportedEvent>()), Times.Once);
         }
@@ -481,7 +481,7 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
             // per-decision catch, which publishes ChapterImportFailedEvent ONCE. The chapter does
             // NOT land (ChapterImportedEvent NEVER fires). No duplicate failed-event publish.
             Mocker.GetMock<IComicInfoCbzInjector>()
-                .Setup(i => i.Inject(It.IsAny<ChapterFile>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>()))
+                .Setup(i => i.Inject(It.IsAny<ChapterFile>(), It.IsAny<NzbDrone.Core.Manga.Manga>(), It.IsAny<Chapter>(), It.IsAny<string>()))
                 .Throws(new IOException("simulated persisted injection failure"));
 
             var result = Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, _downloadClientItem);
@@ -510,7 +510,7 @@ namespace NzbDrone.Core.Test.MediaFiles.MangaImport
             Subject.Import(new List<MangaImportDecision> { ApprovedDecision() }, true, downloadClientItem: null);
 
             Mocker.GetMock<IComicInfoCbzInjector>()
-                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), _manga, _chapter), Times.Once);
+                .Verify(i => i.Inject(It.IsAny<ChapterFile>(), _manga, _chapter, It.IsAny<string>()), Times.Once);
         }
     }
 }
